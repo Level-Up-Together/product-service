@@ -28,14 +28,19 @@ import org.hibernate.annotations.Comment;
 @SuperBuilder
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @AllArgsConstructor
-@Table(name = "guild_chat_read_status",
-    uniqueConstraints = {
-        @UniqueConstraint(name = "uk_read_status_guild_user", columnNames = {"guild_id", "user_id"})
-    },
-    indexes = {
-        @Index(name = "idx_read_status_guild", columnList = "guild_id"),
-        @Index(name = "idx_read_status_guild_message", columnList = "guild_id, last_read_message_id")
-    })
+@Table(
+        name = "guild_chat_read_status",
+        uniqueConstraints = {
+            @UniqueConstraint(
+                    name = "uk_read_status_guild_user",
+                    columnNames = {"guild_id", "user_id"})
+        },
+        indexes = {
+            @Index(name = "idx_read_status_guild", columnList = "guild_id"),
+            @Index(
+                    name = "idx_read_status_guild_message",
+                    columnList = "guild_id, last_read_message_id")
+        })
 @Comment("길드 채팅 읽음 상태")
 public class GuildChatReadStatus extends LocalDateTimeBaseEntity {
 
@@ -66,10 +71,10 @@ public class GuildChatReadStatus extends LocalDateTimeBaseEntity {
 
     public static GuildChatReadStatus create(Long guildId, String userId) {
         return GuildChatReadStatus.builder()
-            .guildId(guildId)
-            .userId(userId)
-            .lastReadAt(LocalDateTime.now())
-            .build();
+                .guildId(guildId)
+                .userId(userId)
+                .lastReadAt(LocalDateTime.now())
+                .build();
     }
 
     public void updateLastRead(GuildChatMessage message) {

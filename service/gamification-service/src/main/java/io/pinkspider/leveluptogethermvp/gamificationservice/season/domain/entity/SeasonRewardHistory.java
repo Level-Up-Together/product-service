@@ -22,13 +22,13 @@ import lombok.experimental.SuperBuilder;
 import org.hibernate.annotations.Comment;
 
 @Entity
-@Table(name = "season_reward_history",
-    indexes = {
-        @Index(name = "idx_season_reward_history_season", columnList = "season_id"),
-        @Index(name = "idx_season_reward_history_user", columnList = "user_id"),
-        @Index(name = "idx_season_reward_history_status", columnList = "season_id, status")
-    }
-)
+@Table(
+        name = "season_reward_history",
+        indexes = {
+            @Index(name = "idx_season_reward_history_season", columnList = "season_id"),
+            @Index(name = "idx_season_reward_history_user", columnList = "user_id"),
+            @Index(name = "idx_season_reward_history_status", columnList = "season_id, status")
+        })
 @Getter
 @Setter
 @SuperBuilder

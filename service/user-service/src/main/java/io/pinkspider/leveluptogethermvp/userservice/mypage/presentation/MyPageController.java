@@ -1,7 +1,7 @@
 package io.pinkspider.leveluptogethermvp.userservice.mypage.presentation;
 
-import io.pinkspider.global.api.ApiResult;
 import io.pinkspider.global.annotation.CurrentUser;
+import io.pinkspider.global.api.ApiResult;
 import io.pinkspider.leveluptogethermvp.userservice.mypage.application.MyPageService;
 import io.pinkspider.leveluptogethermvp.userservice.mypage.domain.dto.BioUpdateRequest;
 import io.pinkspider.leveluptogethermvp.userservice.mypage.domain.dto.MyPageResponse;
@@ -44,8 +44,7 @@ public class MyPageController {
      * @return MyPage 응답 (프로필, 경험치, 유저 정보)
      */
     @GetMapping
-    public ResponseEntity<ApiResult<MyPageResponse>> getMyPage(
-        @CurrentUser String userId) {
+    public ResponseEntity<ApiResult<MyPageResponse>> getMyPage(@CurrentUser String userId) {
 
         MyPageResponse response = myPageService.getMyPage(userId);
         return ResponseEntity.ok(ApiResult.<MyPageResponse>builder().value(response).build());
@@ -60,13 +59,17 @@ public class MyPageController {
      */
     @GetMapping("/profile/{userId}")
     public ResponseEntity<ApiResult<PublicProfileResponse>> getPublicProfile(
-        @PathVariable("userId") String targetUserId,
-        @CurrentUser(required = false) String currentUserId,
-        @org.springframework.web.bind.annotation.RequestHeader(value = org.springframework.http.HttpHeaders.ACCEPT_LANGUAGE, required = false) String acceptLanguage) {
+            @PathVariable("userId") String targetUserId,
+            @CurrentUser(required = false) String currentUserId,
+            @org.springframework.web.bind.annotation.RequestHeader(
+                            value = org.springframework.http.HttpHeaders.ACCEPT_LANGUAGE,
+                            required = false)
+                    String acceptLanguage) {
 
         PublicProfileResponse response =
-            myPageService.getPublicProfile(targetUserId, currentUserId, acceptLanguage);
-        return ResponseEntity.ok(ApiResult.<PublicProfileResponse>builder().value(response).build());
+                myPageService.getPublicProfile(targetUserId, currentUserId, acceptLanguage);
+        return ResponseEntity.ok(
+                ApiResult.<PublicProfileResponse>builder().value(response).build());
     }
 
     /**
@@ -78,8 +81,7 @@ public class MyPageController {
      */
     @PutMapping("/preferred-locale")
     public ResponseEntity<ApiResult<Void>> updatePreferredLocale(
-        @CurrentUser String userId,
-        @RequestBody java.util.Map<String, String> request) {
+            @CurrentUser String userId, @RequestBody java.util.Map<String, String> request) {
 
         myPageService.updatePreferredLocale(userId, request.get("preferred_locale"));
         return ResponseEntity.ok(ApiResult.getBase());
@@ -88,42 +90,43 @@ public class MyPageController {
     /**
      * 선호 언어 조회 (LUT-256)
      *
-     * 앱 웹뷰(iOS WKWebView)는 강제 종료 시 JS 로 설정한 NEXT_LOCALE 쿠키가 유실될 수 있어,
-     * 웹 /auth/mobile 진입 시 이 API 로 서버 저장값을 조회해 쿠키를 복원한다.
+     * <p>앱 웹뷰(iOS WKWebView)는 강제 종료 시 JS 로 설정한 NEXT_LOCALE 쿠키가 유실될 수 있어, 웹 /auth/mobile 진입 시 이 API
+     * 로 서버 저장값을 조회해 쿠키를 복원한다.
      */
     @GetMapping("/preferred-locale")
     public ResponseEntity<ApiResult<java.util.Map<String, String>>> getPreferredLocale(
-        @CurrentUser String userId) {
+            @CurrentUser String userId) {
 
         String locale = myPageService.getPreferredLocale(userId);
-        return ResponseEntity.ok(ApiResult.<java.util.Map<String, String>>builder()
-            .value(java.util.Map.of("preferred_locale", locale))
-            .build());
+        return ResponseEntity.ok(
+                ApiResult.<java.util.Map<String, String>>builder()
+                        .value(java.util.Map.of("preferred_locale", locale))
+                        .build());
     }
 
     @GetMapping("/preferred-feed-visibility")
     public ResponseEntity<ApiResult<java.util.Map<String, String>>> getPreferredFeedVisibility(
-        @CurrentUser String userId) {
+            @CurrentUser String userId) {
 
         String visibility = myPageService.getPreferredFeedVisibility(userId);
-        return ResponseEntity.ok(ApiResult.<java.util.Map<String, String>>builder()
-            .value(java.util.Map.of("preferred_feed_visibility", visibility))
-            .build());
+        return ResponseEntity.ok(
+                ApiResult.<java.util.Map<String, String>>builder()
+                        .value(java.util.Map.of("preferred_feed_visibility", visibility))
+                        .build());
     }
 
     @PutMapping("/preferred-feed-visibility")
     public ResponseEntity<ApiResult<Void>> updatePreferredFeedVisibility(
-        @CurrentUser String userId,
-        @RequestBody java.util.Map<String, String> request) {
+            @CurrentUser String userId, @RequestBody java.util.Map<String, String> request) {
 
-        myPageService.updatePreferredFeedVisibility(userId, request.get("preferred_feed_visibility"));
+        myPageService.updatePreferredFeedVisibility(
+                userId, request.get("preferred_feed_visibility"));
         return ResponseEntity.ok(ApiResult.getBase());
     }
 
     @PutMapping("/preferred-timezone")
     public ResponseEntity<ApiResult<Void>> updatePreferredTimezone(
-        @CurrentUser String userId,
-        @RequestBody java.util.Map<String, String> request) {
+            @CurrentUser String userId, @RequestBody java.util.Map<String, String> request) {
 
         myPageService.updatePreferredTimezone(userId, request.get("preferred_timezone"));
         return ResponseEntity.ok(ApiResult.getBase());
@@ -131,8 +134,7 @@ public class MyPageController {
 
     @PutMapping("/bio")
     public ResponseEntity<ApiResult<ProfileInfo>> updateBio(
-        @CurrentUser String userId,
-        @Valid @RequestBody BioUpdateRequest request) {
+            @CurrentUser String userId, @Valid @RequestBody BioUpdateRequest request) {
 
         ProfileInfo response = myPageService.updateBio(userId, request.getBio());
         return ResponseEntity.ok(ApiResult.<ProfileInfo>builder().value(response).build());
@@ -147,8 +149,7 @@ public class MyPageController {
      */
     @PutMapping("/profile")
     public ResponseEntity<ApiResult<ProfileInfo>> updateProfile(
-        @CurrentUser String userId,
-        @Valid @RequestBody ProfileUpdateRequest request) {
+            @CurrentUser String userId, @Valid @RequestBody ProfileUpdateRequest request) {
 
         ProfileInfo response = myPageService.updateProfileImage(userId, request);
         return ResponseEntity.ok(ApiResult.<ProfileInfo>builder().value(response).build());
@@ -163,8 +164,7 @@ public class MyPageController {
      */
     @PostMapping(value = "/profile/image", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<ApiResult<ProfileInfo>> uploadProfileImage(
-        @CurrentUser String userId,
-        @RequestPart("image") MultipartFile image) {
+            @CurrentUser String userId, @RequestPart("image") MultipartFile image) {
 
         ProfileInfo response = myPageService.uploadProfileImage(userId, image);
         return ResponseEntity.ok(ApiResult.<ProfileInfo>builder().value(response).build());
@@ -178,10 +178,11 @@ public class MyPageController {
      */
     @GetMapping("/titles")
     public ResponseEntity<ApiResult<UserTitleListResponse>> getUserTitles(
-        @CurrentUser String userId) {
+            @CurrentUser String userId) {
 
         UserTitleListResponse response = myPageService.getUserTitles(userId);
-        return ResponseEntity.ok(ApiResult.<UserTitleListResponse>builder().value(response).build());
+        return ResponseEntity.ok(
+                ApiResult.<UserTitleListResponse>builder().value(response).build());
     }
 
     /**
@@ -193,8 +194,7 @@ public class MyPageController {
      */
     @PutMapping("/titles")
     public ResponseEntity<ApiResult<TitleChangeResponse>> changeTitles(
-        @CurrentUser String userId,
-        @Valid @RequestBody TitleChangeRequest request) {
+            @CurrentUser String userId, @Valid @RequestBody TitleChangeRequest request) {
 
         TitleChangeResponse response = myPageService.changeTitles(userId, request);
         return ResponseEntity.ok(ApiResult.<TitleChangeResponse>builder().value(response).build());
@@ -209,17 +209,18 @@ public class MyPageController {
      */
     @GetMapping("/nickname/check")
     public ResponseEntity<ApiResult<NicknameCheckResponse>> checkNickname(
-        @RequestParam String nickname,
-        @CurrentUser(required = false) String userId) {
+            @RequestParam String nickname, @CurrentUser(required = false) String userId) {
 
         boolean available = myPageService.isNicknameAvailable(nickname, userId);
-        NicknameCheckResponse response = NicknameCheckResponse.builder()
-            .nickname(nickname)
-            .available(available)
-            .message(available ? "사용 가능한 닉네임입니다." : "이미 사용 중인 닉네임입니다.")
-            .build();
+        NicknameCheckResponse response =
+                NicknameCheckResponse.builder()
+                        .nickname(nickname)
+                        .available(available)
+                        .message(available ? "사용 가능한 닉네임입니다." : "이미 사용 중인 닉네임입니다.")
+                        .build();
 
-        return ResponseEntity.ok(ApiResult.<NicknameCheckResponse>builder().value(response).build());
+        return ResponseEntity.ok(
+                ApiResult.<NicknameCheckResponse>builder().value(response).build());
     }
 
     /**
@@ -231,30 +232,28 @@ public class MyPageController {
      */
     @PutMapping("/nickname")
     public ResponseEntity<ApiResult<ProfileInfo>> updateNickname(
-        @CurrentUser String userId,
-        @Valid @RequestBody NicknameUpdateRequest request) {
+            @CurrentUser String userId, @Valid @RequestBody NicknameUpdateRequest request) {
 
         ProfileInfo response = myPageService.updateNickname(userId, request.getNickname());
         return ResponseEntity.ok(ApiResult.<ProfileInfo>builder().value(response).build());
     }
 
     /**
-     * 닉네임 설정 필요 여부 확인
-     * (OAuth 가입 시 닉네임 중복으로 자동 생성된 경우 true)
+     * 닉네임 설정 필요 여부 확인 (OAuth 가입 시 닉네임 중복으로 자동 생성된 경우 true)
      *
      * @param userId 사용자 ID (JWT 토큰에서 추출)
      * @return 닉네임 설정 필요 여부
      */
     @GetMapping("/nickname/status")
     public ResponseEntity<ApiResult<NicknameStatusResponse>> getNicknameStatus(
-        @CurrentUser String userId) {
+            @CurrentUser String userId) {
 
         boolean needsSetup = myPageService.needsNicknameSetup(userId);
-        NicknameStatusResponse response = NicknameStatusResponse.builder()
-            .needsNicknameSetup(needsSetup)
-            .build();
+        NicknameStatusResponse response =
+                NicknameStatusResponse.builder().needsNicknameSetup(needsSetup).build();
 
-        return ResponseEntity.ok(ApiResult.<NicknameStatusResponse>builder().value(response).build());
+        return ResponseEntity.ok(
+                ApiResult.<NicknameStatusResponse>builder().value(response).build());
     }
 
     /**
@@ -264,8 +263,7 @@ public class MyPageController {
      * @return 탈퇴 완료 메시지
      */
     @DeleteMapping("/account")
-    public ResponseEntity<ApiResult<String>> withdrawAccount(
-        @CurrentUser String userId) {
+    public ResponseEntity<ApiResult<String>> withdrawAccount(@CurrentUser String userId) {
 
         myPageService.withdrawUser(userId);
         return ResponseEntity.ok(ApiResult.<String>builder().value("회원 탈퇴가 완료되었습니다.").build());

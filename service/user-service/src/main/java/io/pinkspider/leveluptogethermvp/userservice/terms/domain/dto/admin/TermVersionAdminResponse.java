@@ -7,48 +7,45 @@ import java.time.LocalDateTime;
 
 @JsonNaming(SnakeCaseStrategy.class)
 public record TermVersionAdminResponse(
-    Long id,
-    Long termsId,
-    String termsCode,
-    String termsTitle,
-    String version,
-    String content,
-    String status,
-    LocalDateTime publishedAt,
-    String createdBy,
-    LocalDateTime createdAt,
-    LocalDateTime modifiedAt
-) {
+        Long id,
+        Long termsId,
+        String termsCode,
+        String termsTitle,
+        String version,
+        String content,
+        String status,
+        LocalDateTime publishedAt,
+        String createdBy,
+        LocalDateTime createdAt,
+        LocalDateTime modifiedAt) {
 
     public static TermVersionAdminResponse from(TermVersion entity) {
         return new TermVersionAdminResponse(
-            entity.getId(),
-            entity.getTerms().getId(),
-            entity.getTerms().getCode(),
-            entity.getTerms().getTitle(),
-            entity.getVersion(),
-            entity.getContent(),
-            entity.getStatus() != null ? entity.getStatus().name() : null,
-            entity.getPublishedAt(),
-            entity.getCreatedBy(),
-            entity.getCreatedAt(),
-            entity.getModifiedAt()
-        );
+                entity.getId(),
+                entity.getTerms().getId(),
+                entity.getTerms().getCode(),
+                entity.getTerms().getTitle(),
+                entity.getVersion(),
+                entity.getContent(),
+                entity.getStatus() != null ? entity.getStatus().name() : null,
+                entity.getPublishedAt(),
+                entity.getCreatedBy(),
+                entity.getCreatedAt(),
+                entity.getModifiedAt());
     }
 
     public static TermVersionAdminResponse fromSimple(TermVersion entity) {
         return new TermVersionAdminResponse(
-            entity.getId(),
-            null,
-            null,
-            null,
-            entity.getVersion(),
-            null,
-            entity.getStatus() != null ? entity.getStatus().name() : null,
-            entity.getPublishedAt(),
-            entity.getCreatedBy(),
-            entity.getCreatedAt(),
-            null
-        );
+                entity.getId(),
+                null,
+                null,
+                null,
+                entity.getVersion(),
+                null,
+                entity.getStatus() != null ? entity.getStatus().name() : null,
+                entity.getPublishedAt(),
+                entity.getCreatedBy(),
+                entity.getCreatedAt(),
+                null);
     }
 }

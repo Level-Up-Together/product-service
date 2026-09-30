@@ -5,11 +5,11 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
+import io.pinkspider.global.test.TestReflectionUtils;
 import io.pinkspider.leveluptogethermvp.guildservice.domain.entity.Guild;
 import io.pinkspider.leveluptogethermvp.guildservice.domain.entity.GuildMemberDailyPoint;
 import io.pinkspider.leveluptogethermvp.guildservice.domain.enums.GuildVisibility;
 import io.pinkspider.leveluptogethermvp.guildservice.infrastructure.GuildMemberDailyPointRepository;
-import io.pinkspider.global.test.TestReflectionUtils;
 import java.time.LocalDate;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
@@ -27,7 +27,8 @@ class GuildPointServiceTest {
 
     @Mock private GuildMemberDailyPointRepository dailyPointRepository;
 
-    @Spy private GuildPointProperties pointProperties = new GuildPointProperties(); // unit 10 / cap 60
+    @Spy
+    private GuildPointProperties pointProperties = new GuildPointProperties(); // unit 10 / cap 60
 
     @InjectMocks private GuildPointService guildPointService;
 
@@ -36,24 +37,26 @@ class GuildPointServiceTest {
 
     @BeforeEach
     void setUp() {
-        guild = Guild.builder()
-                .name("테스트 길드")
-                .visibility(GuildVisibility.PUBLIC)
-                .masterId(USER)
-                .maxMembers(10)
-                .categoryId(1L)
-                .build();
+        guild =
+                Guild.builder()
+                        .name("테스트 길드")
+                        .visibility(GuildVisibility.PUBLIC)
+                        .masterId(USER)
+                        .maxMembers(10)
+                        .categoryId(1L)
+                        .build();
         TestReflectionUtils.setField(guild, "id", 1L);
     }
 
     private GuildMemberDailyPoint dailyRow(int dailyExp, int points) {
-        GuildMemberDailyPoint row = GuildMemberDailyPoint.builder()
-                .guildId(1L)
-                .userId(USER)
-                .pointDate(LocalDate.now())
-                .dailyExp(dailyExp)
-                .points(points)
-                .build();
+        GuildMemberDailyPoint row =
+                GuildMemberDailyPoint.builder()
+                        .guildId(1L)
+                        .userId(USER)
+                        .pointDate(LocalDate.now())
+                        .dailyExp(dailyExp)
+                        .points(points)
+                        .build();
         return row;
     }
 

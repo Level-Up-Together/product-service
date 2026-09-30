@@ -25,26 +25,18 @@ import org.springframework.stereotype.Component;
 /**
  * 미션 완료 통합 Saga (일반 미션 + 고정 미션)
  *
- * shouldExecute() 조건으로 일반/고정 미션 Step을 분기:
+ * <p>shouldExecute() 조건으로 일반/고정 미션 Step을 분기:
  *
- * 일반 미션 실행 순서:
- * 1. LoadMissionData - 미션 데이터 로드 및 검증
- * 2. CompleteExecution - 수행 기록 완료 처리
- * 3. GrantUserExperience - 사용자 경험치 지급
- * 4. GrantGuildExperience - 길드 경험치 지급 (길드 미션인 경우)
- * 5. UpdateParticipantProgress - 참가자 진행도 업데이트
- * 6. UpdateUserStats - 사용자 통계 및 업적 업데이트 (선택적)
- * 7. CreateFeedFromMission - 피드 생성 (사용자 선택시, 선택적)
+ * <p>일반 미션 실행 순서: 1. LoadMissionData - 미션 데이터 로드 및 검증 2. CompleteExecution - 수행 기록 완료 처리 3.
+ * GrantUserExperience - 사용자 경험치 지급 4. GrantGuildExperience - 길드 경험치 지급 (길드 미션인 경우) 5.
+ * UpdateParticipantProgress - 참가자 진행도 업데이트 6. UpdateUserStats - 사용자 통계 및 업적 업데이트 (선택적) 7.
+ * CreateFeedFromMission - 피드 생성 (사용자 선택시, 선택적)
  *
- * 고정 미션 실행 순서 (QA-194 이후):
- * 1. LoadPinnedMissionData - 인스턴스 데이터 로드 및 검증
- * 2. CompletePinnedInstance - 인스턴스 완료 처리
- * 3. GrantUserExperience - 사용자 경험치 지급
- * 4. GrantGuildExperience - 길드 경험치 지급 (고정 길드 미션 포함)
- * 5. UpdateParticipantProgress - 참가자 progress 갱신 (status 는 IN_PROGRESS 유지)
- * 6. UpdateUserStats - 통계 및 업적 업데이트 (선택적)
- * 7. CreateFeedFromMission - 피드 생성 (사용자 선택시, 선택적)
- * 8. CreateNextPinnedInstance - 다음 수행용 새 인스턴스 생성
+ * <p>고정 미션 실행 순서 (QA-194 이후): 1. LoadPinnedMissionData - 인스턴스 데이터 로드 및 검증 2. CompletePinnedInstance
+ * - 인스턴스 완료 처리 3. GrantUserExperience - 사용자 경험치 지급 4. GrantGuildExperience - 길드 경험치 지급 (고정 길드 미션
+ * 포함) 5. UpdateParticipantProgress - 참가자 progress 갱신 (status 는 IN_PROGRESS 유지) 6. UpdateUserStats -
+ * 통계 및 업적 업데이트 (선택적) 7. CreateFeedFromMission - 피드 생성 (사용자 선택시, 선택적) 8. CreateNextPinnedInstance -
+ * 다음 수행용 새 인스턴스 생성
  */
 @Slf4j
 @Component
@@ -99,108 +91,116 @@ public class MissionCompletionSaga {
         this.sagaTailExecutor = sagaTailExecutor;
     }
 
-    /**
-     * 일반 미션 완료 Saga 실행
-     */
-    public SagaResult<MissionCompletionContext> execute(Long executionId, String userId, String note) {
+    /** 일반 미션 완료 Saga 실행 */
+    public SagaResult<MissionCompletionContext> execute(
+            Long executionId, String userId, String note) {
         return execute(executionId, userId, note, false);
     }
 
-    /**
-     * 일반 미션 완료 Saga 실행 (피드 공유 옵션 포함)
-     */
-    public SagaResult<MissionCompletionContext> execute(Long executionId, String userId, String note, boolean shareToFeed) {
-        log.info("Starting MissionCompletionSaga (regular): executionId={}, userId={}, shareToFeed={}",
-            executionId, userId, shareToFeed);
+    /** 일반 미션 완료 Saga 실행 (피드 공유 옵션 포함) */
+    public SagaResult<MissionCompletionContext> execute(
+            Long executionId, String userId, String note, boolean shareToFeed) {
+        log.info(
+                "Starting MissionCompletionSaga (regular): executionId={}, userId={},"
+                        + " shareToFeed={}",
+                executionId,
+                userId,
+                shareToFeed);
 
-        MissionCompletionContext context = new MissionCompletionContext(executionId, userId, note, shareToFeed);
+        MissionCompletionContext context =
+                new MissionCompletionContext(executionId, userId, note, shareToFeed);
         return runSaga(context);
     }
 
-    /**
-     * 일반 미션 완료 Saga 실행 (피드 공개범위 지정)
-     */
-    public SagaResult<MissionCompletionContext> execute(Long executionId, String userId, String note, FeedVisibility feedVisibility) {
-        log.info("Starting MissionCompletionSaga (regular): executionId={}, userId={}, feedVisibility={}",
-            executionId, userId, feedVisibility);
+    /** 일반 미션 완료 Saga 실행 (피드 공개범위 지정) */
+    public SagaResult<MissionCompletionContext> execute(
+            Long executionId, String userId, String note, FeedVisibility feedVisibility) {
+        log.info(
+                "Starting MissionCompletionSaga (regular): executionId={}, userId={},"
+                        + " feedVisibility={}",
+                executionId,
+                userId,
+                feedVisibility);
 
-        MissionCompletionContext context = new MissionCompletionContext(executionId, userId, note, feedVisibility);
+        MissionCompletionContext context =
+                new MissionCompletionContext(executionId, userId, note, feedVisibility);
         return runSaga(context);
     }
 
-    /**
-     * 고정 미션 완료 Saga 실행
-     */
-    public SagaResult<MissionCompletionContext> executePinned(Long instanceId, String userId, String note) {
+    /** 고정 미션 완료 Saga 실행 */
+    public SagaResult<MissionCompletionContext> executePinned(
+            Long instanceId, String userId, String note) {
         return executePinned(instanceId, userId, note, false);
     }
 
-    /**
-     * 고정 미션 완료 Saga 실행 (피드 공유 옵션 포함)
-     */
-    public SagaResult<MissionCompletionContext> executePinned(Long instanceId, String userId, String note, boolean shareToFeed) {
-        log.info("Starting MissionCompletionSaga (pinned): instanceId={}, userId={}, shareToFeed={}",
-            instanceId, userId, shareToFeed);
+    /** 고정 미션 완료 Saga 실행 (피드 공유 옵션 포함) */
+    public SagaResult<MissionCompletionContext> executePinned(
+            Long instanceId, String userId, String note, boolean shareToFeed) {
+        log.info(
+                "Starting MissionCompletionSaga (pinned): instanceId={}, userId={}, shareToFeed={}",
+                instanceId,
+                userId,
+                shareToFeed);
 
-        MissionCompletionContext context = MissionCompletionContext.forPinned(instanceId, userId, note, shareToFeed);
+        MissionCompletionContext context =
+                MissionCompletionContext.forPinned(instanceId, userId, note, shareToFeed);
         return runSaga(context);
     }
 
-    /**
-     * 고정 미션 완료 Saga 실행 (피드 공개범위 지정)
-     */
-    public SagaResult<MissionCompletionContext> executePinned(Long instanceId, String userId, String note, FeedVisibility feedVisibility) {
-        log.info("Starting MissionCompletionSaga (pinned): instanceId={}, userId={}, feedVisibility={}",
-            instanceId, userId, feedVisibility);
+    /** 고정 미션 완료 Saga 실행 (피드 공개범위 지정) */
+    public SagaResult<MissionCompletionContext> executePinned(
+            Long instanceId, String userId, String note, FeedVisibility feedVisibility) {
+        log.info(
+                "Starting MissionCompletionSaga (pinned): instanceId={}, userId={},"
+                        + " feedVisibility={}",
+                instanceId,
+                userId,
+                feedVisibility);
 
-        MissionCompletionContext context = MissionCompletionContext.forPinned(instanceId, userId, note, feedVisibility);
+        MissionCompletionContext context =
+                MissionCompletionContext.forPinned(instanceId, userId, note, feedVisibility);
         return runSaga(context);
     }
 
     /**
      * Saga 실행 공통 로직
      *
-     * 모든 Step을 등록하되, shouldExecute()로 조건부 실행
-     * - Regular steps: shouldExecute = !isPinned
-     * - Pinned steps: shouldExecute = isPinned
-     * - Unified steps: shouldExecute = always (내부에서 isPinned 분기)
+     * <p>모든 Step을 등록하되, shouldExecute()로 조건부 실행 - Regular steps: shouldExecute = !isPinned - Pinned
+     * steps: shouldExecute = isPinned - Unified steps: shouldExecute = always (내부에서 isPinned 분기)
      */
     private SagaResult<MissionCompletionContext> runSaga(MissionCompletionContext context) {
         SagaOrchestrator<MissionCompletionContext> orchestrator =
-            new SagaOrchestrator<>(sagaEventPublisher);
+                new SagaOrchestrator<>(sagaEventPublisher);
 
         // Step 등록 (순서 중요!)
         // 동기 구간: 응답 데이터를 만들거나(mandatory) 실패 시 보상이 필요한 Step만 실행.
         // 비필수 후속 Step(다이아·통계/업적·피드)은 runTailStepsAsync 로 응답 이후 실행.
         // 1. 데이터 로드 (regular 또는 pinned 중 하나만 실행)
-        orchestrator
-            .addStep(loadMissionDataStep)
-            .addStep(loadPinnedMissionDataStep);
+        orchestrator.addStep(loadMissionDataStep).addStep(loadPinnedMissionDataStep);
 
         // 2. 완료 처리 (regular 또는 pinned 중 하나만 실행)
-        orchestrator
-            .addStep(completeExecutionStep)
-            .addStep(completePinnedInstanceStep);
+        orchestrator.addStep(completeExecutionStep).addStep(completePinnedInstanceStep);
 
         // 3. 경험치 지급
-        orchestrator
-            .addStep(grantUserExperienceStep)
-            .addStep(grantGuildExperienceStep);
+        orchestrator.addStep(grantUserExperienceStep).addStep(grantGuildExperienceStep);
 
         // 4. 진행도 업데이트 + 다음 인스턴스 생성
-        orchestrator
-            .addStep(updateParticipantProgressStep)
-            .addStep(createNextPinnedInstanceStep);
+        orchestrator.addStep(updateParticipantProgressStep).addStep(createNextPinnedInstanceStep);
 
         SagaResult<MissionCompletionContext> result = orchestrator.execute(context);
 
         if (result.isSuccess()) {
-            log.info("MissionCompletionSaga succeeded: sagaId={}, pinned={}",
-                result.getSagaId(), context.isPinned());
+            log.info(
+                    "MissionCompletionSaga succeeded: sagaId={}, pinned={}",
+                    result.getSagaId(),
+                    context.isPinned());
             runTailStepsAsync(context);
         } else {
-            log.error("MissionCompletionSaga failed: sagaId={}, pinned={}, reason={}",
-                result.getSagaId(), context.isPinned(), result.getMessage());
+            log.error(
+                    "MissionCompletionSaga failed: sagaId={}, pinned={}, reason={}",
+                    result.getSagaId(),
+                    context.isPinned(),
+                    result.getMessage());
         }
 
         return result;
@@ -209,50 +209,57 @@ public class MissionCompletionSaga {
     /**
      * 비필수 후속 Step 비동기 실행 (다이아 지급 QA-220 → 통계/업적 → 피드 생성)
      *
-     * <p>세 Step 모두 isMandatory=false 라 기존에도 실패가 완료를 롤백하지 않았으므로, 응답 이후로 미뤄도 실패
-     * 의미는 동일하다(로그만 남김). 응답은 동기 구간에서 채워진 context 데이터만 사용한다. 이벤트 발행은 동기
-     * 오케스트레이터가 이미 수행했으므로 tail 은 publisher 없이 실행한다.
+     * <p>세 Step 모두 isMandatory=false 라 기존에도 실패가 완료를 롤백하지 않았으므로, 응답 이후로 미뤄도 실패 의미는 동일하다(로그만 남김). 응답은
+     * 동기 구간에서 채워진 context 데이터만 사용한다. 이벤트 발행은 동기 오케스트레이터가 이미 수행했으므로 tail 은 publisher 없이 실행한다.
      */
     private void runTailStepsAsync(MissionCompletionContext context) {
-        sagaTailExecutor.execute(() -> {
-            try {
-                SagaOrchestrator<MissionCompletionContext> tailOrchestrator =
-                    new SagaOrchestrator<>(null);
-                tailOrchestrator
-                    .addStep(grantMissionBookDiamondStep)
-                    .addStep(updateUserStatsStep)
-                    .addStep(createFeedFromMissionStep);
+        sagaTailExecutor.execute(
+                () -> {
+                    try {
+                        SagaOrchestrator<MissionCompletionContext> tailOrchestrator =
+                                new SagaOrchestrator<>(null);
+                        tailOrchestrator
+                                .addStep(grantMissionBookDiamondStep)
+                                .addStep(updateUserStatsStep)
+                                .addStep(createFeedFromMissionStep);
 
-                SagaResult<MissionCompletionContext> tailResult = tailOrchestrator.execute(context);
-                if (!tailResult.isSuccess()) {
-                    log.warn("MissionCompletionSaga tail failed: sagaId={}, pinned={}, reason={}",
-                        tailResult.getSagaId(), context.isPinned(), tailResult.getMessage());
-                }
-            } catch (Exception e) {
-                log.error("MissionCompletionSaga tail execution error: sagaId={}, error={}",
-                    context.getSagaId(), e.getMessage(), e);
-            }
-        });
+                        SagaResult<MissionCompletionContext> tailResult =
+                                tailOrchestrator.execute(context);
+                        if (!tailResult.isSuccess()) {
+                            log.warn(
+                                    "MissionCompletionSaga tail failed: sagaId={}, pinned={},"
+                                            + " reason={}",
+                                    tailResult.getSagaId(),
+                                    context.isPinned(),
+                                    tailResult.getMessage());
+                        }
+                    } catch (Exception e) {
+                        log.error(
+                                "MissionCompletionSaga tail execution error: sagaId={}, error={}",
+                                context.getSagaId(),
+                                e.getMessage(),
+                                e);
+                    }
+                });
     }
 
-    /**
-     * 일반 미션 Saga 결과에서 MissionExecutionResponse 추출
-     */
+    /** 일반 미션 Saga 결과에서 MissionExecutionResponse 추출 */
     public MissionExecutionResponse toResponse(SagaResult<MissionCompletionContext> result) {
         if (result.isSuccess() && result.getContext().getExecution() != null) {
-            MissionExecutionResponse response = MissionExecutionResponse.from(result.getContext().getExecution());
+            MissionExecutionResponse response =
+                    MissionExecutionResponse.from(result.getContext().getExecution());
             response.setDailySimpleExpCapped(result.getContext().isDailySimpleExpCapped());
             return response;
         }
         return null;
     }
 
-    /**
-     * 고정 미션 Saga 결과에서 DailyMissionInstanceResponse 추출
-     */
-    public DailyMissionInstanceResponse toPinnedResponse(SagaResult<MissionCompletionContext> result) {
+    /** 고정 미션 Saga 결과에서 DailyMissionInstanceResponse 추출 */
+    public DailyMissionInstanceResponse toPinnedResponse(
+            SagaResult<MissionCompletionContext> result) {
         if (result.isSuccess() && result.getContext().getInstance() != null) {
-            DailyMissionInstanceResponse response = DailyMissionInstanceResponse.from(result.getContext().getInstance());
+            DailyMissionInstanceResponse response =
+                    DailyMissionInstanceResponse.from(result.getContext().getInstance());
             response.setDailySimpleExpCapped(result.getContext().isDailySimpleExpCapped());
             return response;
         }

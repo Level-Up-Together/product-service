@@ -5,7 +5,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -34,17 +33,13 @@ import org.mockito.junit.jupiter.MockitoExtension;
 @DisplayName("GuildMissionEventListener 테스트")
 class GuildMissionEventListenerTest {
 
-    @Mock
-    private MissionRepository missionRepository;
+    @Mock private MissionRepository missionRepository;
 
-    @Mock
-    private MissionParticipantRepository participantRepository;
+    @Mock private MissionParticipantRepository participantRepository;
 
-    @Mock
-    private MissionParticipantService participantService;
+    @Mock private MissionParticipantService participantService;
 
-    @InjectMocks
-    private GuildMissionEventListener listener;
+    @InjectMocks private GuildMissionEventListener listener;
 
     private static final String USER_ID = "user-1";
     private static final Long GUILD_ID = 10L;
@@ -55,34 +50,36 @@ class GuildMissionEventListenerTest {
 
     @BeforeEach
     void setUp() {
-        guildMission1 = Mission.builder()
-            .title("길드 미션 1")
-            .description("길드 미션 1 설명")
-            .creatorId("creator-1")
-            .status(MissionStatus.OPEN)
-            .visibility(MissionVisibility.PRIVATE)
-            .type(MissionType.GUILD)
-            .guildId(String.valueOf(GUILD_ID))
-            .guildName(GUILD_NAME)
-            .categoryId(1L)
-            .categoryName("운동")
-            .expPerCompletion(50)
-            .build();
+        guildMission1 =
+                Mission.builder()
+                        .title("길드 미션 1")
+                        .description("길드 미션 1 설명")
+                        .creatorId("creator-1")
+                        .status(MissionStatus.OPEN)
+                        .visibility(MissionVisibility.PRIVATE)
+                        .type(MissionType.GUILD)
+                        .guildId(String.valueOf(GUILD_ID))
+                        .guildName(GUILD_NAME)
+                        .categoryId(1L)
+                        .categoryName("운동")
+                        .expPerCompletion(50)
+                        .build();
         setId(guildMission1, 1L);
 
-        guildMission2 = Mission.builder()
-            .title("길드 미션 2")
-            .description("길드 미션 2 설명")
-            .creatorId("creator-1")
-            .status(MissionStatus.IN_PROGRESS)
-            .visibility(MissionVisibility.PRIVATE)
-            .type(MissionType.GUILD)
-            .guildId(String.valueOf(GUILD_ID))
-            .guildName(GUILD_NAME)
-            .categoryId(1L)
-            .categoryName("운동")
-            .expPerCompletion(30)
-            .build();
+        guildMission2 =
+                Mission.builder()
+                        .title("길드 미션 2")
+                        .description("길드 미션 2 설명")
+                        .creatorId("creator-1")
+                        .status(MissionStatus.IN_PROGRESS)
+                        .visibility(MissionVisibility.PRIVATE)
+                        .type(MissionType.GUILD)
+                        .guildId(String.valueOf(GUILD_ID))
+                        .guildName(GUILD_NAME)
+                        .categoryId(1L)
+                        .categoryName("운동")
+                        .expPerCompletion(30)
+                        .build();
         setId(guildMission2, 2L);
     }
 
@@ -96,9 +93,9 @@ class GuildMissionEventListenerTest {
             // given
             GuildJoinedEvent event = new GuildJoinedEvent(USER_ID, GUILD_ID, GUILD_NAME);
             when(missionRepository.findActivePinnedGuildMissions(
-                eq(String.valueOf(GUILD_ID)),
-                eq(List.of(MissionStatus.OPEN, MissionStatus.IN_PROGRESS))
-            )).thenReturn(List.of(guildMission1, guildMission2));
+                            eq(String.valueOf(GUILD_ID)),
+                            eq(List.of(MissionStatus.OPEN, MissionStatus.IN_PROGRESS))))
+                    .thenReturn(List.of(guildMission1, guildMission2));
 
             // when
             listener.handleGuildMemberJoined(event);
@@ -113,7 +110,8 @@ class GuildMissionEventListenerTest {
         void doesNothingWhenNoActiveMissions() {
             // given
             GuildJoinedEvent event = new GuildJoinedEvent(USER_ID, GUILD_ID, GUILD_NAME);
-            when(missionRepository.findActivePinnedGuildMissions(any(), any())).thenReturn(List.of());
+            when(missionRepository.findActivePinnedGuildMissions(any(), any()))
+                    .thenReturn(List.of());
 
             // when
             listener.handleGuildMemberJoined(event);
@@ -128,10 +126,11 @@ class GuildMissionEventListenerTest {
             // given
             GuildJoinedEvent event = new GuildJoinedEvent(USER_ID, GUILD_ID, GUILD_NAME);
             when(missionRepository.findActivePinnedGuildMissions(any(), any()))
-                .thenReturn(List.of(guildMission1, guildMission2));
+                    .thenReturn(List.of(guildMission1, guildMission2));
             // 첫 번째 미션은 실패
             org.mockito.Mockito.doThrow(new RuntimeException("DB error"))
-                .when(participantService).addGuildMemberAsParticipant(guildMission1, USER_ID);
+                    .when(participantService)
+                    .addGuildMemberAsParticipant(guildMission1, USER_ID);
 
             // when
             listener.handleGuildMemberJoined(event);
@@ -151,22 +150,25 @@ class GuildMissionEventListenerTest {
             // given
             GuildMemberRemovedEvent event = new GuildMemberRemovedEvent(USER_ID, GUILD_ID);
 
-            MissionParticipant participant1 = MissionParticipant.builder()
-                .mission(guildMission1)
-                .userId(USER_ID)
-                .status(ParticipantStatus.ACCEPTED)
-                .build();
+            MissionParticipant participant1 =
+                    MissionParticipant.builder()
+                            .mission(guildMission1)
+                            .userId(USER_ID)
+                            .status(ParticipantStatus.ACCEPTED)
+                            .build();
             setId(participant1, 100L);
 
-            MissionParticipant participant2 = MissionParticipant.builder()
-                .mission(guildMission2)
-                .userId(USER_ID)
-                .status(ParticipantStatus.ACCEPTED)
-                .build();
+            MissionParticipant participant2 =
+                    MissionParticipant.builder()
+                            .mission(guildMission2)
+                            .userId(USER_ID)
+                            .status(ParticipantStatus.ACCEPTED)
+                            .build();
             setId(participant2, 101L);
 
-            when(participantRepository.findActiveGuildMissionParticipations(USER_ID, String.valueOf(GUILD_ID)))
-                .thenReturn(List.of(participant1, participant2));
+            when(participantRepository.findActiveGuildMissionParticipations(
+                            USER_ID, String.valueOf(GUILD_ID)))
+                    .thenReturn(List.of(participant1, participant2));
 
             // when
             listener.handleGuildMemberRemoved(event);
@@ -182,7 +184,7 @@ class GuildMissionEventListenerTest {
             // given
             GuildMemberRemovedEvent event = new GuildMemberRemovedEvent(USER_ID, GUILD_ID);
             when(participantRepository.findActiveGuildMissionParticipations(any(), any()))
-                .thenReturn(List.of());
+                    .thenReturn(List.of());
 
             // when
             listener.handleGuildMemberRemoved(event);

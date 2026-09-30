@@ -2,11 +2,11 @@ package io.pinkspider.leveluptogethermvp.missionservice.domain.dto;
 
 import com.fasterxml.jackson.databind.PropertyNamingStrategies;
 import com.fasterxml.jackson.databind.annotation.JsonNaming;
+import io.pinkspider.global.annotation.NoProfanity;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionExecutionMode;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionInterval;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionType;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionVisibility;
-import io.pinkspider.global.annotation.NoProfanity;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
@@ -52,8 +52,7 @@ public class MissionCreateRequest {
 
     private LocalDateTime endAt;
 
-    @Builder.Default
-    private MissionInterval missionInterval = MissionInterval.DAILY;
+    @Builder.Default private MissionInterval missionInterval = MissionInterval.DAILY;
 
     @Min(value = 1, message = "미션 기간은 최소 1일 이상이어야 합니다.")
     @Max(value = 365, message = "미션 기간은 최대 365일까지 가능합니다.")
@@ -79,12 +78,10 @@ public class MissionCreateRequest {
     private String customCategory;
 
     // 고정 미션 여부 (삭제할 때까지 목록에 유지)
-    @Builder.Default
-    private Boolean isPinned = false;
+    @Builder.Default private Boolean isPinned = false;
 
     // 수행 방식 (TIMED: 시간 측정, SIMPLE: 수행 여부)
-    @Builder.Default
-    private MissionExecutionMode executionMode = MissionExecutionMode.TIMED;
+    @Builder.Default private MissionExecutionMode executionMode = MissionExecutionMode.TIMED;
 
     // 목표 수행 시간 (분) - 달성 시 보너스 XP
     @Min(value = 1, message = "목표 시간은 최소 1분 이상이어야 합니다.")

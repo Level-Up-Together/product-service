@@ -1,27 +1,27 @@
 package io.pinkspider.leveluptogethermvp.missionservice.application;
 
-import io.pinkspider.global.exception.CustomException;
+import io.pinkspider.global.enums.MissionStatus;
+import io.pinkspider.global.enums.ReportTargetType;
 import io.pinkspider.global.event.GuildMissionArrivedEvent;
+import io.pinkspider.global.event.MissionDeletedEvent;
 import io.pinkspider.global.event.MissionStateChangedEvent;
+import io.pinkspider.global.exception.CustomException;
 import io.pinkspider.global.facade.GuildQueryFacade;
 import io.pinkspider.global.facade.dto.GuildPermissionCheck;
+import io.pinkspider.leveluptogethermvp.metaservice.application.MissionCategoryService;
+import io.pinkspider.leveluptogethermvp.metaservice.domain.dto.MissionCategoryResponse;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MissionCreateRequest;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MissionResponse;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MissionTemplateResponse;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MissionUpdateRequest;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.Mission;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.MissionTemplate;
-import io.pinkspider.leveluptogethermvp.metaservice.application.MissionCategoryService;
-import io.pinkspider.leveluptogethermvp.metaservice.domain.dto.MissionCategoryResponse;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionSource;
-import io.pinkspider.global.enums.MissionStatus;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionType;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionVisibility;
 import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.MissionParticipantRepository;
 import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.MissionRepository;
 import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.MissionTemplateRepository;
-import io.pinkspider.global.event.MissionDeletedEvent;
-import io.pinkspider.global.enums.ReportTargetType;
 import io.pinkspider.leveluptogethermvp.supportservice.report.application.ReportService;
 import java.util.HashSet;
 import java.util.List;
@@ -46,8 +46,12 @@ public class MissionService {
     private final MissionRepository missionRepository;
     private final MissionTemplateRepository missionTemplateRepository;
     private final MissionParticipantRepository participantRepository;
-    private final io.pinkspider.leveluptogethermvp.missionservice.infrastructure.MissionExecutionRepository executionRepository;
-    private final io.pinkspider.leveluptogethermvp.missionservice.infrastructure.DailyMissionInstanceRepository dailyMissionInstanceRepository;
+    private final io.pinkspider.leveluptogethermvp.missionservice.infrastructure
+                    .MissionExecutionRepository
+            executionRepository;
+    private final io.pinkspider.leveluptogethermvp.missionservice.infrastructure
+                    .DailyMissionInstanceRepository
+            dailyMissionInstanceRepository;
     private final MissionCategoryService missionCategoryService;
     private final MissionParticipantService missionParticipantService;
     private final GuildQueryFacade guildQueryFacadeService;
@@ -69,7 +73,8 @@ public class MissionService {
         String customCategory = null;
 
         if (request.getCategoryId() != null) {
-            MissionCategoryResponse categoryResponse = missionCategoryService.getCategory(request.getCategoryId());
+            MissionCategoryResponse categoryResponse =
+                    missionCategoryService.getCategory(request.getCategoryId());
 
             if (!categoryResponse.getIsActive()) {
                 throw new IllegalArgumentException("비활성화된 카테고리입니다.");
@@ -92,49 +97,64 @@ public class MissionService {
             }
         }
 
-        Mission mission = Mission.builder()
-            .title(request.getTitle())
-            .description(request.getDescription())
-            // LUT-227: 길드 미션은 '모집중(OPEN)' 단계 없이 생성 즉시 진행중(IN_PROGRESS)
-            .status(request.getType() == MissionType.GUILD
-                ? MissionStatus.IN_PROGRESS
-                : MissionStatus.DRAFT)
-            // LUT-257: 길드 미션 공개범위는 길드 공개여부로 강제 (요청값 무시)
-            .visibility(request.getType() == MissionType.GUILD && request.getGuildId() != null
-                ? resolveGuildMissionVisibility(request.getGuildId())
-                : request.getVisibility())
-            .type(request.getType())
-            .source(MissionSource.USER)  // 명시적으로 USER로 설정
-            .creatorId(creatorId)
-            .guildId(request.getGuildId())
-            .guildName(guildName)
-            .maxParticipants(request.getMaxParticipants())
-            .startAt(request.getStartAt())
-            .endAt(request.getEndAt())
-            .missionInterval(request.getMissionInterval())
-            .durationDays(request.getDurationDays())
-            .durationMinutes(request.getDurationMinutes())
-            .expPerCompletion(request.getExpPerCompletion())
-            .bonusExpOnFullCompletion(request.getBonusExpOnFullCompletion())
-            .categoryId(categoryId)
-            .categoryName(categoryName)
-            .customCategory(customCategory)
-            .isPinned(Boolean.TRUE.equals(request.getIsPinned()))
-            .executionMode(request.getExecutionMode() != null ? request.getExecutionMode() : io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionExecutionMode.TIMED)
-            .targetDurationMinutes(request.getTargetDurationMinutes())
-            .dailyExecutionLimit(request.getDailyExecutionLimit())
-            .build();
+        Mission mission =
+                Mission.builder()
+                        .title(request.getTitle())
+                        .description(request.getDescription())
+                        // LUT-227: 길드 미션은 '모집중(OPEN)' 단계 없이 생성 즉시 진행중(IN_PROGRESS)
+                        .status(
+                                request.getType() == MissionType.GUILD
+                                        ? MissionStatus.IN_PROGRESS
+                                        : MissionStatus.DRAFT)
+                        // LUT-257: 길드 미션 공개범위는 길드 공개여부로 강제 (요청값 무시)
+                        .visibility(
+                                request.getType() == MissionType.GUILD
+                                                && request.getGuildId() != null
+                                        ? resolveGuildMissionVisibility(request.getGuildId())
+                                        : request.getVisibility())
+                        .type(request.getType())
+                        .source(MissionSource.USER) // 명시적으로 USER로 설정
+                        .creatorId(creatorId)
+                        .guildId(request.getGuildId())
+                        .guildName(guildName)
+                        .maxParticipants(request.getMaxParticipants())
+                        .startAt(request.getStartAt())
+                        .endAt(request.getEndAt())
+                        .missionInterval(request.getMissionInterval())
+                        .durationDays(request.getDurationDays())
+                        .durationMinutes(request.getDurationMinutes())
+                        .expPerCompletion(request.getExpPerCompletion())
+                        .bonusExpOnFullCompletion(request.getBonusExpOnFullCompletion())
+                        .categoryId(categoryId)
+                        .categoryName(categoryName)
+                        .customCategory(customCategory)
+                        .isPinned(Boolean.TRUE.equals(request.getIsPinned()))
+                        .executionMode(
+                                request.getExecutionMode() != null
+                                        ? request.getExecutionMode()
+                                        : io.pinkspider.leveluptogethermvp.missionservice.domain
+                                                .enums.MissionExecutionMode.TIMED)
+                        .targetDurationMinutes(request.getTargetDurationMinutes())
+                        .dailyExecutionLimit(request.getDailyExecutionLimit())
+                        .build();
 
         // LUT-282: 푸시 리마인더 — 시각+요일이 모두 있어야 활성화 (아니면 null 유지)
         mission.updateReminder(
-            request.getReminderHour(), request.getReminderMinute(), request.getReminderDaysOfWeek());
+                request.getReminderHour(),
+                request.getReminderMinute(),
+                request.getReminderDaysOfWeek());
 
         Mission saved = missionRepository.save(mission);
-        log.info("미션 생성 완료: id={}, title={}, creator={}, category={}",
-            saved.getId(), saved.getTitle(), creatorId, saved.getCategoryName());
+        log.info(
+                "미션 생성 완료: id={}, title={}, creator={}, category={}",
+                saved.getId(),
+                saved.getTitle(),
+                creatorId,
+                saved.getCategoryName());
 
         // 상태 히스토리 이벤트 발행
-        eventPublisher.publishEvent(MissionStateChangedEvent.ofCreation(creatorId, saved.getId(), saved.getStatus()));
+        eventPublisher.publishEvent(
+                MissionStateChangedEvent.ofCreation(creatorId, saved.getId(), saved.getStatus()));
 
         // 생성자를 자동으로 참여자로 등록하고 실행 스케줄 생성
         missionParticipantService.addCreatorAsParticipant(saved, creatorId);
@@ -148,13 +168,16 @@ public class MissionService {
         return MissionResponse.from(saved);
     }
 
-    /**
-     * 미션 템플릿으로부터 개인 미션 생성 (미션북에서 추가)
-     */
+    /** 미션 템플릿으로부터 개인 미션 생성 (미션북에서 추가) */
     @Transactional(transactionManager = "missionTransactionManager")
     public MissionResponse createMissionFromTemplate(Long templateId, String userId) {
-        MissionTemplate template = missionTemplateRepository.findById(templateId)
-            .orElseThrow(() -> new IllegalArgumentException("미션 템플릿을 찾을 수 없습니다: " + templateId));
+        MissionTemplate template =
+                missionTemplateRepository
+                        .findById(templateId)
+                        .orElseThrow(
+                                () ->
+                                        new IllegalArgumentException(
+                                                "미션 템플릿을 찾을 수 없습니다: " + templateId));
 
         // QA-143: 활성 참여중인 미션만 중복으로 본다. 완료/탈퇴/실패한 과거 미션은 재추가 허용.
         if (missionRepository.existsActiveByBaseMissionIdAndCreatorId(templateId, userId)) {
@@ -163,39 +186,49 @@ public class MissionService {
 
         validateMissionCreationLimit(userId, MissionType.PERSONAL);
 
-        Mission mission = Mission.builder()
-            .title(template.getTitle())
-            .titleEn(template.getTitleEn())
-            .titleAr(template.getTitleAr())
-            .titleJa(template.getTitleJa())
-            .description(template.getDescription())
-            .descriptionEn(template.getDescriptionEn())
-            .descriptionAr(template.getDescriptionAr())
-            .descriptionJa(template.getDescriptionJa())
-            .status(MissionStatus.DRAFT)
-            // LUT-257: 미션북에서 추가한 미션은 무조건 공개
-            .visibility(MissionVisibility.PUBLIC)
-            .type(MissionType.PERSONAL)
-            .source(MissionSource.SYSTEM)
-            .participationType(template.getParticipationType())
-            .baseMissionId(templateId)
-            .creatorId(userId)
-            .missionInterval(template.getMissionInterval())
-            .durationMinutes(template.getDurationMinutes())
-            .bonusExpOnFullCompletion(template.getBonusExpOnFullCompletion())
-            .isPinned(Boolean.TRUE.equals(template.getIsPinned()))
-            .executionMode(template.getExecutionMode() != null ? template.getExecutionMode() : io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionExecutionMode.TIMED)
-            .targetDurationMinutes(template.getTargetDurationMinutes())
-            .dailyExecutionLimit(template.getDailyExecutionLimit())
-            .categoryId(template.getCategoryId())
-            .categoryName(template.getCategoryName())
-            .customCategory(template.getCustomCategory())
-            .build();
+        Mission mission =
+                Mission.builder()
+                        .title(template.getTitle())
+                        .titleEn(template.getTitleEn())
+                        .titleAr(template.getTitleAr())
+                        .titleJa(template.getTitleJa())
+                        .description(template.getDescription())
+                        .descriptionEn(template.getDescriptionEn())
+                        .descriptionAr(template.getDescriptionAr())
+                        .descriptionJa(template.getDescriptionJa())
+                        .status(MissionStatus.DRAFT)
+                        // LUT-257: 미션북에서 추가한 미션은 무조건 공개
+                        .visibility(MissionVisibility.PUBLIC)
+                        .type(MissionType.PERSONAL)
+                        .source(MissionSource.SYSTEM)
+                        .participationType(template.getParticipationType())
+                        .baseMissionId(templateId)
+                        .creatorId(userId)
+                        .missionInterval(template.getMissionInterval())
+                        .durationMinutes(template.getDurationMinutes())
+                        .bonusExpOnFullCompletion(template.getBonusExpOnFullCompletion())
+                        .isPinned(Boolean.TRUE.equals(template.getIsPinned()))
+                        .executionMode(
+                                template.getExecutionMode() != null
+                                        ? template.getExecutionMode()
+                                        : io.pinkspider.leveluptogethermvp.missionservice.domain
+                                                .enums.MissionExecutionMode.TIMED)
+                        .targetDurationMinutes(template.getTargetDurationMinutes())
+                        .dailyExecutionLimit(template.getDailyExecutionLimit())
+                        .categoryId(template.getCategoryId())
+                        .categoryName(template.getCategoryName())
+                        .customCategory(template.getCustomCategory())
+                        .build();
 
         Mission saved = missionRepository.save(mission);
-        log.info("템플릿으로 미션 생성: missionId={}, templateId={}, userId={}", saved.getId(), templateId, userId);
+        log.info(
+                "템플릿으로 미션 생성: missionId={}, templateId={}, userId={}",
+                saved.getId(),
+                templateId,
+                userId);
 
-        eventPublisher.publishEvent(MissionStateChangedEvent.ofCreation(userId, saved.getId(), saved.getStatus()));
+        eventPublisher.publishEvent(
+                MissionStateChangedEvent.ofCreation(userId, saved.getId(), saved.getStatus()));
         missionParticipantService.addCreatorAsParticipant(saved, userId);
 
         return MissionResponse.from(saved);
@@ -216,7 +249,8 @@ public class MissionService {
         fillTotalExpEarned(response);
 
         // 신고 처리중 여부 확인
-        response.setIsUnderReview(reportService.isUnderReview(ReportTargetType.MISSION, String.valueOf(missionId)));
+        response.setIsUnderReview(
+                reportService.isUnderReview(ReportTargetType.MISSION, String.valueOf(missionId)));
 
         return response;
     }
@@ -230,29 +264,28 @@ public class MissionService {
         // 사용자가 참여중인 미션 목록 (ACCEPTED 상태)
         // 고정미션 > 길드미션 > 일반미션 순으로 정렬된 목록 반환
         List<Mission> missions = missionRepository.findByParticipantUserIdSorted(userId);
-        List<MissionResponse> result = missions.stream()
-            .map(mission -> MissionResponse.from(mission, locale))
-            .toList();
+        List<MissionResponse> result =
+                missions.stream().map(mission -> MissionResponse.from(mission, locale)).toList();
         localizeMissionCategoryNames(result, locale);
 
         // 배치로 신고 상태 조회
         if (!result.isEmpty()) {
-            List<String> missionIds = result.stream()
-                .map(r -> String.valueOf(r.getId()))
-                .toList();
-            Map<String, Boolean> underReviewMap = reportService.isUnderReviewBatch(ReportTargetType.MISSION, missionIds);
-            result.forEach(r -> r.setIsUnderReview(underReviewMap.getOrDefault(String.valueOf(r.getId()), false)));
+            List<String> missionIds = result.stream().map(r -> String.valueOf(r.getId())).toList();
+            Map<String, Boolean> underReviewMap =
+                    reportService.isUnderReviewBatch(ReportTargetType.MISSION, missionIds);
+            result.forEach(
+                    r ->
+                            r.setIsUnderReview(
+                                    underReviewMap.getOrDefault(String.valueOf(r.getId()), false)));
         }
 
         return result;
     }
 
     /**
-     * QA-71: 내 미션 목록 순서 일괄 변경.
-     * orderedMissionIds 순서대로 mission_participant.user_order 를 0..N-1 로 갱신한다.
-     * 본인이 활성 참여중이 아닌 missionId 가 섞여 있으면 거부한다.
-     * QA-140: 일반/고정 미션 간 교차 정렬 금지 (mission.isPinned 가 모두 같아야 함).
-     * QA-142: 길드 미션은 항상 일반(not-FIXED) 그룹으로 분류 — 프론트 getMissionDisplayType 매핑 일치.
+     * QA-71: 내 미션 목록 순서 일괄 변경. orderedMissionIds 순서대로 mission_participant.user_order 를 0..N-1 로
+     * 갱신한다. 본인이 활성 참여중이 아닌 missionId 가 섞여 있으면 거부한다. QA-140: 일반/고정 미션 간 교차 정렬 금지 (mission.isPinned 가
+     * 모두 같아야 함). QA-142: 길드 미션은 항상 일반(not-FIXED) 그룹으로 분류 — 프론트 getMissionDisplayType 매핑 일치.
      */
     @Transactional(transactionManager = "missionTransactionManager")
     public void reorderMyMissions(String userId, List<Long> orderedMissionIds) {
@@ -265,8 +298,10 @@ public class MissionService {
             throw new CustomException("050106", "error.mission.reorder.duplicate");
         }
 
-        List<io.pinkspider.leveluptogethermvp.missionservice.domain.entity.MissionParticipant> participants =
-            participantRepository.findActiveByUserIdAndMissionIds(userId, orderedMissionIds);
+        List<io.pinkspider.leveluptogethermvp.missionservice.domain.entity.MissionParticipant>
+                participants =
+                        participantRepository.findActiveByUserIdAndMissionIds(
+                                userId, orderedMissionIds);
 
         if (participants.size() != orderedMissionIds.size()) {
             throw new CustomException("050107", "error.mission.reorder.not_participant");
@@ -280,8 +315,8 @@ public class MissionService {
             }
         }
 
-        Map<Long, io.pinkspider.leveluptogethermvp.missionservice.domain.entity.MissionParticipant> byMissionId =
-            new java.util.HashMap<>();
+        Map<Long, io.pinkspider.leveluptogethermvp.missionservice.domain.entity.MissionParticipant>
+                byMissionId = new java.util.HashMap<>();
         for (var mp : participants) {
             byMissionId.put(mp.getMission().getId(), mp);
         }
@@ -295,17 +330,15 @@ public class MissionService {
     // 프론트 getMissionDisplayType 과 동일 매핑.
     // QA-186: 길드 미션도 isPinned/WEEKLY 면 고정 섹션으로 분류 — QA-142 의 GUILD 우선 분기를 제거.
     private boolean isPinnedLikeForReorder(
-        io.pinkspider.leveluptogethermvp.missionservice.domain.entity.Mission mission) {
+            io.pinkspider.leveluptogethermvp.missionservice.domain.entity.Mission mission) {
         return Boolean.TRUE.equals(mission.getIsPinned())
-            || mission.getMissionInterval()
-                == io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionInterval.WEEKLY;
+                || mission.getMissionInterval()
+                        == io.pinkspider.leveluptogethermvp.missionservice.domain.enums
+                                .MissionInterval.WEEKLY;
     }
 
     /**
-     * 특정 유저의 미션 목록 조회 (공개 범위 필터링)
-     * - Self: 전체 표시
-     * - Friend: PUBLIC + FRIENDS_ONLY
-     * - Stranger: PUBLIC만
+     * 특정 유저의 미션 목록 조회 (공개 범위 필터링) - Self: 전체 표시 - Friend: PUBLIC + FRIENDS_ONLY - Stranger: PUBLIC만
      */
     public List<MissionResponse> getUserMissions(String targetUserId, String currentUserId) {
         return getUserMissions(targetUserId, currentUserId, null);
@@ -313,25 +346,31 @@ public class MissionService {
 
     /** LUT-255: locale에 맞는 title/description/categoryName으로 유저 미션 목록 조회 */
     public List<MissionResponse> getUserMissions(
-        String targetUserId, String currentUserId, String locale) {
+            String targetUserId, String currentUserId, String locale) {
         boolean isSelf = currentUserId != null && currentUserId.equals(targetUserId);
-        boolean isFriend = currentUserId != null && !isSelf
-            && userQueryFacadeService.areFriends(currentUserId, targetUserId);
+        boolean isFriend =
+                currentUserId != null
+                        && !isSelf
+                        && userQueryFacadeService.areFriends(currentUserId, targetUserId);
 
         List<MissionVisibility> allowedVisibilities;
         if (isSelf) {
-            allowedVisibilities = List.of(MissionVisibility.PUBLIC, MissionVisibility.FRIENDS_ONLY,
-                MissionVisibility.GUILD_ONLY, MissionVisibility.PRIVATE);
+            allowedVisibilities =
+                    List.of(
+                            MissionVisibility.PUBLIC,
+                            MissionVisibility.FRIENDS_ONLY,
+                            MissionVisibility.GUILD_ONLY,
+                            MissionVisibility.PRIVATE);
         } else if (isFriend) {
             allowedVisibilities = List.of(MissionVisibility.PUBLIC, MissionVisibility.FRIENDS_ONLY);
         } else {
             allowedVisibilities = List.of(MissionVisibility.PUBLIC);
         }
 
-        List<Mission> missions = missionRepository.findUserMissionsByVisibility(targetUserId, allowedVisibilities);
-        List<MissionResponse> result = missions.stream()
-            .map(mission -> MissionResponse.from(mission, locale))
-            .toList();
+        List<Mission> missions =
+                missionRepository.findUserMissionsByVisibility(targetUserId, allowedVisibilities);
+        List<MissionResponse> result =
+                missions.stream().map(mission -> MissionResponse.from(mission, locale)).toList();
         localizeMissionCategoryNames(result, locale);
         return result;
     }
@@ -345,25 +384,27 @@ public class MissionService {
         Page<Mission> missions = missionRepository.findOpenPublicMissions(pageable);
 
         // 배치로 신고 상태 조회
-        List<String> missionIds = missions.getContent().stream()
-            .map(m -> String.valueOf(m.getId()))
-            .toList();
-        Map<String, Boolean> underReviewMap = reportService.isUnderReviewBatch(ReportTargetType.MISSION, missionIds);
+        List<String> missionIds =
+                missions.getContent().stream().map(m -> String.valueOf(m.getId())).toList();
+        Map<String, Boolean> underReviewMap =
+                reportService.isUnderReviewBatch(ReportTargetType.MISSION, missionIds);
 
-        Page<MissionResponse> responses = missions.map(mission -> {
-            MissionResponse response = MissionResponse.from(mission, locale);
-            response.setIsUnderReview(underReviewMap.getOrDefault(String.valueOf(mission.getId()), false));
-            return response;
-        });
+        Page<MissionResponse> responses =
+                missions.map(
+                        mission -> {
+                            MissionResponse response = MissionResponse.from(mission, locale);
+                            response.setIsUnderReview(
+                                    underReviewMap.getOrDefault(
+                                            String.valueOf(mission.getId()), false));
+                            return response;
+                        });
         localizeMissionCategoryNames(responses.getContent(), locale);
         return responses;
     }
 
-    /**
-     * QA-175: 종료된 길드 미션도 목록에 노출(상태는 COMPLETED 로 표시). CANCELLED 는 제외.
-     */
+    /** QA-175: 종료된 길드 미션도 목록에 노출(상태는 COMPLETED 로 표시). CANCELLED 는 제외. */
     private static final List<MissionStatus> GUILD_LIST_VISIBLE_STATUSES =
-        List.of(MissionStatus.OPEN, MissionStatus.IN_PROGRESS, MissionStatus.COMPLETED);
+            List.of(MissionStatus.OPEN, MissionStatus.IN_PROGRESS, MissionStatus.COMPLETED);
 
     public List<MissionResponse> getGuildMissions(String guildId) {
         return getGuildMissions(guildId, null);
@@ -371,10 +412,10 @@ public class MissionService {
 
     /** LUT-255: locale에 맞는 title/description/categoryName으로 길드 미션 목록 조회 */
     public List<MissionResponse> getGuildMissions(String guildId, String locale) {
-        List<Mission> missions = missionRepository.findGuildMissions(guildId, GUILD_LIST_VISIBLE_STATUSES);
-        List<MissionResponse> result = missions.stream()
-            .map(mission -> MissionResponse.from(mission, locale))
-            .toList();
+        List<Mission> missions =
+                missionRepository.findGuildMissions(guildId, GUILD_LIST_VISIBLE_STATUSES);
+        List<MissionResponse> result =
+                missions.stream().map(mission -> MissionResponse.from(mission, locale)).toList();
         localizeMissionCategoryNames(result, locale);
 
         // QA-176: 미션별 누적 EXP 채우기 (탈퇴/실패 참여자 제외)
@@ -382,19 +423,20 @@ public class MissionService {
 
         // 배치로 신고 상태 조회
         if (!result.isEmpty()) {
-            List<String> missionIds = result.stream()
-                .map(r -> String.valueOf(r.getId()))
-                .toList();
-            Map<String, Boolean> underReviewMap = reportService.isUnderReviewBatch(ReportTargetType.MISSION, missionIds);
-            result.forEach(r -> r.setIsUnderReview(underReviewMap.getOrDefault(String.valueOf(r.getId()), false)));
+            List<String> missionIds = result.stream().map(r -> String.valueOf(r.getId())).toList();
+            Map<String, Boolean> underReviewMap =
+                    reportService.isUnderReviewBatch(ReportTargetType.MISSION, missionIds);
+            result.forEach(
+                    r ->
+                            r.setIsUnderReview(
+                                    underReviewMap.getOrDefault(String.valueOf(r.getId()), false)));
         }
 
         return result;
     }
 
     /**
-     * QA-176: 미션 응답에 누적 EXP 를 채운다.
-     * 길드 EXP 와 동일하게 historic 합산이므로 탈퇴/실패 참여자의 기여도 유지된다.
+     * QA-176: 미션 응답에 누적 EXP 를 채운다. 길드 EXP 와 동일하게 historic 합산이므로 탈퇴/실패 참여자의 기여도 유지된다.
      *
      * <p>QA-194: 고정 미션은 DailyMissionInstance 에 expEarned 가 저장되므로 두 테이블을 모두 합산한다.
      */
@@ -402,7 +444,8 @@ public class MissionService {
         if (response == null || response.getId() == null) return;
         Long missionId = response.getId();
         int executionSum = nullToZero(executionRepository.sumExpEarnedByMissionId(missionId));
-        int pinnedSum = nullToZero(dailyMissionInstanceRepository.sumExpEarnedByMissionId(missionId));
+        int pinnedSum =
+                nullToZero(dailyMissionInstanceRepository.sumExpEarnedByMissionId(missionId));
         response.setTotalExpEarned(executionSum + pinnedSum);
     }
 
@@ -411,38 +454,44 @@ public class MissionService {
     }
 
     /**
-     * LUT-255: 미션 응답의 categoryName을 locale에 맞는 카테고리명으로 덮어쓴다.
-     * locale이 없으면(한국어) denormalized 스냅샷 이름을 그대로 두고 meta 조회를 생략한다.
-     * 카테고리 조회 실패/미존재 시에도 기존 스냅샷 이름(fallback)이 유지된다.
+     * LUT-255: 미션 응답의 categoryName을 locale에 맞는 카테고리명으로 덮어쓴다. locale이 없으면(한국어) denormalized 스냅샷 이름을
+     * 그대로 두고 meta 조회를 생략한다. 카테고리 조회 실패/미존재 시에도 기존 스냅샷 이름(fallback)이 유지된다.
      */
     private void localizeMissionCategoryNames(List<MissionResponse> responses, String locale) {
         if (locale == null || locale.isBlank() || responses.isEmpty()) {
             return;
         }
-        Map<Long, String> nameMap = getLocalizedCategoryNames(
-            responses.stream().map(MissionResponse::getCategoryId).toList(), locale);
-        responses.forEach(r -> {
-            String localized = r.getCategoryId() != null ? nameMap.get(r.getCategoryId()) : null;
-            if (localized != null) {
-                r.setCategoryName(localized);
-            }
-        });
+        Map<Long, String> nameMap =
+                getLocalizedCategoryNames(
+                        responses.stream().map(MissionResponse::getCategoryId).toList(), locale);
+        responses.forEach(
+                r -> {
+                    String localized =
+                            r.getCategoryId() != null ? nameMap.get(r.getCategoryId()) : null;
+                    if (localized != null) {
+                        r.setCategoryName(localized);
+                    }
+                });
     }
 
     /** LUT-255: 미션북 템플릿 응답의 categoryName을 locale에 맞는 카테고리명으로 덮어쓴다. */
     private void localizeTemplateCategoryNames(
-        List<MissionTemplateResponse> responses, String locale) {
+            List<MissionTemplateResponse> responses, String locale) {
         if (locale == null || locale.isBlank() || responses.isEmpty()) {
             return;
         }
-        Map<Long, String> nameMap = getLocalizedCategoryNames(
-            responses.stream().map(MissionTemplateResponse::getCategoryId).toList(), locale);
-        responses.forEach(r -> {
-            String localized = r.getCategoryId() != null ? nameMap.get(r.getCategoryId()) : null;
-            if (localized != null) {
-                r.setCategoryName(localized);
-            }
-        });
+        Map<Long, String> nameMap =
+                getLocalizedCategoryNames(
+                        responses.stream().map(MissionTemplateResponse::getCategoryId).toList(),
+                        locale);
+        responses.forEach(
+                r -> {
+                    String localized =
+                            r.getCategoryId() != null ? nameMap.get(r.getCategoryId()) : null;
+                    if (localized != null) {
+                        r.setCategoryName(localized);
+                    }
+                });
     }
 
     /** LUT-255: 카테고리 ID 목록 → locale에 맞는 카테고리명 Map (meta 배치 조회, 실패 시 빈 Map) */
@@ -453,108 +502,121 @@ public class MissionService {
         }
         try {
             return missionCategoryService.getCategoriesByIds(ids).stream()
-                .filter(c -> c.getId() != null && c.getLocalizedName(locale) != null)
-                .collect(Collectors.toMap(
-                    MissionCategoryResponse::getId,
-                    c -> c.getLocalizedName(locale),
-                    (a, b) -> a));
+                    .filter(c -> c.getId() != null && c.getLocalizedName(locale) != null)
+                    .collect(
+                            Collectors.toMap(
+                                    MissionCategoryResponse::getId,
+                                    c -> c.getLocalizedName(locale),
+                                    (a, b) -> a));
         } catch (Exception e) {
             log.warn("카테고리 다국어 배치 조회 실패: locale={}, error={}", locale, e.getMessage());
             return Map.of();
         }
     }
 
-    /**
-     * 시스템 미션 템플릿 목록 조회 (미션북용)
-     * mission_template 테이블에서 공개 시스템 템플릿 반환
-     */
+    /** 시스템 미션 템플릿 목록 조회 (미션북용) mission_template 테이블에서 공개 시스템 템플릿 반환 */
     public Page<MissionTemplateResponse> getSystemMissions(String userId, Pageable pageable) {
         return getSystemMissions(userId, pageable, null);
     }
 
     /** LUT-255: locale에 맞는 title/description/categoryName으로 미션북 템플릿 목록 조회 */
     public Page<MissionTemplateResponse> getSystemMissions(
-        String userId, Pageable pageable, String locale) {
-        Page<MissionTemplate> templates = missionTemplateRepository.findPublicTemplates(
-            MissionSource.SYSTEM, MissionVisibility.PUBLIC, pageable);
+            String userId, Pageable pageable, String locale) {
+        Page<MissionTemplate> templates =
+                missionTemplateRepository.findPublicTemplates(
+                        MissionSource.SYSTEM, MissionVisibility.PUBLIC, pageable);
 
         // 비로그인 또는 목표시간 없는 경우 달성 여부 없이 반환
         if (userId == null) {
             Page<MissionTemplateResponse> responses =
-                templates.map(t -> MissionTemplateResponse.from(t, locale));
+                    templates.map(t -> MissionTemplateResponse.from(t, locale));
             localizeTemplateCategoryNames(responses.getContent(), locale);
             return responses;
         }
 
-        List<Long> templateIds = templates.stream()
-            .filter(t -> t.getTargetDurationMinutes() != null)
-            .map(MissionTemplate::getId)
-            .toList();
+        List<Long> templateIds =
+                templates.stream()
+                        .filter(t -> t.getTargetDurationMinutes() != null)
+                        .map(MissionTemplate::getId)
+                        .toList();
 
         Set<Long> achievedIds = new HashSet<>();
         if (!templateIds.isEmpty()) {
-            achievedIds.addAll(dailyMissionInstanceRepository.findAchievedTargetTemplateIds(userId, templateIds));
-            achievedIds.addAll(executionRepository.findAchievedTargetTemplateIds(userId, templateIds));
+            achievedIds.addAll(
+                    dailyMissionInstanceRepository.findAchievedTargetTemplateIds(
+                            userId, templateIds));
+            achievedIds.addAll(
+                    executionRepository.findAchievedTargetTemplateIds(userId, templateIds));
         }
 
         Set<Long> finalAchievedIds = achievedIds;
-        Page<MissionTemplateResponse> responses = templates.map(t -> {
-            MissionTemplateResponse response = MissionTemplateResponse.from(t, locale);
-            if (t.getTargetDurationMinutes() != null) {
-                response.setHasAchievedTarget(finalAchievedIds.contains(t.getId()));
-            }
-            return response;
-        });
+        Page<MissionTemplateResponse> responses =
+                templates.map(
+                        t -> {
+                            MissionTemplateResponse response =
+                                    MissionTemplateResponse.from(t, locale);
+                            if (t.getTargetDurationMinutes() != null) {
+                                response.setHasAchievedTarget(finalAchievedIds.contains(t.getId()));
+                            }
+                            return response;
+                        });
         localizeTemplateCategoryNames(responses.getContent(), locale);
         return responses;
     }
 
-    /**
-     * 카테고리별 시스템 미션 템플릿 목록 조회.
-     * QA-158: has_achieved_target 도 같이 채워 마이페이지/미션북 응답 정의를 일관화한다.
-     */
-    public Page<MissionTemplateResponse> getSystemMissionsByCategory(String userId, Long categoryId, Pageable pageable) {
+    /** 카테고리별 시스템 미션 템플릿 목록 조회. QA-158: has_achieved_target 도 같이 채워 마이페이지/미션북 응답 정의를 일관화한다. */
+    public Page<MissionTemplateResponse> getSystemMissionsByCategory(
+            String userId, Long categoryId, Pageable pageable) {
         return getSystemMissionsByCategory(userId, categoryId, pageable, null);
     }
 
     /** LUT-255: locale에 맞는 title/description/categoryName으로 카테고리별 미션북 템플릿 목록 조회 */
     public Page<MissionTemplateResponse> getSystemMissionsByCategory(
-        String userId, Long categoryId, Pageable pageable, String locale) {
-        Page<MissionTemplate> templates = missionTemplateRepository.findPublicTemplatesByCategory(
-            MissionSource.SYSTEM, MissionVisibility.PUBLIC, categoryId, pageable);
+            String userId, Long categoryId, Pageable pageable, String locale) {
+        Page<MissionTemplate> templates =
+                missionTemplateRepository.findPublicTemplatesByCategory(
+                        MissionSource.SYSTEM, MissionVisibility.PUBLIC, categoryId, pageable);
 
         if (userId == null) {
             Page<MissionTemplateResponse> responses =
-                templates.map(t -> MissionTemplateResponse.from(t, locale));
+                    templates.map(t -> MissionTemplateResponse.from(t, locale));
             localizeTemplateCategoryNames(responses.getContent(), locale);
             return responses;
         }
 
-        List<Long> templateIds = templates.stream()
-            .filter(t -> t.getTargetDurationMinutes() != null)
-            .map(MissionTemplate::getId)
-            .toList();
+        List<Long> templateIds =
+                templates.stream()
+                        .filter(t -> t.getTargetDurationMinutes() != null)
+                        .map(MissionTemplate::getId)
+                        .toList();
 
         Set<Long> achievedIds = new HashSet<>();
         if (!templateIds.isEmpty()) {
-            achievedIds.addAll(dailyMissionInstanceRepository.findAchievedTargetTemplateIds(userId, templateIds));
-            achievedIds.addAll(executionRepository.findAchievedTargetTemplateIds(userId, templateIds));
+            achievedIds.addAll(
+                    dailyMissionInstanceRepository.findAchievedTargetTemplateIds(
+                            userId, templateIds));
+            achievedIds.addAll(
+                    executionRepository.findAchievedTargetTemplateIds(userId, templateIds));
         }
 
         Set<Long> finalAchievedIds = achievedIds;
-        Page<MissionTemplateResponse> responses = templates.map(t -> {
-            MissionTemplateResponse response = MissionTemplateResponse.from(t, locale);
-            if (t.getTargetDurationMinutes() != null) {
-                response.setHasAchievedTarget(finalAchievedIds.contains(t.getId()));
-            }
-            return response;
-        });
+        Page<MissionTemplateResponse> responses =
+                templates.map(
+                        t -> {
+                            MissionTemplateResponse response =
+                                    MissionTemplateResponse.from(t, locale);
+                            if (t.getTargetDurationMinutes() != null) {
+                                response.setHasAchievedTarget(finalAchievedIds.contains(t.getId()));
+                            }
+                            return response;
+                        });
         localizeTemplateCategoryNames(responses.getContent(), locale);
         return responses;
     }
 
     @Transactional(transactionManager = "missionTransactionManager")
-    public MissionResponse updateMission(Long missionId, String userId, MissionUpdateRequest request) {
+    public MissionResponse updateMission(
+            Long missionId, String userId, MissionUpdateRequest request) {
         Mission mission = findMissionById(missionId);
         validateMissionOwner(mission, userId);
 
@@ -617,7 +679,8 @@ public class MissionService {
             mission.setCustomCategory(null);
         } else if (request.getCategoryId() != null) {
             // 기존 카테고리 선택
-            MissionCategoryResponse categoryResponse = missionCategoryService.getCategory(request.getCategoryId());
+            MissionCategoryResponse categoryResponse =
+                    missionCategoryService.getCategory(request.getCategoryId());
 
             if (!categoryResponse.getIsActive()) {
                 throw new IllegalArgumentException("비활성화된 카테고리입니다.");
@@ -638,9 +701,9 @@ public class MissionService {
             mission.updateReminder(null, null, null);
         } else if (request.getReminderHour() != null || request.getReminderDaysOfWeek() != null) {
             mission.updateReminder(
-                request.getReminderHour(),
-                request.getReminderMinute(),
-                request.getReminderDaysOfWeek());
+                    request.getReminderHour(),
+                    request.getReminderMinute(),
+                    request.getReminderDaysOfWeek());
         }
 
         // LUT-361: 이미 생성된 미완료 인스턴스의 스냅샷 동기화 —
@@ -651,15 +714,13 @@ public class MissionService {
         return MissionResponse.from(mission);
     }
 
-    /**
-     * LUT-257: 길드 미션 공개범위는 길드 공개여부를 따른다 (공개 길드=PUBLIC, 비공개 길드=PRIVATE).
-     */
+    /** LUT-257: 길드 미션 공개범위는 길드 공개여부를 따른다 (공개 길드=PUBLIC, 비공개 길드=PRIVATE). */
     private MissionVisibility resolveGuildMissionVisibility(String guildIdRaw) {
         try {
             Long guildId = Long.parseLong(guildIdRaw);
             return guildQueryFacadeService.isGuildPublic(guildId)
-                ? MissionVisibility.PUBLIC
-                : MissionVisibility.PRIVATE;
+                    ? MissionVisibility.PUBLIC
+                    : MissionVisibility.PRIVATE;
         } catch (NumberFormatException e) {
             log.warn("길드 ID 파싱 실패로 비공개 처리: guildId={}", guildIdRaw);
             return MissionVisibility.PRIVATE;
@@ -686,17 +747,16 @@ public class MissionService {
         return MissionResponse.from(mission);
     }
 
-    /**
-     * 길드 미션 OPEN 시 활성 길드원 자동 참여 + 알림 전송
-     */
+    /** 길드 미션 OPEN 시 활성 길드원 자동 참여 + 알림 전송 */
     private void enrollAndNotifyGuildMembers(Mission mission, String creatorId) {
         try {
             Long guildId = mission.getGuildIdAsLong();
 
             // 생성자를 제외한 활성 길드원 ID 목록 추출
-            List<String> memberIds = guildQueryFacadeService.getActiveMemberUserIds(guildId).stream()
-                .filter(memberId -> !memberId.equals(creatorId))
-                .toList();
+            List<String> memberIds =
+                    guildQueryFacadeService.getActiveMemberUserIds(guildId).stream()
+                            .filter(memberId -> !memberId.equals(creatorId))
+                            .toList();
 
             if (!memberIds.isEmpty()) {
                 // 길드원 자동 참여 등록
@@ -706,20 +766,24 @@ public class MissionService {
                         missionParticipantService.addGuildMemberAsParticipant(mission, memberId);
                         enrolled++;
                     } catch (Exception e) {
-                        log.warn("길드원 미션 자동 참여 실패: missionId={}, userId={}, error={}",
-                            mission.getId(), memberId, e.getMessage());
+                        log.warn(
+                                "길드원 미션 자동 참여 실패: missionId={}, userId={}, error={}",
+                                mission.getId(),
+                                memberId,
+                                e.getMessage());
                     }
                 }
-                log.info("길드원 미션 자동 참여 완료: missionId={}, guildId={}, enrolled={}/{}",
-                    mission.getId(), guildId, enrolled, memberIds.size());
+                log.info(
+                        "길드원 미션 자동 참여 완료: missionId={}, guildId={}, enrolled={}/{}",
+                        mission.getId(),
+                        guildId,
+                        enrolled,
+                        memberIds.size());
 
                 // 알림 이벤트 발행
-                eventPublisher.publishEvent(new GuildMissionArrivedEvent(
-                    creatorId,
-                    memberIds,
-                    mission.getId(),
-                    mission.getTitle()
-                ));
+                eventPublisher.publishEvent(
+                        new GuildMissionArrivedEvent(
+                                creatorId, memberIds, mission.getId(), mission.getTitle()));
             }
         } catch (NumberFormatException e) {
             log.error("길드 ID 파싱 실패: guildId={}", mission.getGuildId(), e);
@@ -738,7 +802,8 @@ public class MissionService {
         log.info("미션 시작: id={}", missionId);
 
         // 상태 히스토리 이벤트 발행
-        eventPublisher.publishEvent(MissionStateChangedEvent.ofStart(userId, missionId, fromStatus));
+        eventPublisher.publishEvent(
+                MissionStateChangedEvent.ofStart(userId, missionId, fromStatus));
 
         return MissionResponse.from(mission);
     }
@@ -758,7 +823,8 @@ public class MissionService {
         log.info("미션 완료: id={}, by={}", missionId, userId);
 
         // 상태 히스토리 이벤트 발행
-        eventPublisher.publishEvent(MissionStateChangedEvent.ofComplete(userId, missionId, fromStatus));
+        eventPublisher.publishEvent(
+                MissionStateChangedEvent.ofComplete(userId, missionId, fromStatus));
 
         return MissionResponse.from(mission);
     }
@@ -773,7 +839,8 @@ public class MissionService {
         log.info("미션 취소: id={}", missionId);
 
         // 상태 히스토리 이벤트 발행
-        eventPublisher.publishEvent(MissionStateChangedEvent.ofCancel(userId, missionId, fromStatus));
+        eventPublisher.publishEvent(
+                MissionStateChangedEvent.ofCancel(userId, missionId, fromStatus));
 
         return MissionResponse.from(mission);
     }
@@ -805,7 +872,11 @@ public class MissionService {
             }
             mission.delete();
             missionRepository.save(mission);
-            log.info("미션 소프트 삭제: id={}, deletedBy={}, guildAdmin={}", missionId, userId, isGuildAdmin);
+            log.info(
+                    "미션 소프트 삭제: id={}, deletedBy={}, guildAdmin={}",
+                    missionId,
+                    userId,
+                    isGuildAdmin);
 
             eventPublisher.publishEvent(new MissionDeletedEvent(userId, missionId));
             return;
@@ -815,9 +886,7 @@ public class MissionService {
         throw new IllegalStateException("미션 생성자 또는 길드 관리자만 이 작업을 수행할 수 있습니다.");
     }
 
-    /**
-     * 호출 유저가 해당 미션의 길드 관리자(마스터/서브마스터)인지 확인. QA-175.
-     */
+    /** 호출 유저가 해당 미션의 길드 관리자(마스터/서브마스터)인지 확인. QA-175. */
     private boolean isGuildAdmin(Mission mission, String userId) {
         if (!mission.isGuildMission() || mission.getGuildIdAsLong() == null) {
             return false;
@@ -828,29 +897,30 @@ public class MissionService {
     }
 
     /**
-     * 미션에 진행 중(IN_PROGRESS) 수행/인스턴스가 존재하면 차단.
-     * QA-112: 수행중 인스턴스가 있는 부모 미션 삭제 시 orphan IN_PROGRESS row가 남아
-     * 이후 새 미션 시작이 영구 차단되는 문제 방지.
+     * 미션에 진행 중(IN_PROGRESS) 수행/인스턴스가 존재하면 차단. QA-112: 수행중 인스턴스가 있는 부모 미션 삭제 시 orphan IN_PROGRESS
+     * row가 남아 이후 새 미션 시작이 영구 차단되는 문제 방지.
      */
     private void validateNoInProgressForMission(Long missionId) {
         if (executionRepository.existsInProgressByMissionId(missionId)
-            || dailyMissionInstanceRepository.existsInProgressByMissionId(missionId)) {
+                || dailyMissionInstanceRepository.existsInProgressByMissionId(missionId)) {
             throw new io.pinkspider.global.exception.CustomException(
-                "050102", "error.mission.cannot_delete_in_progress");
+                    "050102", "error.mission.cannot_delete_in_progress");
         }
     }
 
     private void validateNoInProgressForUser(Long missionId, String userId) {
         if (executionRepository.existsInProgressByMissionIdAndUserId(missionId, userId)
-            || dailyMissionInstanceRepository.existsInProgressByMissionIdAndUserId(missionId, userId)) {
+                || dailyMissionInstanceRepository.existsInProgressByMissionIdAndUserId(
+                        missionId, userId)) {
             throw new io.pinkspider.global.exception.CustomException(
-                "050103", "error.mission.cannot_withdraw_in_progress");
+                    "050103", "error.mission.cannot_withdraw_in_progress");
         }
     }
 
     private Mission findMissionById(Long missionId) {
-        return missionRepository.findByIdAndIsDeletedFalse(missionId)
-            .orElseThrow(() -> new IllegalArgumentException("미션을 찾을 수 없습니다: " + missionId));
+        return missionRepository
+                .findByIdAndIsDeletedFalse(missionId)
+                .orElseThrow(() -> new IllegalArgumentException("미션을 찾을 수 없습니다: " + missionId));
     }
 
     private void validateMissionOwner(Mission mission, String userId) {
@@ -861,7 +931,8 @@ public class MissionService {
 
         // 길드 미션인 경우 길드 마스터 또는 부길드마스터도 허용
         if (mission.isGuildMission() && mission.getGuildIdAsLong() != null) {
-            GuildPermissionCheck perm = guildQueryFacadeService.checkPermissions(mission.getGuildIdAsLong(), userId);
+            GuildPermissionCheck perm =
+                    guildQueryFacadeService.checkPermissions(mission.getGuildIdAsLong(), userId);
             if (perm.isActiveMember() && perm.isMasterOrSubMaster()) {
                 return;
             }

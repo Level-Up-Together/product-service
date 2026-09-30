@@ -41,10 +41,10 @@ class UserExceptionHandlerTest {
         @DisplayName("NotExistUserException 처리 시 NOT_EXIST_USER 코드를 반환한다")
         void handleNotExistUserException_returnsCorrectCode() {
             // given
-            NotExistUserException exception = new NotExistUserException(
-                UserApiStatus.NOT_EXIST_USER.getResultCode(),
-                UserApiStatus.NOT_EXIST_USER.getResultMessage()
-            );
+            NotExistUserException exception =
+                    new NotExistUserException(
+                            UserApiStatus.NOT_EXIST_USER.getResultCode(),
+                            UserApiStatus.NOT_EXIST_USER.getResultMessage());
 
             // when
             Object result = handler.handleNotExistUserException(exception, mockRequest);
@@ -53,7 +53,8 @@ class UserExceptionHandlerTest {
             assertThat(result).isInstanceOf(ApiResult.class);
             ApiResult<?> apiResult = (ApiResult<?>) result;
             assertThat(apiResult.getCode()).isEqualTo(UserApiStatus.NOT_EXIST_USER.getResultCode());
-            assertThat(apiResult.getMessage()).isEqualTo(UserApiStatus.NOT_EXIST_USER.getResultMessage());
+            assertThat(apiResult.getMessage())
+                    .isEqualTo(UserApiStatus.NOT_EXIST_USER.getResultMessage());
         }
     }
 
@@ -67,7 +68,8 @@ class UserExceptionHandlerTest {
             // given
             String code = "010101";
             String message = "Not Valid Access Token";
-            AccessTokenNotValidException exception = new AccessTokenNotValidException(code, message);
+            AccessTokenNotValidException exception =
+                    new AccessTokenNotValidException(code, message);
 
             // when
             Object result = handler.handleAccessTokenNotValidException(exception, mockRequest);
@@ -90,7 +92,8 @@ class UserExceptionHandlerTest {
             // given
             String code = "010102";
             String message = "Not Valid Refresh Token";
-            RefreshTokenNotValidException exception = new RefreshTokenNotValidException(code, message);
+            RefreshTokenNotValidException exception =
+                    new RefreshTokenNotValidException(code, message);
 
             // when
             Object result = handler.handleRefreshTokenNotValidException(exception, mockRequest);
@@ -113,7 +116,8 @@ class UserExceptionHandlerTest {
             // given
             String code = "030001";
             String message = "Bad Credential";
-            CustomBadCredentialException exception = new CustomBadCredentialException(code, message);
+            CustomBadCredentialException exception =
+                    new CustomBadCredentialException(code, message);
 
             // when
             Object result = handler.handleBadCredentialException(exception, mockRequest);
@@ -136,10 +140,12 @@ class UserExceptionHandlerTest {
             // given
             String code = "030099";
             String message = "Missing Request Header";
-            CustomMissingRequestHeaderException exception = new CustomMissingRequestHeaderException(code, message);
+            CustomMissingRequestHeaderException exception =
+                    new CustomMissingRequestHeaderException(code, message);
 
             // when
-            Object result = handler.handleCustomMissingRequestHeaderException(exception, mockRequest);
+            Object result =
+                    handler.handleCustomMissingRequestHeaderException(exception, mockRequest);
 
             // then
             assertThat(result).isInstanceOf(ApiResult.class);

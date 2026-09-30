@@ -41,13 +41,18 @@ class AdminPushCampaignDispatcherTest {
 
     @BeforeEach
     void setUp() {
-        dispatcher = new AdminPushCampaignDispatcher(
-            campaignRepository, notificationService, userQueryFacade, new ObjectMapper());
+        dispatcher =
+                new AdminPushCampaignDispatcher(
+                        campaignRepository,
+                        notificationService,
+                        userQueryFacade,
+                        new ObjectMapper());
     }
 
     private AdminPushCampaign usersCampaign(String json, int count) {
-        AdminPushCampaign c = AdminPushCampaign.create(
-            "제목", "본문", "/shop", AdminPushTargetType.USERS, json, count, 42L);
+        AdminPushCampaign c =
+                AdminPushCampaign.create(
+                        "제목", "본문", "/shop", AdminPushTargetType.USERS, json, count, 42L);
         ReflectionTestUtils.setField(c, "id", 10L);
         return c;
     }
@@ -58,14 +63,23 @@ class AdminPushCampaignDispatcherTest {
         AdminPushCampaign campaign = usersCampaign("[\"u1\",\"u2\",\"u3\"]", 3);
         when(campaignRepository.findById(10L)).thenReturn(Optional.of(campaign));
         NotificationResponse created = NotificationResponse.builder().id(1L).build();
-        when(notificationService.createNotification(eq("u1"), eq(NotificationType.ADMIN_PUSH),
-                eq("제목"), eq("본문"), eq("ADMIN_PUSH"), eq(10L), eq("/shop"))).thenReturn(created);
+        when(notificationService.createNotification(
+                        eq("u1"),
+                        eq(NotificationType.ADMIN_PUSH),
+                        eq("제목"),
+                        eq("본문"),
+                        eq("ADMIN_PUSH"),
+                        eq(10L),
+                        eq("/shop")))
+                .thenReturn(created);
         // u2: 시스템 알림 카테고리 off → 파이프라인이 null 반환 (스킵)
-        when(notificationService.createNotification(eq("u2"), any(), anyString(), anyString(),
-                anyString(), anyLong(), any())).thenReturn(null);
+        when(notificationService.createNotification(
+                        eq("u2"), any(), anyString(), anyString(), anyString(), anyLong(), any()))
+                .thenReturn(null);
         // u3: 예외 (실패)
-        when(notificationService.createNotification(eq("u3"), any(), anyString(), anyString(),
-                anyString(), anyLong(), any())).thenThrow(new RuntimeException("db down"));
+        when(notificationService.createNotification(
+                        eq("u3"), any(), anyString(), anyString(), anyString(), anyLong(), any()))
+                .thenThrow(new RuntimeException("db down"));
 
         dispatcher.onCampaignCreated(new AdminPushCampaignCreatedEvent(10L));
 
@@ -83,19 +97,32 @@ class AdminPushCampaignDispatcherTest {
     @Test
     @DisplayName("전체 발송은 발송 시점의 활성 유저 전원을 다시 조회한다")
     void dispatch_all_resolvesActiveUsersAtSendTime() {
-        AdminPushCampaign campaign = AdminPushCampaign.create(
-            "제목", "본문", null, AdminPushTargetType.ALL, null, 2, 42L);
+        AdminPushCampaign campaign =
+                AdminPushCampaign.create("제목", "본문", null, AdminPushTargetType.ALL, null, 2, 42L);
         ReflectionTestUtils.setField(campaign, "id", 11L);
         when(campaignRepository.findById(11L)).thenReturn(Optional.of(campaign));
         when(userQueryFacade.findAllActiveUserIds()).thenReturn(List.of("a", "b"));
-        when(notificationService.createNotification(anyString(), eq(NotificationType.ADMIN_PUSH),
-                anyString(), anyString(), anyString(), anyLong(), any()))
-            .thenReturn(NotificationResponse.builder().id(1L).build());
+        when(notificationService.createNotification(
+                        anyString(),
+                        eq(NotificationType.ADMIN_PUSH),
+                        anyString(),
+                        anyString(),
+                        anyString(),
+                        anyLong(),
+                        any()))
+                .thenReturn(NotificationResponse.builder().id(1L).build());
 
         dispatcher.dispatch(11L);
 
-        verify(notificationService, times(2)).createNotification(anyString(),
-            eq(NotificationType.ADMIN_PUSH), eq("제목"), eq("본문"), eq("ADMIN_PUSH"), eq(11L), eq(null));
+        verify(notificationService, times(2))
+                .createNotification(
+                        anyString(),
+                        eq(NotificationType.ADMIN_PUSH),
+                        eq("제목"),
+                        eq("본문"),
+                        eq("ADMIN_PUSH"),
+                        eq(11L),
+                        eq(null));
         assertThat(campaign.getSentCount()).isEqualTo(2);
         assertThat(campaign.getStatus()).isEqualTo(AdminPushCampaignStatus.COMPLETED);
     }
@@ -109,8 +136,15 @@ class AdminPushCampaignDispatcherTest {
 
         dispatcher.dispatch(10L);
 
-        verify(notificationService, never()).createNotification(anyString(), any(), anyString(),
-            anyString(), anyString(), anyLong(), any());
+        verify(notificationService, never())
+                .createNotification(
+                        anyString(),
+                        any(),
+                        anyString(),
+                        anyString(),
+                        anyString(),
+                        anyLong(),
+                        any());
         verify(campaignRepository, never()).save(any());
     }
 

@@ -7,25 +7,23 @@ import org.springframework.data.domain.Page;
 
 @JsonNaming(SnakeCaseStrategy.class)
 public record UserMissionHistoryAdminPageResponse(
-    List<UserMissionHistoryAdminResponse> content,
-    int totalPages,
-    long totalElements,
-    int number,
-    int size,
-    boolean first,
-    boolean last
-) {
+        List<UserMissionHistoryAdminResponse> content,
+        int totalPages,
+        long totalElements,
+        int number,
+        int size,
+        boolean first,
+        boolean last) {
 
     public static UserMissionHistoryAdminPageResponse from(
             Page<?> page, List<UserMissionHistoryAdminResponse> content) {
         return new UserMissionHistoryAdminPageResponse(
-            content,
-            page.getTotalPages(),
-            page.getTotalElements(),
-            page.getNumber(),
-            page.getSize(),
-            page.isFirst(),
-            page.isLast()
-        );
+                content,
+                page.getTotalPages(),
+                page.getTotalElements(),
+                page.getNumber(),
+                page.getSize(),
+                page.isFirst(),
+                page.isLast());
     }
 }

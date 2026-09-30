@@ -23,11 +23,9 @@ class UserUiPreferenceServiceTest {
 
     private static final String TEST_USER_ID = "test-user-123";
 
-    @Mock
-    private UserUiPreferenceRepository preferenceRepository;
+    @Mock private UserUiPreferenceRepository preferenceRepository;
 
-    @InjectMocks
-    private UserUiPreferenceService preferenceService;
+    @InjectMocks private UserUiPreferenceService preferenceService;
 
     @Test
     @DisplayName("저장된 설정이 없으면 기본값(펼침)으로 응답하고 행을 만들지 않는다")
@@ -47,10 +45,11 @@ class UserUiPreferenceServiceTest {
     @DisplayName("저장된 설정이 있으면 그 값으로 응답한다")
     void getPreferences_existingRow() {
         // given
-        UserUiPreference preference = UserUiPreference.builder()
-            .userId(TEST_USER_ID)
-            .missionCompletedSectionCollapsed(true)
-            .build();
+        UserUiPreference preference =
+                UserUiPreference.builder()
+                        .userId(TEST_USER_ID)
+                        .missionCompletedSectionCollapsed(true)
+                        .build();
         when(preferenceRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.of(preference));
 
         // when
@@ -66,15 +65,14 @@ class UserUiPreferenceServiceTest {
         // given
         when(preferenceRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.empty());
         when(preferenceRepository.save(any(UserUiPreference.class)))
-            .thenAnswer(invocation -> invocation.getArgument(0));
+                .thenAnswer(invocation -> invocation.getArgument(0));
 
-        UserUiPreferenceRequest request = UserUiPreferenceRequest.builder()
-            .missionCompletedSectionCollapsed(true)
-            .build();
+        UserUiPreferenceRequest request =
+                UserUiPreferenceRequest.builder().missionCompletedSectionCollapsed(true).build();
 
         // when
         UserUiPreferenceResponse response =
-            preferenceService.updatePreferences(TEST_USER_ID, request);
+                preferenceService.updatePreferences(TEST_USER_ID, request);
 
         // then
         assertThat(response.missionCompletedSectionCollapsed()).isTrue();
@@ -85,17 +83,18 @@ class UserUiPreferenceServiceTest {
     @DisplayName("null 필드는 기존 값을 변경하지 않는다 (부분 업데이트)")
     void updatePreferences_nullFieldKeepsExistingValue() {
         // given
-        UserUiPreference preference = UserUiPreference.builder()
-            .userId(TEST_USER_ID)
-            .missionCompletedSectionCollapsed(true)
-            .build();
+        UserUiPreference preference =
+                UserUiPreference.builder()
+                        .userId(TEST_USER_ID)
+                        .missionCompletedSectionCollapsed(true)
+                        .build();
         when(preferenceRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.of(preference));
 
         UserUiPreferenceRequest request = UserUiPreferenceRequest.builder().build();
 
         // when
         UserUiPreferenceResponse response =
-            preferenceService.updatePreferences(TEST_USER_ID, request);
+                preferenceService.updatePreferences(TEST_USER_ID, request);
 
         // then
         assertThat(response.missionCompletedSectionCollapsed()).isTrue();
@@ -106,19 +105,19 @@ class UserUiPreferenceServiceTest {
     @DisplayName("접기 해제(false)도 저장된다")
     void updatePreferences_falseIsApplied() {
         // given
-        UserUiPreference preference = UserUiPreference.builder()
-            .userId(TEST_USER_ID)
-            .missionCompletedSectionCollapsed(true)
-            .build();
+        UserUiPreference preference =
+                UserUiPreference.builder()
+                        .userId(TEST_USER_ID)
+                        .missionCompletedSectionCollapsed(true)
+                        .build();
         when(preferenceRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.of(preference));
 
-        UserUiPreferenceRequest request = UserUiPreferenceRequest.builder()
-            .missionCompletedSectionCollapsed(false)
-            .build();
+        UserUiPreferenceRequest request =
+                UserUiPreferenceRequest.builder().missionCompletedSectionCollapsed(false).build();
 
         // when
         UserUiPreferenceResponse response =
-            preferenceService.updatePreferences(TEST_USER_ID, request);
+                preferenceService.updatePreferences(TEST_USER_ID, request);
 
         // then
         assertThat(response.missionCompletedSectionCollapsed()).isFalse();

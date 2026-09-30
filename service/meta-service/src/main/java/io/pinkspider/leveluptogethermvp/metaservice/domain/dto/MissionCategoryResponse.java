@@ -47,20 +47,20 @@ public class MissionCategoryResponse {
 
     public static MissionCategoryResponse from(MissionCategory category) {
         return MissionCategoryResponse.builder()
-            .id(category.getId())
-            .name(category.getName())
-            .nameEn(category.getNameEn())
-            .nameAr(category.getNameAr())
-            .nameJa(category.getNameJa())
-            .description(category.getDescription())
-            .descriptionEn(category.getDescriptionEn())
-            .descriptionAr(category.getDescriptionAr())
-            .descriptionJa(category.getDescriptionJa())
-            .icon(category.getIcon())
-            .displayOrder(category.getDisplayOrder())
-            .isActive(category.getIsActive())
-            .createdAt(category.getCreatedAt())
-            .modifiedAt(category.getModifiedAt())
-            .build();
+                .id(category.getId())
+                .name(category.getName())
+                .nameEn(category.getNameEn())
+                .nameAr(category.getNameAr())
+                .nameJa(category.getNameJa())
+                .description(category.getDescription())
+                .descriptionEn(category.getDescriptionEn())
+                .descriptionAr(category.getDescriptionAr())
+                .descriptionJa(category.getDescriptionJa())
+                .icon(category.getIcon())
+                .displayOrder(category.getDisplayOrder())
+                .isActive(category.getIsActive())
+                .createdAt(category.getCreatedAt())
+                .modifiedAt(category.getModifiedAt())
+                .build();
     }
 }

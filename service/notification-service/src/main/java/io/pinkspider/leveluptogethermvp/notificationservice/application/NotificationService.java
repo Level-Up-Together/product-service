@@ -1,16 +1,16 @@
 package io.pinkspider.leveluptogethermvp.notificationservice.application;
 
+import io.pinkspider.global.enums.NotificationType;
+import io.pinkspider.global.event.EquippedItemPushDueEvent;
 import io.pinkspider.global.messaging.dto.AppPushMessageDto;
 import io.pinkspider.global.messaging.producer.AppPushMessageProducer;
+import io.pinkspider.global.translation.LocaleUtils;
 import io.pinkspider.leveluptogethermvp.notificationservice.domain.dto.NotificationPreferenceRequest;
 import io.pinkspider.leveluptogethermvp.notificationservice.domain.dto.NotificationPreferenceResponse;
 import io.pinkspider.leveluptogethermvp.notificationservice.domain.dto.NotificationResponse;
 import io.pinkspider.leveluptogethermvp.notificationservice.domain.dto.NotificationSummaryResponse;
 import io.pinkspider.leveluptogethermvp.notificationservice.domain.entity.Notification;
 import io.pinkspider.leveluptogethermvp.notificationservice.domain.entity.NotificationPreference;
-import io.pinkspider.global.enums.NotificationType;
-import io.pinkspider.global.event.EquippedItemPushDueEvent;
-import io.pinkspider.global.translation.LocaleUtils;
 import io.pinkspider.leveluptogethermvp.notificationservice.infrastructure.NotificationPreferenceRepository;
 import io.pinkspider.leveluptogethermvp.notificationservice.infrastructure.NotificationRepository;
 import io.pinkspider.leveluptogethermvp.notificationservice.realtime.NotificationRealtimePublisher;
@@ -49,73 +49,118 @@ public class NotificationService {
 
     // 알림 생성
     @Transactional(transactionManager = "notificationTransactionManager")
-    public NotificationResponse createNotification(String userId, NotificationType type,
-                                                    String title, String message) {
-        return createNotificationInternal(userId, type, title, message, null, null, null, null, false);
+    public NotificationResponse createNotification(
+            String userId, NotificationType type, String title, String message) {
+        return createNotificationInternal(
+                userId, type, title, message, null, null, null, null, false);
     }
 
     @Transactional(transactionManager = "notificationTransactionManager")
-    public NotificationResponse createNotification(String userId, NotificationType type,
-                                                    String title, String message,
-                                                    String referenceType, Long referenceId,
-                                                    String actionUrl) {
-        return createNotificationInternal(userId, type, title, message, referenceType, referenceId, actionUrl, null, false);
+    public NotificationResponse createNotification(
+            String userId,
+            NotificationType type,
+            String title,
+            String message,
+            String referenceType,
+            Long referenceId,
+            String actionUrl) {
+        return createNotificationInternal(
+                userId, type, title, message, referenceType, referenceId, actionUrl, null, false);
     }
 
     @Transactional(transactionManager = "notificationTransactionManager")
-    public NotificationResponse createNotification(String userId, NotificationType type,
-                                                    String title, String message,
-                                                    String referenceType, Long referenceId,
-                                                    String actionUrl, String iconUrl) {
-        return createNotificationInternal(userId, type, title, message, referenceType, referenceId, actionUrl, iconUrl, false);
+    public NotificationResponse createNotification(
+            String userId,
+            NotificationType type,
+            String title,
+            String message,
+            String referenceType,
+            Long referenceId,
+            String actionUrl,
+            String iconUrl) {
+        return createNotificationInternal(
+                userId,
+                type,
+                title,
+                message,
+                referenceType,
+                referenceId,
+                actionUrl,
+                iconUrl,
+                false);
     }
 
     /**
-     * NotificationType 메타데이터 기반 알림 생성.
-     * 중복 방지 타입(requiresDeduplication=true)은 자동으로 pre-check + saveAndFlush 처리.
+     * NotificationType 메타데이터 기반 알림 생성. 중복 방지 타입(requiresDeduplication=true)은 자동으로 pre-check +
+     * saveAndFlush 처리.
      *
-     * @param iconUrl     아이콘 URL (칭호의 경우 "rarity:LEGENDARY" 형태), null 가능
+     * @param iconUrl 아이콘 URL (칭호의 경우 "rarity:LEGENDARY" 형태), null 가능
      * @param messageArgs 메시지/제목 템플릿의 {0}, {1}, ... 인자 + actionUrl의 {0}, {1}, ... 치환용
      */
     @Transactional(transactionManager = "notificationTransactionManager")
-    public void sendNotification(String userId, NotificationType type,
-                                  Long referenceId, String iconUrl, Object... messageArgs) {
+    public void sendNotification(
+            String userId,
+            NotificationType type,
+            Long referenceId,
+            String iconUrl,
+            Object... messageArgs) {
         sendLocalizedNotification(userId, type, referenceId, iconUrl, locale -> messageArgs);
     }
 
     /**
      * 수신자 locale 의존 인자를 지원하는 변형 (LUT-410).
      *
-     * <p>DB 다국어 컬럼(예: ShopItem 의 name/nameEn/nameAr/nameJa)에서 온 값은 메시지 키가 아니라
-     * MessageSource 로 현지화할 수 없다 — 수신자 locale 을 먼저 결정한 뒤 인자를 만들도록 콜백을 받는다.
-     * (sendNotification 오버로드로 두면 Object... 와의 모호성으로 테스트 matcher 가 깨져 별도 이름 사용)
+     * <p>DB 다국어 컬럼(예: ShopItem 의 name/nameEn/nameAr/nameJa)에서 온 값은 메시지 키가 아니라 MessageSource 로 현지화할
+     * 수 없다 — 수신자 locale 을 먼저 결정한 뒤 인자를 만들도록 콜백을 받는다. (sendNotification 오버로드로 두면 Object... 와의 모호성으로
+     * 테스트 matcher 가 깨져 별도 이름 사용)
      */
     @Transactional(transactionManager = "notificationTransactionManager")
-    public void sendLocalizedNotification(String userId, NotificationType type,
-                                  Long referenceId, String iconUrl,
-                                  Function<Locale, Object[]> localizedArgs) {
+    public void sendLocalizedNotification(
+            String userId,
+            NotificationType type,
+            Long referenceId,
+            String iconUrl,
+            Function<Locale, Object[]> localizedArgs) {
         Locale userLocale = resolveUserLocale(userId);
         Object[] messageArgs = localizedArgs.apply(userLocale);
         String title = resolveNotificationMessage(type.getDefaultTitle(), userLocale, messageArgs);
-        String message = resolveNotificationMessage(type.getMessageTemplate(), userLocale, messageArgs);
+        String message =
+                resolveNotificationMessage(type.getMessageTemplate(), userLocale, messageArgs);
         String referenceType = type.getReferenceType();
         String actionUrl = type.resolveActionUrl(referenceId, messageArgs);
 
         if (type.isRequiresDeduplication()) {
             if (notificationRepository.existsByUserIdAndNotificationTypeAndReferenceId(
                     userId, type, referenceId)) {
-                log.debug("알림 중복 방지: userId={}, type={}, referenceId={}", userId, type, referenceId);
+                log.debug(
+                        "알림 중복 방지: userId={}, type={}, referenceId={}", userId, type, referenceId);
                 return;
             }
             try {
-                createNotificationInternal(userId, type, title, message,
-                    referenceType, referenceId, actionUrl, iconUrl, true);
+                createNotificationInternal(
+                        userId,
+                        type,
+                        title,
+                        message,
+                        referenceType,
+                        referenceId,
+                        actionUrl,
+                        iconUrl,
+                        true);
             } catch (DataIntegrityViolationException e) {
                 log.debug("알림 중복 감지 (DB 제약조건): userId={}, type={}", userId, type);
             }
         } else {
-            createNotificationInternal(userId, type, title, message,
-                referenceType, referenceId, actionUrl, iconUrl, false);
+            createNotificationInternal(
+                    userId,
+                    type,
+                    title,
+                    message,
+                    referenceType,
+                    referenceId,
+                    actionUrl,
+                    iconUrl,
+                    false);
         }
     }
 
@@ -124,23 +169,33 @@ public class NotificationService {
      *
      * @return 스트림 적재 성공 여부 — is_pushed/pushed_at 마킹 기준 (LUT-301)
      */
-    private boolean sendPushNotification(String userId, String title, String body,
-                                      String notificationType, String referenceType,
-                                      Long referenceId, String actionUrl) {
+    private boolean sendPushNotification(
+            String userId,
+            String title,
+            String body,
+            String notificationType,
+            String referenceType,
+            Long referenceId,
+            String actionUrl) {
         try {
-            AppPushMessageDto pushMessage = AppPushMessageDto.builder()
-                .userId(userId)
-                .title(title)
-                .body(body)
-                .notificationType(notificationType)
-                .clickAction(actionUrl)
-                .data(Map.of(
-                    "notification_type", notificationType,
-                    "reference_type", referenceType != null ? referenceType : "",
-                    "reference_id", referenceId != null ? referenceId.toString() : "",
-                    "action_url", actionUrl != null ? actionUrl : ""
-                ))
-                .build();
+            AppPushMessageDto pushMessage =
+                    AppPushMessageDto.builder()
+                            .userId(userId)
+                            .title(title)
+                            .body(body)
+                            .notificationType(notificationType)
+                            .clickAction(actionUrl)
+                            .data(
+                                    Map.of(
+                                            "notification_type", notificationType,
+                                            "reference_type",
+                                                    referenceType != null ? referenceType : "",
+                                            "reference_id",
+                                                    referenceId != null
+                                                            ? referenceId.toString()
+                                                            : "",
+                                            "action_url", actionUrl != null ? actionUrl : ""))
+                            .build();
 
             appPushMessageProducer.sendMessage(pushMessage);
             log.debug("푸시 알림 전송: userId={}, title={}", userId, title);
@@ -153,30 +208,31 @@ public class NotificationService {
 
     // 알림 목록 조회
     public Page<NotificationResponse> getNotifications(String userId, Pageable pageable) {
-        return notificationRepository.findByUserIdOrderByCreatedAtDesc(userId, pageable)
-            .map(NotificationResponse::from);
+        return notificationRepository
+                .findByUserIdOrderByCreatedAtDesc(userId, pageable)
+                .map(NotificationResponse::from);
     }
 
     // 읽지 않은 알림 조회
     public List<NotificationResponse> getUnreadNotifications(String userId) {
         return notificationRepository.findUnreadByUserId(userId).stream()
-            .map(NotificationResponse::from)
-            .toList();
+                .map(NotificationResponse::from)
+                .toList();
     }
 
     // 알림 요약 조회
     public NotificationSummaryResponse getNotificationSummary(String userId) {
         int unreadCount = notificationRepository.countUnreadByUserId(userId);
-        return NotificationSummaryResponse.builder()
-            .unreadCount(unreadCount)
-            .build();
+        return NotificationSummaryResponse.builder().unreadCount(unreadCount).build();
     }
 
     // 알림 읽음 처리
     @Transactional(transactionManager = "notificationTransactionManager")
     public NotificationResponse markAsRead(String userId, Long notificationId) {
-        Notification notification = notificationRepository.findById(notificationId)
-            .orElseThrow(() -> new IllegalArgumentException("알림을 찾을 수 없습니다."));
+        Notification notification =
+                notificationRepository
+                        .findById(notificationId)
+                        .orElseThrow(() -> new IllegalArgumentException("알림을 찾을 수 없습니다."));
 
         if (!notification.getUserId().equals(userId)) {
             throw new IllegalStateException("본인의 알림만 읽음 처리할 수 있습니다.");
@@ -206,8 +262,10 @@ public class NotificationService {
     // 알림 삭제
     @Transactional(transactionManager = "notificationTransactionManager")
     public void deleteNotification(String userId, Long notificationId) {
-        Notification notification = notificationRepository.findById(notificationId)
-            .orElseThrow(() -> new IllegalArgumentException("알림을 찾을 수 없습니다."));
+        Notification notification =
+                notificationRepository
+                        .findById(notificationId)
+                        .orElseThrow(() -> new IllegalArgumentException("알림을 찾을 수 없습니다."));
 
         if (!notification.getUserId().equals(userId)) {
             throw new IllegalStateException("본인의 알림만 삭제할 수 있습니다.");
@@ -222,8 +280,11 @@ public class NotificationService {
     public int deleteByReference(String referenceType, Long referenceId) {
         int count = notificationRepository.deleteByReference(referenceType, referenceId);
         if (count > 0) {
-            log.info("참조 정보로 알림 삭제: referenceType={}, referenceId={}, count={}",
-                referenceType, referenceId, count);
+            log.info(
+                    "참조 정보로 알림 삭제: referenceType={}, referenceId={}, count={}",
+                    referenceType,
+                    referenceId,
+                    count);
         }
         return count;
     }
@@ -236,18 +297,25 @@ public class NotificationService {
 
     // 알림 설정 수정
     @Transactional(transactionManager = "notificationTransactionManager")
-    public NotificationPreferenceResponse updatePreferences(String userId,
-                                                             NotificationPreferenceRequest request) {
+    public NotificationPreferenceResponse updatePreferences(
+            String userId, NotificationPreferenceRequest request) {
         NotificationPreference pref = getOrCreatePreference(userId);
 
         if (request.getPushEnabled() != null) pref.setPushEnabled(request.getPushEnabled());
-        if (request.getFriendNotifications() != null) pref.setFriendNotifications(request.getFriendNotifications());
-        if (request.getGuildNotifications() != null) pref.setGuildNotifications(request.getGuildNotifications());
-        if (request.getSocialNotifications() != null) pref.setSocialNotifications(request.getSocialNotifications());
-        if (request.getSystemNotifications() != null) pref.setSystemNotifications(request.getSystemNotifications());
-        if (request.getItemPushNotifications() != null) pref.setItemPushNotifications(request.getItemPushNotifications());
-        if (request.getQuietHoursEnabled() != null) pref.setQuietHoursEnabled(request.getQuietHoursEnabled());
-        if (request.getQuietHoursStart() != null) pref.setQuietHoursStart(request.getQuietHoursStart());
+        if (request.getFriendNotifications() != null)
+            pref.setFriendNotifications(request.getFriendNotifications());
+        if (request.getGuildNotifications() != null)
+            pref.setGuildNotifications(request.getGuildNotifications());
+        if (request.getSocialNotifications() != null)
+            pref.setSocialNotifications(request.getSocialNotifications());
+        if (request.getSystemNotifications() != null)
+            pref.setSystemNotifications(request.getSystemNotifications());
+        if (request.getItemPushNotifications() != null)
+            pref.setItemPushNotifications(request.getItemPushNotifications());
+        if (request.getQuietHoursEnabled() != null)
+            pref.setQuietHoursEnabled(request.getQuietHoursEnabled());
+        if (request.getQuietHoursStart() != null)
+            pref.setQuietHoursStart(request.getQuietHoursStart());
         if (request.getQuietHoursEnd() != null) pref.setQuietHoursEnd(request.getQuietHoursEnd());
 
         log.info("알림 설정 수정: userId={}", userId);
@@ -265,38 +333,48 @@ public class NotificationService {
     }
 
     private NotificationPreference getOrCreatePreference(String userId) {
-        return preferenceRepository.findByUserId(userId)
-            .orElseGet(() -> {
-                NotificationPreference newPref = NotificationPreference.createDefault(userId);
-                return preferenceRepository.save(newPref);
-            });
+        return preferenceRepository
+                .findByUserId(userId)
+                .orElseGet(
+                        () -> {
+                            NotificationPreference newPref =
+                                    NotificationPreference.createDefault(userId);
+                            return preferenceRepository.save(newPref);
+                        });
     }
 
-    private NotificationResponse createNotificationInternal(String userId, NotificationType type,
-                                                             String title, String message,
-                                                             String referenceType, Long referenceId,
-                                                             String actionUrl, String iconUrl,
-                                                             boolean flush) {
+    private NotificationResponse createNotificationInternal(
+            String userId,
+            NotificationType type,
+            String title,
+            String message,
+            String referenceType,
+            Long referenceId,
+            String actionUrl,
+            String iconUrl,
+            boolean flush) {
         NotificationPreference pref = getOrCreatePreference(userId);
         if (!pref.isCategoryEnabled(type.getCategory())) {
             log.debug("알림 비활성화됨: userId={}, type={}", userId, type);
             return null;
         }
 
-        Notification notification = Notification.builder()
-            .userId(userId)
-            .notificationType(type)
-            .title(title)
-            .message(message)
-            .referenceType(referenceType)
-            .referenceId(referenceId)
-            .actionUrl(actionUrl)
-            .iconUrl(iconUrl)
-            .build();
+        Notification notification =
+                Notification.builder()
+                        .userId(userId)
+                        .notificationType(type)
+                        .title(title)
+                        .message(message)
+                        .referenceType(referenceType)
+                        .referenceId(referenceId)
+                        .actionUrl(actionUrl)
+                        .iconUrl(iconUrl)
+                        .build();
 
-        Notification saved = flush
-            ? notificationRepository.saveAndFlush(notification)
-            : notificationRepository.save(notification);
+        Notification saved =
+                flush
+                        ? notificationRepository.saveAndFlush(notification)
+                        : notificationRepository.save(notification);
         log.info("알림 생성: userId={}, type={}, title={}", userId, type, title);
 
         NotificationResponse response = NotificationResponse.from(saved);
@@ -307,8 +385,15 @@ public class NotificationService {
         if (pref.getPushEnabled() && !isInQuietHours(userId, pref)) {
             // LUT-301: 스트림 적재 성공 시점을 푸시 발송으로 마킹 — 저장만 되고 푸시가 안 나간
             // 알림(카테고리 off/방해금지/적재 실패)과의 구분용. FCM 실제 전달 여부는 다루지 않는다.
-            boolean pushed = sendPushNotification(
-                userId, title, message, type.name(), referenceType, referenceId, actionUrl);
+            boolean pushed =
+                    sendPushNotification(
+                            userId,
+                            title,
+                            message,
+                            type.name(),
+                            referenceType,
+                            referenceId,
+                            actionUrl);
             if (pushed) {
                 saved.markAsPushed();
             }
@@ -322,21 +407,21 @@ public class NotificationService {
     // ==================== 편의 메서드 (특수 케이스) ====================
 
     /**
-     * 외부에서 들어온 push 메시지를 사용자 locale로 i18n 재구성 (QA-94).
-     * 결과 [title, message] 반환. 사용자 locale 조회 실패 시 default locale 사용.
+     * 외부에서 들어온 push 메시지를 사용자 locale로 i18n 재구성 (QA-94). 결과 [title, message] 반환. 사용자 locale 조회 실패 시
+     * default locale 사용.
      */
     @Transactional(readOnly = true, transactionManager = "notificationTransactionManager")
     public String[] localizePushText(String userId, NotificationType type, Object... args) {
         Locale userLocale = resolveUserLocale(userId);
         String title = resolveNotificationMessage(type.getDefaultTitle(), userLocale, args);
         String message = resolveNotificationMessage(type.getMessageTemplate(), userLocale, args);
-        return new String[] { title, message };
+        return new String[] {title, message};
     }
 
     /**
-     * 외부(예: admin-service)에서 Redis Stream으로 들어온 INQUIRY_REPLIED 알림을 in-app DB에 저장한다.
-     * 푸시 알림은 이미 stream으로 발행되어 별도 Consumer가 FCM 처리하므로 여기서는 push 재발행하지 않는다.
-     * 사용자 locale로 i18n 메시지 lookup. (QA-94)
+     * 외부(예: admin-service)에서 Redis Stream으로 들어온 INQUIRY_REPLIED 알림을 in-app DB에 저장한다. 푸시 알림은 이미
+     * stream으로 발행되어 별도 Consumer가 FCM 처리하므로 여기서는 push 재발행하지 않는다. 사용자 locale로 i18n 메시지 lookup.
+     * (QA-94)
      */
     @Transactional(transactionManager = "notificationTransactionManager")
     public void saveInquiryRepliedInApp(String userId, Long inquiryId, String inquiryTitle) {
@@ -344,8 +429,11 @@ public class NotificationService {
         NotificationType type = NotificationType.INQUIRY_REPLIED;
         Locale userLocale = resolveUserLocale(userId);
         String title = resolveNotificationMessage(type.getDefaultTitle(), userLocale);
-        String message = resolveNotificationMessage(type.getMessageTemplate(), userLocale,
-            inquiryTitle != null ? inquiryTitle : "");
+        String message =
+                resolveNotificationMessage(
+                        type.getMessageTemplate(),
+                        userLocale,
+                        inquiryTitle != null ? inquiryTitle : "");
 
         NotificationPreference pref = getOrCreatePreference(userId);
         if (!pref.isCategoryEnabled(type.getCategory())) {
@@ -353,15 +441,16 @@ public class NotificationService {
             return;
         }
 
-        Notification notification = Notification.builder()
-            .userId(userId)
-            .notificationType(type)
-            .title(title)
-            .message(message)
-            .referenceType(type.getReferenceType())
-            .referenceId(inquiryId)
-            .actionUrl(type.resolveActionUrl(inquiryId))
-            .build();
+        Notification notification =
+                Notification.builder()
+                        .userId(userId)
+                        .notificationType(type)
+                        .title(title)
+                        .message(message)
+                        .referenceType(type.getReferenceType())
+                        .referenceId(inquiryId)
+                        .actionUrl(type.resolveActionUrl(inquiryId))
+                        .build();
         Notification saved = notificationRepository.save(notification);
         log.info("INQUIRY_REPLIED in-app 알림 저장: userId={}, inquiryId={}", userId, inquiryId);
         // QA-224: 실시간 채널로 즉시 전달
@@ -373,31 +462,44 @@ public class NotificationService {
     @Transactional(transactionManager = "notificationTransactionManager")
     public void notifyContentReported(String userId, String targetTypeDescription) {
         Locale userLocale = resolveUserLocale(userId);
-        String title = resolveNotificationMessage("notification.content_reported.title", userLocale);
-        String message = resolveNotificationMessage("notification.content_reported.message", userLocale, targetTypeDescription);
-        createNotification(userId, NotificationType.CONTENT_REPORTED,
-            title, message, null, null, "/mypage");
+        String title =
+                resolveNotificationMessage("notification.content_reported.title", userLocale);
+        String message =
+                resolveNotificationMessage(
+                        "notification.content_reported.message", userLocale, targetTypeDescription);
+        createNotification(
+                userId, NotificationType.CONTENT_REPORTED, title, message, null, null, "/mypage");
     }
 
     // 길드 콘텐츠 신고 알림 (길드 마스터에게)
     @Transactional(transactionManager = "notificationTransactionManager")
-    public void notifyGuildContentReported(String guildMasterId, String targetTypeDescription, Long guildId) {
+    public void notifyGuildContentReported(
+            String guildMasterId, String targetTypeDescription, Long guildId) {
         Locale userLocale = resolveUserLocale(guildMasterId);
-        String title = resolveNotificationMessage("notification.content_reported.guild_title", userLocale);
-        String message = resolveNotificationMessage("notification.content_reported.guild_message", userLocale, targetTypeDescription);
-        createNotification(guildMasterId, NotificationType.CONTENT_REPORTED,
-            title, message, "GUILD", guildId, "/guild/" + guildId);
+        String title =
+                resolveNotificationMessage("notification.content_reported.guild_title", userLocale);
+        String message =
+                resolveNotificationMessage(
+                        "notification.content_reported.guild_message",
+                        userLocale,
+                        targetTypeDescription);
+        createNotification(
+                guildMasterId,
+                NotificationType.CONTENT_REPORTED,
+                title,
+                message,
+                "GUILD",
+                guildId,
+                "/guild/" + guildId);
     }
 
     // ==================== Quiet Hours ====================
 
-    /**
-     * 사용자의 현재 시간이 Quiet Hours 범위 내인지 확인.
-     * 사용자 타임존 기반으로 판단한다.
-     */
+    /** 사용자의 현재 시간이 Quiet Hours 범위 내인지 확인. 사용자 타임존 기반으로 판단한다. */
     private boolean isInQuietHours(String userId, NotificationPreference pref) {
         if (!Boolean.TRUE.equals(pref.getQuietHoursEnabled())
-            || pref.getQuietHoursStart() == null || pref.getQuietHoursEnd() == null) {
+                || pref.getQuietHoursStart() == null
+                || pref.getQuietHoursEnd() == null) {
             return false;
         }
 
@@ -421,9 +523,11 @@ public class NotificationService {
 
     private ZoneId resolveUserZone(String userId) {
         try {
-            String timezone = userRepository.findById(userId)
-                .map(Users::getPreferredTimezone)
-                .orElse("Asia/Seoul");
+            String timezone =
+                    userRepository
+                            .findById(userId)
+                            .map(Users::getPreferredTimezone)
+                            .orElse("Asia/Seoul");
             return ZoneId.of(timezone);
         } catch (Exception e) {
             return ZoneId.of("Asia/Seoul");
@@ -434,9 +538,8 @@ public class NotificationService {
 
     private Locale resolveUserLocale(String userId) {
         try {
-            String locale = userRepository.findById(userId)
-                .map(Users::getPreferredLocale)
-                .orElse("en");
+            String locale =
+                    userRepository.findById(userId).map(Users::getPreferredLocale).orElse("en");
             return Locale.forLanguageTag(locale);
         } catch (Exception e) {
             return Locale.ENGLISH;
@@ -452,25 +555,41 @@ public class NotificationService {
     }
 
     /**
-     * LUT-516: 장착 아이템 개별 푸시 발송. 제목=아이템명, 본문=어드민 메시지(수신자 locale 선택, {nickname} 치환).
-     * 본문은 메시지 키가 아닌 DB 원문이라 createNotification 에 명시 전달한다 — 기존 파이프라인(ITEM_PUSH 카테고리
-     * 토글·방해금지·현지화 저장·FCM)을 그대로 탄다. 카테고리 off 면 createNotification 이 null 을 반환한다.
+     * LUT-516: 장착 아이템 개별 푸시 발송. 제목=아이템명, 본문=어드민 메시지(수신자 locale 선택, {nickname} 치환). 본문은 메시지 키가 아닌 DB
+     * 원문이라 createNotification 에 명시 전달한다 — 기존 파이프라인(ITEM_PUSH 카테고리 토글·방해금지·현지화 저장·FCM)을 그대로 탄다. 카테고리
+     * off 면 createNotification 이 null 을 반환한다.
      */
     @Transactional(transactionManager = "notificationTransactionManager")
     public void sendEquippedItemPush(EquippedItemPushDueEvent event) {
         String tag = resolveUserLocale(event.userId()).toLanguageTag();
-        String title = LocaleUtils.getLocalizedText(
-            event.itemName(), event.itemNameEn(), event.itemNameAr(), event.itemNameJa(), tag);
-        String body = LocaleUtils.getLocalizedText(
-            event.message(), event.messageEn(), event.messageAr(), event.messageJa(), tag);
+        String title =
+                LocaleUtils.getLocalizedText(
+                        event.itemName(),
+                        event.itemNameEn(),
+                        event.itemNameAr(),
+                        event.itemNameJa(),
+                        tag);
+        String body =
+                LocaleUtils.getLocalizedText(
+                        event.message(),
+                        event.messageEn(),
+                        event.messageAr(),
+                        event.messageJa(),
+                        tag);
         if (body != null && body.contains("{nickname}")) {
             body = body.replace("{nickname}", resolveUserNickname(event.userId()));
         }
         if (body != null && body.length() > 500) {
             body = body.substring(0, 500);
         }
-        createNotification(event.userId(), NotificationType.EQUIPPED_ITEM_PUSH,
-            title, body, "ITEM", event.shopItemId(), event.actionUrl());
+        createNotification(
+                event.userId(),
+                NotificationType.EQUIPPED_ITEM_PUSH,
+                title,
+                body,
+                "ITEM",
+                event.shopItemId(),
+                event.actionUrl());
     }
 
     private String resolveNotificationMessage(String key, Locale locale, Object... args) {

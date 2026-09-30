@@ -4,7 +4,6 @@ import static io.pinkspider.global.test.TestReflectionUtils.setId;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -29,35 +28,34 @@ import org.mockito.junit.jupiter.MockitoExtension;
 @ExtendWith(MockitoExtension.class)
 class AchievementCategoryAdminServiceTest {
 
-    @Mock
-    private AchievementCategoryRepository achievementCategoryRepository;
+    @Mock private AchievementCategoryRepository achievementCategoryRepository;
 
-    @Mock
-    private AchievementRepository achievementRepository;
+    @Mock private AchievementRepository achievementRepository;
 
-    @InjectMocks
-    private AchievementCategoryAdminService achievementCategoryAdminService;
+    @InjectMocks private AchievementCategoryAdminService achievementCategoryAdminService;
 
-    private AchievementCategory createTestCategory(Long id, String code, String name, boolean isActive) {
-        AchievementCategory category = AchievementCategory.builder()
-            .code(code)
-            .name(name)
-            .description(name + " 설명")
-            .sortOrder(1)
-            .isActive(isActive)
-            .build();
+    private AchievementCategory createTestCategory(
+            Long id, String code, String name, boolean isActive) {
+        AchievementCategory category =
+                AchievementCategory.builder()
+                        .code(code)
+                        .name(name)
+                        .description(name + " 설명")
+                        .sortOrder(1)
+                        .isActive(isActive)
+                        .build();
         setId(category, id);
         return category;
     }
 
     private AchievementCategoryAdminRequest createTestRequest(String code, String name) {
         return AchievementCategoryAdminRequest.builder()
-            .code(code)
-            .name(name)
-            .description(name + " 설명")
-            .sortOrder(1)
-            .isActive(true)
-            .build();
+                .code(code)
+                .name(name)
+                .description(name + " 설명")
+                .sortOrder(1)
+                .isActive(true)
+                .build();
     }
 
     @Nested
@@ -72,10 +70,11 @@ class AchievementCategoryAdminServiceTest {
             AchievementCategory category2 = createTestCategory(2L, "GUILD", "길드", true);
 
             when(achievementCategoryRepository.findAllByOrderBySortOrderAsc())
-                .thenReturn(List.of(category1, category2));
+                    .thenReturn(List.of(category1, category2));
 
             // when
-            List<AchievementCategoryAdminResponse> result = achievementCategoryAdminService.getAllCategories();
+            List<AchievementCategoryAdminResponse> result =
+                    achievementCategoryAdminService.getAllCategories();
 
             // then
             assertThat(result).hasSize(2);
@@ -87,10 +86,12 @@ class AchievementCategoryAdminServiceTest {
         @DisplayName("카테고리가 없으면 빈 목록을 반환한다")
         void getAllCategories_empty() {
             // given
-            when(achievementCategoryRepository.findAllByOrderBySortOrderAsc()).thenReturn(List.of());
+            when(achievementCategoryRepository.findAllByOrderBySortOrderAsc())
+                    .thenReturn(List.of());
 
             // when
-            List<AchievementCategoryAdminResponse> result = achievementCategoryAdminService.getAllCategories();
+            List<AchievementCategoryAdminResponse> result =
+                    achievementCategoryAdminService.getAllCategories();
 
             // then
             assertThat(result).isEmpty();
@@ -109,10 +110,11 @@ class AchievementCategoryAdminServiceTest {
             AchievementCategory category2 = createTestCategory(2L, "GUILD", "길드", true);
 
             when(achievementCategoryRepository.findByIsActiveTrueOrderBySortOrderAsc())
-                .thenReturn(List.of(category1, category2));
+                    .thenReturn(List.of(category1, category2));
 
             // when
-            List<AchievementCategoryAdminResponse> result = achievementCategoryAdminService.getActiveCategories();
+            List<AchievementCategoryAdminResponse> result =
+                    achievementCategoryAdminService.getActiveCategories();
 
             // then
             assertThat(result).hasSize(2);
@@ -133,7 +135,8 @@ class AchievementCategoryAdminServiceTest {
             when(achievementCategoryRepository.findById(1L)).thenReturn(Optional.of(category));
 
             // when
-            AchievementCategoryAdminResponse result = achievementCategoryAdminService.getCategory(1L);
+            AchievementCategoryAdminResponse result =
+                    achievementCategoryAdminService.getCategory(1L);
 
             // then
             assertThat(result).isNotNull();
@@ -149,8 +152,8 @@ class AchievementCategoryAdminServiceTest {
 
             // when & then
             assertThatThrownBy(() -> achievementCategoryAdminService.getCategory(999L))
-                .isInstanceOf(CustomException.class)
-                .hasMessageContaining("error.achievement.category.not_found");
+                    .isInstanceOf(CustomException.class)
+                    .hasMessageContaining("error.achievement.category.not_found");
         }
     }
 
@@ -164,10 +167,12 @@ class AchievementCategoryAdminServiceTest {
             // given
             AchievementCategory category = createTestCategory(1L, "MISSION", "미션", true);
 
-            when(achievementCategoryRepository.findByCode("MISSION")).thenReturn(Optional.of(category));
+            when(achievementCategoryRepository.findByCode("MISSION"))
+                    .thenReturn(Optional.of(category));
 
             // when
-            AchievementCategoryAdminResponse result = achievementCategoryAdminService.getCategoryByCode("MISSION");
+            AchievementCategoryAdminResponse result =
+                    achievementCategoryAdminService.getCategoryByCode("MISSION");
 
             // then
             assertThat(result).isNotNull();
@@ -182,8 +187,8 @@ class AchievementCategoryAdminServiceTest {
 
             // when & then
             assertThatThrownBy(() -> achievementCategoryAdminService.getCategoryByCode("UNKNOWN"))
-                .isInstanceOf(CustomException.class)
-                .hasMessageContaining("error.achievement.category.not_found");
+                    .isInstanceOf(CustomException.class)
+                    .hasMessageContaining("error.achievement.category.not_found");
         }
     }
 
@@ -196,13 +201,16 @@ class AchievementCategoryAdminServiceTest {
         void createCategory_success() {
             // given
             AchievementCategoryAdminRequest request = createTestRequest("NEW_CATEGORY", "새 카테고리");
-            AchievementCategory savedCategory = createTestCategory(1L, "NEW_CATEGORY", "새 카테고리", true);
+            AchievementCategory savedCategory =
+                    createTestCategory(1L, "NEW_CATEGORY", "새 카테고리", true);
 
             when(achievementCategoryRepository.existsByCode("NEW_CATEGORY")).thenReturn(false);
-            when(achievementCategoryRepository.save(any(AchievementCategory.class))).thenReturn(savedCategory);
+            when(achievementCategoryRepository.save(any(AchievementCategory.class)))
+                    .thenReturn(savedCategory);
 
             // when
-            AchievementCategoryAdminResponse result = achievementCategoryAdminService.createCategory(request);
+            AchievementCategoryAdminResponse result =
+                    achievementCategoryAdminService.createCategory(request);
 
             // then
             assertThat(result).isNotNull();
@@ -215,19 +223,23 @@ class AchievementCategoryAdminServiceTest {
         @DisplayName("isActive가 null이면 기본값 true로 설정된다")
         void createCategory_nullIsActive_defaultsToTrue() {
             // given
-            AchievementCategoryAdminRequest request = AchievementCategoryAdminRequest.builder()
-                .code("NEW_CATEGORY")
-                .name("새 카테고리")
-                .sortOrder(1)
-                .isActive(null)
-                .build();
-            AchievementCategory savedCategory = createTestCategory(1L, "NEW_CATEGORY", "새 카테고리", true);
+            AchievementCategoryAdminRequest request =
+                    AchievementCategoryAdminRequest.builder()
+                            .code("NEW_CATEGORY")
+                            .name("새 카테고리")
+                            .sortOrder(1)
+                            .isActive(null)
+                            .build();
+            AchievementCategory savedCategory =
+                    createTestCategory(1L, "NEW_CATEGORY", "새 카테고리", true);
 
             when(achievementCategoryRepository.existsByCode("NEW_CATEGORY")).thenReturn(false);
-            when(achievementCategoryRepository.save(any(AchievementCategory.class))).thenReturn(savedCategory);
+            when(achievementCategoryRepository.save(any(AchievementCategory.class)))
+                    .thenReturn(savedCategory);
 
             // when
-            AchievementCategoryAdminResponse result = achievementCategoryAdminService.createCategory(request);
+            AchievementCategoryAdminResponse result =
+                    achievementCategoryAdminService.createCategory(request);
 
             // then
             assertThat(result).isNotNull();
@@ -244,8 +256,8 @@ class AchievementCategoryAdminServiceTest {
 
             // when & then
             assertThatThrownBy(() -> achievementCategoryAdminService.createCategory(request))
-                .isInstanceOf(CustomException.class)
-                .hasMessageContaining("error.achievement.category.duplicate_code");
+                    .isInstanceOf(CustomException.class)
+                    .hasMessageContaining("error.achievement.category.duplicate_code");
 
             verify(achievementCategoryRepository, never()).save(any(AchievementCategory.class));
         }
@@ -263,10 +275,12 @@ class AchievementCategoryAdminServiceTest {
             AchievementCategoryAdminRequest request = createTestRequest("MISSION", "수정된 미션");
 
             when(achievementCategoryRepository.findById(1L)).thenReturn(Optional.of(category));
-            when(achievementCategoryRepository.save(any(AchievementCategory.class))).thenReturn(category);
+            when(achievementCategoryRepository.save(any(AchievementCategory.class)))
+                    .thenReturn(category);
 
             // when
-            AchievementCategoryAdminResponse result = achievementCategoryAdminService.updateCategory(1L, request);
+            AchievementCategoryAdminResponse result =
+                    achievementCategoryAdminService.updateCategory(1L, request);
 
             // then
             assertThat(result).isNotNull();
@@ -280,20 +294,24 @@ class AchievementCategoryAdminServiceTest {
             AchievementCategory category = createTestCategory(1L, "OLD_CODE", "기존 카테고리", true);
             AchievementCategoryAdminRequest request = createTestRequest("NEW_CODE", "기존 카테고리");
 
-            Achievement achievement = Achievement.builder()
-                .name("기존 업적")
-                .categoryCode("OLD_CODE")
-                .requiredCount(1)
-                .rewardExp(0)
-                .isActive(true)
-                .isHidden(false)
-                .build();
+            Achievement achievement =
+                    Achievement.builder()
+                            .name("기존 업적")
+                            .categoryCode("OLD_CODE")
+                            .requiredCount(1)
+                            .rewardExp(0)
+                            .isActive(true)
+                            .isHidden(false)
+                            .build();
             setId(achievement, 1L);
 
             when(achievementCategoryRepository.findById(1L)).thenReturn(Optional.of(category));
-            when(achievementCategoryRepository.existsByCodeAndIdNot("NEW_CODE", 1L)).thenReturn(false);
-            when(achievementCategoryRepository.save(any(AchievementCategory.class))).thenReturn(category);
-            when(achievementRepository.findByCategoryCode("OLD_CODE")).thenReturn(List.of(achievement));
+            when(achievementCategoryRepository.existsByCodeAndIdNot("NEW_CODE", 1L))
+                    .thenReturn(false);
+            when(achievementCategoryRepository.save(any(AchievementCategory.class)))
+                    .thenReturn(category);
+            when(achievementRepository.findByCategoryCode("OLD_CODE"))
+                    .thenReturn(List.of(achievement));
             when(achievementRepository.save(any(Achievement.class))).thenReturn(achievement);
 
             // when
@@ -316,8 +334,8 @@ class AchievementCategoryAdminServiceTest {
 
             // when & then
             assertThatThrownBy(() -> achievementCategoryAdminService.updateCategory(1L, request))
-                .isInstanceOf(CustomException.class)
-                .hasMessageContaining("error.achievement.category.duplicate_code");
+                    .isInstanceOf(CustomException.class)
+                    .hasMessageContaining("error.achievement.category.duplicate_code");
         }
 
         @Test
@@ -329,8 +347,8 @@ class AchievementCategoryAdminServiceTest {
 
             // when & then
             assertThatThrownBy(() -> achievementCategoryAdminService.updateCategory(999L, request))
-                .isInstanceOf(CustomException.class)
-                .hasMessageContaining("error.achievement.category.not_found");
+                    .isInstanceOf(CustomException.class)
+                    .hasMessageContaining("error.achievement.category.not_found");
         }
     }
 
@@ -345,10 +363,12 @@ class AchievementCategoryAdminServiceTest {
             AchievementCategory category = createTestCategory(1L, "MISSION", "미션", true);
 
             when(achievementCategoryRepository.findById(1L)).thenReturn(Optional.of(category));
-            when(achievementCategoryRepository.save(any(AchievementCategory.class))).thenAnswer(inv -> inv.getArgument(0));
+            when(achievementCategoryRepository.save(any(AchievementCategory.class)))
+                    .thenAnswer(inv -> inv.getArgument(0));
 
             // when
-            AchievementCategoryAdminResponse result = achievementCategoryAdminService.toggleActiveStatus(1L);
+            AchievementCategoryAdminResponse result =
+                    achievementCategoryAdminService.toggleActiveStatus(1L);
 
             // then
             assertThat(result.getIsActive()).isFalse();
@@ -362,10 +382,12 @@ class AchievementCategoryAdminServiceTest {
             AchievementCategory category = createTestCategory(1L, "MISSION", "미션", false);
 
             when(achievementCategoryRepository.findById(1L)).thenReturn(Optional.of(category));
-            when(achievementCategoryRepository.save(any(AchievementCategory.class))).thenAnswer(inv -> inv.getArgument(0));
+            when(achievementCategoryRepository.save(any(AchievementCategory.class)))
+                    .thenAnswer(inv -> inv.getArgument(0));
 
             // when
-            AchievementCategoryAdminResponse result = achievementCategoryAdminService.toggleActiveStatus(1L);
+            AchievementCategoryAdminResponse result =
+                    achievementCategoryAdminService.toggleActiveStatus(1L);
 
             // then
             assertThat(result.getIsActive()).isTrue();
@@ -379,8 +401,8 @@ class AchievementCategoryAdminServiceTest {
 
             // when & then
             assertThatThrownBy(() -> achievementCategoryAdminService.toggleActiveStatus(999L))
-                .isInstanceOf(CustomException.class)
-                .hasMessageContaining("error.achievement.category.not_found");
+                    .isInstanceOf(CustomException.class)
+                    .hasMessageContaining("error.achievement.category.not_found");
         }
     }
 
@@ -409,23 +431,25 @@ class AchievementCategoryAdminServiceTest {
         void deleteCategory_hasAchievements() {
             // given
             AchievementCategory category = createTestCategory(1L, "MISSION", "미션", true);
-            Achievement achievement = Achievement.builder()
-                .name("관련 업적")
-                .categoryCode("MISSION")
-                .requiredCount(1)
-                .rewardExp(0)
-                .isActive(true)
-                .isHidden(false)
-                .build();
+            Achievement achievement =
+                    Achievement.builder()
+                            .name("관련 업적")
+                            .categoryCode("MISSION")
+                            .requiredCount(1)
+                            .rewardExp(0)
+                            .isActive(true)
+                            .isHidden(false)
+                            .build();
             setId(achievement, 1L);
 
             when(achievementCategoryRepository.findById(1L)).thenReturn(Optional.of(category));
-            when(achievementRepository.findByCategoryCode("MISSION")).thenReturn(List.of(achievement));
+            when(achievementRepository.findByCategoryCode("MISSION"))
+                    .thenReturn(List.of(achievement));
 
             // when & then
             assertThatThrownBy(() -> achievementCategoryAdminService.deleteCategory(1L))
-                .isInstanceOf(CustomException.class)
-                .hasMessageContaining("error.achievement.category.has_achievements");
+                    .isInstanceOf(CustomException.class)
+                    .hasMessageContaining("error.achievement.category.has_achievements");
 
             verify(achievementCategoryRepository, never()).deleteById(any());
         }
@@ -438,8 +462,8 @@ class AchievementCategoryAdminServiceTest {
 
             // when & then
             assertThatThrownBy(() -> achievementCategoryAdminService.deleteCategory(999L))
-                .isInstanceOf(CustomException.class)
-                .hasMessageContaining("error.achievement.category.not_found");
+                    .isInstanceOf(CustomException.class)
+                    .hasMessageContaining("error.achievement.category.not_found");
         }
     }
 }

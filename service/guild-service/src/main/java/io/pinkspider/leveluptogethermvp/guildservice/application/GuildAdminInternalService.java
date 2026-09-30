@@ -1,6 +1,8 @@
 package io.pinkspider.leveluptogethermvp.guildservice.application;
 
 import io.pinkspider.global.exception.CustomException;
+import io.pinkspider.global.facade.UserQueryFacade;
+import io.pinkspider.global.facade.dto.UserProfileInfo;
 import io.pinkspider.leveluptogethermvp.guildservice.domain.dto.admin.GuildAdminPageResponse;
 import io.pinkspider.leveluptogethermvp.guildservice.domain.dto.admin.GuildAdminResponse;
 import io.pinkspider.leveluptogethermvp.guildservice.domain.dto.admin.GuildMemberAdminResponse;
@@ -13,8 +15,6 @@ import io.pinkspider.leveluptogethermvp.guildservice.infrastructure.GuildMemberR
 import io.pinkspider.leveluptogethermvp.guildservice.infrastructure.GuildRepository;
 import io.pinkspider.leveluptogethermvp.metaservice.application.MissionCategoryService;
 import io.pinkspider.leveluptogethermvp.metaservice.domain.dto.MissionCategoryResponse;
-import io.pinkspider.global.facade.UserQueryFacade;
-import io.pinkspider.global.facade.dto.UserProfileInfo;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.HashMap;
@@ -28,9 +28,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-/**
- * Admin Internal API 전용 길드 서비스
- */
+/** Admin Internal API 전용 길드 서비스 */
 @Service
 @RequiredArgsConstructor
 @Slf4j
@@ -42,73 +40,101 @@ public class GuildAdminInternalService {
     private final MissionCategoryService missionCategoryService;
     private final UserQueryFacade userQueryFacadeService;
 
-    public GuildAdminPageResponse searchGuilds(String keyword, Long categoryId,
-            Boolean isActive, String visibility, Pageable pageable) {
+    public GuildAdminPageResponse searchGuilds(
+            String keyword,
+            Long categoryId,
+            Boolean isActive,
+            String visibility,
+            Pageable pageable) {
         return searchGuilds(keyword, categoryId, null, isActive, visibility, pageable);
     }
 
     /** 멀티 카테고리 필터 지원 — categoryIds 우선, 없으면 단일 categoryId 사용 (하위 호환) */
-    public GuildAdminPageResponse searchGuilds(String keyword, Long categoryId,
-            List<Long> categoryIds, Boolean isActive, String visibility, Pageable pageable) {
-        GuildVisibility guildVisibility = visibility != null
-            ? GuildVisibility.valueOf(visibility) : null;
+    public GuildAdminPageResponse searchGuilds(
+            String keyword,
+            Long categoryId,
+            List<Long> categoryIds,
+            Boolean isActive,
+            String visibility,
+            Pageable pageable) {
+        GuildVisibility guildVisibility =
+                visibility != null ? GuildVisibility.valueOf(visibility) : null;
 
-        List<Long> effectiveCategoryIds = categoryIds != null && !categoryIds.isEmpty()
-            ? categoryIds
-            : (categoryId != null ? List.of(categoryId) : List.of());
+        List<Long> effectiveCategoryIds =
+                categoryIds != null && !categoryIds.isEmpty()
+                        ? categoryIds
+                        : (categoryId != null ? List.of(categoryId) : List.of());
         boolean hasCategoryFilter = !effectiveCategoryIds.isEmpty();
 
-        Page<Guild> guilds = guildRepository.searchGuildsForAdmin(
-            keyword,
-            hasCategoryFilter,
-            hasCategoryFilter ? effectiveCategoryIds : List.of(-1L),
-            isActive,
-            guildVisibility,
-            pageable);
+        Page<Guild> guilds =
+                guildRepository.searchGuildsForAdmin(
+                        keyword,
+                        hasCategoryFilter,
+                        hasCategoryFilter ? effectiveCategoryIds : List.of(-1L),
+                        isActive,
+                        guildVisibility,
+                        pageable);
 
         Map<Long, MissionCategoryResponse> categoryMap = getCategoryMap();
-        Map<Long, Integer> memberCountMap = getMemberCountMap(
-            guilds.getContent().stream().map(Guild::getId).collect(Collectors.toList()));
-        Map<String, String> masterNicknameMap = getMasterNicknameMap(
-            guilds.getContent().stream().map(Guild::getMasterId)
-                .filter(id -> id != null).distinct().collect(Collectors.toList()));
+        Map<Long, Integer> memberCountMap =
+                getMemberCountMap(
+                        guilds.getContent().stream()
+                                .map(Guild::getId)
+                                .collect(Collectors.toList()));
+        Map<String, String> masterNicknameMap =
+                getMasterNicknameMap(
+                        guilds.getContent().stream()
+                                .map(Guild::getMasterId)
+                                .filter(id -> id != null)
+                                .distinct()
+                                .collect(Collectors.toList()));
 
-        Page<GuildAdminResponse> responsePage = guilds.map(guild -> {
-            MissionCategoryResponse category = categoryMap.get(guild.getCategoryId());
-            int memberCount = memberCountMap.getOrDefault(guild.getId(), 0);
-            String masterNickname = guild.getMasterId() != null
-                ? masterNicknameMap.get(guild.getMasterId()) : null;
-            return GuildAdminResponse.from(guild, memberCount,
-                category != null ? category.getName() : null,
-                category != null ? category.getIcon() : null,
-                masterNickname);
-        });
+        Page<GuildAdminResponse> responsePage =
+                guilds.map(
+                        guild -> {
+                            MissionCategoryResponse category =
+                                    categoryMap.get(guild.getCategoryId());
+                            int memberCount = memberCountMap.getOrDefault(guild.getId(), 0);
+                            String masterNickname =
+                                    guild.getMasterId() != null
+                                            ? masterNicknameMap.get(guild.getMasterId())
+                                            : null;
+                            return GuildAdminResponse.from(
+                                    guild,
+                                    memberCount,
+                                    category != null ? category.getName() : null,
+                                    category != null ? category.getIcon() : null,
+                                    masterNickname);
+                        });
 
         return GuildAdminPageResponse.from(responsePage);
     }
 
     public GuildAdminResponse getGuild(Long id) {
-        Guild guild = guildRepository.findById(id)
-            .orElseThrow(() -> new CustomException("404", "error.guild.not_found"));
+        Guild guild =
+                guildRepository
+                        .findById(id)
+                        .orElseThrow(() -> new CustomException("404", "error.guild.not_found"));
 
         MissionCategoryResponse category = getCategoryById(guild.getCategoryId());
         int memberCount = (int) guildMemberRepository.countActiveMembers(guild.getId());
         String masterNickname = getMasterNickname(guild.getMasterId());
 
-        return GuildAdminResponse.from(guild, memberCount,
-            category != null ? category.getName() : null,
-            category != null ? category.getIcon() : null,
-            masterNickname);
+        return GuildAdminResponse.from(
+                guild,
+                memberCount,
+                category != null ? category.getName() : null,
+                category != null ? category.getIcon() : null,
+                masterNickname);
     }
 
-    /**
-     * 신고 처리(CONTENT_DELETED on GUILD)로 길드 차단.
-     * 후속 멤버/콘텐츠 정리는 운영자가 수동.
-     */
+    /** 신고 처리(CONTENT_DELETED on GUILD)로 길드 차단. 후속 멤버/콘텐츠 정리는 운영자가 수동. */
     @Transactional(transactionManager = "guildTransactionManager")
     public void banFromReport(Long guildId, String reason) {
-        Guild guild = guildRepository.findById(guildId)
-            .orElseThrow(() -> new CustomException("404", "error.guild.not_found"));
+        Guild guild =
+                guildRepository
+                        .findById(guildId)
+                        .orElseThrow(() -> new CustomException("404", "error.guild.not_found"));
         guild.banFromReport(reason);
         guildRepository.save(guild);
         log.info("길드 차단 (신고 처리): guildId={}, reason={}", guildId, reason);
@@ -142,25 +168,28 @@ public class GuildAdminInternalService {
         }
 
         List<Object[]> dailyStats = guildRepository.countDailyNewGuilds(startOfMonth, now);
-        List<DailyCountDto> dailyNewGuilds = dailyStats.stream()
-            .map(stat -> DailyCountDto.builder()
-                .date(stat[0].toString())
-                .count((Long) stat[1])
-                .build())
-            .collect(Collectors.toList());
+        List<DailyCountDto> dailyNewGuilds =
+                dailyStats.stream()
+                        .map(
+                                stat ->
+                                        DailyCountDto.builder()
+                                                .date(stat[0].toString())
+                                                .count((Long) stat[1])
+                                                .build())
+                        .collect(Collectors.toList());
 
         return GuildStatisticsAdminResponse.builder()
-            .totalGuilds(totalGuilds)
-            .activeGuilds(activeGuilds)
-            .inactiveGuilds(inactiveGuilds)
-            .publicGuilds(publicGuilds)
-            .privateGuilds(privateGuilds)
-            .newGuildsToday(newGuildsToday)
-            .newGuildsThisWeek(newGuildsThisWeek)
-            .newGuildsThisMonth(newGuildsThisMonth)
-            .guildsByCategory(guildsByCategory)
-            .dailyNewGuilds(dailyNewGuilds)
-            .build();
+                .totalGuilds(totalGuilds)
+                .activeGuilds(activeGuilds)
+                .inactiveGuilds(inactiveGuilds)
+                .publicGuilds(publicGuilds)
+                .privateGuilds(privateGuilds)
+                .newGuildsToday(newGuildsToday)
+                .newGuildsThisWeek(newGuildsThisWeek)
+                .newGuildsThisMonth(newGuildsThisMonth)
+                .guildsByCategory(guildsByCategory)
+                .dailyNewGuilds(dailyNewGuilds)
+                .build();
     }
 
     public List<GuildMemberAdminResponse> getGuildMembers(Long guildId) {
@@ -168,27 +197,37 @@ public class GuildAdminInternalService {
             throw new CustomException("404", "error.guild.not_found");
         }
 
-        List<GuildMember> members = guildMemberRepository.findByGuildIdAndStatus(
-            guildId, io.pinkspider.leveluptogethermvp.guildservice.domain.enums.GuildMemberStatus.ACTIVE);
+        List<GuildMember> members =
+                guildMemberRepository.findByGuildIdAndStatus(
+                        guildId,
+                        io.pinkspider.leveluptogethermvp.guildservice.domain.enums.GuildMemberStatus
+                                .ACTIVE);
 
-        List<String> userIds = members.stream()
-            .map(GuildMember::getUserId).distinct().collect(Collectors.toList());
+        List<String> userIds =
+                members.stream()
+                        .map(GuildMember::getUserId)
+                        .distinct()
+                        .collect(Collectors.toList());
         Map<String, UserProfileInfo> profileMap = userQueryFacadeService.getUserProfiles(userIds);
 
         return members.stream()
-            .map(member -> {
-                UserProfileInfo profile = profileMap.get(member.getUserId());
-                return GuildMemberAdminResponse.from(member,
-                    profile != null ? profile.nickname() : null,
-                    profile != null ? profile.picture() : null);
-            })
-            .collect(Collectors.toList());
+                .map(
+                        member -> {
+                            UserProfileInfo profile = profileMap.get(member.getUserId());
+                            return GuildMemberAdminResponse.from(
+                                    member,
+                                    profile != null ? profile.nickname() : null,
+                                    profile != null ? profile.picture() : null);
+                        })
+                .collect(Collectors.toList());
     }
 
     @Transactional(transactionManager = "guildTransactionManager")
     public GuildAdminResponse toggleActive(Long id) {
-        Guild guild = guildRepository.findById(id)
-            .orElseThrow(() -> new CustomException("404", "error.guild.not_found"));
+        Guild guild =
+                guildRepository
+                        .findById(id)
+                        .orElseThrow(() -> new CustomException("404", "error.guild.not_found"));
 
         guild.setIsActive(!guild.getIsActive());
         Guild saved = guildRepository.save(guild);
@@ -198,10 +237,12 @@ public class GuildAdminInternalService {
         int memberCount = (int) guildMemberRepository.countActiveMembers(guild.getId());
         String masterNickname = getMasterNickname(guild.getMasterId());
 
-        return GuildAdminResponse.from(saved, memberCount,
-            category != null ? category.getName() : null,
-            category != null ? category.getIcon() : null,
-            masterNickname);
+        return GuildAdminResponse.from(
+                saved,
+                memberCount,
+                category != null ? category.getName() : null,
+                category != null ? category.getIcon() : null,
+                masterNickname);
     }
 
     public Map<Long, String> getGuildNamesByIds(List<Long> guildIds) {
@@ -209,7 +250,7 @@ public class GuildAdminInternalService {
             return new HashMap<>();
         }
         return guildRepository.findAllById(guildIds).stream()
-            .collect(Collectors.toMap(Guild::getId, Guild::getName));
+                .collect(Collectors.toMap(Guild::getId, Guild::getName));
     }
 
     // ========== Private helpers ==========
@@ -218,7 +259,7 @@ public class GuildAdminInternalService {
         try {
             List<MissionCategoryResponse> categories = missionCategoryService.getAllCategories();
             return categories.stream()
-                .collect(Collectors.toMap(MissionCategoryResponse::getId, c -> c));
+                    .collect(Collectors.toMap(MissionCategoryResponse::getId, c -> c));
         } catch (Exception e) {
             log.warn("카테고리 목록 조회 실패", e);
         }
@@ -238,21 +279,19 @@ public class GuildAdminInternalService {
         if (guildIds.isEmpty()) return new HashMap<>();
         List<Object[]> memberCounts = guildMemberRepository.countActiveMembersByGuildIds(guildIds);
         return memberCounts.stream()
-            .collect(Collectors.toMap(
-                arr -> (Long) arr[0],
-                arr -> ((Long) arr[1]).intValue()
-            ));
+                .collect(Collectors.toMap(arr -> (Long) arr[0], arr -> ((Long) arr[1]).intValue()));
     }
 
     private Map<String, String> getMasterNicknameMap(List<String> masterIds) {
         if (masterIds.isEmpty()) return new HashMap<>();
         Map<String, UserProfileInfo> profiles = userQueryFacadeService.getUserProfiles(masterIds);
         Map<String, String> result = new HashMap<>();
-        profiles.forEach((userId, profile) -> {
-            if (profile != null) {
-                result.put(userId, profile.nickname());
-            }
-        });
+        profiles.forEach(
+                (userId, profile) -> {
+                    if (profile != null) {
+                        result.put(userId, profile.nickname());
+                    }
+                });
         return result;
     }
 

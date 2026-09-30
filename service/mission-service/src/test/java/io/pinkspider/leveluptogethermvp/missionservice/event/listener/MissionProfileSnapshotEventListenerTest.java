@@ -19,30 +19,33 @@ import org.mockito.junit.jupiter.MockitoExtension;
 @DisplayName("MissionProfileSnapshotEventListener 테스트")
 class MissionProfileSnapshotEventListenerTest {
 
-    @Mock
-    private MissionCommentRepository missionCommentRepository;
+    @Mock private MissionCommentRepository missionCommentRepository;
 
-    @InjectMocks
-    private MissionProfileSnapshotEventListener listener;
+    @InjectMocks private MissionProfileSnapshotEventListener listener;
 
     private static final UserProfileChangedEvent TEST_EVENT =
-        new UserProfileChangedEvent("user-123", "새닉네임", "https://img.example.com/pic.jpg", 5);
+            new UserProfileChangedEvent("user-123", "새닉네임", "https://img.example.com/pic.jpg", 5);
 
     @Test
     @DisplayName("Mission 스냅샷을 동기화한다")
     void handleUserProfileChanged_syncsMissionSnapshots() {
-        when(missionCommentRepository.updateUserProfileByUserId(anyString(), anyString(), anyString(), anyInt())).thenReturn(1);
+        when(missionCommentRepository.updateUserProfileByUserId(
+                        anyString(), anyString(), anyString(), anyInt()))
+                .thenReturn(1);
 
         listener.handleUserProfileChanged(TEST_EVENT);
 
-        verify(missionCommentRepository).updateUserProfileByUserId("user-123", "새닉네임", "https://img.example.com/pic.jpg", 5);
+        verify(missionCommentRepository)
+                .updateUserProfileByUserId(
+                        "user-123", "새닉네임", "https://img.example.com/pic.jpg", 5);
     }
 
     @Test
     @DisplayName("Mission 동기화 실패해도 예외를 전파하지 않는다")
     void handleUserProfileChanged_missionFailure_doesNotPropagate() {
         doThrow(new RuntimeException("Mission DB 오류"))
-            .when(missionCommentRepository).updateUserProfileByUserId(anyString(), anyString(), anyString(), anyInt());
+                .when(missionCommentRepository)
+                .updateUserProfileByUserId(anyString(), anyString(), anyString(), anyInt());
 
         listener.handleUserProfileChanged(TEST_EVENT);
     }

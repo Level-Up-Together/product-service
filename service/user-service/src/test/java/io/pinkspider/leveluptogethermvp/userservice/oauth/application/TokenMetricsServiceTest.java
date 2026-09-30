@@ -22,11 +22,9 @@ import org.springframework.data.redis.core.ValueOperations;
 @ExtendWith(MockitoExtension.class)
 class TokenMetricsServiceTest {
 
-    @Mock
-    private StringRedisTemplate redisTemplate;
+    @Mock private StringRedisTemplate redisTemplate;
 
-    @Mock
-    private ValueOperations<String, String> valueOperations;
+    @Mock private ValueOperations<String, String> valueOperations;
 
     private MeterRegistry meterRegistry;
     private TokenMetricsService tokenMetricsService;
@@ -55,7 +53,8 @@ class TokenMetricsServiceTest {
 
             // then
             verify(valueOperations).increment("metrics:token_refresh:" + TEST_USER_ID);
-            verify(redisTemplate).expire(eq("metrics:token_refresh:" + TEST_USER_ID), eq(Duration.ofDays(30)));
+            verify(redisTemplate)
+                    .expire(eq("metrics:token_refresh:" + TEST_USER_ID), eq(Duration.ofDays(30)));
         }
 
         @Test
@@ -89,7 +88,8 @@ class TokenMetricsServiceTest {
 
             // then
             verify(valueOperations).increment("metrics:token_renewal:" + TEST_USER_ID);
-            verify(redisTemplate).expire(eq("metrics:token_renewal:" + TEST_USER_ID), eq(Duration.ofDays(30)));
+            verify(redisTemplate)
+                    .expire(eq("metrics:token_renewal:" + TEST_USER_ID), eq(Duration.ofDays(30)));
         }
     }
 
@@ -104,7 +104,8 @@ class TokenMetricsServiceTest {
             when(redisTemplate.opsForValue()).thenReturn(valueOperations);
             when(valueOperations.increment(anyString())).thenReturn(1L);
 
-            TokenRefreshEvent event = new TokenRefreshEvent(TEST_USER_ID, "mobile", "device-123", false, 1000L);
+            TokenRefreshEvent event =
+                    new TokenRefreshEvent(TEST_USER_ID, "mobile", "device-123", false, 1000L);
 
             // when
             tokenMetricsService.handleTokenRefreshEvent(event);
@@ -120,7 +121,8 @@ class TokenMetricsServiceTest {
             when(redisTemplate.opsForValue()).thenReturn(valueOperations);
             when(valueOperations.increment(anyString())).thenReturn(1L);
 
-            TokenRefreshEvent event = new TokenRefreshEvent(TEST_USER_ID, "mobile", "device-123", true, 1000L);
+            TokenRefreshEvent event =
+                    new TokenRefreshEvent(TEST_USER_ID, "mobile", "device-123", true, 1000L);
 
             // when
             tokenMetricsService.handleTokenRefreshEvent(event);

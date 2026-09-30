@@ -4,7 +4,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import io.pinkspider.leveluptogethermvp.userservice.friend.domain.enums.FriendshipStatus;
-import java.time.LocalDateTime;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -23,11 +22,12 @@ class FriendshipTest {
         @DisplayName("REJECTED 상태면 true를 반환한다")
         void isRejected_whenRejected_returnsTrue() {
             // given
-            Friendship friendship = Friendship.builder()
-                .userId(USER_ID)
-                .friendId(FRIEND_ID)
-                .status(FriendshipStatus.REJECTED)
-                .build();
+            Friendship friendship =
+                    Friendship.builder()
+                            .userId(USER_ID)
+                            .friendId(FRIEND_ID)
+                            .status(FriendshipStatus.REJECTED)
+                            .build();
 
             // when & then
             assertThat(friendship.isRejected()).isTrue();
@@ -37,11 +37,12 @@ class FriendshipTest {
         @DisplayName("PENDING 상태면 false를 반환한다")
         void isRejected_whenPending_returnsFalse() {
             // given
-            Friendship friendship = Friendship.builder()
-                .userId(USER_ID)
-                .friendId(FRIEND_ID)
-                .status(FriendshipStatus.PENDING)
-                .build();
+            Friendship friendship =
+                    Friendship.builder()
+                            .userId(USER_ID)
+                            .friendId(FRIEND_ID)
+                            .status(FriendshipStatus.PENDING)
+                            .build();
 
             // when & then
             assertThat(friendship.isRejected()).isFalse();
@@ -51,11 +52,12 @@ class FriendshipTest {
         @DisplayName("ACCEPTED 상태면 false를 반환한다")
         void isRejected_whenAccepted_returnsFalse() {
             // given
-            Friendship friendship = Friendship.builder()
-                .userId(USER_ID)
-                .friendId(FRIEND_ID)
-                .status(FriendshipStatus.ACCEPTED)
-                .build();
+            Friendship friendship =
+                    Friendship.builder()
+                            .userId(USER_ID)
+                            .friendId(FRIEND_ID)
+                            .status(FriendshipStatus.ACCEPTED)
+                            .build();
 
             // when & then
             assertThat(friendship.isRejected()).isFalse();
@@ -65,11 +67,12 @@ class FriendshipTest {
         @DisplayName("BLOCKED 상태면 false를 반환한다")
         void isRejected_whenBlocked_returnsFalse() {
             // given
-            Friendship friendship = Friendship.builder()
-                .userId(USER_ID)
-                .friendId(FRIEND_ID)
-                .status(FriendshipStatus.BLOCKED)
-                .build();
+            Friendship friendship =
+                    Friendship.builder()
+                            .userId(USER_ID)
+                            .friendId(FRIEND_ID)
+                            .status(FriendshipStatus.BLOCKED)
+                            .build();
 
             // when & then
             assertThat(friendship.isRejected()).isFalse();
@@ -84,12 +87,13 @@ class FriendshipTest {
         @DisplayName("REJECTED 상태에서 요청을 다시 보낼 수 있다")
         void resendRequest_whenRejected_success() {
             // given
-            Friendship friendship = Friendship.builder()
-                .userId(USER_ID)
-                .friendId(FRIEND_ID)
-                .status(FriendshipStatus.REJECTED)
-                .message("이전 메시지")
-                .build();
+            Friendship friendship =
+                    Friendship.builder()
+                            .userId(USER_ID)
+                            .friendId(FRIEND_ID)
+                            .status(FriendshipStatus.REJECTED)
+                            .message("이전 메시지")
+                            .build();
 
             String newRequesterId = "new-requester";
             String newRecipientId = "new-recipient";
@@ -111,12 +115,13 @@ class FriendshipTest {
         @DisplayName("REJECTED 상태에서 null 메시지로도 요청을 보낼 수 있다")
         void resendRequest_withNullMessage_success() {
             // given
-            Friendship friendship = Friendship.builder()
-                .userId(USER_ID)
-                .friendId(FRIEND_ID)
-                .status(FriendshipStatus.REJECTED)
-                .message("이전 메시지")
-                .build();
+            Friendship friendship =
+                    Friendship.builder()
+                            .userId(USER_ID)
+                            .friendId(FRIEND_ID)
+                            .status(FriendshipStatus.REJECTED)
+                            .message("이전 메시지")
+                            .build();
 
             // when
             friendship.resendRequest(USER_ID, FRIEND_ID, null);
@@ -130,66 +135,70 @@ class FriendshipTest {
         @DisplayName("PENDING 상태에서는 예외가 발생한다")
         void resendRequest_whenPending_throwsException() {
             // given
-            Friendship friendship = Friendship.builder()
-                .userId(USER_ID)
-                .friendId(FRIEND_ID)
-                .status(FriendshipStatus.PENDING)
-                .build();
+            Friendship friendship =
+                    Friendship.builder()
+                            .userId(USER_ID)
+                            .friendId(FRIEND_ID)
+                            .status(FriendshipStatus.PENDING)
+                            .build();
 
             // when & then
             assertThatThrownBy(() -> friendship.resendRequest(USER_ID, FRIEND_ID, "메시지"))
-                .isInstanceOf(IllegalStateException.class)
-                .hasMessage("거절된 요청만 다시 보낼 수 있습니다.");
+                    .isInstanceOf(IllegalStateException.class)
+                    .hasMessage("거절된 요청만 다시 보낼 수 있습니다.");
         }
 
         @Test
         @DisplayName("ACCEPTED 상태에서는 예외가 발생한다")
         void resendRequest_whenAccepted_throwsException() {
             // given
-            Friendship friendship = Friendship.builder()
-                .userId(USER_ID)
-                .friendId(FRIEND_ID)
-                .status(FriendshipStatus.ACCEPTED)
-                .build();
+            Friendship friendship =
+                    Friendship.builder()
+                            .userId(USER_ID)
+                            .friendId(FRIEND_ID)
+                            .status(FriendshipStatus.ACCEPTED)
+                            .build();
 
             // when & then
             assertThatThrownBy(() -> friendship.resendRequest(USER_ID, FRIEND_ID, "메시지"))
-                .isInstanceOf(IllegalStateException.class)
-                .hasMessage("거절된 요청만 다시 보낼 수 있습니다.");
+                    .isInstanceOf(IllegalStateException.class)
+                    .hasMessage("거절된 요청만 다시 보낼 수 있습니다.");
         }
 
         @Test
         @DisplayName("BLOCKED 상태에서는 예외가 발생한다")
         void resendRequest_whenBlocked_throwsException() {
             // given
-            Friendship friendship = Friendship.builder()
-                .userId(USER_ID)
-                .friendId(FRIEND_ID)
-                .status(FriendshipStatus.BLOCKED)
-                .build();
+            Friendship friendship =
+                    Friendship.builder()
+                            .userId(USER_ID)
+                            .friendId(FRIEND_ID)
+                            .status(FriendshipStatus.BLOCKED)
+                            .build();
 
             // when & then
             assertThatThrownBy(() -> friendship.resendRequest(USER_ID, FRIEND_ID, "메시지"))
-                .isInstanceOf(IllegalStateException.class)
-                .hasMessage("거절된 요청만 다시 보낼 수 있습니다.");
+                    .isInstanceOf(IllegalStateException.class)
+                    .hasMessage("거절된 요청만 다시 보낼 수 있습니다.");
         }
 
         @Test
         @DisplayName("재요청 시 요청자와 수신자가 바뀔 수 있다")
         void resendRequest_canSwapRequesterAndRecipient() {
             // given
-            Friendship friendship = Friendship.builder()
-                .userId(USER_ID)       // 원래 요청자
-                .friendId(FRIEND_ID)    // 원래 수신자 (거절한 사람)
-                .status(FriendshipStatus.REJECTED)
-                .build();
+            Friendship friendship =
+                    Friendship.builder()
+                            .userId(USER_ID) // 원래 요청자
+                            .friendId(FRIEND_ID) // 원래 수신자 (거절한 사람)
+                            .status(FriendshipStatus.REJECTED)
+                            .build();
 
             // when - 원래 수신자가 이번에는 요청자가 됨
             friendship.resendRequest(FRIEND_ID, USER_ID, "이번엔 내가 친구 신청!");
 
             // then
-            assertThat(friendship.getUserId()).isEqualTo(FRIEND_ID);  // 요청자 변경
-            assertThat(friendship.getFriendId()).isEqualTo(USER_ID);  // 수신자 변경
+            assertThat(friendship.getUserId()).isEqualTo(FRIEND_ID); // 요청자 변경
+            assertThat(friendship.getFriendId()).isEqualTo(USER_ID); // 수신자 변경
             assertThat(friendship.getStatus()).isEqualTo(FriendshipStatus.PENDING);
         }
     }
@@ -202,11 +211,12 @@ class FriendshipTest {
         @DisplayName("PENDING 상태에서 수락할 수 있다")
         void accept_whenPending_success() {
             // given
-            Friendship friendship = Friendship.builder()
-                .userId(USER_ID)
-                .friendId(FRIEND_ID)
-                .status(FriendshipStatus.PENDING)
-                .build();
+            Friendship friendship =
+                    Friendship.builder()
+                            .userId(USER_ID)
+                            .friendId(FRIEND_ID)
+                            .status(FriendshipStatus.PENDING)
+                            .build();
 
             // when
             friendship.accept();
@@ -225,11 +235,12 @@ class FriendshipTest {
         @DisplayName("PENDING 상태에서 거절할 수 있다")
         void reject_whenPending_success() {
             // given
-            Friendship friendship = Friendship.builder()
-                .userId(USER_ID)
-                .friendId(FRIEND_ID)
-                .status(FriendshipStatus.PENDING)
-                .build();
+            Friendship friendship =
+                    Friendship.builder()
+                            .userId(USER_ID)
+                            .friendId(FRIEND_ID)
+                            .status(FriendshipStatus.PENDING)
+                            .build();
 
             // when
             friendship.reject();
@@ -247,11 +258,12 @@ class FriendshipTest {
         @DisplayName("차단하면 BLOCKED 상태가 된다")
         void block_success() {
             // given
-            Friendship friendship = Friendship.builder()
-                .userId(USER_ID)
-                .friendId(FRIEND_ID)
-                .status(FriendshipStatus.ACCEPTED)
-                .build();
+            Friendship friendship =
+                    Friendship.builder()
+                            .userId(USER_ID)
+                            .friendId(FRIEND_ID)
+                            .status(FriendshipStatus.ACCEPTED)
+                            .build();
 
             // when
             friendship.block();
@@ -269,11 +281,12 @@ class FriendshipTest {
         @DisplayName("userId를 반환한다")
         void getUserId() {
             // given
-            Friendship friendship = Friendship.builder()
-                .userId(USER_ID)
-                .friendId(FRIEND_ID)
-                .status(FriendshipStatus.ACCEPTED)
-                .build();
+            Friendship friendship =
+                    Friendship.builder()
+                            .userId(USER_ID)
+                            .friendId(FRIEND_ID)
+                            .status(FriendshipStatus.ACCEPTED)
+                            .build();
 
             // when & then
             assertThat(friendship.getUserId()).isEqualTo(USER_ID);
@@ -283,11 +296,12 @@ class FriendshipTest {
         @DisplayName("friendId를 반환한다")
         void getFriendId() {
             // given
-            Friendship friendship = Friendship.builder()
-                .userId(USER_ID)
-                .friendId(FRIEND_ID)
-                .status(FriendshipStatus.ACCEPTED)
-                .build();
+            Friendship friendship =
+                    Friendship.builder()
+                            .userId(USER_ID)
+                            .friendId(FRIEND_ID)
+                            .status(FriendshipStatus.ACCEPTED)
+                            .build();
 
             // when & then
             assertThat(friendship.getFriendId()).isEqualTo(FRIEND_ID);
@@ -297,11 +311,12 @@ class FriendshipTest {
         @DisplayName("status를 반환한다")
         void getStatus() {
             // given
-            Friendship friendship = Friendship.builder()
-                .userId(USER_ID)
-                .friendId(FRIEND_ID)
-                .status(FriendshipStatus.PENDING)
-                .build();
+            Friendship friendship =
+                    Friendship.builder()
+                            .userId(USER_ID)
+                            .friendId(FRIEND_ID)
+                            .status(FriendshipStatus.PENDING)
+                            .build();
 
             // when & then
             assertThat(friendship.getStatus()).isEqualTo(FriendshipStatus.PENDING);

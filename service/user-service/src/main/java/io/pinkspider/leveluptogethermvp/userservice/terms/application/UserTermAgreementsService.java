@@ -14,8 +14,9 @@ public class UserTermAgreementsService {
     private final UserTermAgreementsRepository userTermAgreementsRepository;
 
     public UserTermAgreement findAllByUserIdAndTermVersionId(String userId, Long termVersionId) {
-        return userTermAgreementsRepository.findAllByUserIdAndTermVersionId(userId, termVersionId)
-            .orElse(null);
+        return userTermAgreementsRepository
+                .findAllByUserIdAndTermVersionId(userId, termVersionId)
+                .orElse(null);
     }
 
     public void save(UserTermAgreement userTermAgreement) {

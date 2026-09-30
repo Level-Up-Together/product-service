@@ -25,12 +25,12 @@ public class UserLevelConfigResponse {
 
     public static UserLevelConfigResponse from(UserLevelConfig entity) {
         return UserLevelConfigResponse.builder()
-            .id(entity.getId())
-            .level(entity.getLevel())
-            .requiredExp(entity.getRequiredExp())
-            .cumulativeExp(entity.getCumulativeExp())
-            .createdAt(entity.getCreatedAt())
-            .modifiedAt(entity.getModifiedAt())
-            .build();
+                .id(entity.getId())
+                .level(entity.getLevel())
+                .requiredExp(entity.getRequiredExp())
+                .cumulativeExp(entity.getCumulativeExp())
+                .createdAt(entity.getCreatedAt())
+                .modifiedAt(entity.getModifiedAt())
+                .build();
     }
 }

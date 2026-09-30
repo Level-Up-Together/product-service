@@ -19,7 +19,5 @@ import lombok.Setter;
 @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
 public class MissionReorderRequest {
 
-    @NotNull
-    @NotEmpty
-    private List<Long> orderedMissionIds;
+    @NotNull @NotEmpty private List<Long> orderedMissionIds;
 }

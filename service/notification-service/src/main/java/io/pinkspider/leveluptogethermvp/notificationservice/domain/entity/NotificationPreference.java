@@ -24,8 +24,10 @@ import org.hibernate.annotations.Comment;
 @SuperBuilder
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @AllArgsConstructor
-@Table(name = "notification_preference",
-    indexes = @Index(name = "idx_notification_pref_user", columnList = "user_id", unique = true))
+@Table(
+        name = "notification_preference",
+        indexes =
+                @Index(name = "idx_notification_pref_user", columnList = "user_id", unique = true))
 @Comment("알림 설정")
 public class NotificationPreference extends LocalDateTimeBaseEntity {
 
@@ -84,9 +86,7 @@ public class NotificationPreference extends LocalDateTimeBaseEntity {
     private String quietHoursEnd;
 
     public static NotificationPreference createDefault(String userId) {
-        return NotificationPreference.builder()
-            .userId(userId)
-            .build();
+        return NotificationPreference.builder().userId(userId).build();
     }
 
     public boolean isCategoryEnabled(String category) {

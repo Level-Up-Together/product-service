@@ -6,9 +6,4 @@ import java.time.LocalDate;
 
 @JsonNaming(SnakeCaseStrategy.class)
 public record DailyMvpExclusionAdminRequest(
-    LocalDate mvpDate,
-    String userId,
-    String reason,
-    Long adminId
-) {
-}
+        LocalDate mvpDate, String userId, String reason, Long adminId) {}

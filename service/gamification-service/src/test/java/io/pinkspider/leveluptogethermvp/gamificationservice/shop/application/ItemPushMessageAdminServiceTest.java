@@ -127,7 +127,8 @@ class ItemPushMessageAdminServiceTest {
     }
 
     private ShopItem headItemWithId() {
-        ShopItem other = ShopItem.builder().name("다른머리").itemType(ShopItemType.HEAD).price(0).build();
+        ShopItem other =
+                ShopItem.builder().name("다른머리").itemType(ShopItemType.HEAD).price(0).build();
         setId(other, 999L);
         return other;
     }

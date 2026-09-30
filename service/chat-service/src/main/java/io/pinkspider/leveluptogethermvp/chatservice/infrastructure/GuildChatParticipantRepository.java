@@ -18,11 +18,14 @@ public interface GuildChatParticipantRepository extends JpaRepository<GuildChatP
     @Query("SELECT p FROM GuildChatParticipant p WHERE p.guildId = :guildId AND p.isActive = true")
     List<GuildChatParticipant> findActiveParticipants(@Param("guildId") Long guildId);
 
-    @Query("SELECT COUNT(p) FROM GuildChatParticipant p WHERE p.guildId = :guildId AND p.isActive = true")
+    @Query(
+            "SELECT COUNT(p) FROM GuildChatParticipant p WHERE p.guildId = :guildId AND p.isActive"
+                    + " = true")
     long countActiveParticipants(@Param("guildId") Long guildId);
 
-    @Query("SELECT CASE WHEN COUNT(p) > 0 THEN true ELSE false END FROM GuildChatParticipant p " +
-           "WHERE p.guildId = :guildId AND p.userId = :userId AND p.isActive = true")
+    @Query(
+            "SELECT CASE WHEN COUNT(p) > 0 THEN true ELSE false END FROM GuildChatParticipant p "
+                    + "WHERE p.guildId = :guildId AND p.userId = :userId AND p.isActive = true")
     boolean isParticipating(@Param("guildId") Long guildId, @Param("userId") String userId);
 
     @Query("SELECT p FROM GuildChatParticipant p WHERE p.userId = :userId AND p.isActive = true")
@@ -33,5 +36,6 @@ public interface GuildChatParticipantRepository extends JpaRepository<GuildChatP
     @Modifying
     @Transactional(transactionManager = "chatTransactionManager")
     @Query("UPDATE GuildChatParticipant p SET p.userNickname = :nickname WHERE p.userId = :userId")
-    int updateUserNicknameByUserId(@Param("userId") String userId, @Param("nickname") String nickname);
+    int updateUserNicknameByUserId(
+            @Param("userId") String userId, @Param("nickname") String nickname);
 }

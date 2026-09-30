@@ -15,6 +15,10 @@ import io.pinkspider.global.facade.dto.SeasonMvpGuildDto;
 import io.pinkspider.global.facade.dto.SeasonMvpPlayerDto;
 import io.pinkspider.leveluptogethermvp.bffservice.api.dto.HomeDataResponse;
 import io.pinkspider.leveluptogethermvp.bffservice.api.dto.HomeMvpDataResponse;
+import io.pinkspider.leveluptogethermvp.feedservice.api.dto.ActivityFeedResponse;
+import io.pinkspider.leveluptogethermvp.feedservice.application.FeedQueryService;
+import io.pinkspider.leveluptogethermvp.feedservice.domain.enums.ActivityType;
+import io.pinkspider.leveluptogethermvp.feedservice.domain.enums.FeedVisibility;
 import io.pinkspider.leveluptogethermvp.guildservice.application.GuildQueryService;
 import io.pinkspider.leveluptogethermvp.guildservice.domain.dto.GuildResponse;
 import io.pinkspider.leveluptogethermvp.guildservice.domain.enums.GuildVisibility;
@@ -22,10 +26,6 @@ import io.pinkspider.leveluptogethermvp.metaservice.application.MissionCategoryS
 import io.pinkspider.leveluptogethermvp.metaservice.domain.dto.MissionCategoryResponse;
 import io.pinkspider.leveluptogethermvp.noticeservice.api.dto.NoticeResponse;
 import io.pinkspider.leveluptogethermvp.noticeservice.application.NoticeService;
-import io.pinkspider.leveluptogethermvp.feedservice.api.dto.ActivityFeedResponse;
-import io.pinkspider.leveluptogethermvp.feedservice.application.FeedQueryService;
-import io.pinkspider.leveluptogethermvp.feedservice.domain.enums.ActivityType;
-import io.pinkspider.leveluptogethermvp.feedservice.domain.enums.FeedVisibility;
 import io.pinkspider.leveluptogethermvp.userservice.home.api.dto.MvpGuildResponse;
 import io.pinkspider.leveluptogethermvp.userservice.home.api.dto.TodayPlayerResponse;
 import io.pinkspider.leveluptogethermvp.userservice.home.application.HomeService;
@@ -48,29 +48,26 @@ import org.springframework.data.domain.PageRequest;
 @ExtendWith(MockitoExtension.class)
 class BffHomeServiceTest {
 
-    @Mock
-    private FeedQueryService feedQueryService;
+    @Mock private FeedQueryService feedQueryService;
+
+    @Mock private HomeService homeService;
+
+    @Mock private MissionCategoryService missionCategoryService;
+
+    @Mock private GuildQueryService guildQueryService;
+
+    @Mock private NoticeService noticeService;
+
+    @Mock private GamificationQueryFacade gamificationQueryFacade;
 
     @Mock
-    private HomeService homeService;
+    private io.pinkspider.leveluptogethermvp.gamificationservice.event.application.EventService
+            eventService;
 
     @Mock
-    private MissionCategoryService missionCategoryService;
-
-    @Mock
-    private GuildQueryService guildQueryService;
-
-    @Mock
-    private NoticeService noticeService;
-
-    @Mock
-    private GamificationQueryFacade gamificationQueryFacade;
-
-    @Mock
-    private io.pinkspider.leveluptogethermvp.gamificationservice.event.application.EventService eventService;
-
-    @Mock
-    private io.pinkspider.leveluptogethermvp.gamificationservice.achievement.application.AchievementService achievementService;
+    private io.pinkspider.leveluptogethermvp.gamificationservice.achievement.application
+                    .AchievementService
+            achievementService;
 
     // 테스트용 동기 Executor - CompletableFuture가 즉시 실행되도록 함
     private final Executor directExecutor = Runnable::run;
@@ -92,131 +89,131 @@ class BffHomeServiceTest {
     @BeforeEach
     void setUp() {
         // BffHomeService 수동 생성 (Executor 주입을 위해)
-        bffHomeService = new BffHomeService(
-            feedQueryService,
-            homeService,
-            missionCategoryService,
-            guildQueryService,
-            noticeService,
-            eventService,
-            gamificationQueryFacade,
-            achievementService,
-            directExecutor
-        );
+        bffHomeService =
+                new BffHomeService(
+                        feedQueryService,
+                        homeService,
+                        missionCategoryService,
+                        guildQueryService,
+                        noticeService,
+                        eventService,
+                        gamificationQueryFacade,
+                        achievementService,
+                        directExecutor);
 
         testUserId = "test-user-id";
 
-        testFeedResponse = ActivityFeedResponse.builder()
-            .id(1L)
-            .userId(testUserId)
-            .userNickname("테스터")
-            .activityType(ActivityType.MISSION_COMPLETED)
-            .activityTypeDisplayName("미션 완료")
-            .category("MISSION")
-            .title("미션 완료!")
-            .description("테스트 미션을 완료했습니다.")
-            .visibility(FeedVisibility.PUBLIC)
-            .likeCount(5)
-            .commentCount(2)
-            .likedByMe(false)
-            .createdAt(LocalDateTime.now())
-            .build();
+        testFeedResponse =
+                ActivityFeedResponse.builder()
+                        .id(1L)
+                        .userId(testUserId)
+                        .userNickname("테스터")
+                        .activityType(ActivityType.MISSION_COMPLETED)
+                        .activityTypeDisplayName("미션 완료")
+                        .category("MISSION")
+                        .title("미션 완료!")
+                        .description("테스트 미션을 완료했습니다.")
+                        .visibility(FeedVisibility.PUBLIC)
+                        .likeCount(5)
+                        .commentCount(2)
+                        .likedByMe(false)
+                        .createdAt(LocalDateTime.now())
+                        .build();
 
-        testPlayerResponse = TodayPlayerResponse.builder()
-            .userId(testUserId)
-            .nickname("테스터")
-            .profileImageUrl("https://example.com/profile.jpg")
-            .level(5)
-            .title("초보 모험가")
-            .earnedExp(100L)
-            .rank(1)
-            .build();
+        testPlayerResponse =
+                TodayPlayerResponse.builder()
+                        .userId(testUserId)
+                        .nickname("테스터")
+                        .profileImageUrl("https://example.com/profile.jpg")
+                        .level(5)
+                        .title("초보 모험가")
+                        .earnedExp(100L)
+                        .rank(1)
+                        .build();
 
-        testMvpGuildResponse = MvpGuildResponse.builder()
-            .guildId(1L)
-            .name("MVP 길드")
-            .imageUrl("https://example.com/guild.jpg")
-            .level(5)
-            .memberCount(10)
-            .earnedExp(5000L)
-            .rank(1)
-            .build();
+        testMvpGuildResponse =
+                MvpGuildResponse.builder()
+                        .guildId(1L)
+                        .name("MVP 길드")
+                        .imageUrl("https://example.com/guild.jpg")
+                        .level(5)
+                        .memberCount(10)
+                        .earnedExp(5000L)
+                        .rank(1)
+                        .build();
 
-        testCategoryResponse = MissionCategoryResponse.builder()
-            .id(1L)
-            .name("자기계발")
-            .icon("📚")
-            .isActive(true)
-            .build();
+        testCategoryResponse =
+                MissionCategoryResponse.builder()
+                        .id(1L)
+                        .name("자기계발")
+                        .icon("📚")
+                        .isActive(true)
+                        .build();
 
-        testGuildResponse = GuildResponse.builder()
-            .id(1L)
-            .name("테스트 길드")
-            .description("테스트 길드 설명")
-            .visibility(GuildVisibility.PUBLIC)
-            .masterId(testUserId)
-            .maxMembers(50)
-            .currentMemberCount(10)
-            .currentLevel(1)
-            .currentExp(100)
-            .totalExp(100)
-            .categoryId(1L)
-            .categoryName("자기계발")
-            .categoryIcon("📚")
-            .createdAt(LocalDateTime.now())
-            .build();
+        testGuildResponse =
+                GuildResponse.builder()
+                        .id(1L)
+                        .name("테스트 길드")
+                        .description("테스트 길드 설명")
+                        .visibility(GuildVisibility.PUBLIC)
+                        .masterId(testUserId)
+                        .maxMembers(50)
+                        .currentMemberCount(10)
+                        .currentLevel(1)
+                        .currentExp(100)
+                        .totalExp(100)
+                        .categoryId(1L)
+                        .categoryName("자기계발")
+                        .categoryIcon("📚")
+                        .createdAt(LocalDateTime.now())
+                        .build();
 
-        testNoticeResponse = NoticeResponse.builder()
-            .id(1L)
-            .title("시스템 공지")
-            .content("테스트 공지 내용입니다.")
-            .isActive(true)
-            .createdAt(LocalDateTime.now())
-            .build();
+        testNoticeResponse =
+                NoticeResponse.builder()
+                        .id(1L)
+                        .title("시스템 공지")
+                        .content("테스트 공지 내용입니다.")
+                        .isActive(true)
+                        .createdAt(LocalDateTime.now())
+                        .build();
 
-        testSeasonDto = new SeasonDto(
-            1L,
-            "2024 윈터 시즌",
-            "겨울 시즌 이벤트입니다.",
-            LocalDateTime.now().minusDays(7),
-            LocalDateTime.now().plusDays(7),
-            1L,
-            "윈터 마스터",
-            "ACTIVE",
-            "진행중"
-        );
+        testSeasonDto =
+                new SeasonDto(
+                        1L,
+                        "2024 윈터 시즌",
+                        "겨울 시즌 이벤트입니다.",
+                        LocalDateTime.now().minusDays(7),
+                        LocalDateTime.now().plusDays(7),
+                        1L,
+                        "윈터 마스터",
+                        "ACTIVE",
+                        "진행중");
 
-        testSeasonMvpPlayerDto = new SeasonMvpPlayerDto(
-            testUserId,
-            "테스터",
-            "https://example.com/profile.jpg",
-            5,
-            "초보 모험가",
-            null,
-            null,
-            null,
-            null,
-            null,
-            1000L,
-            1,
-            List.of()
-        );
+        testSeasonMvpPlayerDto =
+                new SeasonMvpPlayerDto(
+                        testUserId,
+                        "테스터",
+                        "https://example.com/profile.jpg",
+                        5,
+                        "초보 모험가",
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        1000L,
+                        1,
+                        List.of());
 
-        testSeasonMvpGuildDto = new SeasonMvpGuildDto(
-            1L,
-            "테스트 길드",
-            "https://example.com/guild.jpg",
-            3,
-            10,
-            5000L,
-            1
-        );
+        testSeasonMvpGuildDto =
+                new SeasonMvpGuildDto(
+                        1L, "테스트 길드", "https://example.com/guild.jpg", 3, 10, 5000L, 1);
 
-        testSeasonMvpData = new SeasonMvpDataDto(
-            testSeasonDto,
-            List.of(testSeasonMvpPlayerDto),
-            List.of(testSeasonMvpGuildDto)
-        );
+        testSeasonMvpData =
+                new SeasonMvpDataDto(
+                        testSeasonDto,
+                        List.of(testSeasonMvpPlayerDto),
+                        List.of(testSeasonMvpGuildDto));
     }
 
     @Nested
@@ -227,21 +224,23 @@ class BffHomeServiceTest {
         @DisplayName("모든 데이터를 정상적으로 조회한다")
         void getHomeData_success() {
             // given
-            Page<ActivityFeedResponse> feedPage = new PageImpl<>(
-                List.of(testFeedResponse), PageRequest.of(0, 20), 1
-            );
-            Page<GuildResponse> guildPage = new PageImpl<>(
-                List.of(testGuildResponse), PageRequest.of(0, 5), 1
-            );
+            Page<ActivityFeedResponse> feedPage =
+                    new PageImpl<>(List.of(testFeedResponse), PageRequest.of(0, 20), 1);
+            Page<GuildResponse> guildPage =
+                    new PageImpl<>(List.of(testGuildResponse), PageRequest.of(0, 5), 1);
 
-            when(feedQueryService.getPublicFeeds(anyString(), anyInt(), anyInt(), any())).thenReturn(feedPage);
-            when(missionCategoryService.getActiveCategories()).thenReturn(List.of(testCategoryResponse));
-            when(guildQueryService.getMyGuilds(eq(testUserId), any())).thenReturn(List.of(testGuildResponse));
+            when(feedQueryService.getPublicFeeds(anyString(), anyInt(), anyInt(), any()))
+                    .thenReturn(feedPage);
+            when(missionCategoryService.getActiveCategories())
+                    .thenReturn(List.of(testCategoryResponse));
+            when(guildQueryService.getMyGuilds(eq(testUserId), any()))
+                    .thenReturn(List.of(testGuildResponse));
             when(guildQueryService.getPublicGuilds(any(), any(), any())).thenReturn(guildPage);
             when(noticeService.getActiveNotices()).thenReturn(List.of(testNoticeResponse));
 
             // when - categoryId = null (전체 조회)
-            HomeDataResponse response = bffHomeService.getHomeData(testUserId, null, 0, 20, 5, null);
+            HomeDataResponse response =
+                    bffHomeService.getHomeData(testUserId, null, 0, 20, 5, null);
 
             // then
             assertThat(response).isNotNull();
@@ -257,18 +256,23 @@ class BffHomeServiceTest {
         void getHomeData_withCategoryFilter_success() {
             // given
             Long categoryId = 1L;
-            Page<ActivityFeedResponse> feedPage = new PageImpl<>(
-                List.of(testFeedResponse), PageRequest.of(0, 20), 1
-            );
+            Page<ActivityFeedResponse> feedPage =
+                    new PageImpl<>(List.of(testFeedResponse), PageRequest.of(0, 20), 1);
 
-            when(feedQueryService.getPublicFeedsByCategory(eq(categoryId), anyString(), anyInt(), anyInt(), any())).thenReturn(feedPage);
-            when(missionCategoryService.getActiveCategories()).thenReturn(List.of(testCategoryResponse));
-            when(guildQueryService.getMyGuilds(eq(testUserId), any())).thenReturn(List.of(testGuildResponse));
-            when(guildQueryService.getPublicGuildsByCategory(anyString(), eq(categoryId), any())).thenReturn(List.of(testGuildResponse));
+            when(feedQueryService.getPublicFeedsByCategory(
+                            eq(categoryId), anyString(), anyInt(), anyInt(), any()))
+                    .thenReturn(feedPage);
+            when(missionCategoryService.getActiveCategories())
+                    .thenReturn(List.of(testCategoryResponse));
+            when(guildQueryService.getMyGuilds(eq(testUserId), any()))
+                    .thenReturn(List.of(testGuildResponse));
+            when(guildQueryService.getPublicGuildsByCategory(anyString(), eq(categoryId), any()))
+                    .thenReturn(List.of(testGuildResponse));
             when(noticeService.getActiveNotices()).thenReturn(List.of(testNoticeResponse));
 
             // when
-            HomeDataResponse response = bffHomeService.getHomeData(testUserId, categoryId, 0, 20, 5, null);
+            HomeDataResponse response =
+                    bffHomeService.getHomeData(testUserId, categoryId, 0, 20, 5, null);
 
             // then
             assertThat(response).isNotNull();
@@ -283,15 +287,21 @@ class BffHomeServiceTest {
         @DisplayName("LUT-273: 전체/카테고리 피드 조회에 locale이 전달된다 (유저 칭호 다국어 치환)")
         void getHomeData_passesLocaleToFeedQueries() {
             // given
-            Page<ActivityFeedResponse> feedPage = new PageImpl<>(
-                List.of(testFeedResponse), PageRequest.of(0, 20), 1
-            );
-            when(feedQueryService.getPublicFeeds(anyString(), anyInt(), anyInt(), any())).thenReturn(feedPage);
-            when(feedQueryService.getPublicFeedsByCategory(eq(1L), anyString(), anyInt(), anyInt(), any())).thenReturn(feedPage);
-            when(missionCategoryService.getActiveCategories()).thenReturn(List.of(testCategoryResponse));
-            when(guildQueryService.getMyGuilds(eq(testUserId), any())).thenReturn(List.of(testGuildResponse));
-            when(guildQueryService.getPublicGuilds(any(), any(), any())).thenReturn(new PageImpl<>(List.of(testGuildResponse)));
-            when(guildQueryService.getPublicGuildsByCategory(anyString(), eq(1L), any())).thenReturn(List.of(testGuildResponse));
+            Page<ActivityFeedResponse> feedPage =
+                    new PageImpl<>(List.of(testFeedResponse), PageRequest.of(0, 20), 1);
+            when(feedQueryService.getPublicFeeds(anyString(), anyInt(), anyInt(), any()))
+                    .thenReturn(feedPage);
+            when(feedQueryService.getPublicFeedsByCategory(
+                            eq(1L), anyString(), anyInt(), anyInt(), any()))
+                    .thenReturn(feedPage);
+            when(missionCategoryService.getActiveCategories())
+                    .thenReturn(List.of(testCategoryResponse));
+            when(guildQueryService.getMyGuilds(eq(testUserId), any()))
+                    .thenReturn(List.of(testGuildResponse));
+            when(guildQueryService.getPublicGuilds(any(), any(), any()))
+                    .thenReturn(new PageImpl<>(List.of(testGuildResponse)));
+            when(guildQueryService.getPublicGuildsByCategory(anyString(), eq(1L), any()))
+                    .thenReturn(List.of(testGuildResponse));
             when(noticeService.getActiveNotices()).thenReturn(List.of(testNoticeResponse));
 
             // when — 전체 피드 + 카테고리 피드 각각 en locale로 호출
@@ -300,7 +310,8 @@ class BffHomeServiceTest {
 
             // then — locale이 feed 조회까지 전달되어야 localizeUserTitles가 동작한다
             verify(feedQueryService).getPublicFeeds(anyString(), anyInt(), anyInt(), eq("en"));
-            verify(feedQueryService).getPublicFeedsByCategory(eq(1L), anyString(), anyInt(), anyInt(), eq("en"));
+            verify(feedQueryService)
+                    .getPublicFeedsByCategory(eq(1L), anyString(), anyInt(), anyInt(), eq("en"));
         }
 
         @Test
@@ -310,14 +321,20 @@ class BffHomeServiceTest {
             Long categoryId = 1L;
             Page<ActivityFeedResponse> feedPage = new PageImpl<>(List.of(testFeedResponse));
 
-            when(feedQueryService.getPublicFeedsByCategory(eq(categoryId), anyString(), anyInt(), anyInt(), any())).thenReturn(feedPage);
-            when(missionCategoryService.getActiveCategories()).thenReturn(List.of(testCategoryResponse));
-            when(guildQueryService.getMyGuilds(eq(testUserId), any())).thenReturn(List.of(testGuildResponse));
-            when(guildQueryService.getPublicGuildsByCategory(anyString(), eq(categoryId), any())).thenThrow(new RuntimeException("길드 조회 실패"));
+            when(feedQueryService.getPublicFeedsByCategory(
+                            eq(categoryId), anyString(), anyInt(), anyInt(), any()))
+                    .thenReturn(feedPage);
+            when(missionCategoryService.getActiveCategories())
+                    .thenReturn(List.of(testCategoryResponse));
+            when(guildQueryService.getMyGuilds(eq(testUserId), any()))
+                    .thenReturn(List.of(testGuildResponse));
+            when(guildQueryService.getPublicGuildsByCategory(anyString(), eq(categoryId), any()))
+                    .thenThrow(new RuntimeException("길드 조회 실패"));
             when(noticeService.getActiveNotices()).thenReturn(List.of(testNoticeResponse));
 
             // when
-            HomeDataResponse response = bffHomeService.getHomeData(testUserId, categoryId, 0, 20, 5, null);
+            HomeDataResponse response =
+                    bffHomeService.getHomeData(testUserId, categoryId, 0, 20, 5, null);
 
             // then
             assertThat(response).isNotNull();
@@ -332,14 +349,17 @@ class BffHomeServiceTest {
             Page<GuildResponse> guildPage = new PageImpl<>(Collections.emptyList());
 
             when(feedQueryService.getPublicFeeds(anyString(), anyInt(), anyInt(), any()))
-                .thenThrow(new RuntimeException("피드 조회 실패"));
-            when(missionCategoryService.getActiveCategories()).thenReturn(List.of(testCategoryResponse));
-            when(guildQueryService.getMyGuilds(eq(testUserId), any())).thenReturn(List.of(testGuildResponse));
+                    .thenThrow(new RuntimeException("피드 조회 실패"));
+            when(missionCategoryService.getActiveCategories())
+                    .thenReturn(List.of(testCategoryResponse));
+            when(guildQueryService.getMyGuilds(eq(testUserId), any()))
+                    .thenReturn(List.of(testGuildResponse));
             when(guildQueryService.getPublicGuilds(any(), any(), any())).thenReturn(guildPage);
             when(noticeService.getActiveNotices()).thenReturn(List.of(testNoticeResponse));
 
             // when
-            HomeDataResponse response = bffHomeService.getHomeData(testUserId, null, 0, 20, 5, null);
+            HomeDataResponse response =
+                    bffHomeService.getHomeData(testUserId, null, 0, 20, 5, null);
 
             // then
             assertThat(response).isNotNull();
@@ -355,14 +375,18 @@ class BffHomeServiceTest {
             Page<ActivityFeedResponse> feedPage = new PageImpl<>(List.of(testFeedResponse));
             Page<GuildResponse> guildPage = new PageImpl<>(Collections.emptyList());
 
-            when(feedQueryService.getPublicFeeds(anyString(), anyInt(), anyInt(), any())).thenReturn(feedPage);
-            when(missionCategoryService.getActiveCategories()).thenThrow(new RuntimeException("카테고리 조회 실패"));
-            when(guildQueryService.getMyGuilds(eq(testUserId), any())).thenReturn(List.of(testGuildResponse));
+            when(feedQueryService.getPublicFeeds(anyString(), anyInt(), anyInt(), any()))
+                    .thenReturn(feedPage);
+            when(missionCategoryService.getActiveCategories())
+                    .thenThrow(new RuntimeException("카테고리 조회 실패"));
+            when(guildQueryService.getMyGuilds(eq(testUserId), any()))
+                    .thenReturn(List.of(testGuildResponse));
             when(guildQueryService.getPublicGuilds(any(), any(), any())).thenReturn(guildPage);
             when(noticeService.getActiveNotices()).thenReturn(List.of(testNoticeResponse));
 
             // when
-            HomeDataResponse response = bffHomeService.getHomeData(testUserId, null, 0, 20, 5, null);
+            HomeDataResponse response =
+                    bffHomeService.getHomeData(testUserId, null, 0, 20, 5, null);
 
             // then
             assertThat(response).isNotNull();
@@ -378,14 +402,18 @@ class BffHomeServiceTest {
             Page<ActivityFeedResponse> feedPage = new PageImpl<>(List.of(testFeedResponse));
             Page<GuildResponse> guildPage = new PageImpl<>(List.of(testGuildResponse));
 
-            when(feedQueryService.getPublicFeeds(anyString(), anyInt(), anyInt(), any())).thenReturn(feedPage);
-            when(missionCategoryService.getActiveCategories()).thenReturn(List.of(testCategoryResponse));
-            when(guildQueryService.getMyGuilds(eq(testUserId), any())).thenThrow(new RuntimeException("내 길드 조회 실패"));
+            when(feedQueryService.getPublicFeeds(anyString(), anyInt(), anyInt(), any()))
+                    .thenReturn(feedPage);
+            when(missionCategoryService.getActiveCategories())
+                    .thenReturn(List.of(testCategoryResponse));
+            when(guildQueryService.getMyGuilds(eq(testUserId), any()))
+                    .thenThrow(new RuntimeException("내 길드 조회 실패"));
             when(guildQueryService.getPublicGuilds(any(), any(), any())).thenReturn(guildPage);
             when(noticeService.getActiveNotices()).thenReturn(List.of(testNoticeResponse));
 
             // when
-            HomeDataResponse response = bffHomeService.getHomeData(testUserId, null, 0, 20, 5, null);
+            HomeDataResponse response =
+                    bffHomeService.getHomeData(testUserId, null, 0, 20, 5, null);
 
             // then
             assertThat(response).isNotNull();
@@ -400,14 +428,19 @@ class BffHomeServiceTest {
             // given
             Page<ActivityFeedResponse> feedPage = new PageImpl<>(List.of(testFeedResponse));
 
-            when(feedQueryService.getPublicFeeds(anyString(), anyInt(), anyInt(), any())).thenReturn(feedPage);
-            when(missionCategoryService.getActiveCategories()).thenReturn(List.of(testCategoryResponse));
-            when(guildQueryService.getMyGuilds(eq(testUserId), any())).thenReturn(List.of(testGuildResponse));
-            when(guildQueryService.getPublicGuilds(any(), any(), any())).thenThrow(new RuntimeException("공개 길드 조회 실패"));
+            when(feedQueryService.getPublicFeeds(anyString(), anyInt(), anyInt(), any()))
+                    .thenReturn(feedPage);
+            when(missionCategoryService.getActiveCategories())
+                    .thenReturn(List.of(testCategoryResponse));
+            when(guildQueryService.getMyGuilds(eq(testUserId), any()))
+                    .thenReturn(List.of(testGuildResponse));
+            when(guildQueryService.getPublicGuilds(any(), any(), any()))
+                    .thenThrow(new RuntimeException("공개 길드 조회 실패"));
             when(noticeService.getActiveNotices()).thenReturn(List.of(testNoticeResponse));
 
             // when
-            HomeDataResponse response = bffHomeService.getHomeData(testUserId, null, 0, 20, 5, null);
+            HomeDataResponse response =
+                    bffHomeService.getHomeData(testUserId, null, 0, 20, 5, null);
 
             // then
             assertThat(response).isNotNull();
@@ -423,14 +456,18 @@ class BffHomeServiceTest {
             Page<ActivityFeedResponse> feedPage = new PageImpl<>(List.of(testFeedResponse));
             Page<GuildResponse> guildPage = new PageImpl<>(List.of(testGuildResponse));
 
-            when(feedQueryService.getPublicFeeds(anyString(), anyInt(), anyInt(), any())).thenReturn(feedPage);
-            when(missionCategoryService.getActiveCategories()).thenReturn(List.of(testCategoryResponse));
-            when(guildQueryService.getMyGuilds(eq(testUserId), any())).thenReturn(List.of(testGuildResponse));
+            when(feedQueryService.getPublicFeeds(anyString(), anyInt(), anyInt(), any()))
+                    .thenReturn(feedPage);
+            when(missionCategoryService.getActiveCategories())
+                    .thenReturn(List.of(testCategoryResponse));
+            when(guildQueryService.getMyGuilds(eq(testUserId), any()))
+                    .thenReturn(List.of(testGuildResponse));
             when(guildQueryService.getPublicGuilds(any(), any(), any())).thenReturn(guildPage);
             when(noticeService.getActiveNotices()).thenThrow(new RuntimeException("공지사항 조회 실패"));
 
             // when
-            HomeDataResponse response = bffHomeService.getHomeData(testUserId, null, 0, 20, 5, null);
+            HomeDataResponse response =
+                    bffHomeService.getHomeData(testUserId, null, 0, 20, 5, null);
 
             // then
             assertThat(response).isNotNull();
@@ -446,14 +483,18 @@ class BffHomeServiceTest {
             Page<ActivityFeedResponse> feedPage = new PageImpl<>(List.of(testFeedResponse));
             Page<GuildResponse> guildPage = new PageImpl<>(List.of(testGuildResponse));
 
-            when(feedQueryService.getPublicFeeds(anyString(), anyInt(), anyInt(), any())).thenReturn(feedPage);
-            when(missionCategoryService.getActiveCategories()).thenReturn(List.of(testCategoryResponse));
-            when(guildQueryService.getMyGuilds(eq(testUserId), any())).thenReturn(Collections.emptyList());
+            when(feedQueryService.getPublicFeeds(anyString(), anyInt(), anyInt(), any()))
+                    .thenReturn(feedPage);
+            when(missionCategoryService.getActiveCategories())
+                    .thenReturn(List.of(testCategoryResponse));
+            when(guildQueryService.getMyGuilds(eq(testUserId), any()))
+                    .thenReturn(Collections.emptyList());
             when(guildQueryService.getPublicGuilds(any(), any(), any())).thenReturn(guildPage);
             when(noticeService.getActiveNotices()).thenReturn(List.of(testNoticeResponse));
 
             // when
-            HomeDataResponse response = bffHomeService.getHomeData(testUserId, null, 0, 20, 5, null);
+            HomeDataResponse response =
+                    bffHomeService.getHomeData(testUserId, null, 0, 20, 5, null);
 
             // then
             assertThat(response).isNotNull();
@@ -465,19 +506,21 @@ class BffHomeServiceTest {
         @DisplayName("피드가 있는 경우 정상적으로 조회된다")
         void getHomeData_withFeeds() {
             // given
-            Page<ActivityFeedResponse> feedPage = new PageImpl<>(
-                List.of(testFeedResponse), PageRequest.of(0, 20), 1
-            );
+            Page<ActivityFeedResponse> feedPage =
+                    new PageImpl<>(List.of(testFeedResponse), PageRequest.of(0, 20), 1);
             Page<GuildResponse> guildPage = new PageImpl<>(Collections.emptyList());
 
-            when(feedQueryService.getPublicFeeds(anyString(), anyInt(), anyInt(), any())).thenReturn(feedPage);
+            when(feedQueryService.getPublicFeeds(anyString(), anyInt(), anyInt(), any()))
+                    .thenReturn(feedPage);
             when(missionCategoryService.getActiveCategories()).thenReturn(Collections.emptyList());
-            when(guildQueryService.getMyGuilds(eq(testUserId), any())).thenReturn(Collections.emptyList());
+            when(guildQueryService.getMyGuilds(eq(testUserId), any()))
+                    .thenReturn(Collections.emptyList());
             when(guildQueryService.getPublicGuilds(any(), any(), any())).thenReturn(guildPage);
             when(noticeService.getActiveNotices()).thenReturn(Collections.emptyList());
 
             // when
-            HomeDataResponse response = bffHomeService.getHomeData(testUserId, null, 0, 20, 5, null);
+            HomeDataResponse response =
+                    bffHomeService.getHomeData(testUserId, null, 0, 20, 5, null);
 
             // then
             assertThat(response).isNotNull();
@@ -496,7 +539,8 @@ class BffHomeServiceTest {
             // given
             when(homeService.getTodayPlayers(any(), any())).thenReturn(List.of(testPlayerResponse));
             when(homeService.getMvpGuilds(any())).thenReturn(List.of(testMvpGuildResponse));
-            when(gamificationQueryFacade.getSeasonMvpData(any())).thenReturn(Optional.of(testSeasonMvpData));
+            when(gamificationQueryFacade.getSeasonMvpData(any()))
+                    .thenReturn(Optional.of(testSeasonMvpData));
 
             // when - categoryId = null (전체 조회)
             HomeMvpDataResponse response = bffHomeService.getHomeMvpData(null, null, null);
@@ -521,7 +565,8 @@ class BffHomeServiceTest {
         void getHomeMvpData_withCategoryFilter_success() {
             // given
             Long categoryId = 1L;
-            when(homeService.getTodayPlayersByCategory(eq(categoryId), any(), any())).thenReturn(List.of(testPlayerResponse));
+            when(homeService.getTodayPlayersByCategory(eq(categoryId), any(), any()))
+                    .thenReturn(List.of(testPlayerResponse));
             when(homeService.getMvpGuilds(any())).thenReturn(List.of(testMvpGuildResponse));
             when(gamificationQueryFacade.getSeasonMvpData(any())).thenReturn(Optional.empty());
 
@@ -538,7 +583,8 @@ class BffHomeServiceTest {
         @DisplayName("랭킹 조회 실패 시 빈 목록 반환")
         void getHomeMvpData_rankingsFetchFailed() {
             // given
-            when(homeService.getTodayPlayers(any(), any())).thenThrow(new RuntimeException("랭킹 조회 실패"));
+            when(homeService.getTodayPlayers(any(), any()))
+                    .thenThrow(new RuntimeException("랭킹 조회 실패"));
             when(homeService.getMvpGuilds(any())).thenReturn(List.of(testMvpGuildResponse));
             when(gamificationQueryFacade.getSeasonMvpData(any())).thenReturn(Optional.empty());
 
@@ -596,7 +642,8 @@ class BffHomeServiceTest {
             // given
             when(homeService.getTodayPlayers(any(), any())).thenReturn(List.of(testPlayerResponse));
             when(homeService.getMvpGuilds(any())).thenReturn(List.of(testMvpGuildResponse));
-            when(gamificationQueryFacade.getSeasonMvpData(any())).thenThrow(new RuntimeException("시즌 데이터 조회 실패"));
+            when(gamificationQueryFacade.getSeasonMvpData(any()))
+                    .thenThrow(new RuntimeException("시즌 데이터 조회 실패"));
 
             // when
             HomeMvpDataResponse response = bffHomeService.getHomeMvpData(null, null, null);

@@ -7,9 +7,7 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
-/**
- * LUT-437: UI 환경설정 부분 업데이트 요청 — null 필드는 변경하지 않는다 (알림 설정과 동일 방식).
- */
+/** LUT-437: UI 환경설정 부분 업데이트 요청 — null 필드는 변경하지 않는다 (알림 설정과 동일 방식). */
 @Getter
 @Builder
 @NoArgsConstructor

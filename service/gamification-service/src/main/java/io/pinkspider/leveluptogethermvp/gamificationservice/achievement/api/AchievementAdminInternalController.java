@@ -21,10 +21,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-/**
- * Admin 내부 API 컨트롤러 - Achievement
- * 인증 불필요 (SecurityConfig에서 /api/internal/** permitAll)
- */
+/** Admin 내부 API 컨트롤러 - Achievement 인증 불필요 (SecurityConfig에서 /api/internal/** permitAll) */
 @RestController
 @RequestMapping("/api/internal/achievements")
 @RequiredArgsConstructor
@@ -40,72 +37,76 @@ public class AchievementAdminInternalController {
             @RequestParam(required = false, defaultValue = "0") int page,
             @RequestParam(required = false, defaultValue = "20") int size,
             @RequestParam(name = "sort_by", required = false, defaultValue = "id") String sortBy,
-            @RequestParam(name = "sort_direction", required = false, defaultValue = "DESC") String sortDirection) {
-        Sort sort = "ASC".equalsIgnoreCase(sortDirection)
-            ? Sort.by(sortBy).ascending()
-            : Sort.by(sortBy).descending();
+            @RequestParam(name = "sort_direction", required = false, defaultValue = "DESC")
+                    String sortDirection) {
+        Sort sort =
+                "ASC".equalsIgnoreCase(sortDirection)
+                        ? Sort.by(sortBy).ascending()
+                        : Sort.by(sortBy).descending();
         return ApiResult.<AchievementAdminPageResponse>builder()
-            .value(achievementAdminService.searchAchievements(keyword, categoryId, categoryIds, PageRequest.of(page, size, sort)))
-            .build();
+                .value(
+                        achievementAdminService.searchAchievements(
+                                keyword, categoryId, categoryIds, PageRequest.of(page, size, sort)))
+                .build();
     }
 
     @GetMapping("/all")
     public ApiResult<List<AchievementAdminResponse>> getAllAchievements() {
         return ApiResult.<List<AchievementAdminResponse>>builder()
-            .value(achievementAdminService.getAllAchievements())
-            .build();
+                .value(achievementAdminService.getAllAchievements())
+                .build();
     }
 
     @GetMapping("/active")
     public ApiResult<List<AchievementAdminResponse>> getActiveAchievements() {
         return ApiResult.<List<AchievementAdminResponse>>builder()
-            .value(achievementAdminService.getActiveAchievements())
-            .build();
+                .value(achievementAdminService.getActiveAchievements())
+                .build();
     }
 
     @GetMapping("/visible")
     public ApiResult<List<AchievementAdminResponse>> getVisibleAchievements() {
         return ApiResult.<List<AchievementAdminResponse>>builder()
-            .value(achievementAdminService.getVisibleAchievements())
-            .build();
+                .value(achievementAdminService.getVisibleAchievements())
+                .build();
     }
 
     @GetMapping("/{id}")
     public ApiResult<AchievementAdminResponse> getAchievement(@PathVariable Long id) {
         return ApiResult.<AchievementAdminResponse>builder()
-            .value(achievementAdminService.getAchievement(id))
-            .build();
+                .value(achievementAdminService.getAchievement(id))
+                .build();
     }
 
     @GetMapping("/category/{categoryCode}")
-    public ApiResult<List<AchievementAdminResponse>> getAchievementsByCategoryCode(@PathVariable String categoryCode) {
+    public ApiResult<List<AchievementAdminResponse>> getAchievementsByCategoryCode(
+            @PathVariable String categoryCode) {
         return ApiResult.<List<AchievementAdminResponse>>builder()
-            .value(achievementAdminService.getAchievementsByCategoryCode(categoryCode))
-            .build();
+                .value(achievementAdminService.getAchievementsByCategoryCode(categoryCode))
+                .build();
     }
 
     @PostMapping
     public ApiResult<AchievementAdminResponse> createAchievement(
             @Valid @RequestBody AchievementAdminRequest request) {
         return ApiResult.<AchievementAdminResponse>builder()
-            .value(achievementAdminService.createAchievement(request))
-            .build();
+                .value(achievementAdminService.createAchievement(request))
+                .build();
     }
 
     @PutMapping("/{id}")
     public ApiResult<AchievementAdminResponse> updateAchievement(
-            @PathVariable Long id,
-            @Valid @RequestBody AchievementAdminRequest request) {
+            @PathVariable Long id, @Valid @RequestBody AchievementAdminRequest request) {
         return ApiResult.<AchievementAdminResponse>builder()
-            .value(achievementAdminService.updateAchievement(id, request))
-            .build();
+                .value(achievementAdminService.updateAchievement(id, request))
+                .build();
     }
 
     @PatchMapping("/{id}/toggle-active")
     public ApiResult<AchievementAdminResponse> toggleActiveStatus(@PathVariable Long id) {
         return ApiResult.<AchievementAdminResponse>builder()
-            .value(achievementAdminService.toggleActiveStatus(id))
-            .build();
+                .value(achievementAdminService.toggleActiveStatus(id))
+                .build();
     }
 
     @DeleteMapping("/{id}")

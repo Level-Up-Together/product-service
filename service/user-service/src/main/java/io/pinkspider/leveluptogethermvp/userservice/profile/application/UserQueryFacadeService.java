@@ -16,10 +16,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-/**
- * 외부 서비스용 사용자 Facade
- * userservice 외부에서 user_db에 직접 접근하지 않고 이 서비스를 통해 조회한다.
- */
+/** 외부 서비스용 사용자 Facade userservice 외부에서 user_db에 직접 접근하지 않고 이 서비스를 통해 조회한다. */
 @Service
 @Slf4j
 @RequiredArgsConstructor
@@ -79,18 +76,21 @@ public class UserQueryFacadeService implements UserQueryFacade {
     // ========== 신규 유저 확인 ==========
 
     public boolean isNewUserToday(String userId) {
-        return userRepository.findById(userId)
-            .map(user -> user.getCreatedAt() != null
-                && user.getCreatedAt().toLocalDate().equals(LocalDate.now()))
-            .orElse(false);
+        return userRepository
+                .findById(userId)
+                .map(
+                        user ->
+                                user.getCreatedAt() != null
+                                        && user.getCreatedAt()
+                                                .toLocalDate()
+                                                .equals(LocalDate.now()))
+                .orElse(false);
     }
 
     // ========== 닉네임 직접 조회 ==========
 
     public String findUserNickname(String userId) {
-        return userRepository.findById(userId)
-            .map(Users::getNickname)
-            .orElse(null);
+        return userRepository.findById(userId).map(Users::getNickname).orElse(null);
     }
 
     /** LUT-328: 닉네임 검색 결과 상한 — 어드민 검색 IN 절 폭주 방지 */
@@ -102,34 +102,39 @@ public class UserQueryFacadeService implements UserQueryFacade {
             return List.of();
         }
         return userRepository.findIdsByNicknameContaining(
-            keyword.trim(), PageRequest.of(0, NICKNAME_SEARCH_LIMIT));
+                keyword.trim(), PageRequest.of(0, NICKNAME_SEARCH_LIMIT));
     }
 
     // ========== 피드 공개범위 선호 ==========
 
     @Override
     public String getPreferredFeedVisibility(String userId) {
-        return userRepository.findById(userId)
-            .map(Users::getPreferredFeedVisibility)
-            .orElse("PUBLIC");
+        return userRepository
+                .findById(userId)
+                .map(Users::getPreferredFeedVisibility)
+                .orElse("PUBLIC");
     }
 
     @Override
     @Transactional(transactionManager = "userTransactionManager")
     public void updatePreferredFeedVisibility(String userId, String feedVisibility) {
-        userRepository.findById(userId).ifPresent(user -> {
-            user.updatePreferredFeedVisibility(feedVisibility);
-            userRepository.save(user);
-        });
+        userRepository
+                .findById(userId)
+                .ifPresent(
+                        user -> {
+                            user.updatePreferredFeedVisibility(feedVisibility);
+                            userRepository.save(user);
+                        });
     }
 
     // ========== 선호 타임존 ==========
 
     @Override
     public String getPreferredTimezone(String userId) {
-        return userRepository.findById(userId)
-            .map(Users::getPreferredTimezone)
-            .orElse("Asia/Seoul");
+        return userRepository
+                .findById(userId)
+                .map(Users::getPreferredTimezone)
+                .orElse("Asia/Seoul");
     }
 
     @Override

@@ -5,7 +5,8 @@ import java.time.LocalDate;
 import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
 
-public interface GuildMemberDailyPointRepository extends JpaRepository<GuildMemberDailyPoint, Long> {
+public interface GuildMemberDailyPointRepository
+        extends JpaRepository<GuildMemberDailyPoint, Long> {
 
     Optional<GuildMemberDailyPoint> findByGuildIdAndUserIdAndPointDate(
             Long guildId, String userId, LocalDate pointDate);

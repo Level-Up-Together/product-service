@@ -23,14 +23,13 @@ import org.mockito.junit.jupiter.MockitoExtension;
 @ExtendWith(MockitoExtension.class)
 class KakaoWebhookServiceTest {
 
-    @Mock
-    private UserRepository userRepository;
+    @Mock private UserRepository userRepository;
+
+    @Mock private MultiDeviceTokenService tokenService;
 
     @Mock
-    private MultiDeviceTokenService tokenService;
-
-    @Mock
-    private io.pinkspider.leveluptogethermvp.userservice.mypage.application.MyPageService myPageService;
+    private io.pinkspider.leveluptogethermvp.userservice.mypage.application.MyPageService
+            myPageService;
 
     private OAuth2Properties oAuth2Properties;
     private ObjectMapper objectMapper;
@@ -47,13 +46,13 @@ class KakaoWebhookServiceTest {
 
         objectMapper = new ObjectMapper();
 
-        kakaoWebhookService = new KakaoWebhookService(
-            oAuth2Properties,
-            userRepository,
-            tokenService,
-            myPageService,
-            objectMapper
-        );
+        kakaoWebhookService =
+                new KakaoWebhookService(
+                        oAuth2Properties,
+                        userRepository,
+                        tokenService,
+                        myPageService,
+                        objectMapper);
     }
 
     @Nested
@@ -65,14 +64,16 @@ class KakaoWebhookServiceTest {
         void handleUnlinkWebhook_success() {
             // given
             String authorization = "KakaoAK test-admin-key";
-            KakaoUnlinkWebhookRequest request = KakaoUnlinkWebhookRequest.builder()
-                .appId("123456")
-                .userId("987654321")
-                .referrerType("UNLINK_FROM_APPS")
-                .build();
+            KakaoUnlinkWebhookRequest request =
+                    KakaoUnlinkWebhookRequest.builder()
+                            .appId("123456")
+                            .userId("987654321")
+                            .referrerType("UNLINK_FROM_APPS")
+                            .build();
 
             // when & then
-            assertDoesNotThrow(() -> kakaoWebhookService.handleUnlinkWebhook(authorization, request));
+            assertDoesNotThrow(
+                    () -> kakaoWebhookService.handleUnlinkWebhook(authorization, request));
         }
 
         @Test
@@ -80,19 +81,25 @@ class KakaoWebhookServiceTest {
         void handleUnlinkWebhook_withdrawsMappedUser() {
             // given
             io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.entity.Users user =
-                io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.entity.Users.builder()
-                    .id("user-1").email("e").nickname("n")
-                    .provider("kakao").providerUserId("987654321")
-                    .build();
+                    io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.entity.Users
+                            .builder()
+                            .id("user-1")
+                            .email("e")
+                            .nickname("n")
+                            .provider("kakao")
+                            .providerUserId("987654321")
+                            .build();
             org.mockito.Mockito.when(
-                    userRepository.findActiveByProviderAndProviderUserId("kakao", "987654321"))
-                .thenReturn(java.util.Optional.of(user));
+                            userRepository.findActiveByProviderAndProviderUserId(
+                                    "kakao", "987654321"))
+                    .thenReturn(java.util.Optional.of(user));
 
-            KakaoUnlinkWebhookRequest request = KakaoUnlinkWebhookRequest.builder()
-                .appId("123456")
-                .userId("987654321")
-                .referrerType("ACCOUNT_DELETE")
-                .build();
+            KakaoUnlinkWebhookRequest request =
+                    KakaoUnlinkWebhookRequest.builder()
+                            .appId("123456")
+                            .userId("987654321")
+                            .referrerType("ACCOUNT_DELETE")
+                            .build();
 
             // when
             kakaoWebhookService.handleUnlinkWebhook("KakaoAK test-admin-key", request);
@@ -106,20 +113,24 @@ class KakaoWebhookServiceTest {
         void handleUnlinkWebhook_unmappedUser_isNoOp() {
             // given
             org.mockito.Mockito.when(
-                    userRepository.findActiveByProviderAndProviderUserId("kakao", "987654321"))
-                .thenReturn(java.util.Optional.empty());
+                            userRepository.findActiveByProviderAndProviderUserId(
+                                    "kakao", "987654321"))
+                    .thenReturn(java.util.Optional.empty());
 
-            KakaoUnlinkWebhookRequest request = KakaoUnlinkWebhookRequest.builder()
-                .appId("123456")
-                .userId("987654321")
-                .referrerType("UNLINK_FROM_APPS")
-                .build();
+            KakaoUnlinkWebhookRequest request =
+                    KakaoUnlinkWebhookRequest.builder()
+                            .appId("123456")
+                            .userId("987654321")
+                            .referrerType("UNLINK_FROM_APPS")
+                            .build();
 
             // when & then
-            assertDoesNotThrow(() -> kakaoWebhookService.handleUnlinkWebhook(
-                "KakaoAK test-admin-key", request));
+            assertDoesNotThrow(
+                    () ->
+                            kakaoWebhookService.handleUnlinkWebhook(
+                                    "KakaoAK test-admin-key", request));
             org.mockito.Mockito.verify(myPageService, org.mockito.Mockito.never())
-                .withdrawUser(org.mockito.ArgumentMatchers.anyString());
+                    .withdrawUser(org.mockito.ArgumentMatchers.anyString());
         }
 
         @Test
@@ -127,15 +138,18 @@ class KakaoWebhookServiceTest {
         void handleUnlinkWebhook_invalidAuthorizationFormat() {
             // given
             String authorization = "Bearer invalid-format";
-            KakaoUnlinkWebhookRequest request = KakaoUnlinkWebhookRequest.builder()
-                .appId("123456")
-                .userId("987654321")
-                .referrerType("UNLINK_FROM_APPS")
-                .build();
+            KakaoUnlinkWebhookRequest request =
+                    KakaoUnlinkWebhookRequest.builder()
+                            .appId("123456")
+                            .userId("987654321")
+                            .referrerType("UNLINK_FROM_APPS")
+                            .build();
 
             // when & then
-            CustomException exception = assertThrows(CustomException.class,
-                () -> kakaoWebhookService.handleUnlinkWebhook(authorization, request));
+            CustomException exception =
+                    assertThrows(
+                            CustomException.class,
+                            () -> kakaoWebhookService.handleUnlinkWebhook(authorization, request));
             assertEquals("000720", exception.getCode());
         }
 
@@ -144,15 +158,18 @@ class KakaoWebhookServiceTest {
         void handleUnlinkWebhook_invalidAdminKey() {
             // given
             String authorization = "KakaoAK wrong-admin-key";
-            KakaoUnlinkWebhookRequest request = KakaoUnlinkWebhookRequest.builder()
-                .appId("123456")
-                .userId("987654321")
-                .referrerType("UNLINK_FROM_APPS")
-                .build();
+            KakaoUnlinkWebhookRequest request =
+                    KakaoUnlinkWebhookRequest.builder()
+                            .appId("123456")
+                            .userId("987654321")
+                            .referrerType("UNLINK_FROM_APPS")
+                            .build();
 
             // when & then
-            CustomException exception = assertThrows(CustomException.class,
-                () -> kakaoWebhookService.handleUnlinkWebhook(authorization, request));
+            CustomException exception =
+                    assertThrows(
+                            CustomException.class,
+                            () -> kakaoWebhookService.handleUnlinkWebhook(authorization, request));
             assertEquals("000720", exception.getCode());
         }
 
@@ -161,15 +178,18 @@ class KakaoWebhookServiceTest {
         void handleUnlinkWebhook_invalidAppId() {
             // given
             String authorization = "KakaoAK test-admin-key";
-            KakaoUnlinkWebhookRequest request = KakaoUnlinkWebhookRequest.builder()
-                .appId("wrong-app-id")
-                .userId("987654321")
-                .referrerType("UNLINK_FROM_APPS")
-                .build();
+            KakaoUnlinkWebhookRequest request =
+                    KakaoUnlinkWebhookRequest.builder()
+                            .appId("wrong-app-id")
+                            .userId("987654321")
+                            .referrerType("UNLINK_FROM_APPS")
+                            .build();
 
             // when & then
-            CustomException exception = assertThrows(CustomException.class,
-                () -> kakaoWebhookService.handleUnlinkWebhook(authorization, request));
+            CustomException exception =
+                    assertThrows(
+                            CustomException.class,
+                            () -> kakaoWebhookService.handleUnlinkWebhook(authorization, request));
             assertEquals("000720", exception.getCode());
         }
     }
@@ -185,10 +205,10 @@ class KakaoWebhookServiceTest {
             String invalidSetToken = "invalid.jwt";
 
             // when & then
-            KakaoWebhookService.SetValidationException exception = assertThrows(
-                KakaoWebhookService.SetValidationException.class,
-                () -> kakaoWebhookService.handleAccountStatusWebhook(invalidSetToken)
-            );
+            KakaoWebhookService.SetValidationException exception =
+                    assertThrows(
+                            KakaoWebhookService.SetValidationException.class,
+                            () -> kakaoWebhookService.handleAccountStatusWebhook(invalidSetToken));
             assertEquals("invalid_request", exception.getErrorCode());
         }
 
@@ -197,15 +217,16 @@ class KakaoWebhookServiceTest {
         void handleAccountStatusWebhook_invalidTokenType() {
             // given - typ이 jwt인 경우 (secevent+jwt가 아님)
             // Header: {"kid":"test","typ":"jwt","alg":"RS256"}
-            String invalidTypeToken = "eyJraWQiOiJ0ZXN0IiwidHlwIjoiand0IiwiYWxnIjoiUlMyNTYifQ." +
-                "eyJhdWQiOiJ0ZXN0IiwiYmxhIjoiYmxhIn0." +
-                "signature";
+            String invalidTypeToken =
+                    "eyJraWQiOiJ0ZXN0IiwidHlwIjoiand0IiwiYWxnIjoiUlMyNTYifQ."
+                            + "eyJhdWQiOiJ0ZXN0IiwiYmxhIjoiYmxhIn0."
+                            + "signature";
 
             // when & then
-            KakaoWebhookService.SetValidationException exception = assertThrows(
-                KakaoWebhookService.SetValidationException.class,
-                () -> kakaoWebhookService.handleAccountStatusWebhook(invalidTypeToken)
-            );
+            KakaoWebhookService.SetValidationException exception =
+                    assertThrows(
+                            KakaoWebhookService.SetValidationException.class,
+                            () -> kakaoWebhookService.handleAccountStatusWebhook(invalidTypeToken));
             assertEquals("invalid_request", exception.getErrorCode());
         }
 
@@ -214,15 +235,16 @@ class KakaoWebhookServiceTest {
         void handleAccountStatusWebhook_unsupportedAlgorithm() {
             // given - alg가 RS256이 아닌 경우
             // Header: {"kid":"test","typ":"secevent+jwt","alg":"HS256"}
-            String invalidAlgToken = "eyJraWQiOiJ0ZXN0IiwidHlwIjoic2VjZXZlbnQrand0IiwiYWxnIjoiSFMyNTYifQ." +
-                "eyJhdWQiOiJ0ZXN0IiwiYmxhIjoiYmxhIn0." +
-                "signature";
+            String invalidAlgToken =
+                    "eyJraWQiOiJ0ZXN0IiwidHlwIjoic2VjZXZlbnQrand0IiwiYWxnIjoiSFMyNTYifQ."
+                            + "eyJhdWQiOiJ0ZXN0IiwiYmxhIjoiYmxhIn0."
+                            + "signature";
 
             // when & then
-            KakaoWebhookService.SetValidationException exception = assertThrows(
-                KakaoWebhookService.SetValidationException.class,
-                () -> kakaoWebhookService.handleAccountStatusWebhook(invalidAlgToken)
-            );
+            KakaoWebhookService.SetValidationException exception =
+                    assertThrows(
+                            KakaoWebhookService.SetValidationException.class,
+                            () -> kakaoWebhookService.handleAccountStatusWebhook(invalidAlgToken));
             assertEquals("invalid_request", exception.getErrorCode());
         }
 
@@ -232,15 +254,18 @@ class KakaoWebhookServiceTest {
             // given - iss가 https://kauth.kakao.com이 아닌 경우
             // Header: {"kid":"test","typ":"secevent+jwt","alg":"RS256"}
             // Payload: {"iss":"https://evil.com","aud":"test-rest-api-key",...}
-            String invalidIssuerToken = "eyJraWQiOiJ0ZXN0IiwidHlwIjoic2VjZXZlbnQrand0IiwiYWxnIjoiUlMyNTYifQ." +
-                "eyJpc3MiOiJodHRwczovL2V2aWwuY29tIiwiYXVkIjoidGVzdC1yZXN0LWFwaS1rZXkifQ." +
-                "signature";
+            String invalidIssuerToken =
+                    "eyJraWQiOiJ0ZXN0IiwidHlwIjoic2VjZXZlbnQrand0IiwiYWxnIjoiUlMyNTYifQ."
+                        + "eyJpc3MiOiJodHRwczovL2V2aWwuY29tIiwiYXVkIjoidGVzdC1yZXN0LWFwaS1rZXkifQ."
+                        + "signature";
 
             // when & then
-            KakaoWebhookService.SetValidationException exception = assertThrows(
-                KakaoWebhookService.SetValidationException.class,
-                () -> kakaoWebhookService.handleAccountStatusWebhook(invalidIssuerToken)
-            );
+            KakaoWebhookService.SetValidationException exception =
+                    assertThrows(
+                            KakaoWebhookService.SetValidationException.class,
+                            () ->
+                                    kakaoWebhookService.handleAccountStatusWebhook(
+                                            invalidIssuerToken));
             assertEquals("invalid_issuer", exception.getErrorCode());
         }
 
@@ -250,15 +275,16 @@ class KakaoWebhookServiceTest {
             // given - aud가 설정된 restApiKey와 다른 경우
             // Header: {"kid":"test","typ":"secevent+jwt","alg":"RS256"}
             // Payload: {"iss":"https://kauth.kakao.com","aud":"wrong-audience"}
-            String invalidAudToken = "eyJraWQiOiJ0ZXN0IiwidHlwIjoic2VjZXZlbnQrand0IiwiYWxnIjoiUlMyNTYifQ." +
-                "eyJpc3MiOiJodHRwczovL2thdXRoLmtha2FvLmNvbSIsImF1ZCI6Indyb25nLWF1ZGllbmNlIn0." +
-                "signature";
+            String invalidAudToken =
+                    "eyJraWQiOiJ0ZXN0IiwidHlwIjoic2VjZXZlbnQrand0IiwiYWxnIjoiUlMyNTYifQ."
+                        + "eyJpc3MiOiJodHRwczovL2thdXRoLmtha2FvLmNvbSIsImF1ZCI6Indyb25nLWF1ZGllbmNlIn0."
+                        + "signature";
 
             // when & then
-            KakaoWebhookService.SetValidationException exception = assertThrows(
-                KakaoWebhookService.SetValidationException.class,
-                () -> kakaoWebhookService.handleAccountStatusWebhook(invalidAudToken)
-            );
+            KakaoWebhookService.SetValidationException exception =
+                    assertThrows(
+                            KakaoWebhookService.SetValidationException.class,
+                            () -> kakaoWebhookService.handleAccountStatusWebhook(invalidAudToken));
             assertEquals("invalid_audience", exception.getErrorCode());
         }
     }
@@ -271,15 +297,18 @@ class KakaoWebhookServiceTest {
         @DisplayName("null Authorization으로 실패")
         void handleUnlinkWebhook_nullAuthorization() {
             // given
-            KakaoUnlinkWebhookRequest request = KakaoUnlinkWebhookRequest.builder()
-                .appId("123456")
-                .userId("987654321")
-                .referrerType("UNLINK_FROM_APPS")
-                .build();
+            KakaoUnlinkWebhookRequest request =
+                    KakaoUnlinkWebhookRequest.builder()
+                            .appId("123456")
+                            .userId("987654321")
+                            .referrerType("UNLINK_FROM_APPS")
+                            .build();
 
             // when & then
-            CustomException exception = assertThrows(CustomException.class,
-                () -> kakaoWebhookService.handleUnlinkWebhook(null, request));
+            CustomException exception =
+                    assertThrows(
+                            CustomException.class,
+                            () -> kakaoWebhookService.handleUnlinkWebhook(null, request));
             assertEquals("000720", exception.getCode());
         }
 
@@ -294,20 +323,23 @@ class KakaoWebhookServiceTest {
             kakaoWebhook.setAppId("123456");
             props.setKakaoWebhook(kakaoWebhook);
 
-            KakaoWebhookService service = new KakaoWebhookService(
-                props, userRepository, tokenService, myPageService, objectMapper
-            );
+            KakaoWebhookService service =
+                    new KakaoWebhookService(
+                            props, userRepository, tokenService, myPageService, objectMapper);
 
             String authorization = "KakaoAK some-key";
-            KakaoUnlinkWebhookRequest request = KakaoUnlinkWebhookRequest.builder()
-                .appId("123456")
-                .userId("987654321")
-                .referrerType("UNLINK_FROM_APPS")
-                .build();
+            KakaoUnlinkWebhookRequest request =
+                    KakaoUnlinkWebhookRequest.builder()
+                            .appId("123456")
+                            .userId("987654321")
+                            .referrerType("UNLINK_FROM_APPS")
+                            .build();
 
             // when & then
-            CustomException exception = assertThrows(CustomException.class,
-                () -> service.handleUnlinkWebhook(authorization, request));
+            CustomException exception =
+                    assertThrows(
+                            CustomException.class,
+                            () -> service.handleUnlinkWebhook(authorization, request));
             assertEquals("000720", exception.getCode());
         }
 
@@ -322,16 +354,17 @@ class KakaoWebhookServiceTest {
             kakaoWebhook.setAppId(null); // expectedAppId = null → 검증 건너뜀
             props.setKakaoWebhook(kakaoWebhook);
 
-            KakaoWebhookService service = new KakaoWebhookService(
-                props, userRepository, tokenService, myPageService, objectMapper
-            );
+            KakaoWebhookService service =
+                    new KakaoWebhookService(
+                            props, userRepository, tokenService, myPageService, objectMapper);
 
             String authorization = "KakaoAK test-admin-key";
-            KakaoUnlinkWebhookRequest request = KakaoUnlinkWebhookRequest.builder()
-                .appId("any-app-id")
-                .userId("987654321")
-                .referrerType("UNLINK_FROM_APPS")
-                .build();
+            KakaoUnlinkWebhookRequest request =
+                    KakaoUnlinkWebhookRequest.builder()
+                            .appId("any-app-id")
+                            .userId("987654321")
+                            .referrerType("UNLINK_FROM_APPS")
+                            .build();
 
             // when & then
             assertDoesNotThrow(() -> service.handleUnlinkWebhook(authorization, request));
@@ -345,27 +378,36 @@ class KakaoWebhookServiceTest {
         @Test
         @DisplayName("KakaoUnlinkReferrerType 변환 테스트")
         void testUnlinkReferrerTypeConversion() {
-            assertEquals(KakaoUnlinkReferrerType.ACCOUNT_DELETE,
-                KakaoUnlinkReferrerType.fromValue("ACCOUNT_DELETE"));
-            assertEquals(KakaoUnlinkReferrerType.UNLINK_FROM_APPS,
-                KakaoUnlinkReferrerType.fromValue("UNLINK_FROM_APPS"));
-            assertEquals(KakaoUnlinkReferrerType.FORCED_UNLINK_BY_ADMIN,
-                KakaoUnlinkReferrerType.fromValue("FORCED_UNLINK_BY_ADMIN"));
-            assertEquals(KakaoUnlinkReferrerType.UNKNOWN,
-                KakaoUnlinkReferrerType.fromValue("INVALID_TYPE"));
-            assertEquals(KakaoUnlinkReferrerType.UNKNOWN,
-                KakaoUnlinkReferrerType.fromValue(null));
+            assertEquals(
+                    KakaoUnlinkReferrerType.ACCOUNT_DELETE,
+                    KakaoUnlinkReferrerType.fromValue("ACCOUNT_DELETE"));
+            assertEquals(
+                    KakaoUnlinkReferrerType.UNLINK_FROM_APPS,
+                    KakaoUnlinkReferrerType.fromValue("UNLINK_FROM_APPS"));
+            assertEquals(
+                    KakaoUnlinkReferrerType.FORCED_UNLINK_BY_ADMIN,
+                    KakaoUnlinkReferrerType.fromValue("FORCED_UNLINK_BY_ADMIN"));
+            assertEquals(
+                    KakaoUnlinkReferrerType.UNKNOWN,
+                    KakaoUnlinkReferrerType.fromValue("INVALID_TYPE"));
+            assertEquals(KakaoUnlinkReferrerType.UNKNOWN, KakaoUnlinkReferrerType.fromValue(null));
         }
 
         @Test
         @DisplayName("KakaoAccountEventType 변환 테스트")
         void testAccountEventTypeConversion() {
-            assertEquals(KakaoAccountEventType.USER_UNLINKED,
-                KakaoAccountEventType.fromUri("https://schemas.kakao.com/events/oauth/user-unlinked"));
-            assertEquals(KakaoAccountEventType.ACCOUNT_DISABLED,
-                KakaoAccountEventType.fromUri("https://schemas.openid.net/secevent/risc/event-type/account-disabled"));
-            assertEquals(KakaoAccountEventType.CREDENTIAL_CHANGE,
-                KakaoAccountEventType.fromUri("https://schemas.openid.net/secevent/caep/event-type/credential-change"));
+            assertEquals(
+                    KakaoAccountEventType.USER_UNLINKED,
+                    KakaoAccountEventType.fromUri(
+                            "https://schemas.kakao.com/events/oauth/user-unlinked"));
+            assertEquals(
+                    KakaoAccountEventType.ACCOUNT_DISABLED,
+                    KakaoAccountEventType.fromUri(
+                            "https://schemas.openid.net/secevent/risc/event-type/account-disabled"));
+            assertEquals(
+                    KakaoAccountEventType.CREDENTIAL_CHANGE,
+                    KakaoAccountEventType.fromUri(
+                            "https://schemas.openid.net/secevent/caep/event-type/credential-change"));
 
             // 알 수 없는 URI
             assertEquals(null, KakaoAccountEventType.fromUri("https://unknown.uri"));
@@ -376,7 +418,8 @@ class KakaoWebhookServiceTest {
         @DisplayName("KakaoAccountEventType 속성 테스트")
         void testAccountEventTypeProperties() {
             KakaoAccountEventType userUnlinked = KakaoAccountEventType.USER_UNLINKED;
-            assertEquals("https://schemas.kakao.com/events/oauth/user-unlinked", userUnlinked.getUri());
+            assertEquals(
+                    "https://schemas.kakao.com/events/oauth/user-unlinked", userUnlinked.getUri());
             assertEquals("OAUTH", userUnlinked.getCategory());
             assertEquals("사용자 앱 연결 해제", userUnlinked.getDescription());
         }

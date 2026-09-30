@@ -35,25 +35,34 @@ public class MissionAdminService {
 
     @Transactional(readOnly = true, transactionManager = "missionTransactionManager")
     public MissionAdminPageResponse searchMissions(
-            String keyword, String source, String status,
-            String type, String participationType,
-            String creatorId, Long categoryId, Pageable pageable) {
+            String keyword,
+            String source,
+            String status,
+            String type,
+            String participationType,
+            String creatorId,
+            Long categoryId,
+            Pageable pageable) {
         Page<MissionAdminResponse> page;
         if (hasSearchCriteria(keyword, source, status, type, participationType, creatorId)
                 || categoryId != null) {
-            page = missionRepository.searchMissionsAdmin(
-                keyword,
-                source,
-                status,
-                type,
-                participationType,
-                creatorId,
-                categoryId,
-                pageable
-            ).map(MissionAdminResponse::from);
+            page =
+                    missionRepository
+                            .searchMissionsAdmin(
+                                    keyword,
+                                    source,
+                                    status,
+                                    type,
+                                    participationType,
+                                    creatorId,
+                                    categoryId,
+                                    pageable)
+                            .map(MissionAdminResponse::from);
         } else {
-            page = missionRepository.findAllByIsDeletedFalseOrderByCreatedAtDesc(pageable)
-                .map(MissionAdminResponse::from);
+            page =
+                    missionRepository
+                            .findAllByIsDeletedFalseOrderByCreatedAtDesc(pageable)
+                            .map(MissionAdminResponse::from);
         }
         return MissionAdminPageResponse.from(page);
     }
@@ -61,66 +70,95 @@ public class MissionAdminService {
     @Transactional(readOnly = true, transactionManager = "missionTransactionManager")
     public List<MissionAdminResponse> getAllMissions() {
         return missionRepository.findAll().stream()
-            .map(MissionAdminResponse::from)
-            .collect(Collectors.toList());
+                .map(MissionAdminResponse::from)
+                .collect(Collectors.toList());
     }
 
     @Transactional(readOnly = true, transactionManager = "missionTransactionManager")
     public List<MissionAdminResponse> getMissionsBySource(String source) {
         return missionRepository.findBySource(MissionSource.valueOf(source)).stream()
-            .map(MissionAdminResponse::from)
-            .collect(Collectors.toList());
+                .map(MissionAdminResponse::from)
+                .collect(Collectors.toList());
     }
 
     @Transactional(readOnly = true, transactionManager = "missionTransactionManager")
-    public List<MissionAdminResponse> getMissionsBySourceAndParticipationType(String source, String participationType) {
-        return missionRepository.findBySourceAndParticipationType(
-                MissionSource.valueOf(source), MissionParticipationType.valueOf(participationType)).stream()
-            .map(MissionAdminResponse::from)
-            .collect(Collectors.toList());
+    public List<MissionAdminResponse> getMissionsBySourceAndParticipationType(
+            String source, String participationType) {
+        return missionRepository
+                .findBySourceAndParticipationType(
+                        MissionSource.valueOf(source),
+                        MissionParticipationType.valueOf(participationType))
+                .stream()
+                .map(MissionAdminResponse::from)
+                .collect(Collectors.toList());
     }
 
     @Transactional(readOnly = true, transactionManager = "missionTransactionManager")
     public MissionAdminResponse getMission(Long id) {
-        Mission mission = missionRepository.findById(id)
-            .orElseThrow(() -> new CustomException("050101", "error.mission.not_found"));
+        Mission mission =
+                missionRepository
+                        .findById(id)
+                        .orElseThrow(
+                                () -> new CustomException("050101", "error.mission.not_found"));
         return MissionAdminResponse.from(mission);
     }
 
     public MissionAdminResponse createMission(MissionAdminRequest request) {
-        Mission mission = Mission.builder()
-            .title(request.title())
-            .titleEn(request.titleEn())
-            .titleAr(request.titleAr())
-            .titleJa(request.titleJa())
-            .description(request.description())
-            .descriptionEn(request.descriptionEn())
-            .descriptionAr(request.descriptionAr())
-            .descriptionJa(request.descriptionJa())
-            .status(MissionStatus.valueOf(request.status()))
-            .visibility(MissionVisibility.valueOf(request.visibility()))
-            .type(MissionType.valueOf(request.type()))
-            .source(request.source() != null ? MissionSource.valueOf(request.source()) : MissionSource.SYSTEM)
-            .participationType(request.participationType() != null
-                ? MissionParticipationType.valueOf(request.participationType()) : MissionParticipationType.DIRECT)
-            .isCustomizable(request.isCustomizable() != null ? request.isCustomizable() : true)
-            .creatorId(request.creatorId())
-            .guildId(request.guildId())
-            .maxParticipants(request.maxParticipants())
-            .startAt(request.startAt())
-            .endAt(request.endAt())
-            .missionInterval(request.missionInterval() != null
-                ? MissionInterval.valueOf(request.missionInterval()) : MissionInterval.DAILY)
-            .durationDays(request.durationDays())
-            .durationMinutes(request.durationMinutes())
-            .expPerCompletion(request.expPerCompletion() != null ? request.expPerCompletion() : 10)
-            .bonusExpOnFullCompletion(request.bonusExpOnFullCompletion() != null ? request.bonusExpOnFullCompletion() : 50)
-            .isPinned(request.isPinned() != null ? request.isPinned() : false)
-            .targetDurationMinutes(request.targetDurationMinutes())
-            .dailyExecutionLimit(request.dailyExecutionLimit())
-            .guildExpPerCompletion(request.guildExpPerCompletion() != null ? request.guildExpPerCompletion() : 5)
-            .guildBonusExpOnFullCompletion(request.guildBonusExpOnFullCompletion() != null ? request.guildBonusExpOnFullCompletion() : 20)
-            .build();
+        Mission mission =
+                Mission.builder()
+                        .title(request.title())
+                        .titleEn(request.titleEn())
+                        .titleAr(request.titleAr())
+                        .titleJa(request.titleJa())
+                        .description(request.description())
+                        .descriptionEn(request.descriptionEn())
+                        .descriptionAr(request.descriptionAr())
+                        .descriptionJa(request.descriptionJa())
+                        .status(MissionStatus.valueOf(request.status()))
+                        .visibility(MissionVisibility.valueOf(request.visibility()))
+                        .type(MissionType.valueOf(request.type()))
+                        .source(
+                                request.source() != null
+                                        ? MissionSource.valueOf(request.source())
+                                        : MissionSource.SYSTEM)
+                        .participationType(
+                                request.participationType() != null
+                                        ? MissionParticipationType.valueOf(
+                                                request.participationType())
+                                        : MissionParticipationType.DIRECT)
+                        .isCustomizable(
+                                request.isCustomizable() != null ? request.isCustomizable() : true)
+                        .creatorId(request.creatorId())
+                        .guildId(request.guildId())
+                        .maxParticipants(request.maxParticipants())
+                        .startAt(request.startAt())
+                        .endAt(request.endAt())
+                        .missionInterval(
+                                request.missionInterval() != null
+                                        ? MissionInterval.valueOf(request.missionInterval())
+                                        : MissionInterval.DAILY)
+                        .durationDays(request.durationDays())
+                        .durationMinutes(request.durationMinutes())
+                        .expPerCompletion(
+                                request.expPerCompletion() != null
+                                        ? request.expPerCompletion()
+                                        : 10)
+                        .bonusExpOnFullCompletion(
+                                request.bonusExpOnFullCompletion() != null
+                                        ? request.bonusExpOnFullCompletion()
+                                        : 50)
+                        .isPinned(request.isPinned() != null ? request.isPinned() : false)
+                        .targetDurationMinutes(request.targetDurationMinutes())
+                        .dailyExecutionLimit(request.dailyExecutionLimit())
+                        .guildExpPerCompletion(
+                                request.guildExpPerCompletion() != null
+                                        ? request.guildExpPerCompletion()
+                                        : 5)
+                        .guildBonusExpOnFullCompletion(
+                                request.guildBonusExpOnFullCompletion() != null
+                                        ? request.guildBonusExpOnFullCompletion()
+                                        : 20)
+                        .build();
 
         Mission saved = missionRepository.save(mission);
         log.info("미션 생성 (Admin): {} (ID: {})", request.title(), saved.getId());
@@ -128,8 +166,11 @@ public class MissionAdminService {
     }
 
     public MissionAdminResponse updateMission(Long id, MissionAdminRequest request) {
-        Mission mission = missionRepository.findById(id)
-            .orElseThrow(() -> new CustomException("050101", "error.mission.not_found"));
+        Mission mission =
+                missionRepository
+                        .findById(id)
+                        .orElseThrow(
+                                () -> new CustomException("050101", "error.mission.not_found"));
 
         mission.setTitle(request.title());
         mission.setTitleEn(request.titleEn());
@@ -146,7 +187,8 @@ public class MissionAdminService {
             mission.setSource(MissionSource.valueOf(request.source()));
         }
         if (request.participationType() != null) {
-            mission.setParticipationType(MissionParticipationType.valueOf(request.participationType()));
+            mission.setParticipationType(
+                    MissionParticipationType.valueOf(request.participationType()));
         }
         if (request.isCustomizable() != null) {
             mission.setIsCustomizable(request.isCustomizable());
@@ -182,8 +224,11 @@ public class MissionAdminService {
     }
 
     public MissionAdminResponse updateMissionStatus(Long id, String status) {
-        Mission mission = missionRepository.findById(id)
-            .orElseThrow(() -> new CustomException("050101", "error.mission.not_found"));
+        Mission mission =
+                missionRepository
+                        .findById(id)
+                        .orElseThrow(
+                                () -> new CustomException("050101", "error.mission.not_found"));
         mission.updateStatus(MissionStatus.valueOf(status));
         Mission saved = missionRepository.save(mission);
         log.info("미션 상태 변경 (Admin): ID={}, status={}", id, status);
@@ -191,12 +236,15 @@ public class MissionAdminService {
     }
 
     public void deleteMission(Long id) {
-        Mission mission = missionRepository.findById(id)
-            .orElseThrow(() -> new CustomException("050101", "error.mission.not_found"));
+        Mission mission =
+                missionRepository
+                        .findById(id)
+                        .orElseThrow(
+                                () -> new CustomException("050101", "error.mission.not_found"));
 
         // QA-112: 진행 중(IN_PROGRESS) 인스턴스/수행이 있으면 orphan 방지를 위해 차단
         if (executionRepository.existsInProgressByMissionId(id)
-            || dailyMissionInstanceRepository.existsInProgressByMissionId(id)) {
+                || dailyMissionInstanceRepository.existsInProgressByMissionId(id)) {
             throw new CustomException("050102", "error.mission.cannot_delete_in_progress");
         }
 
@@ -213,12 +261,13 @@ public class MissionAdminService {
     @Transactional(readOnly = true, transactionManager = "missionTransactionManager")
     public Long countBySourceAndParticipationType(String source, String participationType) {
         return missionRepository.countBySourceAndParticipationType(
-            MissionSource.valueOf(source), MissionParticipationType.valueOf(participationType));
+                MissionSource.valueOf(source), MissionParticipationType.valueOf(participationType));
     }
 
     @Transactional(readOnly = true, transactionManager = "missionTransactionManager")
     public Long countBySourceAndCreatorId(String source, String creatorId) {
-        return missionRepository.countBySourceAndCreatorId(MissionSource.valueOf(source), creatorId);
+        return missionRepository.countBySourceAndCreatorId(
+                MissionSource.valueOf(source), creatorId);
     }
 
     private boolean hasSearchCriteria(String... criteria) {

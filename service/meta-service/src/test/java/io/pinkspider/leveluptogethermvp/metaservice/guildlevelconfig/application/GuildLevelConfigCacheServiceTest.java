@@ -33,35 +33,34 @@ import org.springframework.data.domain.Pageable;
 @ExtendWith(MockitoExtension.class)
 class GuildLevelConfigCacheServiceTest {
 
-    @Mock
-    private GuildLevelConfigRepository guildLevelConfigRepository;
+    @Mock private GuildLevelConfigRepository guildLevelConfigRepository;
 
-    @Mock
-    private UserLevelConfigCacheService userLevelConfigCacheService;
+    @Mock private UserLevelConfigCacheService userLevelConfigCacheService;
 
-    @InjectMocks
-    private GuildLevelConfigCacheService guildLevelConfigCacheService;
+    @InjectMocks private GuildLevelConfigCacheService guildLevelConfigCacheService;
 
-    private GuildLevelConfig createGuildLevelConfig(Long id, int level, int requiredExp,
-                                                     Integer cumulativeExp, int maxMembers) {
-        GuildLevelConfig config = GuildLevelConfig.builder()
-            .level(level)
-            .requiredExp(requiredExp)
-            .cumulativeExp(cumulativeExp)
-            .maxMembers(maxMembers)
-            .title("레벨 " + level)
-            .description("레벨 " + level + " 설명")
-            .build();
+    private GuildLevelConfig createGuildLevelConfig(
+            Long id, int level, int requiredExp, Integer cumulativeExp, int maxMembers) {
+        GuildLevelConfig config =
+                GuildLevelConfig.builder()
+                        .level(level)
+                        .requiredExp(requiredExp)
+                        .cumulativeExp(cumulativeExp)
+                        .maxMembers(maxMembers)
+                        .title("레벨 " + level)
+                        .description("레벨 " + level + " 설명")
+                        .build();
         setId(config, id);
         return config;
     }
 
     private UserLevelConfig createUserLevelConfig(int level, int requiredExp) {
-        UserLevelConfig config = UserLevelConfig.builder()
-            .level(level)
-            .requiredExp(requiredExp)
-            .cumulativeExp(requiredExp)
-            .build();
+        UserLevelConfig config =
+                UserLevelConfig.builder()
+                        .level(level)
+                        .requiredExp(requiredExp)
+                        .cumulativeExp(requiredExp)
+                        .build();
         setId(config, (long) level);
         return config;
     }
@@ -76,7 +75,8 @@ class GuildLevelConfigCacheServiceTest {
             // given
             GuildLevelConfig level1 = createGuildLevelConfig(1L, 1, 1000, 1000, 10);
             GuildLevelConfig level2 = createGuildLevelConfig(2L, 2, 2000, 3000, 15);
-            when(guildLevelConfigRepository.findAllByOrderByLevelAsc()).thenReturn(List.of(level1, level2));
+            when(guildLevelConfigRepository.findAllByOrderByLevelAsc())
+                    .thenReturn(List.of(level1, level2));
 
             // when
             List<GuildLevelConfig> result = guildLevelConfigCacheService.getAllLevelConfigs();
@@ -92,7 +92,8 @@ class GuildLevelConfigCacheServiceTest {
         @DisplayName("길드 레벨 설정이 없으면 빈 목록을 반환한다")
         void getAllLevelConfigs_empty() {
             // given
-            when(guildLevelConfigRepository.findAllByOrderByLevelAsc()).thenReturn(Collections.emptyList());
+            when(guildLevelConfigRepository.findAllByOrderByLevelAsc())
+                    .thenReturn(Collections.emptyList());
 
             // when
             List<GuildLevelConfig> result = guildLevelConfigCacheService.getAllLevelConfigs();
@@ -146,7 +147,8 @@ class GuildLevelConfigCacheServiceTest {
             // given
             GuildLevelConfig level1 = createGuildLevelConfig(1L, 1, 1000, 1000, 10);
             GuildLevelConfig level2 = createGuildLevelConfig(2L, 5, 5000, 15000, 50);
-            when(guildLevelConfigRepository.findAllByOrderByLevelAsc()).thenReturn(List.of(level1, level2));
+            when(guildLevelConfigRepository.findAllByOrderByLevelAsc())
+                    .thenReturn(List.of(level1, level2));
 
             // when
             Integer result = guildLevelConfigCacheService.getMaxLevel();
@@ -159,7 +161,8 @@ class GuildLevelConfigCacheServiceTest {
         @DisplayName("길드 레벨 설정이 없으면 0을 반환한다")
         void getMaxLevel_noConfigs_returnsZero() {
             // given
-            when(guildLevelConfigRepository.findAllByOrderByLevelAsc()).thenReturn(Collections.emptyList());
+            when(guildLevelConfigRepository.findAllByOrderByLevelAsc())
+                    .thenReturn(Collections.emptyList());
 
             // when
             Integer result = guildLevelConfigCacheService.getMaxLevel();
@@ -182,8 +185,9 @@ class GuildLevelConfigCacheServiceTest {
             when(guildLevelConfigRepository.save(any(GuildLevelConfig.class))).thenReturn(saved);
 
             // when
-            GuildLevelConfig result = guildLevelConfigCacheService.createOrUpdateLevelConfig(
-                2, 2000, 3000, 15, "레벨 2", "레벨 2 설명");
+            GuildLevelConfig result =
+                    guildLevelConfigCacheService.createOrUpdateLevelConfig(
+                            2, 2000, 3000, 15, "레벨 2", "레벨 2 설명");
 
             // then
             assertThat(result).isNotNull();
@@ -201,8 +205,9 @@ class GuildLevelConfigCacheServiceTest {
             when(guildLevelConfigRepository.save(existing)).thenReturn(saved);
 
             // when
-            GuildLevelConfig result = guildLevelConfigCacheService.createOrUpdateLevelConfig(
-                2, 2000, 3000, 15, "수정된 레벨 2", "수정된 설명");
+            GuildLevelConfig result =
+                    guildLevelConfigCacheService.createOrUpdateLevelConfig(
+                            2, 2000, 3000, 15, "수정된 레벨 2", "수정된 설명");
 
             // then
             assertThat(existing.getRequiredExp()).isEqualTo(2000);
@@ -221,10 +226,12 @@ class GuildLevelConfigCacheServiceTest {
             // given
             GuildLevelConfig config1 = createGuildLevelConfig(1L, 1, 1000, 1000, 10);
             GuildLevelConfig config2 = createGuildLevelConfig(2L, 2, 2000, 3000, 15);
-            when(guildLevelConfigRepository.findAllByOrderByLevelAsc()).thenReturn(List.of(config1, config2));
+            when(guildLevelConfigRepository.findAllByOrderByLevelAsc())
+                    .thenReturn(List.of(config1, config2));
 
             // when
-            List<GuildLevelConfigResponse> result = guildLevelConfigCacheService.getAllLevelConfigResponses();
+            List<GuildLevelConfigResponse> result =
+                    guildLevelConfigCacheService.getAllLevelConfigResponses();
 
             // then
             assertThat(result).hasSize(2);
@@ -236,10 +243,12 @@ class GuildLevelConfigCacheServiceTest {
         @DisplayName("길드 레벨 설정이 없으면 빈 목록을 반환한다")
         void getAllLevelConfigResponses_empty() {
             // given
-            when(guildLevelConfigRepository.findAllByOrderByLevelAsc()).thenReturn(Collections.emptyList());
+            when(guildLevelConfigRepository.findAllByOrderByLevelAsc())
+                    .thenReturn(Collections.emptyList());
 
             // when
-            List<GuildLevelConfigResponse> result = guildLevelConfigCacheService.getAllLevelConfigResponses();
+            List<GuildLevelConfigResponse> result =
+                    guildLevelConfigCacheService.getAllLevelConfigResponses();
 
             // then
             assertThat(result).isEmpty();
@@ -316,8 +325,8 @@ class GuildLevelConfigCacheServiceTest {
 
             // when & then
             assertThatThrownBy(() -> guildLevelConfigCacheService.getLevelConfigById(999L))
-                .isInstanceOf(CustomException.class)
-                .hasMessageContaining("error.guild_level.not_found");
+                    .isInstanceOf(CustomException.class)
+                    .hasMessageContaining("error.guild_level.not_found");
         }
     }
 
@@ -333,7 +342,8 @@ class GuildLevelConfigCacheServiceTest {
             when(guildLevelConfigRepository.findByLevel(2)).thenReturn(Optional.of(config));
 
             // when
-            GuildLevelConfigResponse result = guildLevelConfigCacheService.getLevelConfigResponseByLevel(2);
+            GuildLevelConfigResponse result =
+                    guildLevelConfigCacheService.getLevelConfigResponseByLevel(2);
 
             // then
             assertThat(result).isNotNull();
@@ -348,9 +358,10 @@ class GuildLevelConfigCacheServiceTest {
             when(guildLevelConfigRepository.findByLevel(999)).thenReturn(Optional.empty());
 
             // when & then
-            assertThatThrownBy(() -> guildLevelConfigCacheService.getLevelConfigResponseByLevel(999))
-                .isInstanceOf(CustomException.class)
-                .hasMessageContaining("error.guild_level.not_found");
+            assertThatThrownBy(
+                            () -> guildLevelConfigCacheService.getLevelConfigResponseByLevel(999))
+                    .isInstanceOf(CustomException.class)
+                    .hasMessageContaining("error.guild_level.not_found");
         }
     }
 
@@ -362,12 +373,13 @@ class GuildLevelConfigCacheServiceTest {
         @DisplayName("길드 레벨 설정을 생성하고 requiredExp와 cumulativeExp를 자동 계산한다")
         void createLevelConfig_success() {
             // given
-            GuildLevelConfigRequest request = GuildLevelConfigRequest.builder()
-                .level(1)
-                .maxMembers(10)
-                .title("초급 길드")
-                .description("초급 길드 설명")
-                .build();
+            GuildLevelConfigRequest request =
+                    GuildLevelConfigRequest.builder()
+                            .level(1)
+                            .maxMembers(10)
+                            .title("초급 길드")
+                            .description("초급 길드 설명")
+                            .build();
 
             UserLevelConfig userLevelConfig = createUserLevelConfig(1, 100);
             GuildLevelConfig saved = createGuildLevelConfig(1L, 1, 1000, 1000, 10);
@@ -377,7 +389,8 @@ class GuildLevelConfigCacheServiceTest {
             when(guildLevelConfigRepository.save(any(GuildLevelConfig.class))).thenReturn(saved);
 
             // when
-            GuildLevelConfigResponse result = guildLevelConfigCacheService.createLevelConfig(request);
+            GuildLevelConfigResponse result =
+                    guildLevelConfigCacheService.createLevelConfig(request);
 
             // then
             assertThat(result).isNotNull();
@@ -389,12 +402,13 @@ class GuildLevelConfigCacheServiceTest {
         @DisplayName("레벨 2 이상 생성 시 이전 레벨 누적 경험치를 반영한다")
         void createLevelConfig_level2_usesPrevCumulativeExp() {
             // given
-            GuildLevelConfigRequest request = GuildLevelConfigRequest.builder()
-                .level(2)
-                .maxMembers(15)
-                .title("중급 길드")
-                .description("중급 길드 설명")
-                .build();
+            GuildLevelConfigRequest request =
+                    GuildLevelConfigRequest.builder()
+                            .level(2)
+                            .maxMembers(15)
+                            .title("중급 길드")
+                            .description("중급 길드 설명")
+                            .build();
 
             UserLevelConfig userLevelConfig = createUserLevelConfig(2, 200);
             GuildLevelConfig prevLevelConfig = createGuildLevelConfig(1L, 1, 1000, 1000, 10);
@@ -402,11 +416,13 @@ class GuildLevelConfigCacheServiceTest {
 
             when(guildLevelConfigRepository.existsByLevel(2)).thenReturn(false);
             when(userLevelConfigCacheService.getLevelConfigByLevel(2)).thenReturn(userLevelConfig);
-            when(guildLevelConfigRepository.findByLevel(1)).thenReturn(Optional.of(prevLevelConfig));
+            when(guildLevelConfigRepository.findByLevel(1))
+                    .thenReturn(Optional.of(prevLevelConfig));
             when(guildLevelConfigRepository.save(any(GuildLevelConfig.class))).thenReturn(saved);
 
             // when
-            GuildLevelConfigResponse result = guildLevelConfigCacheService.createLevelConfig(request);
+            GuildLevelConfigResponse result =
+                    guildLevelConfigCacheService.createLevelConfig(request);
 
             // then
             assertThat(result).isNotNull();
@@ -417,12 +433,13 @@ class GuildLevelConfigCacheServiceTest {
         @DisplayName("유저 레벨 설정이 없으면 기본값 500을 사용하여 requiredExp를 계산한다")
         void createLevelConfig_noUserLevelConfig_usesDefaultExp() {
             // given
-            GuildLevelConfigRequest request = GuildLevelConfigRequest.builder()
-                .level(1)
-                .maxMembers(10)
-                .title("초급 길드")
-                .description("초급 길드 설명")
-                .build();
+            GuildLevelConfigRequest request =
+                    GuildLevelConfigRequest.builder()
+                            .level(1)
+                            .maxMembers(10)
+                            .title("초급 길드")
+                            .description("초급 길드 설명")
+                            .build();
 
             GuildLevelConfig saved = createGuildLevelConfig(1L, 1, 5000, 5000, 10);
 
@@ -431,7 +448,8 @@ class GuildLevelConfigCacheServiceTest {
             when(guildLevelConfigRepository.save(any(GuildLevelConfig.class))).thenReturn(saved);
 
             // when
-            GuildLevelConfigResponse result = guildLevelConfigCacheService.createLevelConfig(request);
+            GuildLevelConfigResponse result =
+                    guildLevelConfigCacheService.createLevelConfig(request);
 
             // then
             assertThat(result).isNotNull();
@@ -442,17 +460,15 @@ class GuildLevelConfigCacheServiceTest {
         @DisplayName("이미 존재하는 레벨로 생성 시 CustomException을 던진다")
         void createLevelConfig_duplicateLevel_throwsException() {
             // given
-            GuildLevelConfigRequest request = GuildLevelConfigRequest.builder()
-                .level(1)
-                .maxMembers(10)
-                .build();
+            GuildLevelConfigRequest request =
+                    GuildLevelConfigRequest.builder().level(1).maxMembers(10).build();
 
             when(guildLevelConfigRepository.existsByLevel(1)).thenReturn(true);
 
             // when & then
             assertThatThrownBy(() -> guildLevelConfigCacheService.createLevelConfig(request))
-                .isInstanceOf(CustomException.class)
-                .hasMessageContaining("error.guild_level.duplicate");
+                    .isInstanceOf(CustomException.class)
+                    .hasMessageContaining("error.guild_level.duplicate");
 
             verify(guildLevelConfigRepository, never()).save(any());
         }
@@ -467,12 +483,13 @@ class GuildLevelConfigCacheServiceTest {
         void updateLevelConfig_success() {
             // given
             GuildLevelConfig existing = createGuildLevelConfig(1L, 1, 1000, 1000, 10);
-            GuildLevelConfigRequest request = GuildLevelConfigRequest.builder()
-                .level(1)
-                .maxMembers(12)
-                .title("수정된 레벨 1")
-                .description("수정된 설명")
-                .build();
+            GuildLevelConfigRequest request =
+                    GuildLevelConfigRequest.builder()
+                            .level(1)
+                            .maxMembers(12)
+                            .title("수정된 레벨 1")
+                            .description("수정된 설명")
+                            .build();
 
             UserLevelConfig userLevelConfig = createUserLevelConfig(1, 100);
             GuildLevelConfig saved = createGuildLevelConfig(1L, 1, 1200, 1200, 12);
@@ -482,7 +499,8 @@ class GuildLevelConfigCacheServiceTest {
             when(guildLevelConfigRepository.save(existing)).thenReturn(saved);
 
             // when
-            GuildLevelConfigResponse result = guildLevelConfigCacheService.updateLevelConfig(1L, request);
+            GuildLevelConfigResponse result =
+                    guildLevelConfigCacheService.updateLevelConfig(1L, request);
 
             // then
             assertThat(result).isNotNull();
@@ -494,18 +512,16 @@ class GuildLevelConfigCacheServiceTest {
         void updateLevelConfig_duplicateLevel_throwsException() {
             // given
             GuildLevelConfig existing = createGuildLevelConfig(1L, 1, 1000, 1000, 10);
-            GuildLevelConfigRequest request = GuildLevelConfigRequest.builder()
-                .level(2)
-                .maxMembers(15)
-                .build();
+            GuildLevelConfigRequest request =
+                    GuildLevelConfigRequest.builder().level(2).maxMembers(15).build();
 
             when(guildLevelConfigRepository.findById(1L)).thenReturn(Optional.of(existing));
             when(guildLevelConfigRepository.existsByLevel(2)).thenReturn(true);
 
             // when & then
             assertThatThrownBy(() -> guildLevelConfigCacheService.updateLevelConfig(1L, request))
-                .isInstanceOf(CustomException.class)
-                .hasMessageContaining("error.guild_level.duplicate");
+                    .isInstanceOf(CustomException.class)
+                    .hasMessageContaining("error.guild_level.duplicate");
 
             verify(guildLevelConfigRepository, never()).save(any());
         }
@@ -514,17 +530,15 @@ class GuildLevelConfigCacheServiceTest {
         @DisplayName("존재하지 않는 ID 수정 시 CustomException을 던진다")
         void updateLevelConfig_notFound_throwsException() {
             // given
-            GuildLevelConfigRequest request = GuildLevelConfigRequest.builder()
-                .level(1)
-                .maxMembers(10)
-                .build();
+            GuildLevelConfigRequest request =
+                    GuildLevelConfigRequest.builder().level(1).maxMembers(10).build();
 
             when(guildLevelConfigRepository.findById(999L)).thenReturn(Optional.empty());
 
             // when & then
             assertThatThrownBy(() -> guildLevelConfigCacheService.updateLevelConfig(999L, request))
-                .isInstanceOf(CustomException.class)
-                .hasMessageContaining("error.guild_level.not_found");
+                    .isInstanceOf(CustomException.class)
+                    .hasMessageContaining("error.guild_level.not_found");
         }
     }
 
@@ -553,8 +567,8 @@ class GuildLevelConfigCacheServiceTest {
 
             // when & then
             assertThatThrownBy(() -> guildLevelConfigCacheService.deleteLevelConfig(999L))
-                .isInstanceOf(CustomException.class)
-                .hasMessageContaining("error.guild_level.not_found");
+                    .isInstanceOf(CustomException.class)
+                    .hasMessageContaining("error.guild_level.not_found");
 
             verify(guildLevelConfigRepository, never()).deleteById(any());
         }

@@ -5,22 +5,21 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
-import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import io.pinkspider.global.saga.SagaStepResult;
+import io.pinkspider.global.enums.MissionStatus;
+import io.pinkspider.global.facade.GamificationQueryFacade;
 import io.pinkspider.global.facade.dto.UserStatsDto;
+import io.pinkspider.global.saga.SagaStepResult;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.Mission;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.MissionExecution;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.MissionParticipant;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.ExecutionStatus;
-import io.pinkspider.global.enums.MissionStatus;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionType;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionVisibility;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.ParticipantStatus;
 import io.pinkspider.leveluptogethermvp.missionservice.saga.MissionCompletionContext;
-import io.pinkspider.global.facade.GamificationQueryFacade;
 import java.time.LocalDate;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -35,11 +34,9 @@ import org.mockito.junit.jupiter.MockitoExtension;
 @DisplayName("UpdateUserStatsStep 단위 테스트")
 class UpdateUserStatsStepTest {
 
-    @Mock
-    private GamificationQueryFacade gamificationQueryFacadeService;
+    @Mock private GamificationQueryFacade gamificationQueryFacadeService;
 
-    @InjectMocks
-    private UpdateUserStatsStep updateUserStatsStep;
+    @InjectMocks private UpdateUserStatsStep updateUserStatsStep;
 
     private static final String TEST_USER_ID = "test-user-123";
     private static final Long EXECUTION_ID = 1L;
@@ -52,33 +49,36 @@ class UpdateUserStatsStepTest {
 
     @BeforeEach
     void setUp() {
-        mission = Mission.builder()
-            .title("30일 운동 챌린지")
-            .description("매일 운동하기")
-            .creatorId(TEST_USER_ID)
-            .status(MissionStatus.IN_PROGRESS)
-            .visibility(MissionVisibility.PUBLIC)
-            .type(MissionType.PERSONAL)
-            .categoryId(1L)
-            .categoryName("운동")
-            .expPerCompletion(50)
-            .build();
+        mission =
+                Mission.builder()
+                        .title("30일 운동 챌린지")
+                        .description("매일 운동하기")
+                        .creatorId(TEST_USER_ID)
+                        .status(MissionStatus.IN_PROGRESS)
+                        .visibility(MissionVisibility.PUBLIC)
+                        .type(MissionType.PERSONAL)
+                        .categoryId(1L)
+                        .categoryName("운동")
+                        .expPerCompletion(50)
+                        .build();
         setId(mission, 1L);
 
-        participant = MissionParticipant.builder()
-            .mission(mission)
-            .userId(TEST_USER_ID)
-            .status(ParticipantStatus.IN_PROGRESS)
-            .progress(5)
-            .build();
+        participant =
+                MissionParticipant.builder()
+                        .mission(mission)
+                        .userId(TEST_USER_ID)
+                        .status(ParticipantStatus.IN_PROGRESS)
+                        .progress(5)
+                        .build();
         setId(participant, 1L);
 
-        execution = MissionExecution.builder()
-            .participant(participant)
-            .executionDate(LocalDate.now())
-            .status(ExecutionStatus.COMPLETED)
-            .expEarned(50)
-            .build();
+        execution =
+                MissionExecution.builder()
+                        .participant(participant)
+                        .executionDate(LocalDate.now())
+                        .status(ExecutionStatus.COMPLETED)
+                        .expEarned(50)
+                        .build();
         setId(execution, EXECUTION_ID);
 
         context = new MissionCompletionContext(EXECUTION_ID, TEST_USER_ID, null);
@@ -86,9 +86,7 @@ class UpdateUserStatsStepTest {
         context.setParticipant(participant);
         context.setMission(mission);
 
-        userStats = new UserStatsDto(
-            null, TEST_USER_ID, 10, 0, 2, 5, 10, null, 0, 0, 0L, 0, 0L, 0
-        );
+        userStats = new UserStatsDto(null, TEST_USER_ID, 10, 0, 2, 5, 10, null, 0, 0, 0L, 0, 0L, 0);
     }
 
     @Test
@@ -111,12 +109,11 @@ class UpdateUserStatsStepTest {
         @DisplayName("정상적으로 사용자 통계를 업데이트한다")
         void execute_success() {
             // given
-            UserStatsDto updatedStats = new UserStatsDto(
-                null, TEST_USER_ID, 11, 0, 2, 6, 10, null, 0, 0, 0L, 0, 0L, 0
-            );
+            UserStatsDto updatedStats =
+                    new UserStatsDto(null, TEST_USER_ID, 11, 0, 2, 6, 10, null, 0, 0, 0L, 0, 0L, 0);
 
             when(gamificationQueryFacadeService.getOrCreateUserStats(TEST_USER_ID))
-                .thenReturn(updatedStats);
+                    .thenReturn(updatedStats);
 
             // when
             SagaStepResult result = updateUserStatsStep.execute(context);
@@ -124,7 +121,8 @@ class UpdateUserStatsStepTest {
             // then
             assertThat(result.isSuccess()).isTrue();
             verify(gamificationQueryFacadeService).recordMissionCompletion(TEST_USER_ID, false);
-            verify(gamificationQueryFacadeService).checkAchievementsByDataSource(eq(TEST_USER_ID), eq("USER_STATS"));
+            verify(gamificationQueryFacadeService)
+                    .checkAchievementsByDataSource(eq(TEST_USER_ID), eq("USER_STATS"));
         }
 
         @Test
@@ -132,7 +130,8 @@ class UpdateUserStatsStepTest {
         void execute_failsWhenServiceThrowsException() {
             // given
             doThrow(new RuntimeException("DB 오류"))
-                .when(gamificationQueryFacadeService).recordMissionCompletion(anyString(), eq(false));
+                    .when(gamificationQueryFacadeService)
+                    .recordMissionCompletion(anyString(), eq(false));
 
             // when
             SagaStepResult result = updateUserStatsStep.execute(context);
@@ -147,7 +146,8 @@ class UpdateUserStatsStepTest {
         void execute_failsWhenAchievementCheckFails() {
             // given
             doThrow(new RuntimeException("업적 체크 오류"))
-                .when(gamificationQueryFacadeService).checkAchievementsByDataSource(anyString(), eq("USER_STATS"));
+                    .when(gamificationQueryFacadeService)
+                    .checkAchievementsByDataSource(anyString(), eq("USER_STATS"));
 
             // when
             SagaStepResult result = updateUserStatsStep.execute(context);
@@ -177,7 +177,8 @@ class UpdateUserStatsStepTest {
         void compensate_failsWhenServiceThrows() {
             // given
             doThrow(new RuntimeException("DB 오류"))
-                .when(gamificationQueryFacadeService).undoMissionCompletion(anyString(), eq(false));
+                    .when(gamificationQueryFacadeService)
+                    .undoMissionCompletion(anyString(), eq(false));
 
             // when
             SagaStepResult result = updateUserStatsStep.compensate(context);

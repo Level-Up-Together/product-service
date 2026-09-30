@@ -3,7 +3,6 @@ package io.pinkspider.leveluptogethermvp.userservice.unit.user.application;
 import static io.pinkspider.global.test.TestReflectionUtils.setId;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.when;
 
@@ -24,19 +23,14 @@ import org.mockito.junit.jupiter.MockitoExtension;
 @ExtendWith(MockitoExtension.class)
 class UserServiceTest {
 
-    @Mock
-    private UserRepository userRepository;
+    @Mock private UserRepository userRepository;
 
-    @InjectMocks
-    private UserService userService;
+    @InjectMocks private UserService userService;
 
     private static final String TEST_USER_ID = "test-user-123";
 
     private Users createTestUser(String userId, String nickname, String email) {
-        Users user = Users.builder()
-            .nickname(nickname)
-            .email(email)
-            .build();
+        Users user = Users.builder().nickname(nickname).email(email).build();
         setId(user, userId);
         return user;
     }
@@ -70,7 +64,7 @@ class UserServiceTest {
 
             // when & then
             assertThatThrownBy(() -> userService.findByUserId(TEST_USER_ID))
-                .isInstanceOf(CustomException.class);
+                    .isInstanceOf(CustomException.class);
         }
     }
 
@@ -90,7 +84,7 @@ class UserServiceTest {
             try (MockedStatic<CryptoUtils> mockedCrypto = mockStatic(CryptoUtils.class)) {
                 mockedCrypto.when(() -> CryptoUtils.encryptAes(email)).thenReturn(encryptedEmail);
                 when(userRepository.findActiveByEncryptedEmailAndProvider(encryptedEmail, provider))
-                    .thenReturn(Optional.of(user));
+                        .thenReturn(Optional.of(user));
 
                 // when
                 Users result = userService.findByEmailAndProvider(email, provider);
@@ -113,11 +107,11 @@ class UserServiceTest {
             try (MockedStatic<CryptoUtils> mockedCrypto = mockStatic(CryptoUtils.class)) {
                 mockedCrypto.when(() -> CryptoUtils.encryptAes(email)).thenReturn(encryptedEmail);
                 when(userRepository.findActiveByEncryptedEmailAndProvider(encryptedEmail, provider))
-                    .thenReturn(Optional.empty());
+                        .thenReturn(Optional.empty());
 
                 // when & then
                 assertThatThrownBy(() -> userService.findByEmailAndProvider(email, provider))
-                    .isInstanceOf(CustomException.class);
+                        .isInstanceOf(CustomException.class);
             }
         }
     }

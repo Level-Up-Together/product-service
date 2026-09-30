@@ -22,13 +22,11 @@ import org.springframework.mock.web.MockMultipartFile;
 @ExtendWith(MockitoExtension.class)
 class LocalEventImageStorageServiceTest {
 
-    @Mock
-    private EventImageProperties properties;
+    @Mock private EventImageProperties properties;
 
     private LocalEventImageStorageService storageService;
 
-    @TempDir
-    Path tempDir;
+    @TempDir Path tempDir;
 
     private static final String URL_PREFIX = "/uploads/events";
 
@@ -46,51 +44,55 @@ class LocalEventImageStorageServiceTest {
         void store_nullFile_throwsException() {
             // when & then
             assertThatThrownBy(() -> storageService.store(null))
-                .isInstanceOf(CustomException.class)
-                .hasFieldOrPropertyWithValue("code", "EVENT_IMAGE_001");
+                    .isInstanceOf(CustomException.class)
+                    .hasFieldOrPropertyWithValue("code", "EVENT_IMAGE_001");
         }
 
         @Test
         @DisplayName("빈 파일이면 예외가 발생한다")
         void store_emptyFile_throwsException() {
             // given
-            MockMultipartFile file = new MockMultipartFile(
-                "file", "test.jpg", "image/jpeg", new byte[0]
-            );
+            MockMultipartFile file =
+                    new MockMultipartFile("file", "test.jpg", "image/jpeg", new byte[0]);
 
             // when & then
             assertThatThrownBy(() -> storageService.store(file))
-                .isInstanceOf(CustomException.class)
-                .hasFieldOrPropertyWithValue("code", "EVENT_IMAGE_001");
+                    .isInstanceOf(CustomException.class)
+                    .hasFieldOrPropertyWithValue("code", "EVENT_IMAGE_001");
         }
 
         @Test
         @DisplayName("유효하지 않은 이미지 파일이면 예외가 발생한다")
         void store_invalidImage_throwsException() {
             // given
-            MockMultipartFile file = new MockMultipartFile(
-                "file", "test.txt", "text/plain", "test content".getBytes()
-            );
+            MockMultipartFile file =
+                    new MockMultipartFile(
+                            "file", "test.txt", "text/plain", "test content".getBytes());
 
             when(properties.getMaxSize()).thenReturn(10485760L); // 10MB
-            when(properties.getAllowedExtensionList()).thenReturn(Arrays.asList("jpg", "jpeg", "png", "gif", "webp"));
+            when(properties.getAllowedExtensionList())
+                    .thenReturn(Arrays.asList("jpg", "jpeg", "png", "gif", "webp"));
 
             // when & then
             assertThatThrownBy(() -> storageService.store(file))
-                .isInstanceOf(CustomException.class)
-                .hasFieldOrPropertyWithValue("code", "EVENT_IMAGE_002");
+                    .isInstanceOf(CustomException.class)
+                    .hasFieldOrPropertyWithValue("code", "EVENT_IMAGE_002");
         }
 
         @Test
         @DisplayName("이미지 파일을 저장한다")
         void store_success() throws IOException {
             // given
-            MockMultipartFile file = new MockMultipartFile(
-                "file", "event-banner.jpg", "image/jpeg", "test image content".getBytes()
-            );
+            MockMultipartFile file =
+                    new MockMultipartFile(
+                            "file",
+                            "event-banner.jpg",
+                            "image/jpeg",
+                            "test image content".getBytes());
 
             when(properties.getMaxSize()).thenReturn(10485760L);
-            when(properties.getAllowedExtensionList()).thenReturn(Arrays.asList("jpg", "jpeg", "png", "gif", "webp"));
+            when(properties.getAllowedExtensionList())
+                    .thenReturn(Arrays.asList("jpg", "jpeg", "png", "gif", "webp"));
             when(properties.getPath()).thenReturn(tempDir.toString());
             when(properties.getUrlPrefix()).thenReturn(URL_PREFIX);
 
@@ -107,12 +109,16 @@ class LocalEventImageStorageServiceTest {
         @DisplayName("PNG 이미지를 저장한다")
         void store_pngImage_success() throws IOException {
             // given
-            MockMultipartFile file = new MockMultipartFile(
-                "file", "event-banner.png", "image/png", "png image content".getBytes()
-            );
+            MockMultipartFile file =
+                    new MockMultipartFile(
+                            "file",
+                            "event-banner.png",
+                            "image/png",
+                            "png image content".getBytes());
 
             when(properties.getMaxSize()).thenReturn(10485760L);
-            when(properties.getAllowedExtensionList()).thenReturn(Arrays.asList("jpg", "jpeg", "png", "gif", "webp"));
+            when(properties.getAllowedExtensionList())
+                    .thenReturn(Arrays.asList("jpg", "jpeg", "png", "gif", "webp"));
             when(properties.getPath()).thenReturn(tempDir.toString());
             when(properties.getUrlPrefix()).thenReturn(URL_PREFIX);
 
@@ -128,12 +134,16 @@ class LocalEventImageStorageServiceTest {
         @DisplayName("WebP 이미지를 저장한다")
         void store_webpImage_success() throws IOException {
             // given
-            MockMultipartFile file = new MockMultipartFile(
-                "file", "event-banner.webp", "image/webp", "webp image content".getBytes()
-            );
+            MockMultipartFile file =
+                    new MockMultipartFile(
+                            "file",
+                            "event-banner.webp",
+                            "image/webp",
+                            "webp image content".getBytes());
 
             when(properties.getMaxSize()).thenReturn(10485760L);
-            when(properties.getAllowedExtensionList()).thenReturn(Arrays.asList("jpg", "jpeg", "png", "gif", "webp"));
+            when(properties.getAllowedExtensionList())
+                    .thenReturn(Arrays.asList("jpg", "jpeg", "png", "gif", "webp"));
             when(properties.getPath()).thenReturn(tempDir.toString());
             when(properties.getUrlPrefix()).thenReturn(URL_PREFIX);
 
@@ -233,9 +243,8 @@ class LocalEventImageStorageServiceTest {
         @DisplayName("빈 파일이면 false를 반환한다")
         void isValidImage_empty_returnsFalse() {
             // given
-            MockMultipartFile file = new MockMultipartFile(
-                "file", "test.jpg", "image/jpeg", new byte[0]
-            );
+            MockMultipartFile file =
+                    new MockMultipartFile("file", "test.jpg", "image/jpeg", new byte[0]);
 
             // when
             boolean result = storageService.isValidImage(file);
@@ -249,9 +258,8 @@ class LocalEventImageStorageServiceTest {
         void isValidImage_sizeExceeded_returnsFalse() {
             // given
             byte[] largeContent = new byte[11000000]; // 11MB
-            MockMultipartFile file = new MockMultipartFile(
-                "file", "test.jpg", "image/jpeg", largeContent
-            );
+            MockMultipartFile file =
+                    new MockMultipartFile("file", "test.jpg", "image/jpeg", largeContent);
 
             when(properties.getMaxSize()).thenReturn(10485760L); // 10MB
 
@@ -266,12 +274,13 @@ class LocalEventImageStorageServiceTest {
         @DisplayName("허용되지 않은 확장자면 false를 반환한다")
         void isValidImage_invalidExtension_returnsFalse() {
             // given
-            MockMultipartFile file = new MockMultipartFile(
-                "file", "test.bmp", "image/bmp", "test content".getBytes()
-            );
+            MockMultipartFile file =
+                    new MockMultipartFile(
+                            "file", "test.bmp", "image/bmp", "test content".getBytes());
 
             when(properties.getMaxSize()).thenReturn(10485760L);
-            when(properties.getAllowedExtensionList()).thenReturn(Arrays.asList("jpg", "jpeg", "png", "gif", "webp"));
+            when(properties.getAllowedExtensionList())
+                    .thenReturn(Arrays.asList("jpg", "jpeg", "png", "gif", "webp"));
 
             // when
             boolean result = storageService.isValidImage(file);
@@ -284,12 +293,13 @@ class LocalEventImageStorageServiceTest {
         @DisplayName("MIME 타입이 이미지가 아니면 false를 반환한다")
         void isValidImage_invalidMimeType_returnsFalse() {
             // given
-            MockMultipartFile file = new MockMultipartFile(
-                "file", "test.jpg", "text/plain", "test content".getBytes()
-            );
+            MockMultipartFile file =
+                    new MockMultipartFile(
+                            "file", "test.jpg", "text/plain", "test content".getBytes());
 
             when(properties.getMaxSize()).thenReturn(10485760L);
-            when(properties.getAllowedExtensionList()).thenReturn(Arrays.asList("jpg", "jpeg", "png", "gif", "webp"));
+            when(properties.getAllowedExtensionList())
+                    .thenReturn(Arrays.asList("jpg", "jpeg", "png", "gif", "webp"));
 
             // when
             boolean result = storageService.isValidImage(file);
@@ -302,12 +312,13 @@ class LocalEventImageStorageServiceTest {
         @DisplayName("유효한 JPEG 이미지면 true를 반환한다")
         void isValidImage_validJpeg_returnsTrue() {
             // given
-            MockMultipartFile file = new MockMultipartFile(
-                "file", "test.jpg", "image/jpeg", "test content".getBytes()
-            );
+            MockMultipartFile file =
+                    new MockMultipartFile(
+                            "file", "test.jpg", "image/jpeg", "test content".getBytes());
 
             when(properties.getMaxSize()).thenReturn(10485760L);
-            when(properties.getAllowedExtensionList()).thenReturn(Arrays.asList("jpg", "jpeg", "png", "gif", "webp"));
+            when(properties.getAllowedExtensionList())
+                    .thenReturn(Arrays.asList("jpg", "jpeg", "png", "gif", "webp"));
 
             // when
             boolean result = storageService.isValidImage(file);
@@ -320,12 +331,13 @@ class LocalEventImageStorageServiceTest {
         @DisplayName("유효한 PNG 이미지면 true를 반환한다")
         void isValidImage_validPng_returnsTrue() {
             // given
-            MockMultipartFile file = new MockMultipartFile(
-                "file", "test.png", "image/png", "test content".getBytes()
-            );
+            MockMultipartFile file =
+                    new MockMultipartFile(
+                            "file", "test.png", "image/png", "test content".getBytes());
 
             when(properties.getMaxSize()).thenReturn(10485760L);
-            when(properties.getAllowedExtensionList()).thenReturn(Arrays.asList("jpg", "jpeg", "png", "gif", "webp"));
+            when(properties.getAllowedExtensionList())
+                    .thenReturn(Arrays.asList("jpg", "jpeg", "png", "gif", "webp"));
 
             // when
             boolean result = storageService.isValidImage(file);
@@ -338,12 +350,13 @@ class LocalEventImageStorageServiceTest {
         @DisplayName("유효한 GIF 이미지면 true를 반환한다")
         void isValidImage_validGif_returnsTrue() {
             // given
-            MockMultipartFile file = new MockMultipartFile(
-                "file", "test.gif", "image/gif", "test content".getBytes()
-            );
+            MockMultipartFile file =
+                    new MockMultipartFile(
+                            "file", "test.gif", "image/gif", "test content".getBytes());
 
             when(properties.getMaxSize()).thenReturn(10485760L);
-            when(properties.getAllowedExtensionList()).thenReturn(Arrays.asList("jpg", "jpeg", "png", "gif", "webp"));
+            when(properties.getAllowedExtensionList())
+                    .thenReturn(Arrays.asList("jpg", "jpeg", "png", "gif", "webp"));
 
             // when
             boolean result = storageService.isValidImage(file);
@@ -356,12 +369,13 @@ class LocalEventImageStorageServiceTest {
         @DisplayName("유효한 WebP 이미지면 true를 반환한다")
         void isValidImage_validWebp_returnsTrue() {
             // given
-            MockMultipartFile file = new MockMultipartFile(
-                "file", "test.webp", "image/webp", "test content".getBytes()
-            );
+            MockMultipartFile file =
+                    new MockMultipartFile(
+                            "file", "test.webp", "image/webp", "test content".getBytes());
 
             when(properties.getMaxSize()).thenReturn(10485760L);
-            when(properties.getAllowedExtensionList()).thenReturn(Arrays.asList("jpg", "jpeg", "png", "gif", "webp"));
+            when(properties.getAllowedExtensionList())
+                    .thenReturn(Arrays.asList("jpg", "jpeg", "png", "gif", "webp"));
 
             // when
             boolean result = storageService.isValidImage(file);
@@ -374,9 +388,8 @@ class LocalEventImageStorageServiceTest {
         @DisplayName("파일 이름이 null이면 false를 반환한다")
         void isValidImage_nullFilename_returnsFalse() {
             // given
-            MockMultipartFile file = new MockMultipartFile(
-                "file", null, "image/jpeg", "test content".getBytes()
-            );
+            MockMultipartFile file =
+                    new MockMultipartFile("file", null, "image/jpeg", "test content".getBytes());
 
             when(properties.getMaxSize()).thenReturn(10485760L);
 
@@ -391,9 +404,8 @@ class LocalEventImageStorageServiceTest {
         @DisplayName("파일 이름이 빈 문자열이면 false를 반환한다")
         void isValidImage_emptyFilename_returnsFalse() {
             // given
-            MockMultipartFile file = new MockMultipartFile(
-                "file", "", "image/jpeg", "test content".getBytes()
-            );
+            MockMultipartFile file =
+                    new MockMultipartFile("file", "", "image/jpeg", "test content".getBytes());
 
             when(properties.getMaxSize()).thenReturn(10485760L);
 
@@ -408,12 +420,12 @@ class LocalEventImageStorageServiceTest {
         @DisplayName("MIME 타입이 null이면 false를 반환한다")
         void isValidImage_nullMimeType_returnsFalse() {
             // given
-            MockMultipartFile file = new MockMultipartFile(
-                "file", "test.jpg", null, "test content".getBytes()
-            );
+            MockMultipartFile file =
+                    new MockMultipartFile("file", "test.jpg", null, "test content".getBytes());
 
             when(properties.getMaxSize()).thenReturn(10485760L);
-            when(properties.getAllowedExtensionList()).thenReturn(Arrays.asList("jpg", "jpeg", "png", "gif", "webp"));
+            when(properties.getAllowedExtensionList())
+                    .thenReturn(Arrays.asList("jpg", "jpeg", "png", "gif", "webp"));
 
             // when
             boolean result = storageService.isValidImage(file);

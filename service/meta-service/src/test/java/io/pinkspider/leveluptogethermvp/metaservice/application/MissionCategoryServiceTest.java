@@ -30,20 +30,19 @@ import org.springframework.data.domain.Pageable;
 @ExtendWith(MockitoExtension.class)
 class MissionCategoryServiceTest {
 
-    @Mock
-    private MissionCategoryRepository missionCategoryRepository;
+    @Mock private MissionCategoryRepository missionCategoryRepository;
 
-    @InjectMocks
-    private MissionCategoryService missionCategoryService;
+    @InjectMocks private MissionCategoryService missionCategoryService;
 
     private MissionCategory createTestCategory(Long id, String name, boolean isActive) {
-        MissionCategory category = MissionCategory.builder()
-            .name(name)
-            .description(name + " 설명")
-            .icon("icon_" + name.toLowerCase())
-            .displayOrder(id.intValue())
-            .isActive(isActive)
-            .build();
+        MissionCategory category =
+                MissionCategory.builder()
+                        .name(name)
+                        .description(name + " 설명")
+                        .icon("icon_" + name.toLowerCase())
+                        .displayOrder(id.intValue())
+                        .isActive(isActive)
+                        .build();
         setId(category, id);
         return category;
     }
@@ -65,7 +64,8 @@ class MissionCategoryServiceTest {
             MissionCategory savedCategory = createTestCategory(1L, "운동", true);
 
             when(missionCategoryRepository.existsByName("운동")).thenReturn(false);
-            when(missionCategoryRepository.save(any(MissionCategory.class))).thenReturn(savedCategory);
+            when(missionCategoryRepository.save(any(MissionCategory.class)))
+                    .thenReturn(savedCategory);
 
             // when
             MissionCategoryResponse result = missionCategoryService.createCategory(request);
@@ -87,8 +87,8 @@ class MissionCategoryServiceTest {
 
             // when & then
             assertThatThrownBy(() -> missionCategoryService.createCategory(request))
-                .isInstanceOf(CustomException.class)
-                .hasMessageContaining("error.category.duplicate");
+                    .isInstanceOf(CustomException.class)
+                    .hasMessageContaining("error.category.duplicate");
         }
     }
 
@@ -112,7 +112,8 @@ class MissionCategoryServiceTest {
             when(missionCategoryRepository.save(any(MissionCategory.class))).thenReturn(category);
 
             // when
-            MissionCategoryResponse result = missionCategoryService.updateCategory(categoryId, request);
+            MissionCategoryResponse result =
+                    missionCategoryService.updateCategory(categoryId, request);
 
             // then
             assertThat(result).isNotNull();
@@ -134,8 +135,8 @@ class MissionCategoryServiceTest {
 
             // when & then
             assertThatThrownBy(() -> missionCategoryService.updateCategory(categoryId, request))
-                .isInstanceOf(CustomException.class)
-                .hasMessageContaining("error.category.duplicate");
+                    .isInstanceOf(CustomException.class)
+                    .hasMessageContaining("error.category.duplicate");
         }
 
         @Test
@@ -149,8 +150,8 @@ class MissionCategoryServiceTest {
 
             // when & then
             assertThatThrownBy(() -> missionCategoryService.updateCategory(999L, request))
-                .isInstanceOf(CustomException.class)
-                .hasMessageContaining("error.category.not_found");
+                    .isInstanceOf(CustomException.class)
+                    .hasMessageContaining("error.category.not_found");
         }
 
         @Test
@@ -170,7 +171,8 @@ class MissionCategoryServiceTest {
             when(missionCategoryRepository.save(any(MissionCategory.class))).thenReturn(category);
 
             // when
-            MissionCategoryResponse result = missionCategoryService.updateCategory(categoryId, request);
+            MissionCategoryResponse result =
+                    missionCategoryService.updateCategory(categoryId, request);
 
             // then
             assertThat(result).isNotNull();
@@ -209,8 +211,8 @@ class MissionCategoryServiceTest {
 
             // when & then
             assertThatThrownBy(() -> missionCategoryService.deleteCategory(999L))
-                .isInstanceOf(CustomException.class)
-                .hasMessageContaining("error.category.not_found");
+                    .isInstanceOf(CustomException.class)
+                    .hasMessageContaining("error.category.not_found");
         }
     }
 
@@ -245,8 +247,8 @@ class MissionCategoryServiceTest {
 
             // when & then
             assertThatThrownBy(() -> missionCategoryService.deactivateCategory(999L))
-                .isInstanceOf(CustomException.class)
-                .hasMessageContaining("error.category.not_found");
+                    .isInstanceOf(CustomException.class)
+                    .hasMessageContaining("error.category.not_found");
         }
     }
 
@@ -262,7 +264,7 @@ class MissionCategoryServiceTest {
             MissionCategory category2 = createTestCategory(2L, "독서", false);
 
             when(missionCategoryRepository.findAllOrderByDisplayOrder())
-                .thenReturn(List.of(category1, category2));
+                    .thenReturn(List.of(category1, category2));
 
             // when
             List<MissionCategoryResponse> result = missionCategoryService.getAllCategories();
@@ -284,8 +286,7 @@ class MissionCategoryServiceTest {
             // given
             MissionCategory category = createTestCategory(1L, "운동", true);
 
-            when(missionCategoryRepository.findAllActiveCategories())
-                .thenReturn(List.of(category));
+            when(missionCategoryRepository.findAllActiveCategories()).thenReturn(List.of(category));
 
             // when
             List<MissionCategoryResponse> result = missionCategoryService.getActiveCategories();
@@ -325,8 +326,8 @@ class MissionCategoryServiceTest {
 
             // when & then
             assertThatThrownBy(() -> missionCategoryService.getCategory(999L))
-                .isInstanceOf(CustomException.class)
-                .hasMessageContaining("error.category.not_found");
+                    .isInstanceOf(CustomException.class)
+                    .hasMessageContaining("error.category.not_found");
         }
     }
 
@@ -449,8 +450,8 @@ class MissionCategoryServiceTest {
 
             // when & then
             assertThatThrownBy(() -> missionCategoryService.toggleActive(999L))
-                .isInstanceOf(CustomException.class)
-                .hasMessageContaining("error.category.not_found");
+                    .isInstanceOf(CustomException.class)
+                    .hasMessageContaining("error.category.not_found");
         }
     }
 
@@ -470,7 +471,8 @@ class MissionCategoryServiceTest {
             when(missionCategoryRepository.searchByKeyword(keyword, pageable)).thenReturn(page);
 
             // when
-            Page<MissionCategoryResponse> result = missionCategoryService.searchCategories(keyword, pageable);
+            Page<MissionCategoryResponse> result =
+                    missionCategoryService.searchCategories(keyword, pageable);
 
             // then
             assertThat(result).isNotNull();
@@ -491,7 +493,8 @@ class MissionCategoryServiceTest {
             when(missionCategoryRepository.searchByKeyword(null, pageable)).thenReturn(page);
 
             // when
-            Page<MissionCategoryResponse> result = missionCategoryService.searchCategories(null, pageable);
+            Page<MissionCategoryResponse> result =
+                    missionCategoryService.searchCategories(null, pageable);
 
             // then
             assertThat(result).isNotNull();
@@ -507,10 +510,12 @@ class MissionCategoryServiceTest {
             Pageable pageable = PageRequest.of(0, 20);
             Page<MissionCategory> emptyPage = new PageImpl<>(List.of(), pageable, 0);
 
-            when(missionCategoryRepository.searchByKeyword(keyword, pageable)).thenReturn(emptyPage);
+            when(missionCategoryRepository.searchByKeyword(keyword, pageable))
+                    .thenReturn(emptyPage);
 
             // when
-            Page<MissionCategoryResponse> result = missionCategoryService.searchCategories(keyword, pageable);
+            Page<MissionCategoryResponse> result =
+                    missionCategoryService.searchCategories(keyword, pageable);
 
             // then
             assertThat(result).isNotNull();
@@ -531,7 +536,8 @@ class MissionCategoryServiceTest {
             MissionCategory category1 = createTestCategory(1L, "운동", true);
             MissionCategory category2 = createTestCategory(2L, "독서", true);
 
-            when(missionCategoryRepository.findAllByIdIn(ids)).thenReturn(List.of(category1, category2));
+            when(missionCategoryRepository.findAllByIdIn(ids))
+                    .thenReturn(List.of(category1, category2));
 
             // when
             List<MissionCategoryResponse> result = missionCategoryService.getCategoriesByIds(ids);

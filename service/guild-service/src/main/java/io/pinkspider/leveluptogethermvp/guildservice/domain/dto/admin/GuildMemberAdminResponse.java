@@ -7,32 +7,30 @@ import java.time.LocalDateTime;
 
 @JsonNaming(SnakeCaseStrategy.class)
 public record GuildMemberAdminResponse(
-    Long id,
-    Long guildId,
-    String userId,
-    String userNickname,
-    String userProfileImage,
-    String role,
-    String status,
-    LocalDateTime joinedAt,
-    LocalDateTime leftAt,
-    LocalDateTime createdAt,
-    LocalDateTime modifiedAt
-) {
-    public static GuildMemberAdminResponse from(GuildMember member,
-            String nickname, String profileImage) {
+        Long id,
+        Long guildId,
+        String userId,
+        String userNickname,
+        String userProfileImage,
+        String role,
+        String status,
+        LocalDateTime joinedAt,
+        LocalDateTime leftAt,
+        LocalDateTime createdAt,
+        LocalDateTime modifiedAt) {
+    public static GuildMemberAdminResponse from(
+            GuildMember member, String nickname, String profileImage) {
         return new GuildMemberAdminResponse(
-            member.getId(),
-            member.getGuild().getId(),
-            member.getUserId(),
-            nickname,
-            profileImage,
-            member.getRole() != null ? member.getRole().name() : null,
-            member.getStatus() != null ? member.getStatus().name() : null,
-            member.getCreatedAt(),
-            null,
-            member.getCreatedAt(),
-            member.getModifiedAt()
-        );
+                member.getId(),
+                member.getGuild().getId(),
+                member.getUserId(),
+                nickname,
+                profileImage,
+                member.getRole() != null ? member.getRole().name() : null,
+                member.getStatus() != null ? member.getStatus().name() : null,
+                member.getCreatedAt(),
+                null,
+                member.getCreatedAt(),
+                member.getModifiedAt());
     }
 }

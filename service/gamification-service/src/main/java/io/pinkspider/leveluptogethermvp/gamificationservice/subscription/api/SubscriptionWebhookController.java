@@ -12,11 +12,11 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
- * LUT-452: 스토어 구독 웹훅 수신 엔드포인트 — 스토어 서버가 호출한다 (비로그인 permitAll,
- * SecurityConfig + SecurityConfigPublicEndpointTest 짝 등록).
+ * LUT-452: 스토어 구독 웹훅 수신 엔드포인트 — 스토어 서버가 호출한다 (비로그인 permitAll, SecurityConfig +
+ * SecurityConfigPublicEndpointTest 짝 등록).
  *
- * <p>등록처: App Store Connect > 앱 > App Store Server Notifications V2 URL / Google Play Console >
- * 수익 창출 설정 > RTDN(Pub/Sub push 구독 엔드포인트).
+ * <p>등록처: App Store Connect > 앱 > App Store Server Notifications V2 URL / Google Play Console > 수익
+ * 창출 설정 > RTDN(Pub/Sub push 구독 엔드포인트).
  */
 @RestController
 @RequestMapping("/api/v1/webhooks/subscriptions")

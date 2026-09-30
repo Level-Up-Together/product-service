@@ -20,6 +20,8 @@ public interface ItemPushSendLogRepository extends JpaRepository<ItemPushSendLog
      * LUT-529: 유저가 최근 발송받은 메시지 ID 목록 (send_date 내림차순). 대사 로테이션에서 최근 (후보 수 - 1)건을 제외하기 위해 사용한다.
      * (user_id, send_date) 유니크라 하루 1건 → 최근 N일 = 최근 N건.
      */
-    @Query("SELECT l.itemPushMessageId FROM ItemPushSendLog l WHERE l.userId = :userId ORDER BY l.sendDate DESC")
+    @Query(
+            "SELECT l.itemPushMessageId FROM ItemPushSendLog l WHERE l.userId = :userId ORDER BY"
+                    + " l.sendDate DESC")
     List<Long> findRecentSentMessageIds(@Param("userId") String userId, Pageable pageable);
 }

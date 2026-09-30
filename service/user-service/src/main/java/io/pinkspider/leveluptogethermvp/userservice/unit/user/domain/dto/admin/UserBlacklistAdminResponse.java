@@ -9,27 +9,26 @@ import lombok.Builder;
 @Builder
 @JsonNaming(SnakeCaseStrategy.class)
 public record UserBlacklistAdminResponse(
-    Long id,
-    String userId,
-    String blacklistType,
-    String reason,
-    Long adminId,
-    LocalDateTime startedAt,
-    LocalDateTime endedAt,
-    Boolean isActive,
-    LocalDateTime createdAt
-) {
+        Long id,
+        String userId,
+        String blacklistType,
+        String reason,
+        Long adminId,
+        LocalDateTime startedAt,
+        LocalDateTime endedAt,
+        Boolean isActive,
+        LocalDateTime createdAt) {
     public static UserBlacklistAdminResponse from(UserBlacklist b) {
         return UserBlacklistAdminResponse.builder()
-            .id(b.getId())
-            .userId(b.getUserId())
-            .blacklistType(b.getBlacklistType() != null ? b.getBlacklistType().name() : null)
-            .reason(b.getReason())
-            .adminId(b.getAdminId())
-            .startedAt(b.getStartedAt())
-            .endedAt(b.getEndedAt())
-            .isActive(b.getIsActive())
-            .createdAt(b.getCreatedAt())
-            .build();
+                .id(b.getId())
+                .userId(b.getUserId())
+                .blacklistType(b.getBlacklistType() != null ? b.getBlacklistType().name() : null)
+                .reason(b.getReason())
+                .adminId(b.getAdminId())
+                .startedAt(b.getStartedAt())
+                .endedAt(b.getEndedAt())
+                .isActive(b.getIsActive())
+                .createdAt(b.getCreatedAt())
+                .build();
     }
 }

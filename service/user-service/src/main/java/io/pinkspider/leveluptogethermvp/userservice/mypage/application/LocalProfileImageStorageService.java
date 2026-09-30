@@ -15,10 +15,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
 
-/**
- * 로컬 파일 시스템에 프로필 이미지를 저장하는 구현체
- * 추후 S3 등으로 교체 시 S3ProfileImageStorageService를 만들어 교체
- */
+/** 로컬 파일 시스템에 프로필 이미지를 저장하는 구현체 추후 S3 등으로 교체 시 S3ProfileImageStorageService를 만들어 교체 */
 @Service
 @Profile("!prod")
 @Slf4j
@@ -124,9 +121,7 @@ public class LocalProfileImageStorageService implements ProfileImageStorageServi
         return true;
     }
 
-    /**
-     * 파일 이름에서 확장자 추출
-     */
+    /** 파일 이름에서 확장자 추출 */
     private String getExtension(String filename) {
         if (filename == null || !filename.contains(".")) {
             return "";

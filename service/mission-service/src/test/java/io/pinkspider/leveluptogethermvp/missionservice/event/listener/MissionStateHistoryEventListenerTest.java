@@ -1,11 +1,11 @@
 package io.pinkspider.leveluptogethermvp.missionservice.event.listener;
 
-import static org.mockito.ArgumentMatchers.any;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.verify;
 
+import io.pinkspider.global.enums.MissionStatus;
 import io.pinkspider.global.event.MissionStateChangedEvent;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.MissionStateHistory;
-import io.pinkspider.global.enums.MissionStatus;
 import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.MissionStateHistoryRepository;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -17,20 +17,15 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import static org.assertj.core.api.Assertions.assertThat;
-
 @ExtendWith(MockitoExtension.class)
 @DisplayName("MissionStateHistoryEventListener 테스트")
 class MissionStateHistoryEventListenerTest {
 
-    @Mock
-    private MissionStateHistoryRepository stateHistoryRepository;
+    @Mock private MissionStateHistoryRepository stateHistoryRepository;
 
-    @InjectMocks
-    private MissionStateHistoryEventListener eventListener;
+    @InjectMocks private MissionStateHistoryEventListener eventListener;
 
-    @Captor
-    private ArgumentCaptor<MissionStateHistory> historyCaptor;
+    @Captor private ArgumentCaptor<MissionStateHistory> historyCaptor;
 
     @Nested
     @DisplayName("미션 상태 변경 이벤트 처리")
@@ -40,9 +35,8 @@ class MissionStateHistoryEventListenerTest {
         @DisplayName("미션 생성 이벤트 처리 시 히스토리가 저장된다")
         void shouldSaveHistoryOnCreation() {
             // given
-            MissionStateChangedEvent event = MissionStateChangedEvent.ofCreation(
-                "user-123", 1L, MissionStatus.DRAFT
-            );
+            MissionStateChangedEvent event =
+                    MissionStateChangedEvent.ofCreation("user-123", 1L, MissionStatus.DRAFT);
 
             // when
             eventListener.handleMissionStateChanged(event);
@@ -62,9 +56,8 @@ class MissionStateHistoryEventListenerTest {
         @DisplayName("미션 오픈 이벤트 처리 시 히스토리가 저장된다")
         void shouldSaveHistoryOnOpen() {
             // given
-            MissionStateChangedEvent event = MissionStateChangedEvent.ofOpen(
-                "user-123", 1L, MissionStatus.DRAFT
-            );
+            MissionStateChangedEvent event =
+                    MissionStateChangedEvent.ofOpen("user-123", 1L, MissionStatus.DRAFT);
 
             // when
             eventListener.handleMissionStateChanged(event);
@@ -84,9 +77,8 @@ class MissionStateHistoryEventListenerTest {
         @DisplayName("미션 시작 이벤트 처리 시 히스토리가 저장된다")
         void shouldSaveHistoryOnStart() {
             // given
-            MissionStateChangedEvent event = MissionStateChangedEvent.ofStart(
-                "user-123", 1L, MissionStatus.OPEN
-            );
+            MissionStateChangedEvent event =
+                    MissionStateChangedEvent.ofStart("user-123", 1L, MissionStatus.OPEN);
 
             // when
             eventListener.handleMissionStateChanged(event);
@@ -105,9 +97,8 @@ class MissionStateHistoryEventListenerTest {
         @DisplayName("미션 완료 이벤트 처리 시 히스토리가 저장된다")
         void shouldSaveHistoryOnComplete() {
             // given
-            MissionStateChangedEvent event = MissionStateChangedEvent.ofComplete(
-                "user-123", 1L, MissionStatus.IN_PROGRESS
-            );
+            MissionStateChangedEvent event =
+                    MissionStateChangedEvent.ofComplete("user-123", 1L, MissionStatus.IN_PROGRESS);
 
             // when
             eventListener.handleMissionStateChanged(event);
@@ -126,9 +117,8 @@ class MissionStateHistoryEventListenerTest {
         @DisplayName("미션 취소 이벤트 처리 시 히스토리가 저장된다")
         void shouldSaveHistoryOnCancel() {
             // given
-            MissionStateChangedEvent event = MissionStateChangedEvent.ofCancel(
-                "user-123", 1L, MissionStatus.OPEN
-            );
+            MissionStateChangedEvent event =
+                    MissionStateChangedEvent.ofCancel("user-123", 1L, MissionStatus.OPEN);
 
             // when
             eventListener.handleMissionStateChanged(event);
@@ -147,9 +137,9 @@ class MissionStateHistoryEventListenerTest {
         @DisplayName("사유가 있는 취소 이벤트 처리 시 사유도 저장된다")
         void shouldSaveHistoryWithReasonOnCancelWithReason() {
             // given
-            MissionStateChangedEvent event = MissionStateChangedEvent.ofCancelWithReason(
-                "user-123", 1L, MissionStatus.DRAFT, "참여자 부족으로 취소"
-            );
+            MissionStateChangedEvent event =
+                    MissionStateChangedEvent.ofCancelWithReason(
+                            "user-123", 1L, MissionStatus.DRAFT, "참여자 부족으로 취소");
 
             // when
             eventListener.handleMissionStateChanged(event);

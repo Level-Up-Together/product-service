@@ -18,7 +18,8 @@ public interface CheckLogicTypeRepository extends JpaRepository<CheckLogicType, 
 
     List<CheckLogicType> findAllByOrderBySortOrderAsc();
 
-    List<CheckLogicType> findByDataSourceAndIsActiveTrueOrderBySortOrderAsc(CheckLogicDataSource dataSource);
+    List<CheckLogicType> findByDataSourceAndIsActiveTrueOrderBySortOrderAsc(
+            CheckLogicDataSource dataSource);
 
     Page<CheckLogicType> findAllByOrderBySortOrderAsc(Pageable pageable);
 

@@ -18,71 +18,75 @@ public interface GuildMemberRepository extends JpaRepository<GuildMember, Long> 
     Optional<GuildMember> findByGuildIdAndUserId(Long guildId, String userId);
 
     @Query("SELECT gm FROM GuildMember gm WHERE gm.guild.id = :guildId AND gm.status = :status")
-    List<GuildMember> findByGuildIdAndStatus(@Param("guildId") Long guildId, @Param("status") GuildMemberStatus status);
+    List<GuildMember> findByGuildIdAndStatus(
+            @Param("guildId") Long guildId, @Param("status") GuildMemberStatus status);
 
     @Query("SELECT gm FROM GuildMember gm WHERE gm.guild.id = :guildId AND gm.status = 'ACTIVE'")
     List<GuildMember> findActiveMembers(@Param("guildId") Long guildId);
 
-    @Query("SELECT COUNT(gm) FROM GuildMember gm WHERE gm.guild.id = :guildId AND gm.status = 'ACTIVE'")
+    @Query(
+            "SELECT COUNT(gm) FROM GuildMember gm WHERE gm.guild.id = :guildId AND gm.status ="
+                    + " 'ACTIVE'")
     long countActiveMembers(@Param("guildId") Long guildId);
 
     /** LUT-418: 가입해 본 distinct 길드 수 — status 무관 전체 행 카운트 (소프트 삭제 이력 = 가입 이력) */
     long countByUserId(String userId);
 
-    @Query("SELECT gm FROM GuildMember gm JOIN FETCH gm.guild g WHERE gm.userId = :userId AND gm.status = 'ACTIVE' AND g.isActive = true")
+    @Query(
+            "SELECT gm FROM GuildMember gm JOIN FETCH gm.guild g WHERE gm.userId = :userId AND"
+                    + " gm.status = 'ACTIVE' AND g.isActive = true")
     List<GuildMember> findActiveGuildsByUserId(@Param("userId") String userId);
 
-    boolean existsByGuildIdAndUserIdAndStatus(Long guildId, String userId, GuildMemberStatus status);
+    boolean existsByGuildIdAndUserIdAndStatus(
+            Long guildId, String userId, GuildMemberStatus status);
 
-    @Query("SELECT CASE WHEN COUNT(gm) > 0 THEN true ELSE false END FROM GuildMember gm " +
-           "WHERE gm.guild.id = :guildId AND gm.userId = :userId AND gm.status = 'ACTIVE'")
+    @Query(
+            "SELECT CASE WHEN COUNT(gm) > 0 THEN true ELSE false END FROM GuildMember gm WHERE"
+                    + " gm.guild.id = :guildId AND gm.userId = :userId AND gm.status = 'ACTIVE'")
     boolean isActiveMember(@Param("guildId") Long guildId, @Param("userId") String userId);
 
-    /**
-     * 사용자의 현재 활성 길드 멤버십 조회 (카테고리별)
-     */
-    @Query("SELECT gm FROM GuildMember gm JOIN FETCH gm.guild g " +
-           "WHERE gm.userId = :userId AND gm.status = 'ACTIVE' AND g.isActive = true " +
-           "AND g.categoryId = :categoryId")
+    /** 사용자의 현재 활성 길드 멤버십 조회 (카테고리별) */
+    @Query(
+            "SELECT gm FROM GuildMember gm JOIN FETCH gm.guild g "
+                    + "WHERE gm.userId = :userId AND gm.status = 'ACTIVE' AND g.isActive = true "
+                    + "AND g.categoryId = :categoryId")
     Optional<GuildMember> findActiveGuildMembershipInCategory(
-        @Param("userId") String userId, @Param("categoryId") Long categoryId);
+            @Param("userId") String userId, @Param("categoryId") Long categoryId);
 
-    /**
-     * 사용자의 현재 활성 길드 멤버십 조회 (전체)
-     */
-    @Query("SELECT gm FROM GuildMember gm JOIN FETCH gm.guild g " +
-           "WHERE gm.userId = :userId AND gm.status = 'ACTIVE' AND g.isActive = true")
+    /** 사용자의 현재 활성 길드 멤버십 조회 (전체) */
+    @Query(
+            "SELECT gm FROM GuildMember gm JOIN FETCH gm.guild g "
+                    + "WHERE gm.userId = :userId AND gm.status = 'ACTIVE' AND g.isActive = true")
     List<GuildMember> findAllActiveGuildMemberships(@Param("userId") String userId);
 
     /**
      * 여러 길드의 활성 멤버 수 배치 조회 (N+1 방지)
+     *
      * @return List of [guildId, memberCount]
      */
-    @Query("SELECT gm.guild.id, COUNT(gm) FROM GuildMember gm " +
-           "WHERE gm.guild.id IN :guildIds AND gm.status = 'ACTIVE' " +
-           "GROUP BY gm.guild.id")
+    @Query(
+            "SELECT gm.guild.id, COUNT(gm) FROM GuildMember gm "
+                    + "WHERE gm.guild.id IN :guildIds AND gm.status = 'ACTIVE' "
+                    + "GROUP BY gm.guild.id")
     List<Object[]> countActiveMembersByGuildIds(@Param("guildIds") List<Long> guildIds);
 
-    /**
-     * 사용자가 이미 다른 길드의 마스터인지 확인 (1인 1길드 마스터 정책)
-     */
-    @Query("SELECT CASE WHEN COUNT(gm) > 0 THEN true ELSE false END FROM GuildMember gm " +
-           "JOIN gm.guild g WHERE gm.userId = :userId AND gm.role = 'MASTER' " +
-           "AND gm.status = 'ACTIVE' AND g.isActive = true")
+    /** 사용자가 이미 다른 길드의 마스터인지 확인 (1인 1길드 마스터 정책) */
+    @Query(
+            "SELECT CASE WHEN COUNT(gm) > 0 THEN true ELSE false END FROM GuildMember gm "
+                    + "JOIN gm.guild g WHERE gm.userId = :userId AND gm.role = 'MASTER' "
+                    + "AND gm.status = 'ACTIVE' AND g.isActive = true")
     boolean isGuildMaster(@Param("userId") String userId);
 
-    /**
-     * 사용자가 마스터로 있는 활성 길드 조회
-     */
-    @Query("SELECT gm FROM GuildMember gm JOIN FETCH gm.guild g " +
-           "WHERE gm.userId = :userId AND gm.role = 'MASTER' " +
-           "AND gm.status = 'ACTIVE' AND g.isActive = true")
+    /** 사용자가 마스터로 있는 활성 길드 조회 */
+    @Query(
+            "SELECT gm FROM GuildMember gm JOIN FETCH gm.guild g "
+                    + "WHERE gm.userId = :userId AND gm.role = 'MASTER' "
+                    + "AND gm.status = 'ACTIVE' AND g.isActive = true")
     Optional<GuildMember> findGuildMastership(@Param("userId") String userId);
 
-    /**
-     * 길드의 마스터/부마스터 user_id 목록 조회 (가입 신청 알림 수신자)
-     */
-    @Query("SELECT gm.userId FROM GuildMember gm WHERE gm.guild.id = :guildId " +
-           "AND gm.status = 'ACTIVE' AND gm.role IN ('MASTER', 'SUB_MASTER')")
+    /** 길드의 마스터/부마스터 user_id 목록 조회 (가입 신청 알림 수신자) */
+    @Query(
+            "SELECT gm.userId FROM GuildMember gm WHERE gm.guild.id = :guildId "
+                    + "AND gm.status = 'ACTIVE' AND gm.role IN ('MASTER', 'SUB_MASTER')")
     List<String> findOfficerUserIdsByGuildId(@Param("guildId") Long guildId);
 }

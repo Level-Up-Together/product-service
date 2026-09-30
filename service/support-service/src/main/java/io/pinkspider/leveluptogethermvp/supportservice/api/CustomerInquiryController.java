@@ -1,12 +1,12 @@
 package io.pinkspider.leveluptogethermvp.supportservice.api;
 
+import io.pinkspider.global.annotation.CurrentUser;
 import io.pinkspider.global.api.ApiResult;
 import io.pinkspider.leveluptogethermvp.supportservice.api.dto.InquiryCreateRequest;
 import io.pinkspider.leveluptogethermvp.supportservice.api.dto.InquiryResponse;
 import io.pinkspider.leveluptogethermvp.supportservice.api.dto.InquiryTypeOption;
 import io.pinkspider.leveluptogethermvp.supportservice.application.CustomerInquiryService;
 import io.pinkspider.leveluptogethermvp.supportservice.core.feignclient.AdminInquiryPageApiResponse;
-import io.pinkspider.global.annotation.CurrentUser;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -25,40 +25,34 @@ public class CustomerInquiryController {
 
     private final CustomerInquiryService customerInquiryService;
 
-    /**
-     * 문의 등록
-     */
+    /** 문의 등록 */
     @PostMapping
     public ResponseEntity<ApiResult<InquiryResponse>> createInquiry(
-        @CurrentUser String userId,
-        @Valid @RequestBody InquiryCreateRequest request) {
+            @CurrentUser String userId, @Valid @RequestBody InquiryCreateRequest request) {
 
         InquiryResponse inquiry = customerInquiryService.createInquiry(userId, request);
         return ResponseEntity.ok(ApiResult.<InquiryResponse>builder().value(inquiry).build());
     }
 
-    /**
-     * 내 문의 목록 조회
-     */
+    /** 내 문의 목록 조회 */
     @GetMapping
     public ResponseEntity<ApiResult<AdminInquiryPageApiResponse.PageValue>> getMyInquiries(
-        @CurrentUser String userId,
-        @RequestParam(value = "page", defaultValue = "0") int page,
-        @RequestParam(value = "size", defaultValue = "20") int size) {
+            @CurrentUser String userId,
+            @RequestParam(value = "page", defaultValue = "0") int page,
+            @RequestParam(value = "size", defaultValue = "20") int size) {
 
-        AdminInquiryPageApiResponse.PageValue inquiries = customerInquiryService.getMyInquiries(userId, page, size);
-        return ResponseEntity.ok(ApiResult.<AdminInquiryPageApiResponse.PageValue>builder()
-            .value(inquiries)
-            .build());
+        AdminInquiryPageApiResponse.PageValue inquiries =
+                customerInquiryService.getMyInquiries(userId, page, size);
+        return ResponseEntity.ok(
+                ApiResult.<AdminInquiryPageApiResponse.PageValue>builder()
+                        .value(inquiries)
+                        .build());
     }
 
-    /**
-     * 문의 상세 조회
-     */
+    /** 문의 상세 조회 */
     @GetMapping("/{id}")
     public ResponseEntity<ApiResult<InquiryResponse>> getInquiry(
-        @PathVariable Long id,
-        @CurrentUser String userId) {
+            @PathVariable Long id, @CurrentUser String userId) {
 
         InquiryResponse inquiry = customerInquiryService.getInquiry(id, userId);
         if (inquiry == null) {
@@ -68,9 +62,7 @@ public class CustomerInquiryController {
         return ResponseEntity.ok(ApiResult.<InquiryResponse>builder().value(inquiry).build());
     }
 
-    /**
-     * 문의 유형 목록 조회
-     */
+    /** 문의 유형 목록 조회 */
     @GetMapping("/types")
     public ResponseEntity<ApiResult<InquiryTypeOption[]>> getInquiryTypes() {
         InquiryTypeOption[] types = customerInquiryService.getInquiryTypeOptions();

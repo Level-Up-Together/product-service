@@ -40,31 +40,35 @@ class IapVerificationServiceTest {
     private static final String APPLE_URL = "https://apple.example/verifyReceipt";
     private static final String APPLE_SANDBOX_URL = "https://apple-sandbox.example/verifyReceipt";
 
-    @TempDir
-    Path tempDir;
+    @TempDir Path tempDir;
 
     private IapVerificationService service(boolean enabled) {
         // Apple 자격증명 미설정 — App Store Server API 가격 보강은 내부에서 best-effort 로 실패해
         // withoutPrice 로 폴백한다(가격 캡처 자체는 별도 테스트에서 검증).
         return new IapVerificationService(
-            enabled, APPLE_URL, APPLE_SANDBOX_URL, "io.pinkspider.lut", "", new IapAppleProperties());
+                enabled,
+                APPLE_URL,
+                APPLE_SANDBOX_URL,
+                "io.pinkspider.lut",
+                "",
+                new IapAppleProperties());
     }
 
     private DiamondBundlePurchaseRequest iosRequest() {
         return DiamondBundlePurchaseRequest.builder()
-            .platform("ios")
-            .storeProductId("pink_100")
-            .transactionId("tx-001")
-            .receipt("base64-receipt")
-            .build();
+                .platform("ios")
+                .storeProductId("pink_100")
+                .transactionId("tx-001")
+                .receipt("base64-receipt")
+                .build();
     }
 
     private DiamondBundlePurchaseRequest androidRequest() {
         return DiamondBundlePurchaseRequest.builder()
-            .platform("android")
-            .storeProductId("pink_100")
-            .purchaseToken("token-001")
-            .build();
+                .platform("android")
+                .storeProductId("pink_100")
+                .purchaseToken("token-001")
+                .build();
     }
 
     @Nested
@@ -80,20 +84,22 @@ class IapVerificationServiceTest {
         @Test
         @DisplayName("android는 purchaseToken을 신뢰해 반환한다")
         void disabled_android_trustsPurchaseToken() {
-            assertThat(service(false).verify(androidRequest()).transactionId()).isEqualTo("token-001");
+            assertThat(service(false).verify(androidRequest()).transactionId())
+                    .isEqualTo("token-001");
         }
 
         @Test
         @DisplayName("트랜잭션 식별자가 없으면 비활성이라도 예외")
         void disabled_missingIdentifier_throws() {
-            DiamondBundlePurchaseRequest request = DiamondBundlePurchaseRequest.builder()
-                .platform("android")
-                .storeProductId("pink_100")
-                .build();
+            DiamondBundlePurchaseRequest request =
+                    DiamondBundlePurchaseRequest.builder()
+                            .platform("android")
+                            .storeProductId("pink_100")
+                            .build();
 
             assertThatThrownBy(() -> service(false).verify(request))
-                .isInstanceOf(CustomException.class)
-                .hasMessageContaining("error.iap.receipt_required");
+                    .isInstanceOf(CustomException.class)
+                    .hasMessageContaining("error.iap.receipt_required");
         }
     }
 
@@ -108,8 +114,9 @@ class IapVerificationServiceTest {
             RestTemplate rest = mock(RestTemplate.class);
             svc.setRestTemplate(rest);
             when(rest.postForObject(eq(APPLE_URL), any(), eq(String.class)))
-                .thenReturn("{\"status\":0,\"receipt\":{\"in_app\":[" +
-                    "{\"product_id\":\"pink_100\",\"transaction_id\":\"tx-001\"}]}}");
+                    .thenReturn(
+                            "{\"status\":0,\"receipt\":{\"in_app\":["
+                                + "{\"product_id\":\"pink_100\",\"transaction_id\":\"tx-001\"}]}}");
 
             assertThat(svc.verify(iosRequest()).transactionId()).isEqualTo("tx-001");
         }
@@ -121,10 +128,11 @@ class IapVerificationServiceTest {
             RestTemplate rest = mock(RestTemplate.class);
             svc.setRestTemplate(rest);
             when(rest.postForObject(eq(APPLE_URL), any(), eq(String.class)))
-                .thenReturn("{\"status\":21007}");
+                    .thenReturn("{\"status\":21007}");
             when(rest.postForObject(eq(APPLE_SANDBOX_URL), any(), eq(String.class)))
-                .thenReturn("{\"status\":0,\"receipt\":{\"in_app\":[" +
-                    "{\"product_id\":\"pink_100\",\"transaction_id\":\"tx-001\"}]}}");
+                    .thenReturn(
+                            "{\"status\":0,\"receipt\":{\"in_app\":["
+                                + "{\"product_id\":\"pink_100\",\"transaction_id\":\"tx-001\"}]}}");
 
             assertThat(svc.verify(iosRequest()).transactionId()).isEqualTo("tx-001");
         }
@@ -136,11 +144,11 @@ class IapVerificationServiceTest {
             RestTemplate rest = mock(RestTemplate.class);
             svc.setRestTemplate(rest);
             when(rest.postForObject(eq(APPLE_URL), any(), eq(String.class)))
-                .thenReturn("{\"status\":21002}");
+                    .thenReturn("{\"status\":21002}");
 
             assertThatThrownBy(() -> svc.verify(iosRequest()))
-                .isInstanceOf(CustomException.class)
-                .hasMessageContaining("error.iap.verification_failed");
+                    .isInstanceOf(CustomException.class)
+                    .hasMessageContaining("error.iap.verification_failed");
         }
 
         @Test
@@ -150,26 +158,28 @@ class IapVerificationServiceTest {
             RestTemplate rest = mock(RestTemplate.class);
             svc.setRestTemplate(rest);
             when(rest.postForObject(eq(APPLE_URL), any(), eq(String.class)))
-                .thenReturn("{\"status\":0,\"receipt\":{\"in_app\":[" +
-                    "{\"product_id\":\"other_item\",\"transaction_id\":\"tx-999\"}]}}");
+                    .thenReturn(
+                            "{\"status\":0,\"receipt\":{\"in_app\":["
+                                + "{\"product_id\":\"other_item\",\"transaction_id\":\"tx-999\"}]}}");
 
             assertThatThrownBy(() -> svc.verify(iosRequest()))
-                .isInstanceOf(CustomException.class)
-                .hasMessageContaining("error.iap.product_mismatch");
+                    .isInstanceOf(CustomException.class)
+                    .hasMessageContaining("error.iap.product_mismatch");
         }
 
         @Test
         @DisplayName("검증 활성 상태에서 ios transactionId 가 없으면 예외")
         void apple_enabledWithoutTransactionId_throws() {
-            DiamondBundlePurchaseRequest request = DiamondBundlePurchaseRequest.builder()
-                .platform("ios")
-                .storeProductId("pink_100")
-                .receipt("base64-receipt")
-                .build();
+            DiamondBundlePurchaseRequest request =
+                    DiamondBundlePurchaseRequest.builder()
+                            .platform("ios")
+                            .storeProductId("pink_100")
+                            .receipt("base64-receipt")
+                            .build();
 
             assertThatThrownBy(() -> service(true).verify(request))
-                .isInstanceOf(CustomException.class)
-                .hasMessageContaining("error.iap.receipt_required");
+                    .isInstanceOf(CustomException.class)
+                    .hasMessageContaining("error.iap.receipt_required");
         }
 
         // LUT-498: react-native-iap v16(StoreKit 2)은 legacy 영수증을 못 주는 경우가 있어 RN 이
@@ -180,18 +190,18 @@ class IapVerificationServiceTest {
 
             private DiamondBundlePurchaseRequest receiptlessRequest() {
                 return DiamondBundlePurchaseRequest.builder()
-                    .platform("ios")
-                    .storeProductId("pink_100")
-                    .transactionId("tx-001")
-                    .build();
+                        .platform("ios")
+                        .storeProductId("pink_100")
+                        .transactionId("tx-001")
+                        .build();
             }
 
             private JWSTransactionDecodedPayload payload() {
                 return new JWSTransactionDecodedPayload()
-                    .productId("pink_100")
-                    .transactionId("tx-001")
-                    .price(1990L)
-                    .currency("USD");
+                        .productId("pink_100")
+                        .transactionId("tx-001")
+                        .price(1990L)
+                        .currency("USD");
             }
 
             @Test
@@ -217,8 +227,8 @@ class IapVerificationServiceTest {
                 doReturn(payload().productId("pink_550")).when(svc).fetchAppleTransaction("tx-001");
 
                 assertThatThrownBy(() -> svc.verify(receiptlessRequest()))
-                    .isInstanceOf(CustomException.class)
-                    .hasMessageContaining("error.iap.product_mismatch");
+                        .isInstanceOf(CustomException.class)
+                        .hasMessageContaining("error.iap.product_mismatch");
             }
 
             @Test
@@ -226,19 +236,20 @@ class IapVerificationServiceTest {
             void receiptless_revoked_throws() {
                 IapVerificationService svc = spy(service(true));
                 doReturn(payload().revocationDate(1_700_000_000_000L))
-                    .when(svc).fetchAppleTransaction("tx-001");
+                        .when(svc)
+                        .fetchAppleTransaction("tx-001");
 
                 assertThatThrownBy(() -> svc.verify(receiptlessRequest()))
-                    .isInstanceOf(CustomException.class)
-                    .hasMessageContaining("error.iap.verification_failed");
+                        .isInstanceOf(CustomException.class)
+                        .hasMessageContaining("error.iap.verification_failed");
             }
 
             @Test
             @DisplayName("Server API 조회가 prod·sandbox 모두 실패하면 120702 (자격증명 미설정 환경)")
             void receiptless_apiFailure_throws() {
                 assertThatThrownBy(() -> service(true).verify(receiptlessRequest()))
-                    .isInstanceOf(CustomException.class)
-                    .hasMessageContaining("error.iap.verification_failed");
+                        .isInstanceOf(CustomException.class)
+                        .hasMessageContaining("error.iap.verification_failed");
             }
 
             @Test
@@ -248,8 +259,9 @@ class IapVerificationServiceTest {
                 RestTemplate rest = mock(RestTemplate.class);
                 svc.setRestTemplate(rest);
                 when(rest.postForObject(eq(APPLE_URL), any(), eq(String.class)))
-                    .thenReturn("{\"status\":0,\"receipt\":{\"in_app\":[" +
-                        "{\"product_id\":\"pink_100\",\"transaction_id\":\"tx-001\"}]}}");
+                        .thenReturn(
+                                "{\"status\":0,\"receipt\":{\"in_app\":["
+                                    + "{\"product_id\":\"pink_100\",\"transaction_id\":\"tx-001\"}]}}");
 
                 assertThat(svc.verify(iosRequest()).transactionId()).isEqualTo("tx-001");
                 verify(svc, never()).fetchAppleTransaction(any());
@@ -263,8 +275,9 @@ class IapVerificationServiceTest {
             RestTemplate rest = mock(RestTemplate.class);
             svc.setRestTemplate(rest);
             when(rest.postForObject(eq(APPLE_URL), any(), eq(String.class)))
-                .thenReturn("{\"status\":0,\"receipt\":{\"in_app\":[" +
-                    "{\"product_id\":\"pink_100\",\"transaction_id\":\"tx-001\"}]}}");
+                    .thenReturn(
+                            "{\"status\":0,\"receipt\":{\"in_app\":["
+                                + "{\"product_id\":\"pink_100\",\"transaction_id\":\"tx-001\"}]}}");
 
             IapVerificationResult result = svc.verify(iosRequest());
 
@@ -282,7 +295,7 @@ class IapVerificationServiceTest {
         @DisplayName("Apple 밀리유닛을 소수 가격으로 변환한다")
         void applePriceToDecimal_convertsMilliunits() {
             assertThat(IapVerificationService.applePriceToDecimal(1990L))
-                .isEqualByComparingTo(new BigDecimal("1.990"));
+                    .isEqualByComparingTo(new BigDecimal("1.990"));
         }
 
         @Test
@@ -295,7 +308,7 @@ class IapVerificationServiceTest {
         @DisplayName("Google 마이크로유닛 문자열을 소수 가격으로 변환한다")
         void googleMicrosToDecimal_convertsMicros() {
             assertThat(IapVerificationService.googleMicrosToDecimal("1990000"))
-                .isEqualByComparingTo(new BigDecimal("1.990000"));
+                    .isEqualByComparingTo(new BigDecimal("1.990000"));
         }
     }
 
@@ -308,29 +321,36 @@ class IapVerificationServiceTest {
         void google_missingServiceAccount_throws() {
             // service-account-json 미설정("") — 파일 로드 실패 → verification_failed
             assertThatThrownBy(() -> service(true).verify(androidRequest()))
-                .isInstanceOf(CustomException.class)
-                .hasMessageContaining("error.iap.verification_failed");
+                    .isInstanceOf(CustomException.class)
+                    .hasMessageContaining("error.iap.verification_failed");
         }
 
         @Test
         @DisplayName("LUT-401: 구매 완료 상태면 응답에 포함된 실제 결제 가격/통화를 파싱한다")
         void google_valid_parsesPrice() throws Exception {
             Path serviceAccountFile = writeFakeServiceAccountJson();
-            IapVerificationService svc = new IapVerificationService(
-                true, APPLE_URL, APPLE_SANDBOX_URL, "io.pinkspider.lut",
-                serviceAccountFile.toString(), new IapAppleProperties());
+            IapVerificationService svc =
+                    new IapVerificationService(
+                            true,
+                            APPLE_URL,
+                            APPLE_SANDBOX_URL,
+                            "io.pinkspider.lut",
+                            serviceAccountFile.toString(),
+                            new IapAppleProperties());
             RestTemplate rest = mock(RestTemplate.class);
             svc.setRestTemplate(rest);
 
-            when(rest.postForObject(eq("https://oauth2.googleapis.com/token"), any(), eq(String.class)))
-                .thenReturn("{\"access_token\":\"fake-token\"}");
+            when(rest.postForObject(
+                            eq("https://oauth2.googleapis.com/token"), any(), eq(String.class)))
+                    .thenReturn("{\"access_token\":\"fake-token\"}");
             when(rest.exchange(
-                    contains("/purchases/products/pink_100/tokens/token-001"),
-                    eq(org.springframework.http.HttpMethod.GET),
-                    any(),
-                    eq(String.class)))
-                .thenReturn(org.springframework.http.ResponseEntity.ok(
-                    "{\"purchaseState\":0,\"priceAmountMicros\":\"1990000\",\"priceCurrencyCode\":\"USD\"}"));
+                            contains("/purchases/products/pink_100/tokens/token-001"),
+                            eq(org.springframework.http.HttpMethod.GET),
+                            any(),
+                            eq(String.class)))
+                    .thenReturn(
+                            org.springframework.http.ResponseEntity.ok(
+                                    "{\"purchaseState\":0,\"priceAmountMicros\":\"1990000\",\"priceCurrencyCode\":\"USD\"}"));
 
             IapVerificationResult result = svc.verify(androidRequest());
 
@@ -343,20 +363,27 @@ class IapVerificationServiceTest {
         @DisplayName("LUT-401: 가격 필드가 없으면 가격 없이(null) 반환한다")
         void google_missingPriceFields_returnsWithoutPrice() throws Exception {
             Path serviceAccountFile = writeFakeServiceAccountJson();
-            IapVerificationService svc = new IapVerificationService(
-                true, APPLE_URL, APPLE_SANDBOX_URL, "io.pinkspider.lut",
-                serviceAccountFile.toString(), new IapAppleProperties());
+            IapVerificationService svc =
+                    new IapVerificationService(
+                            true,
+                            APPLE_URL,
+                            APPLE_SANDBOX_URL,
+                            "io.pinkspider.lut",
+                            serviceAccountFile.toString(),
+                            new IapAppleProperties());
             RestTemplate rest = mock(RestTemplate.class);
             svc.setRestTemplate(rest);
 
-            when(rest.postForObject(eq("https://oauth2.googleapis.com/token"), any(), eq(String.class)))
-                .thenReturn("{\"access_token\":\"fake-token\"}");
+            when(rest.postForObject(
+                            eq("https://oauth2.googleapis.com/token"), any(), eq(String.class)))
+                    .thenReturn("{\"access_token\":\"fake-token\"}");
             when(rest.exchange(
-                    contains("/purchases/products/pink_100/tokens/token-001"),
-                    eq(org.springframework.http.HttpMethod.GET),
-                    any(),
-                    eq(String.class)))
-                .thenReturn(org.springframework.http.ResponseEntity.ok("{\"purchaseState\":0}"));
+                            contains("/purchases/products/pink_100/tokens/token-001"),
+                            eq(org.springframework.http.HttpMethod.GET),
+                            any(),
+                            eq(String.class)))
+                    .thenReturn(
+                            org.springframework.http.ResponseEntity.ok("{\"purchaseState\":0}"));
 
             IapVerificationResult result = svc.verify(androidRequest());
 
@@ -370,31 +397,41 @@ class IapVerificationServiceTest {
         @DisplayName("LUT-493: 토큰 교환 JWT의 aud 는 배열이 아닌 문자열이어야 한다")
         void google_assertionAudience_isSingleString() throws Exception {
             Path serviceAccountFile = writeFakeServiceAccountJson();
-            IapVerificationService svc = new IapVerificationService(
-                true, APPLE_URL, APPLE_SANDBOX_URL, "io.pinkspider.lut",
-                serviceAccountFile.toString(), new IapAppleProperties());
+            IapVerificationService svc =
+                    new IapVerificationService(
+                            true,
+                            APPLE_URL,
+                            APPLE_SANDBOX_URL,
+                            "io.pinkspider.lut",
+                            serviceAccountFile.toString(),
+                            new IapAppleProperties());
             RestTemplate rest = mock(RestTemplate.class);
             svc.setRestTemplate(rest);
 
             ArgumentCaptor<HttpEntity<MultiValueMap<String, String>>> tokenRequest =
-                ArgumentCaptor.forClass(HttpEntity.class);
+                    ArgumentCaptor.forClass(HttpEntity.class);
             when(rest.postForObject(
-                    eq("https://oauth2.googleapis.com/token"), tokenRequest.capture(), eq(String.class)))
-                .thenReturn("{\"access_token\":\"fake-token\"}");
+                            eq("https://oauth2.googleapis.com/token"),
+                            tokenRequest.capture(),
+                            eq(String.class)))
+                    .thenReturn("{\"access_token\":\"fake-token\"}");
             when(rest.exchange(
-                    contains("/purchases/products/pink_100/tokens/token-001"),
-                    eq(org.springframework.http.HttpMethod.GET),
-                    any(),
-                    eq(String.class)))
-                .thenReturn(org.springframework.http.ResponseEntity.ok("{\"purchaseState\":0}"));
+                            contains("/purchases/products/pink_100/tokens/token-001"),
+                            eq(org.springframework.http.HttpMethod.GET),
+                            any(),
+                            eq(String.class)))
+                    .thenReturn(
+                            org.springframework.http.ResponseEntity.ok("{\"purchaseState\":0}"));
 
             svc.verify(androidRequest());
 
             // jjwt 0.12 의 audience().add() 는 aud 를 배열로 직렬화한다 — 구글 OAuth2 토큰 엔드포인트는
             // 문자열 aud 만 허용하므로(invalid_grant: Failed audience check) single() 이어야 한다
             String assertion = tokenRequest.getValue().getBody().getFirst("assertion");
-            String payloadJson = new String(
-                Base64.getUrlDecoder().decode(assertion.split("\\.")[1]), StandardCharsets.UTF_8);
+            String payloadJson =
+                    new String(
+                            Base64.getUrlDecoder().decode(assertion.split("\\.")[1]),
+                            StandardCharsets.UTF_8);
             JsonNode aud = new ObjectMapper().readTree(payloadJson).path("aud");
             assertThat(aud.isTextual()).isTrue();
             assertThat(aud.asText()).isEqualTo("https://oauth2.googleapis.com/token");
@@ -405,13 +442,17 @@ class IapVerificationServiceTest {
             KeyPairGenerator keyGen = KeyPairGenerator.getInstance("RSA");
             keyGen.initialize(2048);
             KeyPair keyPair = keyGen.generateKeyPair();
-            String privateKeyPem = "-----BEGIN PRIVATE KEY-----\n"
-                + Base64.getEncoder().encodeToString(keyPair.getPrivate().getEncoded())
-                + "\n-----END PRIVATE KEY-----\n";
+            String privateKeyPem =
+                    "-----BEGIN PRIVATE KEY-----\n"
+                            + Base64.getEncoder().encodeToString(keyPair.getPrivate().getEncoded())
+                            + "\n-----END PRIVATE KEY-----\n";
 
-            Path serviceAccountFile = tempDir.resolve("service-account-" + System.nanoTime() + ".json");
-            String json = "{\"client_email\":\"svc@example.iam.gserviceaccount.com\",\"private_key\":\""
-                + privateKeyPem.replace("\n", "\\n") + "\"}";
+            Path serviceAccountFile =
+                    tempDir.resolve("service-account-" + System.nanoTime() + ".json");
+            String json =
+                    "{\"client_email\":\"svc@example.iam.gserviceaccount.com\",\"private_key\":\""
+                            + privateKeyPem.replace("\n", "\\n")
+                            + "\"}";
             Files.writeString(serviceAccountFile, json);
             return serviceAccountFile;
         }

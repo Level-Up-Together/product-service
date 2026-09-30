@@ -27,12 +27,13 @@ import org.hibernate.annotations.Comment;
 @SuperBuilder
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @AllArgsConstructor
-@Table(name = "feed_like",
-    uniqueConstraints = @UniqueConstraint(columnNames = {"feed_id", "user_id"}),
-    indexes = {
-        @Index(name = "idx_like_feed", columnList = "feed_id"),
-        @Index(name = "idx_like_user", columnList = "user_id")
-    })
+@Table(
+        name = "feed_like",
+        uniqueConstraints = @UniqueConstraint(columnNames = {"feed_id", "user_id"}),
+        indexes = {
+            @Index(name = "idx_like_feed", columnList = "feed_id"),
+            @Index(name = "idx_like_user", columnList = "user_id")
+        })
 @Comment("피드 좋아요")
 public class FeedLike extends LocalDateTimeBaseEntity {
 

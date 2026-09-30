@@ -20,39 +20,39 @@ import org.mockito.junit.jupiter.MockitoExtension;
 @ExtendWith(MockitoExtension.class)
 class UserStatsCheckStrategyTest {
 
-    @Mock
-    private UserStatsRepository userStatsRepository;
+    @Mock private UserStatsRepository userStatsRepository;
 
-    @Mock
-    private GuildQueryFacade guildQueryFacade;
+    @Mock private GuildQueryFacade guildQueryFacade;
 
-    @InjectMocks
-    private UserStatsCheckStrategy strategy;
+    @InjectMocks private UserStatsCheckStrategy strategy;
 
     private static final String TEST_USER_ID = "test-user-123";
 
-    private UserStats createTestUserStats(int totalMissionCompletions, int currentStreak, int maxStreak) {
+    private UserStats createTestUserStats(
+            int totalMissionCompletions, int currentStreak, int maxStreak) {
         return UserStats.builder()
-            .userId(TEST_USER_ID)
-            .totalMissionCompletions(totalMissionCompletions)
-            .totalMissionFullCompletions(5)
-            .totalGuildMissionCompletions(3)
-            .currentStreak(currentStreak)
-            .maxStreak(maxStreak)
-            .totalAchievementsCompleted(2)
-            .totalTitlesAcquired(4)
-            .maxCompletedMissionDuration(30)
-            .build();
+                .userId(TEST_USER_ID)
+                .totalMissionCompletions(totalMissionCompletions)
+                .totalMissionFullCompletions(5)
+                .totalGuildMissionCompletions(3)
+                .currentStreak(currentStreak)
+                .maxStreak(maxStreak)
+                .totalAchievementsCompleted(2)
+                .totalTitlesAcquired(4)
+                .maxCompletedMissionDuration(30)
+                .build();
     }
 
-    private Achievement createTestAchievement(Long id, String dataField, String operator, int requiredCount) {
-        Achievement achievement = Achievement.builder()
-            .name("테스트 업적")
-            .checkLogicDataSource("USER_STATS")
-            .checkLogicDataField(dataField)
-            .comparisonOperator(operator)
-            .requiredCount(requiredCount)
-            .build();
+    private Achievement createTestAchievement(
+            Long id, String dataField, String operator, int requiredCount) {
+        Achievement achievement =
+                Achievement.builder()
+                        .name("테스트 업적")
+                        .checkLogicDataSource("USER_STATS")
+                        .checkLogicDataField(dataField)
+                        .comparisonOperator(operator)
+                        .requiredCount(requiredCount)
+                        .build();
         setId(achievement, id);
         return achievement;
     }
@@ -140,7 +140,8 @@ class UserStatsCheckStrategyTest {
             when(userStatsRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.of(stats));
 
             // when
-            Object result = strategy.fetchCurrentValue(TEST_USER_ID, "totalGuildMissionCompletions");
+            Object result =
+                    strategy.fetchCurrentValue(TEST_USER_ID, "totalGuildMissionCompletions");
 
             // then
             assertThat(result).isEqualTo(3);
@@ -192,10 +193,7 @@ class UserStatsCheckStrategyTest {
         @DisplayName("guildJoinCount 필드 값을 반환한다")
         void fetchCurrentValue_guildJoinCount() {
             // given
-            UserStats stats = UserStats.builder()
-                .userId(TEST_USER_ID)
-                .guildJoinCount(3)
-                .build();
+            UserStats stats = UserStats.builder().userId(TEST_USER_ID).guildJoinCount(3).build();
             when(userStatsRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.of(stats));
 
             // when
@@ -217,11 +215,14 @@ class UserStatsCheckStrategyTest {
         @Test
         @DisplayName("receivedLikeCount alias는 totalLikesReceived 값을 반환한다")
         void fetchCurrentValue_receivedLikeCount_alias() {
-            UserStats stats = UserStats.builder().userId(TEST_USER_ID).totalLikesReceived(42L).build();
+            UserStats stats =
+                    UserStats.builder().userId(TEST_USER_ID).totalLikesReceived(42L).build();
             when(userStatsRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.of(stats));
 
-            assertThat(strategy.fetchCurrentValue(TEST_USER_ID, "receivedLikeCount")).isEqualTo(42L);
-            assertThat(strategy.fetchCurrentValue(TEST_USER_ID, "totalLikesReceived")).isEqualTo(42L);
+            assertThat(strategy.fetchCurrentValue(TEST_USER_ID, "receivedLikeCount"))
+                    .isEqualTo(42L);
+            assertThat(strategy.fetchCurrentValue(TEST_USER_ID, "totalLikesReceived"))
+                    .isEqualTo(42L);
         }
 
         @Test
@@ -246,8 +247,10 @@ class UserStatsCheckStrategyTest {
         @DisplayName("isGuildMaster: 길드 마스터인 멤버십이 있으면 1을 반환한다")
         void fetchCurrentValue_isGuildMaster_true() {
             io.pinkspider.global.facade.dto.GuildMembershipInfo m1 =
-                new io.pinkspider.global.facade.dto.GuildMembershipInfo(1L, "g1", null, 1, true, false);
-            when(guildQueryFacade.getUserGuildMemberships(TEST_USER_ID)).thenReturn(java.util.List.of(m1));
+                    new io.pinkspider.global.facade.dto.GuildMembershipInfo(
+                            1L, "g1", null, 1, true, false);
+            when(guildQueryFacade.getUserGuildMemberships(TEST_USER_ID))
+                    .thenReturn(java.util.List.of(m1));
 
             assertThat(strategy.fetchCurrentValue(TEST_USER_ID, "isGuildMaster")).isEqualTo(1);
         }
@@ -256,8 +259,10 @@ class UserStatsCheckStrategyTest {
         @DisplayName("isGuildMaster: 마스터 멤버십이 없으면 0을 반환한다")
         void fetchCurrentValue_isGuildMaster_false() {
             io.pinkspider.global.facade.dto.GuildMembershipInfo m1 =
-                new io.pinkspider.global.facade.dto.GuildMembershipInfo(1L, "g1", null, 1, false, true);
-            when(guildQueryFacade.getUserGuildMemberships(TEST_USER_ID)).thenReturn(java.util.List.of(m1));
+                    new io.pinkspider.global.facade.dto.GuildMembershipInfo(
+                            1L, "g1", null, 1, false, true);
+            when(guildQueryFacade.getUserGuildMemberships(TEST_USER_ID))
+                    .thenReturn(java.util.List.of(m1));
 
             assertThat(strategy.fetchCurrentValue(TEST_USER_ID, "isGuildMaster")).isEqualTo(0);
         }
@@ -299,7 +304,8 @@ class UserStatsCheckStrategyTest {
         void checkCondition_gte_satisfied_returnsTrue() {
             // given
             UserStats stats = createTestUserStats(10, 5, 7);
-            Achievement achievement = createTestAchievement(1L, "totalMissionCompletions", "GTE", 10);
+            Achievement achievement =
+                    createTestAchievement(1L, "totalMissionCompletions", "GTE", 10);
 
             when(userStatsRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.of(stats));
 
@@ -315,7 +321,8 @@ class UserStatsCheckStrategyTest {
         void checkCondition_gte_notSatisfied_returnsFalse() {
             // given
             UserStats stats = createTestUserStats(5, 5, 7);
-            Achievement achievement = createTestAchievement(1L, "totalMissionCompletions", "GTE", 10);
+            Achievement achievement =
+                    createTestAchievement(1L, "totalMissionCompletions", "GTE", 10);
 
             when(userStatsRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.of(stats));
 
@@ -348,8 +355,12 @@ class UserStatsCheckStrategyTest {
 
         private AchievementSyncContext buildCtx(UserStats stats, boolean guildMaster) {
             return new AchievementSyncContext(
-                TEST_USER_ID, stats, null, java.util.List.of(), guildMaster, java.util.List.of()
-            );
+                    TEST_USER_ID,
+                    stats,
+                    null,
+                    java.util.List.of(),
+                    guildMaster,
+                    java.util.List.of());
         }
 
         @Test
@@ -399,7 +410,8 @@ class UserStatsCheckStrategyTest {
         void fetchCurrentValue_ctx_nullUserStats_returnsZero() {
             // given
             AchievementSyncContext ctx = buildCtx(null, false);
-            Achievement achievement = createTestAchievement(1L, "totalMissionCompletions", "GTE", 5);
+            Achievement achievement =
+                    createTestAchievement(1L, "totalMissionCompletions", "GTE", 5);
 
             // when
             Object result = strategy.fetchCurrentValue(ctx, achievement);
@@ -413,7 +425,8 @@ class UserStatsCheckStrategyTest {
         void fetchCurrentValue_ctx_totalMissionCompletions() {
             // given
             AchievementSyncContext ctx = buildCtx(createTestUserStats(15, 3, 7), false);
-            Achievement achievement = createTestAchievement(1L, "totalMissionCompletions", "GTE", 10);
+            Achievement achievement =
+                    createTestAchievement(1L, "totalMissionCompletions", "GTE", 10);
 
             // when
             Object result = strategy.fetchCurrentValue(ctx, achievement);
@@ -427,7 +440,8 @@ class UserStatsCheckStrategyTest {
         void fetchCurrentValue_ctx_totalMissionFullCompletions() {
             // given
             AchievementSyncContext ctx = buildCtx(createTestUserStats(10, 3, 7), false);
-            Achievement achievement = createTestAchievement(1L, "totalMissionFullCompletions", "GTE", 5);
+            Achievement achievement =
+                    createTestAchievement(1L, "totalMissionFullCompletions", "GTE", 5);
 
             // when
             Object result = strategy.fetchCurrentValue(ctx, achievement);
@@ -441,7 +455,8 @@ class UserStatsCheckStrategyTest {
         void fetchCurrentValue_ctx_totalGuildMissionCompletions() {
             // given
             AchievementSyncContext ctx = buildCtx(createTestUserStats(0, 0, 0), false);
-            Achievement achievement = createTestAchievement(1L, "totalGuildMissionCompletions", "GTE", 1);
+            Achievement achievement =
+                    createTestAchievement(1L, "totalGuildMissionCompletions", "GTE", 1);
 
             // when
             Object result = strategy.fetchCurrentValue(ctx, achievement);
@@ -511,7 +526,8 @@ class UserStatsCheckStrategyTest {
         void fetchCurrentValue_ctx_totalAchievementsCompleted() {
             // given
             AchievementSyncContext ctx = buildCtx(createTestUserStats(0, 0, 0), false);
-            Achievement achievement = createTestAchievement(1L, "totalAchievementsCompleted", "GTE", 1);
+            Achievement achievement =
+                    createTestAchievement(1L, "totalAchievementsCompleted", "GTE", 1);
 
             // when
             Object result = strategy.fetchCurrentValue(ctx, achievement);
@@ -539,7 +555,8 @@ class UserStatsCheckStrategyTest {
         void fetchCurrentValue_ctx_maxCompletedMissionDuration() {
             // given
             AchievementSyncContext ctx = buildCtx(createTestUserStats(0, 0, 0), false);
-            Achievement achievement = createTestAchievement(1L, "maxCompletedMissionDuration", "GTE", 20);
+            Achievement achievement =
+                    createTestAchievement(1L, "maxCompletedMissionDuration", "GTE", 20);
 
             // when
             Object result = strategy.fetchCurrentValue(ctx, achievement);
@@ -552,10 +569,7 @@ class UserStatsCheckStrategyTest {
         @DisplayName("guildJoinCount ctx에서 반환")
         void fetchCurrentValue_ctx_guildJoinCount() {
             // given
-            UserStats stats = UserStats.builder()
-                .userId(TEST_USER_ID)
-                .guildJoinCount(6)
-                .build();
+            UserStats stats = UserStats.builder().userId(TEST_USER_ID).guildJoinCount(6).build();
             AchievementSyncContext ctx = buildCtx(stats, false);
             Achievement achievement = createTestAchievement(1L, "guildJoinCount", "GTE", 5);
 
@@ -570,10 +584,7 @@ class UserStatsCheckStrategyTest {
         @DisplayName("friendCount ctx에서 반환")
         void fetchCurrentValue_ctx_friendCount() {
             // given
-            UserStats stats = UserStats.builder()
-                .userId(TEST_USER_ID)
-                .friendCount(15)
-                .build();
+            UserStats stats = UserStats.builder().userId(TEST_USER_ID).friendCount(15).build();
             AchievementSyncContext ctx = buildCtx(stats, false);
             Achievement achievement = createTestAchievement(1L, "friendCount", "GTE", 10);
 
@@ -588,10 +599,8 @@ class UserStatsCheckStrategyTest {
         @DisplayName("totalLikesReceived ctx에서 반환")
         void fetchCurrentValue_ctx_totalLikesReceived() {
             // given
-            UserStats stats = UserStats.builder()
-                .userId(TEST_USER_ID)
-                .totalLikesReceived(100L)
-                .build();
+            UserStats stats =
+                    UserStats.builder().userId(TEST_USER_ID).totalLikesReceived(100L).build();
             AchievementSyncContext ctx = buildCtx(stats, false);
             Achievement achievement = createTestAchievement(1L, "totalLikesReceived", "GTE", 50);
 
@@ -606,10 +615,8 @@ class UserStatsCheckStrategyTest {
         @DisplayName("receivedLikeCount alias ctx에서 반환")
         void fetchCurrentValue_ctx_receivedLikeCount_alias() {
             // given
-            UserStats stats = UserStats.builder()
-                .userId(TEST_USER_ID)
-                .totalLikesReceived(77L)
-                .build();
+            UserStats stats =
+                    UserStats.builder().userId(TEST_USER_ID).totalLikesReceived(77L).build();
             AchievementSyncContext ctx = buildCtx(stats, false);
             Achievement achievement = createTestAchievement(1L, "receivedLikeCount", "GTE", 50);
 
@@ -624,10 +631,8 @@ class UserStatsCheckStrategyTest {
         @DisplayName("totalCommentsReceived ctx에서 반환")
         void fetchCurrentValue_ctx_totalCommentsReceived() {
             // given
-            UserStats stats = UserStats.builder()
-                .userId(TEST_USER_ID)
-                .totalCommentsReceived(25L)
-                .build();
+            UserStats stats =
+                    UserStats.builder().userId(TEST_USER_ID).totalCommentsReceived(25L).build();
             AchievementSyncContext ctx = buildCtx(stats, false);
             Achievement achievement = createTestAchievement(1L, "totalCommentsReceived", "GTE", 10);
 
@@ -642,10 +647,8 @@ class UserStatsCheckStrategyTest {
         @DisplayName("receivedCommentCount alias ctx에서 반환")
         void fetchCurrentValue_ctx_receivedCommentCount_alias() {
             // given
-            UserStats stats = UserStats.builder()
-                .userId(TEST_USER_ID)
-                .totalCommentsReceived(30L)
-                .build();
+            UserStats stats =
+                    UserStats.builder().userId(TEST_USER_ID).totalCommentsReceived(30L).build();
             AchievementSyncContext ctx = buildCtx(stats, false);
             Achievement achievement = createTestAchievement(1L, "receivedCommentCount", "GTE", 10);
 
@@ -660,10 +663,8 @@ class UserStatsCheckStrategyTest {
         @DisplayName("commentsReceived alias ctx에서 반환")
         void fetchCurrentValue_ctx_commentsReceived_alias() {
             // given
-            UserStats stats = UserStats.builder()
-                .userId(TEST_USER_ID)
-                .totalCommentsReceived(18L)
-                .build();
+            UserStats stats =
+                    UserStats.builder().userId(TEST_USER_ID).totalCommentsReceived(18L).build();
             AchievementSyncContext ctx = buildCtx(stats, false);
             Achievement achievement = createTestAchievement(1L, "commentsReceived", "GTE", 10);
 
@@ -695,8 +696,12 @@ class UserStatsCheckStrategyTest {
 
         private AchievementSyncContext buildCtx(UserStats stats, boolean guildMaster) {
             return new AchievementSyncContext(
-                TEST_USER_ID, stats, null, java.util.List.of(), guildMaster, java.util.List.of()
-            );
+                    TEST_USER_ID,
+                    stats,
+                    null,
+                    java.util.List.of(),
+                    guildMaster,
+                    java.util.List.of());
         }
 
         @Test
@@ -704,7 +709,8 @@ class UserStatsCheckStrategyTest {
         void checkCondition_ctx_satisfied_returnsTrue() {
             // given
             AchievementSyncContext ctx = buildCtx(createTestUserStats(10, 0, 0), false);
-            Achievement achievement = createTestAchievement(1L, "totalMissionCompletions", "GTE", 5);
+            Achievement achievement =
+                    createTestAchievement(1L, "totalMissionCompletions", "GTE", 5);
 
             // when
             boolean result = strategy.checkCondition(ctx, achievement);
@@ -718,7 +724,8 @@ class UserStatsCheckStrategyTest {
         void checkCondition_ctx_notSatisfied_returnsFalse() {
             // given
             AchievementSyncContext ctx = buildCtx(createTestUserStats(3, 0, 0), false);
-            Achievement achievement = createTestAchievement(1L, "totalMissionCompletions", "GTE", 10);
+            Achievement achievement =
+                    createTestAchievement(1L, "totalMissionCompletions", "GTE", 10);
 
             // when
             boolean result = strategy.checkCondition(ctx, achievement);
@@ -730,7 +737,8 @@ class UserStatsCheckStrategyTest {
         @Test
         @DisplayName("currentValue가 Number가 아니면 false 반환")
         void checkCondition_ctx_nonNumberValue_returnsFalse() {
-            // given - dataField가 null → fetchCurrentValue returns 0 (Integer), then null dataField returns 0
+            // given - dataField가 null → fetchCurrentValue returns 0 (Integer), then null dataField
+            // returns 0
             AchievementSyncContext ctx = buildCtx(null, false);
             Achievement achievement = createTestAchievement(1L, null, "GTE", 1);
 
@@ -765,7 +773,7 @@ class UserStatsCheckStrategyTest {
         void fetchCurrentValue_isGuildMaster_exception_returns0() {
             // given
             when(guildQueryFacade.getUserGuildMemberships(TEST_USER_ID))
-                .thenThrow(new RuntimeException("네트워크 오류"));
+                    .thenThrow(new RuntimeException("네트워크 오류"));
 
             // when
             Object result = strategy.fetchCurrentValue(TEST_USER_ID, "isGuildMaster");
@@ -791,10 +799,8 @@ class UserStatsCheckStrategyTest {
         @DisplayName("totalCommentsReceived 값을 반환한다")
         void fetchCurrentValue_totalCommentsReceived() {
             // given
-            UserStats stats = UserStats.builder()
-                .userId(TEST_USER_ID)
-                .totalCommentsReceived(45L)
-                .build();
+            UserStats stats =
+                    UserStats.builder().userId(TEST_USER_ID).totalCommentsReceived(45L).build();
             when(userStatsRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.of(stats));
 
             // when
@@ -808,10 +814,8 @@ class UserStatsCheckStrategyTest {
         @DisplayName("commentsReceived alias 값을 반환한다")
         void fetchCurrentValue_commentsReceived_alias() {
             // given
-            UserStats stats = UserStats.builder()
-                .userId(TEST_USER_ID)
-                .totalCommentsReceived(22L)
-                .build();
+            UserStats stats =
+                    UserStats.builder().userId(TEST_USER_ID).totalCommentsReceived(22L).build();
             when(userStatsRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.of(stats));
 
             // when

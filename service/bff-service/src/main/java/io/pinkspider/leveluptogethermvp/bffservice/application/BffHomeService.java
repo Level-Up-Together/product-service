@@ -1,23 +1,23 @@
 package io.pinkspider.leveluptogethermvp.bffservice.application;
 
-import io.pinkspider.leveluptogethermvp.gamificationservice.event.api.dto.EventResponse;
-import io.pinkspider.leveluptogethermvp.gamificationservice.event.application.EventService;
 import io.pinkspider.global.facade.GamificationQueryFacade;
 import io.pinkspider.global.facade.dto.SeasonMvpDataDto;
-import io.pinkspider.leveluptogethermvp.gamificationservice.achievement.application.AchievementService;
 import io.pinkspider.leveluptogethermvp.bffservice.api.dto.HomeDataResponse;
 import io.pinkspider.leveluptogethermvp.bffservice.api.dto.HomeDataResponse.FeedPageData;
 import io.pinkspider.leveluptogethermvp.bffservice.api.dto.HomeDataResponse.GuildPageData;
 import io.pinkspider.leveluptogethermvp.bffservice.api.dto.HomeMvpDataResponse;
+import io.pinkspider.leveluptogethermvp.feedservice.api.dto.ActivityFeedResponse;
+import io.pinkspider.leveluptogethermvp.feedservice.application.FeedQueryService;
+import io.pinkspider.leveluptogethermvp.feedservice.domain.enums.FeedSearchType;
+import io.pinkspider.leveluptogethermvp.gamificationservice.achievement.application.AchievementService;
+import io.pinkspider.leveluptogethermvp.gamificationservice.event.api.dto.EventResponse;
+import io.pinkspider.leveluptogethermvp.gamificationservice.event.application.EventService;
 import io.pinkspider.leveluptogethermvp.guildservice.application.GuildQueryService;
 import io.pinkspider.leveluptogethermvp.guildservice.domain.dto.GuildResponse;
 import io.pinkspider.leveluptogethermvp.metaservice.application.MissionCategoryService;
 import io.pinkspider.leveluptogethermvp.metaservice.domain.dto.MissionCategoryResponse;
 import io.pinkspider.leveluptogethermvp.noticeservice.api.dto.NoticeResponse;
 import io.pinkspider.leveluptogethermvp.noticeservice.application.NoticeService;
-import io.pinkspider.leveluptogethermvp.feedservice.api.dto.ActivityFeedResponse;
-import io.pinkspider.leveluptogethermvp.feedservice.application.FeedQueryService;
-import io.pinkspider.leveluptogethermvp.feedservice.domain.enums.FeedSearchType;
 import io.pinkspider.leveluptogethermvp.userservice.home.api.dto.MvpGuildResponse;
 import io.pinkspider.leveluptogethermvp.userservice.home.api.dto.TodayPlayerResponse;
 import io.pinkspider.leveluptogethermvp.userservice.home.application.HomeService;
@@ -32,10 +32,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 
-/**
- * BFF (Backend for Frontend) 서비스
- * 홈 화면에 필요한 여러 데이터를 한 번에 조회합니다.
- */
+/** BFF (Backend for Frontend) 서비스 홈 화면에 필요한 여러 데이터를 한 번에 조회합니다. */
 @Service
 @Slf4j
 public class BffHomeService {
@@ -81,16 +78,33 @@ public class BffHomeService {
      * @param publicGuildSize 공개 길드 조회 개수 (기본: 5)
      * @return HomeDataResponse 홈 화면 데이터
      */
-    public HomeDataResponse getHomeData(String userId, Long categoryId, int feedPage, int feedSize, int publicGuildSize) {
-        return getHomeData(userId, categoryId, null, feedPage, feedSize, publicGuildSize, null, null);
+    public HomeDataResponse getHomeData(
+            String userId, Long categoryId, int feedPage, int feedSize, int publicGuildSize) {
+        return getHomeData(
+                userId, categoryId, null, feedPage, feedSize, publicGuildSize, null, null);
     }
 
-    public HomeDataResponse getHomeData(String userId, Long categoryId, int feedPage, int feedSize, int publicGuildSize, String locale) {
-        return getHomeData(userId, categoryId, null, feedPage, feedSize, publicGuildSize, locale, null);
+    public HomeDataResponse getHomeData(
+            String userId,
+            Long categoryId,
+            int feedPage,
+            int feedSize,
+            int publicGuildSize,
+            String locale) {
+        return getHomeData(
+                userId, categoryId, null, feedPage, feedSize, publicGuildSize, locale, null);
     }
 
-    public HomeDataResponse getHomeData(String userId, Long categoryId, int feedPage, int feedSize, int publicGuildSize, String locale, String timezone) {
-        return getHomeData(userId, categoryId, null, feedPage, feedSize, publicGuildSize, locale, timezone);
+    public HomeDataResponse getHomeData(
+            String userId,
+            Long categoryId,
+            int feedPage,
+            int feedSize,
+            int publicGuildSize,
+            String locale,
+            String timezone) {
+        return getHomeData(
+                userId, categoryId, null, feedPage, feedSize, publicGuildSize, locale, timezone);
     }
 
     /**
@@ -106,144 +120,206 @@ public class BffHomeService {
      * @param timezone 사용자 타임존 (null이면 기본 Asia/Seoul)
      * @return HomeDataResponse 홈 화면 데이터
      */
-    public HomeDataResponse getHomeData(String userId, Long categoryId, FeedSearchType feedSearchType,
-                                         int feedPage, int feedSize, int publicGuildSize, String locale, String timezone) {
-        log.info("BFF getHomeData called: userId={}, categoryId={}, feedPage={}, feedSize={}, locale={}, timezone={}", userId, categoryId, feedPage, feedSize, locale, timezone);
+    public HomeDataResponse getHomeData(
+            String userId,
+            Long categoryId,
+            FeedSearchType feedSearchType,
+            int feedPage,
+            int feedSize,
+            int publicGuildSize,
+            String locale,
+            String timezone) {
+        log.info(
+                "BFF getHomeData called: userId={}, categoryId={}, feedPage={}, feedSize={},"
+                        + " locale={}, timezone={}",
+                userId,
+                categoryId,
+                feedPage,
+                feedSize,
+                locale,
+                timezone);
 
         // 업적 동기화 - 비동기로 처리하여 홈 로딩을 차단하지 않음 (비인증 시 스킵)
         if (userId != null) {
-            CompletableFuture.runAsync(() -> {
-                try {
-                    log.debug("업적 동기화 비동기 호출 시작: userId={}", userId);
-                    achievementService.syncUserAchievements(userId);
-                    log.debug("업적 동기화 비동기 호출 완료: userId={}", userId);
-                } catch (Exception e) {
-                    log.error("업적 동기화 비동기 호출 중 오류: userId={}, error={}", userId, e.getMessage(), e);
-                }
-            }, bffExecutor);
+            CompletableFuture.runAsync(
+                    () -> {
+                        try {
+                            log.debug("업적 동기화 비동기 호출 시작: userId={}", userId);
+                            achievementService.syncUserAchievements(userId);
+                            log.debug("업적 동기화 비동기 호출 완료: userId={}", userId);
+                        } catch (Exception e) {
+                            log.error(
+                                    "업적 동기화 비동기 호출 중 오류: userId={}, error={}",
+                                    userId,
+                                    e.getMessage(),
+                                    e);
+                        }
+                    },
+                    bffExecutor);
         }
 
         // 병렬로 모든 데이터 조회 (전용 Executor 사용으로 성능 최적화)
-        CompletableFuture<FeedPageData> feedsFuture = CompletableFuture.supplyAsync(() -> {
-            try {
-                Page<ActivityFeedResponse> feedPage1;
-                if (feedSearchType != null && feedSearchType != FeedSearchType.ALL && userId != null) {
-                    // 필터 타입별 피드 조회 (인증 필요)
-                    feedPage1 = feedQueryService.getFilteredFeeds(feedSearchType, userId, feedPage, feedSize, locale);
-                } else if (categoryId != null) {
-                    // 카테고리별 피드 조회 (하이브리드)
-                    // LUT-273: locale 미전달 시 유저 칭호 다국어 치환(localizeUserTitles)이 스킵됨
-                    feedPage1 = feedQueryService.getPublicFeedsByCategory(categoryId, userId, feedPage, feedSize, locale);
-                } else {
-                    // 전체 피드 조회
-                    feedPage1 = feedQueryService.getPublicFeeds(userId, feedPage, feedSize, locale);
-                }
-                return FeedPageData.builder()
-                    .content(feedPage1.getContent())
-                    .page(feedPage1.getNumber())
-                    .size(feedPage1.getSize())
-                    .totalElements(feedPage1.getTotalElements())
-                    .totalPages(feedPage1.getTotalPages())
-                    .build();
-            } catch (Exception e) {
-                log.error("Failed to fetch feeds", e);
-                return FeedPageData.builder()
-                    .content(Collections.emptyList())
-                    .page(0)
-                    .size(feedSize)
-                    .totalElements(0)
-                    .totalPages(0)
-                    .build();
-            }
-        }, bffExecutor);
+        CompletableFuture<FeedPageData> feedsFuture =
+                CompletableFuture.supplyAsync(
+                        () -> {
+                            try {
+                                Page<ActivityFeedResponse> feedPage1;
+                                if (feedSearchType != null
+                                        && feedSearchType != FeedSearchType.ALL
+                                        && userId != null) {
+                                    // 필터 타입별 피드 조회 (인증 필요)
+                                    feedPage1 =
+                                            feedQueryService.getFilteredFeeds(
+                                                    feedSearchType,
+                                                    userId,
+                                                    feedPage,
+                                                    feedSize,
+                                                    locale);
+                                } else if (categoryId != null) {
+                                    // 카테고리별 피드 조회 (하이브리드)
+                                    // LUT-273: locale 미전달 시 유저 칭호 다국어 치환(localizeUserTitles)이 스킵됨
+                                    feedPage1 =
+                                            feedQueryService.getPublicFeedsByCategory(
+                                                    categoryId, userId, feedPage, feedSize, locale);
+                                } else {
+                                    // 전체 피드 조회
+                                    feedPage1 =
+                                            feedQueryService.getPublicFeeds(
+                                                    userId, feedPage, feedSize, locale);
+                                }
+                                return FeedPageData.builder()
+                                        .content(feedPage1.getContent())
+                                        .page(feedPage1.getNumber())
+                                        .size(feedPage1.getSize())
+                                        .totalElements(feedPage1.getTotalElements())
+                                        .totalPages(feedPage1.getTotalPages())
+                                        .build();
+                            } catch (Exception e) {
+                                log.error("Failed to fetch feeds", e);
+                                return FeedPageData.builder()
+                                        .content(Collections.emptyList())
+                                        .page(0)
+                                        .size(feedSize)
+                                        .totalElements(0)
+                                        .totalPages(0)
+                                        .build();
+                            }
+                        },
+                        bffExecutor);
 
-        CompletableFuture<List<MissionCategoryResponse>> categoriesFuture = CompletableFuture.supplyAsync(() -> {
-            try {
-                return missionCategoryService.getActiveCategories();
-            } catch (Exception e) {
-                log.error("Failed to fetch categories", e);
-                return Collections.emptyList();
-            }
-        }, bffExecutor);
+        CompletableFuture<List<MissionCategoryResponse>> categoriesFuture =
+                CompletableFuture.supplyAsync(
+                        () -> {
+                            try {
+                                return missionCategoryService.getActiveCategories();
+                            } catch (Exception e) {
+                                log.error("Failed to fetch categories", e);
+                                return Collections.emptyList();
+                            }
+                        },
+                        bffExecutor);
 
-        CompletableFuture<List<GuildResponse>> myGuildsFuture = userId != null
-            ? CompletableFuture.supplyAsync(() -> {
-                try {
-                    return guildQueryService.getMyGuilds(userId, locale);
-                } catch (Exception e) {
-                    log.error("Failed to fetch my guilds", e);
-                    return Collections.<GuildResponse>emptyList();
-                }
-            }, bffExecutor)
-            : CompletableFuture.completedFuture(Collections.emptyList());
+        CompletableFuture<List<GuildResponse>> myGuildsFuture =
+                userId != null
+                        ? CompletableFuture.supplyAsync(
+                                () -> {
+                                    try {
+                                        return guildQueryService.getMyGuilds(userId, locale);
+                                    } catch (Exception e) {
+                                        log.error("Failed to fetch my guilds", e);
+                                        return Collections.<GuildResponse>emptyList();
+                                    }
+                                },
+                                bffExecutor)
+                        : CompletableFuture.completedFuture(Collections.emptyList());
 
-        CompletableFuture<GuildPageData> publicGuildsFuture = CompletableFuture.supplyAsync(() -> {
-            try {
-                if (categoryId != null) {
-                    // 카테고리별 공개 길드 조회 (하이브리드)
-                    List<GuildResponse> guilds = guildQueryService.getPublicGuildsByCategory(userId, categoryId, locale);
-                    return GuildPageData.builder()
-                        .content(guilds)
-                        .page(0)
-                        .size(guilds.size())
-                        .totalElements(guilds.size())
-                        .totalPages(1)
-                        .build();
-                } else {
-                    // 전체 공개 길드 조회
-                    Page<GuildResponse> guildPage = guildQueryService.getPublicGuilds(userId, PageRequest.of(0, publicGuildSize), locale);
-                    return GuildPageData.builder()
-                        .content(guildPage.getContent())
-                        .page(guildPage.getNumber())
-                        .size(guildPage.getSize())
-                        .totalElements(guildPage.getTotalElements())
-                        .totalPages(guildPage.getTotalPages())
-                        .build();
-                }
-            } catch (Exception e) {
-                log.error("Failed to fetch public guilds", e);
-                return GuildPageData.builder()
-                    .content(Collections.emptyList())
-                    .page(0)
-                    .size(publicGuildSize)
-                    .totalElements(0)
-                    .totalPages(0)
-                    .build();
-            }
-        }, bffExecutor);
+        CompletableFuture<GuildPageData> publicGuildsFuture =
+                CompletableFuture.supplyAsync(
+                        () -> {
+                            try {
+                                if (categoryId != null) {
+                                    // 카테고리별 공개 길드 조회 (하이브리드)
+                                    List<GuildResponse> guilds =
+                                            guildQueryService.getPublicGuildsByCategory(
+                                                    userId, categoryId, locale);
+                                    return GuildPageData.builder()
+                                            .content(guilds)
+                                            .page(0)
+                                            .size(guilds.size())
+                                            .totalElements(guilds.size())
+                                            .totalPages(1)
+                                            .build();
+                                } else {
+                                    // 전체 공개 길드 조회
+                                    Page<GuildResponse> guildPage =
+                                            guildQueryService.getPublicGuilds(
+                                                    userId,
+                                                    PageRequest.of(0, publicGuildSize),
+                                                    locale);
+                                    return GuildPageData.builder()
+                                            .content(guildPage.getContent())
+                                            .page(guildPage.getNumber())
+                                            .size(guildPage.getSize())
+                                            .totalElements(guildPage.getTotalElements())
+                                            .totalPages(guildPage.getTotalPages())
+                                            .build();
+                                }
+                            } catch (Exception e) {
+                                log.error("Failed to fetch public guilds", e);
+                                return GuildPageData.builder()
+                                        .content(Collections.emptyList())
+                                        .page(0)
+                                        .size(publicGuildSize)
+                                        .totalElements(0)
+                                        .totalPages(0)
+                                        .build();
+                            }
+                        },
+                        bffExecutor);
 
-        CompletableFuture<List<NoticeResponse>> noticesFuture = CompletableFuture.supplyAsync(() -> {
-            try {
-                return noticeService.getActiveNotices();
-            } catch (Exception e) {
-                log.error("Failed to fetch notices", e);
-                return Collections.emptyList();
-            }
-        }, bffExecutor);
+        CompletableFuture<List<NoticeResponse>> noticesFuture =
+                CompletableFuture.supplyAsync(
+                        () -> {
+                            try {
+                                return noticeService.getActiveNotices();
+                            } catch (Exception e) {
+                                log.error("Failed to fetch notices", e);
+                                return Collections.emptyList();
+                            }
+                        },
+                        bffExecutor);
 
-        CompletableFuture<List<EventResponse>> eventsFuture = CompletableFuture.supplyAsync(() -> {
-            try {
-                return eventService.getActiveOrUpcomingEvents(locale);
-            } catch (Exception e) {
-                log.error("Failed to fetch events", e);
-                return Collections.emptyList();
-            }
-        }, bffExecutor);
+        CompletableFuture<List<EventResponse>> eventsFuture =
+                CompletableFuture.supplyAsync(
+                        () -> {
+                            try {
+                                return eventService.getActiveOrUpcomingEvents(locale);
+                            } catch (Exception e) {
+                                log.error("Failed to fetch events", e);
+                                return Collections.emptyList();
+                            }
+                        },
+                        bffExecutor);
 
         // 모든 결과 취합
         CompletableFuture.allOf(
-            feedsFuture, categoriesFuture,
-            myGuildsFuture, publicGuildsFuture, noticesFuture, eventsFuture
-        ).join();
+                        feedsFuture,
+                        categoriesFuture,
+                        myGuildsFuture,
+                        publicGuildsFuture,
+                        noticesFuture,
+                        eventsFuture)
+                .join();
 
-        HomeDataResponse response = HomeDataResponse.builder()
-            .feeds(feedsFuture.join())
-            .categories(categoriesFuture.join())
-            .myGuilds(myGuildsFuture.join())
-            .publicGuilds(publicGuildsFuture.join())
-            .notices(noticesFuture.join())
-            .events(eventsFuture.join())
-            .build();
+        HomeDataResponse response =
+                HomeDataResponse.builder()
+                        .feeds(feedsFuture.join())
+                        .categories(categoriesFuture.join())
+                        .myGuilds(myGuildsFuture.join())
+                        .publicGuilds(publicGuildsFuture.join())
+                        .notices(noticesFuture.join())
+                        .events(eventsFuture.join())
+                        .build();
 
         log.info("BFF getHomeData completed: userId={}, categoryId={}", userId, categoryId);
         return response;
@@ -251,8 +327,8 @@ public class BffHomeService {
 
     /**
      * 홈 화면 MVP 섹션 데이터를 조회합니다. (QA-222: 홈 피드와 분리)
-     * <p>
-     * 피드 탭 전환 시 MVP 데이터가 재조회되지 않도록 /bff/home에서 분리된 엔드포인트입니다.
+     *
+     * <p>피드 탭 전환 시 MVP 데이터가 재조회되지 않도록 /bff/home에서 분리된 엔드포인트입니다.
      *
      * @param categoryId 카테고리 ID (선택적, null이면 전체)
      * @param locale Accept-Language 헤더에서 추출한 locale (null이면 기본 한국어)
@@ -260,54 +336,79 @@ public class BffHomeService {
      * @return HomeMvpDataResponse 홈 MVP 섹션 데이터
      */
     public HomeMvpDataResponse getHomeMvpData(Long categoryId, String locale, String timezone) {
-        log.info("BFF getHomeMvpData called: categoryId={}, locale={}, timezone={}", categoryId, locale, timezone);
+        log.info(
+                "BFF getHomeMvpData called: categoryId={}, locale={}, timezone={}",
+                categoryId,
+                locale,
+                timezone);
 
-        CompletableFuture<List<TodayPlayerResponse>> rankingsFuture = CompletableFuture.supplyAsync(() -> {
-            try {
-                if (categoryId != null) {
-                    // 카테고리별 MVP 조회 (하이브리드) - 로컬라이즈된 칭호 + 타임존
-                    return homeService.getTodayPlayersByCategory(categoryId, locale, timezone);
-                } else {
-                    // 전체 MVP 조회 - 로컬라이즈된 칭호 + 타임존
-                    return homeService.getTodayPlayers(locale, timezone);
-                }
-            } catch (Exception e) {
-                log.error("Failed to fetch rankings", e);
-                return Collections.emptyList();
-            }
-        }, bffExecutor);
+        CompletableFuture<List<TodayPlayerResponse>> rankingsFuture =
+                CompletableFuture.supplyAsync(
+                        () -> {
+                            try {
+                                if (categoryId != null) {
+                                    // 카테고리별 MVP 조회 (하이브리드) - 로컬라이즈된 칭호 + 타임존
+                                    return homeService.getTodayPlayersByCategory(
+                                            categoryId, locale, timezone);
+                                } else {
+                                    // 전체 MVP 조회 - 로컬라이즈된 칭호 + 타임존
+                                    return homeService.getTodayPlayers(locale, timezone);
+                                }
+                            } catch (Exception e) {
+                                log.error("Failed to fetch rankings", e);
+                                return Collections.emptyList();
+                            }
+                        },
+                        bffExecutor);
 
-        CompletableFuture<List<MvpGuildResponse>> mvpGuildsFuture = CompletableFuture.supplyAsync(() -> {
-            try {
-                return homeService.getMvpGuilds(timezone);
-            } catch (Exception e) {
-                log.error("Failed to fetch MVP guilds", e);
-                return Collections.emptyList();
-            }
-        }, bffExecutor);
+        CompletableFuture<List<MvpGuildResponse>> mvpGuildsFuture =
+                CompletableFuture.supplyAsync(
+                        () -> {
+                            try {
+                                return homeService.getMvpGuilds(timezone);
+                            } catch (Exception e) {
+                                log.error("Failed to fetch MVP guilds", e);
+                                return Collections.emptyList();
+                            }
+                        },
+                        bffExecutor);
 
-        CompletableFuture<Optional<SeasonMvpDataDto>> seasonMvpFuture = CompletableFuture.supplyAsync(() -> {
-            try {
-                return gamificationQueryFacade.getSeasonMvpData(locale);
-            } catch (Exception e) {
-                log.error("Failed to fetch season MVP data", e);
-                return Optional.empty();
-            }
-        }, bffExecutor);
+        CompletableFuture<Optional<SeasonMvpDataDto>> seasonMvpFuture =
+                CompletableFuture.supplyAsync(
+                        () -> {
+                            try {
+                                return gamificationQueryFacade.getSeasonMvpData(locale);
+                            } catch (Exception e) {
+                                log.error("Failed to fetch season MVP data", e);
+                                return Optional.empty();
+                            }
+                        },
+                        bffExecutor);
 
         CompletableFuture.allOf(rankingsFuture, mvpGuildsFuture, seasonMvpFuture).join();
 
         Optional<SeasonMvpDataDto> seasonMvpData = seasonMvpFuture.join();
 
-        HomeMvpDataResponse response = HomeMvpDataResponse.builder()
-            .rankings(rankingsFuture.join())
-            .mvpGuilds(mvpGuildsFuture.join())
-            .currentSeason(seasonMvpData.map(SeasonMvpDataDto::currentSeason).orElse(null))
-            .seasonMvpPlayers(seasonMvpData.map(SeasonMvpDataDto::seasonMvpPlayers).orElse(Collections.emptyList()))
-            .seasonMvpGuilds(seasonMvpData.map(SeasonMvpDataDto::seasonMvpGuilds).orElse(Collections.emptyList()))
-            .build();
+        HomeMvpDataResponse response =
+                HomeMvpDataResponse.builder()
+                        .rankings(rankingsFuture.join())
+                        .mvpGuilds(mvpGuildsFuture.join())
+                        .currentSeason(
+                                seasonMvpData.map(SeasonMvpDataDto::currentSeason).orElse(null))
+                        .seasonMvpPlayers(
+                                seasonMvpData
+                                        .map(SeasonMvpDataDto::seasonMvpPlayers)
+                                        .orElse(Collections.emptyList()))
+                        .seasonMvpGuilds(
+                                seasonMvpData
+                                        .map(SeasonMvpDataDto::seasonMvpGuilds)
+                                        .orElse(Collections.emptyList()))
+                        .build();
 
-        log.info("BFF getHomeMvpData completed: categoryId={}, hasActiveSeason={}", categoryId, seasonMvpData.isPresent());
+        log.info(
+                "BFF getHomeMvpData completed: categoryId={}, hasActiveSeason={}",
+                categoryId,
+                seasonMvpData.isPresent());
         return response;
     }
 }

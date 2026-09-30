@@ -1,9 +1,8 @@
 package io.pinkspider.leveluptogethermvp.feedservice.api;
 
-import io.pinkspider.global.api.ApiResult;
 import io.pinkspider.global.annotation.CurrentUser;
+import io.pinkspider.global.api.ApiResult;
 import io.pinkspider.leveluptogethermvp.feedservice.api.dto.ActivityFeedResponse;
-import io.pinkspider.leveluptogethermvp.feedservice.domain.enums.FeedSearchType;
 import io.pinkspider.leveluptogethermvp.feedservice.api.dto.CreateFeedRequest;
 import io.pinkspider.leveluptogethermvp.feedservice.api.dto.FeedCommentLikeResponse;
 import io.pinkspider.leveluptogethermvp.feedservice.api.dto.FeedCommentRequest;
@@ -12,6 +11,8 @@ import io.pinkspider.leveluptogethermvp.feedservice.api.dto.FeedCommentUpdateReq
 import io.pinkspider.leveluptogethermvp.feedservice.api.dto.FeedLikeResponse;
 import io.pinkspider.leveluptogethermvp.feedservice.application.FeedCommandService;
 import io.pinkspider.leveluptogethermvp.feedservice.application.FeedQueryService;
+import io.pinkspider.leveluptogethermvp.feedservice.domain.enums.FeedSearchType;
+import io.pinkspider.leveluptogethermvp.feedservice.domain.enums.FeedVisibility;
 import jakarta.validation.Valid;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
@@ -20,7 +21,6 @@ import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
-import io.pinkspider.leveluptogethermvp.feedservice.domain.enums.FeedVisibility;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -47,243 +47,234 @@ public class ActivityFeedController {
      */
     @GetMapping("/public")
     public ResponseEntity<ApiResult<Page<ActivityFeedResponse>>> getPublicFeeds(
-        @CurrentUser(required = false) String userId,
-        @RequestParam(required = false) Long categoryId,
-        @RequestParam(required = false) FeedSearchType searchType,
-        @RequestParam(defaultValue = "0") int page,
-        @RequestParam(defaultValue = "20") int size,
-        @RequestHeader(value = HttpHeaders.ACCEPT_LANGUAGE, required = false) String acceptLanguage
-    ) {
+            @CurrentUser(required = false) String userId,
+            @RequestParam(required = false) Long categoryId,
+            @RequestParam(required = false) FeedSearchType searchType,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size,
+            @RequestHeader(value = HttpHeaders.ACCEPT_LANGUAGE, required = false)
+                    String acceptLanguage) {
         Page<ActivityFeedResponse> feeds;
         if (categoryId != null && (searchType == null || searchType == FeedSearchType.ALL)) {
-            feeds = feedQueryService.getPublicFeedsByCategory(categoryId, userId, page, size, acceptLanguage);
+            feeds =
+                    feedQueryService.getPublicFeedsByCategory(
+                            categoryId, userId, page, size, acceptLanguage);
         } else if (searchType != null && searchType != FeedSearchType.ALL) {
-            feeds = feedQueryService.getFilteredFeeds(searchType, userId, page, size, acceptLanguage);
+            feeds =
+                    feedQueryService.getFilteredFeeds(
+                            searchType, userId, page, size, acceptLanguage);
         } else {
             feeds = feedQueryService.getPublicFeeds(userId, page, size, acceptLanguage);
         }
-        return ResponseEntity.ok(ApiResult.<Page<ActivityFeedResponse>>builder().value(feeds).build());
+        return ResponseEntity.ok(
+                ApiResult.<Page<ActivityFeedResponse>>builder().value(feeds).build());
     }
 
-    /**
-     * 내 타임라인 피드 조회 (내 피드 + 친구 피드)
-     */
+    /** 내 타임라인 피드 조회 (내 피드 + 친구 피드) */
     @GetMapping("/timeline")
     public ResponseEntity<ApiResult<Page<ActivityFeedResponse>>> getTimelineFeeds(
-        @CurrentUser String userId,
-        @RequestParam(defaultValue = "0") int page,
-        @RequestParam(defaultValue = "20") int size,
-        @RequestHeader(value = HttpHeaders.ACCEPT_LANGUAGE, required = false) String acceptLanguage
-    ) {
-        Page<ActivityFeedResponse> feeds = feedQueryService.getTimelineFeeds(userId, page, size, acceptLanguage);
-        return ResponseEntity.ok(ApiResult.<Page<ActivityFeedResponse>>builder().value(feeds).build());
+            @CurrentUser String userId,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size,
+            @RequestHeader(value = HttpHeaders.ACCEPT_LANGUAGE, required = false)
+                    String acceptLanguage) {
+        Page<ActivityFeedResponse> feeds =
+                feedQueryService.getTimelineFeeds(userId, page, size, acceptLanguage);
+        return ResponseEntity.ok(
+                ApiResult.<Page<ActivityFeedResponse>>builder().value(feeds).build());
     }
 
     /**
      * 특정 사용자의 피드 조회 (프로필 &gt; 피드 탭)
      *
-     * <p>LUT-334: 비로그인도 열람 가능 — 주간 캘린더(LUT-320)와 동일한 browse-first 정책.
-     * 조회자 기준 공개범위가 적용되어 비로그인은 PUBLIC 만 조회된다.
+     * <p>LUT-334: 비로그인도 열람 가능 — 주간 캘린더(LUT-320)와 동일한 browse-first 정책. 조회자 기준 공개범위가 적용되어 비로그인은
+     * PUBLIC 만 조회된다.
      */
     @GetMapping("/user/{targetUserId}")
     public ResponseEntity<ApiResult<Page<ActivityFeedResponse>>> getUserFeeds(
-        @PathVariable String targetUserId,
-        @CurrentUser(required = false) String currentUserId,
-        @RequestParam(defaultValue = "0") int page,
-        @RequestParam(defaultValue = "20") int size,
-        @RequestHeader(value = HttpHeaders.ACCEPT_LANGUAGE, required = false) String acceptLanguage
-    ) {
-        Page<ActivityFeedResponse> feeds = feedQueryService.getUserFeeds(targetUserId, currentUserId, page, size, acceptLanguage);
-        return ResponseEntity.ok(ApiResult.<Page<ActivityFeedResponse>>builder().value(feeds).build());
+            @PathVariable String targetUserId,
+            @CurrentUser(required = false) String currentUserId,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size,
+            @RequestHeader(value = HttpHeaders.ACCEPT_LANGUAGE, required = false)
+                    String acceptLanguage) {
+        Page<ActivityFeedResponse> feeds =
+                feedQueryService.getUserFeeds(
+                        targetUserId, currentUserId, page, size, acceptLanguage);
+        return ResponseEntity.ok(
+                ApiResult.<Page<ActivityFeedResponse>>builder().value(feeds).build());
     }
 
-    /**
-     * 길드 피드 조회
-     */
+    /** 길드 피드 조회 */
     @GetMapping("/guild/{guildId}")
     public ResponseEntity<ApiResult<Page<ActivityFeedResponse>>> getGuildFeeds(
-        @PathVariable Long guildId,
-        @CurrentUser String currentUserId,
-        @RequestParam(defaultValue = "0") int page,
-        @RequestParam(defaultValue = "20") int size,
-        @RequestHeader(value = HttpHeaders.ACCEPT_LANGUAGE, required = false) String acceptLanguage
-    ) {
-        Page<ActivityFeedResponse> feeds = feedQueryService.getGuildFeeds(guildId, currentUserId, page, size, acceptLanguage);
-        return ResponseEntity.ok(ApiResult.<Page<ActivityFeedResponse>>builder().value(feeds).build());
+            @PathVariable Long guildId,
+            @CurrentUser String currentUserId,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size,
+            @RequestHeader(value = HttpHeaders.ACCEPT_LANGUAGE, required = false)
+                    String acceptLanguage) {
+        Page<ActivityFeedResponse> feeds =
+                feedQueryService.getGuildFeeds(guildId, currentUserId, page, size, acceptLanguage);
+        return ResponseEntity.ok(
+                ApiResult.<Page<ActivityFeedResponse>>builder().value(feeds).build());
     }
 
-    /**
-     * 카테고리별 피드 조회
-     */
+    /** 카테고리별 피드 조회 */
     @GetMapping("/category/{category}")
     public ResponseEntity<ApiResult<Page<ActivityFeedResponse>>> getFeedsByCategory(
-        @PathVariable String category,
-        @CurrentUser(required = false) String currentUserId,
-        @RequestParam(defaultValue = "0") int page,
-        @RequestParam(defaultValue = "20") int size,
-        @RequestHeader(value = HttpHeaders.ACCEPT_LANGUAGE, required = false) String acceptLanguage
-    ) {
-        Page<ActivityFeedResponse> feeds = feedQueryService.getFeedsByCategory(category, currentUserId, page, size, acceptLanguage);
-        return ResponseEntity.ok(ApiResult.<Page<ActivityFeedResponse>>builder().value(feeds).build());
+            @PathVariable String category,
+            @CurrentUser(required = false) String currentUserId,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size,
+            @RequestHeader(value = HttpHeaders.ACCEPT_LANGUAGE, required = false)
+                    String acceptLanguage) {
+        Page<ActivityFeedResponse> feeds =
+                feedQueryService.getFeedsByCategory(
+                        category, currentUserId, page, size, acceptLanguage);
+        return ResponseEntity.ok(
+                ApiResult.<Page<ActivityFeedResponse>>builder().value(feeds).build());
     }
 
     /**
-     * 피드 검색 (미션명/제목 기준) - 검색어는 2글자 이상 필요 - category가 없으면 전체 카테고리에서 검색 - category가 있으면 해당 카테고리 내에서 검색
+     * 피드 검색 (미션명/제목 기준) - 검색어는 2글자 이상 필요 - category가 없으면 전체 카테고리에서 검색 - category가 있으면 해당 카테고리 내에서
+     * 검색
      */
     @GetMapping("/search")
     public ResponseEntity<ApiResult<Page<ActivityFeedResponse>>> searchFeeds(
-        @RequestParam String keyword,
-        @RequestParam(required = false) String category,
-        @CurrentUser(required = false) String currentUserId,
-        @RequestParam(defaultValue = "0") int page,
-        @RequestParam(defaultValue = "20") int size,
-        @RequestHeader(value = HttpHeaders.ACCEPT_LANGUAGE, required = false) String acceptLanguage
-    ) {
+            @RequestParam String keyword,
+            @RequestParam(required = false) String category,
+            @CurrentUser(required = false) String currentUserId,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size,
+            @RequestHeader(value = HttpHeaders.ACCEPT_LANGUAGE, required = false)
+                    String acceptLanguage) {
         // 검색어 2글자 이상 검증
         if (keyword == null || keyword.trim().length() < 2) {
-            return ResponseEntity.ok(ApiResult.<Page<ActivityFeedResponse>>builder()
-                .value(new PageImpl<>(List.of(), PageRequest.of(page, size), 0))
-                .build());
+            return ResponseEntity.ok(
+                    ApiResult.<Page<ActivityFeedResponse>>builder()
+                            .value(new PageImpl<>(List.of(), PageRequest.of(page, size), 0))
+                            .build());
         }
 
         Page<ActivityFeedResponse> feeds;
         if (category != null && !category.isEmpty() && !category.equals("전체")) {
-            feeds = feedQueryService.searchFeedsByCategory(keyword.trim(), category, currentUserId, page, size, acceptLanguage);
+            feeds =
+                    feedQueryService.searchFeedsByCategory(
+                            keyword.trim(), category, currentUserId, page, size, acceptLanguage);
         } else {
-            feeds = feedQueryService.searchFeeds(keyword.trim(), currentUserId, page, size, acceptLanguage);
+            feeds =
+                    feedQueryService.searchFeeds(
+                            keyword.trim(), currentUserId, page, size, acceptLanguage);
         }
-        return ResponseEntity.ok(ApiResult.<Page<ActivityFeedResponse>>builder().value(feeds).build());
+        return ResponseEntity.ok(
+                ApiResult.<Page<ActivityFeedResponse>>builder().value(feeds).build());
     }
 
-    /**
-     * 피드 상세 조회
-     */
+    /** 피드 상세 조회 */
     @GetMapping("/{feedId}")
     public ResponseEntity<ApiResult<ActivityFeedResponse>> getFeed(
-        @PathVariable Long feedId,
-        @CurrentUser(required = false) String currentUserId,
-        @RequestHeader(value = HttpHeaders.ACCEPT_LANGUAGE, required = false) String acceptLanguage
-    ) {
+            @PathVariable Long feedId,
+            @CurrentUser(required = false) String currentUserId,
+            @RequestHeader(value = HttpHeaders.ACCEPT_LANGUAGE, required = false)
+                    String acceptLanguage) {
         ActivityFeedResponse feed = feedQueryService.getFeed(feedId, currentUserId, acceptLanguage);
         return ResponseEntity.ok(ApiResult.<ActivityFeedResponse>builder().value(feed).build());
     }
 
-    /**
-     * 피드 생성 (사용자 직접 생성)
-     */
+    /** 피드 생성 (사용자 직접 생성) */
     @PostMapping
     public ResponseEntity<ApiResult<ActivityFeedResponse>> createFeed(
-        @CurrentUser String userId,
-        @Valid @RequestBody CreateFeedRequest request
-    ) {
+            @CurrentUser String userId, @Valid @RequestBody CreateFeedRequest request) {
         ActivityFeedResponse feed = feedCommandService.createFeed(userId, request);
         return ResponseEntity.ok(ApiResult.<ActivityFeedResponse>builder().value(feed).build());
     }
 
-    /**
-     * 피드 공개범위 변경
-     */
+    /** 피드 공개범위 변경 */
     @PutMapping("/{feedId}/visibility")
     public ResponseEntity<ApiResult<ActivityFeedResponse>> updateFeedVisibility(
-        @PathVariable Long feedId,
-        @CurrentUser String userId,
-        @RequestParam FeedVisibility visibility
-    ) {
-        ActivityFeedResponse feed = feedCommandService.updateFeedVisibility(feedId, userId, visibility);
+            @PathVariable Long feedId,
+            @CurrentUser String userId,
+            @RequestParam FeedVisibility visibility) {
+        ActivityFeedResponse feed =
+                feedCommandService.updateFeedVisibility(feedId, userId, visibility);
         return ResponseEntity.ok(ApiResult.<ActivityFeedResponse>builder().value(feed).build());
     }
 
-    /**
-     * 피드 삭제
-     */
+    /** 피드 삭제 */
     @DeleteMapping("/{feedId}")
     public ResponseEntity<ApiResult<Void>> deleteFeed(
-        @PathVariable Long feedId,
-        @CurrentUser String userId
-    ) {
+            @PathVariable Long feedId, @CurrentUser String userId) {
         feedCommandService.deleteFeed(feedId, userId);
         return ResponseEntity.ok(ApiResult.<Void>builder().build());
     }
 
-    /**
-     * 좋아요 토글
-     */
+    /** 좋아요 토글 */
     @PostMapping("/{feedId}/like")
     public ResponseEntity<ApiResult<FeedLikeResponse>> toggleLike(
-        @PathVariable Long feedId,
-        @CurrentUser String userId
-    ) {
+            @PathVariable Long feedId, @CurrentUser String userId) {
         FeedLikeResponse response = feedCommandService.toggleLike(feedId, userId);
         return ResponseEntity.ok(ApiResult.<FeedLikeResponse>builder().value(response).build());
     }
 
-    /**
-     * 댓글 목록 조회
-     */
+    /** 댓글 목록 조회 */
     @GetMapping("/{feedId}/comments")
     public ResponseEntity<ApiResult<Page<FeedCommentResponse>>> getComments(
-        @PathVariable Long feedId,
-        @CurrentUser(required = false) String currentUserId,
-        @RequestParam(defaultValue = "0") int page,
-        @RequestParam(defaultValue = "20") int size,
-        @RequestHeader(value = HttpHeaders.ACCEPT_LANGUAGE, required = false) String acceptLanguage
-    ) {
-        Page<FeedCommentResponse> comments = feedQueryService.getComments(feedId, currentUserId, page, size, acceptLanguage);
-        return ResponseEntity.ok(ApiResult.<Page<FeedCommentResponse>>builder().value(comments).build());
+            @PathVariable Long feedId,
+            @CurrentUser(required = false) String currentUserId,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size,
+            @RequestHeader(value = HttpHeaders.ACCEPT_LANGUAGE, required = false)
+                    String acceptLanguage) {
+        Page<FeedCommentResponse> comments =
+                feedQueryService.getComments(feedId, currentUserId, page, size, acceptLanguage);
+        return ResponseEntity.ok(
+                ApiResult.<Page<FeedCommentResponse>>builder().value(comments).build());
     }
 
-    /**
-     * 댓글 작성
-     */
+    /** 댓글 작성 */
     @PostMapping("/{feedId}/comments")
     public ResponseEntity<ApiResult<FeedCommentResponse>> addComment(
-        @PathVariable Long feedId,
-        @CurrentUser String userId,
-        @Valid @RequestBody FeedCommentRequest request,
-        @RequestHeader(value = HttpHeaders.ACCEPT_LANGUAGE, required = false) String acceptLanguage
-    ) {
-        FeedCommentResponse comment = feedCommandService.addComment(feedId, userId, request, acceptLanguage);
+            @PathVariable Long feedId,
+            @CurrentUser String userId,
+            @Valid @RequestBody FeedCommentRequest request,
+            @RequestHeader(value = HttpHeaders.ACCEPT_LANGUAGE, required = false)
+                    String acceptLanguage) {
+        FeedCommentResponse comment =
+                feedCommandService.addComment(feedId, userId, request, acceptLanguage);
         return ResponseEntity.ok(ApiResult.<FeedCommentResponse>builder().value(comment).build());
     }
 
-    /**
-     * 댓글 삭제
-     */
+    /** 댓글 삭제 */
     @DeleteMapping("/{feedId}/comments/{commentId}")
     public ResponseEntity<ApiResult<Void>> deleteComment(
-        @PathVariable Long feedId,
-        @PathVariable Long commentId,
-        @CurrentUser String userId
-    ) {
+            @PathVariable Long feedId, @PathVariable Long commentId, @CurrentUser String userId) {
         feedCommandService.deleteComment(feedId, commentId, userId);
         return ResponseEntity.ok(ApiResult.<Void>builder().build());
     }
 
-    /**
-     * 댓글 수정 (본인 + 대댓글 없는 경우만)
-     */
+    /** 댓글 수정 (본인 + 대댓글 없는 경우만) */
     @PutMapping("/{feedId}/comments/{commentId}")
     public ResponseEntity<ApiResult<FeedCommentResponse>> updateComment(
-        @PathVariable Long feedId,
-        @PathVariable Long commentId,
-        @CurrentUser String userId,
-        @Valid @RequestBody FeedCommentUpdateRequest request,
-        @RequestHeader(value = HttpHeaders.ACCEPT_LANGUAGE, required = false) String acceptLanguage
-    ) {
-        FeedCommentResponse response = feedCommandService.updateComment(feedId, commentId, userId, request, acceptLanguage);
+            @PathVariable Long feedId,
+            @PathVariable Long commentId,
+            @CurrentUser String userId,
+            @Valid @RequestBody FeedCommentUpdateRequest request,
+            @RequestHeader(value = HttpHeaders.ACCEPT_LANGUAGE, required = false)
+                    String acceptLanguage) {
+        FeedCommentResponse response =
+                feedCommandService.updateComment(
+                        feedId, commentId, userId, request, acceptLanguage);
         return ResponseEntity.ok(ApiResult.<FeedCommentResponse>builder().value(response).build());
     }
 
-    /**
-     * 댓글 좋아요 토글
-     */
+    /** 댓글 좋아요 토글 */
     @PostMapping("/{feedId}/comments/{commentId}/like")
     public ResponseEntity<ApiResult<FeedCommentLikeResponse>> toggleCommentLike(
-        @PathVariable Long feedId,
-        @PathVariable Long commentId,
-        @CurrentUser String userId
-    ) {
-        FeedCommentLikeResponse response = feedCommandService.toggleCommentLike(feedId, commentId, userId);
-        return ResponseEntity.ok(ApiResult.<FeedCommentLikeResponse>builder().value(response).build());
+            @PathVariable Long feedId, @PathVariable Long commentId, @CurrentUser String userId) {
+        FeedCommentLikeResponse response =
+                feedCommandService.toggleCommentLike(feedId, commentId, userId);
+        return ResponseEntity.ok(
+                ApiResult.<FeedCommentLikeResponse>builder().value(response).build());
     }
 }

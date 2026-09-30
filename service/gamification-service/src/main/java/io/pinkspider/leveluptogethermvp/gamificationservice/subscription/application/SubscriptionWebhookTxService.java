@@ -23,13 +23,12 @@ import org.springframework.transaction.annotation.Transactional;
 /**
  * LUT-452: 스토어 웹훅 이벤트를 구독 행에 적용 — 한 트랜잭션.
  *
- * <p>모든 적용은 <b>상태 수렴형</b>(같은 이벤트를 몇 번 적용해도 같은 결과)이라 at-least-once 재전송에
- * 멱등하다. 행이 없으면(유저가 아직 /verify 전) 로그만 남기고 넘어간다 — 이후 /verify·Restore 가
- * 최신 상태로 등록한다.
+ * <p>모든 적용은 <b>상태 수렴형</b>(같은 이벤트를 몇 번 적용해도 같은 결과)이라 at-least-once 재전송에 멱등하다. 행이 없으면(유저가 아직 /verify
+ * 전) 로그만 남기고 넘어간다 — 이후 /verify·Restore 가 최신 상태로 등록한다.
  *
- * <p>LUT-507: 결제 알림(구매·갱신)의 거래에 앱 계정 토큰이 있고 그 계정이 현재 주인이 아니면, 검증과 같은
- * 소유권 규칙({@link SubscriptionGrantTxService})으로 결제한 계정에게 이전을 시도한다 — 만료 후 다른 계정이
- * 재구독한 경우. 옛 주인이 아직 권한이 있으면(120802) 이전하지 않고 기존 행에 그대로 적용한다.
+ * <p>LUT-507: 결제 알림(구매·갱신)의 거래에 앱 계정 토큰이 있고 그 계정이 현재 주인이 아니면, 검증과 같은 소유권 규칙({@link
+ * SubscriptionGrantTxService})으로 결제한 계정에게 이전을 시도한다 — 만료 후 다른 계정이 재구독한 경우. 옛 주인이 아직 권한이 있으면(120802)
+ * 이전하지 않고 기존 행에 그대로 적용한다.
  */
 @Service
 @RequiredArgsConstructor
@@ -73,10 +72,10 @@ public class SubscriptionWebhookTxService {
             return;
         }
         switch (type) {
-            // 구매·갱신·플랜 변경 반영·오퍼 적용 — 트랜잭션 기준으로 동기화
+                // 구매·갱신·플랜 변경 반영·오퍼 적용 — 트랜잭션 기준으로 동기화
             case "SUBSCRIBED", "DID_RENEW", "OFFER_REDEEMED", "DID_CHANGE_RENEWAL_PREF" ->
                     syncFromTransaction(subscription, transaction, renewalInfo);
-            // 자동갱신 켬/끔 (해지 = AUTO_RENEW_DISABLED — 만료까지 권한 유지)
+                // 자동갱신 켬/끔 (해지 = AUTO_RENEW_DISABLED — 만료까지 권한 유지)
             case "DID_CHANGE_RENEWAL_STATUS" -> {
                 applyAutoRenewStatus(subscription, renewalInfo);
                 log.info(
@@ -84,7 +83,7 @@ public class SubscriptionWebhookTxService {
                         subscription.getUserId(),
                         subscription.getAutoRenew());
             }
-            // 갱신 결제 실패 — GRACE_PERIOD subtype 이면 유예기간 진입(권한 유지)
+                // 갱신 결제 실패 — GRACE_PERIOD subtype 이면 유예기간 진입(권한 유지)
             case "DID_FAIL_TO_RENEW" -> {
                 if (renewalInfo != null && renewalInfo.getGracePeriodExpiresDate() != null) {
                     subscription.enterGracePeriod(
@@ -96,13 +95,13 @@ public class SubscriptionWebhookTxService {
                             subscription.getGracePeriodExpiresAt());
                 }
             }
-            // 유예기간 이탈(미복구 종료)
+                // 유예기간 이탈(미복구 종료)
             case "GRACE_PERIOD_EXPIRED" -> {
                 subscription.setGracePeriodExpiresAt(null);
                 subscription.setAutoRenew(false);
                 log.info("ASSN 유예기간 만료: userId={}", subscription.getUserId());
             }
-            // 만료 (자발적 해지 후 기간 종료 등)
+                // 만료 (자발적 해지 후 기간 종료 등)
             case "EXPIRED" -> {
                 subscription.setGracePeriodExpiresAt(null);
                 subscription.setAutoRenew(false);
@@ -113,7 +112,7 @@ public class SubscriptionWebhookTxService {
                 }
                 log.info("ASSN 구독 만료: userId={}", subscription.getUserId());
             }
-            // 환불·회수 — 권한 즉시 종료
+                // 환불·회수 — 권한 즉시 종료
             case "REFUND", "REVOKE" -> {
                 LocalDateTime revokedAt =
                         transaction.getRevocationDate() != null
@@ -133,25 +132,29 @@ public class SubscriptionWebhookTxService {
                         revokedAt);
                 log.info("ASSN 환불/회수 — 권한 종료: userId={}, type={}", subscription.getUserId(), type);
             }
-            // 가격 변경 동의 (subtype ACCEPTED) / 예정(PENDING) — 상태 변화 없음, 기록만
+                // 가격 변경 동의 (subtype ACCEPTED) / 예정(PENDING) — 상태 변화 없음, 기록만
             case "PRICE_INCREASE" ->
                     log.info(
                             "ASSN 가격 변경 알림: userId={}, subtype={}",
                             subscription.getUserId(),
                             notification.subtype());
-            default -> log.info("ASSN 미처리 타입 — 스킵: type={}, subtype={}", type, notification.subtype());
+            default ->
+                    log.info("ASSN 미처리 타입 — 스킵: type={}, subtype={}", type, notification.subtype());
         }
     }
 
     /**
-     * LUT-499: 자가 치유 — "Get All Subscription Statuses" 스냅샷(최신 트랜잭션 + 갱신 정보)을 웹훅과 같은
-     * 규칙으로 반영한다. 환불·회수된 트랜잭션은 권한 종료, 그 외는 갱신 동기화(만료 연장·플랜·autoRenew).
-     * 만료가 지난 채 autoRenew 만 꺼진 경우도 renewalInfo 반영으로 수렴해 다음 호출부터 재조회하지 않는다.
+     * LUT-499: 자가 치유 — "Get All Subscription Statuses" 스냅샷(최신 트랜잭션 + 갱신 정보)을 웹훅과 같은 규칙으로 반영한다.
+     * 환불·회수된 트랜잭션은 권한 종료, 그 외는 갱신 동기화(만료 연장·플랜·autoRenew). 만료가 지난 채 autoRenew 만 꺼진 경우도 renewalInfo
+     * 반영으로 수렴해 다음 호출부터 재조회하지 않는다.
      */
     @Transactional(transactionManager = "gamificationTransactionManager")
-    public void applyAppleSnapshot(String originalTransactionId, AppleSubscriptionSnapshot snapshot) {
+    public void applyAppleSnapshot(
+            String originalTransactionId, AppleSubscriptionSnapshot snapshot) {
         UserSubscription subscription =
-                userSubscriptionRepository.findByOriginalTransactionId(originalTransactionId).orElse(null);
+                userSubscriptionRepository
+                        .findByOriginalTransactionId(originalTransactionId)
+                        .orElse(null);
         if (subscription == null || snapshot == null || snapshot.transaction() == null) {
             log.warn("자가 치유 매칭 구독 행/스냅샷 없음 — 스킵: originalTransactionId={}", originalTransactionId);
             return;
@@ -159,7 +162,8 @@ public class SubscriptionWebhookTxService {
         JWSTransactionDecodedPayload transaction = snapshot.transaction();
         if (transaction.getRevocationDate() != null) {
             LocalDateTime revokedAt =
-                    SubscriptionVerificationService.toLocalDateTime(transaction.getRevocationDate());
+                    SubscriptionVerificationService.toLocalDateTime(
+                            transaction.getRevocationDate());
             revoke(subscription, revokedAt);
             paymentHistoryRecorder.record(
                     subscription,
@@ -218,9 +222,9 @@ public class SubscriptionWebhookTxService {
     }
 
     /**
-     * LUT-507: 거래의 appAccountToken 이 현재 주인이 아닌 다른 앱 계정을 가리키면 그 계정으로 이전을 시도한다.
-     * 검증 경로와 같은 upsert 를 타므로 옛 주인이 아직 권한이 있으면 120802 로 거절되고(false) 기존 행에 그대로
-     * 적용된다. 이전에 성공하면 새 주인 행에 만료·플랜·이력이 이미 기록됐으므로 true.
+     * LUT-507: 거래의 appAccountToken 이 현재 주인이 아닌 다른 앱 계정을 가리키면 그 계정으로 이전을 시도한다. 검증 경로와 같은 upsert 를
+     * 타므로 옛 주인이 아직 권한이 있으면 120802 로 거절되고(false) 기존 행에 그대로 적용된다. 이전에 성공하면 새 주인 행에 만료·플랜·이력이 이미
+     * 기록됐으므로 true.
      */
     private boolean transferToPayerIfNeeded(
             UserSubscription subscription,
@@ -272,9 +276,11 @@ public class SubscriptionWebhookTxService {
             SubscriptionVerificationResult result,
             LocalDateTime expiresAt) {
         SubscriptionPlan plan =
-                SubscriptionPlanMapping.resolve(platform, result.storeProductId(), result.basePlanId());
+                SubscriptionPlanMapping.resolve(
+                        platform, result.storeProductId(), result.basePlanId());
         try {
-            grantTxService.upsert(payerUserId, plan, platform, result, expiresAt, LocalDateTime.now());
+            grantTxService.upsert(
+                    payerUserId, plan, platform, result, expiresAt, LocalDateTime.now());
             log.info(
                     "웹훅 구독 소유권 이전: 옛 userId={} → 결제 userId={}, platform={}, expiresAt={}",
                     subscription.getUserId(),
@@ -328,7 +334,8 @@ public class SubscriptionWebhookTxService {
         }
         // LUT-507: 새 결제의 앱 계정 토큰이 다른 계정이면(만료 후 다른 계정 재구독) 결제한 계정으로 이전 —
         // 연속성 키로 옛 주인 행에 새 토큰을 이어 붙이기 전에 판정해야 권한이 옛 주인에게 되살아나지 않는다
-        String payerUserId = SubscriptionAccountToken.resolveUserId(state.obfuscatedExternalAccountId());
+        String payerUserId =
+                SubscriptionAccountToken.resolveUserId(state.obfuscatedExternalAccountId());
         if (payerUserId != null
                 && !payerUserId.equals(subscription.getUserId())
                 && state.expiresAt() != null
@@ -353,9 +360,7 @@ public class SubscriptionWebhookTxService {
             }
         }
         if (linkedByContinuityKey) {
-            log.info(
-                    "RTDN 연속성 키로 구독 행 연결: userId={}, 옛토큰→새토큰",
-                    subscription.getUserId());
+            log.info("RTDN 연속성 키로 구독 행 연결: userId={}, 옛토큰→새토큰", subscription.getUserId());
             subscription.setPurchaseToken(purchaseToken);
         }
 

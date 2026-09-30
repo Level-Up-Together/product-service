@@ -17,6 +17,10 @@ import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.MissionPart
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.ParticipantStatus;
 import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.DailyMissionInstanceRepository;
 import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.MissionExecutionRepository;
+import java.time.Duration;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import net.javacrumbs.shedlock.spring.annotation.SchedulerLock;
@@ -25,18 +29,11 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.Duration;
-import java.time.LocalDateTime;
-import java.time.ZoneId;
-import java.util.List;
-
 /**
  * 미션 자동 종료 스케줄러
  *
- * 1. 목표시간 도달 미션: Saga 경유하여 경험치 정상 지급 후 자동 종료
- * 2. 2시간 초과 미션 (목표시간 미설정): 어뷰징 방지용 자동 종료
- * - 5분마다 실행
- * - MissionExecution (일반 미션)과 DailyMissionInstance (고정 미션) 모두 처리
+ * <p>1. 목표시간 도달 미션: Saga 경유하여 경험치 정상 지급 후 자동 종료 2. 2시간 초과 미션 (목표시간 미설정): 어뷰징 방지용 자동 종료 - 5분마다 실행 -
+ * MissionExecution (일반 미션)과 DailyMissionInstance (고정 미션) 모두 처리
  */
 @Component
 @RequiredArgsConstructor
@@ -52,11 +49,12 @@ public class MissionAutoCompleteScheduler {
     private final GamificationQueryFacade gamificationQueryFacade;
     private final GuildQueryFacade guildQueryFacade;
 
-    /**
-     * 5분마다 실행: 미션 자동 종료
-     */
+    /** 5분마다 실행: 미션 자동 종료 */
     @Scheduled(fixedRate = 300000) // 5분 = 300,000ms
-    @SchedulerLock(name = "MissionAutoCompleteScheduler_autoCompleteExpiredMissions", lockAtMostFor = "PT4M", lockAtLeastFor = "PT30S")
+    @SchedulerLock(
+            name = "MissionAutoCompleteScheduler_autoCompleteExpiredMissions",
+            lockAtMostFor = "PT4M",
+            lockAtLeastFor = "PT30S")
     @Transactional(transactionManager = "missionTransactionManager")
     public void autoCompleteExpiredMissions() {
         log.debug("=== 미션 자동 종료 스케줄러 시작 ===");
@@ -74,13 +72,23 @@ public class MissionAutoCompleteScheduler {
             // 3. maxExecutionMinutes 초과 일반 미션 자동 종료 (목표시간 미설정)
             int maxExecutionMinutes = missionExecutionProperties.getMaxExecutionMinutes();
             LocalDateTime expireThreshold =
-                LocalDateTime.now(ZoneId.of("UTC")).minusMinutes(maxExecutionMinutes);
+                    LocalDateTime.now(ZoneId.of("UTC")).minusMinutes(maxExecutionMinutes);
             int executionCount = autoCompleteExpiredExecutions(expireThreshold);
             int instanceCount = autoCompleteExpiredInstances(expireThreshold);
 
-            if (warningCount > 0 || targetInstanceCount > 0 || targetExecutionCount > 0 || executionCount > 0 || instanceCount > 0) {
-                log.info("미션 자동 종료 스케줄러 완료: warnings={}, targetInstances={}, targetExecutions={}, executions={}, instances={}",
-                    warningCount, targetInstanceCount, targetExecutionCount, executionCount, instanceCount);
+            if (warningCount > 0
+                    || targetInstanceCount > 0
+                    || targetExecutionCount > 0
+                    || executionCount > 0
+                    || instanceCount > 0) {
+                log.info(
+                        "미션 자동 종료 스케줄러 완료: warnings={}, targetInstances={}, targetExecutions={},"
+                                + " executions={}, instances={}",
+                        warningCount,
+                        targetInstanceCount,
+                        targetExecutionCount,
+                        executionCount,
+                        instanceCount);
             }
         } catch (Exception e) {
             log.error("미션 자동 종료 스케줄러 실패", e);
@@ -89,82 +97,92 @@ public class MissionAutoCompleteScheduler {
         log.debug("=== 미션 자동 종료 스케줄러 종료 ===");
     }
 
-    /**
-     * 목표시간 도달 고정 미션 인스턴스 자동 종료 (Saga 경유)
-     */
+    /** 목표시간 도달 고정 미션 인스턴스 자동 종료 (Saga 경유) */
     private int autoCompleteTargetReachedInstances() {
-        List<DailyMissionInstance> instances = instanceRepository.findInProgressWithTargetDuration();
+        List<DailyMissionInstance> instances =
+                instanceRepository.findInProgressWithTargetDuration();
 
         int count = 0;
         for (DailyMissionInstance instance : instances) {
-            long elapsed = Duration.between(instance.getStartedAt(), LocalDateTime.now(ZoneId.of("UTC"))).toMinutes();
+            long elapsed =
+                    Duration.between(instance.getStartedAt(), LocalDateTime.now(ZoneId.of("UTC")))
+                            .toMinutes();
             if (elapsed >= instance.getTargetDurationMinutes()) {
                 String userId = instance.getParticipant().getUserId();
                 try {
                     dailyMissionInstanceService.completeInstance(
-                        instance.getId(), userId, null, false);
+                            instance.getId(), userId, null, false);
                     count++;
-                    log.info("목표시간 도달 자동 종료 (고정): instanceId={}, target={}분",
-                        instance.getId(), instance.getTargetDurationMinutes());
+                    log.info(
+                            "목표시간 도달 자동 종료 (고정): instanceId={}, target={}분",
+                            instance.getId(),
+                            instance.getTargetDurationMinutes());
                     // LUT-510: 목표시간 초과 자동 종료 알림 (유저 직접 완료/중단은 이 경로가 아님)
-                    eventPublisher.publishEvent(new MissionAutoEndedEvent(
-                        userId,
-                        instance.getParticipant().getMission().getId(),
-                        instance.getMissionTitle()));
+                    eventPublisher.publishEvent(
+                            new MissionAutoEndedEvent(
+                                    userId,
+                                    instance.getParticipant().getMission().getId(),
+                                    instance.getMissionTitle()));
                 } catch (Exception e) {
-                    log.warn("목표시간 자동 종료 실패 (고정): instanceId={}, error={}",
-                        instance.getId(), e.getMessage());
+                    log.warn(
+                            "목표시간 자동 종료 실패 (고정): instanceId={}, error={}",
+                            instance.getId(),
+                            e.getMessage());
                 }
             }
         }
         return count;
     }
 
-    /**
-     * 목표시간 도달 일반 미션 실행 자동 종료 (Saga 경유)
-     */
+    /** 목표시간 도달 일반 미션 실행 자동 종료 (Saga 경유) */
     private int autoCompleteTargetReachedExecutions() {
         List<MissionExecution> executions = executionRepository.findInProgressWithTargetDuration();
 
         int count = 0;
         for (MissionExecution execution : executions) {
-            long elapsed = Duration.between(execution.getStartedAt(), LocalDateTime.now(ZoneId.of("UTC"))).toMinutes();
-            Integer targetMinutes = execution.getParticipant().getMission().getTargetDurationMinutes();
+            long elapsed =
+                    Duration.between(execution.getStartedAt(), LocalDateTime.now(ZoneId.of("UTC")))
+                            .toMinutes();
+            Integer targetMinutes =
+                    execution.getParticipant().getMission().getTargetDurationMinutes();
             if (targetMinutes != null && elapsed >= targetMinutes) {
                 String userId = execution.getParticipant().getUserId();
                 try {
                     missionExecutionService.completeExecution(
-                        execution.getId(), userId, null, false);
+                            execution.getId(), userId, null, false);
                     count++;
-                    log.info("목표시간 도달 자동 종료 (일반): executionId={}, target={}분",
-                        execution.getId(), targetMinutes);
+                    log.info(
+                            "목표시간 도달 자동 종료 (일반): executionId={}, target={}분",
+                            execution.getId(),
+                            targetMinutes);
                     // LUT-510: 목표시간 초과 자동 종료 알림 (유저 직접 완료/중단은 이 경로가 아님)
-                    eventPublisher.publishEvent(new MissionAutoEndedEvent(
-                        userId,
-                        execution.getParticipant().getMission().getId(),
-                        execution.getParticipant().getMission().getTitle()));
+                    eventPublisher.publishEvent(
+                            new MissionAutoEndedEvent(
+                                    userId,
+                                    execution.getParticipant().getMission().getId(),
+                                    execution.getParticipant().getMission().getTitle()));
                 } catch (Exception e) {
-                    log.warn("목표시간 자동 종료 실패 (일반): executionId={}, error={}",
-                        execution.getId(), e.getMessage());
+                    log.warn(
+                            "목표시간 자동 종료 실패 (일반): executionId={}, error={}",
+                            execution.getId(),
+                            e.getMessage());
                 }
             }
         }
         return count;
     }
 
-    /**
-     * 일반 미션 (MissionExecution) 2시간 초과 자동 종료
-     * 목표시간 설정 미션은 위에서 Saga로 처리하므로 스킵
-     */
+    /** 일반 미션 (MissionExecution) 2시간 초과 자동 종료 목표시간 설정 미션은 위에서 Saga로 처리하므로 스킵 */
     private int autoCompleteExpiredExecutions(LocalDateTime expireThreshold) {
-        List<MissionExecution> expiredExecutions = executionRepository.findExpiredInProgressExecutions(expireThreshold);
+        List<MissionExecution> expiredExecutions =
+                executionRepository.findExpiredInProgressExecutions(expireThreshold);
 
         int count = 0;
         for (MissionExecution execution : expiredExecutions) {
             // 목표시간 설정 미션은 Saga로 처리하므로 스킵
             if (execution.getParticipant() != null
-                && execution.getParticipant().getMission() != null
-                && execution.getParticipant().getMission().getTargetDurationMinutes() != null) {
+                    && execution.getParticipant().getMission() != null
+                    && execution.getParticipant().getMission().getTargetDurationMinutes() != null) {
                 continue;
             }
 
@@ -172,8 +190,9 @@ public class MissionAutoCompleteScheduler {
             if (execution.autoCompleteIfExpired(baseExp)) {
                 // 일반 미션 participant를 COMPLETED로 변경하여 미션 목록에서 제외
                 MissionParticipant participant = execution.getParticipant();
-                if (participant != null && !Boolean.TRUE.equals(participant.getMission().getIsPinned())
-                    && participant.getStatus() != ParticipantStatus.COMPLETED) {
+                if (participant != null
+                        && !Boolean.TRUE.equals(participant.getMission().getIsPinned())
+                        && participant.getStatus() != ParticipantStatus.COMPLETED) {
                     participant.setStatus(ParticipantStatus.COMPLETED);
                     participant.setProgress(100);
                     participant.setCompletedAt(LocalDateTime.now(ZoneId.of("UTC")));
@@ -183,21 +202,23 @@ public class MissionAutoCompleteScheduler {
                 // LUT-236: 길드 미션이면 길드 경험치도 누적 (saga 우회 경로라 여기서 직접 지급)
                 grantAutoCompleteGuildExp(execution, participant, baseExp);
                 count++;
-                log.info("일반 미션 자동 종료: executionId={}, userId={}, startedAt={}",
-                    execution.getId(),
-                    participant != null ? participant.getUserId() : "unknown",
-                    execution.getStartedAt());
+                log.info(
+                        "일반 미션 자동 종료: executionId={}, userId={}, startedAt={}",
+                        execution.getId(),
+                        participant != null ? participant.getUserId() : "unknown",
+                        execution.getStartedAt());
             }
         }
         return count;
     }
 
     /**
-     * 고정 미션 (DailyMissionInstance) 2시간 초과 자동 종료
-     * 목표시간 설정 미션은 DailyMissionInstance.autoCompleteIfExpired()에서 false 반환하여 자동 스킵
+     * 고정 미션 (DailyMissionInstance) 2시간 초과 자동 종료 목표시간 설정 미션은
+     * DailyMissionInstance.autoCompleteIfExpired()에서 false 반환하여 자동 스킵
      */
     private int autoCompleteExpiredInstances(LocalDateTime expireThreshold) {
-        List<DailyMissionInstance> expiredInstances = instanceRepository.findExpiredInProgressInstances(expireThreshold);
+        List<DailyMissionInstance> expiredInstances =
+                instanceRepository.findExpiredInProgressInstances(expireThreshold);
 
         int count = 0;
         int baseExp = missionExecutionProperties.getBaseExp();
@@ -208,11 +229,12 @@ public class MissionAutoCompleteScheduler {
                 // LUT-236: 고정 길드 미션도 길드 경험치 누적 (saga 우회 경로라 여기서 직접 지급)
                 grantAutoCompleteGuildExpForInstance(instance, baseExp);
                 count++;
-                log.info("고정 미션 자동 종료: instanceId={}, userId={}, missionTitle={}, startedAt={}",
-                    instance.getId(),
-                    instance.getParticipant().getUserId(),
-                    instance.getMissionTitle(),
-                    instance.getStartedAt());
+                log.info(
+                        "고정 미션 자동 종료: instanceId={}, userId={}, missionTitle={}, startedAt={}",
+                        instance.getId(),
+                        instance.getParticipant().getUserId(),
+                        instance.getMissionTitle(),
+                        instance.getStartedAt());
             }
         }
         return count;
@@ -221,9 +243,8 @@ public class MissionAutoCompleteScheduler {
     /**
      * QA-119: 2시간 초과 자동 종료 미션의 baseExp 를 user_experience / experience_history 에 반영.
      *
-     * 기존에는 entity 의 expEarned 만 갱신되어 "오늘의 MVP" 집계 쿼리
-     * (findTopExpGainersByPeriod, categoryName IS NOT NULL 조건) 에서 누락되었다.
-     * 정상 완료 / 목표시간 자동 종료(Saga) 와 동일하게 categoryName 을 포함해 history 행을 만든다.
+     * <p>기존에는 entity 의 expEarned 만 갱신되어 "오늘의 MVP" 집계 쿼리 (findTopExpGainersByPeriod, categoryName IS
+     * NOT NULL 조건) 에서 누락되었다. 정상 완료 / 목표시간 자동 종료(Saga) 와 동일하게 categoryName 을 포함해 history 행을 만든다.
      */
     private void grantAutoCompleteExp(MissionParticipant participant, int baseExp, Long sourceId) {
         if (participant == null || baseExp <= 0) {
@@ -235,29 +256,33 @@ public class MissionAutoCompleteScheduler {
         }
         try {
             gamificationQueryFacade.addExperience(
-                participant.getUserId(),
-                baseExp,
-                ExpSourceType.MISSION_EXECUTION,
-                mission.getId(),
-                "미션 자동 종료 보상: " + mission.getTitle(),
-                mission.getCategoryId(),
-                mission.getCategoryName()
-            );
+                    participant.getUserId(),
+                    baseExp,
+                    ExpSourceType.MISSION_EXECUTION,
+                    mission.getId(),
+                    "미션 자동 종료 보상: " + mission.getTitle(),
+                    mission.getCategoryId(),
+                    mission.getCategoryName());
         } catch (Exception e) {
-            log.error("자동 종료 EXP 지급 실패: userId={}, missionId={}, sourceId={}, error={}",
-                participant.getUserId(), mission.getId(), sourceId, e.getMessage(), e);
+            log.error(
+                    "자동 종료 EXP 지급 실패: userId={}, missionId={}, sourceId={}, error={}",
+                    participant.getUserId(),
+                    mission.getId(),
+                    sourceId,
+                    e.getMessage(),
+                    e);
         }
     }
 
     /**
      * LUT-236: 자동종료된 길드 미션의 길드 경험치 누적.
      *
-     * 정상 완료 / 목표시간 자동종료(Saga) 는 GrantGuildExperienceStep 이 길드 경험치를
-     * 지급하지만, 4시간 초과 자동종료(Saga 우회) 경로는 누락되어 길드 총 경험치가
-     * 미션 누적보다 작아지는 문제가 있었다. 여기서 동일하게 addGuildExperience 로 지급한다.
-     * 길드 EXP = 사용자 EXP(baseExp) — QA-174. guild_exp_granted 로 소급 멱등성을 보장한다.
+     * <p>정상 완료 / 목표시간 자동종료(Saga) 는 GrantGuildExperienceStep 이 길드 경험치를 지급하지만, 4시간 초과 자동종료(Saga 우회)
+     * 경로는 누락되어 길드 총 경험치가 미션 누적보다 작아지는 문제가 있었다. 여기서 동일하게 addGuildExperience 로 지급한다. 길드 EXP = 사용자
+     * EXP(baseExp) — QA-174. guild_exp_granted 로 소급 멱등성을 보장한다.
      */
-    private void grantAutoCompleteGuildExp(MissionExecution execution, MissionParticipant participant, int baseExp) {
+    private void grantAutoCompleteGuildExp(
+            MissionExecution execution, MissionParticipant participant, int baseExp) {
         if (participant == null || baseExp <= 0) {
             return;
         }
@@ -270,29 +295,35 @@ public class MissionAutoCompleteScheduler {
         }
         try {
             guildQueryFacade.addGuildExperience(
-                mission.getGuildIdAsLong(),
-                baseExp,
-                GuildExpSourceType.GUILD_MISSION_EXECUTION,
-                mission.getId(),
-                participant.getUserId(),
-                "미션 자동 종료 길드 경험치: " + mission.getTitle()
-            );
+                    mission.getGuildIdAsLong(),
+                    baseExp,
+                    GuildExpSourceType.GUILD_MISSION_EXECUTION,
+                    mission.getId(),
+                    participant.getUserId(),
+                    "미션 자동 종료 길드 경험치: " + mission.getTitle());
             execution.setGuildExpGranted(true);
-            log.info("자동 종료 길드 경험치 지급: guildId={}, exp={}, missionId={}, userId={}",
-                mission.getGuildIdAsLong(), baseExp, mission.getId(), participant.getUserId());
+            log.info(
+                    "자동 종료 길드 경험치 지급: guildId={}, exp={}, missionId={}, userId={}",
+                    mission.getGuildIdAsLong(),
+                    baseExp,
+                    mission.getId(),
+                    participant.getUserId());
         } catch (Exception e) {
-            log.error("자동 종료 길드 경험치 지급 실패: guildId={}, missionId={}, error={}",
-                mission.getGuildIdAsLong(), mission.getId(), e.getMessage(), e);
+            log.error(
+                    "자동 종료 길드 경험치 지급 실패: guildId={}, missionId={}, error={}",
+                    mission.getGuildIdAsLong(),
+                    mission.getId(),
+                    e.getMessage(),
+                    e);
         }
     }
 
     /**
      * LUT-236: 자동종료된 고정(pinned) 길드 미션의 길드 경험치 누적.
      *
-     * 고정 길드 미션은 {@link DailyMissionInstance} 경로로 자동종료되는데, 최초 LUT-236 수정이
-     * 일반 미션({@link MissionExecution}) 경로만 커버해 고정 길드 미션은 여전히 길드 경험치가
-     * 누락됐다. 여기서 동일하게 addGuildExperience 로 지급한다.
-     * 길드 EXP = 사용자 EXP(baseExp) — QA-174. guild_exp_granted 로 소급 멱등성을 보장한다.
+     * <p>고정 길드 미션은 {@link DailyMissionInstance} 경로로 자동종료되는데, 최초 LUT-236 수정이 일반 미션({@link
+     * MissionExecution}) 경로만 커버해 고정 길드 미션은 여전히 길드 경험치가 누락됐다. 여기서 동일하게 addGuildExperience 로 지급한다. 길드
+     * EXP = 사용자 EXP(baseExp) — QA-174. guild_exp_granted 로 소급 멱등성을 보장한다.
      */
     private void grantAutoCompleteGuildExpForInstance(DailyMissionInstance instance, int baseExp) {
         MissionParticipant participant = instance.getParticipant();
@@ -308,29 +339,34 @@ public class MissionAutoCompleteScheduler {
         }
         try {
             guildQueryFacade.addGuildExperience(
-                mission.getGuildIdAsLong(),
-                baseExp,
-                GuildExpSourceType.GUILD_MISSION_EXECUTION,
-                mission.getId(),
-                participant.getUserId(),
-                "미션 자동 종료 길드 경험치: " + mission.getTitle()
-            );
+                    mission.getGuildIdAsLong(),
+                    baseExp,
+                    GuildExpSourceType.GUILD_MISSION_EXECUTION,
+                    mission.getId(),
+                    participant.getUserId(),
+                    "미션 자동 종료 길드 경험치: " + mission.getTitle());
             instance.setGuildExpGranted(true);
-            log.info("자동 종료 길드 경험치 지급 (고정): guildId={}, exp={}, missionId={}, userId={}",
-                mission.getGuildIdAsLong(), baseExp, mission.getId(), participant.getUserId());
+            log.info(
+                    "자동 종료 길드 경험치 지급 (고정): guildId={}, exp={}, missionId={}, userId={}",
+                    mission.getGuildIdAsLong(),
+                    baseExp,
+                    mission.getId(),
+                    participant.getUserId());
         } catch (Exception e) {
-            log.error("자동 종료 길드 경험치 지급 실패 (고정): guildId={}, missionId={}, error={}",
-                mission.getGuildIdAsLong(), mission.getId(), e.getMessage(), e);
+            log.error(
+                    "자동 종료 길드 경험치 지급 실패 (고정): guildId={}, missionId={}, error={}",
+                    mission.getGuildIdAsLong(),
+                    mission.getId(),
+                    e.getMessage(),
+                    e);
         }
     }
 
     /**
      * 경고 알림 발송 (다중 시점 지원)
      *
-     * warningMinutesAfterStart 설정에 따라 여러 시점에서 경고 알림 발송
-     * 예: [60, 110] → 1시간 경과 시 + 1시간50분 경과 시
-     * 목표시간 설정 미션은 자동종료 대상이 아니므로 제외
-     * 스케줄러가 5분마다 실행되므로 각 시점 ±5분 범위로 탐색
+     * <p>warningMinutesAfterStart 설정에 따라 여러 시점에서 경고 알림 발송 예: [60, 110] → 1시간 경과 시 + 1시간50분 경과 시
+     * 목표시간 설정 미션은 자동종료 대상이 아니므로 제외 스케줄러가 5분마다 실행되므로 각 시점 ±5분 범위로 탐색
      */
     private int sendAutoEndWarnings() {
         List<Integer> warningPoints = missionExecutionProperties.getWarningMinutesAfterStart();
@@ -345,18 +381,21 @@ public class MissionAutoCompleteScheduler {
         for (int i = 0; i < warningPoints.size(); i++) {
             int warningMinute = warningPoints.get(i);
             MissionAutoEndMilestone milestone =
-                (i == lastIndex) ? MissionAutoEndMilestone.FINAL : MissionAutoEndMilestone.FIRST;
+                    (i == lastIndex)
+                            ? MissionAutoEndMilestone.FINAL
+                            : MissionAutoEndMilestone.FIRST;
             // 해당 시점 ± 스케줄러 주기(5분) 범위의 미션 탐색
             LocalDateTime rangeStart = now.minusMinutes(warningMinute + 5);
             LocalDateTime rangeEnd = now.minusMinutes(warningMinute);
 
             // 일반 미션 경고
             List<MissionExecution> warningExecutions =
-                executionRepository.findInProgressWarningExecutions(rangeStart, rangeEnd);
+                    executionRepository.findInProgressWarningExecutions(rangeStart, rangeEnd);
             for (MissionExecution execution : warningExecutions) {
                 if (execution.getParticipant() != null
-                    && execution.getParticipant().getMission() != null
-                    && execution.getParticipant().getMission().getTargetDurationMinutes() != null) {
+                        && execution.getParticipant().getMission() != null
+                        && execution.getParticipant().getMission().getTargetDurationMinutes()
+                                != null) {
                     continue;
                 }
                 try {
@@ -364,19 +403,25 @@ public class MissionAutoCompleteScheduler {
                     String missionTitle = execution.getParticipant().getMission().getTitle();
                     Long missionId = execution.getParticipant().getMission().getId();
                     eventPublisher.publishEvent(
-                        new MissionAutoEndWarningEvent(userId, missionId, missionTitle, milestone));
+                            new MissionAutoEndWarningEvent(
+                                    userId, missionId, missionTitle, milestone));
                     count++;
                 } catch (Exception e) {
-                    log.warn("경고 알림 실패 (일반, {}분, {}): executionId={}, error={}",
-                        warningMinute, milestone, execution.getId(), e.getMessage());
+                    log.warn(
+                            "경고 알림 실패 (일반, {}분, {}): executionId={}, error={}",
+                            warningMinute,
+                            milestone,
+                            execution.getId(),
+                            e.getMessage());
                 }
             }
 
             // 고정 미션 경고
             List<DailyMissionInstance> warningInstances =
-                instanceRepository.findInProgressWarningInstances(rangeStart, rangeEnd);
+                    instanceRepository.findInProgressWarningInstances(rangeStart, rangeEnd);
             for (DailyMissionInstance instance : warningInstances) {
-                if (instance.getTargetDurationMinutes() != null && instance.getTargetDurationMinutes() > 0) {
+                if (instance.getTargetDurationMinutes() != null
+                        && instance.getTargetDurationMinutes() > 0) {
                     continue;
                 }
                 try {
@@ -384,11 +429,16 @@ public class MissionAutoCompleteScheduler {
                     String missionTitle = instance.getMissionTitle();
                     Long missionId = instance.getParticipant().getMission().getId();
                     eventPublisher.publishEvent(
-                        new MissionAutoEndWarningEvent(userId, missionId, missionTitle, milestone));
+                            new MissionAutoEndWarningEvent(
+                                    userId, missionId, missionTitle, milestone));
                     count++;
                 } catch (Exception e) {
-                    log.warn("경고 알림 실패 (고정, {}분, {}): instanceId={}, error={}",
-                        warningMinute, milestone, instance.getId(), e.getMessage());
+                    log.warn(
+                            "경고 알림 실패 (고정, {}분, {}): instanceId={}, error={}",
+                            warningMinute,
+                            milestone,
+                            instance.getId(),
+                            e.getMessage());
                 }
             }
         }

@@ -17,13 +17,13 @@ import com.epages.restdocs.apispec.MockMvcRestDocumentationWrapper;
 import com.epages.restdocs.apispec.ResourceSnippetParameters;
 import com.epages.restdocs.apispec.SimpleType;
 import io.pinkspider.global.component.LmObjectMapper;
+import io.pinkspider.global.enums.NotificationType;
 import io.pinkspider.leveluptogethermvp.config.ControllerTestConfig;
 import io.pinkspider.leveluptogethermvp.notificationservice.application.NotificationService;
 import io.pinkspider.leveluptogethermvp.notificationservice.domain.dto.NotificationPreferenceRequest;
 import io.pinkspider.leveluptogethermvp.notificationservice.domain.dto.NotificationPreferenceResponse;
 import io.pinkspider.leveluptogethermvp.notificationservice.domain.dto.NotificationResponse;
 import io.pinkspider.leveluptogethermvp.notificationservice.domain.dto.NotificationSummaryResponse;
-import io.pinkspider.global.enums.NotificationType;
 import java.time.LocalDateTime;
 import java.util.List;
 import org.junit.jupiter.api.DisplayName;
@@ -49,79 +49,83 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers;
 
-@WebMvcTest(controllers = NotificationController.class,
-    excludeAutoConfiguration = {
-        DataSourceAutoConfiguration.class,
-        HibernateJpaAutoConfiguration.class,
-        DataSourceTransactionManagerAutoConfiguration.class
-    }
-)
+@WebMvcTest(
+        controllers = NotificationController.class,
+        excludeAutoConfiguration = {
+            DataSourceAutoConfiguration.class,
+            HibernateJpaAutoConfiguration.class,
+            DataSourceTransactionManagerAutoConfiguration.class
+        })
 @Import(ControllerTestConfig.class)
 @AutoConfigureRestDocs
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
 class NotificationControllerTest {
 
-    @Autowired
-    protected MockMvc mockMvc;
+    @Autowired protected MockMvc mockMvc;
 
     private final LmObjectMapper objectMapper = new LmObjectMapper();
 
-    @MockitoBean
-    private NotificationService notificationService;
+    @MockitoBean private NotificationService notificationService;
 
     private static final String MOCK_USER_ID = "test-user-123";
 
-    private NotificationResponse createMockNotification(Long id, NotificationType type, boolean isRead) {
+    private NotificationResponse createMockNotification(
+            Long id, NotificationType type, boolean isRead) {
         return NotificationResponse.builder()
-            .id(id)
-            .notificationType(type)
-            .category(type.getCategory())
-            .title("알림 제목")
-            .message("알림 메시지입니다.")
-            .referenceType("MISSION")
-            .referenceId(1L)
-            .isRead(isRead)
-            .readAt(isRead ? LocalDateTime.now() : null)
-            .createdAt(LocalDateTime.now())
-            .build();
+                .id(id)
+                .notificationType(type)
+                .category(type.getCategory())
+                .title("알림 제목")
+                .message("알림 메시지입니다.")
+                .referenceType("MISSION")
+                .referenceId(1L)
+                .isRead(isRead)
+                .readAt(isRead ? LocalDateTime.now() : null)
+                .createdAt(LocalDateTime.now())
+                .build();
     }
 
     @Test
     @DisplayName("GET /api/v1/notifications : 알림 목록 조회")
     void getNotificationsTest() throws Exception {
         // given
-        List<NotificationResponse> notifications = List.of(
-            createMockNotification(1L, NotificationType.FRIEND_REQUEST, false),
-            createMockNotification(2L, NotificationType.GUILD_INVITE, true)
-        );
+        List<NotificationResponse> notifications =
+                List.of(
+                        createMockNotification(1L, NotificationType.FRIEND_REQUEST, false),
+                        createMockNotification(2L, NotificationType.GUILD_INVITE, true));
         Page<NotificationResponse> page = new PageImpl<>(notifications, PageRequest.of(0, 20), 2);
 
-        when(notificationService.getNotifications(anyString(), any(Pageable.class))).thenReturn(page);
+        when(notificationService.getNotifications(anyString(), any(Pageable.class)))
+                .thenReturn(page);
 
         // when
-        ResultActions resultActions = mockMvc.perform(
-            RestDocumentationRequestBuilders.get("/api/v1/notifications")
-                .with(user(MOCK_USER_ID))
-                .param("page", "0")
-                .param("size", "20")
-                .contentType(MediaType.APPLICATION_JSON)
-        ).andDo(
-            MockMvcRestDocumentationWrapper.document("알림-01. 알림 목록 조회",
-                preprocessRequest(prettyPrint()),
-                preprocessResponse(prettyPrint()),
-                resource(
-                    ResourceSnippetParameters.builder()
-                        .tag("Notification")
-                        .description("알림 목록 조회 (페이징, JWT 토큰 인증 필요)")
-                        .queryParameters(
-                            parameterWithName("page").type(SimpleType.NUMBER).description("페이지 번호").optional(),
-                            parameterWithName("size").type(SimpleType.NUMBER).description("페이지 크기").optional()
-                        )
-                        .build()
-                )
-            )
-        );
+        ResultActions resultActions =
+                mockMvc.perform(
+                                RestDocumentationRequestBuilders.get("/api/v1/notifications")
+                                        .with(user(MOCK_USER_ID))
+                                        .param("page", "0")
+                                        .param("size", "20")
+                                        .contentType(MediaType.APPLICATION_JSON))
+                        .andDo(
+                                MockMvcRestDocumentationWrapper.document(
+                                        "알림-01. 알림 목록 조회",
+                                        preprocessRequest(prettyPrint()),
+                                        preprocessResponse(prettyPrint()),
+                                        resource(
+                                                ResourceSnippetParameters.builder()
+                                                        .tag("Notification")
+                                                        .description("알림 목록 조회 (페이징, JWT 토큰 인증 필요)")
+                                                        .queryParameters(
+                                                                parameterWithName("page")
+                                                                        .type(SimpleType.NUMBER)
+                                                                        .description("페이지 번호")
+                                                                        .optional(),
+                                                                parameterWithName("size")
+                                                                        .type(SimpleType.NUMBER)
+                                                                        .description("페이지 크기")
+                                                                        .optional())
+                                                        .build())));
 
         // then
         resultActions.andExpect(MockMvcResultMatchers.status().isOk());
@@ -131,46 +135,83 @@ class NotificationControllerTest {
     @DisplayName("GET /api/v1/notifications/unread : 읽지 않은 알림")
     void getUnreadNotificationsTest() throws Exception {
         // given
-        List<NotificationResponse> notifications = List.of(
-            createMockNotification(1L, NotificationType.FRIEND_REQUEST, false)
-        );
+        List<NotificationResponse> notifications =
+                List.of(createMockNotification(1L, NotificationType.FRIEND_REQUEST, false));
 
         when(notificationService.getUnreadNotifications(anyString())).thenReturn(notifications);
 
         // when
-        ResultActions resultActions = mockMvc.perform(
-            RestDocumentationRequestBuilders.get("/api/v1/notifications/unread")
-                .with(user(MOCK_USER_ID))
-                .contentType(MediaType.APPLICATION_JSON)
-        ).andDo(
-            MockMvcRestDocumentationWrapper.document("알림-02. 읽지 않은 알림",
-                preprocessRequest(prettyPrint()),
-                preprocessResponse(prettyPrint()),
-                resource(
-                    ResourceSnippetParameters.builder()
-                        .tag("Notification")
-                        .description("읽지 않은 알림 목록 조회 (JWT 토큰 인증 필요)")
-                        .responseFields(
-                            fieldWithPath("code").type(JsonFieldType.STRING).description("응답 코드"),
-                            fieldWithPath("message").type(JsonFieldType.STRING).description("응답 메시지"),
-                            fieldWithPath("value[]").type(JsonFieldType.ARRAY).description("알림 목록"),
-                            fieldWithPath("value[].id").type(JsonFieldType.NUMBER).description("알림 ID"),
-                            fieldWithPath("value[].notification_type").type(JsonFieldType.STRING).description("알림 타입"),
-                            fieldWithPath("value[].category").type(JsonFieldType.STRING).description("카테고리"),
-                            fieldWithPath("value[].title").type(JsonFieldType.STRING).description("제목"),
-                            fieldWithPath("value[].message").type(JsonFieldType.STRING).description("메시지").optional(),
-                            fieldWithPath("value[].reference_type").type(JsonFieldType.STRING).description("참조 타입").optional(),
-                            fieldWithPath("value[].reference_id").type(JsonFieldType.NUMBER).description("참조 ID").optional(),
-                            fieldWithPath("value[].action_url").type(JsonFieldType.STRING).description("액션 URL").optional(),
-                            fieldWithPath("value[].icon_url").type(JsonFieldType.STRING).description("아이콘 URL").optional(),
-                            fieldWithPath("value[].is_read").type(JsonFieldType.BOOLEAN).description("읽음 여부"),
-                            fieldWithPath("value[].read_at").type(JsonFieldType.STRING).description("읽은 시간").optional(),
-                            fieldWithPath("value[].created_at").type(JsonFieldType.STRING).description("생성일시")
-                        )
-                        .build()
-                )
-            )
-        );
+        ResultActions resultActions =
+                mockMvc.perform(
+                                RestDocumentationRequestBuilders.get("/api/v1/notifications/unread")
+                                        .with(user(MOCK_USER_ID))
+                                        .contentType(MediaType.APPLICATION_JSON))
+                        .andDo(
+                                MockMvcRestDocumentationWrapper.document(
+                                        "알림-02. 읽지 않은 알림",
+                                        preprocessRequest(prettyPrint()),
+                                        preprocessResponse(prettyPrint()),
+                                        resource(
+                                                ResourceSnippetParameters.builder()
+                                                        .tag("Notification")
+                                                        .description(
+                                                                "읽지 않은 알림 목록 조회 (JWT 토큰 인증 필요)")
+                                                        .responseFields(
+                                                                fieldWithPath("code")
+                                                                        .type(JsonFieldType.STRING)
+                                                                        .description("응답 코드"),
+                                                                fieldWithPath("message")
+                                                                        .type(JsonFieldType.STRING)
+                                                                        .description("응답 메시지"),
+                                                                fieldWithPath("value[]")
+                                                                        .type(JsonFieldType.ARRAY)
+                                                                        .description("알림 목록"),
+                                                                fieldWithPath("value[].id")
+                                                                        .type(JsonFieldType.NUMBER)
+                                                                        .description("알림 ID"),
+                                                                fieldWithPath(
+                                                                                "value[].notification_type")
+                                                                        .type(JsonFieldType.STRING)
+                                                                        .description("알림 타입"),
+                                                                fieldWithPath("value[].category")
+                                                                        .type(JsonFieldType.STRING)
+                                                                        .description("카테고리"),
+                                                                fieldWithPath("value[].title")
+                                                                        .type(JsonFieldType.STRING)
+                                                                        .description("제목"),
+                                                                fieldWithPath("value[].message")
+                                                                        .type(JsonFieldType.STRING)
+                                                                        .description("메시지")
+                                                                        .optional(),
+                                                                fieldWithPath(
+                                                                                "value[].reference_type")
+                                                                        .type(JsonFieldType.STRING)
+                                                                        .description("참조 타입")
+                                                                        .optional(),
+                                                                fieldWithPath(
+                                                                                "value[].reference_id")
+                                                                        .type(JsonFieldType.NUMBER)
+                                                                        .description("참조 ID")
+                                                                        .optional(),
+                                                                fieldWithPath("value[].action_url")
+                                                                        .type(JsonFieldType.STRING)
+                                                                        .description("액션 URL")
+                                                                        .optional(),
+                                                                fieldWithPath("value[].icon_url")
+                                                                        .type(JsonFieldType.STRING)
+                                                                        .description("아이콘 URL")
+                                                                        .optional(),
+                                                                fieldWithPath("value[].is_read")
+                                                                        .type(JsonFieldType.BOOLEAN)
+                                                                        .description("읽음 여부"),
+                                                                fieldWithPath("value[].read_at")
+                                                                        .type(JsonFieldType.STRING)
+                                                                        .description("읽은 시간")
+                                                                        .optional(),
+                                                                fieldWithPath("value[].created_at")
+                                                                        .type(JsonFieldType.STRING)
+                                                                        .description("생성일시"))
+                                                        .build())));
 
         // then
         resultActions.andExpect(MockMvcResultMatchers.status().isOk());
@@ -180,37 +221,44 @@ class NotificationControllerTest {
     @DisplayName("GET /api/v1/notifications/summary : 알림 요약")
     void getNotificationSummaryTest() throws Exception {
         // given
-        NotificationSummaryResponse response = NotificationSummaryResponse.builder()
-            .unreadCount(5)
-            .totalCount(20)
-            .build();
+        NotificationSummaryResponse response =
+                NotificationSummaryResponse.builder().unreadCount(5).totalCount(20).build();
 
         when(notificationService.getNotificationSummary(anyString())).thenReturn(response);
 
         // when
-        ResultActions resultActions = mockMvc.perform(
-            RestDocumentationRequestBuilders.get("/api/v1/notifications/summary")
-                .with(user(MOCK_USER_ID))
-                .contentType(MediaType.APPLICATION_JSON)
-        ).andDo(
-            MockMvcRestDocumentationWrapper.document("알림-03. 알림 요약",
-                preprocessRequest(prettyPrint()),
-                preprocessResponse(prettyPrint()),
-                resource(
-                    ResourceSnippetParameters.builder()
-                        .tag("Notification")
-                        .description("알림 요약 정보 (JWT 토큰 인증 필요)")
-                        .responseFields(
-                            fieldWithPath("code").type(JsonFieldType.STRING).description("응답 코드"),
-                            fieldWithPath("message").type(JsonFieldType.STRING).description("응답 메시지"),
-                            fieldWithPath("value").type(JsonFieldType.OBJECT).description("알림 요약"),
-                            fieldWithPath("value.unread_count").type(JsonFieldType.NUMBER).description("읽지 않은 알림 수"),
-                            fieldWithPath("value.total_count").type(JsonFieldType.NUMBER).description("전체 알림 수")
-                        )
-                        .build()
-                )
-            )
-        );
+        ResultActions resultActions =
+                mockMvc.perform(
+                                RestDocumentationRequestBuilders.get(
+                                                "/api/v1/notifications/summary")
+                                        .with(user(MOCK_USER_ID))
+                                        .contentType(MediaType.APPLICATION_JSON))
+                        .andDo(
+                                MockMvcRestDocumentationWrapper.document(
+                                        "알림-03. 알림 요약",
+                                        preprocessRequest(prettyPrint()),
+                                        preprocessResponse(prettyPrint()),
+                                        resource(
+                                                ResourceSnippetParameters.builder()
+                                                        .tag("Notification")
+                                                        .description("알림 요약 정보 (JWT 토큰 인증 필요)")
+                                                        .responseFields(
+                                                                fieldWithPath("code")
+                                                                        .type(JsonFieldType.STRING)
+                                                                        .description("응답 코드"),
+                                                                fieldWithPath("message")
+                                                                        .type(JsonFieldType.STRING)
+                                                                        .description("응답 메시지"),
+                                                                fieldWithPath("value")
+                                                                        .type(JsonFieldType.OBJECT)
+                                                                        .description("알림 요약"),
+                                                                fieldWithPath("value.unread_count")
+                                                                        .type(JsonFieldType.NUMBER)
+                                                                        .description("읽지 않은 알림 수"),
+                                                                fieldWithPath("value.total_count")
+                                                                        .type(JsonFieldType.NUMBER)
+                                                                        .description("전체 알림 수"))
+                                                        .build())));
 
         // then
         resultActions.andExpect(MockMvcResultMatchers.status().isOk());
@@ -220,30 +268,32 @@ class NotificationControllerTest {
     @DisplayName("POST /api/v1/notifications/{notificationId}/read : 알림 읽음 처리")
     void markAsReadTest() throws Exception {
         // given
-        NotificationResponse response = createMockNotification(1L, NotificationType.FRIEND_REQUEST, true);
+        NotificationResponse response =
+                createMockNotification(1L, NotificationType.FRIEND_REQUEST, true);
 
         when(notificationService.markAsRead(anyString(), anyLong())).thenReturn(response);
 
         // when
-        ResultActions resultActions = mockMvc.perform(
-            RestDocumentationRequestBuilders.post("/api/v1/notifications/{notificationId}/read", 1L)
-                .with(user(MOCK_USER_ID))
-                .contentType(MediaType.APPLICATION_JSON)
-        ).andDo(
-            MockMvcRestDocumentationWrapper.document("알림-04. 알림 읽음 처리",
-                preprocessRequest(prettyPrint()),
-                preprocessResponse(prettyPrint()),
-                resource(
-                    ResourceSnippetParameters.builder()
-                        .tag("Notification")
-                        .description("특정 알림을 읽음 처리 (JWT 토큰 인증 필요)")
-                        .pathParameters(
-                            parameterWithName("notificationId").type(SimpleType.NUMBER).description("알림 ID")
-                        )
-                        .build()
-                )
-            )
-        );
+        ResultActions resultActions =
+                mockMvc.perform(
+                                RestDocumentationRequestBuilders.post(
+                                                "/api/v1/notifications/{notificationId}/read", 1L)
+                                        .with(user(MOCK_USER_ID))
+                                        .contentType(MediaType.APPLICATION_JSON))
+                        .andDo(
+                                MockMvcRestDocumentationWrapper.document(
+                                        "알림-04. 알림 읽음 처리",
+                                        preprocessRequest(prettyPrint()),
+                                        preprocessResponse(prettyPrint()),
+                                        resource(
+                                                ResourceSnippetParameters.builder()
+                                                        .tag("Notification")
+                                                        .description("특정 알림을 읽음 처리 (JWT 토큰 인증 필요)")
+                                                        .pathParameters(
+                                                                parameterWithName("notificationId")
+                                                                        .type(SimpleType.NUMBER)
+                                                                        .description("알림 ID"))
+                                                        .build())));
 
         // then
         resultActions.andExpect(MockMvcResultMatchers.status().isOk());
@@ -256,27 +306,32 @@ class NotificationControllerTest {
         when(notificationService.markAllAsRead(anyString())).thenReturn(5);
 
         // when
-        ResultActions resultActions = mockMvc.perform(
-            RestDocumentationRequestBuilders.post("/api/v1/notifications/read-all")
-                .with(user(MOCK_USER_ID))
-                .contentType(MediaType.APPLICATION_JSON)
-        ).andDo(
-            MockMvcRestDocumentationWrapper.document("알림-05. 전체 읽음 처리",
-                preprocessRequest(prettyPrint()),
-                preprocessResponse(prettyPrint()),
-                resource(
-                    ResourceSnippetParameters.builder()
-                        .tag("Notification")
-                        .description("모든 알림을 읽음 처리 (JWT 토큰 인증 필요)")
-                        .responseFields(
-                            fieldWithPath("code").type(JsonFieldType.STRING).description("응답 코드"),
-                            fieldWithPath("message").type(JsonFieldType.STRING).description("응답 메시지"),
-                            fieldWithPath("value").type(JsonFieldType.NUMBER).description("읽음 처리된 알림 수")
-                        )
-                        .build()
-                )
-            )
-        );
+        ResultActions resultActions =
+                mockMvc.perform(
+                                RestDocumentationRequestBuilders.post(
+                                                "/api/v1/notifications/read-all")
+                                        .with(user(MOCK_USER_ID))
+                                        .contentType(MediaType.APPLICATION_JSON))
+                        .andDo(
+                                MockMvcRestDocumentationWrapper.document(
+                                        "알림-05. 전체 읽음 처리",
+                                        preprocessRequest(prettyPrint()),
+                                        preprocessResponse(prettyPrint()),
+                                        resource(
+                                                ResourceSnippetParameters.builder()
+                                                        .tag("Notification")
+                                                        .description("모든 알림을 읽음 처리 (JWT 토큰 인증 필요)")
+                                                        .responseFields(
+                                                                fieldWithPath("code")
+                                                                        .type(JsonFieldType.STRING)
+                                                                        .description("응답 코드"),
+                                                                fieldWithPath("message")
+                                                                        .type(JsonFieldType.STRING)
+                                                                        .description("응답 메시지"),
+                                                                fieldWithPath("value")
+                                                                        .type(JsonFieldType.NUMBER)
+                                                                        .description("읽음 처리된 알림 수"))
+                                                        .build())));
 
         // then
         resultActions.andExpect(MockMvcResultMatchers.status().isOk());
@@ -289,29 +344,33 @@ class NotificationControllerTest {
         doNothing().when(notificationService).deleteNotification(anyString(), anyLong());
 
         // when
-        ResultActions resultActions = mockMvc.perform(
-            RestDocumentationRequestBuilders.delete("/api/v1/notifications/{notificationId}", 1L)
-                .with(user(MOCK_USER_ID))
-                .contentType(MediaType.APPLICATION_JSON)
-        ).andDo(
-            MockMvcRestDocumentationWrapper.document("알림-06. 알림 삭제",
-                preprocessRequest(prettyPrint()),
-                preprocessResponse(prettyPrint()),
-                resource(
-                    ResourceSnippetParameters.builder()
-                        .tag("Notification")
-                        .description("알림 삭제 (JWT 토큰 인증 필요)")
-                        .pathParameters(
-                            parameterWithName("notificationId").type(SimpleType.NUMBER).description("알림 ID")
-                        )
-                        .responseFields(
-                            fieldWithPath("code").type(JsonFieldType.STRING).description("응답 코드"),
-                            fieldWithPath("message").type(JsonFieldType.STRING).description("응답 메시지")
-                        )
-                        .build()
-                )
-            )
-        );
+        ResultActions resultActions =
+                mockMvc.perform(
+                                RestDocumentationRequestBuilders.delete(
+                                                "/api/v1/notifications/{notificationId}", 1L)
+                                        .with(user(MOCK_USER_ID))
+                                        .contentType(MediaType.APPLICATION_JSON))
+                        .andDo(
+                                MockMvcRestDocumentationWrapper.document(
+                                        "알림-06. 알림 삭제",
+                                        preprocessRequest(prettyPrint()),
+                                        preprocessResponse(prettyPrint()),
+                                        resource(
+                                                ResourceSnippetParameters.builder()
+                                                        .tag("Notification")
+                                                        .description("알림 삭제 (JWT 토큰 인증 필요)")
+                                                        .pathParameters(
+                                                                parameterWithName("notificationId")
+                                                                        .type(SimpleType.NUMBER)
+                                                                        .description("알림 ID"))
+                                                        .responseFields(
+                                                                fieldWithPath("code")
+                                                                        .type(JsonFieldType.STRING)
+                                                                        .description("응답 코드"),
+                                                                fieldWithPath("message")
+                                                                        .type(JsonFieldType.STRING)
+                                                                        .description("응답 메시지"))
+                                                        .build())));
 
         // then
         resultActions.andExpect(MockMvcResultMatchers.status().isOk());
@@ -321,51 +380,87 @@ class NotificationControllerTest {
     @DisplayName("GET /api/v1/notifications/preferences : 알림 설정 조회")
     void getPreferencesTest() throws Exception {
         // given
-        NotificationPreferenceResponse response = NotificationPreferenceResponse.builder()
-            .pushEnabled(true)
-            .friendNotifications(true)
-            .guildNotifications(true)
-            .socialNotifications(true)
-            .systemNotifications(true)
-            .itemPushNotifications(true)
-            .quietHoursEnabled(true)
-            .quietHoursStart("22:00")
-            .quietHoursEnd("08:00")
-            .build();
+        NotificationPreferenceResponse response =
+                NotificationPreferenceResponse.builder()
+                        .pushEnabled(true)
+                        .friendNotifications(true)
+                        .guildNotifications(true)
+                        .socialNotifications(true)
+                        .systemNotifications(true)
+                        .itemPushNotifications(true)
+                        .quietHoursEnabled(true)
+                        .quietHoursStart("22:00")
+                        .quietHoursEnd("08:00")
+                        .build();
 
         when(notificationService.getPreferences(anyString())).thenReturn(response);
 
         // when
-        ResultActions resultActions = mockMvc.perform(
-            RestDocumentationRequestBuilders.get("/api/v1/notifications/preferences")
-                .with(user(MOCK_USER_ID))
-                .contentType(MediaType.APPLICATION_JSON)
-        ).andDo(
-            MockMvcRestDocumentationWrapper.document("알림-07. 알림 설정 조회",
-                preprocessRequest(prettyPrint()),
-                preprocessResponse(prettyPrint()),
-                resource(
-                    ResourceSnippetParameters.builder()
-                        .tag("Notification")
-                        .description("알림 설정 조회 (JWT 토큰 인증 필요)")
-                        .responseFields(
-                            fieldWithPath("code").type(JsonFieldType.STRING).description("응답 코드"),
-                            fieldWithPath("message").type(JsonFieldType.STRING).description("응답 메시지"),
-                            fieldWithPath("value").type(JsonFieldType.OBJECT).description("알림 설정"),
-                            fieldWithPath("value.push_enabled").type(JsonFieldType.BOOLEAN).description("푸시 알림 활성화"),
-                            fieldWithPath("value.friend_notifications").type(JsonFieldType.BOOLEAN).description("친구 알림"),
-                            fieldWithPath("value.guild_notifications").type(JsonFieldType.BOOLEAN).description("길드 알림"),
-                            fieldWithPath("value.social_notifications").type(JsonFieldType.BOOLEAN).description("소셜 알림"),
-                            fieldWithPath("value.system_notifications").type(JsonFieldType.BOOLEAN).description("시스템 알림"),
-                            fieldWithPath("value.item_push_notifications").type(JsonFieldType.BOOLEAN).description("장착 아이템 푸시 알림"),
-                            fieldWithPath("value.quiet_hours_enabled").type(JsonFieldType.BOOLEAN).description("방해 금지 시간 활성화"),
-                            fieldWithPath("value.quiet_hours_start").type(JsonFieldType.STRING).description("방해 금지 시작 시간").optional(),
-                            fieldWithPath("value.quiet_hours_end").type(JsonFieldType.STRING).description("방해 금지 종료 시간").optional()
-                        )
-                        .build()
-                )
-            )
-        );
+        ResultActions resultActions =
+                mockMvc.perform(
+                                RestDocumentationRequestBuilders.get(
+                                                "/api/v1/notifications/preferences")
+                                        .with(user(MOCK_USER_ID))
+                                        .contentType(MediaType.APPLICATION_JSON))
+                        .andDo(
+                                MockMvcRestDocumentationWrapper.document(
+                                        "알림-07. 알림 설정 조회",
+                                        preprocessRequest(prettyPrint()),
+                                        preprocessResponse(prettyPrint()),
+                                        resource(
+                                                ResourceSnippetParameters.builder()
+                                                        .tag("Notification")
+                                                        .description("알림 설정 조회 (JWT 토큰 인증 필요)")
+                                                        .responseFields(
+                                                                fieldWithPath("code")
+                                                                        .type(JsonFieldType.STRING)
+                                                                        .description("응답 코드"),
+                                                                fieldWithPath("message")
+                                                                        .type(JsonFieldType.STRING)
+                                                                        .description("응답 메시지"),
+                                                                fieldWithPath("value")
+                                                                        .type(JsonFieldType.OBJECT)
+                                                                        .description("알림 설정"),
+                                                                fieldWithPath("value.push_enabled")
+                                                                        .type(JsonFieldType.BOOLEAN)
+                                                                        .description("푸시 알림 활성화"),
+                                                                fieldWithPath(
+                                                                                "value.friend_notifications")
+                                                                        .type(JsonFieldType.BOOLEAN)
+                                                                        .description("친구 알림"),
+                                                                fieldWithPath(
+                                                                                "value.guild_notifications")
+                                                                        .type(JsonFieldType.BOOLEAN)
+                                                                        .description("길드 알림"),
+                                                                fieldWithPath(
+                                                                                "value.social_notifications")
+                                                                        .type(JsonFieldType.BOOLEAN)
+                                                                        .description("소셜 알림"),
+                                                                fieldWithPath(
+                                                                                "value.system_notifications")
+                                                                        .type(JsonFieldType.BOOLEAN)
+                                                                        .description("시스템 알림"),
+                                                                fieldWithPath(
+                                                                                "value.item_push_notifications")
+                                                                        .type(JsonFieldType.BOOLEAN)
+                                                                        .description(
+                                                                                "장착 아이템 푸시 알림"),
+                                                                fieldWithPath(
+                                                                                "value.quiet_hours_enabled")
+                                                                        .type(JsonFieldType.BOOLEAN)
+                                                                        .description(
+                                                                                "방해 금지 시간 활성화"),
+                                                                fieldWithPath(
+                                                                                "value.quiet_hours_start")
+                                                                        .type(JsonFieldType.STRING)
+                                                                        .description("방해 금지 시작 시간")
+                                                                        .optional(),
+                                                                fieldWithPath(
+                                                                                "value.quiet_hours_end")
+                                                                        .type(JsonFieldType.STRING)
+                                                                        .description("방해 금지 종료 시간")
+                                                                        .optional())
+                                                        .build())));
 
         // then
         resultActions.andExpect(MockMvcResultMatchers.status().isOk());
@@ -375,60 +470,93 @@ class NotificationControllerTest {
     @DisplayName("PUT /api/v1/notifications/preferences : 알림 설정 수정")
     void updatePreferencesTest() throws Exception {
         // given
-        NotificationPreferenceRequest request = NotificationPreferenceRequest.builder()
-            .pushEnabled(true)
-            .friendNotifications(true)
-            .guildNotifications(true)
-            .socialNotifications(true)
-            .systemNotifications(true)
-            .quietHoursEnabled(true)
-            .quietHoursStart("22:00")
-            .quietHoursEnd("08:00")
-            .build();
+        NotificationPreferenceRequest request =
+                NotificationPreferenceRequest.builder()
+                        .pushEnabled(true)
+                        .friendNotifications(true)
+                        .guildNotifications(true)
+                        .socialNotifications(true)
+                        .systemNotifications(true)
+                        .quietHoursEnabled(true)
+                        .quietHoursStart("22:00")
+                        .quietHoursEnd("08:00")
+                        .build();
 
-        NotificationPreferenceResponse response = NotificationPreferenceResponse.builder()
-            .pushEnabled(true)
-            .friendNotifications(true)
-            .guildNotifications(true)
-            .socialNotifications(true)
-            .systemNotifications(true)
-            .quietHoursEnabled(true)
-            .quietHoursStart("22:00")
-            .quietHoursEnd("08:00")
-            .build();
+        NotificationPreferenceResponse response =
+                NotificationPreferenceResponse.builder()
+                        .pushEnabled(true)
+                        .friendNotifications(true)
+                        .guildNotifications(true)
+                        .socialNotifications(true)
+                        .systemNotifications(true)
+                        .quietHoursEnabled(true)
+                        .quietHoursStart("22:00")
+                        .quietHoursEnd("08:00")
+                        .build();
 
-        when(notificationService.updatePreferences(anyString(), any(NotificationPreferenceRequest.class)))
-            .thenReturn(response);
+        when(notificationService.updatePreferences(
+                        anyString(), any(NotificationPreferenceRequest.class)))
+                .thenReturn(response);
 
         // when
-        ResultActions resultActions = mockMvc.perform(
-            RestDocumentationRequestBuilders.put("/api/v1/notifications/preferences")
-                .with(user(MOCK_USER_ID))
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsString(request))
-        ).andDo(
-            MockMvcRestDocumentationWrapper.document("알림-08. 알림 설정 수정",
-                preprocessRequest(prettyPrint()),
-                preprocessResponse(prettyPrint()),
-                resource(
-                    ResourceSnippetParameters.builder()
-                        .tag("Notification")
-                        .description("알림 설정 수정 (JWT 토큰 인증 필요)")
-                        .requestFields(
-                            fieldWithPath("push_enabled").type(JsonFieldType.BOOLEAN).description("푸시 알림 활성화").optional(),
-                            fieldWithPath("friend_notifications").type(JsonFieldType.BOOLEAN).description("친구 알림").optional(),
-                            fieldWithPath("guild_notifications").type(JsonFieldType.BOOLEAN).description("길드 알림").optional(),
-                            fieldWithPath("social_notifications").type(JsonFieldType.BOOLEAN).description("소셜 알림").optional(),
-                            fieldWithPath("system_notifications").type(JsonFieldType.BOOLEAN).description("시스템 알림").optional(),
-                            fieldWithPath("item_push_notifications").type(JsonFieldType.BOOLEAN).description("장착 아이템 푸시 알림").optional(),
-                            fieldWithPath("quiet_hours_enabled").type(JsonFieldType.BOOLEAN).description("방해 금지 시간 활성화").optional(),
-                            fieldWithPath("quiet_hours_start").type(JsonFieldType.STRING).description("방해 금지 시작 시간").optional(),
-                            fieldWithPath("quiet_hours_end").type(JsonFieldType.STRING).description("방해 금지 종료 시간").optional()
-                        )
-                        .build()
-                )
-            )
-        );
+        ResultActions resultActions =
+                mockMvc.perform(
+                                RestDocumentationRequestBuilders.put(
+                                                "/api/v1/notifications/preferences")
+                                        .with(user(MOCK_USER_ID))
+                                        .contentType(MediaType.APPLICATION_JSON)
+                                        .content(objectMapper.writeValueAsString(request)))
+                        .andDo(
+                                MockMvcRestDocumentationWrapper.document(
+                                        "알림-08. 알림 설정 수정",
+                                        preprocessRequest(prettyPrint()),
+                                        preprocessResponse(prettyPrint()),
+                                        resource(
+                                                ResourceSnippetParameters.builder()
+                                                        .tag("Notification")
+                                                        .description("알림 설정 수정 (JWT 토큰 인증 필요)")
+                                                        .requestFields(
+                                                                fieldWithPath("push_enabled")
+                                                                        .type(JsonFieldType.BOOLEAN)
+                                                                        .description("푸시 알림 활성화")
+                                                                        .optional(),
+                                                                fieldWithPath(
+                                                                                "friend_notifications")
+                                                                        .type(JsonFieldType.BOOLEAN)
+                                                                        .description("친구 알림")
+                                                                        .optional(),
+                                                                fieldWithPath("guild_notifications")
+                                                                        .type(JsonFieldType.BOOLEAN)
+                                                                        .description("길드 알림")
+                                                                        .optional(),
+                                                                fieldWithPath(
+                                                                                "social_notifications")
+                                                                        .type(JsonFieldType.BOOLEAN)
+                                                                        .description("소셜 알림")
+                                                                        .optional(),
+                                                                fieldWithPath(
+                                                                                "system_notifications")
+                                                                        .type(JsonFieldType.BOOLEAN)
+                                                                        .description("시스템 알림")
+                                                                        .optional(),
+                                                                fieldWithPath(
+                                                                                "item_push_notifications")
+                                                                        .type(JsonFieldType.BOOLEAN)
+                                                                        .description("장착 아이템 푸시 알림")
+                                                                        .optional(),
+                                                                fieldWithPath("quiet_hours_enabled")
+                                                                        .type(JsonFieldType.BOOLEAN)
+                                                                        .description("방해 금지 시간 활성화")
+                                                                        .optional(),
+                                                                fieldWithPath("quiet_hours_start")
+                                                                        .type(JsonFieldType.STRING)
+                                                                        .description("방해 금지 시작 시간")
+                                                                        .optional(),
+                                                                fieldWithPath("quiet_hours_end")
+                                                                        .type(JsonFieldType.STRING)
+                                                                        .description("방해 금지 종료 시간")
+                                                                        .optional())
+                                                        .build())));
 
         // then
         resultActions.andExpect(MockMvcResultMatchers.status().isOk());

@@ -1,8 +1,9 @@
 package io.pinkspider.leveluptogethermvp.gamificationservice.season.application;
 
 import io.pinkspider.global.event.SeasonRewardItemGrantedEvent;
+import io.pinkspider.leveluptogethermvp.gamificationservice.achievement.application.TitleService;
+import io.pinkspider.leveluptogethermvp.gamificationservice.infrastructure.ExperienceHistoryRepository;
 import io.pinkspider.leveluptogethermvp.gamificationservice.season.api.dto.SeasonRewardProcessResult;
-import io.pinkspider.leveluptogethermvp.gamificationservice.shop.domain.entity.ShopItem;
 import io.pinkspider.leveluptogethermvp.gamificationservice.season.domain.entity.Season;
 import io.pinkspider.leveluptogethermvp.gamificationservice.season.domain.entity.SeasonRankReward;
 import io.pinkspider.leveluptogethermvp.gamificationservice.season.domain.entity.SeasonRewardHistory;
@@ -10,8 +11,11 @@ import io.pinkspider.leveluptogethermvp.gamificationservice.season.domain.enums.
 import io.pinkspider.leveluptogethermvp.gamificationservice.season.infrastructure.SeasonRankRewardRepository;
 import io.pinkspider.leveluptogethermvp.gamificationservice.season.infrastructure.SeasonRepository;
 import io.pinkspider.leveluptogethermvp.gamificationservice.season.infrastructure.SeasonRewardHistoryRepository;
-import io.pinkspider.leveluptogethermvp.gamificationservice.infrastructure.ExperienceHistoryRepository;
-import io.pinkspider.leveluptogethermvp.gamificationservice.achievement.application.TitleService;
+import io.pinkspider.leveluptogethermvp.gamificationservice.shop.domain.entity.ShopItem;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
@@ -19,11 +23,6 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.stream.Collectors;
 
 @Service
 @Slf4j
@@ -35,16 +34,19 @@ public class SeasonRewardProcessorService {
     private final SeasonRewardHistoryRepository rewardHistoryRepository;
     private final ExperienceHistoryRepository experienceHistoryRepository;
     private final TitleService titleService;
-    private final io.pinkspider.leveluptogethermvp.gamificationservice.shop.application.UserItemService userItemService;
+    private final io.pinkspider.leveluptogethermvp.gamificationservice.shop.application
+                    .UserItemService
+            userItemService;
     private final ApplicationEventPublisher eventPublisher;
 
-    /**
-     * 시즌 보상 처리 (메인 로직)
-     */
+    /** 시즌 보상 처리 (메인 로직) */
     @Transactional(transactionManager = "gamificationTransactionManager")
     public SeasonRewardProcessResult processSeasonRewards(Long seasonId) {
-        Season season = seasonRepository.findById(seasonId)
-            .orElseThrow(() -> new IllegalArgumentException("시즌을 찾을 수 없습니다: " + seasonId));
+        Season season =
+                seasonRepository
+                        .findById(seasonId)
+                        .orElseThrow(
+                                () -> new IllegalArgumentException("시즌을 찾을 수 없습니다: " + seasonId));
 
         // 이미 처리된 시즌인지 확인
         if (rewardHistoryRepository.existsBySeasonId(seasonId)) {
@@ -53,7 +55,8 @@ public class SeasonRewardProcessorService {
         }
 
         // 순위별 보상 설정 조회
-        List<SeasonRankReward> allRewards = rankRewardRepository.findBySeasonIdOrderBySortOrder(seasonId);
+        List<SeasonRankReward> allRewards =
+                rankRewardRepository.findBySeasonIdOrderBySortOrder(seasonId);
         if (allRewards.isEmpty()) {
             log.warn("시즌에 설정된 보상이 없습니다: seasonId={}", seasonId);
             return SeasonRewardProcessResult.noRewardsConfigured(seasonId);
@@ -64,9 +67,8 @@ public class SeasonRewardProcessorService {
         int skipCount = 0;
 
         // 전체 랭킹 보상 처리
-        List<SeasonRankReward> overallRewards = allRewards.stream()
-            .filter(SeasonRankReward::isOverallRanking)
-            .toList();
+        List<SeasonRankReward> overallRewards =
+                allRewards.stream().filter(SeasonRankReward::isOverallRanking).toList();
 
         if (!overallRewards.isEmpty()) {
             int[] result = processOverallRankingRewards(season, overallRewards);
@@ -76,75 +78,79 @@ public class SeasonRewardProcessorService {
         }
 
         // 카테고리별 랭킹 보상 처리
-        Map<Long, List<SeasonRankReward>> categoryRewardsMap = allRewards.stream()
-            .filter(r -> !r.isOverallRanking())
-            .collect(Collectors.groupingBy(SeasonRankReward::getCategoryId));
+        Map<Long, List<SeasonRankReward>> categoryRewardsMap =
+                allRewards.stream()
+                        .filter(r -> !r.isOverallRanking())
+                        .collect(Collectors.groupingBy(SeasonRankReward::getCategoryId));
 
         for (Map.Entry<Long, List<SeasonRankReward>> entry : categoryRewardsMap.entrySet()) {
             Long categoryId = entry.getKey();
             List<SeasonRankReward> categoryRewards = entry.getValue();
             String categoryName = categoryRewards.get(0).getCategoryName();
 
-            int[] result = processCategoryRankingRewards(season, categoryId, categoryName, categoryRewards);
+            int[] result =
+                    processCategoryRankingRewards(
+                            season, categoryId, categoryName, categoryRewards);
             successCount += result[0];
             failCount += result[1];
             skipCount += result[2];
         }
 
-        log.info("시즌 보상 처리 완료: seasonId={}, success={}, fail={}, skip={}",
-            seasonId, successCount, failCount, skipCount);
+        log.info(
+                "시즌 보상 처리 완료: seasonId={}, success={}, fail={}, skip={}",
+                seasonId,
+                successCount,
+                failCount,
+                skipCount);
 
         return SeasonRewardProcessResult.completed(seasonId, successCount, failCount, skipCount);
     }
 
-    /**
-     * 전체 랭킹 보상 처리
-     */
+    /** 전체 랭킹 보상 처리 */
     private int[] processOverallRankingRewards(Season season, List<SeasonRankReward> rewards) {
-        int maxRank = rewards.stream()
-            .mapToInt(SeasonRankReward::getRankEnd)
-            .max()
-            .orElse(0);
+        int maxRank = rewards.stream().mapToInt(SeasonRankReward::getRankEnd).max().orElse(0);
 
         if (maxRank == 0) {
-            return new int[]{0, 0, 0};
+            return new int[] {0, 0, 0};
         }
 
         Map<Integer, SeasonRankReward> rankRewardMap = buildRankRewardMap(rewards, maxRank);
 
-        List<Object[]> topGainers = experienceHistoryRepository.findTopExpGainersByPeriod(
-            season.getStartAt(), season.getEndAt(), PageRequest.of(0, maxRank));
+        List<Object[]> topGainers =
+                experienceHistoryRepository.findTopExpGainersByPeriod(
+                        season.getStartAt(), season.getEndAt(), PageRequest.of(0, maxRank));
 
         return processRankings(season.getId(), null, null, topGainers, rankRewardMap);
     }
 
-    /**
-     * 카테고리별 랭킹 보상 처리
-     */
-    private int[] processCategoryRankingRewards(Season season, Long categoryId, String categoryName,
-                                                 List<SeasonRankReward> rewards) {
-        int maxRank = rewards.stream()
-            .mapToInt(SeasonRankReward::getRankEnd)
-            .max()
-            .orElse(0);
+    /** 카테고리별 랭킹 보상 처리 */
+    private int[] processCategoryRankingRewards(
+            Season season, Long categoryId, String categoryName, List<SeasonRankReward> rewards) {
+        int maxRank = rewards.stream().mapToInt(SeasonRankReward::getRankEnd).max().orElse(0);
 
         if (maxRank == 0) {
-            return new int[]{0, 0, 0};
+            return new int[] {0, 0, 0};
         }
 
         Map<Integer, SeasonRankReward> rankRewardMap = buildRankRewardMap(rewards, maxRank);
 
-        List<Object[]> topGainers = experienceHistoryRepository.findTopExpGainersByCategoryAndPeriod(
-            categoryName, season.getStartAt(), season.getEndAt(), PageRequest.of(0, maxRank));
+        List<Object[]> topGainers =
+                experienceHistoryRepository.findTopExpGainersByCategoryAndPeriod(
+                        categoryName,
+                        season.getStartAt(),
+                        season.getEndAt(),
+                        PageRequest.of(0, maxRank));
 
         return processRankings(season.getId(), categoryId, categoryName, topGainers, rankRewardMap);
     }
 
-    /**
-     * 랭킹 데이터로 보상 처리
-     */
-    private int[] processRankings(Long seasonId, Long categoryId, String categoryName,
-                                   List<Object[]> topGainers, Map<Integer, SeasonRankReward> rankRewardMap) {
+    /** 랭킹 데이터로 보상 처리 */
+    private int[] processRankings(
+            Long seasonId,
+            Long categoryId,
+            String categoryName,
+            List<Object[]> topGainers,
+            Map<Integer, SeasonRankReward> rankRewardMap) {
         int successCount = 0;
         int failCount = 0;
         int skipCount = 0;
@@ -162,42 +168,57 @@ public class SeasonRewardProcessorService {
                 continue;
             }
 
-            SeasonRewardHistory history = SeasonRewardHistory.builder()
-                .seasonId(seasonId)
-                .userId(userId)
-                .finalRank(rank)
-                .totalExp(totalExp)
-                .titleId(reward.getTitleId())
-                .titleName(reward.getTitleName())
-                .itemId(reward.getItemId())
-                .itemName(reward.getItemName())
-                .categoryId(categoryId)
-                .categoryName(categoryName)
-                .status(SeasonRewardStatus.PENDING)
-                .build();
+            SeasonRewardHistory history =
+                    SeasonRewardHistory.builder()
+                            .seasonId(seasonId)
+                            .userId(userId)
+                            .finalRank(rank)
+                            .totalExp(totalExp)
+                            .titleId(reward.getTitleId())
+                            .titleName(reward.getTitleName())
+                            .itemId(reward.getItemId())
+                            .itemName(reward.getItemName())
+                            .categoryId(categoryId)
+                            .categoryName(categoryName)
+                            .status(SeasonRewardStatus.PENDING)
+                            .build();
 
             try {
                 titleService.grantTitle(userId, reward.getTitleId());
                 // LUT-339: 보상 아이템 동시 지급 — grantItem 은 이미 보유 시 no-op(멱등)
                 if (reward.getItemId() != null) {
-                    publishItemGrantedEvent(userId,
-                        userItemService.grantItem(userId, reward.getItemId()));
+                    publishItemGrantedEvent(
+                            userId, userItemService.grantItem(userId, reward.getItemId()));
                 }
                 history.markSuccess();
                 successCount++;
-                log.info("시즌 보상 부여 성공: seasonId={}, userId={}, rank={}, rankingType={}, titleId={}",
-                    seasonId, userId, rank, rankingType, reward.getTitleId());
+                log.info(
+                        "시즌 보상 부여 성공: seasonId={}, userId={}, rank={}, rankingType={}, titleId={}",
+                        seasonId,
+                        userId,
+                        rank,
+                        rankingType,
+                        reward.getTitleId());
             } catch (Exception e) {
                 if (e.getMessage() != null && e.getMessage().contains("이미 보유한 칭호")) {
                     history.markSkipped("이미 칭호 보유");
                     skipCount++;
-                    log.info("시즌 보상 건너뜀 (이미 보유): seasonId={}, userId={}, rank={}, rankingType={}",
-                        seasonId, userId, rank, rankingType);
+                    log.info(
+                            "시즌 보상 건너뜀 (이미 보유): seasonId={}, userId={}, rank={}, rankingType={}",
+                            seasonId,
+                            userId,
+                            rank,
+                            rankingType);
                 } else {
                     history.markFailed(e.getMessage());
                     failCount++;
-                    log.error("시즌 보상 부여 실패: seasonId={}, userId={}, rank={}, rankingType={}",
-                        seasonId, userId, rank, rankingType, e);
+                    log.error(
+                            "시즌 보상 부여 실패: seasonId={}, userId={}, rank={}, rankingType={}",
+                            seasonId,
+                            userId,
+                            rank,
+                            rankingType,
+                            e);
                 }
             }
 
@@ -206,18 +227,20 @@ public class SeasonRewardProcessorService {
             try {
                 rewardHistoryRepository.saveAndFlush(history);
             } catch (DataIntegrityViolationException dup) {
-                log.warn("시즌 보상 이력 중복 감지, 스킵: seasonId={}, userId={}, categoryId={}",
-                    seasonId, userId, categoryId);
+                log.warn(
+                        "시즌 보상 이력 중복 감지, 스킵: seasonId={}, userId={}, categoryId={}",
+                        seasonId,
+                        userId,
+                        categoryId);
             }
         }
 
-        return new int[]{successCount, failCount, skipCount};
+        return new int[] {successCount, failCount, skipCount};
     }
 
-    /**
-     * 순위별 보상 맵 생성 (순위 -> 보상)
-     */
-    private Map<Integer, SeasonRankReward> buildRankRewardMap(List<SeasonRankReward> rewards, int maxRank) {
+    /** 순위별 보상 맵 생성 (순위 -> 보상) */
+    private Map<Integer, SeasonRankReward> buildRankRewardMap(
+            List<SeasonRankReward> rewards, int maxRank) {
         Map<Integer, SeasonRankReward> map = new HashMap<>();
         for (int rank = 1; rank <= maxRank; rank++) {
             for (SeasonRankReward reward : rewards) {
@@ -230,13 +253,12 @@ public class SeasonRewardProcessorService {
         return map;
     }
 
-    /**
-     * 실패한 보상 재처리
-     */
+    /** 실패한 보상 재처리 */
     @Transactional(transactionManager = "gamificationTransactionManager")
     public int retryFailedRewards(Long seasonId) {
         List<SeasonRewardHistory> failedRewards =
-            rewardHistoryRepository.findBySeasonIdAndStatus(seasonId, SeasonRewardStatus.FAILED);
+                rewardHistoryRepository.findBySeasonIdAndStatus(
+                        seasonId, SeasonRewardStatus.FAILED);
 
         int retrySuccessCount = 0;
         for (SeasonRewardHistory history : failedRewards) {
@@ -244,13 +266,16 @@ public class SeasonRewardProcessorService {
                 titleService.grantTitle(history.getUserId(), history.getTitleId());
                 // LUT-339: 아이템 보상도 재지급 (멱등이라 이미 지급분은 무해)
                 if (history.getItemId() != null) {
-                    publishItemGrantedEvent(history.getUserId(),
-                        userItemService.grantItem(history.getUserId(), history.getItemId()));
+                    publishItemGrantedEvent(
+                            history.getUserId(),
+                            userItemService.grantItem(history.getUserId(), history.getItemId()));
                 }
                 history.markSuccess();
                 retrySuccessCount++;
-                log.info("시즌 보상 재처리 성공: historyId={}, userId={}",
-                    history.getId(), history.getUserId());
+                log.info(
+                        "시즌 보상 재처리 성공: historyId={}, userId={}",
+                        history.getId(),
+                        history.getUserId());
             } catch (Exception e) {
                 history.markFailed("재처리 실패: " + e.getMessage());
                 log.error("시즌 보상 재처리 실패: historyId={}", history.getId(), e);
@@ -262,15 +287,20 @@ public class SeasonRewardProcessorService {
     }
 
     /**
-     * LUT-410: 신규 지급된 경우에만 획득 알림 이벤트 발행 (멱등 재지급 no-op 은 미발행).
-     * AFTER_COMMIT 리스너라 보상 트랜잭션이 롤백되면 알림도 발송되지 않는다.
+     * LUT-410: 신규 지급된 경우에만 획득 알림 이벤트 발행 (멱등 재지급 no-op 은 미발행). AFTER_COMMIT 리스너라 보상 트랜잭션이 롤백되면 알림도
+     * 발송되지 않는다.
      */
     private void publishItemGrantedEvent(String userId, ShopItem granted) {
         if (granted == null) {
             return;
         }
-        eventPublisher.publishEvent(new SeasonRewardItemGrantedEvent(
-            userId, granted.getId(), granted.getName(), granted.getNameEn(),
-            granted.getNameAr(), granted.getNameJa()));
+        eventPublisher.publishEvent(
+                new SeasonRewardItemGrantedEvent(
+                        userId,
+                        granted.getId(),
+                        granted.getName(),
+                        granted.getNameEn(),
+                        granted.getNameAr(),
+                        granted.getNameJa()));
     }
 }

@@ -27,19 +27,16 @@ import org.springframework.transaction.annotation.Transactional;
 /**
  * LUT-282: 미션 푸시 리마인더 스케줄러.
  *
- * <p>유저가 미션 생성/수정 시 설정한 리마인더(요일 + 시각, 유저 로컬 기준)에 맞춰
- * {@link MissionReminderEvent}를 발행한다. 이벤트는 NotificationEventListener 가 소비해
- * 알림 row 생성 + 유저 locale 다국어 푸시 발송으로 이어진다.
+ * <p>유저가 미션 생성/수정 시 설정한 리마인더(요일 + 시각, 유저 로컬 기준)에 맞춰 {@link MissionReminderEvent}를 발행한다. 이벤트는
+ * NotificationEventListener 가 소비해 알림 row 생성 + 유저 locale 다국어 푸시 발송으로 이어진다.
  *
- * <p>동작 방식: UTC 기준 매시 정각/30분에 실행되어, 리마인더가 설정된 활성 개인 미션 각각에 대해
- * 생성자의 선호 타임존(preferred_timezone) 로컬 시각을 계산한다. 로컬 시(hour)가 설정 시각과
- * 일치하고 로컬 분(minute)이 설정 분의 30분 구간(0분 설정=0-29, 30분 설정=30-59, LUT-295)에
- * 들어올 때만 발송하므로, 정수/30분 오프셋 타임존 모두 시간당 정확히 1회 매칭된다
- * (예: Asia/Seoul 0분 설정은 UTC 정각 실행에서, Asia/Kolkata(+5:30) 0분 설정은
- * UTC 30분 실행에서 로컬 정각이 된다).
+ * <p>동작 방식: UTC 기준 매시 정각/30분에 실행되어, 리마인더가 설정된 활성 개인 미션 각각에 대해 생성자의 선호 타임존(preferred_timezone) 로컬
+ * 시각을 계산한다. 로컬 시(hour)가 설정 시각과 일치하고 로컬 분(minute)이 설정 분의 30분 구간(0분 설정=0-29, 30분 설정=30-59, LUT-295)에
+ * 들어올 때만 발송하므로, 정수/30분 오프셋 타임존 모두 시간당 정확히 1회 매칭된다 (예: Asia/Seoul 0분 설정은 UTC 정각 실행에서,
+ * Asia/Kolkata(+5:30) 0분 설정은 UTC 30분 실행에서 로컬 정각이 된다).
  *
- * <p>당일(유저 로컬 날짜) 이미 완료한 미션은 리마인더를 보내지 않는다. 참가가 종료된
- * (완료/실패/철회) 미션은 "나의 미션" 목록에서 사라지므로 이후 영구적으로 발송하지 않는다 (LUT-335).
+ * <p>당일(유저 로컬 날짜) 이미 완료한 미션은 리마인더를 보내지 않는다. 참가가 종료된 (완료/실패/철회) 미션은 "나의 미션" 목록에서 사라지므로 이후 영구적으로 발송하지
+ * 않는다 (LUT-335).
  */
 @Component
 @RequiredArgsConstructor
@@ -56,8 +53,11 @@ public class MissionReminderScheduler {
     private static final ZoneId DEFAULT_ZONE = ZoneId.of("Asia/Seoul");
 
     /** "나의 미션" 목록에 노출되는 참가 상태 — 이 상태에서만 리마인더를 발송한다 (LUT-335). */
-    private static final Set<ParticipantStatus> ACTIVE_PARTICIPANT_STATUSES = EnumSet.of(
-        ParticipantStatus.PENDING, ParticipantStatus.ACCEPTED, ParticipantStatus.IN_PROGRESS);
+    private static final Set<ParticipantStatus> ACTIVE_PARTICIPANT_STATUSES =
+            EnumSet.of(
+                    ParticipantStatus.PENDING,
+                    ParticipantStatus.ACCEPTED,
+                    ParticipantStatus.IN_PROGRESS);
 
     // 테스트에서 고정 시각 주입용 (package-private setter)
     private Clock clock = Clock.systemUTC();
@@ -67,8 +67,10 @@ public class MissionReminderScheduler {
     }
 
     @Scheduled(cron = "0 0,30 * * * *")
-    @SchedulerLock(name = "MissionReminderScheduler_sendReminders",
-        lockAtMostFor = "PT10M", lockAtLeastFor = "PT30S")
+    @SchedulerLock(
+            name = "MissionReminderScheduler_sendReminders",
+            lockAtMostFor = "PT10M",
+            lockAtLeastFor = "PT30S")
     @Transactional(transactionManager = "missionTransactionManager", readOnly = true)
     public void sendReminders() {
         List<Mission> missions = missionRepository.findActiveReminderMissions();
@@ -83,8 +85,11 @@ public class MissionReminderScheduler {
                     sent++;
                 }
             } catch (Exception e) {
-                log.error("미션 리마인더 처리 실패: missionId={}, error={}",
-                    mission.getId(), e.getMessage(), e);
+                log.error(
+                        "미션 리마인더 처리 실패: missionId={}, error={}",
+                        mission.getId(),
+                        e.getMessage(),
+                        e);
             }
         }
 
@@ -100,9 +105,8 @@ public class MissionReminderScheduler {
         // 유저 로컬 시각 매칭 — 30분 격자에서 시간당 1회만.
         // LUT-295: 설정 분(0|30)의 30분 구간에 로컬 분이 들어와야 발송 (0분=0-29, 30분=30-59)
         int reminderMinute = mission.getReminderMinute() != null ? mission.getReminderMinute() : 0;
-        boolean minuteInWindow = reminderMinute == 30
-            ? userNow.getMinute() >= 30
-            : userNow.getMinute() < 30;
+        boolean minuteInWindow =
+                reminderMinute == 30 ? userNow.getMinute() >= 30 : userNow.getMinute() < 30;
         if (userNow.getHour() != mission.getReminderHour() || !minuteInWindow) {
             return false;
         }
@@ -114,21 +118,21 @@ public class MissionReminderScheduler {
         }
 
         eventPublisher.publishEvent(
-            new MissionReminderEvent(userId, mission.getId(), mission.getTitle()));
+                new MissionReminderEvent(userId, mission.getId(), mission.getTitle()));
         return true;
     }
 
     /**
      * 리마인더를 건너뛸 상태인지 판정한다.
      *
-     * <p>참가가 이미 종료(완료/실패/철회)됐으면 "나의 미션" 목록에 없는 미션이므로 영구 제외한다.
-     * 일반 미션은 완료 시 미래의 PENDING execution 이 삭제되어 당일 완료 검사만으로는 걸러지지 않는다
-     * (LUT-335). 진행 중인 미션은 당일(유저 로컬 날짜) 수행 여부로만 판정한다.
+     * <p>참가가 이미 종료(완료/실패/철회)됐으면 "나의 미션" 목록에 없는 미션이므로 영구 제외한다. 일반 미션은 완료 시 미래의 PENDING execution 이
+     * 삭제되어 당일 완료 검사만으로는 걸러지지 않는다 (LUT-335). 진행 중인 미션은 당일(유저 로컬 날짜) 수행 여부로만 판정한다.
      */
     private boolean isReminderUnnecessary(Mission mission, String userId, ZonedDateTime userNow) {
-        MissionParticipant participant = participantRepository
-            .findByMissionIdAndUserId(mission.getId(), userId)
-            .orElse(null);
+        MissionParticipant participant =
+                participantRepository
+                        .findByMissionIdAndUserId(mission.getId(), userId)
+                        .orElse(null);
         if (participant == null) {
             return false;
         }
@@ -138,12 +142,13 @@ public class MissionReminderScheduler {
 
         if (Boolean.TRUE.equals(mission.getIsPinned())) {
             return instanceRepository.countCompletedByParticipantIdAndDate(
-                participant.getId(), userNow.toLocalDate()) > 0;
+                            participant.getId(), userNow.toLocalDate())
+                    > 0;
         }
         return executionRepository
-            .findByParticipantIdAndExecutionDate(participant.getId(), userNow.toLocalDate())
-            .map(execution -> execution.getStatus() == ExecutionStatus.COMPLETED)
-            .orElse(false);
+                .findByParticipantIdAndExecutionDate(participant.getId(), userNow.toLocalDate())
+                .map(execution -> execution.getStatus() == ExecutionStatus.COMPLETED)
+                .orElse(false);
     }
 
     private ZoneId resolveUserZone(String userId) {

@@ -15,8 +15,9 @@ public class TermVersionService {
     private final TermVersionRepository termVersionRepository;
 
     public TermVersion findById(Long termVersionId) {
-        return termVersionRepository.findById(termVersionId)
-            .orElseThrow(() -> new CustomException("", ""));
+        return termVersionRepository
+                .findById(termVersionId)
+                .orElseThrow(() -> new CustomException("", ""));
     }
 
     public void save(TermVersion termVersion) {

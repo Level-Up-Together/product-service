@@ -46,30 +46,26 @@ import org.springframework.data.domain.Pageable;
 @ExtendWith(MockitoExtension.class)
 class GuildAdminInternalServiceTest {
 
-    @Mock
-    private GuildRepository guildRepository;
+    @Mock private GuildRepository guildRepository;
 
-    @Mock
-    private GuildMemberRepository guildMemberRepository;
+    @Mock private GuildMemberRepository guildMemberRepository;
 
-    @Mock
-    private MissionCategoryService missionCategoryService;
+    @Mock private MissionCategoryService missionCategoryService;
 
-    @Mock
-    private UserQueryFacade userQueryFacadeService;
+    @Mock private UserQueryFacade userQueryFacadeService;
 
-    @InjectMocks
-    private GuildAdminInternalService service;
+    @InjectMocks private GuildAdminInternalService service;
 
     private Guild createTestGuild(Long id) {
-        Guild guild = Guild.builder()
-            .name("테스트 길드")
-            .description("설명")
-            .visibility(GuildVisibility.PUBLIC)
-            .masterId("master-1")
-            .categoryId(1L)
-            .isActive(true)
-            .build();
+        Guild guild =
+                Guild.builder()
+                        .name("테스트 길드")
+                        .description("설명")
+                        .visibility(GuildVisibility.PUBLIC)
+                        .masterId("master-1")
+                        .categoryId(1L)
+                        .isActive(true)
+                        .build();
         setId(guild, id);
         return guild;
     }
@@ -85,13 +81,18 @@ class GuildAdminInternalServiceTest {
             Guild guild = createTestGuild(1L);
             Page<Guild> page = new PageImpl<>(List.of(guild));
             Pageable pageable = PageRequest.of(0, 10);
-            when(guildRepository.searchGuildsForAdmin(any(), anyBoolean(), anyList(), any(), any(), any()))
-                .thenReturn(page);
+            when(guildRepository.searchGuildsForAdmin(
+                            any(), anyBoolean(), anyList(), any(), any(), any()))
+                    .thenReturn(page);
             when(missionCategoryService.getAllCategories()).thenReturn(List.of());
             when(guildMemberRepository.countActiveMembersByGuildIds(anyList()))
-                .thenReturn(Collections.singletonList(new Object[]{1L, 5L}));
+                    .thenReturn(Collections.singletonList(new Object[] {1L, 5L}));
             when(userQueryFacadeService.getUserProfiles(anyList()))
-                .thenReturn(Map.of("master-1", new UserProfileInfo("master-1", "마스터", null, null, null, null, null)));
+                    .thenReturn(
+                            Map.of(
+                                    "master-1",
+                                    new UserProfileInfo(
+                                            "master-1", "마스터", null, null, null, null, null)));
 
             // when
             GuildAdminPageResponse result = service.searchGuilds("테스트", null, null, null, pageable);
@@ -106,12 +107,19 @@ class GuildAdminInternalServiceTest {
             // given
             Page<Guild> page = new PageImpl<>(List.of());
             Pageable pageable = PageRequest.of(0, 10);
-            when(guildRepository.searchGuildsForAdmin(any(), anyBoolean(), anyList(), any(), eq(GuildVisibility.PRIVATE), any()))
-                .thenReturn(page);
+            when(guildRepository.searchGuildsForAdmin(
+                            any(),
+                            anyBoolean(),
+                            anyList(),
+                            any(),
+                            eq(GuildVisibility.PRIVATE),
+                            any()))
+                    .thenReturn(page);
             when(missionCategoryService.getAllCategories()).thenReturn(List.of());
 
             // when
-            GuildAdminPageResponse result = service.searchGuilds(null, null, null, "PRIVATE", pageable);
+            GuildAdminPageResponse result =
+                    service.searchGuilds(null, null, null, "PRIVATE", pageable);
 
             // then
             assertThat(result).isNotNull();
@@ -123,13 +131,14 @@ class GuildAdminInternalServiceTest {
             // given
             Page<Guild> page = new PageImpl<>(List.of());
             Pageable pageable = PageRequest.of(0, 10);
-            when(guildRepository.searchGuildsForAdmin(any(), eq(true), eq(List.of(1L, 2L)), any(), any(), any()))
-                .thenReturn(page);
+            when(guildRepository.searchGuildsForAdmin(
+                            any(), eq(true), eq(List.of(1L, 2L)), any(), any(), any()))
+                    .thenReturn(page);
             when(missionCategoryService.getAllCategories()).thenReturn(List.of());
 
             // when
             GuildAdminPageResponse result =
-                service.searchGuilds(null, 9L, List.of(1L, 2L), null, null, pageable);
+                    service.searchGuilds(null, 9L, List.of(1L, 2L), null, null, pageable);
 
             // then
             assertThat(result).isNotNull();
@@ -141,13 +150,14 @@ class GuildAdminInternalServiceTest {
             // given
             Page<Guild> page = new PageImpl<>(List.of());
             Pageable pageable = PageRequest.of(0, 10);
-            when(guildRepository.searchGuildsForAdmin(any(), eq(true), eq(List.of(7L)), any(), any(), any()))
-                .thenReturn(page);
+            when(guildRepository.searchGuildsForAdmin(
+                            any(), eq(true), eq(List.of(7L)), any(), any(), any()))
+                    .thenReturn(page);
             when(missionCategoryService.getAllCategories()).thenReturn(List.of());
 
             // when
             GuildAdminPageResponse result =
-                service.searchGuilds(null, 7L, List.of(), null, null, pageable);
+                    service.searchGuilds(null, 7L, List.of(), null, null, pageable);
 
             // then
             assertThat(result).isNotNull();
@@ -159,12 +169,14 @@ class GuildAdminInternalServiceTest {
             // given
             Page<Guild> page = new PageImpl<>(List.of());
             Pageable pageable = PageRequest.of(0, 10);
-            when(guildRepository.searchGuildsForAdmin(any(), eq(true), eq(List.of(3L)), any(), any(), any()))
-                .thenReturn(page);
+            when(guildRepository.searchGuildsForAdmin(
+                            any(), eq(true), eq(List.of(3L)), any(), any(), any()))
+                    .thenReturn(page);
             when(missionCategoryService.getAllCategories()).thenReturn(List.of());
 
             // when
-            GuildAdminPageResponse result = service.searchGuilds(null, 3L, null, null, null, pageable);
+            GuildAdminPageResponse result =
+                    service.searchGuilds(null, 3L, null, null, null, pageable);
 
             // then
             assertThat(result).isNotNull();
@@ -177,11 +189,19 @@ class GuildAdminInternalServiceTest {
             Guild guild = createTestGuild(1L);
             Page<Guild> page = new PageImpl<>(List.of(guild));
             Pageable pageable = PageRequest.of(0, 10);
-            when(guildRepository.searchGuildsForAdmin(any(), anyBoolean(), anyList(), any(), any(), any()))
-                .thenReturn(page);
+            when(guildRepository.searchGuildsForAdmin(
+                            any(), anyBoolean(), anyList(), any(), any(), any()))
+                    .thenReturn(page);
             when(missionCategoryService.getAllCategories())
-                .thenReturn(List.of(MissionCategoryResponse.builder().id(1L).name("운동").icon("dumbbell").build()));
-            when(guildMemberRepository.countActiveMembersByGuildIds(anyList())).thenReturn(List.of());
+                    .thenReturn(
+                            List.of(
+                                    MissionCategoryResponse.builder()
+                                            .id(1L)
+                                            .name("운동")
+                                            .icon("dumbbell")
+                                            .build()));
+            when(guildMemberRepository.countActiveMembersByGuildIds(anyList()))
+                    .thenReturn(List.of());
             when(userQueryFacadeService.getUserProfiles(anyList())).thenReturn(Map.of());
 
             // when
@@ -197,19 +217,22 @@ class GuildAdminInternalServiceTest {
         @DisplayName("마스터가 없는 길드는 마스터 닉네임 조회를 건너뛴다")
         void skipsMasterNicknameWhenMasterIdNull() {
             // given
-            Guild guild = Guild.builder()
-                .name("주인 없는 길드")
-                .visibility(GuildVisibility.PUBLIC)
-                .masterId(null)
-                .categoryId(1L)
-                .build();
+            Guild guild =
+                    Guild.builder()
+                            .name("주인 없는 길드")
+                            .visibility(GuildVisibility.PUBLIC)
+                            .masterId(null)
+                            .categoryId(1L)
+                            .build();
             setId(guild, 5L);
             Page<Guild> page = new PageImpl<>(List.of(guild));
             Pageable pageable = PageRequest.of(0, 10);
-            when(guildRepository.searchGuildsForAdmin(any(), anyBoolean(), anyList(), any(), any(), any()))
-                .thenReturn(page);
+            when(guildRepository.searchGuildsForAdmin(
+                            any(), anyBoolean(), anyList(), any(), any(), any()))
+                    .thenReturn(page);
             when(missionCategoryService.getAllCategories()).thenReturn(List.of());
-            when(guildMemberRepository.countActiveMembersByGuildIds(anyList())).thenReturn(List.of());
+            when(guildMemberRepository.countActiveMembersByGuildIds(anyList()))
+                    .thenReturn(List.of());
 
             // when
             GuildAdminPageResponse result = service.searchGuilds(null, null, null, null, pageable);
@@ -226,10 +249,12 @@ class GuildAdminInternalServiceTest {
             Guild guild = createTestGuild(1L);
             Page<Guild> page = new PageImpl<>(List.of(guild));
             Pageable pageable = PageRequest.of(0, 10);
-            when(guildRepository.searchGuildsForAdmin(any(), anyBoolean(), anyList(), any(), any(), any()))
-                .thenReturn(page);
+            when(guildRepository.searchGuildsForAdmin(
+                            any(), anyBoolean(), anyList(), any(), any(), any()))
+                    .thenReturn(page);
             when(missionCategoryService.getAllCategories()).thenReturn(List.of());
-            when(guildMemberRepository.countActiveMembersByGuildIds(anyList())).thenReturn(List.of());
+            when(guildMemberRepository.countActiveMembersByGuildIds(anyList()))
+                    .thenReturn(List.of());
             Map<String, UserProfileInfo> profiles = new HashMap<>();
             profiles.put("master-1", null);
             when(userQueryFacadeService.getUserProfiles(anyList())).thenReturn(profiles);
@@ -248,10 +273,13 @@ class GuildAdminInternalServiceTest {
             Guild guild = createTestGuild(1L);
             Page<Guild> page = new PageImpl<>(List.of(guild));
             Pageable pageable = PageRequest.of(0, 10);
-            when(guildRepository.searchGuildsForAdmin(any(), anyBoolean(), anyList(), any(), any(), any()))
-                .thenReturn(page);
-            when(missionCategoryService.getAllCategories()).thenThrow(new RuntimeException("meta down"));
-            when(guildMemberRepository.countActiveMembersByGuildIds(anyList())).thenReturn(List.of());
+            when(guildRepository.searchGuildsForAdmin(
+                            any(), anyBoolean(), anyList(), any(), any(), any()))
+                    .thenReturn(page);
+            when(missionCategoryService.getAllCategories())
+                    .thenThrow(new RuntimeException("meta down"));
+            when(guildMemberRepository.countActiveMembersByGuildIds(anyList()))
+                    .thenReturn(List.of());
             when(userQueryFacadeService.getUserProfiles(anyList())).thenReturn(Map.of());
 
             // when
@@ -273,10 +301,16 @@ class GuildAdminInternalServiceTest {
             Guild guild = createTestGuild(1L);
             when(guildRepository.findById(1L)).thenReturn(Optional.of(guild));
             when(missionCategoryService.getCategory(1L))
-                .thenReturn(MissionCategoryResponse.builder().id(1L).name("카테고리").icon("icon").build());
+                    .thenReturn(
+                            MissionCategoryResponse.builder()
+                                    .id(1L)
+                                    .name("카테고리")
+                                    .icon("icon")
+                                    .build());
             when(guildMemberRepository.countActiveMembers(1L)).thenReturn(5L);
             when(userQueryFacadeService.getUserProfile("master-1"))
-                .thenReturn(new UserProfileInfo("master-1", "마스터", null, null, null, null, null));
+                    .thenReturn(
+                            new UserProfileInfo("master-1", "마스터", null, null, null, null, null));
 
             // when
             GuildAdminResponse result = service.getGuild(1L);
@@ -290,23 +324,24 @@ class GuildAdminInternalServiceTest {
         void throwsWhenNotFound() {
             when(guildRepository.findById(999L)).thenReturn(Optional.empty());
 
-            assertThatThrownBy(() -> service.getGuild(999L))
-                .isInstanceOf(CustomException.class);
+            assertThatThrownBy(() -> service.getGuild(999L)).isInstanceOf(CustomException.class);
         }
 
         @Test
         @DisplayName("카테고리 조회 실패·마스터 없음이면 카테고리·닉네임이 null이다")
         void nullCategoryAndNullMaster() {
             // given
-            Guild guild = Guild.builder()
-                .name("주인 없는 길드")
-                .visibility(GuildVisibility.PUBLIC)
-                .masterId(null)
-                .categoryId(1L)
-                .build();
+            Guild guild =
+                    Guild.builder()
+                            .name("주인 없는 길드")
+                            .visibility(GuildVisibility.PUBLIC)
+                            .masterId(null)
+                            .categoryId(1L)
+                            .build();
             setId(guild, 1L);
             when(guildRepository.findById(1L)).thenReturn(Optional.of(guild));
-            when(missionCategoryService.getCategory(1L)).thenThrow(new RuntimeException("meta down"));
+            when(missionCategoryService.getCategory(1L))
+                    .thenThrow(new RuntimeException("meta down"));
             when(guildMemberRepository.countActiveMembers(1L)).thenReturn(0L);
 
             // when
@@ -374,18 +409,22 @@ class GuildAdminInternalServiceTest {
             when(guildRepository.countByVisibility(any())).thenReturn(1L);
             when(guildRepository.countByCreatedAtAfter(any())).thenReturn(1L);
             when(missionCategoryService.getAllCategories())
-                .thenReturn(List.of(MissionCategoryResponse.builder().id(1L).name("운동").build()));
-            List<Object[]> categoryStats = List.of(new Object[]{1L, 2L}, new Object[]{99L, 1L});
+                    .thenReturn(
+                            List.of(MissionCategoryResponse.builder().id(1L).name("운동").build()));
+            List<Object[]> categoryStats = List.of(new Object[] {1L, 2L}, new Object[] {99L, 1L});
             when(guildRepository.countGuildsByCategory()).thenReturn(categoryStats);
             List<Object[]> dailyStats =
-                Collections.singletonList(new Object[]{java.sql.Date.valueOf("2026-01-01"), 2L});
+                    Collections.singletonList(
+                            new Object[] {java.sql.Date.valueOf("2026-01-01"), 2L});
             when(guildRepository.countDailyNewGuilds(any(), any())).thenReturn(dailyStats);
 
             // when
             GuildStatisticsAdminResponse result = service.getStatistics();
 
             // then
-            assertThat(result.guildsByCategory()).containsEntry("운동", 2L).containsEntry("Unknown", 1L);
+            assertThat(result.guildsByCategory())
+                    .containsEntry("운동", 2L)
+                    .containsEntry("Unknown", 1L);
             assertThat(result.dailyNewGuilds()).hasSize(1);
             assertThat(result.dailyNewGuilds().get(0).count()).isEqualTo(2L);
         }
@@ -401,16 +440,21 @@ class GuildAdminInternalServiceTest {
             // given
             Guild guild = createTestGuild(1L);
             when(guildRepository.existsById(1L)).thenReturn(true);
-            GuildMember member = GuildMember.builder()
-                .guild(guild)
-                .userId("user-1")
-                .status(GuildMemberStatus.ACTIVE)
-                .build();
+            GuildMember member =
+                    GuildMember.builder()
+                            .guild(guild)
+                            .userId("user-1")
+                            .status(GuildMemberStatus.ACTIVE)
+                            .build();
             setId(member, 1L);
             when(guildMemberRepository.findByGuildIdAndStatus(1L, GuildMemberStatus.ACTIVE))
-                .thenReturn(List.of(member));
+                    .thenReturn(List.of(member));
             when(userQueryFacadeService.getUserProfiles(anyList()))
-                .thenReturn(Map.of("user-1", new UserProfileInfo("user-1", "유저", "img.png", null, null, null, null)));
+                    .thenReturn(
+                            Map.of(
+                                    "user-1",
+                                    new UserProfileInfo(
+                                            "user-1", "유저", "img.png", null, null, null, null)));
 
             // when
             List<GuildMemberAdminResponse> result = service.getGuildMembers(1L);
@@ -426,7 +470,7 @@ class GuildAdminInternalServiceTest {
             when(guildRepository.existsById(999L)).thenReturn(false);
 
             assertThatThrownBy(() -> service.getGuildMembers(999L))
-                .isInstanceOf(CustomException.class);
+                    .isInstanceOf(CustomException.class);
         }
 
         @Test
@@ -435,14 +479,15 @@ class GuildAdminInternalServiceTest {
             // given
             Guild guild = createTestGuild(1L);
             when(guildRepository.existsById(1L)).thenReturn(true);
-            GuildMember member = GuildMember.builder()
-                .guild(guild)
-                .userId("user-x")
-                .status(GuildMemberStatus.ACTIVE)
-                .build();
+            GuildMember member =
+                    GuildMember.builder()
+                            .guild(guild)
+                            .userId("user-x")
+                            .status(GuildMemberStatus.ACTIVE)
+                            .build();
             setId(member, 1L);
             when(guildMemberRepository.findByGuildIdAndStatus(1L, GuildMemberStatus.ACTIVE))
-                .thenReturn(List.of(member));
+                    .thenReturn(List.of(member));
             when(userQueryFacadeService.getUserProfiles(anyList())).thenReturn(Map.of());
 
             // when
@@ -487,10 +532,16 @@ class GuildAdminInternalServiceTest {
             when(guildRepository.findById(1L)).thenReturn(Optional.of(guild));
             when(guildRepository.save(any(Guild.class))).thenReturn(guild);
             when(missionCategoryService.getCategory(1L))
-                .thenReturn(MissionCategoryResponse.builder().id(1L).name("운동").icon("dumbbell").build());
+                    .thenReturn(
+                            MissionCategoryResponse.builder()
+                                    .id(1L)
+                                    .name("운동")
+                                    .icon("dumbbell")
+                                    .build());
             when(guildMemberRepository.countActiveMembers(1L)).thenReturn(3L);
             when(userQueryFacadeService.getUserProfile("master-1"))
-                .thenReturn(new UserProfileInfo("master-1", "마스터", null, null, null, null, null));
+                    .thenReturn(
+                            new UserProfileInfo("master-1", "마스터", null, null, null, null, null));
 
             // when
             GuildAdminResponse result = service.toggleActive(1L);
@@ -508,7 +559,7 @@ class GuildAdminInternalServiceTest {
             when(guildRepository.findById(999L)).thenReturn(Optional.empty());
 
             assertThatThrownBy(() -> service.toggleActive(999L))
-                .isInstanceOf(CustomException.class);
+                    .isInstanceOf(CustomException.class);
         }
     }
 
@@ -534,7 +585,7 @@ class GuildAdminInternalServiceTest {
             when(guildRepository.findById(999L)).thenReturn(Optional.empty());
 
             assertThatThrownBy(() -> service.banFromReport(999L, "x"))
-                .isInstanceOf(CustomException.class);
+                    .isInstanceOf(CustomException.class);
         }
     }
 

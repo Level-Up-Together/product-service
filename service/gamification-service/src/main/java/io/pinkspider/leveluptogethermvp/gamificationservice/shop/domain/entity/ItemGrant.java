@@ -21,19 +21,20 @@ import lombok.experimental.SuperBuilder;
 import org.hibernate.annotations.Comment;
 
 /**
- * LUT-472: 관리자 아이템 수동 지급 이력. 칭호 부여(user_title.granted_by)와 달리 별도 테이블로 두어
- * 회수 후에도 이력이 남는다 — 회수는 revoked_at 마킹 + user_item 삭제.
+ * LUT-472: 관리자 아이템 수동 지급 이력. 칭호 부여(user_title.granted_by)와 달리 별도 테이블로 두어 회수 후에도 이력이 남는다 — 회수는
+ * revoked_at 마킹 + user_item 삭제.
  */
 @Entity
 @Getter
 @SuperBuilder
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @AllArgsConstructor
-@Table(name = "item_grant",
-    indexes = {
-        @Index(name = "idx_item_grant_user_id", columnList = "user_id"),
-        @Index(name = "idx_item_grant_granted_at", columnList = "granted_at")
-    })
+@Table(
+        name = "item_grant",
+        indexes = {
+            @Index(name = "idx_item_grant_user_id", columnList = "user_id"),
+            @Index(name = "idx_item_grant_granted_at", columnList = "granted_at")
+        })
 @Comment("관리자 아이템 부여 이력")
 public class ItemGrant extends LocalDateTimeBaseEntity {
 
@@ -77,12 +78,12 @@ public class ItemGrant extends LocalDateTimeBaseEntity {
 
     public static ItemGrant create(String userId, ShopItem shopItem, String reason, Long adminId) {
         return ItemGrant.builder()
-            .userId(userId)
-            .shopItem(shopItem)
-            .reason(reason)
-            .grantedBy(adminId)
-            .grantedAt(LocalDateTime.now())
-            .build();
+                .userId(userId)
+                .shopItem(shopItem)
+                .reason(reason)
+                .grantedBy(adminId)
+                .grantedAt(LocalDateTime.now())
+                .build();
     }
 
     public boolean isRevoked() {

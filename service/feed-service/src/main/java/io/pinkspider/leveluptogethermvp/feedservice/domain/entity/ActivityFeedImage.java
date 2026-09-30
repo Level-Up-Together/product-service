@@ -21,24 +21,20 @@ import lombok.Setter;
 import lombok.experimental.SuperBuilder;
 import org.hibernate.annotations.Comment;
 
-/**
- * 활동 피드 이미지 (QA-53). 미션 공유 피드의 다중 이미지 캐러셀 노출용.
- * sort_order=0 이미지는 activity_feed.image_url 과 동기화.
- */
+/** 활동 피드 이미지 (QA-53). 미션 공유 피드의 다중 이미지 캐러셀 노출용. sort_order=0 이미지는 activity_feed.image_url 과 동기화. */
 @Entity
 @Getter
 @Setter
 @SuperBuilder
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @AllArgsConstructor
-@Table(name = "activity_feed_image",
-    uniqueConstraints = @UniqueConstraint(
-        name = "uk_activity_feed_image_sort",
-        columnNames = {"feed_id", "sort_order"}
-    ),
-    indexes = {
-        @Index(name = "idx_activity_feed_image_feed", columnList = "feed_id")
-    })
+@Table(
+        name = "activity_feed_image",
+        uniqueConstraints =
+                @UniqueConstraint(
+                        name = "uk_activity_feed_image_sort",
+                        columnNames = {"feed_id", "sort_order"}),
+        indexes = {@Index(name = "idx_activity_feed_image_feed", columnList = "feed_id")})
 @Comment("활동 피드 이미지")
 public class ActivityFeedImage extends LocalDateTimeBaseEntity {
 

@@ -14,9 +14,12 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import org.mockito.ArgumentCaptor;
-
+import io.pinkspider.global.enums.MissionStatus;
+import io.pinkspider.global.enums.TitleRarity;
+import io.pinkspider.global.facade.UserQueryFacade;
+import io.pinkspider.global.facade.dto.UserProfileInfo;
 import io.pinkspider.global.saga.SagaStepResult;
+import io.pinkspider.leveluptogethermvp.feedservice.application.FeedCommandService;
 import io.pinkspider.leveluptogethermvp.feedservice.domain.entity.ActivityFeed;
 import io.pinkspider.leveluptogethermvp.feedservice.domain.enums.FeedVisibility;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.DailyMissionInstance;
@@ -24,17 +27,12 @@ import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.Mission;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.MissionExecution;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.MissionParticipant;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.ExecutionStatus;
-import io.pinkspider.global.enums.MissionStatus;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionType;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionVisibility;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.ParticipantStatus;
 import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.DailyMissionInstanceRepository;
 import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.MissionExecutionRepository;
 import io.pinkspider.leveluptogethermvp.missionservice.saga.MissionCompletionContext;
-import io.pinkspider.global.enums.TitleRarity;
-import io.pinkspider.leveluptogethermvp.feedservice.application.FeedCommandService;
-import io.pinkspider.global.facade.UserQueryFacade;
-import io.pinkspider.global.facade.dto.UserProfileInfo;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import org.junit.jupiter.api.BeforeEach;
@@ -42,7 +40,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -50,20 +48,15 @@ import org.mockito.junit.jupiter.MockitoExtension;
 @DisplayName("CreateFeedFromMissionStep 단위 테스트")
 class CreateFeedFromMissionStepTest {
 
-    @Mock
-    private FeedCommandService feedCommandService;
+    @Mock private FeedCommandService feedCommandService;
 
-    @Mock
-    private UserQueryFacade userQueryFacadeService;
+    @Mock private UserQueryFacade userQueryFacadeService;
 
-    @Mock
-    private MissionExecutionRepository executionRepository;
+    @Mock private MissionExecutionRepository executionRepository;
 
-    @Mock
-    private DailyMissionInstanceRepository instanceRepository;
+    @Mock private DailyMissionInstanceRepository instanceRepository;
 
-    @Mock
-    private CreateFeedFromMissionStep selfMock;
+    @Mock private CreateFeedFromMissionStep selfMock;
 
     private CreateFeedFromMissionStep createFeedFromMissionStep;
 
@@ -81,65 +74,68 @@ class CreateFeedFromMissionStepTest {
     @BeforeEach
     void setUp() {
         // self-injection mock을 사용하여 CreateFeedFromMissionStep 생성
-        createFeedFromMissionStep = new CreateFeedFromMissionStep(
-            feedCommandService,
-            userQueryFacadeService,
-            executionRepository,
-            instanceRepository,
-            selfMock
-        );
+        createFeedFromMissionStep =
+                new CreateFeedFromMissionStep(
+                        feedCommandService,
+                        userQueryFacadeService,
+                        executionRepository,
+                        instanceRepository,
+                        selfMock);
 
-        mission = Mission.builder()
-            .title("30일 운동 챌린지")
-            .description("매일 운동하기")
-            .creatorId(TEST_USER_ID)
-            .status(MissionStatus.IN_PROGRESS)
-            .visibility(MissionVisibility.PUBLIC)
-            .type(MissionType.PERSONAL)
-            .categoryId(1L)
-            .categoryName("운동")
-            .expPerCompletion(50)
-            .build();
+        mission =
+                Mission.builder()
+                        .title("30일 운동 챌린지")
+                        .description("매일 운동하기")
+                        .creatorId(TEST_USER_ID)
+                        .status(MissionStatus.IN_PROGRESS)
+                        .visibility(MissionVisibility.PUBLIC)
+                        .type(MissionType.PERSONAL)
+                        .categoryId(1L)
+                        .categoryName("운동")
+                        .expPerCompletion(50)
+                        .build();
         setId(mission, 1L);
 
-        participant = MissionParticipant.builder()
-            .mission(mission)
-            .userId(TEST_USER_ID)
-            .status(ParticipantStatus.IN_PROGRESS)
-            .progress(5)
-            .build();
+        participant =
+                MissionParticipant.builder()
+                        .mission(mission)
+                        .userId(TEST_USER_ID)
+                        .status(ParticipantStatus.IN_PROGRESS)
+                        .progress(5)
+                        .build();
         setId(participant, 1L);
 
-        execution = MissionExecution.builder()
-            .participant(participant)
-            .executionDate(LocalDate.now())
-            .status(ExecutionStatus.COMPLETED)
-            .expEarned(50)
-            .note("오늘 운동 완료!")
-            .imageUrl("https://example.com/image.jpg")
-            .startedAt(LocalDateTime.now().minusMinutes(30))
-            .completedAt(LocalDateTime.now())
-            .build();
+        execution =
+                MissionExecution.builder()
+                        .participant(participant)
+                        .executionDate(LocalDate.now())
+                        .status(ExecutionStatus.COMPLETED)
+                        .expEarned(50)
+                        .note("오늘 운동 완료!")
+                        .imageUrl("https://example.com/image.jpg")
+                        .startedAt(LocalDateTime.now().minusMinutes(30))
+                        .completedAt(LocalDateTime.now())
+                        .build();
         setId(execution, EXECUTION_ID);
 
-        context = new MissionCompletionContext(EXECUTION_ID, TEST_USER_ID, null, FeedVisibility.PUBLIC);
+        context =
+                new MissionCompletionContext(
+                        EXECUTION_ID, TEST_USER_ID, null, FeedVisibility.PUBLIC);
         context.setExecution(execution);
         context.setParticipant(participant);
         context.setMission(mission);
 
-        userProfile = new UserProfileInfo(
-            TEST_USER_ID,
-            "테스트유저",
-            "https://example.com/profile.jpg",
-            10,
-            "초보 모험가",
-            TitleRarity.COMMON,
-            "#FFFFFF"
-        );
+        userProfile =
+                new UserProfileInfo(
+                        TEST_USER_ID,
+                        "테스트유저",
+                        "https://example.com/profile.jpg",
+                        10,
+                        "초보 모험가",
+                        TitleRarity.COMMON,
+                        "#FFFFFF");
 
-        activityFeed = ActivityFeed.builder()
-            .userId(TEST_USER_ID)
-            .build();
+        activityFeed = ActivityFeed.builder().userId(TEST_USER_ID).build();
         setId(activityFeed, FEED_ID);
     }
 
@@ -163,7 +159,9 @@ class CreateFeedFromMissionStepTest {
         @DisplayName("feedVisibility가 PRIVATE이면 피드 생성을 스킵한다")
         void execute_feedVisibilityPrivate_skipsFeedCreation() {
             // given
-            context = new MissionCompletionContext(EXECUTION_ID, TEST_USER_ID, null, FeedVisibility.PRIVATE);
+            context =
+                    new MissionCompletionContext(
+                            EXECUTION_ID, TEST_USER_ID, null, FeedVisibility.PRIVATE);
             context.setExecution(execution);
             context.setMission(mission);
 
@@ -173,11 +171,27 @@ class CreateFeedFromMissionStepTest {
             // then
             assertThat(result.isSuccess()).isTrue();
             assertThat(context.getCreatedFeedId()).isNull();
-            verify(feedCommandService, never()).createMissionSharedFeed(
-                anyString(), anyString(), anyString(), anyInt(), anyString(), any(TitleRarity.class),
-                anyString(), any(Long.class), any(Long.class), anyString(), anyString(), any(Long.class),
-                anyString(), anyString(), any(Integer.class), anyInt(), any(), any(), any()
-            );
+            verify(feedCommandService, never())
+                    .createMissionSharedFeed(
+                            anyString(),
+                            anyString(),
+                            anyString(),
+                            anyInt(),
+                            anyString(),
+                            any(TitleRarity.class),
+                            anyString(),
+                            any(Long.class),
+                            any(Long.class),
+                            anyString(),
+                            anyString(),
+                            any(Long.class),
+                            anyString(),
+                            anyString(),
+                            any(Integer.class),
+                            anyInt(),
+                            any(),
+                            any(),
+                            any());
         }
 
         @Test
@@ -186,10 +200,26 @@ class CreateFeedFromMissionStepTest {
             // given
             when(userQueryFacadeService.getUserProfile(TEST_USER_ID)).thenReturn(userProfile);
             when(feedCommandService.createMissionSharedFeed(
-                anyString(), anyString(), anyString(), anyInt(), anyString(), any(TitleRarity.class),
-                anyString(), any(Long.class), any(Long.class), anyString(), anyString(), any(Long.class),
-                anyString(), anyString(), any(Integer.class), anyInt(), any(), any(), any()
-            )).thenReturn(activityFeed);
+                            anyString(),
+                            anyString(),
+                            anyString(),
+                            anyInt(),
+                            anyString(),
+                            any(TitleRarity.class),
+                            anyString(),
+                            any(Long.class),
+                            any(Long.class),
+                            anyString(),
+                            anyString(),
+                            any(Long.class),
+                            anyString(),
+                            anyString(),
+                            any(Integer.class),
+                            anyInt(),
+                            any(),
+                            any(),
+                            any()))
+                    .thenReturn(activityFeed);
             doNothing().when(selfMock).updateExecutionSharedStatus(anyLong(), eq(true));
 
             // when
@@ -206,10 +236,26 @@ class CreateFeedFromMissionStepTest {
             // given
             when(userQueryFacadeService.getUserProfile(TEST_USER_ID)).thenReturn(userProfile);
             when(feedCommandService.createMissionSharedFeed(
-                anyString(), anyString(), anyString(), anyInt(), anyString(), any(TitleRarity.class),
-                anyString(), any(Long.class), any(Long.class), anyString(), anyString(), any(Long.class),
-                anyString(), anyString(), any(Integer.class), anyInt(), any(), any(), any()
-            )).thenReturn(activityFeed);
+                            anyString(),
+                            anyString(),
+                            anyString(),
+                            anyInt(),
+                            anyString(),
+                            any(TitleRarity.class),
+                            anyString(),
+                            any(Long.class),
+                            any(Long.class),
+                            anyString(),
+                            anyString(),
+                            any(Long.class),
+                            anyString(),
+                            anyString(),
+                            any(Integer.class),
+                            anyInt(),
+                            any(),
+                            any(),
+                            any()))
+                    .thenReturn(activityFeed);
             doNothing().when(selfMock).updateExecutionSharedStatus(anyLong(), eq(true));
 
             // when
@@ -224,7 +270,7 @@ class CreateFeedFromMissionStepTest {
         void execute_failsWhenServiceThrowsException() {
             // given
             when(userQueryFacadeService.getUserProfile(TEST_USER_ID))
-                .thenThrow(new RuntimeException("프로필 조회 실패"));
+                    .thenThrow(new RuntimeException("프로필 조회 실패"));
 
             // when
             SagaStepResult result = createFeedFromMissionStep.execute(context);
@@ -241,9 +287,9 @@ class CreateFeedFromMissionStepTest {
             context.setShareToFeed(false);
             when(userQueryFacadeService.getUserProfile(TEST_USER_ID)).thenReturn(userProfile);
             when(feedCommandService.createMissionSharedFeed(
-                any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(),
-                any(), any(), any(), any(), any(), any(), any()
-            )).thenReturn(activityFeed);
+                            any(), any(), any(), any(), any(), any(), any(), any(), any(), any(),
+                            any(), any(), any(), any(), any(), any(), any(), any(), any()))
+                    .thenReturn(activityFeed);
 
             // when
             SagaStepResult result = createFeedFromMissionStep.execute(context);
@@ -261,7 +307,9 @@ class CreateFeedFromMissionStepTest {
             mission.setType(MissionType.GUILD);
             mission.setGuildId("777");
             mission.setGuildName("테스트길드");
-            context = new MissionCompletionContext(EXECUTION_ID, TEST_USER_ID, null, FeedVisibility.GUILD);
+            context =
+                    new MissionCompletionContext(
+                            EXECUTION_ID, TEST_USER_ID, null, FeedVisibility.GUILD);
             context.setExecution(execution);
             context.setMission(mission);
 
@@ -269,9 +317,26 @@ class CreateFeedFromMissionStepTest {
             ArgumentCaptor<Long> guildIdCaptor = ArgumentCaptor.forClass(Long.class);
             ArgumentCaptor<String> guildNameCaptor = ArgumentCaptor.forClass(String.class);
             when(feedCommandService.createMissionSharedFeed(
-                any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(),
-                any(), any(), any(), any(), any(), guildIdCaptor.capture(), guildNameCaptor.capture()
-            )).thenReturn(activityFeed);
+                            any(),
+                            any(),
+                            any(),
+                            any(),
+                            any(),
+                            any(),
+                            any(),
+                            any(),
+                            any(),
+                            any(),
+                            any(),
+                            any(),
+                            any(),
+                            any(),
+                            any(),
+                            any(),
+                            any(),
+                            guildIdCaptor.capture(),
+                            guildNameCaptor.capture()))
+                    .thenReturn(activityFeed);
             doNothing().when(selfMock).updateExecutionSharedStatus(anyLong(), eq(true));
 
             // when
@@ -289,16 +354,35 @@ class CreateFeedFromMissionStepTest {
             // given
             mission.setType(MissionType.GUILD);
             mission.setGuildId("not-a-number");
-            context = new MissionCompletionContext(EXECUTION_ID, TEST_USER_ID, null, FeedVisibility.GUILD);
+            context =
+                    new MissionCompletionContext(
+                            EXECUTION_ID, TEST_USER_ID, null, FeedVisibility.GUILD);
             context.setExecution(execution);
             context.setMission(mission);
 
             when(userQueryFacadeService.getUserProfile(TEST_USER_ID)).thenReturn(userProfile);
             ArgumentCaptor<Long> guildIdCaptor = ArgumentCaptor.forClass(Long.class);
             when(feedCommandService.createMissionSharedFeed(
-                any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(),
-                any(), any(), any(), any(), any(), guildIdCaptor.capture(), any()
-            )).thenReturn(activityFeed);
+                            any(),
+                            any(),
+                            any(),
+                            any(),
+                            any(),
+                            any(),
+                            any(),
+                            any(),
+                            any(),
+                            any(),
+                            any(),
+                            any(),
+                            any(),
+                            any(),
+                            any(),
+                            any(),
+                            any(),
+                            guildIdCaptor.capture(),
+                            any()))
+                    .thenReturn(activityFeed);
             doNothing().when(selfMock).updateExecutionSharedStatus(anyLong(), eq(true));
 
             // when
@@ -314,16 +398,35 @@ class CreateFeedFromMissionStepTest {
         void execute_guildVisibility_blankGuildId_guildIdNull() {
             // given
             mission.setGuildId("   ");
-            context = new MissionCompletionContext(EXECUTION_ID, TEST_USER_ID, null, FeedVisibility.GUILD);
+            context =
+                    new MissionCompletionContext(
+                            EXECUTION_ID, TEST_USER_ID, null, FeedVisibility.GUILD);
             context.setExecution(execution);
             context.setMission(mission);
 
             when(userQueryFacadeService.getUserProfile(TEST_USER_ID)).thenReturn(userProfile);
             ArgumentCaptor<Long> guildIdCaptor = ArgumentCaptor.forClass(Long.class);
             when(feedCommandService.createMissionSharedFeed(
-                any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(),
-                any(), any(), any(), any(), any(), guildIdCaptor.capture(), any()
-            )).thenReturn(activityFeed);
+                            any(),
+                            any(),
+                            any(),
+                            any(),
+                            any(),
+                            any(),
+                            any(),
+                            any(),
+                            any(),
+                            any(),
+                            any(),
+                            any(),
+                            any(),
+                            any(),
+                            any(),
+                            any(),
+                            any(),
+                            guildIdCaptor.capture(),
+                            any()))
+                    .thenReturn(activityFeed);
             doNothing().when(selfMock).updateExecutionSharedStatus(anyLong(), eq(true));
 
             // when
@@ -367,8 +470,9 @@ class CreateFeedFromMissionStepTest {
             instance.setExpEarned(20);
             setId(instance, INSTANCE_ID);
 
-            pinnedContext = MissionCompletionContext.forPinned(
-                INSTANCE_ID, TEST_USER_ID, null, FeedVisibility.PUBLIC);
+            pinnedContext =
+                    MissionCompletionContext.forPinned(
+                            INSTANCE_ID, TEST_USER_ID, null, FeedVisibility.PUBLIC);
             pinnedContext.setInstance(instance);
             pinnedContext.setParticipant(participant);
             pinnedContext.setMission(mission);
@@ -383,9 +487,26 @@ class CreateFeedFromMissionStepTest {
             ArgumentCaptor<Long> guildIdCaptor = ArgumentCaptor.forClass(Long.class);
             ArgumentCaptor<String> guildNameCaptor = ArgumentCaptor.forClass(String.class);
             when(feedCommandService.createMissionSharedFeed(
-                any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(),
-                any(), any(), any(), any(), any(), guildIdCaptor.capture(), guildNameCaptor.capture()
-            )).thenReturn(activityFeed);
+                            any(),
+                            any(),
+                            any(),
+                            any(),
+                            any(),
+                            any(),
+                            any(),
+                            any(),
+                            any(),
+                            any(),
+                            any(),
+                            any(),
+                            any(),
+                            any(),
+                            any(),
+                            any(),
+                            any(),
+                            guildIdCaptor.capture(),
+                            guildNameCaptor.capture()))
+                    .thenReturn(activityFeed);
             doNothing().when(selfMock).updateInstanceSharedStatus(INSTANCE_ID, true);
 
             // when
@@ -406,9 +527,9 @@ class CreateFeedFromMissionStepTest {
             pinnedContext.setShareToFeed(false);
             when(userQueryFacadeService.getUserProfile(TEST_USER_ID)).thenReturn(userProfile);
             when(feedCommandService.createMissionSharedFeed(
-                any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(),
-                any(), any(), any(), any(), any(), any(), any()
-            )).thenReturn(activityFeed);
+                            any(), any(), any(), any(), any(), any(), any(), any(), any(), any(),
+                            any(), any(), any(), any(), any(), any(), any(), any(), any()))
+                    .thenReturn(activityFeed);
 
             // when
             SagaStepResult result = createFeedFromMissionStep.execute(pinnedContext);
@@ -425,8 +546,9 @@ class CreateFeedFromMissionStepTest {
             mission.setType(MissionType.GUILD);
             mission.setGuildId("321");
             mission.setGuildName("고정길드");
-            pinnedContext = MissionCompletionContext.forPinned(
-                INSTANCE_ID, TEST_USER_ID, null, FeedVisibility.GUILD);
+            pinnedContext =
+                    MissionCompletionContext.forPinned(
+                            INSTANCE_ID, TEST_USER_ID, null, FeedVisibility.GUILD);
             pinnedContext.setInstance(instance);
             pinnedContext.setMission(mission);
 
@@ -434,9 +556,26 @@ class CreateFeedFromMissionStepTest {
             ArgumentCaptor<Long> guildIdCaptor = ArgumentCaptor.forClass(Long.class);
             ArgumentCaptor<String> guildNameCaptor = ArgumentCaptor.forClass(String.class);
             when(feedCommandService.createMissionSharedFeed(
-                any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(),
-                any(), any(), any(), any(), any(), guildIdCaptor.capture(), guildNameCaptor.capture()
-            )).thenReturn(activityFeed);
+                            any(),
+                            any(),
+                            any(),
+                            any(),
+                            any(),
+                            any(),
+                            any(),
+                            any(),
+                            any(),
+                            any(),
+                            any(),
+                            any(),
+                            any(),
+                            any(),
+                            any(),
+                            any(),
+                            any(),
+                            guildIdCaptor.capture(),
+                            guildNameCaptor.capture()))
+                    .thenReturn(activityFeed);
             doNothing().when(selfMock).updateInstanceSharedStatus(INSTANCE_ID, true);
 
             // when
@@ -453,7 +592,7 @@ class CreateFeedFromMissionStepTest {
         void executePinned_failsWhenServiceThrows() {
             // given
             when(userQueryFacadeService.getUserProfile(TEST_USER_ID))
-                .thenThrow(new RuntimeException("프로필 조회 실패"));
+                    .thenThrow(new RuntimeException("프로필 조회 실패"));
 
             // when
             SagaStepResult result = createFeedFromMissionStep.execute(pinnedContext);
@@ -473,9 +612,10 @@ class CreateFeedFromMissionStepTest {
         @DisplayName("updateExecutionSharedStatus(shared=true) 는 execution 을 공유 상태로 바꾼다")
         void updateExecutionSharedStatus_true_sharesExecution() {
             // given
-            when(executionRepository.findById(EXECUTION_ID)).thenReturn(java.util.Optional.of(execution));
+            when(executionRepository.findById(EXECUTION_ID))
+                    .thenReturn(java.util.Optional.of(execution));
             when(executionRepository.save(any(MissionExecution.class)))
-                .thenAnswer(invocation -> invocation.getArgument(0));
+                    .thenAnswer(invocation -> invocation.getArgument(0));
 
             // when
             createFeedFromMissionStep.updateExecutionSharedStatus(EXECUTION_ID, true);
@@ -490,9 +630,10 @@ class CreateFeedFromMissionStepTest {
         void updateExecutionSharedStatus_false_unsharesExecution() {
             // given
             execution.shareToFeed();
-            when(executionRepository.findById(EXECUTION_ID)).thenReturn(java.util.Optional.of(execution));
+            when(executionRepository.findById(EXECUTION_ID))
+                    .thenReturn(java.util.Optional.of(execution));
             when(executionRepository.save(any(MissionExecution.class)))
-                .thenAnswer(invocation -> invocation.getArgument(0));
+                    .thenAnswer(invocation -> invocation.getArgument(0));
 
             // when
             createFeedFromMissionStep.updateExecutionSharedStatus(EXECUTION_ID, false);
@@ -510,20 +651,21 @@ class CreateFeedFromMissionStepTest {
 
             // when & then
             org.assertj.core.api.Assertions.assertThatThrownBy(
-                    () -> createFeedFromMissionStep.updateExecutionSharedStatus(999L, true))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("Execution not found");
+                            () -> createFeedFromMissionStep.updateExecutionSharedStatus(999L, true))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessageContaining("Execution not found");
         }
 
         @Test
         @DisplayName("updateInstanceSharedStatus 는 인스턴스가 있으면 공유 상태를 갱신한다")
         void updateInstanceSharedStatus_present_updates() {
             // given
-            DailyMissionInstance instance = DailyMissionInstance.createFrom(participant, LocalDate.now());
+            DailyMissionInstance instance =
+                    DailyMissionInstance.createFrom(participant, LocalDate.now());
             setId(instance, 42L);
             when(instanceRepository.findById(42L)).thenReturn(java.util.Optional.of(instance));
             when(instanceRepository.save(any(DailyMissionInstance.class)))
-                .thenAnswer(invocation -> invocation.getArgument(0));
+                    .thenAnswer(invocation -> invocation.getArgument(0));
 
             // when
             createFeedFromMissionStep.updateInstanceSharedStatus(42L, true);
@@ -586,7 +728,7 @@ class CreateFeedFromMissionStepTest {
             context.setCreatedFeedId(FEED_ID);
             execution.shareToFeed();
             when(executionRepository.save(any(MissionExecution.class)))
-                .thenAnswer(invocation -> invocation.getArgument(0));
+                    .thenAnswer(invocation -> invocation.getArgument(0));
 
             // when
             SagaStepResult result = createFeedFromMissionStep.compensate(context);
@@ -602,8 +744,7 @@ class CreateFeedFromMissionStepTest {
         void compensate_failsWhenServiceThrowsException() {
             // given
             context.setCreatedFeedId(FEED_ID);
-            doThrow(new RuntimeException("삭제 실패"))
-                .when(feedCommandService).deleteFeedById(FEED_ID);
+            doThrow(new RuntimeException("삭제 실패")).when(feedCommandService).deleteFeedById(FEED_ID);
 
             // when
             SagaStepResult result = createFeedFromMissionStep.compensate(context);
@@ -633,15 +774,17 @@ class CreateFeedFromMissionStepTest {
         @DisplayName("고정 미션 보상 시 공유된 인스턴스의 공유 상태를 초기화한다")
         void compensate_pinned_clearsInstanceSharedStatus() {
             // given
-            DailyMissionInstance instance = DailyMissionInstance.createFrom(participant, LocalDate.now());
+            DailyMissionInstance instance =
+                    DailyMissionInstance.createFrom(participant, LocalDate.now());
             setId(instance, 42L);
             instance.setIsSharedToFeed(true);
-            MissionCompletionContext pinnedContext = MissionCompletionContext.forPinned(
-                42L, TEST_USER_ID, null, FeedVisibility.PUBLIC);
+            MissionCompletionContext pinnedContext =
+                    MissionCompletionContext.forPinned(
+                            42L, TEST_USER_ID, null, FeedVisibility.PUBLIC);
             pinnedContext.setInstance(instance);
             pinnedContext.setCreatedFeedId(FEED_ID);
             when(instanceRepository.save(any(DailyMissionInstance.class)))
-                .thenAnswer(invocation -> invocation.getArgument(0));
+                    .thenAnswer(invocation -> invocation.getArgument(0));
 
             // when
             SagaStepResult result = createFeedFromMissionStep.compensate(pinnedContext);
@@ -657,10 +800,12 @@ class CreateFeedFromMissionStepTest {
         @DisplayName("고정 미션 보상 시 공유되지 않은 인스턴스는 저장하지 않는다")
         void compensate_pinned_notShared_skipsInstanceSave() {
             // given
-            DailyMissionInstance instance = DailyMissionInstance.createFrom(participant, LocalDate.now());
+            DailyMissionInstance instance =
+                    DailyMissionInstance.createFrom(participant, LocalDate.now());
             setId(instance, 42L);
-            MissionCompletionContext pinnedContext = MissionCompletionContext.forPinned(
-                42L, TEST_USER_ID, null, FeedVisibility.PUBLIC);
+            MissionCompletionContext pinnedContext =
+                    MissionCompletionContext.forPinned(
+                            42L, TEST_USER_ID, null, FeedVisibility.PUBLIC);
             pinnedContext.setInstance(instance);
             pinnedContext.setCreatedFeedId(FEED_ID);
 
@@ -677,8 +822,9 @@ class CreateFeedFromMissionStepTest {
         @DisplayName("고정 미션 보상 시 인스턴스가 null 이면 피드만 삭제한다")
         void compensate_pinned_instanceNull_deletesFeedOnly() {
             // given
-            MissionCompletionContext pinnedContext = MissionCompletionContext.forPinned(
-                42L, TEST_USER_ID, null, FeedVisibility.PUBLIC);
+            MissionCompletionContext pinnedContext =
+                    MissionCompletionContext.forPinned(
+                            42L, TEST_USER_ID, null, FeedVisibility.PUBLIC);
             pinnedContext.setInstance(null);
             pinnedContext.setCreatedFeedId(FEED_ID);
 
@@ -704,7 +850,9 @@ class CreateFeedFromMissionStepTest {
         @DisplayName("context.feedVisibility=PRIVATE이면 피드 생성을 스킵한다")
         void resolveFeedVisibility_private_skipsFeedCreation() {
             // given
-            context = new MissionCompletionContext(EXECUTION_ID, TEST_USER_ID, null, FeedVisibility.PRIVATE);
+            context =
+                    new MissionCompletionContext(
+                            EXECUTION_ID, TEST_USER_ID, null, FeedVisibility.PRIVATE);
             context.setExecution(execution);
             context.setMission(mission);
 
@@ -713,28 +861,62 @@ class CreateFeedFromMissionStepTest {
 
             // then
             assertThat(result.isSuccess()).isTrue();
-            verify(feedCommandService, never()).createMissionSharedFeed(
-                anyString(), anyString(), anyString(), anyInt(), anyString(), any(TitleRarity.class),
-                anyString(), any(Long.class), any(Long.class), anyString(), anyString(), any(Long.class),
-                anyString(), anyString(), any(Integer.class), anyInt(), any(), any(), any()
-            );
+            verify(feedCommandService, never())
+                    .createMissionSharedFeed(
+                            anyString(),
+                            anyString(),
+                            anyString(),
+                            anyInt(),
+                            anyString(),
+                            any(TitleRarity.class),
+                            anyString(),
+                            any(Long.class),
+                            any(Long.class),
+                            anyString(),
+                            anyString(),
+                            any(Long.class),
+                            anyString(),
+                            anyString(),
+                            any(Integer.class),
+                            anyInt(),
+                            any(),
+                            any(),
+                            any());
         }
 
         @Test
         @DisplayName("context.feedVisibility=FRIENDS이면 FRIENDS 피드를 생성한다")
         void resolveFeedVisibility_friends_returnsFriends() {
             // given
-            context = new MissionCompletionContext(EXECUTION_ID, TEST_USER_ID, null, FeedVisibility.FRIENDS);
+            context =
+                    new MissionCompletionContext(
+                            EXECUTION_ID, TEST_USER_ID, null, FeedVisibility.FRIENDS);
             context.setExecution(execution);
             context.setMission(mission);
 
             when(userQueryFacadeService.getUserProfile(TEST_USER_ID)).thenReturn(userProfile);
             ArgumentCaptor<FeedVisibility> visibilityCaptor = captureVisibility();
             when(feedCommandService.createMissionSharedFeed(
-                anyString(), anyString(), anyString(), anyInt(), anyString(), any(TitleRarity.class),
-                anyString(), any(Long.class), any(Long.class), anyString(), anyString(), any(Long.class),
-                anyString(), anyString(), any(Integer.class), anyInt(), visibilityCaptor.capture(), any(), any()
-            )).thenReturn(activityFeed);
+                            anyString(),
+                            anyString(),
+                            anyString(),
+                            anyInt(),
+                            anyString(),
+                            any(TitleRarity.class),
+                            anyString(),
+                            any(Long.class),
+                            any(Long.class),
+                            anyString(),
+                            anyString(),
+                            any(Long.class),
+                            anyString(),
+                            anyString(),
+                            any(Integer.class),
+                            anyInt(),
+                            visibilityCaptor.capture(),
+                            any(),
+                            any()))
+                    .thenReturn(activityFeed);
             doNothing().when(selfMock).updateExecutionSharedStatus(anyLong(), eq(true));
 
             // when
@@ -749,17 +931,35 @@ class CreateFeedFromMissionStepTest {
         @DisplayName("context.feedVisibility=GUILD이면 GUILD 피드를 생성한다")
         void resolveFeedVisibility_guild_returnsGuild() {
             // given
-            context = new MissionCompletionContext(EXECUTION_ID, TEST_USER_ID, null, FeedVisibility.GUILD);
+            context =
+                    new MissionCompletionContext(
+                            EXECUTION_ID, TEST_USER_ID, null, FeedVisibility.GUILD);
             context.setExecution(execution);
             context.setMission(mission);
 
             when(userQueryFacadeService.getUserProfile(TEST_USER_ID)).thenReturn(userProfile);
             ArgumentCaptor<FeedVisibility> visibilityCaptor = captureVisibility();
             when(feedCommandService.createMissionSharedFeed(
-                anyString(), anyString(), anyString(), anyInt(), anyString(), any(TitleRarity.class),
-                anyString(), any(Long.class), any(Long.class), anyString(), anyString(), any(Long.class),
-                anyString(), anyString(), any(Integer.class), anyInt(), visibilityCaptor.capture(), any(), any()
-            )).thenReturn(activityFeed);
+                            anyString(),
+                            anyString(),
+                            anyString(),
+                            anyInt(),
+                            anyString(),
+                            any(TitleRarity.class),
+                            anyString(),
+                            any(Long.class),
+                            any(Long.class),
+                            anyString(),
+                            anyString(),
+                            any(Long.class),
+                            anyString(),
+                            anyString(),
+                            any(Integer.class),
+                            anyInt(),
+                            visibilityCaptor.capture(),
+                            any(),
+                            any()))
+                    .thenReturn(activityFeed);
             doNothing().when(selfMock).updateExecutionSharedStatus(anyLong(), eq(true));
 
             // when
@@ -774,17 +974,35 @@ class CreateFeedFromMissionStepTest {
         @DisplayName("context.feedVisibility=PUBLIC이면 PUBLIC 피드를 생성한다")
         void resolveFeedVisibility_public_returnsPublic() {
             // given
-            context = new MissionCompletionContext(EXECUTION_ID, TEST_USER_ID, null, FeedVisibility.PUBLIC);
+            context =
+                    new MissionCompletionContext(
+                            EXECUTION_ID, TEST_USER_ID, null, FeedVisibility.PUBLIC);
             context.setExecution(execution);
             context.setMission(mission);
 
             when(userQueryFacadeService.getUserProfile(TEST_USER_ID)).thenReturn(userProfile);
             ArgumentCaptor<FeedVisibility> visibilityCaptor = captureVisibility();
             when(feedCommandService.createMissionSharedFeed(
-                anyString(), anyString(), anyString(), anyInt(), anyString(), any(TitleRarity.class),
-                anyString(), any(Long.class), any(Long.class), anyString(), anyString(), any(Long.class),
-                anyString(), anyString(), any(Integer.class), anyInt(), visibilityCaptor.capture(), any(), any()
-            )).thenReturn(activityFeed);
+                            anyString(),
+                            anyString(),
+                            anyString(),
+                            anyInt(),
+                            anyString(),
+                            any(TitleRarity.class),
+                            anyString(),
+                            any(Long.class),
+                            any(Long.class),
+                            anyString(),
+                            anyString(),
+                            any(Long.class),
+                            anyString(),
+                            anyString(),
+                            any(Integer.class),
+                            anyInt(),
+                            visibilityCaptor.capture(),
+                            any(),
+                            any()))
+                    .thenReturn(activityFeed);
             doNothing().when(selfMock).updateExecutionSharedStatus(anyLong(), eq(true));
 
             // when
@@ -808,11 +1026,27 @@ class CreateFeedFromMissionStepTest {
 
             // then
             assertThat(result.isSuccess()).isTrue();
-            verify(feedCommandService, never()).createMissionSharedFeed(
-                anyString(), anyString(), anyString(), anyInt(), anyString(), any(TitleRarity.class),
-                anyString(), any(Long.class), any(Long.class), anyString(), anyString(), any(Long.class),
-                anyString(), anyString(), any(Integer.class), anyInt(), any(), any(), any()
-            );
+            verify(feedCommandService, never())
+                    .createMissionSharedFeed(
+                            anyString(),
+                            anyString(),
+                            anyString(),
+                            anyInt(),
+                            anyString(),
+                            any(TitleRarity.class),
+                            anyString(),
+                            any(Long.class),
+                            any(Long.class),
+                            anyString(),
+                            anyString(),
+                            any(Long.class),
+                            anyString(),
+                            anyString(),
+                            any(Integer.class),
+                            anyInt(),
+                            any(),
+                            any(),
+                            any());
         }
     }
 }

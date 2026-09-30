@@ -37,8 +37,8 @@ public class SubscriptionVerifyRequest {
     private String purchaseToken;
 
     /**
-     * Android base plan ID (1m|1y) — 검증 비활성(dev) 모드에서만 플랜 판정에 사용. 검증 활성
-     * 모드에서는 스토어 응답의 base plan이 우선한다 (클라이언트 값 불신).
+     * Android base plan ID (1m|1y) — 검증 비활성(dev) 모드에서만 플랜 판정에 사용. 검증 활성 모드에서는 스토어 응답의 base plan이
+     * 우선한다 (클라이언트 값 불신).
      */
     private String basePlanId;
 }

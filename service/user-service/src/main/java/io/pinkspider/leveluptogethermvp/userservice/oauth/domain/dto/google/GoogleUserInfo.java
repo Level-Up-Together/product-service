@@ -31,4 +31,3 @@ public class GoogleUserInfo implements OAuth2UserInfo {
         return "google";
     }
 }
-

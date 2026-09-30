@@ -15,9 +15,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
 
-/**
- * 로컬 파일 시스템에 길드 이미지를 저장하는 구현체
- */
+/** 로컬 파일 시스템에 길드 이미지를 저장하는 구현체 */
 @Service
 @Profile("!prod")
 @Slf4j

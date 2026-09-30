@@ -7,27 +7,20 @@ import java.util.List;
 
 @JsonNaming(SnakeCaseStrategy.class)
 public record MvpStatsAdminResponse(
-    LocalDate startDate,
-    LocalDate endDate,
-    long totalMvpRecords,
-    long uniqueMvpUsers,
-    List<MvpUserStatsDto> topMvpUsers,
-    List<CategoryPopularityDto> categoryPopularity
-) {
+        LocalDate startDate,
+        LocalDate endDate,
+        long totalMvpRecords,
+        long uniqueMvpUsers,
+        List<MvpUserStatsDto> topMvpUsers,
+        List<CategoryPopularityDto> categoryPopularity) {
     @JsonNaming(SnakeCaseStrategy.class)
-    public record MvpUserStatsDto(
-        String userId,
-        String nickname,
-        long mvpCount,
-        long rank1Count
-    ) {}
+    public record MvpUserStatsDto(String userId, String nickname, long mvpCount, long rank1Count) {}
 
     @JsonNaming(SnakeCaseStrategy.class)
     public record CategoryPopularityDto(
-        Long categoryId,
-        String categoryName,
-        long totalExp,
-        long totalActivity,
-        long uniqueUsers
-    ) {}
+            Long categoryId,
+            String categoryName,
+            long totalExp,
+            long totalActivity,
+            long uniqueUsers) {}
 }

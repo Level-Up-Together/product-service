@@ -32,35 +32,32 @@ import org.springframework.data.domain.PageRequest;
 @ExtendWith(MockitoExtension.class)
 class DiamondBundleAdminServiceTest {
 
-    @Mock
-    private DiamondBundleRepository diamondBundleRepository;
+    @Mock private DiamondBundleRepository diamondBundleRepository;
 
-    @Mock
-    private DiamondBundlePurchaseRepository diamondBundlePurchaseRepository;
+    @Mock private DiamondBundlePurchaseRepository diamondBundlePurchaseRepository;
 
-    @Mock
-    private ShopItemImageStorageService imageStorageService;
+    @Mock private ShopItemImageStorageService imageStorageService;
 
-    @InjectMocks
-    private DiamondBundleAdminService diamondBundleAdminService;
+    @InjectMocks private DiamondBundleAdminService diamondBundleAdminService;
 
     private DiamondBundle createBundle(Long id, String name, int count) {
-        DiamondBundle bundle = DiamondBundle.builder()
-            .name(name)
-            .diamondCount(count)
-            .imageUrl("/uploads/shop-items/bundle-old.png")
-            .isActive(true)
-            .build();
+        DiamondBundle bundle =
+                DiamondBundle.builder()
+                        .name(name)
+                        .diamondCount(count)
+                        .imageUrl("/uploads/shop-items/bundle-old.png")
+                        .isActive(true)
+                        .build();
         setId(bundle, id);
         return bundle;
     }
 
     private DiamondBundleAdminRequest createRequest(String name, int count) {
         return DiamondBundleAdminRequest.builder()
-            .name(name)
-            .diamondCount(count)
-            .imageUrl("/uploads/shop-items/bundle-old.png")
-            .build();
+                .name(name)
+                .diamondCount(count)
+                .imageUrl("/uploads/shop-items/bundle-old.png")
+                .build();
     }
 
     @Nested
@@ -72,10 +69,10 @@ class DiamondBundleAdminServiceTest {
         void searchBundles_success() {
             DiamondBundle bundle = createBundle(1L, "핑크다이아 100개", 100);
             when(diamondBundleRepository.search(any(), any(), any()))
-                .thenReturn(new PageImpl<>(List.of(bundle), PageRequest.of(0, 20), 1));
+                    .thenReturn(new PageImpl<>(List.of(bundle), PageRequest.of(0, 20), 1));
 
-            DiamondBundleAdminPageResponse response = diamondBundleAdminService.searchBundles(
-                null, null, PageRequest.of(0, 20));
+            DiamondBundleAdminPageResponse response =
+                    diamondBundleAdminService.searchBundles(null, null, PageRequest.of(0, 20));
 
             assertThat(response.content()).hasSize(1);
             assertThat(response.content().get(0).name()).isEqualTo("핑크다이아 100개");
@@ -89,7 +86,7 @@ class DiamondBundleAdminServiceTest {
             when(diamondBundleRepository.findById(99L)).thenReturn(Optional.empty());
 
             assertThatThrownBy(() -> diamondBundleAdminService.getBundle(99L))
-                .isInstanceOf(CustomException.class);
+                    .isInstanceOf(CustomException.class);
         }
     }
 
@@ -105,7 +102,7 @@ class DiamondBundleAdminServiceTest {
             when(diamondBundleRepository.save(any(DiamondBundle.class))).thenReturn(saved);
 
             DiamondBundleAdminResponse response =
-                diamondBundleAdminService.createBundle(createRequest("핑크다이아 100개", 100));
+                    diamondBundleAdminService.createBundle(createRequest("핑크다이아 100개", 100));
 
             assertThat(response.id()).isEqualTo(1L);
             assertThat(response.diamondCount()).isEqualTo(100);
@@ -116,11 +113,13 @@ class DiamondBundleAdminServiceTest {
         @DisplayName("isActive 미지정 시 기본 true")
         void createBundle_defaultActive() {
             when(diamondBundleRepository.existsByName(anyString())).thenReturn(false);
-            when(diamondBundleRepository.save(any(DiamondBundle.class))).thenAnswer(inv -> {
-                DiamondBundle bundle = inv.getArgument(0);
-                setId(bundle, 1L);
-                return bundle;
-            });
+            when(diamondBundleRepository.save(any(DiamondBundle.class)))
+                    .thenAnswer(
+                            inv -> {
+                                DiamondBundle bundle = inv.getArgument(0);
+                                setId(bundle, 1L);
+                                return bundle;
+                            });
 
             DiamondBundleAdminRequest request = createRequest("새 상품", 50);
             request.setIsActive(null);
@@ -135,9 +134,11 @@ class DiamondBundleAdminServiceTest {
         void createBundle_duplicateName() {
             when(diamondBundleRepository.existsByName("핑크다이아 100개")).thenReturn(true);
 
-            assertThatThrownBy(() ->
-                    diamondBundleAdminService.createBundle(createRequest("핑크다이아 100개", 100)))
-                .isInstanceOf(CustomException.class);
+            assertThatThrownBy(
+                            () ->
+                                    diamondBundleAdminService.createBundle(
+                                            createRequest("핑크다이아 100개", 100)))
+                    .isInstanceOf(CustomException.class);
             verify(diamondBundleRepository, never()).save(any());
         }
     }
@@ -155,7 +156,8 @@ class DiamondBundleAdminServiceTest {
 
             DiamondBundleAdminRequest request = createRequest("핑크다이아 100개", 300);
 
-            DiamondBundleAdminResponse response = diamondBundleAdminService.updateBundle(1L, request);
+            DiamondBundleAdminResponse response =
+                    diamondBundleAdminService.updateBundle(1L, request);
 
             assertThat(response.diamondCount()).isEqualTo(300);
             // 이미지 URL이 같으므로 기존 이미지 삭제 안 함
@@ -184,9 +186,11 @@ class DiamondBundleAdminServiceTest {
             when(diamondBundleRepository.findById(1L)).thenReturn(Optional.of(bundle));
             when(diamondBundleRepository.existsByName("핑크다이아 300개")).thenReturn(true);
 
-            assertThatThrownBy(() ->
-                    diamondBundleAdminService.updateBundle(1L, createRequest("핑크다이아 300개", 300)))
-                .isInstanceOf(CustomException.class);
+            assertThatThrownBy(
+                            () ->
+                                    diamondBundleAdminService.updateBundle(
+                                            1L, createRequest("핑크다이아 300개", 300)))
+                    .isInstanceOf(CustomException.class);
         }
     }
 
@@ -227,8 +231,8 @@ class DiamondBundleAdminServiceTest {
             when(diamondBundlePurchaseRepository.existsByBundleId(1L)).thenReturn(true);
 
             assertThatThrownBy(() -> diamondBundleAdminService.deleteBundle(1L))
-                .isInstanceOf(CustomException.class)
-                .hasMessageContaining("error.diamond_bundle.has_purchases");
+                    .isInstanceOf(CustomException.class)
+                    .hasMessageContaining("error.diamond_bundle.has_purchases");
 
             verify(diamondBundleRepository, never()).deleteById(1L);
             verify(imageStorageService, never()).delete(anyString());

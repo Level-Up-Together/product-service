@@ -36,14 +36,11 @@ import org.mockito.junit.jupiter.MockitoExtension;
 @DisplayName("CompletePinnedInstanceStep 단위 테스트")
 class CompletePinnedInstanceStepTest {
 
-    @Mock
-    private DailyMissionInstanceRepository instanceRepository;
+    @Mock private DailyMissionInstanceRepository instanceRepository;
 
-    @Mock
-    private MissionExecutionRepository executionRepository;
+    @Mock private MissionExecutionRepository executionRepository;
 
-    @InjectMocks
-    private CompletePinnedInstanceStep completePinnedInstanceStep;
+    @InjectMocks private CompletePinnedInstanceStep completePinnedInstanceStep;
 
     private static final String TEST_USER_ID = "test-user-pinned";
     private static final Long INSTANCE_ID = 100L;
@@ -55,24 +52,26 @@ class CompletePinnedInstanceStepTest {
 
     @BeforeEach
     void setUp() {
-        mission = Mission.builder()
-            .title("매일 운동")
-            .description("매일 운동하기 (고정 미션)")
-            .creatorId(TEST_USER_ID)
-            .status(MissionStatus.IN_PROGRESS)
-            .visibility(MissionVisibility.PRIVATE)
-            .type(MissionType.PERSONAL)
-            .isPinned(true)
-            .expPerCompletion(10)
-            .build();
+        mission =
+                Mission.builder()
+                        .title("매일 운동")
+                        .description("매일 운동하기 (고정 미션)")
+                        .creatorId(TEST_USER_ID)
+                        .status(MissionStatus.IN_PROGRESS)
+                        .visibility(MissionVisibility.PRIVATE)
+                        .type(MissionType.PERSONAL)
+                        .isPinned(true)
+                        .expPerCompletion(10)
+                        .build();
         setId(mission, 1L);
 
-        participant = MissionParticipant.builder()
-            .mission(mission)
-            .userId(TEST_USER_ID)
-            .status(ParticipantStatus.IN_PROGRESS)
-            .progress(0)
-            .build();
+        participant =
+                MissionParticipant.builder()
+                        .mission(mission)
+                        .userId(TEST_USER_ID)
+                        .status(ParticipantStatus.IN_PROGRESS)
+                        .progress(0)
+                        .build();
         setId(participant, 1L);
 
         instance = DailyMissionInstance.createFrom(participant, LocalDate.now(), 1);
@@ -85,8 +84,8 @@ class CompletePinnedInstanceStepTest {
         context.setParticipant(participant);
         context.setMission(mission);
         context.addCompensationData(
-            MissionCompletionContext.CompensationKeys.INSTANCE_STATUS_BEFORE,
-            ExecutionStatus.IN_PROGRESS);
+                MissionCompletionContext.CompensationKeys.INSTANCE_STATUS_BEFORE,
+                ExecutionStatus.IN_PROGRESS);
     }
 
     @Test
@@ -113,7 +112,7 @@ class CompletePinnedInstanceStepTest {
         void execute_success() {
             // given
             when(instanceRepository.save(any(DailyMissionInstance.class)))
-                .thenAnswer(invocation -> invocation.getArgument(0));
+                    .thenAnswer(invocation -> invocation.getArgument(0));
 
             // when
             SagaStepResult result = completePinnedInstanceStep.execute(context);
@@ -147,11 +146,11 @@ class CompletePinnedInstanceStepTest {
             // given
             mission.setExecutionMode(MissionExecutionMode.SIMPLE);
             when(executionRepository.countSimpleCompletedByUserIdAndDate(eq(TEST_USER_ID), any()))
-                .thenReturn(2L);
+                    .thenReturn(2L);
             when(instanceRepository.countSimpleCompletedByUserIdAndDate(eq(TEST_USER_ID), any()))
-                .thenReturn(3L);
+                    .thenReturn(3L);
             when(instanceRepository.save(any(DailyMissionInstance.class)))
-                .thenAnswer(invocation -> invocation.getArgument(0));
+                    .thenAnswer(invocation -> invocation.getArgument(0));
 
             // when
             SagaStepResult result = completePinnedInstanceStep.execute(context);
@@ -168,11 +167,11 @@ class CompletePinnedInstanceStepTest {
             // given
             mission.setExecutionMode(MissionExecutionMode.SIMPLE);
             when(executionRepository.countSimpleCompletedByUserIdAndDate(eq(TEST_USER_ID), any()))
-                .thenReturn(6L);
+                    .thenReturn(6L);
             when(instanceRepository.countSimpleCompletedByUserIdAndDate(eq(TEST_USER_ID), any()))
-                .thenReturn(4L);
+                    .thenReturn(4L);
             when(instanceRepository.save(any(DailyMissionInstance.class)))
-                .thenAnswer(invocation -> invocation.getArgument(0));
+                    .thenAnswer(invocation -> invocation.getArgument(0));
 
             // when
             SagaStepResult result = completePinnedInstanceStep.execute(context);
@@ -193,7 +192,7 @@ class CompletePinnedInstanceStepTest {
             // 직접 사전 세팅한다 (TIMED 기본 모드, complete() 동작은 다른 테스트에서 검증)
             instance.setExpEarned(42);
             when(instanceRepository.save(any(DailyMissionInstance.class)))
-                .thenAnswer(invocation -> invocation.getArgument(0));
+                    .thenAnswer(invocation -> invocation.getArgument(0));
 
             // when
             SagaStepResult result = completePinnedInstanceStep.execute(context);
@@ -209,7 +208,7 @@ class CompletePinnedInstanceStepTest {
         void execute_personalPinnedMission_doesNotSetGuildExpEarned() {
             // given (default: PERSONAL)
             when(instanceRepository.save(any(DailyMissionInstance.class)))
-                .thenAnswer(invocation -> invocation.getArgument(0));
+                    .thenAnswer(invocation -> invocation.getArgument(0));
 
             // when
             SagaStepResult result = completePinnedInstanceStep.execute(context);
@@ -224,7 +223,7 @@ class CompletePinnedInstanceStepTest {
         void execute_timedMode_skipsSimpleCountQuery() {
             // given (default: TIMED)
             when(instanceRepository.save(any(DailyMissionInstance.class)))
-                .thenAnswer(invocation -> invocation.getArgument(0));
+                    .thenAnswer(invocation -> invocation.getArgument(0));
 
             // when
             SagaStepResult result = completePinnedInstanceStep.execute(context);
@@ -242,7 +241,7 @@ class CompletePinnedInstanceStepTest {
             // given
             context.setMission(null);
             when(instanceRepository.save(any(DailyMissionInstance.class)))
-                .thenAnswer(invocation -> invocation.getArgument(0));
+                    .thenAnswer(invocation -> invocation.getArgument(0));
 
             // when
             SagaStepResult result = completePinnedInstanceStep.execute(context);
@@ -261,7 +260,7 @@ class CompletePinnedInstanceStepTest {
             mission.setExecutionMode(MissionExecutionMode.SIMPLE);
             instance.setInstanceDate(null);
             when(instanceRepository.save(any(DailyMissionInstance.class)))
-                .thenAnswer(invocation -> invocation.getArgument(0));
+                    .thenAnswer(invocation -> invocation.getArgument(0));
 
             // when
             SagaStepResult result = completePinnedInstanceStep.execute(context);
@@ -278,13 +277,13 @@ class CompletePinnedInstanceStepTest {
         void execute_noteNull_doesNotOverrideNote() {
             // given
             MissionCompletionContext noNoteContext =
-                MissionCompletionContext.forPinned(INSTANCE_ID, TEST_USER_ID, null, false);
+                    MissionCompletionContext.forPinned(INSTANCE_ID, TEST_USER_ID, null, false);
             noNoteContext.setInstance(instance);
             noNoteContext.setParticipant(participant);
             noNoteContext.setMission(mission);
             instance.setNote("기존 메모");
             when(instanceRepository.save(any(DailyMissionInstance.class)))
-                .thenAnswer(invocation -> invocation.getArgument(0));
+                    .thenAnswer(invocation -> invocation.getArgument(0));
 
             // when
             SagaStepResult result = completePinnedInstanceStep.execute(noNoteContext);
@@ -302,7 +301,7 @@ class CompletePinnedInstanceStepTest {
             instance.setBonusExpOnFullCompletion(7);
             instance.setStartedAt(LocalDateTime.now().minusMinutes(15));
             when(instanceRepository.save(any(DailyMissionInstance.class)))
-                .thenAnswer(invocation -> invocation.getArgument(0));
+                    .thenAnswer(invocation -> invocation.getArgument(0));
 
             // when
             SagaStepResult result = completePinnedInstanceStep.execute(context);
@@ -322,7 +321,7 @@ class CompletePinnedInstanceStepTest {
             instance.setBonusExpOnFullCompletion(null);
             instance.setStartedAt(LocalDateTime.now().minusMinutes(15));
             when(instanceRepository.save(any(DailyMissionInstance.class)))
-                .thenAnswer(invocation -> invocation.getArgument(0));
+                    .thenAnswer(invocation -> invocation.getArgument(0));
 
             // when
             SagaStepResult result = completePinnedInstanceStep.execute(context);
@@ -341,7 +340,7 @@ class CompletePinnedInstanceStepTest {
             instance.setBonusExpOnFullCompletion(7);
             instance.setStartedAt(LocalDateTime.now().minusMinutes(15));
             when(instanceRepository.save(any(DailyMissionInstance.class)))
-                .thenAnswer(invocation -> invocation.getArgument(0));
+                    .thenAnswer(invocation -> invocation.getArgument(0));
 
             // when
             SagaStepResult result = completePinnedInstanceStep.execute(context);
@@ -359,7 +358,7 @@ class CompletePinnedInstanceStepTest {
             instance.setTargetDurationMinutes(0);
             instance.setBonusExpOnFullCompletion(7);
             when(instanceRepository.save(any(DailyMissionInstance.class)))
-                .thenAnswer(invocation -> invocation.getArgument(0));
+                    .thenAnswer(invocation -> invocation.getArgument(0));
 
             // when
             SagaStepResult result = completePinnedInstanceStep.execute(context);
@@ -377,11 +376,11 @@ class CompletePinnedInstanceStepTest {
             instance.setTargetDurationMinutes(10);
             instance.setBonusExpOnFullCompletion(7);
             when(executionRepository.countSimpleCompletedByUserIdAndDate(eq(TEST_USER_ID), any()))
-                .thenReturn(0L);
+                    .thenReturn(0L);
             when(instanceRepository.countSimpleCompletedByUserIdAndDate(eq(TEST_USER_ID), any()))
-                .thenReturn(0L);
+                    .thenReturn(0L);
             when(instanceRepository.save(any(DailyMissionInstance.class)))
-                .thenAnswer(invocation -> invocation.getArgument(0));
+                    .thenAnswer(invocation -> invocation.getArgument(0));
 
             // when
             SagaStepResult result = completePinnedInstanceStep.execute(context);
@@ -420,7 +419,7 @@ class CompletePinnedInstanceStepTest {
             instance.setExpEarned(5);
             instance.setNote("완료 메모");
             when(instanceRepository.save(any(DailyMissionInstance.class)))
-                .thenAnswer(invocation -> invocation.getArgument(0));
+                    .thenAnswer(invocation -> invocation.getArgument(0));
 
             // when
             SagaStepResult result = completePinnedInstanceStep.compensate(context);
@@ -453,7 +452,7 @@ class CompletePinnedInstanceStepTest {
         void compensate_noPreviousStatus_skipsRestore() {
             // given
             MissionCompletionContext noDataContext =
-                MissionCompletionContext.forPinned(INSTANCE_ID, TEST_USER_ID, "메모", false);
+                    MissionCompletionContext.forPinned(INSTANCE_ID, TEST_USER_ID, "메모", false);
             instance.setStatus(ExecutionStatus.COMPLETED);
             instance.setExpEarned(5);
             noDataContext.setInstance(instance);
@@ -473,7 +472,7 @@ class CompletePinnedInstanceStepTest {
         void compensate_saveThrows_returnsFailure() {
             // given
             when(instanceRepository.save(any(DailyMissionInstance.class)))
-                .thenThrow(new RuntimeException("db down"));
+                    .thenThrow(new RuntimeException("db down"));
 
             // when
             SagaStepResult result = completePinnedInstanceStep.compensate(context);

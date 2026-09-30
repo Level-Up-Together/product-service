@@ -4,9 +4,7 @@ import io.pinkspider.leveluptogethermvp.gamificationservice.diamond.domain.enums
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
-/**
- * LUT-401: 어드민 다이아 결제이력 조회 JPQL 프로젝션 (diamond_bundle_purchase ⋈ diamond_bundle).
- */
+/** LUT-401: 어드민 다이아 결제이력 조회 JPQL 프로젝션 (diamond_bundle_purchase ⋈ diamond_bundle). */
 public record DiamondPaymentHistoryRow(
         Long id,
         String userId,
@@ -20,5 +18,4 @@ public record DiamondPaymentHistoryRow(
         String priceCurrency,
         DiamondPurchaseStatus status,
         LocalDateTime refundedAt,
-        LocalDateTime purchasedAt) {
-}
+        LocalDateTime purchasedAt) {}

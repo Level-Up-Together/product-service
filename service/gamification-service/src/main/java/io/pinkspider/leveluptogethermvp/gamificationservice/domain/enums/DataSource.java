@@ -5,9 +5,7 @@ import com.fasterxml.jackson.annotation.JsonValue;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 
-/**
- * 업적 체크 로직의 데이터 소스
- */
+/** 업적 체크 로직의 데이터 소스 */
 @Getter
 @RequiredArgsConstructor
 public enum DataSource {

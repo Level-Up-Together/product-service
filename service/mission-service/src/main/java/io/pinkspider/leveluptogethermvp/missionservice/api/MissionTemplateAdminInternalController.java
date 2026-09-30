@@ -20,10 +20,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-/**
- * Admin 내부 API 컨트롤러 - MissionTemplate
- * 인증 불필요 (SecurityConfig에서 /api/internal/** permitAll)
- */
+/** Admin 내부 API 컨트롤러 - MissionTemplate 인증 불필요 (SecurityConfig에서 /api/internal/** permitAll) */
 @RestController
 @RequestMapping("/api/internal/mission-templates")
 @RequiredArgsConstructor
@@ -36,45 +33,49 @@ public class MissionTemplateAdminInternalController {
             @RequestParam(required = false) String keyword,
             @RequestParam(required = false, defaultValue = "0") int page,
             @RequestParam(required = false, defaultValue = "20") int size,
-            @RequestParam(name = "sort_by", required = false, defaultValue = "createdAt") String sortBy,
-            @RequestParam(name = "sort_direction", required = false, defaultValue = "DESC") String sortDirection) {
-        Sort sort = "ASC".equalsIgnoreCase(sortDirection)
-            ? Sort.by(sortBy).ascending()
-            : Sort.by(sortBy).descending();
+            @RequestParam(name = "sort_by", required = false, defaultValue = "createdAt")
+                    String sortBy,
+            @RequestParam(name = "sort_direction", required = false, defaultValue = "DESC")
+                    String sortDirection) {
+        Sort sort =
+                "ASC".equalsIgnoreCase(sortDirection)
+                        ? Sort.by(sortBy).ascending()
+                        : Sort.by(sortBy).descending();
         return ApiResult.<MissionTemplateAdminPageResponse>builder()
-            .value(templateAdminService.searchTemplates(keyword, PageRequest.of(page, size, sort)))
-            .build();
+                .value(
+                        templateAdminService.searchTemplates(
+                                keyword, PageRequest.of(page, size, sort)))
+                .build();
     }
 
     @GetMapping("/all")
     public ApiResult<List<MissionTemplateAdminResponse>> getAllTemplates() {
         return ApiResult.<List<MissionTemplateAdminResponse>>builder()
-            .value(templateAdminService.getAllTemplates())
-            .build();
+                .value(templateAdminService.getAllTemplates())
+                .build();
     }
 
     @GetMapping("/{id}")
     public ApiResult<MissionTemplateAdminResponse> getTemplate(@PathVariable Long id) {
         return ApiResult.<MissionTemplateAdminResponse>builder()
-            .value(templateAdminService.getTemplate(id))
-            .build();
+                .value(templateAdminService.getTemplate(id))
+                .build();
     }
 
     @PostMapping
     public ApiResult<MissionTemplateAdminResponse> createTemplate(
             @Valid @RequestBody MissionTemplateAdminRequest request) {
         return ApiResult.<MissionTemplateAdminResponse>builder()
-            .value(templateAdminService.createTemplate(request))
-            .build();
+                .value(templateAdminService.createTemplate(request))
+                .build();
     }
 
     @PutMapping("/{id}")
     public ApiResult<MissionTemplateAdminResponse> updateTemplate(
-            @PathVariable Long id,
-            @Valid @RequestBody MissionTemplateAdminRequest request) {
+            @PathVariable Long id, @Valid @RequestBody MissionTemplateAdminRequest request) {
         return ApiResult.<MissionTemplateAdminResponse>builder()
-            .value(templateAdminService.updateTemplate(id, request))
-            .build();
+                .value(templateAdminService.updateTemplate(id, request))
+                .build();
     }
 
     @DeleteMapping("/{id}")
@@ -89,15 +90,17 @@ public class MissionTemplateAdminInternalController {
             @RequestParam(name = "participation_type", required = false) String participationType) {
         if (source != null && participationType != null) {
             return ApiResult.<Long>builder()
-                .value(templateAdminService.countBySourceAndParticipationType(source, participationType))
-                .build();
+                    .value(
+                            templateAdminService.countBySourceAndParticipationType(
+                                    source, participationType))
+                    .build();
         } else if (source != null) {
             return ApiResult.<Long>builder()
-                .value(templateAdminService.countBySource(source))
-                .build();
+                    .value(templateAdminService.countBySource(source))
+                    .build();
         }
         return ApiResult.<Long>builder()
-            .value((long) templateAdminService.getAllTemplates().size())
-            .build();
+                .value((long) templateAdminService.getAllTemplates().size())
+                .build();
     }
 }

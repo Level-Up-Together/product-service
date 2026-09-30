@@ -8,9 +8,7 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
-/**
- * MyPage 화면 전체 응답 DTO
- */
+/** MyPage 화면 전체 응답 DTO */
 @Getter
 @NoArgsConstructor
 @AllArgsConstructor

@@ -5,25 +5,24 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
-import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import io.pinkspider.global.enums.MissionStatus;
 import io.pinkspider.global.event.MissionCommentDeletedEvent;
 import io.pinkspider.global.event.MissionCommentEvent;
 import io.pinkspider.global.exception.CustomException;
+import io.pinkspider.global.facade.UserQueryFacade;
+import io.pinkspider.global.facade.dto.UserProfileInfo;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MissionCommentRequest;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MissionCommentResponse;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.Mission;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.MissionComment;
-import io.pinkspider.global.enums.MissionStatus;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionType;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionVisibility;
 import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.MissionCommentRepository;
 import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.MissionRepository;
-import io.pinkspider.global.facade.UserQueryFacade;
-import io.pinkspider.global.facade.dto.UserProfileInfo;
 import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.DisplayName;
@@ -43,23 +42,17 @@ import org.springframework.data.domain.PageRequest;
 @ExtendWith(MockitoExtension.class)
 class MissionCommentServiceTest {
 
-    @Mock
-    private MissionCommentRepository missionCommentRepository;
+    @Mock private MissionCommentRepository missionCommentRepository;
 
-    @Mock
-    private MissionRepository missionRepository;
+    @Mock private MissionRepository missionRepository;
 
-    @Mock
-    private UserQueryFacade userQueryFacadeService;
+    @Mock private UserQueryFacade userQueryFacadeService;
 
-    @Mock
-    private ApplicationEventPublisher eventPublisher;
+    @Mock private ApplicationEventPublisher eventPublisher;
 
-    @Captor
-    private ArgumentCaptor<MissionCommentEvent> eventCaptor;
+    @Captor private ArgumentCaptor<MissionCommentEvent> eventCaptor;
 
-    @InjectMocks
-    private MissionCommentService missionCommentService;
+    @InjectMocks private MissionCommentService missionCommentService;
 
     private static final String TEST_USER_ID = "test-user-123";
     private static final String CREATOR_USER_ID = "creator-user-456";
@@ -68,42 +61,37 @@ class MissionCommentServiceTest {
     private static final Long COMMENT_ID = 100L;
 
     private Mission createTestMission() {
-        Mission mission = Mission.builder()
-            .title("테스트 미션")
-            .description("테스트 미션 설명")
-            .status(MissionStatus.OPEN)
-            .visibility(MissionVisibility.PUBLIC)
-            .type(MissionType.PERSONAL)
-            .creatorId(CREATOR_USER_ID)
-            .build();
+        Mission mission =
+                Mission.builder()
+                        .title("테스트 미션")
+                        .description("테스트 미션 설명")
+                        .status(MissionStatus.OPEN)
+                        .visibility(MissionVisibility.PUBLIC)
+                        .type(MissionType.PERSONAL)
+                        .creatorId(CREATOR_USER_ID)
+                        .build();
         setId(mission, MISSION_ID);
         return mission;
     }
 
     private MissionComment createTestComment(Mission mission, String userId) {
-        MissionComment comment = MissionComment.builder()
-            .mission(mission)
-            .userId(userId)
-            .userNickname("테스트유저")
-            .userProfileImageUrl("https://example.com/profile.jpg")
-            .userLevel(5)
-            .content("테스트 댓글입니다")
-            .isDeleted(false)
-            .build();
+        MissionComment comment =
+                MissionComment.builder()
+                        .mission(mission)
+                        .userId(userId)
+                        .userNickname("테스트유저")
+                        .userProfileImageUrl("https://example.com/profile.jpg")
+                        .userLevel(5)
+                        .content("테스트 댓글입니다")
+                        .isDeleted(false)
+                        .build();
         setId(comment, COMMENT_ID);
         return comment;
     }
 
     private UserProfileInfo createTestUserProfile() {
         return new UserProfileInfo(
-            TEST_USER_ID,
-            "테스트유저",
-            "https://example.com/profile.jpg",
-            5,
-            null,
-            null,
-            null
-        );
+                TEST_USER_ID, "테스트유저", "https://example.com/profile.jpg", 5, null, null, null);
     }
 
     @Nested
@@ -115,21 +103,24 @@ class MissionCommentServiceTest {
         void addComment_success() {
             // given
             Mission mission = createTestMission();
-            MissionCommentRequest request = MissionCommentRequest.builder()
-                .content("새로운 댓글입니다")
-                .build();
+            MissionCommentRequest request =
+                    MissionCommentRequest.builder().content("새로운 댓글입니다").build();
             UserProfileInfo userProfile = createTestUserProfile();
 
-            when(missionRepository.findByIdAndIsDeletedFalse(MISSION_ID)).thenReturn(Optional.of(mission));
+            when(missionRepository.findByIdAndIsDeletedFalse(MISSION_ID))
+                    .thenReturn(Optional.of(mission));
             when(userQueryFacadeService.getUserProfile(TEST_USER_ID)).thenReturn(userProfile);
-            when(missionCommentRepository.save(any(MissionComment.class))).thenAnswer(invocation -> {
-                MissionComment saved = invocation.getArgument(0);
-                setId(saved, COMMENT_ID);
-                return saved;
-            });
+            when(missionCommentRepository.save(any(MissionComment.class)))
+                    .thenAnswer(
+                            invocation -> {
+                                MissionComment saved = invocation.getArgument(0);
+                                setId(saved, COMMENT_ID);
+                                return saved;
+                            });
 
             // when
-            MissionCommentResponse response = missionCommentService.addComment(MISSION_ID, TEST_USER_ID, request);
+            MissionCommentResponse response =
+                    missionCommentService.addComment(MISSION_ID, TEST_USER_ID, request);
 
             // then
             assertThat(response).isNotNull();
@@ -145,18 +136,20 @@ class MissionCommentServiceTest {
         void addComment_publishesEventForCreator() {
             // given
             Mission mission = createTestMission();
-            MissionCommentRequest request = MissionCommentRequest.builder()
-                .content("새로운 댓글입니다")
-                .build();
+            MissionCommentRequest request =
+                    MissionCommentRequest.builder().content("새로운 댓글입니다").build();
             UserProfileInfo userProfile = createTestUserProfile();
 
-            when(missionRepository.findByIdAndIsDeletedFalse(MISSION_ID)).thenReturn(Optional.of(mission));
+            when(missionRepository.findByIdAndIsDeletedFalse(MISSION_ID))
+                    .thenReturn(Optional.of(mission));
             when(userQueryFacadeService.getUserProfile(TEST_USER_ID)).thenReturn(userProfile);
-            when(missionCommentRepository.save(any(MissionComment.class))).thenAnswer(invocation -> {
-                MissionComment saved = invocation.getArgument(0);
-                setId(saved, COMMENT_ID);
-                return saved;
-            });
+            when(missionCommentRepository.save(any(MissionComment.class)))
+                    .thenAnswer(
+                            invocation -> {
+                                MissionComment saved = invocation.getArgument(0);
+                                setId(saved, COMMENT_ID);
+                                return saved;
+                            });
 
             // when
             missionCommentService.addComment(MISSION_ID, TEST_USER_ID, request);
@@ -174,20 +167,28 @@ class MissionCommentServiceTest {
         void addComment_noEventWhenCreatorComments() {
             // given
             Mission mission = createTestMission();
-            MissionCommentRequest request = MissionCommentRequest.builder()
-                .content("생성자의 댓글입니다")
-                .build();
-            UserProfileInfo userProfile = new UserProfileInfo(
-                CREATOR_USER_ID, "미션생성자", "https://example.com/creator.jpg", 10, null, null, null
-            );
+            MissionCommentRequest request =
+                    MissionCommentRequest.builder().content("생성자의 댓글입니다").build();
+            UserProfileInfo userProfile =
+                    new UserProfileInfo(
+                            CREATOR_USER_ID,
+                            "미션생성자",
+                            "https://example.com/creator.jpg",
+                            10,
+                            null,
+                            null,
+                            null);
 
-            when(missionRepository.findByIdAndIsDeletedFalse(MISSION_ID)).thenReturn(Optional.of(mission));
+            when(missionRepository.findByIdAndIsDeletedFalse(MISSION_ID))
+                    .thenReturn(Optional.of(mission));
             when(userQueryFacadeService.getUserProfile(CREATOR_USER_ID)).thenReturn(userProfile);
-            when(missionCommentRepository.save(any(MissionComment.class))).thenAnswer(invocation -> {
-                MissionComment saved = invocation.getArgument(0);
-                setId(saved, COMMENT_ID);
-                return saved;
-            });
+            when(missionCommentRepository.save(any(MissionComment.class)))
+                    .thenAnswer(
+                            invocation -> {
+                                MissionComment saved = invocation.getArgument(0);
+                                setId(saved, COMMENT_ID);
+                                return saved;
+                            });
 
             // when
             missionCommentService.addComment(MISSION_ID, CREATOR_USER_ID, request);
@@ -200,16 +201,19 @@ class MissionCommentServiceTest {
         @DisplayName("존재하지 않는 미션에 댓글을 달면 예외가 발생한다")
         void addComment_missionNotFound() {
             // given
-            MissionCommentRequest request = MissionCommentRequest.builder()
-                .content("댓글입니다")
-                .build();
+            MissionCommentRequest request =
+                    MissionCommentRequest.builder().content("댓글입니다").build();
 
-            when(missionRepository.findByIdAndIsDeletedFalse(MISSION_ID)).thenReturn(Optional.empty());
+            when(missionRepository.findByIdAndIsDeletedFalse(MISSION_ID))
+                    .thenReturn(Optional.empty());
 
             // when & then
-            assertThatThrownBy(() -> missionCommentService.addComment(MISSION_ID, TEST_USER_ID, request))
-                .isInstanceOf(CustomException.class)
-                .hasMessageContaining("error.mission.not_found");
+            assertThatThrownBy(
+                            () ->
+                                    missionCommentService.addComment(
+                                            MISSION_ID, TEST_USER_ID, request))
+                    .isInstanceOf(CustomException.class)
+                    .hasMessageContaining("error.mission.not_found");
         }
     }
 
@@ -226,18 +230,16 @@ class MissionCommentServiceTest {
             MissionComment comment2 = createTestComment(mission, OTHER_USER_ID);
             setId(comment2, 101L);
 
-            Page<MissionComment> commentPage = new PageImpl<>(
-                List.of(comment1, comment2),
-                PageRequest.of(0, 20),
-                2
-            );
+            Page<MissionComment> commentPage =
+                    new PageImpl<>(List.of(comment1, comment2), PageRequest.of(0, 20), 2);
 
             when(missionRepository.existsById(MISSION_ID)).thenReturn(true);
             when(missionCommentRepository.findByMissionId(anyLong(), any(PageRequest.class)))
-                .thenReturn(commentPage);
+                    .thenReturn(commentPage);
 
             // when
-            Page<MissionCommentResponse> result = missionCommentService.getComments(MISSION_ID, TEST_USER_ID, 0, 20);
+            Page<MissionCommentResponse> result =
+                    missionCommentService.getComments(MISSION_ID, TEST_USER_ID, 0, 20);
 
             // then
             assertThat(result).isNotNull();
@@ -253,18 +255,16 @@ class MissionCommentServiceTest {
             Mission mission = createTestMission();
             MissionComment comment = createTestComment(mission, TEST_USER_ID);
 
-            Page<MissionComment> commentPage = new PageImpl<>(
-                List.of(comment),
-                PageRequest.of(0, 20),
-                1
-            );
+            Page<MissionComment> commentPage =
+                    new PageImpl<>(List.of(comment), PageRequest.of(0, 20), 1);
 
             when(missionRepository.existsById(MISSION_ID)).thenReturn(true);
             when(missionCommentRepository.findByMissionId(anyLong(), any(PageRequest.class)))
-                .thenReturn(commentPage);
+                    .thenReturn(commentPage);
 
             // when
-            Page<MissionCommentResponse> result = missionCommentService.getComments(MISSION_ID, null, 0, 20);
+            Page<MissionCommentResponse> result =
+                    missionCommentService.getComments(MISSION_ID, null, 0, 20);
 
             // then
             assertThat(result.getContent().get(0).getIsMyComment()).isFalse();
@@ -277,9 +277,12 @@ class MissionCommentServiceTest {
             when(missionRepository.existsById(MISSION_ID)).thenReturn(false);
 
             // when & then
-            assertThatThrownBy(() -> missionCommentService.getComments(MISSION_ID, TEST_USER_ID, 0, 20))
-                .isInstanceOf(CustomException.class)
-                .hasMessageContaining("error.mission.not_found");
+            assertThatThrownBy(
+                            () ->
+                                    missionCommentService.getComments(
+                                            MISSION_ID, TEST_USER_ID, 0, 20))
+                    .isInstanceOf(CustomException.class)
+                    .hasMessageContaining("error.mission.not_found");
         }
     }
 
@@ -295,7 +298,7 @@ class MissionCommentServiceTest {
             MissionComment comment = createTestComment(mission, TEST_USER_ID);
 
             when(missionCommentRepository.findByIdAndIsDeletedFalse(COMMENT_ID))
-                .thenReturn(Optional.of(comment));
+                    .thenReturn(Optional.of(comment));
 
             // when
             missionCommentService.deleteComment(MISSION_ID, COMMENT_ID, TEST_USER_ID);
@@ -315,12 +318,15 @@ class MissionCommentServiceTest {
             MissionComment comment = createTestComment(mission, OTHER_USER_ID);
 
             when(missionCommentRepository.findByIdAndIsDeletedFalse(COMMENT_ID))
-                .thenReturn(Optional.of(comment));
+                    .thenReturn(Optional.of(comment));
 
             // when & then
-            assertThatThrownBy(() -> missionCommentService.deleteComment(MISSION_ID, COMMENT_ID, TEST_USER_ID))
-                .isInstanceOf(CustomException.class)
-                .hasMessageContaining("error.mission.comment.not_owner");
+            assertThatThrownBy(
+                            () ->
+                                    missionCommentService.deleteComment(
+                                            MISSION_ID, COMMENT_ID, TEST_USER_ID))
+                    .isInstanceOf(CustomException.class)
+                    .hasMessageContaining("error.mission.comment.not_owner");
         }
 
         @Test
@@ -328,12 +334,15 @@ class MissionCommentServiceTest {
         void deleteComment_commentNotFound() {
             // given
             when(missionCommentRepository.findByIdAndIsDeletedFalse(COMMENT_ID))
-                .thenReturn(Optional.empty());
+                    .thenReturn(Optional.empty());
 
             // when & then
-            assertThatThrownBy(() -> missionCommentService.deleteComment(MISSION_ID, COMMENT_ID, TEST_USER_ID))
-                .isInstanceOf(CustomException.class)
-                .hasMessageContaining("error.mission.comment.not_found");
+            assertThatThrownBy(
+                            () ->
+                                    missionCommentService.deleteComment(
+                                            MISSION_ID, COMMENT_ID, TEST_USER_ID))
+                    .isInstanceOf(CustomException.class)
+                    .hasMessageContaining("error.mission.comment.not_found");
         }
 
         @Test
@@ -344,13 +353,16 @@ class MissionCommentServiceTest {
             MissionComment comment = createTestComment(mission, TEST_USER_ID);
 
             when(missionCommentRepository.findByIdAndIsDeletedFalse(COMMENT_ID))
-                .thenReturn(Optional.of(comment));
+                    .thenReturn(Optional.of(comment));
 
             // when & then
             Long wrongMissionId = 999L;
-            assertThatThrownBy(() -> missionCommentService.deleteComment(wrongMissionId, COMMENT_ID, TEST_USER_ID))
-                .isInstanceOf(CustomException.class)
-                .hasMessageContaining("error.mission.comment.wrong_mission");
+            assertThatThrownBy(
+                            () ->
+                                    missionCommentService.deleteComment(
+                                            wrongMissionId, COMMENT_ID, TEST_USER_ID))
+                    .isInstanceOf(CustomException.class)
+                    .hasMessageContaining("error.mission.comment.wrong_mission");
         }
 
         @Test
@@ -361,14 +373,14 @@ class MissionCommentServiceTest {
             MissionComment comment = createTestComment(mission, TEST_USER_ID);
 
             when(missionCommentRepository.findByIdAndIsDeletedFalse(COMMENT_ID))
-                .thenReturn(Optional.of(comment));
+                    .thenReturn(Optional.of(comment));
 
             // when
             missionCommentService.deleteComment(MISSION_ID, COMMENT_ID, TEST_USER_ID);
 
             // then
             ArgumentCaptor<MissionCommentDeletedEvent> captor =
-                ArgumentCaptor.forClass(MissionCommentDeletedEvent.class);
+                    ArgumentCaptor.forClass(MissionCommentDeletedEvent.class);
             verify(eventPublisher).publishEvent(captor.capture());
             assertThat(captor.getValue().userId()).isEqualTo(TEST_USER_ID);
             assertThat(captor.getValue().missionCreatorId()).isEqualTo(CREATOR_USER_ID);
@@ -383,7 +395,7 @@ class MissionCommentServiceTest {
             MissionComment comment = createTestComment(mission, CREATOR_USER_ID);
 
             when(missionCommentRepository.findByIdAndIsDeletedFalse(COMMENT_ID))
-                .thenReturn(Optional.of(comment));
+                    .thenReturn(Optional.of(comment));
 
             // when
             missionCommentService.deleteComment(MISSION_ID, COMMENT_ID, CREATOR_USER_ID);
@@ -400,7 +412,7 @@ class MissionCommentServiceTest {
             MissionComment comment = createTestComment(mission, TEST_USER_ID);
 
             when(missionCommentRepository.findByIdAndIsDeletedFalse(COMMENT_ID))
-                .thenReturn(Optional.of(comment));
+                    .thenReturn(Optional.of(comment));
 
             // when
             missionCommentService.deleteCommentByAdmin(COMMENT_ID, "신고 처리");

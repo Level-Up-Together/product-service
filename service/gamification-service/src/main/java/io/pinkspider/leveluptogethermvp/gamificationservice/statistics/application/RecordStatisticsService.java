@@ -18,11 +18,11 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * LUT-454: 전체 기간 기록 요약 — 누적 달성·스트릭은 UserStats(수행 시 유지)를, 등급 도달 이력은
- * experience_history 의 레벨 문턱 최초 통과 시각을 사용한다.
+ * LUT-454: 전체 기간 기록 요약 — 누적 달성·스트릭은 UserStats(수행 시 유지)를, 등급 도달 이력은 experience_history 의 레벨 문턱 최초 통과
+ * 시각을 사용한다.
  *
- * <p>월간 리포트(미션 상세 집계)는 missionservice 의 MissionStatisticsService 가 담당 — 여기는
- * gamification_db 로컬 데이터만 조합한다.
+ * <p>월간 리포트(미션 상세 집계)는 missionservice 의 MissionStatisticsService 가 담당 — 여기는 gamification_db 로컬 데이터만
+ * 조합한다.
  */
 @Service
 @RequiredArgsConstructor

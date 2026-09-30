@@ -6,17 +6,17 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import io.pinkspider.global.enums.ReportTargetType;
 import io.pinkspider.global.exception.CustomException;
+import io.pinkspider.global.facade.UserQueryFacade;
 import io.pinkspider.global.test.TestReflectionUtils;
 import io.pinkspider.leveluptogethermvp.supportservice.report.api.dto.ReportCreateRequest;
 import io.pinkspider.leveluptogethermvp.supportservice.report.api.dto.ReportResponse;
-import io.pinkspider.global.enums.ReportTargetType;
 import io.pinkspider.leveluptogethermvp.supportservice.report.api.dto.ReportType;
 import io.pinkspider.leveluptogethermvp.supportservice.report.core.feignclient.AdminReportApiResponse;
 import io.pinkspider.leveluptogethermvp.supportservice.report.core.feignclient.AdminReportCheckResponse;
 import io.pinkspider.leveluptogethermvp.supportservice.report.core.feignclient.AdminReportCreateRequest;
 import io.pinkspider.leveluptogethermvp.supportservice.report.core.feignclient.AdminReportFeignClient;
-import io.pinkspider.global.facade.UserQueryFacade;
 import java.time.LocalDateTime;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -32,25 +32,21 @@ import org.springframework.cache.CacheManager;
 @ExtendWith(MockitoExtension.class)
 class ReportServiceTest {
 
-    @Mock
-    private AdminReportFeignClient adminReportFeignClient;
+    @Mock private AdminReportFeignClient adminReportFeignClient;
 
-    @Mock
-    private UserQueryFacade userQueryFacadeService;
+    @Mock private UserQueryFacade userQueryFacadeService;
 
-    @Mock
-    private org.springframework.context.ApplicationEventPublisher eventPublisher;
+    @Mock private org.springframework.context.ApplicationEventPublisher eventPublisher;
 
-    @Mock
-    private CacheManager cacheManager;
+    @Mock private CacheManager cacheManager;
 
-    @InjectMocks
-    private ReportService reportService;
+    @InjectMocks private ReportService reportService;
 
     private static final String TEST_USER_ID = "test-user-123";
     private static final String TARGET_USER_ID = "target-user-456";
 
-    private AdminReportApiResponse createSuccessResponse(Long id, String targetType, String targetId) {
+    private AdminReportApiResponse createSuccessResponse(
+            Long id, String targetType, String targetId) {
         AdminReportApiResponse response = new AdminReportApiResponse();
         response.setCode("000000");
         response.setMessage("success");
@@ -83,19 +79,21 @@ class ReportServiceTest {
         @DisplayName("신고를 생성한다")
         void createReport_success() {
             // given
-            ReportCreateRequest request = new ReportCreateRequest(
-                ReportTargetType.USER_PROFILE,
-                TARGET_USER_ID,
-                TARGET_USER_ID,
-                ReportType.HARASSMENT,
-                "신고 사유"
-            );
+            ReportCreateRequest request =
+                    new ReportCreateRequest(
+                            ReportTargetType.USER_PROFILE,
+                            TARGET_USER_ID,
+                            TARGET_USER_ID,
+                            ReportType.HARASSMENT,
+                            "신고 사유");
 
-            AdminReportApiResponse apiResponse = createSuccessResponse(1L, "USER_PROFILE", TARGET_USER_ID);
+            AdminReportApiResponse apiResponse =
+                    createSuccessResponse(1L, "USER_PROFILE", TARGET_USER_ID);
 
             when(userQueryFacadeService.findUserNickname(TEST_USER_ID)).thenReturn("신고자");
             when(userQueryFacadeService.findUserNickname(TARGET_USER_ID)).thenReturn("대상자");
-            when(adminReportFeignClient.createReport(any(AdminReportCreateRequest.class))).thenReturn(apiResponse);
+            when(adminReportFeignClient.createReport(any(AdminReportCreateRequest.class)))
+                    .thenReturn(apiResponse);
 
             // when
             ReportResponse result = reportService.createReport(TEST_USER_ID, request);
@@ -111,61 +109,65 @@ class ReportServiceTest {
         @DisplayName("신고자를 찾을 수 없으면 예외가 발생한다")
         void createReport_reporterNotFound_throwsException() {
             // given
-            ReportCreateRequest request = new ReportCreateRequest(
-                ReportTargetType.USER_PROFILE,
-                TARGET_USER_ID,
-                TARGET_USER_ID,
-                ReportType.HARASSMENT,
-                "신고 사유"
-            );
+            ReportCreateRequest request =
+                    new ReportCreateRequest(
+                            ReportTargetType.USER_PROFILE,
+                            TARGET_USER_ID,
+                            TARGET_USER_ID,
+                            ReportType.HARASSMENT,
+                            "신고 사유");
 
-            when(userQueryFacadeService.findUserNickname(TEST_USER_ID)).thenThrow(new RuntimeException("사용자를 찾을 수 없습니다."));
+            when(userQueryFacadeService.findUserNickname(TEST_USER_ID))
+                    .thenThrow(new RuntimeException("사용자를 찾을 수 없습니다."));
 
             // when & then
             assertThatThrownBy(() -> reportService.createReport(TEST_USER_ID, request))
-                .isInstanceOf(CustomException.class)
-                .hasFieldOrPropertyWithValue("code", "USER_001");
+                    .isInstanceOf(CustomException.class)
+                    .hasFieldOrPropertyWithValue("code", "USER_001");
         }
 
         @Test
         @DisplayName("Admin 서버 오류 시 예외가 발생한다")
         void createReport_adminServerError_throwsException() {
             // given
-            ReportCreateRequest request = new ReportCreateRequest(
-                ReportTargetType.USER_PROFILE,
-                TARGET_USER_ID,
-                TARGET_USER_ID,
-                ReportType.HARASSMENT,
-                "신고 사유"
-            );
+            ReportCreateRequest request =
+                    new ReportCreateRequest(
+                            ReportTargetType.USER_PROFILE,
+                            TARGET_USER_ID,
+                            TARGET_USER_ID,
+                            ReportType.HARASSMENT,
+                            "신고 사유");
 
             AdminReportApiResponse apiResponse = createErrorResponse("ERROR_001", "오류 발생");
 
             when(userQueryFacadeService.findUserNickname(TEST_USER_ID)).thenReturn("신고자");
-            when(adminReportFeignClient.createReport(any(AdminReportCreateRequest.class))).thenReturn(apiResponse);
+            when(adminReportFeignClient.createReport(any(AdminReportCreateRequest.class)))
+                    .thenReturn(apiResponse);
 
             // when & then
             assertThatThrownBy(() -> reportService.createReport(TEST_USER_ID, request))
-                .isInstanceOf(CustomException.class);
+                    .isInstanceOf(CustomException.class);
         }
 
         @Test
         @DisplayName("대상 사용자가 없어도 신고는 가능하다")
         void createReport_targetUserNotFound_stillWorks() {
             // given
-            ReportCreateRequest request = new ReportCreateRequest(
-                ReportTargetType.FEED,
-                "feed-123",
-                TARGET_USER_ID,
-                ReportType.SPAM,
-                "스팸 신고"
-            );
+            ReportCreateRequest request =
+                    new ReportCreateRequest(
+                            ReportTargetType.FEED,
+                            "feed-123",
+                            TARGET_USER_ID,
+                            ReportType.SPAM,
+                            "스팸 신고");
 
             AdminReportApiResponse apiResponse = createSuccessResponse(1L, "FEED", "feed-123");
 
             when(userQueryFacadeService.findUserNickname(TEST_USER_ID)).thenReturn("신고자");
-            when(userQueryFacadeService.findUserNickname(TARGET_USER_ID)).thenThrow(new RuntimeException("사용자를 찾을 수 없습니다."));
-            when(adminReportFeignClient.createReport(any(AdminReportCreateRequest.class))).thenReturn(apiResponse);
+            when(userQueryFacadeService.findUserNickname(TARGET_USER_ID))
+                    .thenThrow(new RuntimeException("사용자를 찾을 수 없습니다."));
+            when(adminReportFeignClient.createReport(any(AdminReportCreateRequest.class)))
+                    .thenReturn(apiResponse);
 
             // when
             ReportResponse result = reportService.createReport(TEST_USER_ID, request);
@@ -179,57 +181,62 @@ class ReportServiceTest {
         @DisplayName("신고 생성 시 ContentReportedEvent를 발행한다")
         void createReport_publishesEvent() {
             // given
-            ReportCreateRequest request = new ReportCreateRequest(
-                ReportTargetType.FEED,
-                "feed-123",
-                TARGET_USER_ID,
-                ReportType.SPAM,
-                "스팸 신고"
-            );
+            ReportCreateRequest request =
+                    new ReportCreateRequest(
+                            ReportTargetType.FEED,
+                            "feed-123",
+                            TARGET_USER_ID,
+                            ReportType.SPAM,
+                            "스팸 신고");
 
             AdminReportApiResponse apiResponse = createSuccessResponse(1L, "FEED", "feed-123");
 
             when(userQueryFacadeService.findUserNickname(TEST_USER_ID)).thenReturn("신고자");
             when(userQueryFacadeService.findUserNickname(TARGET_USER_ID)).thenReturn("대상자");
-            when(adminReportFeignClient.createReport(any(AdminReportCreateRequest.class))).thenReturn(apiResponse);
+            when(adminReportFeignClient.createReport(any(AdminReportCreateRequest.class)))
+                    .thenReturn(apiResponse);
 
             // when
             reportService.createReport(TEST_USER_ID, request);
 
             // then
-            verify(eventPublisher).publishEvent(any(io.pinkspider.global.event.ContentReportedEvent.class));
+            verify(eventPublisher)
+                    .publishEvent(any(io.pinkspider.global.event.ContentReportedEvent.class));
         }
 
         @Test
         @DisplayName("신고 생성 시 올바른 이벤트 정보를 발행한다")
         void createReport_publishesCorrectEvent() {
             // given
-            ReportCreateRequest request = new ReportCreateRequest(
-                ReportTargetType.GUILD,
-                "100",
-                TARGET_USER_ID,
-                ReportType.HARASSMENT,
-                "괴롭힘 신고"
-            );
+            ReportCreateRequest request =
+                    new ReportCreateRequest(
+                            ReportTargetType.GUILD,
+                            "100",
+                            TARGET_USER_ID,
+                            ReportType.HARASSMENT,
+                            "괴롭힘 신고");
 
             AdminReportApiResponse apiResponse = createSuccessResponse(1L, "GUILD", "100");
 
             when(userQueryFacadeService.findUserNickname(TEST_USER_ID)).thenReturn("신고자");
             when(userQueryFacadeService.findUserNickname(TARGET_USER_ID)).thenReturn("대상자");
-            when(adminReportFeignClient.createReport(any(AdminReportCreateRequest.class))).thenReturn(apiResponse);
+            when(adminReportFeignClient.createReport(any(AdminReportCreateRequest.class)))
+                    .thenReturn(apiResponse);
 
             // when
             reportService.createReport(TEST_USER_ID, request);
 
             // then
-            org.mockito.ArgumentCaptor<Object> eventCaptor = org.mockito.ArgumentCaptor.forClass(Object.class);
+            org.mockito.ArgumentCaptor<Object> eventCaptor =
+                    org.mockito.ArgumentCaptor.forClass(Object.class);
             verify(eventPublisher).publishEvent(eventCaptor.capture());
 
             Object capturedEvent = eventCaptor.getValue();
-            assertThat(capturedEvent).isInstanceOf(io.pinkspider.global.event.ContentReportedEvent.class);
+            assertThat(capturedEvent)
+                    .isInstanceOf(io.pinkspider.global.event.ContentReportedEvent.class);
 
             io.pinkspider.global.event.ContentReportedEvent reportedEvent =
-                (io.pinkspider.global.event.ContentReportedEvent) capturedEvent;
+                    (io.pinkspider.global.event.ContentReportedEvent) capturedEvent;
             assertThat(reportedEvent.userId()).isEqualTo(TEST_USER_ID);
             assertThat(reportedEvent.targetType()).isEqualTo("GUILD");
             assertThat(reportedEvent.targetId()).isEqualTo("100");
@@ -241,21 +248,23 @@ class ReportServiceTest {
         @DisplayName("이벤트 발행 실패 시에도 신고 생성은 성공한다")
         void createReport_eventPublishFails_stillSucceeds() {
             // given
-            ReportCreateRequest request = new ReportCreateRequest(
-                ReportTargetType.FEED,
-                "feed-123",
-                TARGET_USER_ID,
-                ReportType.SPAM,
-                "스팸 신고"
-            );
+            ReportCreateRequest request =
+                    new ReportCreateRequest(
+                            ReportTargetType.FEED,
+                            "feed-123",
+                            TARGET_USER_ID,
+                            ReportType.SPAM,
+                            "스팸 신고");
 
             AdminReportApiResponse apiResponse = createSuccessResponse(1L, "FEED", "feed-123");
 
             when(userQueryFacadeService.findUserNickname(TEST_USER_ID)).thenReturn("신고자");
             when(userQueryFacadeService.findUserNickname(TARGET_USER_ID)).thenReturn("대상자");
-            when(adminReportFeignClient.createReport(any(AdminReportCreateRequest.class))).thenReturn(apiResponse);
+            when(adminReportFeignClient.createReport(any(AdminReportCreateRequest.class)))
+                    .thenReturn(apiResponse);
             org.mockito.Mockito.doThrow(new RuntimeException("이벤트 발행 실패"))
-                .when(eventPublisher).publishEvent(any());
+                    .when(eventPublisher)
+                    .publishEvent(any());
 
             // when
             ReportResponse result = reportService.createReport(TEST_USER_ID, request);
@@ -269,31 +278,35 @@ class ReportServiceTest {
         @DisplayName("targetUserId가 null일 때도 이벤트를 발행한다")
         void createReport_nullTargetUserId_stillPublishesEvent() {
             // given
-            ReportCreateRequest request = new ReportCreateRequest(
-                ReportTargetType.MISSION,
-                "mission-456",
-                null,  // targetUserId가 null
-                ReportType.SPAM,
-                "스팸 신고"
-            );
+            ReportCreateRequest request =
+                    new ReportCreateRequest(
+                            ReportTargetType.MISSION,
+                            "mission-456",
+                            null, // targetUserId가 null
+                            ReportType.SPAM,
+                            "스팸 신고");
 
-            AdminReportApiResponse apiResponse = createSuccessResponse(1L, "MISSION", "mission-456");
+            AdminReportApiResponse apiResponse =
+                    createSuccessResponse(1L, "MISSION", "mission-456");
 
             when(userQueryFacadeService.findUserNickname(TEST_USER_ID)).thenReturn("신고자");
-            when(adminReportFeignClient.createReport(any(AdminReportCreateRequest.class))).thenReturn(apiResponse);
+            when(adminReportFeignClient.createReport(any(AdminReportCreateRequest.class)))
+                    .thenReturn(apiResponse);
 
             // when
             reportService.createReport(TEST_USER_ID, request);
 
             // then
-            org.mockito.ArgumentCaptor<Object> eventCaptor = org.mockito.ArgumentCaptor.forClass(Object.class);
+            org.mockito.ArgumentCaptor<Object> eventCaptor =
+                    org.mockito.ArgumentCaptor.forClass(Object.class);
             verify(eventPublisher).publishEvent(eventCaptor.capture());
 
             Object capturedEvent = eventCaptor.getValue();
-            assertThat(capturedEvent).isInstanceOf(io.pinkspider.global.event.ContentReportedEvent.class);
+            assertThat(capturedEvent)
+                    .isInstanceOf(io.pinkspider.global.event.ContentReportedEvent.class);
 
             io.pinkspider.global.event.ContentReportedEvent reportedEvent =
-                (io.pinkspider.global.event.ContentReportedEvent) capturedEvent;
+                    (io.pinkspider.global.event.ContentReportedEvent) capturedEvent;
             assertThat(reportedEvent.targetUserId()).isNull();
             assertThat(reportedEvent.targetType()).isEqualTo("MISSION");
         }
@@ -310,10 +323,12 @@ class ReportServiceTest {
             AdminReportCheckResponse response = new AdminReportCheckResponse();
             TestReflectionUtils.setField(response, "value", true);
 
-            when(adminReportFeignClient.checkUnderReview("USER_PROFILE", TARGET_USER_ID)).thenReturn(response);
+            when(adminReportFeignClient.checkUnderReview("USER_PROFILE", TARGET_USER_ID))
+                    .thenReturn(response);
 
             // when
-            boolean result = reportService.isUnderReview(ReportTargetType.USER_PROFILE, TARGET_USER_ID);
+            boolean result =
+                    reportService.isUnderReview(ReportTargetType.USER_PROFILE, TARGET_USER_ID);
 
             // then
             assertThat(result).isTrue();
@@ -326,10 +341,12 @@ class ReportServiceTest {
             AdminReportCheckResponse response = new AdminReportCheckResponse();
             TestReflectionUtils.setField(response, "value", false);
 
-            when(adminReportFeignClient.checkUnderReview("USER_PROFILE", TARGET_USER_ID)).thenReturn(response);
+            when(adminReportFeignClient.checkUnderReview("USER_PROFILE", TARGET_USER_ID))
+                    .thenReturn(response);
 
             // when
-            boolean result = reportService.isUnderReview(ReportTargetType.USER_PROFILE, TARGET_USER_ID);
+            boolean result =
+                    reportService.isUnderReview(ReportTargetType.USER_PROFILE, TARGET_USER_ID);
 
             // then
             assertThat(result).isFalse();
@@ -342,8 +359,9 @@ class ReportServiceTest {
             RuntimeException exception = new RuntimeException("서버 오류");
 
             // when - fallback 메서드 직접 호출 (Circuit Breaker는 단위 테스트에서 비활성화)
-            boolean result = reportService.isUnderReviewFallback(
-                ReportTargetType.USER_PROFILE, TARGET_USER_ID, exception);
+            boolean result =
+                    reportService.isUnderReviewFallback(
+                            ReportTargetType.USER_PROFILE, TARGET_USER_ID, exception);
 
             // then
             assertThat(result).isFalse();
@@ -374,14 +392,18 @@ class ReportServiceTest {
             fetchedResult.put("2", false);
             fetchedResult.put("3", true);
 
-            io.pinkspider.leveluptogethermvp.supportservice.report.core.feignclient.AdminReportBatchCheckResponse response =
-                new io.pinkspider.leveluptogethermvp.supportservice.report.core.feignclient.AdminReportBatchCheckResponse();
+            io.pinkspider.leveluptogethermvp.supportservice.report.core.feignclient
+                            .AdminReportBatchCheckResponse
+                    response =
+                            new io.pinkspider.leveluptogethermvp.supportservice.report.core
+                                    .feignclient.AdminReportBatchCheckResponse();
             TestReflectionUtils.setField(response, "value", fetchedResult);
 
             when(adminReportFeignClient.checkUnderReviewBatch(any())).thenReturn(response);
 
             // when
-            java.util.Map<String, Boolean> result = reportService.isUnderReviewBatch(ReportTargetType.FEED, targetIds);
+            java.util.Map<String, Boolean> result =
+                    reportService.isUnderReviewBatch(ReportTargetType.FEED, targetIds);
 
             // then
             assertThat(result).hasSize(3);
@@ -404,28 +426,32 @@ class ReportServiceTest {
             when(cachedTrue.get()).thenReturn(true);
 
             when(mockCache.get("FEED:1")).thenReturn(cachedTrue); // 캐시 히트
-            when(mockCache.get("FEED:2")).thenReturn(null);       // 캐시 미스
-            when(mockCache.get("FEED:3")).thenReturn(null);       // 캐시 미스
+            when(mockCache.get("FEED:2")).thenReturn(null); // 캐시 미스
+            when(mockCache.get("FEED:3")).thenReturn(null); // 캐시 미스
 
             java.util.Map<String, Boolean> fetchedResult = new java.util.HashMap<>();
             fetchedResult.put("2", false);
             fetchedResult.put("3", true);
 
-            io.pinkspider.leveluptogethermvp.supportservice.report.core.feignclient.AdminReportBatchCheckResponse response =
-                new io.pinkspider.leveluptogethermvp.supportservice.report.core.feignclient.AdminReportBatchCheckResponse();
+            io.pinkspider.leveluptogethermvp.supportservice.report.core.feignclient
+                            .AdminReportBatchCheckResponse
+                    response =
+                            new io.pinkspider.leveluptogethermvp.supportservice.report.core
+                                    .feignclient.AdminReportBatchCheckResponse();
             TestReflectionUtils.setField(response, "value", fetchedResult);
 
             when(adminReportFeignClient.checkUnderReviewBatch(any())).thenReturn(response);
 
             // when
             java.util.List<String> targetIds = java.util.Arrays.asList("1", "2", "3");
-            java.util.Map<String, Boolean> result = reportService.isUnderReviewBatch(ReportTargetType.FEED, targetIds);
+            java.util.Map<String, Boolean> result =
+                    reportService.isUnderReviewBatch(ReportTargetType.FEED, targetIds);
 
             // then
             assertThat(result).hasSize(3);
-            assertThat(result.get("1")).isTrue();  // 캐시에서
+            assertThat(result.get("1")).isTrue(); // 캐시에서
             assertThat(result.get("2")).isFalse(); // Admin에서
-            assertThat(result.get("3")).isTrue();  // Admin에서
+            assertThat(result.get("3")).isTrue(); // Admin에서
         }
 
         @Test
@@ -435,7 +461,8 @@ class ReportServiceTest {
             java.util.List<String> targetIds = java.util.Collections.emptyList();
 
             // when
-            java.util.Map<String, Boolean> result = reportService.isUnderReviewBatch(ReportTargetType.FEED, targetIds);
+            java.util.Map<String, Boolean> result =
+                    reportService.isUnderReviewBatch(ReportTargetType.FEED, targetIds);
 
             // then
             assertThat(result).isEmpty();
@@ -445,7 +472,8 @@ class ReportServiceTest {
         @DisplayName("null 리스트 조회 시 빈 Map을 반환한다")
         void isUnderReviewBatch_nullList_returnsEmptyMap() {
             // given & when
-            java.util.Map<String, Boolean> result = reportService.isUnderReviewBatch(ReportTargetType.FEED, null);
+            java.util.Map<String, Boolean> result =
+                    reportService.isUnderReviewBatch(ReportTargetType.FEED, null);
 
             // then
             assertThat(result).isEmpty();
@@ -460,21 +488,22 @@ class ReportServiceTest {
             when(cachedTrue.get()).thenReturn(true);
 
             when(mockCache.get("FEED:1")).thenReturn(cachedTrue); // 캐시 히트
-            when(mockCache.get("FEED:2")).thenReturn(null);       // 캐시 미스
-            when(mockCache.get("FEED:3")).thenReturn(null);       // 캐시 미스
+            when(mockCache.get("FEED:2")).thenReturn(null); // 캐시 미스
+            when(mockCache.get("FEED:3")).thenReturn(null); // 캐시 미스
 
             when(adminReportFeignClient.checkUnderReviewBatch(any()))
-                .thenThrow(new RuntimeException("서버 오류"));
+                    .thenThrow(new RuntimeException("서버 오류"));
 
             // when
             java.util.List<String> targetIds = java.util.Arrays.asList("1", "2", "3");
-            java.util.Map<String, Boolean> result = reportService.isUnderReviewBatch(ReportTargetType.FEED, targetIds);
+            java.util.Map<String, Boolean> result =
+                    reportService.isUnderReviewBatch(ReportTargetType.FEED, targetIds);
 
             // then — 캐시 히트된 결과는 보존, 실패한 것만 false
             assertThat(result).hasSize(3);
-            assertThat(result.get("1")).isTrue();   // 캐시에서 보존
-            assertThat(result.get("2")).isFalse();  // 실패 → false
-            assertThat(result.get("3")).isFalse();  // 실패 → false
+            assertThat(result.get("1")).isTrue(); // 캐시에서 보존
+            assertThat(result.get("2")).isFalse(); // 실패 → false
+            assertThat(result.get("3")).isFalse(); // 실패 → false
         }
 
         @Test
@@ -485,14 +514,18 @@ class ReportServiceTest {
             when(mockCache.get(org.mockito.ArgumentMatchers.anyString())).thenReturn(null);
 
             java.util.List<String> targetIds = java.util.Arrays.asList("1", "2");
-            io.pinkspider.leveluptogethermvp.supportservice.report.core.feignclient.AdminReportBatchCheckResponse response =
-                new io.pinkspider.leveluptogethermvp.supportservice.report.core.feignclient.AdminReportBatchCheckResponse();
+            io.pinkspider.leveluptogethermvp.supportservice.report.core.feignclient
+                            .AdminReportBatchCheckResponse
+                    response =
+                            new io.pinkspider.leveluptogethermvp.supportservice.report.core
+                                    .feignclient.AdminReportBatchCheckResponse();
             // value는 null로 유지
 
             when(adminReportFeignClient.checkUnderReviewBatch(any())).thenReturn(response);
 
             // when
-            java.util.Map<String, Boolean> result = reportService.isUnderReviewBatch(ReportTargetType.FEED, targetIds);
+            java.util.Map<String, Boolean> result =
+                    reportService.isUnderReviewBatch(ReportTargetType.FEED, targetIds);
 
             // then
             assertThat(result).hasSize(2);

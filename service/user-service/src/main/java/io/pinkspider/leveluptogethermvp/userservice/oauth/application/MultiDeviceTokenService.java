@@ -53,8 +53,12 @@ public class MultiDeviceTokenService implements TokenBlacklistChecker {
         NO_SESSION
     }
 
-    public void saveTokensToRedis(String userId, String deviceType,
-                                  String deviceId, String accessToken, String refreshToken) {
+    public void saveTokensToRedis(
+            String userId,
+            String deviceType,
+            String deviceId,
+            String accessToken,
+            String refreshToken) {
 
         String sessionKey = resolveSessionKey(userId, deviceType, deviceId);
 
@@ -82,8 +86,12 @@ public class MultiDeviceTokenService implements TokenBlacklistChecker {
     }
 
     // 기존 토큰들을 업데이트 (Access Token은 항상, Refresh Token은 선택적)
-    public void updateTokens(String userId, String deviceType, String deviceId,
-                             String newAccessToken, String newRefreshToken) {
+    public void updateTokens(
+            String userId,
+            String deviceType,
+            String deviceId,
+            String newAccessToken,
+            String newRefreshToken) {
         String sessionKey = resolveSessionKey(userId, deviceType, deviceId);
 
         updateAccessTokenMetadata(sessionKey, newAccessToken);
@@ -94,32 +102,38 @@ public class MultiDeviceTokenService implements TokenBlacklistChecker {
             blacklistStoredPrevious(sessionKey);
             shiftCurrentToPrevious(sessionKey);
             putCurrentRefresh(sessionKey, newRefreshToken);
-            redisTemplate.opsForHash().put(sessionKey, "lastRefreshTime",
-                String.valueOf(System.currentTimeMillis()));
+            redisTemplate
+                    .opsForHash()
+                    .put(sessionKey, "lastRefreshTime", String.valueOf(System.currentTimeMillis()));
             log.info("Refresh token renewed for user: {}, device: {}", userId, deviceId);
         }
 
         // 세션 TTL 을 refresh 토큰 잔여 유효기간에 정렬 (토큰은 유효한데 세션만 소멸하는 상태 방지)
-        Duration sessionTtl = newRefreshToken != null
-            ? sessionTtl(newRefreshToken)
-            : sessionTtlFromStored(sessionKey);
+        Duration sessionTtl =
+                newRefreshToken != null
+                        ? sessionTtl(newRefreshToken)
+                        : sessionTtlFromStored(sessionKey);
         redisTemplate.expire(sessionKey, sessionTtl);
         redisTemplate.expire("userSessions:" + userId, sessionTtl);
     }
 
     /**
-     * grace 재시도용 갱신: 새 access/refresh 를 현재 토큰으로 교체하되
-     * previous(직전 rotation 의 구 토큰) 기록은 유지한다.
-     * 응답이 반복 유실되어도 grace window 내에서는 같은 구 토큰으로 계속 재시도할 수 있다.
+     * grace 재시도용 갱신: 새 access/refresh 를 현재 토큰으로 교체하되 previous(직전 rotation 의 구 토큰) 기록은 유지한다. 응답이 반복
+     * 유실되어도 grace window 내에서는 같은 구 토큰으로 계속 재시도할 수 있다.
      */
-    public void updateTokensForGraceRetry(String userId, String deviceType, String deviceId,
-                                          String newAccessToken, String newRefreshToken) {
+    public void updateTokensForGraceRetry(
+            String userId,
+            String deviceType,
+            String deviceId,
+            String newAccessToken,
+            String newRefreshToken) {
         String sessionKey = resolveSessionKey(userId, deviceType, deviceId);
 
         updateAccessTokenMetadata(sessionKey, newAccessToken);
         putCurrentRefresh(sessionKey, newRefreshToken);
-        redisTemplate.opsForHash().put(sessionKey, "lastRefreshTime",
-            String.valueOf(System.currentTimeMillis()));
+        redisTemplate
+                .opsForHash()
+                .put(sessionKey, "lastRefreshTime", String.valueOf(System.currentTimeMillis()));
 
         Duration sessionTtl = sessionTtl(newRefreshToken);
         redisTemplate.expire(sessionKey, sessionTtl);
@@ -127,32 +141,35 @@ public class MultiDeviceTokenService implements TokenBlacklistChecker {
     }
 
     /** 제시된 refresh 토큰이 세션의 현재 토큰과 일치하는지 (해시/레거시 평문 모두 지원) */
-    public RefreshTokenMatch checkRefreshToken(String userId, String deviceType, String deviceId,
-                                               String presentedToken) {
+    public RefreshTokenMatch checkRefreshToken(
+            String userId, String deviceType, String deviceId, String presentedToken) {
         String sessionKey = resolveSessionKey(userId, deviceType, deviceId);
         String stored = (String) redisTemplate.opsForHash().get(sessionKey, "refreshToken");
         if (stored == null) {
             return RefreshTokenMatch.NO_SESSION;
         }
         return matchesStored(stored, presentedToken)
-            ? RefreshTokenMatch.MATCH
-            : RefreshTokenMatch.MISMATCH;
+                ? RefreshTokenMatch.MATCH
+                : RefreshTokenMatch.MISMATCH;
     }
 
     /**
-     * rotation 직후 응답 유실로 클라이언트가 구 refresh 토큰을 다시 보낸 재시도인지 확인한다.
-     * previousRefreshToken 과 일치하고 rotation 후 grace window 이내일 때만 true.
+     * rotation 직후 응답 유실로 클라이언트가 구 refresh 토큰을 다시 보낸 재시도인지 확인한다. previousRefreshToken 과 일치하고
+     * rotation 후 grace window 이내일 때만 true.
      */
-    public boolean isWithinRotationGrace(String userId, String deviceType, String deviceId,
-                                         String presentedToken) {
+    public boolean isWithinRotationGrace(
+            String userId, String deviceType, String deviceId, String presentedToken) {
         if (presentedToken == null) {
             return false;
         }
         String sessionKey = resolveSessionKey(userId, deviceType, deviceId);
-        String previous = (String) redisTemplate.opsForHash().get(sessionKey, "previousRefreshToken");
+        String previous =
+                (String) redisTemplate.opsForHash().get(sessionKey, "previousRefreshToken");
         String previousTimeRaw =
-            (String) redisTemplate.opsForHash().get(sessionKey, "previousRefreshTime");
-        if (previous == null || previousTimeRaw == null || !matchesStored(previous, presentedToken)) {
+                (String) redisTemplate.opsForHash().get(sessionKey, "previousRefreshTime");
+        if (previous == null
+                || previousTimeRaw == null
+                || !matchesStored(previous, presentedToken)) {
             return false;
         }
         try {
@@ -226,8 +243,9 @@ public class MultiDeviceTokenService implements TokenBlacklistChecker {
         }
         long remaining = expiresAtMillis - System.currentTimeMillis();
         if (remaining > 0) {
-            redisTemplate.opsForValue().set("blacklist:" + jti, "revoked",
-                Duration.ofMillis(remaining));
+            redisTemplate
+                    .opsForValue()
+                    .set("blacklist:" + jti, "revoked", Duration.ofMillis(remaining));
             log.debug("Token blacklisted: {}", jti);
         }
     }
@@ -269,7 +287,10 @@ public class MultiDeviceTokenService implements TokenBlacklistChecker {
                     redisTemplate.delete(sessionKey);
                 }
 
-                log.info("All devices logged out for user: {}, sessions: {}", userId, sessions.size());
+                log.info(
+                        "All devices logged out for user: {}, sessions: {}",
+                        userId,
+                        sessions.size());
             }
 
             redisTemplate.delete(userSessionsKey);
@@ -279,35 +300,37 @@ public class MultiDeviceTokenService implements TokenBlacklistChecker {
         }
     }
 
-    /**
-     * 특정 세션의 상태 정보 조회 (token-status API 용).
-     * QA-231: 토큰 원문은 포함하지 않는다 — 만료/갱신 판정값만 반환.
-     */
+    /** 특정 세션의 상태 정보 조회 (token-status API 용). QA-231: 토큰 원문은 포함하지 않는다 — 만료/갱신 판정값만 반환. */
     public Map<String, Object> getSessionInfo(String userId, String deviceType, String deviceId) {
         String sessionKey = resolveSessionKey(userId, deviceType, deviceId);
         Map<Object, Object> sessionData = redisTemplate.opsForHash().entries(sessionKey);
 
         Map<String, Object> result = new HashMap<>();
         // 토큰 값 필드는 응답에서 제외
-        sessionData.forEach((k, v) -> {
-            String key = k.toString();
-            if (!key.equals("refreshToken") && !key.equals("previousRefreshToken")
-                && !key.equals("accessToken")) {
-                result.put(key, v);
-            }
-        });
+        sessionData.forEach(
+                (k, v) -> {
+                    String key = k.toString();
+                    if (!key.equals("refreshToken")
+                            && !key.equals("previousRefreshToken")
+                            && !key.equals("accessToken")) {
+                        result.put(key, v);
+                    }
+                });
 
         Long refreshRemaining = refreshRemainingMillis(sessionData);
         if (refreshRemaining != null) {
             Long loginTime = parseLongOrNull(sessionData.get("loginTime"));
             boolean valid = refreshRemaining > 0;
             boolean shouldRenew =
-                slidingExpirationService.shouldRenewByRemainingMillis(refreshRemaining);
+                    slidingExpirationService.shouldRenewByRemainingMillis(refreshRemaining);
             result.put("refreshTokenRemaining", refreshRemaining);
             result.put("refreshTokenValid", valid);
             result.put("shouldRenewRefreshToken", shouldRenew);
-            result.put("canRenewRefreshToken",
-                valid && shouldRenew && slidingExpirationService.isSessionWithinMaxLifetime(loginTime));
+            result.put(
+                    "canRenewRefreshToken",
+                    valid
+                            && shouldRenew
+                            && slidingExpirationService.isSessionWithinMaxLifetime(loginTime));
         }
 
         return result;
@@ -325,25 +348,27 @@ public class MultiDeviceTokenService implements TokenBlacklistChecker {
                 Map<Object, Object> sessionData = redisTemplate.opsForHash().entries(sessionKey);
 
                 if (!sessionData.isEmpty()) {
-                    Session.SessionBuilder builder = Session.builder()
-                        .deviceType(asString(sessionData.get("deviceType")))
-                        .deviceId(asString(sessionData.get("deviceId")))
-                        .loginTime(asString(sessionData.get("loginTime")))
-                        .memberId(asString(sessionData.get("userId")));
+                    Session.SessionBuilder builder =
+                            Session.builder()
+                                    .deviceType(asString(sessionData.get("deviceType")))
+                                    .deviceId(asString(sessionData.get("deviceId")))
+                                    .loginTime(asString(sessionData.get("loginTime")))
+                                    .memberId(asString(sessionData.get("userId")));
 
                     Long refreshRemaining = refreshRemainingMillis(sessionData);
                     if (refreshRemaining != null) {
                         builder.refreshTokenRemaining(
-                            java.math.BigInteger.valueOf(Math.max(0, refreshRemaining)));
+                                java.math.BigInteger.valueOf(Math.max(0, refreshRemaining)));
                         builder.refreshTokenValid(refreshRemaining > 0);
                         builder.shouldRenew(
-                            slidingExpirationService.shouldRenewByRemainingMillis(refreshRemaining));
+                                slidingExpirationService.shouldRenewByRemainingMillis(
+                                        refreshRemaining));
                     }
 
                     Long accessRemaining = accessRemainingMillis(sessionData);
                     if (accessRemaining != null) {
                         builder.accessTokenRemaining(
-                            java.math.BigInteger.valueOf(Math.max(0, accessRemaining)));
+                                java.math.BigInteger.valueOf(Math.max(0, accessRemaining)));
                         builder.accessTokenValid(accessRemaining > 0);
                     }
 
@@ -368,21 +393,23 @@ public class MultiDeviceTokenService implements TokenBlacklistChecker {
         Map<String, Object> stats = new HashMap<>();
         stats.put("totalSessions", sessions.size());
 
-        Map<String, Long> deviceTypeCount = sessions.stream()
-            .collect(Collectors.groupingBy(
-                session -> session.getDeviceType(),
-                Collectors.counting()
-            ));
+        Map<String, Long> deviceTypeCount =
+                sessions.stream()
+                        .collect(
+                                Collectors.groupingBy(
+                                        session -> session.getDeviceType(), Collectors.counting()));
         stats.put("deviceTypeCounts", deviceTypeCount);
 
         if (!sessions.isEmpty()) {
-            OptionalLong oldestLogin = sessions.stream()
-                .mapToLong(session -> Long.parseLong(session.getLoginTime()))
-                .min();
+            OptionalLong oldestLogin =
+                    sessions.stream()
+                            .mapToLong(session -> Long.parseLong(session.getLoginTime()))
+                            .min();
 
-            OptionalLong newestLogin = sessions.stream()
-                .mapToLong(session -> Long.parseLong(session.getLoginTime()))
-                .max();
+            OptionalLong newestLogin =
+                    sessions.stream()
+                            .mapToLong(session -> Long.parseLong(session.getLoginTime()))
+                            .max();
 
             if (oldestLogin.isPresent()) {
                 stats.put("oldestLoginTime", oldestLogin.getAsLong());
@@ -423,7 +450,7 @@ public class MultiDeviceTokenService implements TokenBlacklistChecker {
     /** 세션의 refresh 가 만료됐는지 — 해시 세션은 exp 메타데이터, 레거시는 원문 검증 */
     private boolean isSessionRefreshExpired(String sessionKey) {
         String refreshExpiresAt =
-            (String) redisTemplate.opsForHash().get(sessionKey, "refreshExpiresAt");
+                (String) redisTemplate.opsForHash().get(sessionKey, "refreshExpiresAt");
         Long expiresAt = parseLongOrNull(refreshExpiresAt);
         if (expiresAt != null) {
             return expiresAt <= System.currentTimeMillis();
@@ -461,20 +488,23 @@ public class MultiDeviceTokenService implements TokenBlacklistChecker {
         }
         if (stored.startsWith(HASH_PREFIX)) {
             return MessageDigest.isEqual(
-                stored.getBytes(StandardCharsets.UTF_8),
-                hashToken(presented).getBytes(StandardCharsets.UTF_8));
+                    stored.getBytes(StandardCharsets.UTF_8),
+                    hashToken(presented).getBytes(StandardCharsets.UTF_8));
         }
         // 레거시 평문 세션 하위 호환
         return MessageDigest.isEqual(
-            stored.getBytes(StandardCharsets.UTF_8), presented.getBytes(StandardCharsets.UTF_8));
+                stored.getBytes(StandardCharsets.UTF_8),
+                presented.getBytes(StandardCharsets.UTF_8));
     }
 
     /** 토큰의 jti/exp 메타데이터를 세션 맵에 기록 ({prefix}Jti / {prefix}ExpiresAt) */
     private void putTokenMetadata(Map<String, String> target, String prefix, String rawToken) {
         try {
             target.put(prefix + "Jti", jwtUtil.getJtiFromToken(rawToken));
-            target.put(prefix + "ExpiresAt",
-                String.valueOf(System.currentTimeMillis() + jwtUtil.getRemainingTime(rawToken)));
+            target.put(
+                    prefix + "ExpiresAt",
+                    String.valueOf(
+                            System.currentTimeMillis() + jwtUtil.getRemainingTime(rawToken)));
         } catch (Exception e) {
             log.warn("Failed to extract token metadata ({}): {}", prefix, e.getMessage());
         }
@@ -514,8 +544,10 @@ public class MultiDeviceTokenService implements TokenBlacklistChecker {
             // 레거시 평문 세션 — 원문에서 메타데이터 추출
             try {
                 currentJti = jwtUtil.getJtiFromToken(currentValue);
-                currentExp = String.valueOf(
-                    System.currentTimeMillis() + jwtUtil.getRemainingTime(currentValue));
+                currentExp =
+                        String.valueOf(
+                                System.currentTimeMillis()
+                                        + jwtUtil.getRemainingTime(currentValue));
             } catch (Exception e) {
                 log.warn("Failed to extract legacy refresh metadata: {}", e.getMessage());
             }
@@ -532,10 +564,9 @@ public class MultiDeviceTokenService implements TokenBlacklistChecker {
     /**
      * previous refresh 토큰 블랙리스트 — jti 메타데이터 우선, 레거시 평문이면 원문으로.
      *
-     * <p>LUT-336: rotation 경로에서는 grace window 안의 previous 를 살려둔다. 예전에는 rotation 이
-     * 일어날 때마다 무조건 previous 를 폐기해서, grace 가 "2분"이 아니라 "다음 rotation 까지"로
-     * 동작했다. 재발급이 2초 간격으로 두 번 들어오면 방금 발급한 세대가 즉시 무효가 되고, 그 토큰을
-     * 들고 있던 클라이언트는 다음 갱신에서 재로그인당했다. 로그아웃은 세션을 끝내는 것이므로 force 로 폐기한다.
+     * <p>LUT-336: rotation 경로에서는 grace window 안의 previous 를 살려둔다. 예전에는 rotation 이 일어날 때마다 무조건
+     * previous 를 폐기해서, grace 가 "2분"이 아니라 "다음 rotation 까지"로 동작했다. 재발급이 2초 간격으로 두 번 들어오면 방금 발급한 세대가
+     * 즉시 무효가 되고, 그 토큰을 들고 있던 클라이언트는 다음 갱신에서 재로그인당했다. 로그아웃은 세션을 끝내는 것이므로 force 로 폐기한다.
      */
     private void blacklistStoredPrevious(String sessionKey) {
         blacklistStoredPrevious(sessionKey, false);
@@ -546,15 +577,16 @@ public class MultiDeviceTokenService implements TokenBlacklistChecker {
             return;
         }
         String previousJti =
-            (String) redisTemplate.opsForHash().get(sessionKey, "previousRefreshJti");
-        Long previousExp = parseLongOrNull(
-            redisTemplate.opsForHash().get(sessionKey, "previousRefreshExpiresAt"));
+                (String) redisTemplate.opsForHash().get(sessionKey, "previousRefreshJti");
+        Long previousExp =
+                parseLongOrNull(
+                        redisTemplate.opsForHash().get(sessionKey, "previousRefreshExpiresAt"));
         if (previousJti != null && previousExp != null) {
             blacklistJti(previousJti, previousExp);
             return;
         }
         String previousRaw =
-            (String) redisTemplate.opsForHash().get(sessionKey, "previousRefreshToken");
+                (String) redisTemplate.opsForHash().get(sessionKey, "previousRefreshToken");
         if (previousRaw != null && !previousRaw.startsWith(HASH_PREFIX)) {
             blacklistToken(previousRaw);
         }
@@ -563,16 +595,18 @@ public class MultiDeviceTokenService implements TokenBlacklistChecker {
     /** previous refresh 가 아직 grace window 안인지 (LUT-336) */
     private boolean isPreviousWithinGrace(String sessionKey) {
         Long previousTime =
-            parseLongOrNull(redisTemplate.opsForHash().get(sessionKey, "previousRefreshTime"));
+                parseLongOrNull(redisTemplate.opsForHash().get(sessionKey, "previousRefreshTime"));
         return previousTime != null
-            && System.currentTimeMillis() - previousTime <= ROTATION_GRACE_MILLIS;
+                && System.currentTimeMillis() - previousTime <= ROTATION_GRACE_MILLIS;
     }
 
     /** 세션 필드({prefix}Jti/{prefix}ExpiresAt 또는 레거시 원문)를 이용해 블랙리스트 */
-    private void blacklistFromSession(String sessionKey, String metadataPrefix, String legacyField) {
+    private void blacklistFromSession(
+            String sessionKey, String metadataPrefix, String legacyField) {
         String jti = (String) redisTemplate.opsForHash().get(sessionKey, metadataPrefix + "Jti");
-        Long expiresAt = parseLongOrNull(
-            redisTemplate.opsForHash().get(sessionKey, metadataPrefix + "ExpiresAt"));
+        Long expiresAt =
+                parseLongOrNull(
+                        redisTemplate.opsForHash().get(sessionKey, metadataPrefix + "ExpiresAt"));
         if (jti != null && expiresAt != null) {
             blacklistJti(jti, expiresAt);
             return;
@@ -633,13 +667,13 @@ public class MultiDeviceTokenService implements TokenBlacklistChecker {
 
     /** 저장된 세션의 refresh exp 메타데이터(또는 레거시 원문)로 TTL 계산 */
     private Duration sessionTtlFromStored(String sessionKey) {
-        Long expiresAt = parseLongOrNull(
-            redisTemplate.opsForHash().get(sessionKey, "refreshExpiresAt"));
+        Long expiresAt =
+                parseLongOrNull(redisTemplate.opsForHash().get(sessionKey, "refreshExpiresAt"));
         if (expiresAt != null) {
             long remaining = expiresAt - System.currentTimeMillis();
             return remaining > 0
-                ? Duration.ofMillis(remaining).plus(SESSION_TTL_BUFFER)
-                : SESSION_TTL_BUFFER;
+                    ? Duration.ofMillis(remaining).plus(SESSION_TTL_BUFFER)
+                    : SESSION_TTL_BUFFER;
         }
         String stored = (String) redisTemplate.opsForHash().get(sessionKey, "refreshToken");
         if (stored != null && !stored.startsWith(HASH_PREFIX)) {
@@ -666,10 +700,9 @@ public class MultiDeviceTokenService implements TokenBlacklistChecker {
     /**
      * 세션 키 — deviceId 만으로 구성한다 (LUT-336).
      *
-     * <p>예전 키는 {@code session:{userId}:{deviceType}:{deviceId}} 였는데, deviceId 는 토큰 클레임에서
-     * 나오는 권위 있는 값인 반면 deviceType 은 클라이언트가 요청 본문에 써 보내는 값이다. 그래서 같은 기기가
-     * 앱(ios)과 웹뷰(web)로 각각 재발급을 요청하면 서로 다른 키를 보게 되어, 한쪽은 존재하지 않는 세션을
-     * 조회하고 강제 로그아웃됐다. deviceId 는 이미 기기별 UUID 라 deviceType 은 식별에 기여하지 않는다.
+     * <p>예전 키는 {@code session:{userId}:{deviceType}:{deviceId}} 였는데, deviceId 는 토큰 클레임에서 나오는 권위 있는
+     * 값인 반면 deviceType 은 클라이언트가 요청 본문에 써 보내는 값이다. 그래서 같은 기기가 앱(ios)과 웹뷰(web)로 각각 재발급을 요청하면 서로 다른 키를
+     * 보게 되어, 한쪽은 존재하지 않는 세션을 조회하고 강제 로그아웃됐다. deviceId 는 이미 기기별 UUID 라 deviceType 은 식별에 기여하지 않는다.
      * deviceType 은 세션 필드로만 남겨 세션 목록 표시에 쓴다.
      */
     private String buildSessionKey(String userId, String deviceId) {
@@ -679,9 +712,8 @@ public class MultiDeviceTokenService implements TokenBlacklistChecker {
     /**
      * 세션 키를 얻는다. 구 형식 키가 남아 있으면 신 형식으로 이관한 뒤 반환한다 (LUT-336).
      *
-     * <p>배포 시점에 살아 있는 세션(refresh 90일)을 끊지 않기 위한 dual-read 다. 이관은 RENAME 이라
-     * TTL 이 보존된다. 같은 deviceId 에 구 키가 여러 개(=deviceType 별로 쪼개진 흔적)면 가장 최근에 활동한
-     * 것만 남기고 나머지는 정리한다 — 어차피 같은 물리 기기다.
+     * <p>배포 시점에 살아 있는 세션(refresh 90일)을 끊지 않기 위한 dual-read 다. 이관은 RENAME 이라 TTL 이 보존된다. 같은 deviceId
+     * 에 구 키가 여러 개(=deviceType 별로 쪼개진 흔적)면 가장 최근에 활동한 것만 남기고 나머지는 정리한다 — 어차피 같은 물리 기기다.
      */
     private String resolveSessionKey(String userId, String deviceType, String deviceId) {
         String canonical = buildSessionKey(userId, deviceId);
@@ -695,11 +727,12 @@ public class MultiDeviceTokenService implements TokenBlacklistChecker {
         }
 
         String preferred = String.format("session:%s:%s:%s", userId, deviceType, deviceId);
-        String chosen = legacyKeys.contains(preferred)
-            ? preferred
-            : legacyKeys.stream()
-                .max(java.util.Comparator.comparingLong(this::lastActivityMillis))
-                .orElse(legacyKeys.get(0));
+        String chosen =
+                legacyKeys.contains(preferred)
+                        ? preferred
+                        : legacyKeys.stream()
+                                .max(java.util.Comparator.comparingLong(this::lastActivityMillis))
+                                .orElse(legacyKeys.get(0));
 
         String userSessionsKey = "userSessions:" + userId;
         try {
@@ -714,12 +747,13 @@ public class MultiDeviceTokenService implements TokenBlacklistChecker {
 
         // 같은 기기의 잔여 구 키 정리 (deviceType 분열로 생긴 중복)
         legacyKeys.stream()
-            .filter(key -> !key.equals(chosen))
-            .forEach(duplicate -> {
-                redisTemplate.delete(duplicate);
-                redisTemplate.opsForSet().remove(userSessionsKey, duplicate);
-                log.info("[session] duplicate legacy key removed: {}", duplicate);
-            });
+                .filter(key -> !key.equals(chosen))
+                .forEach(
+                        duplicate -> {
+                            redisTemplate.delete(duplicate);
+                            redisTemplate.opsForSet().remove(userSessionsKey, duplicate);
+                            log.info("[session] duplicate legacy key removed: {}", duplicate);
+                        });
 
         return canonical;
     }
@@ -734,16 +768,16 @@ public class MultiDeviceTokenService implements TokenBlacklistChecker {
         String suffix = ":" + deviceId;
         String canonical = buildSessionKey(userId, deviceId);
         return members.stream()
-            .filter(key -> key.startsWith(prefix) && key.endsWith(suffix))
-            .filter(key -> !key.equals(canonical))
-            .filter(key -> Boolean.TRUE.equals(redisTemplate.hasKey(key)))
-            .toList();
+                .filter(key -> key.startsWith(prefix) && key.endsWith(suffix))
+                .filter(key -> !key.equals(canonical))
+                .filter(key -> Boolean.TRUE.equals(redisTemplate.hasKey(key)))
+                .toList();
     }
 
     /** 세션의 마지막 활동 시각 (lastRefreshTime 우선, 없으면 loginTime). 판정 불가 시 0 */
     private long lastActivityMillis(String sessionKey) {
         Long lastRefresh =
-            parseLongOrNull(redisTemplate.opsForHash().get(sessionKey, "lastRefreshTime"));
+                parseLongOrNull(redisTemplate.opsForHash().get(sessionKey, "lastRefreshTime"));
         if (lastRefresh != null) {
             return lastRefresh;
         }
@@ -756,16 +790,18 @@ public class MultiDeviceTokenService implements TokenBlacklistChecker {
     /**
      * 같은 세션에 동시에 들어온 재발급을 직렬화한다.
      *
-     * <p>락 없이 두 요청이 같은 토큰으로 동시에 rotation 하면, 두 번째가 첫 번째로 방금 발급한 세대를
-     * previous 로 밀어내며 블랙리스트해 버린다. 그러면 클라이언트가 쥔 토큰이 하루 뒤 만료 갱신 시점에
-     * 이미 무효가 되어 재로그인으로 이어진다.
+     * <p>락 없이 두 요청이 같은 토큰으로 동시에 rotation 하면, 두 번째가 첫 번째로 방금 발급한 세대를 previous 로 밀어내며 블랙리스트해 버린다. 그러면
+     * 클라이언트가 쥔 토큰이 하루 뒤 만료 갱신 시점에 이미 무효가 되어 재로그인으로 이어진다.
      *
      * @return 락을 잡았으면 true. 실패해도 호출부는 진행한다 (fail-open) — 락은 최적화지 정합성 게이트가 아니다.
      */
     public boolean tryLockSession(String userId, String deviceId) {
         try {
-            return Boolean.TRUE.equals(redisTemplate.opsForValue()
-                .setIfAbsent(rotationLockKey(userId, deviceId), "1", ROTATION_LOCK_TTL));
+            return Boolean.TRUE.equals(
+                    redisTemplate
+                            .opsForValue()
+                            .setIfAbsent(
+                                    rotationLockKey(userId, deviceId), "1", ROTATION_LOCK_TTL));
         } catch (Exception e) {
             log.warn("[session] rotation lock acquire failed: {}", e.getMessage());
             return false;

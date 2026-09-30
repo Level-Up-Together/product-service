@@ -14,73 +14,78 @@ import org.springframework.transaction.annotation.Transactional;
 @Repository
 public interface GuildDirectMessageRepository extends JpaRepository<GuildDirectMessage, Long> {
 
-    @Query("SELECT m FROM GuildDirectMessage m " +
-           "WHERE m.conversation.id = :conversationId " +
-           "AND m.isDeleted = false " +
-           "ORDER BY m.createdAt DESC")
+    @Query(
+            "SELECT m FROM GuildDirectMessage m "
+                    + "WHERE m.conversation.id = :conversationId "
+                    + "AND m.isDeleted = false "
+                    + "ORDER BY m.createdAt DESC")
     Page<GuildDirectMessage> findByConversationId(
-        @Param("conversationId") Long conversationId,
-        Pageable pageable);
+            @Param("conversationId") Long conversationId, Pageable pageable);
 
-    @Query("SELECT m FROM GuildDirectMessage m " +
-           "WHERE m.conversation.id = :conversationId " +
-           "AND m.id < :beforeId " +
-           "AND m.isDeleted = false " +
-           "ORDER BY m.createdAt DESC")
+    @Query(
+            "SELECT m FROM GuildDirectMessage m "
+                    + "WHERE m.conversation.id = :conversationId "
+                    + "AND m.id < :beforeId "
+                    + "AND m.isDeleted = false "
+                    + "ORDER BY m.createdAt DESC")
     Page<GuildDirectMessage> findMessagesBeforeId(
-        @Param("conversationId") Long conversationId,
-        @Param("beforeId") Long beforeId,
-        Pageable pageable);
+            @Param("conversationId") Long conversationId,
+            @Param("beforeId") Long beforeId,
+            Pageable pageable);
 
-    @Query("SELECT m FROM GuildDirectMessage m " +
-           "WHERE m.conversation.id = :conversationId " +
-           "AND m.id > :afterId " +
-           "AND m.isDeleted = false " +
-           "ORDER BY m.createdAt ASC")
+    @Query(
+            "SELECT m FROM GuildDirectMessage m "
+                    + "WHERE m.conversation.id = :conversationId "
+                    + "AND m.id > :afterId "
+                    + "AND m.isDeleted = false "
+                    + "ORDER BY m.createdAt ASC")
     List<GuildDirectMessage> findMessagesAfterId(
-        @Param("conversationId") Long conversationId,
-        @Param("afterId") Long afterId);
+            @Param("conversationId") Long conversationId, @Param("afterId") Long afterId);
 
-    @Query("SELECT COUNT(m) FROM GuildDirectMessage m " +
-           "WHERE m.conversation.id = :conversationId " +
-           "AND m.senderId != :userId " +
-           "AND m.isRead = false " +
-           "AND m.isDeleted = false")
+    @Query(
+            "SELECT COUNT(m) FROM GuildDirectMessage m "
+                    + "WHERE m.conversation.id = :conversationId "
+                    + "AND m.senderId != :userId "
+                    + "AND m.isRead = false "
+                    + "AND m.isDeleted = false")
     int countUnreadMessages(
-        @Param("conversationId") Long conversationId,
-        @Param("userId") String userId);
+            @Param("conversationId") Long conversationId, @Param("userId") String userId);
 
     // LUT-383: 차단한 상대(excludedSenderIds)의 미읽음은 뱃지에서 제외 —
     // 빈 리스트 IN 오동작 방지를 위해 호출측이 __none__ 센티널을 넣는다
-    @Query("SELECT COUNT(m) FROM GuildDirectMessage m " +
-           "WHERE m.conversation.guildId = :guildId " +
-           "AND (m.conversation.userId1 = :userId OR m.conversation.userId2 = :userId) " +
-           "AND m.senderId != :userId " +
-           "AND m.senderId NOT IN :excludedSenderIds " +
-           "AND m.isRead = false " +
-           "AND m.isDeleted = false " +
-           "AND m.conversation.isActive = true")
+    @Query(
+            "SELECT COUNT(m) FROM GuildDirectMessage m "
+                    + "WHERE m.conversation.guildId = :guildId "
+                    + "AND (m.conversation.userId1 = :userId OR m.conversation.userId2 = :userId) "
+                    + "AND m.senderId != :userId "
+                    + "AND m.senderId NOT IN :excludedSenderIds "
+                    + "AND m.isRead = false "
+                    + "AND m.isDeleted = false "
+                    + "AND m.conversation.isActive = true")
     int countTotalUnreadMessages(
-        @Param("guildId") Long guildId,
-        @Param("userId") String userId,
-        @Param("excludedSenderIds") List<String> excludedSenderIds);
+            @Param("guildId") Long guildId,
+            @Param("userId") String userId,
+            @Param("excludedSenderIds") List<String> excludedSenderIds);
 
     @Modifying
-    @Query("UPDATE GuildDirectMessage m SET m.isRead = true, m.readAt = CURRENT_TIMESTAMP " +
-           "WHERE m.conversation.id = :conversationId " +
-           "AND m.senderId != :userId " +
-           "AND m.isRead = false")
-    int markAllAsRead(
-        @Param("conversationId") Long conversationId,
-        @Param("userId") String userId);
+    @Query(
+            "UPDATE GuildDirectMessage m SET m.isRead = true, m.readAt = CURRENT_TIMESTAMP "
+                    + "WHERE m.conversation.id = :conversationId "
+                    + "AND m.senderId != :userId "
+                    + "AND m.isRead = false")
+    int markAllAsRead(@Param("conversationId") Long conversationId, @Param("userId") String userId);
 
-    @Query("SELECT COUNT(m) FROM GuildDirectMessage m " +
-           "WHERE m.conversation.id = :conversationId " +
-           "AND m.isDeleted = false")
+    @Query(
+            "SELECT COUNT(m) FROM GuildDirectMessage m "
+                    + "WHERE m.conversation.id = :conversationId "
+                    + "AND m.isDeleted = false")
     long countByConversationId(@Param("conversationId") Long conversationId);
 
     @Modifying
     @Transactional(transactionManager = "chatTransactionManager")
-    @Query("UPDATE GuildDirectMessage m SET m.senderNickname = :nickname WHERE m.senderId = :userId")
-    int updateSenderNicknameByUserId(@Param("userId") String userId, @Param("nickname") String nickname);
+    @Query(
+            "UPDATE GuildDirectMessage m SET m.senderNickname = :nickname WHERE m.senderId ="
+                    + " :userId")
+    int updateSenderNicknameByUserId(
+            @Param("userId") String userId, @Param("nickname") String nickname);
 }

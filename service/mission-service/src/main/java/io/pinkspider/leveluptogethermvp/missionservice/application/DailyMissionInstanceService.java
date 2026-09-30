@@ -1,15 +1,16 @@
 package io.pinkspider.leveluptogethermvp.missionservice.application;
 
+import io.pinkspider.global.api.ApiStatus;
 import io.pinkspider.global.event.MissionFeedImageChangedEvent;
 import io.pinkspider.global.event.MissionFeedUnsharedEvent;
-import io.pinkspider.leveluptogethermvp.feedservice.domain.enums.FeedVisibility;
-import io.pinkspider.leveluptogethermvp.missionservice.config.MissionExecutionProperties;
-import io.pinkspider.global.saga.SagaResult;
-import io.pinkspider.leveluptogethermvp.feedservice.domain.entity.ActivityFeed;
+import io.pinkspider.global.exception.CustomException;
 import io.pinkspider.global.facade.UserQueryFacade;
 import io.pinkspider.global.facade.dto.UserProfileInfo;
-import io.pinkspider.global.api.ApiStatus;
-import io.pinkspider.global.exception.CustomException;
+import io.pinkspider.global.saga.SagaResult;
+import io.pinkspider.leveluptogethermvp.feedservice.application.FeedCommandService;
+import io.pinkspider.leveluptogethermvp.feedservice.domain.entity.ActivityFeed;
+import io.pinkspider.leveluptogethermvp.feedservice.domain.enums.FeedVisibility;
+import io.pinkspider.leveluptogethermvp.missionservice.config.MissionExecutionProperties;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.DailyMissionInstanceResponse;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.DailyMissionInstance;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.DailyMissionInstanceImage;
@@ -23,8 +24,11 @@ import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.MissionExe
 import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.MissionParticipantRepository;
 import io.pinkspider.leveluptogethermvp.missionservice.saga.MissionCompletionContext;
 import io.pinkspider.leveluptogethermvp.missionservice.saga.MissionCompletionSaga;
-import io.pinkspider.leveluptogethermvp.feedservice.application.FeedCommandService;
+import java.time.LocalDate;
 import java.time.ZoneId;
+import java.util.List;
+import java.util.Optional;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
@@ -32,22 +36,12 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.time.LocalDate;
-import java.util.List;
-import java.util.Optional;
-import java.util.stream.Collectors;
-
 /**
  * 고정 미션 일일 인스턴스 서비스
  *
- * 고정 미션(pinned mission)의 일일 인스턴스를 관리합니다.
- * - 오늘 인스턴스 조회
- * - 인스턴스 시작/완료
- * - 피드 공유
- * - 이미지 업로드
+ * <p>고정 미션(pinned mission)의 일일 인스턴스를 관리합니다. - 오늘 인스턴스 조회 - 인스턴스 시작/완료 - 피드 공유 - 이미지 업로드
  *
- * Phase 1 fix: findActiveInstanceByParticipant → 작업별 조회 메서드 분리
- * Phase 2: instanceId 기반 직접 조회 지원
+ * <p>Phase 1 fix: findActiveInstanceByParticipant → 작업별 조회 메서드 분리 Phase 2: instanceId 기반 직접 조회 지원
  */
 @Service
 @RequiredArgsConstructor
@@ -67,51 +61,52 @@ public class DailyMissionInstanceService {
 
     // ============ 조회 ============
 
-    /**
-     * 사용자의 오늘 인스턴스 목록 조회
-     */
+    /** 사용자의 오늘 인스턴스 목록 조회 */
     @Transactional(readOnly = true, transactionManager = "missionTransactionManager")
     public List<DailyMissionInstanceResponse> getTodayInstances(String userId) {
         LocalDate today = LocalDate.now(ZoneId.of("Asia/Seoul"));
-        List<DailyMissionInstance> instances = instanceRepository.findByUserIdAndInstanceDateWithMission(userId, today);
+        List<DailyMissionInstance> instances =
+                instanceRepository.findByUserIdAndInstanceDateWithMission(userId, today);
         return toResponsesWithImages(instances);
     }
 
-    /**
-     * 특정 날짜의 인스턴스 목록 조회
-     */
+    /** 특정 날짜의 인스턴스 목록 조회 */
     @Transactional(readOnly = true, transactionManager = "missionTransactionManager")
     public List<DailyMissionInstanceResponse> getInstancesByDate(String userId, LocalDate date) {
-        List<DailyMissionInstance> instances = instanceRepository.findByUserIdAndInstanceDateWithMission(userId, date);
+        List<DailyMissionInstance> instances =
+                instanceRepository.findByUserIdAndInstanceDateWithMission(userId, date);
         return toResponsesWithImages(instances);
     }
 
-    /**
-     * 인스턴스 목록을 응답으로 변환하면서 다중 이미지 일괄 채움 (N+1 방지, QA-139)
-     */
-    private List<DailyMissionInstanceResponse> toResponsesWithImages(List<DailyMissionInstance> instances) {
+    /** 인스턴스 목록을 응답으로 변환하면서 다중 이미지 일괄 채움 (N+1 방지, QA-139) */
+    private List<DailyMissionInstanceResponse> toResponsesWithImages(
+            List<DailyMissionInstance> instances) {
         if (instances.isEmpty()) {
             return List.of();
         }
-        List<Long> ids = instances.stream().map(DailyMissionInstance::getId).collect(Collectors.toList());
+        List<Long> ids =
+                instances.stream().map(DailyMissionInstance::getId).collect(Collectors.toList());
         java.util.Map<Long, java.util.List<String>> imagesByInstanceId = new java.util.HashMap<>();
-        for (DailyMissionInstanceImage img : instanceImageRepository.findByInstanceIdInOrderBySortOrder(ids)) {
-            imagesByInstanceId.computeIfAbsent(img.getInstance().getId(), k -> new java.util.ArrayList<>())
-                .add(img.getImageUrl());
+        for (DailyMissionInstanceImage img :
+                instanceImageRepository.findByInstanceIdInOrderBySortOrder(ids)) {
+            imagesByInstanceId
+                    .computeIfAbsent(img.getInstance().getId(), k -> new java.util.ArrayList<>())
+                    .add(img.getImageUrl());
         }
         return instances.stream()
-            .map(instance -> {
-                DailyMissionInstanceResponse response = DailyMissionInstanceResponse.from(instance);
-                List<String> urls = imagesByInstanceId.getOrDefault(instance.getId(), List.of());
-                response.setImageUrls(urls);
-                return response;
-            })
-            .collect(Collectors.toList());
+                .map(
+                        instance -> {
+                            DailyMissionInstanceResponse response =
+                                    DailyMissionInstanceResponse.from(instance);
+                            List<String> urls =
+                                    imagesByInstanceId.getOrDefault(instance.getId(), List.of());
+                            response.setImageUrls(urls);
+                            return response;
+                        })
+                .collect(Collectors.toList());
     }
 
-    /**
-     * 인스턴스 상세 조회
-     */
+    /** 인스턴스 상세 조회 */
     @Transactional(readOnly = true, transactionManager = "missionTransactionManager")
     public DailyMissionInstanceResponse getInstance(Long instanceId, String userId) {
         DailyMissionInstance instance = findInstanceById(instanceId);
@@ -119,37 +114,47 @@ public class DailyMissionInstanceService {
         return buildInstanceResponseWithImages(instance);
     }
 
-    /**
-     * 고정 미션 인스턴스 조회 (missionId + date + optional instanceId)
-     */
+    /** 고정 미션 인스턴스 조회 (missionId + date + optional instanceId) */
     @Transactional(readOnly = true, transactionManager = "missionTransactionManager")
-    public DailyMissionInstanceResponse getInstanceByMission(Long missionId, String userId, LocalDate date, Long instanceId) {
+    public DailyMissionInstanceResponse getInstanceByMission(
+            Long missionId, String userId, LocalDate date, Long instanceId) {
         DailyMissionInstance instance = resolveQueryInstance(missionId, userId, date, instanceId);
         return buildInstanceResponseWithImages(instance);
     }
 
     // ============ 실행 ============
 
-    /**
-     * 인스턴스 시작
-     */
+    /** 인스턴스 시작 */
     @Transactional(transactionManager = "missionTransactionManager")
     public DailyMissionInstanceResponse startInstance(Long instanceId, String userId) {
         // 이미 진행 중인 일반 미션이 있는지 확인 (날짜 무관 — 사용자가 직접 종료해야 함)
-        executionRepository.findInProgressByUserId(userId).ifPresent(inProgressExecution -> {
-            String inProgressMissionTitle = inProgressExecution.getParticipant().getMission().getTitle();
-            throw new IllegalStateException(
-                String.format("이미 진행 중인 미션이 있습니다: %s (ID: %d). 해당 미션을 완료하거나 취소한 후 시작해주세요.",
-                    inProgressMissionTitle, inProgressExecution.getParticipant().getMission().getId()));
-        });
+        executionRepository
+                .findInProgressByUserId(userId)
+                .ifPresent(
+                        inProgressExecution -> {
+                            String inProgressMissionTitle =
+                                    inProgressExecution.getParticipant().getMission().getTitle();
+                            throw new IllegalStateException(
+                                    String.format(
+                                            "이미 진행 중인 미션이 있습니다: %s (ID: %d). 해당 미션을 완료하거나 취소한 후"
+                                                    + " 시작해주세요.",
+                                            inProgressMissionTitle,
+                                            inProgressExecution
+                                                    .getParticipant()
+                                                    .getMission()
+                                                    .getId()));
+                        });
 
         // 이미 진행 중인 고정 미션 인스턴스가 있는지 확인 (날짜 무관 — 사용자가 직접 종료해야 함)
-        instanceRepository.findInProgressByUserId(userId).ifPresent(inProgress -> {
-            throw new IllegalStateException(
-                String.format("이미 진행 중인 미션이 있습니다: %s. 해당 미션을 완료하거나 취소한 후 시작해주세요.",
-                    inProgress.getMissionTitle())
-            );
-        });
+        instanceRepository
+                .findInProgressByUserId(userId)
+                .ifPresent(
+                        inProgress -> {
+                            throw new IllegalStateException(
+                                    String.format(
+                                            "이미 진행 중인 미션이 있습니다: %s. 해당 미션을 완료하거나 취소한 후 시작해주세요.",
+                                            inProgress.getMissionTitle()));
+                        });
 
         DailyMissionInstance instance = findInstanceById(instanceId);
         validateInstanceOwner(instance, userId);
@@ -157,20 +162,22 @@ public class DailyMissionInstanceService {
         instance.start();
         instanceRepository.save(instance);
 
-        log.info("고정 미션 인스턴스 시작: instanceId={}, userId={}, date={}",
-            instanceId, userId, instance.getInstanceDate());
+        log.info(
+                "고정 미션 인스턴스 시작: instanceId={}, userId={}, date={}",
+                instanceId,
+                userId,
+                instance.getInstanceDate());
 
         return DailyMissionInstanceResponse.from(instance);
     }
 
     /**
-     * 고정 미션 시작 (missionId + date로 조회 후 시작)
-     * 1. 이미 IN_PROGRESS 인스턴스가 있으면 그것을 반환 (이미 수행중)
-     * 2. PENDING 상태 인스턴스가 있으면 재사용
-     * 3. 없으면 새로 생성
+     * 고정 미션 시작 (missionId + date로 조회 후 시작) 1. 이미 IN_PROGRESS 인스턴스가 있으면 그것을 반환 (이미 수행중) 2. PENDING
+     * 상태 인스턴스가 있으면 재사용 3. 없으면 새로 생성
      */
     @Transactional(transactionManager = "missionTransactionManager")
-    public DailyMissionInstanceResponse startInstanceByMission(Long missionId, String userId, LocalDate date) {
+    public DailyMissionInstanceResponse startInstanceByMission(
+            Long missionId, String userId, LocalDate date) {
         MissionParticipant participant = findParticipant(missionId, userId);
 
         // 일일 수행 제한 체크
@@ -178,36 +185,51 @@ public class DailyMissionInstanceService {
         //   기존 participant_id 기준 카운트는 미션 삭제 후 재추가 시 새 participant_id 로 0이 되어 무한 수행 가능.
         Mission mission = participant.getMission();
         if (mission.getDailyExecutionLimit() != null) {
-            long todayCompleted = mission.getBaseMissionId() != null
-                ? instanceRepository.countCompletedByUserIdAndBaseMissionIdAndDate(
-                    userId, mission.getBaseMissionId(), date)
-                : instanceRepository.countCompletedByParticipantIdAndDate(participant.getId(), date);
+            long todayCompleted =
+                    mission.getBaseMissionId() != null
+                            ? instanceRepository.countCompletedByUserIdAndBaseMissionIdAndDate(
+                                    userId, mission.getBaseMissionId(), date)
+                            : instanceRepository.countCompletedByParticipantIdAndDate(
+                                    participant.getId(), date);
             if (todayCompleted >= mission.getDailyExecutionLimit()) {
                 // LUT-419: 코드+params 로 응답 — FE 전역 오류 모달이 코드 매핑으로 다국어 표시, 서버 메시지도
                 // MessageSource {0} 보간으로 현지화 (기존: 하드코딩 한글 IllegalStateException)
-                throw new CustomException("050110", "error.mission.daily_limit_exceeded",
-                    java.util.Map.of("max", mission.getDailyExecutionLimit()));
+                throw new CustomException(
+                        "050110",
+                        "error.mission.daily_limit_exceeded",
+                        java.util.Map.of("max", mission.getDailyExecutionLimit()));
             }
         }
 
         // 이미 IN_PROGRESS 인스턴스가 있으면 그것을 반환 (뒤로가기 후 재진입 시)
-        Optional<DailyMissionInstance> inProgressInstance = instanceRepository
-            .findInProgressByParticipantIdAndDate(participant.getId(), date);
+        Optional<DailyMissionInstance> inProgressInstance =
+                instanceRepository.findInProgressByParticipantIdAndDate(participant.getId(), date);
         if (inProgressInstance.isPresent()) {
-            log.info("이미 수행중인 고정 미션 인스턴스 반환: missionId={}, instanceId={}, userId={}",
-                missionId, inProgressInstance.get().getId(), userId);
+            log.info(
+                    "이미 수행중인 고정 미션 인스턴스 반환: missionId={}, instanceId={}, userId={}",
+                    missionId,
+                    inProgressInstance.get().getId(),
+                    userId);
             return DailyMissionInstanceResponse.from(inProgressInstance.get());
         }
 
         // PENDING 상태 인스턴스가 있으면 재사용, 없으면 새로 생성
-        DailyMissionInstance instance = instanceRepository.findPendingByParticipantIdAndDate(participant.getId(), date)
-            .stream()
-            .findFirst()
-            .orElseGet(() -> {
-                int nextSequence = instanceRepository.findMaxSequenceNumber(participant.getId(), date) + 1;
-                DailyMissionInstance newInstance = DailyMissionInstance.createFrom(participant, date, nextSequence);
-                return instanceRepository.save(newInstance);
-            });
+        DailyMissionInstance instance =
+                instanceRepository
+                        .findPendingByParticipantIdAndDate(participant.getId(), date)
+                        .stream()
+                        .findFirst()
+                        .orElseGet(
+                                () -> {
+                                    int nextSequence =
+                                            instanceRepository.findMaxSequenceNumber(
+                                                            participant.getId(), date)
+                                                    + 1;
+                                    DailyMissionInstance newInstance =
+                                            DailyMissionInstance.createFrom(
+                                                    participant, date, nextSequence);
+                                    return instanceRepository.save(newInstance);
+                                });
 
         return startInstance(instance.getId(), userId);
     }
@@ -215,29 +237,31 @@ public class DailyMissionInstanceService {
     /**
      * 인스턴스 완료 (경험치 지급 포함)
      *
-     * Saga 패턴을 사용하여 분산 트랜잭션 관리
+     * <p>Saga 패턴을 사용하여 분산 트랜잭션 관리
      */
-    public DailyMissionInstanceResponse completeInstance(Long instanceId, String userId, String note) {
+    public DailyMissionInstanceResponse completeInstance(
+            Long instanceId, String userId, String note) {
         return completeInstance(instanceId, userId, note, false);
     }
 
-    /**
-     * 인스턴스 완료 (경험치 지급 + 피드 공유 옵션)
-     */
-    public DailyMissionInstanceResponse completeInstance(Long instanceId, String userId, String note, boolean shareToFeed) {
+    /** 인스턴스 완료 (경험치 지급 + 피드 공유 옵션) */
+    public DailyMissionInstanceResponse completeInstance(
+            Long instanceId, String userId, String note, boolean shareToFeed) {
         FeedVisibility visibility = shareToFeed ? FeedVisibility.PUBLIC : FeedVisibility.PRIVATE;
         return completeInstance(instanceId, userId, note, visibility);
     }
 
-    /**
-     * 인스턴스 완료 (경험치 지급 + 피드 공개범위 지정)
-     */
-    public DailyMissionInstanceResponse completeInstance(Long instanceId, String userId, String note, FeedVisibility feedVisibility) {
-        log.info("고정 미션 완료 요청 (Saga): instanceId={}, userId={}, feedVisibility={}",
-            instanceId, userId, feedVisibility);
+    /** 인스턴스 완료 (경험치 지급 + 피드 공개범위 지정) */
+    public DailyMissionInstanceResponse completeInstance(
+            Long instanceId, String userId, String note, FeedVisibility feedVisibility) {
+        log.info(
+                "고정 미션 완료 요청 (Saga): instanceId={}, userId={}, feedVisibility={}",
+                instanceId,
+                userId,
+                feedVisibility);
 
         SagaResult<MissionCompletionContext> result =
-            missionCompletionSaga.executePinned(instanceId, userId, note, feedVisibility);
+                missionCompletionSaga.executePinned(instanceId, userId, note, feedVisibility);
 
         if (!result.isSuccess()) {
             throw new IllegalStateException("고정 미션 완료 실패: " + result.getMessage());
@@ -246,35 +270,51 @@ public class DailyMissionInstanceService {
         return missionCompletionSaga.toPinnedResponse(result);
     }
 
-    /**
-     * 고정 미션 완료 (missionId + date로 조회)
-     */
+    /** 고정 미션 완료 (missionId + date로 조회) */
     @Transactional(transactionManager = "missionTransactionManager", readOnly = true)
-    public DailyMissionInstanceResponse completeInstanceByMission(Long missionId, String userId, LocalDate date, String note, boolean shareToFeed) {
+    public DailyMissionInstanceResponse completeInstanceByMission(
+            Long missionId, String userId, LocalDate date, String note, boolean shareToFeed) {
         FeedVisibility visibility = shareToFeed ? FeedVisibility.PUBLIC : FeedVisibility.PRIVATE;
         return completeInstanceByMission(missionId, userId, date, note, visibility);
     }
 
     /**
-     * 고정 미션 완료 (missionId + date로 조회, 피드 공개범위 지정)
-     * readOnly: Saga가 REQUIRES_NEW로 인스턴스를 업데이트하므로, 이 트랜잭션에서 flush하면 StaleObjectStateException 발생
+     * 고정 미션 완료 (missionId + date로 조회, 피드 공개범위 지정) readOnly: Saga가 REQUIRES_NEW로 인스턴스를 업데이트하므로, 이
+     * 트랜잭션에서 flush하면 StaleObjectStateException 발생
      */
     @Transactional(transactionManager = "missionTransactionManager", readOnly = true)
-    public DailyMissionInstanceResponse completeInstanceByMission(Long missionId, String userId, LocalDate date, String note, FeedVisibility feedVisibility) {
+    public DailyMissionInstanceResponse completeInstanceByMission(
+            Long missionId,
+            String userId,
+            LocalDate date,
+            String note,
+            FeedVisibility feedVisibility) {
         MissionParticipant participant = findParticipant(missionId, userId);
 
         // 해당 날짜에 IN_PROGRESS가 없으면, 자정을 넘긴 IN_PROGRESS 인스턴스를 찾아서 완료 처리
-        DailyMissionInstance instance = instanceRepository.findInProgressByParticipantIdAndDate(participant.getId(), date)
-            .or(() -> instanceRepository.findInProgressByUserId(userId)
-                .filter(i -> i.getParticipant().getId().equals(participant.getId())))
-            .orElseThrow(() -> new IllegalArgumentException("진행 중인 인스턴스를 찾을 수 없습니다: " + date));
+        DailyMissionInstance instance =
+                instanceRepository
+                        .findInProgressByParticipantIdAndDate(participant.getId(), date)
+                        .or(
+                                () ->
+                                        instanceRepository
+                                                .findInProgressByUserId(userId)
+                                                .filter(
+                                                        i ->
+                                                                i.getParticipant()
+                                                                        .getId()
+                                                                        .equals(
+                                                                                participant
+                                                                                        .getId())))
+                        .orElseThrow(
+                                () ->
+                                        new IllegalArgumentException(
+                                                "진행 중인 인스턴스를 찾을 수 없습니다: " + date));
 
         return completeInstance(instance.getId(), userId, note, feedVisibility);
     }
 
-    /**
-     * 진행 취소 (PENDING 상태로 되돌림)
-     */
+    /** 진행 취소 (PENDING 상태로 되돌림) */
     @Transactional(transactionManager = "missionTransactionManager")
     public DailyMissionInstanceResponse skipInstance(Long instanceId, String userId) {
         DailyMissionInstance instance = findInstanceById(instanceId);
@@ -288,34 +328,35 @@ public class DailyMissionInstanceService {
         return DailyMissionInstanceResponse.from(instance);
     }
 
-    /**
-     * 고정 미션 진행 취소 (missionId + date로 조회)
-     */
+    /** 고정 미션 진행 취소 (missionId + date로 조회) */
     @Transactional(transactionManager = "missionTransactionManager")
-    public DailyMissionInstanceResponse skipInstanceByMission(Long missionId, String userId, LocalDate date) {
+    public DailyMissionInstanceResponse skipInstanceByMission(
+            Long missionId, String userId, LocalDate date) {
         MissionParticipant participant = findParticipant(missionId, userId);
 
-        DailyMissionInstance instance = instanceRepository.findInProgressByParticipantIdAndDate(participant.getId(), date)
-            .orElseThrow(() -> new IllegalArgumentException("진행 중인 인스턴스를 찾을 수 없습니다: " + date));
+        DailyMissionInstance instance =
+                instanceRepository
+                        .findInProgressByParticipantIdAndDate(participant.getId(), date)
+                        .orElseThrow(
+                                () ->
+                                        new IllegalArgumentException(
+                                                "진행 중인 인스턴스를 찾을 수 없습니다: " + date));
 
         return skipInstance(instance.getId(), userId);
     }
 
     // ============ 피드 공유 ============
 
-    /**
-     * 완료된 인스턴스를 피드에 공유
-     */
+    /** 완료된 인스턴스를 피드에 공유 */
     @Transactional(transactionManager = "missionTransactionManager")
     public DailyMissionInstanceResponse shareToFeed(Long instanceId, String userId) {
         return shareToFeed(instanceId, userId, FeedVisibility.PUBLIC);
     }
 
-    /**
-     * 완료된 인스턴스를 피드에 공유 (공개범위 지정)
-     */
+    /** 완료된 인스턴스를 피드에 공유 (공개범위 지정) */
     @Transactional(transactionManager = "missionTransactionManager")
-    public DailyMissionInstanceResponse shareToFeed(Long instanceId, String userId, FeedVisibility feedVisibility) {
+    public DailyMissionInstanceResponse shareToFeed(
+            Long instanceId, String userId, FeedVisibility feedVisibility) {
         DailyMissionInstance instance = findInstanceById(instanceId);
         validateInstanceOwner(instance, userId);
 
@@ -329,9 +370,15 @@ public class DailyMissionInstanceService {
         String guildName = feedVisibility == FeedVisibility.GUILD ? mission.getGuildName() : null;
 
         // Saga가 이미 피드를 생성한 경우 → visibility/content 업데이트
-        var existingFeed = feedCommandService.updateFeedContentByExecutionId(
-            instance.getId(), userId, instance.getNote(), instance.getImageUrl(), feedVisibility,
-            guildId, guildName);
+        var existingFeed =
+                feedCommandService.updateFeedContentByExecutionId(
+                        instance.getId(),
+                        userId,
+                        instance.getNote(),
+                        instance.getImageUrl(),
+                        feedVisibility,
+                        guildId,
+                        guildName);
 
         if (existingFeed != null) {
             if (!Boolean.TRUE.equals(instance.getIsSharedToFeed())) {
@@ -345,33 +392,38 @@ public class DailyMissionInstanceService {
         // 수동 공유 시 ActivityFeedImage child rows 동기화 (QA-139)
         publishInstanceImageChangedEvent(userId, instance);
 
-        log.info("고정 미션 피드 공유 완료: instanceId={}, userId={}, visibility={}",
-            instanceId, userId, feedVisibility);
+        log.info(
+                "고정 미션 피드 공유 완료: instanceId={}, userId={}, visibility={}",
+                instanceId,
+                userId,
+                feedVisibility);
 
         return buildInstanceResponseWithImages(instance);
     }
 
-    /**
-     * 고정 미션 피드 공유 (missionId + date + optional instanceId)
-     */
+    /** 고정 미션 피드 공유 (missionId + date + optional instanceId) */
     @Transactional(transactionManager = "missionTransactionManager")
-    public DailyMissionInstanceResponse shareToFeedByMission(Long missionId, String userId, LocalDate date, Long instanceId) {
-        DailyMissionInstance instance = resolveCompletedInstance(missionId, userId, date, instanceId);
+    public DailyMissionInstanceResponse shareToFeedByMission(
+            Long missionId, String userId, LocalDate date, Long instanceId) {
+        DailyMissionInstance instance =
+                resolveCompletedInstance(missionId, userId, date, instanceId);
         return shareToFeed(instance.getId(), userId);
     }
 
-    /**
-     * 고정 미션 피드 공유 (missionId + date + optional instanceId, 공개범위 지정)
-     */
+    /** 고정 미션 피드 공유 (missionId + date + optional instanceId, 공개범위 지정) */
     @Transactional(transactionManager = "missionTransactionManager")
-    public DailyMissionInstanceResponse shareToFeedByMission(Long missionId, String userId, LocalDate date, Long instanceId, FeedVisibility feedVisibility) {
-        DailyMissionInstance instance = resolveCompletedInstance(missionId, userId, date, instanceId);
+    public DailyMissionInstanceResponse shareToFeedByMission(
+            Long missionId,
+            String userId,
+            LocalDate date,
+            Long instanceId,
+            FeedVisibility feedVisibility) {
+        DailyMissionInstance instance =
+                resolveCompletedInstance(missionId, userId, date, instanceId);
         return shareToFeed(instance.getId(), userId, feedVisibility);
     }
 
-    /**
-     * 피드 공유 취소
-     */
+    /** 피드 공유 취소 */
     @Transactional(transactionManager = "missionTransactionManager")
     public DailyMissionInstanceResponse unshareFromFeed(Long instanceId, String userId) {
         DailyMissionInstance instance = findInstanceById(instanceId);
@@ -387,27 +439,26 @@ public class DailyMissionInstanceService {
         // 이벤트 기반으로 피드 삭제 (AFTER_COMMIT)
         eventPublisher.publishEvent(new MissionFeedUnsharedEvent(userId, instance.getId()));
 
-        log.info("고정 미션 피드 공유 취소: instanceId={}, userId={}",
-            instanceId, userId);
+        log.info("고정 미션 피드 공유 취소: instanceId={}, userId={}", instanceId, userId);
 
         return buildInstanceResponseWithImages(instance);
     }
 
-    /**
-     * 고정 미션 피드 공유 취소 (missionId + date + optional instanceId)
-     */
+    /** 고정 미션 피드 공유 취소 (missionId + date + optional instanceId) */
     @Transactional(transactionManager = "missionTransactionManager")
-    public DailyMissionInstanceResponse unshareFromFeedByMission(Long missionId, String userId, LocalDate date, Long instanceId) {
-        DailyMissionInstance instance = resolveCompletedInstance(missionId, userId, date, instanceId);
+    public DailyMissionInstanceResponse unshareFromFeedByMission(
+            Long missionId, String userId, LocalDate date, Long instanceId) {
+        DailyMissionInstance instance =
+                resolveCompletedInstance(missionId, userId, date, instanceId);
         return unshareFromFeed(instance.getId(), userId);
     }
 
-    /**
-     * 고정 미션 노트 업데이트 (missionId + date + optional instanceId)
-     */
+    /** 고정 미션 노트 업데이트 (missionId + date + optional instanceId) */
     @Transactional(transactionManager = "missionTransactionManager")
-    public DailyMissionInstanceResponse updateNoteByMission(Long missionId, String userId, LocalDate date, String note, Long instanceId) {
-        DailyMissionInstance instance = resolveCompletedInstance(missionId, userId, date, instanceId);
+    public DailyMissionInstanceResponse updateNoteByMission(
+            Long missionId, String userId, LocalDate date, String note, Long instanceId) {
+        DailyMissionInstance instance =
+                resolveCompletedInstance(missionId, userId, date, instanceId);
         validateInstanceOwner(instance, userId);
 
         if (instance.getStatus() != ExecutionStatus.COMPLETED) {
@@ -418,18 +469,27 @@ public class DailyMissionInstanceService {
         instanceRepository.save(instance);
 
         // 피드 노트 동기화 (이벤트 기반)
-        eventPublisher.publishEvent(new io.pinkspider.global.event.MissionFeedNoteChangedEvent(userId, instance.getId(), note));
+        eventPublisher.publishEvent(
+                new io.pinkspider.global.event.MissionFeedNoteChangedEvent(
+                        userId, instance.getId(), note));
 
-        log.info("고정 미션 기록 업데이트: missionId={}, userId={}, date={}, instanceId={}", missionId, userId, date, instance.getId());
+        log.info(
+                "고정 미션 기록 업데이트: missionId={}, userId={}, date={}, instanceId={}",
+                missionId,
+                userId,
+                date,
+                instance.getId());
         return buildInstanceResponseWithImages(instance);
     }
 
     // ============ 이미지 업로드 (QA-53: 다중 이미지) ============
 
     @Transactional(transactionManager = "missionTransactionManager")
-    public DailyMissionInstanceResponse uploadImages(Long instanceId, String userId, java.util.List<MultipartFile> images) {
+    public DailyMissionInstanceResponse uploadImages(
+            Long instanceId, String userId, java.util.List<MultipartFile> images) {
         if (images == null || images.isEmpty()) {
-            throw new CustomException(ApiStatus.INVALID_INPUT.getResultCode(), "error.mission.image.empty");
+            throw new CustomException(
+                    ApiStatus.INVALID_INPUT.getResultCode(), "error.mission.image.empty");
         }
 
         DailyMissionInstance instance = findInstanceById(instanceId);
@@ -437,47 +497,63 @@ public class DailyMissionInstanceService {
 
         int existing = instanceImageRepository.countByInstanceId(instance.getId());
         if (existing + images.size() > MissionExecution.MAX_IMAGES) {
-            throw new CustomException(ApiStatus.INVALID_INPUT.getResultCode(), "error.mission.image.max_exceeded");
+            throw new CustomException(
+                    ApiStatus.INVALID_INPUT.getResultCode(), "error.mission.image.max_exceeded");
         }
 
         int nextSortOrder = existing;
         for (MultipartFile file : images) {
-            String url = missionImageStorageService.store(
-                file, userId,
-                instance.getParticipant().getMission().getId(),
-                instance.getInstanceDate().toString()
-            );
-            DailyMissionInstanceImage img = DailyMissionInstanceImage.builder()
-                .instance(instance)
-                .imageUrl(url)
-                .sortOrder(nextSortOrder++)
-                .build();
+            String url =
+                    missionImageStorageService.store(
+                            file,
+                            userId,
+                            instance.getParticipant().getMission().getId(),
+                            instance.getInstanceDate().toString());
+            DailyMissionInstanceImage img =
+                    DailyMissionInstanceImage.builder()
+                            .instance(instance)
+                            .imageUrl(url)
+                            .sortOrder(nextSortOrder++)
+                            .build();
             instanceImageRepository.save(img);
         }
 
         syncInstanceFirstImage(instance);
         publishInstanceImageChangedEvent(userId, instance);
 
-        log.info("고정 미션 이미지 다중 업로드: instanceId={}, added={}, total={}",
-            instance.getId(), images.size(), nextSortOrder);
+        log.info(
+                "고정 미션 이미지 다중 업로드: instanceId={}, added={}, total={}",
+                instance.getId(),
+                images.size(),
+                nextSortOrder);
         return buildInstanceResponseWithImages(instance);
     }
 
     @Transactional(transactionManager = "missionTransactionManager")
-    public DailyMissionInstanceResponse uploadImagesByMission(Long missionId, String userId, LocalDate date,
-                                                              java.util.List<MultipartFile> images, Long instanceId) {
-        DailyMissionInstance instance = resolveCompletedInstance(missionId, userId, date, instanceId);
+    public DailyMissionInstanceResponse uploadImagesByMission(
+            Long missionId,
+            String userId,
+            LocalDate date,
+            java.util.List<MultipartFile> images,
+            Long instanceId) {
+        DailyMissionInstance instance =
+                resolveCompletedInstance(missionId, userId, date, instanceId);
         return uploadImages(instance.getId(), userId, images);
     }
 
     @Transactional(transactionManager = "missionTransactionManager")
-    public DailyMissionInstanceResponse deleteImageByUrl(Long instanceId, String userId, String imageUrl) {
+    public DailyMissionInstanceResponse deleteImageByUrl(
+            Long instanceId, String userId, String imageUrl) {
         DailyMissionInstance instance = findInstanceById(instanceId);
         validateInstanceOwner(instance, userId);
 
-        instanceImageRepository.findByInstanceIdAndImageUrl(instance.getId(), imageUrl)
-            .orElseThrow(() -> new CustomException(ApiStatus.CLIENT_ERROR.getResultCode(),
-                "error.mission.image.not_found"));
+        instanceImageRepository
+                .findByInstanceIdAndImageUrl(instance.getId(), imageUrl)
+                .orElseThrow(
+                        () ->
+                                new CustomException(
+                                        ApiStatus.CLIENT_ERROR.getResultCode(),
+                                        "error.mission.image.not_found"));
 
         missionImageStorageService.delete(imageUrl);
         instanceImageRepository.deleteByInstanceIdAndImageUrl(instance.getId(), imageUrl);
@@ -492,10 +568,12 @@ public class DailyMissionInstanceService {
     }
 
     /** 응답 빌더 helper — imageUrls(전체) + imageUrl(첫 장) 채워서 반환. */
-    private DailyMissionInstanceResponse buildInstanceResponseWithImages(DailyMissionInstance instance) {
+    private DailyMissionInstanceResponse buildInstanceResponseWithImages(
+            DailyMissionInstance instance) {
         DailyMissionInstanceResponse response = DailyMissionInstanceResponse.from(instance);
         java.util.List<String> urls = new java.util.ArrayList<>();
-        for (DailyMissionInstanceImage img : instanceImageRepository.findByInstanceIdOrderBySortOrderAsc(instance.getId())) {
+        for (DailyMissionInstanceImage img :
+                instanceImageRepository.findByInstanceIdOrderBySortOrderAsc(instance.getId())) {
             urls.add(img.getImageUrl());
         }
         response.setImageUrls(urls);
@@ -503,14 +581,16 @@ public class DailyMissionInstanceService {
     }
 
     @Transactional(transactionManager = "missionTransactionManager")
-    public DailyMissionInstanceResponse deleteImageByUrlAndMission(Long missionId, String userId, LocalDate date,
-                                                                   String imageUrl, Long instanceId) {
-        DailyMissionInstance instance = resolveCompletedInstance(missionId, userId, date, instanceId);
+    public DailyMissionInstanceResponse deleteImageByUrlAndMission(
+            Long missionId, String userId, LocalDate date, String imageUrl, Long instanceId) {
+        DailyMissionInstance instance =
+                resolveCompletedInstance(missionId, userId, date, instanceId);
         return deleteImageByUrl(instance.getId(), userId, imageUrl);
     }
 
     private void reorderInstanceImages(Long instanceId) {
-        java.util.List<DailyMissionInstanceImage> remaining = instanceImageRepository.findByInstanceIdOrderBySortOrderAsc(instanceId);
+        java.util.List<DailyMissionInstanceImage> remaining =
+                instanceImageRepository.findByInstanceIdOrderBySortOrderAsc(instanceId);
         for (int i = 0; i < remaining.size(); i++) {
             DailyMissionInstanceImage img = remaining.get(i);
             if (img.getSortOrder() != i) {
@@ -520,17 +600,20 @@ public class DailyMissionInstanceService {
     }
 
     private void syncInstanceFirstImage(DailyMissionInstance instance) {
-        java.util.List<DailyMissionInstanceImage> images = instanceImageRepository.findByInstanceIdOrderBySortOrderAsc(instance.getId());
+        java.util.List<DailyMissionInstanceImage> images =
+                instanceImageRepository.findByInstanceIdOrderBySortOrderAsc(instance.getId());
         instance.setImageUrl(images.isEmpty() ? null : images.get(0).getImageUrl());
         instanceRepository.save(instance);
     }
 
     private void publishInstanceImageChangedEvent(String userId, DailyMissionInstance instance) {
         java.util.List<String> urls = new java.util.ArrayList<>();
-        for (DailyMissionInstanceImage img : instanceImageRepository.findByInstanceIdOrderBySortOrderAsc(instance.getId())) {
+        for (DailyMissionInstanceImage img :
+                instanceImageRepository.findByInstanceIdOrderBySortOrderAsc(instance.getId())) {
             urls.add(img.getImageUrl());
         }
-        eventPublisher.publishEvent(new MissionFeedImageChangedEvent(userId, instance.getId(), urls));
+        eventPublisher.publishEvent(
+                new MissionFeedImageChangedEvent(userId, instance.getId(), urls));
     }
 
     // ============ 인스턴스 해석 (Phase 1 + Phase 2) ============
@@ -538,13 +621,13 @@ public class DailyMissionInstanceService {
     /**
      * 후처리 작업용 인스턴스 해석 (note, image, share)
      *
-     * instanceId가 있으면 → 직접 조회 (정확한 타겟팅)
-     * instanceId가 없으면 → 가장 최근 COMPLETED 인스턴스 반환
+     * <p>instanceId가 있으면 → 직접 조회 (정확한 타겟팅) instanceId가 없으면 → 가장 최근 COMPLETED 인스턴스 반환
      *
-     * Phase 1 fix: 기존 findActiveInstanceByParticipant()의 IN_PROGRESS 우선 반환 버그 해결
-     * Phase 2: instanceId 지원으로 다중 완료 인스턴스 중 정확한 타겟팅 가능
+     * <p>Phase 1 fix: 기존 findActiveInstanceByParticipant()의 IN_PROGRESS 우선 반환 버그 해결 Phase 2:
+     * instanceId 지원으로 다중 완료 인스턴스 중 정확한 타겟팅 가능
      */
-    private DailyMissionInstance resolveCompletedInstance(Long missionId, String userId, LocalDate date, Long instanceId) {
+    private DailyMissionInstance resolveCompletedInstance(
+            Long missionId, String userId, LocalDate date, Long instanceId) {
         if (instanceId != null) {
             return findInstanceById(instanceId);
         }
@@ -555,10 +638,10 @@ public class DailyMissionInstanceService {
     /**
      * 조회 작업용 인스턴스 해석
      *
-     * instanceId가 있으면 → 직접 조회
-     * instanceId가 없으면 → 우선순위: IN_PROGRESS > COMPLETED(최신) > 기타(최신 시퀀스)
+     * <p>instanceId가 있으면 → 직접 조회 instanceId가 없으면 → 우선순위: IN_PROGRESS > COMPLETED(최신) > 기타(최신 시퀀스)
      */
-    private DailyMissionInstance resolveQueryInstance(Long missionId, String userId, LocalDate date, Long instanceId) {
+    private DailyMissionInstance resolveQueryInstance(
+            Long missionId, String userId, LocalDate date, Long instanceId) {
         if (instanceId != null) {
             return findInstanceById(instanceId);
         }
@@ -566,50 +649,52 @@ public class DailyMissionInstanceService {
         return findBestMatchInstance(participant.getId(), date);
     }
 
-    /**
-     * 가장 최근 완료된 인스턴스 조회
-     * 같은 날짜에 여러 COMPLETED 인스턴스가 있을 때, 시퀀스가 가장 큰(최근) 것을 반환
-     */
+    /** 가장 최근 완료된 인스턴스 조회 같은 날짜에 여러 COMPLETED 인스턴스가 있을 때, 시퀀스가 가장 큰(최근) 것을 반환 */
     private DailyMissionInstance findLatestCompletedInstance(Long participantId, LocalDate date) {
-        List<DailyMissionInstance> instances = instanceRepository
-            .findByParticipantIdAndInstanceDateOrderBySequenceDesc(participantId, date);
+        List<DailyMissionInstance> instances =
+                instanceRepository.findByParticipantIdAndInstanceDateOrderBySequenceDesc(
+                        participantId, date);
         return instances.stream()
-            .filter(i -> i.getStatus() == ExecutionStatus.COMPLETED)
-            .findFirst()
-            .orElseThrow(() -> new IllegalArgumentException(
-                "해당 날짜의 완료된 인스턴스를 찾을 수 없습니다: " + date));
+                .filter(i -> i.getStatus() == ExecutionStatus.COMPLETED)
+                .findFirst()
+                .orElseThrow(
+                        () -> new IllegalArgumentException("해당 날짜의 완료된 인스턴스를 찾을 수 없습니다: " + date));
     }
 
-    /**
-     * 가장 적절한 인스턴스 조회 (조회 용도)
-     * 우선순위: IN_PROGRESS > COMPLETED(최신 시퀀스) > 기타(최신 시퀀스)
-     */
+    /** 가장 적절한 인스턴스 조회 (조회 용도) 우선순위: IN_PROGRESS > COMPLETED(최신 시퀀스) > 기타(최신 시퀀스) */
     private DailyMissionInstance findBestMatchInstance(Long participantId, LocalDate date) {
-        return instanceRepository.findInProgressByParticipantIdAndDate(participantId, date)
-            .orElseGet(() -> {
-                List<DailyMissionInstance> instances = instanceRepository
-                    .findByParticipantIdAndInstanceDateOrderBySequenceDesc(participantId, date);
-                if (instances.isEmpty()) {
-                    throw new IllegalArgumentException("해당 날짜의 인스턴스를 찾을 수 없습니다: " + date);
-                }
-                // COMPLETED 우선, 없으면 최신 시퀀스
-                return instances.stream()
-                    .filter(i -> i.getStatus() == ExecutionStatus.COMPLETED)
-                    .findFirst()
-                    .orElse(instances.get(0));
-            });
+        return instanceRepository
+                .findInProgressByParticipantIdAndDate(participantId, date)
+                .orElseGet(
+                        () -> {
+                            List<DailyMissionInstance> instances =
+                                    instanceRepository
+                                            .findByParticipantIdAndInstanceDateOrderBySequenceDesc(
+                                                    participantId, date);
+                            if (instances.isEmpty()) {
+                                throw new IllegalArgumentException(
+                                        "해당 날짜의 인스턴스를 찾을 수 없습니다: " + date);
+                            }
+                            // COMPLETED 우선, 없으면 최신 시퀀스
+                            return instances.stream()
+                                    .filter(i -> i.getStatus() == ExecutionStatus.COMPLETED)
+                                    .findFirst()
+                                    .orElse(instances.get(0));
+                        });
     }
 
     // ============ 공통 헬퍼 메서드 ============
 
     private MissionParticipant findParticipant(Long missionId, String userId) {
-        return participantRepository.findByMissionIdAndUserId(missionId, userId)
-            .orElseThrow(() -> new IllegalArgumentException("미션 참여 정보를 찾을 수 없습니다."));
+        return participantRepository
+                .findByMissionIdAndUserId(missionId, userId)
+                .orElseThrow(() -> new IllegalArgumentException("미션 참여 정보를 찾을 수 없습니다."));
     }
 
     private DailyMissionInstance findInstanceById(Long instanceId) {
-        return instanceRepository.findByIdWithParticipantAndMission(instanceId)
-            .orElseThrow(() -> new IllegalArgumentException("인스턴스를 찾을 수 없습니다: " + instanceId));
+        return instanceRepository
+                .findByIdWithParticipantAndMission(instanceId)
+                .orElseThrow(() -> new IllegalArgumentException("인스턴스를 찾을 수 없습니다: " + instanceId));
     }
 
     private void validateInstanceOwner(DailyMissionInstance instance, String userId) {
@@ -618,35 +703,38 @@ public class DailyMissionInstanceService {
         }
     }
 
-    private void createFeedFromInstance(DailyMissionInstance instance, String userId, FeedVisibility feedVisibility) {
+    private void createFeedFromInstance(
+            DailyMissionInstance instance, String userId, FeedVisibility feedVisibility) {
         try {
             UserProfileInfo profile = userQueryFacadeService.getUserProfile(userId);
             // QA-168 후속: visibility=GUILD 일 때 길드 정보 채움
             Mission mission = instance.getParticipant().getMission();
-            Long guildId = feedVisibility == FeedVisibility.GUILD ? resolveGuildIdLong(mission) : null;
-            String guildName = feedVisibility == FeedVisibility.GUILD ? mission.getGuildName() : null;
+            Long guildId =
+                    feedVisibility == FeedVisibility.GUILD ? resolveGuildIdLong(mission) : null;
+            String guildName =
+                    feedVisibility == FeedVisibility.GUILD ? mission.getGuildName() : null;
 
-            ActivityFeed feed = feedCommandService.createMissionSharedFeed(
-                userId,
-                profile.nickname(),
-                profile.picture(),
-                profile.level(),
-                profile.titleName(),
-                profile.titleRarity(),
-                profile.titleColorCode(),
-                instance.getId(),
-                mission.getId(),
-                instance.getMissionTitle(),
-                instance.getMissionDescription(),
-                instance.getCategoryId(),
-                instance.getNote(),
-                instance.getImageUrl(),
-                instance.getDurationMinutes(),
-                instance.getExpEarned(),
-                feedVisibility,
-                guildId,
-                guildName
-            );
+            ActivityFeed feed =
+                    feedCommandService.createMissionSharedFeed(
+                            userId,
+                            profile.nickname(),
+                            profile.picture(),
+                            profile.level(),
+                            profile.titleName(),
+                            profile.titleRarity(),
+                            profile.titleColorCode(),
+                            instance.getId(),
+                            mission.getId(),
+                            instance.getMissionTitle(),
+                            instance.getMissionDescription(),
+                            instance.getCategoryId(),
+                            instance.getNote(),
+                            instance.getImageUrl(),
+                            instance.getDurationMinutes(),
+                            instance.getExpEarned(),
+                            feedVisibility,
+                            guildId,
+                            guildName);
 
             instance.setIsSharedToFeed(true);
         } catch (Exception e) {
@@ -656,8 +744,7 @@ public class DailyMissionInstanceService {
     }
 
     /**
-     * QA-168 후속: Mission.guildId(String) → ActivityFeed.guildId(Long) 변환.
-     * 개인 미션이거나 파싱 실패 시 null.
+     * QA-168 후속: Mission.guildId(String) → ActivityFeed.guildId(Long) 변환. 개인 미션이거나 파싱 실패 시 null.
      */
     private Long resolveGuildIdLong(Mission mission) {
         String raw = mission.getGuildId();
@@ -667,18 +754,20 @@ public class DailyMissionInstanceService {
         try {
             return Long.parseLong(raw);
         } catch (NumberFormatException e) {
-            log.warn("Cannot parse mission.guildId to Long: missionId={}, guildId={}", mission.getId(), raw);
+            log.warn(
+                    "Cannot parse mission.guildId to Long: missionId={}, guildId={}",
+                    mission.getId(),
+                    raw);
             return null;
         }
     }
 
-    /**
-     * 미션이 고정 미션인지 확인
-     */
+    /** 미션이 고정 미션인지 확인 */
     @Transactional(readOnly = true, transactionManager = "missionTransactionManager")
     public boolean isPinnedMission(Long missionId, String userId) {
-        return participantRepository.findByMissionIdAndUserId(missionId, userId)
-            .map(participant -> participant.getMission().getIsPinned())
-            .orElse(false);
+        return participantRepository
+                .findByMissionIdAndUserId(missionId, userId)
+                .map(participant -> participant.getMission().getIsPinned())
+                .orElse(false);
     }
 }

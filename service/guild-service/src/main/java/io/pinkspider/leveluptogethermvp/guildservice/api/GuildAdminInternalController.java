@@ -20,10 +20,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-/**
- * Admin 내부 API 컨트롤러 - Guild
- * 인증 불필요 (SecurityConfig에서 /api/internal/** permitAll)
- */
+/** Admin 내부 API 컨트롤러 - Guild 인증 불필요 (SecurityConfig에서 /api/internal/** permitAll) */
 @RestController
 @RequestMapping("/api/internal/guilds")
 @RequiredArgsConstructor
@@ -40,56 +37,64 @@ public class GuildAdminInternalController {
             @RequestParam(required = false) String visibility,
             @RequestParam(required = false, defaultValue = "0") int page,
             @RequestParam(required = false, defaultValue = "20") int size,
-            @RequestParam(name = "sort_by", required = false, defaultValue = "createdAt") String sortBy,
-            @RequestParam(name = "sort_direction", required = false, defaultValue = "DESC") String sortDirection) {
-        Sort sort = "ASC".equalsIgnoreCase(sortDirection)
-            ? Sort.by(sortBy).ascending()
-            : Sort.by(sortBy).descending();
+            @RequestParam(name = "sort_by", required = false, defaultValue = "createdAt")
+                    String sortBy,
+            @RequestParam(name = "sort_direction", required = false, defaultValue = "DESC")
+                    String sortDirection) {
+        Sort sort =
+                "ASC".equalsIgnoreCase(sortDirection)
+                        ? Sort.by(sortBy).ascending()
+                        : Sort.by(sortBy).descending();
         return ApiResult.<GuildAdminPageResponse>builder()
-            .value(guildAdminInternalService.searchGuilds(
-                keyword, categoryId, categoryIds, isActive, visibility, PageRequest.of(page, size, sort)))
-            .build();
+                .value(
+                        guildAdminInternalService.searchGuilds(
+                                keyword,
+                                categoryId,
+                                categoryIds,
+                                isActive,
+                                visibility,
+                                PageRequest.of(page, size, sort)))
+                .build();
     }
 
     @GetMapping("/{id}")
     public ApiResult<GuildAdminResponse> getGuild(@PathVariable Long id) {
         return ApiResult.<GuildAdminResponse>builder()
-            .value(guildAdminInternalService.getGuild(id))
-            .build();
+                .value(guildAdminInternalService.getGuild(id))
+                .build();
     }
 
     @GetMapping("/{id}/members")
     public ApiResult<List<GuildMemberAdminResponse>> getGuildMembers(@PathVariable Long id) {
         return ApiResult.<List<GuildMemberAdminResponse>>builder()
-            .value(guildAdminInternalService.getGuildMembers(id))
-            .build();
+                .value(guildAdminInternalService.getGuildMembers(id))
+                .build();
     }
 
     @GetMapping("/statistics")
     public ApiResult<GuildStatisticsAdminResponse> getStatistics() {
         return ApiResult.<GuildStatisticsAdminResponse>builder()
-            .value(guildAdminInternalService.getStatistics())
-            .build();
+                .value(guildAdminInternalService.getStatistics())
+                .build();
     }
 
     @PatchMapping("/{id}/toggle-active")
     public ApiResult<GuildAdminResponse> toggleActive(@PathVariable Long id) {
         return ApiResult.<GuildAdminResponse>builder()
-            .value(guildAdminInternalService.toggleActive(id))
-            .build();
+                .value(guildAdminInternalService.toggleActive(id))
+                .build();
     }
 
     @PostMapping("/batch-names")
     public ApiResult<Map<Long, String>> getGuildNamesByIds(@RequestBody List<Long> guildIds) {
         return ApiResult.<Map<Long, String>>builder()
-            .value(guildAdminInternalService.getGuildNamesByIds(guildIds))
-            .build();
+                .value(guildAdminInternalService.getGuildNamesByIds(guildIds))
+                .build();
     }
 
     @PostMapping("/{guildId}/ban-from-report")
     public ApiResult<Void> banFromReport(
-            @PathVariable Long guildId,
-            @RequestParam(required = false) String reason) {
+            @PathVariable Long guildId, @RequestParam(required = false) String reason) {
         guildAdminInternalService.banFromReport(guildId, reason);
         return ApiResult.<Void>builder().build();
     }

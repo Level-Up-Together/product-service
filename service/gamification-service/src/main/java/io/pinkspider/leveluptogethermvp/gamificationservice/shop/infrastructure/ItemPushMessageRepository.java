@@ -17,7 +17,8 @@ public interface ItemPushMessageRepository extends JpaRepository<ItemPushMessage
     List<ItemPushMessage> findByShopItemIdOrderByIdAsc(@Param("shopItemId") Long shopItemId);
 
     /** 스케줄러 — 활성 상태 + HEAD 아이템 메시지 (아이템 즉시 사용 위해 fetch join) */
-    @Query("SELECT m FROM ItemPushMessage m JOIN FETCH m.shopItem si "
-        + "WHERE m.enabled = true AND si.itemType = :itemType")
+    @Query(
+            "SELECT m FROM ItemPushMessage m JOIN FETCH m.shopItem si "
+                    + "WHERE m.enabled = true AND si.itemType = :itemType")
     List<ItemPushMessage> findEnabledWithItemByType(@Param("itemType") ShopItemType itemType);
 }

@@ -31,25 +31,26 @@ public class UserExperienceResponse {
 
     private LocalDateTime modifiedAt;
 
-    public static UserExperienceResponse from(UserExperience userExp, Integer nextLevelRequiredExp) {
-        int expToNext = nextLevelRequiredExp != null
-            ? nextLevelRequiredExp - userExp.getCurrentExp()
-            : 0;
-        double progress = nextLevelRequiredExp != null && nextLevelRequiredExp > 0
-            ? (double) userExp.getCurrentExp() / nextLevelRequiredExp * 100
-            : 0;
+    public static UserExperienceResponse from(
+            UserExperience userExp, Integer nextLevelRequiredExp) {
+        int expToNext =
+                nextLevelRequiredExp != null ? nextLevelRequiredExp - userExp.getCurrentExp() : 0;
+        double progress =
+                nextLevelRequiredExp != null && nextLevelRequiredExp > 0
+                        ? (double) userExp.getCurrentExp() / nextLevelRequiredExp * 100
+                        : 0;
 
         return UserExperienceResponse.builder()
-            .id(userExp.getId())
-            .userId(userExp.getUserId())
-            .currentLevel(userExp.getCurrentLevel())
-            .currentExp(userExp.getCurrentExp())
-            .totalExp(userExp.getTotalExp())
-            .nextLevelRequiredExp(nextLevelRequiredExp)
-            .expToNextLevel(Math.max(0, expToNext))
-            .progressToNextLevel(Math.min(100, progress))
-            .createdAt(userExp.getCreatedAt())
-            .modifiedAt(userExp.getModifiedAt())
-            .build();
+                .id(userExp.getId())
+                .userId(userExp.getUserId())
+                .currentLevel(userExp.getCurrentLevel())
+                .currentExp(userExp.getCurrentExp())
+                .totalExp(userExp.getTotalExp())
+                .nextLevelRequiredExp(nextLevelRequiredExp)
+                .expToNextLevel(Math.max(0, expToNext))
+                .progressToNextLevel(Math.min(100, progress))
+                .createdAt(userExp.getCreatedAt())
+                .modifiedAt(userExp.getModifiedAt())
+                .build();
     }
 }

@@ -20,8 +20,7 @@ import org.springframework.data.redis.core.StringRedisTemplate;
 @ExtendWith(MockitoExtension.class)
 class DmRealtimePublisherTest {
 
-    @Mock
-    private StringRedisTemplate stringRedisTemplate;
+    @Mock private StringRedisTemplate stringRedisTemplate;
 
     private DmRealtimePublisher publisher;
 
@@ -39,7 +38,7 @@ class DmRealtimePublisherTest {
         // then
         ArgumentCaptor<String> payloadCaptor = ArgumentCaptor.forClass(String.class);
         verify(stringRedisTemplate)
-            .convertAndSend(eq(DmRealtimePublisher.CHANNEL), payloadCaptor.capture());
+                .convertAndSend(eq(DmRealtimePublisher.CHANNEL), payloadCaptor.capture());
         assertThat(payloadCaptor.getValue()).contains("\"user_id\":\"user-1\"");
         assertThat(payloadCaptor.getValue()).contains("\"destination\":\"/queue/dm\"");
         assertThat(payloadCaptor.getValue()).contains("안녕");

@@ -2,31 +2,30 @@ package io.pinkspider.leveluptogethermvp.gamificationservice.season.application;
 
 import static io.pinkspider.global.test.TestReflectionUtils.setId;
 import static org.assertj.core.api.Assertions.assertThat;
-
-import io.pinkspider.global.test.TestReflectionUtils;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 
+import io.pinkspider.global.enums.TitlePosition;
+import io.pinkspider.global.enums.TitleRarity;
+import io.pinkspider.global.facade.GuildQueryFacade;
+import io.pinkspider.global.facade.UserQueryFacade;
+import io.pinkspider.global.facade.dto.EquippedItemRarityDto;
+import io.pinkspider.global.facade.dto.UserProfileInfo;
+import io.pinkspider.global.test.TestReflectionUtils;
 import io.pinkspider.leveluptogethermvp.gamificationservice.domain.entity.Title;
 import io.pinkspider.leveluptogethermvp.gamificationservice.domain.entity.UserExperience;
 import io.pinkspider.leveluptogethermvp.gamificationservice.domain.entity.UserTitle;
-import io.pinkspider.leveluptogethermvp.gamificationservice.season.domain.enums.SeasonStatus;
-import io.pinkspider.global.enums.TitlePosition;
-import io.pinkspider.global.enums.TitleRarity;
 import io.pinkspider.leveluptogethermvp.gamificationservice.infrastructure.ExperienceHistoryRepository;
 import io.pinkspider.leveluptogethermvp.gamificationservice.infrastructure.UserExperienceRepository;
 import io.pinkspider.leveluptogethermvp.gamificationservice.infrastructure.UserTitleRepository;
 import io.pinkspider.leveluptogethermvp.gamificationservice.season.api.dto.SeasonMvpData;
 import io.pinkspider.leveluptogethermvp.gamificationservice.season.api.dto.SeasonMvpPlayerResponse;
 import io.pinkspider.leveluptogethermvp.gamificationservice.season.domain.entity.Season;
+import io.pinkspider.leveluptogethermvp.gamificationservice.season.domain.enums.SeasonStatus;
 import io.pinkspider.leveluptogethermvp.gamificationservice.season.infrastructure.SeasonRepository;
 import io.pinkspider.leveluptogethermvp.gamificationservice.shop.application.UserItemService;
-import io.pinkspider.global.facade.dto.EquippedItemRarityDto;
-import io.pinkspider.global.facade.GuildQueryFacade;
 import io.pinkspider.leveluptogethermvp.metaservice.application.MissionCategoryService;
-import io.pinkspider.global.facade.UserQueryFacade;
-import io.pinkspider.global.facade.dto.UserProfileInfo;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -44,35 +43,25 @@ import org.springframework.data.redis.core.RedisTemplate;
 @ExtendWith(MockitoExtension.class)
 class SeasonRankingServiceTest {
 
-    @Mock
-    private SeasonRepository seasonRepository;
+    @Mock private SeasonRepository seasonRepository;
 
-    @Mock
-    private ExperienceHistoryRepository experienceHistoryRepository;
+    @Mock private ExperienceHistoryRepository experienceHistoryRepository;
 
-    @Mock
-    private GuildQueryFacade guildQueryFacadeService;
+    @Mock private GuildQueryFacade guildQueryFacadeService;
 
-    @Mock
-    private UserQueryFacade userQueryFacadeService;
+    @Mock private UserQueryFacade userQueryFacadeService;
 
-    @Mock
-    private MissionCategoryService missionCategoryService;
+    @Mock private MissionCategoryService missionCategoryService;
 
-    @Mock
-    private UserExperienceRepository userExperienceRepository;
+    @Mock private UserExperienceRepository userExperienceRepository;
 
-    @Mock
-    private UserTitleRepository userTitleRepository;
+    @Mock private UserTitleRepository userTitleRepository;
 
-    @Mock
-    private RedisTemplate<String, Object> redisTemplate;
+    @Mock private RedisTemplate<String, Object> redisTemplate;
 
-    @Mock
-    private UserItemService userItemService;
+    @Mock private UserItemService userItemService;
 
-    @InjectMocks
-    private SeasonRankingService seasonRankingService;
+    @InjectMocks private SeasonRankingService seasonRankingService;
 
     private String testUserId;
     private UserExperience testUserExperience;
@@ -82,18 +71,20 @@ class SeasonRankingServiceTest {
     void setUp() {
         testUserId = "test-user-id";
 
-        testUserExperience = UserExperience.builder()
-            .userId(testUserId)
-            .currentLevel(5)
-            .currentExp(500)
-            .totalExp(4500)
-            .build();
+        testUserExperience =
+                UserExperience.builder()
+                        .userId(testUserId)
+                        .currentLevel(5)
+                        .currentExp(500)
+                        .totalExp(4500)
+                        .build();
 
-        testSeason = Season.builder()
-            .title("2024 시즌 1")
-            .startAt(LocalDateTime.now().minusDays(30))
-            .endAt(LocalDateTime.now().plusDays(30))
-            .build();
+        testSeason =
+                Season.builder()
+                        .title("2024 시즌 1")
+                        .startAt(LocalDateTime.now().minusDays(30))
+                        .endAt(LocalDateTime.now().plusDays(30))
+                        .build();
         setId(testSeason, 1L);
     }
 
@@ -110,46 +101,63 @@ class SeasonRankingServiceTest {
             topGainers.add(row1);
 
             // LEFT 칭호 생성 (UNCOMMON 등급)
-            Title leftTitle = Title.builder()
-                .name("강인한")
-                .rarity(TitleRarity.UNCOMMON)
-                .positionType(TitlePosition.LEFT)
-                .build();
+            Title leftTitle =
+                    Title.builder()
+                            .name("강인한")
+                            .rarity(TitleRarity.UNCOMMON)
+                            .positionType(TitlePosition.LEFT)
+                            .build();
             setId(leftTitle, 1L);
 
             // RIGHT 칭호 생성 (MYTHIC 등급)
-            Title rightTitle = Title.builder()
-                .name("정복자")
-                .rarity(TitleRarity.MYTHIC)
-                .positionType(TitlePosition.RIGHT)
-                .build();
+            Title rightTitle =
+                    Title.builder()
+                            .name("정복자")
+                            .rarity(TitleRarity.MYTHIC)
+                            .positionType(TitlePosition.RIGHT)
+                            .build();
             setId(rightTitle, 2L);
 
-            UserTitle leftUserTitle = UserTitle.builder()
-                .userId(testUserId)
-                .title(leftTitle)
-                .isEquipped(true)
-                .equippedPosition(TitlePosition.LEFT)
-                .build();
+            UserTitle leftUserTitle =
+                    UserTitle.builder()
+                            .userId(testUserId)
+                            .title(leftTitle)
+                            .isEquipped(true)
+                            .equippedPosition(TitlePosition.LEFT)
+                            .build();
 
-            UserTitle rightUserTitle = UserTitle.builder()
-                .userId(testUserId)
-                .title(rightTitle)
-                .isEquipped(true)
-                .equippedPosition(TitlePosition.RIGHT)
-                .build();
+            UserTitle rightUserTitle =
+                    UserTitle.builder()
+                            .userId(testUserId)
+                            .title(rightTitle)
+                            .isEquipped(true)
+                            .equippedPosition(TitlePosition.RIGHT)
+                            .build();
 
-            when(seasonRepository.findCurrentSeason(any(LocalDateTime.class))).thenReturn(Optional.of(testSeason));
+            when(seasonRepository.findCurrentSeason(any(LocalDateTime.class)))
+                    .thenReturn(Optional.of(testSeason));
             when(experienceHistoryRepository.findTopExpGainersByPeriod(any(), any(), any()))
-                .thenReturn(topGainers);
+                    .thenReturn(topGainers);
             when(guildQueryFacadeService.getTopExpGuildsByPeriod(any(), any(), any()))
-                .thenReturn(List.of());
-            when(userQueryFacadeService.getActiveUserIds(List.of(testUserId))).thenReturn(List.of(testUserId));
-            when(userQueryFacadeService.getUserProfiles(List.of(testUserId))).thenReturn(java.util.Map.of(testUserId, new UserProfileInfo(testUserId, "테스터", "https://example.com/profile.jpg", 5, null, null, null)));
+                    .thenReturn(List.of());
+            when(userQueryFacadeService.getActiveUserIds(List.of(testUserId)))
+                    .thenReturn(List.of(testUserId));
+            when(userQueryFacadeService.getUserProfiles(List.of(testUserId)))
+                    .thenReturn(
+                            java.util.Map.of(
+                                    testUserId,
+                                    new UserProfileInfo(
+                                            testUserId,
+                                            "테스터",
+                                            "https://example.com/profile.jpg",
+                                            5,
+                                            null,
+                                            null,
+                                            null)));
             when(userExperienceRepository.findByUserIdIn(List.of(testUserId)))
-                .thenReturn(List.of(testUserExperience));
+                    .thenReturn(List.of(testUserExperience));
             when(userTitleRepository.findEquippedTitlesByUserIdIn(List.of(testUserId)))
-                .thenReturn(List.of(leftUserTitle, rightUserTitle));
+                    .thenReturn(List.of(leftUserTitle, rightUserTitle));
 
             // when
             Optional<SeasonMvpData> resultOpt = seasonRankingService.getSeasonMvpData(null);
@@ -176,52 +184,83 @@ class SeasonRankingServiceTest {
         @DisplayName("시즌 MVP 플레이어에 장착 아이템 타입·희귀도가 포함된다 (LUT-424)")
         void getSeasonMvpData_withEquippedItemRarities() {
             List<Object[]> topGainers = new ArrayList<>();
-            topGainers.add(new Object[]{testUserId, 1000L});
+            topGainers.add(new Object[] {testUserId, 1000L});
 
-            when(seasonRepository.findCurrentSeason(any(LocalDateTime.class))).thenReturn(Optional.of(testSeason));
+            when(seasonRepository.findCurrentSeason(any(LocalDateTime.class)))
+                    .thenReturn(Optional.of(testSeason));
             when(experienceHistoryRepository.findTopExpGainersByPeriod(any(), any(), any()))
-                .thenReturn(topGainers);
+                    .thenReturn(topGainers);
             when(guildQueryFacadeService.getTopExpGuildsByPeriod(any(), any(), any()))
-                .thenReturn(List.of());
-            when(userQueryFacadeService.getActiveUserIds(List.of(testUserId))).thenReturn(List.of(testUserId));
-            when(userQueryFacadeService.getUserProfiles(List.of(testUserId))).thenReturn(java.util.Map.of(testUserId, new UserProfileInfo(testUserId, "테스터", "https://example.com/profile.jpg", 5, null, null, null)));
+                    .thenReturn(List.of());
+            when(userQueryFacadeService.getActiveUserIds(List.of(testUserId)))
+                    .thenReturn(List.of(testUserId));
+            when(userQueryFacadeService.getUserProfiles(List.of(testUserId)))
+                    .thenReturn(
+                            java.util.Map.of(
+                                    testUserId,
+                                    new UserProfileInfo(
+                                            testUserId,
+                                            "테스터",
+                                            "https://example.com/profile.jpg",
+                                            5,
+                                            null,
+                                            null,
+                                            null)));
             when(userExperienceRepository.findByUserIdIn(List.of(testUserId)))
-                .thenReturn(List.of(testUserExperience));
+                    .thenReturn(List.of(testUserExperience));
             when(userTitleRepository.findEquippedTitlesByUserIdIn(List.of(testUserId)))
-                .thenReturn(List.of());
+                    .thenReturn(List.of());
             when(userItemService.getEquippedItemRarityMap(List.of(testUserId)))
-                .thenReturn(java.util.Map.of(testUserId, List.of(
-                    new EquippedItemRarityDto("HEAD", TitleRarity.EPIC),
-                    new EquippedItemRarityDto("EFFECT", TitleRarity.RARE))));
+                    .thenReturn(
+                            java.util.Map.of(
+                                    testUserId,
+                                    List.of(
+                                            new EquippedItemRarityDto("HEAD", TitleRarity.EPIC),
+                                            new EquippedItemRarityDto(
+                                                    "EFFECT", TitleRarity.RARE))));
 
             Optional<SeasonMvpData> resultOpt = seasonRankingService.getSeasonMvpData(null);
 
             assertThat(resultOpt).isPresent();
             SeasonMvpPlayerResponse player = resultOpt.get().seasonMvpPlayers().get(0);
             assertThat(player.equippedItemRarities()).hasSize(2);
-            assertThat(player.equippedItemRarities()).extracting(EquippedItemRarityDto::itemType)
-                .containsExactlyInAnyOrder("HEAD", "EFFECT");
+            assertThat(player.equippedItemRarities())
+                    .extracting(EquippedItemRarityDto::itemType)
+                    .containsExactlyInAnyOrder("HEAD", "EFFECT");
         }
 
         @Test
         @DisplayName("아이템 희귀도 조회가 실패해도 시즌 MVP 응답은 빈 배열로 유지된다 (LUT-424)")
         void getSeasonMvpData_itemRarityFailure_keepsResponse() {
             List<Object[]> topGainers = new ArrayList<>();
-            topGainers.add(new Object[]{testUserId, 1000L});
+            topGainers.add(new Object[] {testUserId, 1000L});
 
-            when(seasonRepository.findCurrentSeason(any(LocalDateTime.class))).thenReturn(Optional.of(testSeason));
+            when(seasonRepository.findCurrentSeason(any(LocalDateTime.class)))
+                    .thenReturn(Optional.of(testSeason));
             when(experienceHistoryRepository.findTopExpGainersByPeriod(any(), any(), any()))
-                .thenReturn(topGainers);
+                    .thenReturn(topGainers);
             when(guildQueryFacadeService.getTopExpGuildsByPeriod(any(), any(), any()))
-                .thenReturn(List.of());
-            when(userQueryFacadeService.getActiveUserIds(List.of(testUserId))).thenReturn(List.of(testUserId));
-            when(userQueryFacadeService.getUserProfiles(List.of(testUserId))).thenReturn(java.util.Map.of(testUserId, new UserProfileInfo(testUserId, "테스터", "https://example.com/profile.jpg", 5, null, null, null)));
+                    .thenReturn(List.of());
+            when(userQueryFacadeService.getActiveUserIds(List.of(testUserId)))
+                    .thenReturn(List.of(testUserId));
+            when(userQueryFacadeService.getUserProfiles(List.of(testUserId)))
+                    .thenReturn(
+                            java.util.Map.of(
+                                    testUserId,
+                                    new UserProfileInfo(
+                                            testUserId,
+                                            "테스터",
+                                            "https://example.com/profile.jpg",
+                                            5,
+                                            null,
+                                            null,
+                                            null)));
             when(userExperienceRepository.findByUserIdIn(List.of(testUserId)))
-                .thenReturn(List.of(testUserExperience));
+                    .thenReturn(List.of(testUserExperience));
             when(userTitleRepository.findEquippedTitlesByUserIdIn(List.of(testUserId)))
-                .thenReturn(List.of());
+                    .thenReturn(List.of());
             when(userItemService.getEquippedItemRarityMap(List.of(testUserId)))
-                .thenThrow(new RuntimeException("db down"));
+                    .thenThrow(new RuntimeException("db down"));
 
             Optional<SeasonMvpData> resultOpt = seasonRankingService.getSeasonMvpData(null);
 
@@ -238,31 +277,46 @@ class SeasonRankingServiceTest {
             List<Object[]> topGainers = new ArrayList<>();
             topGainers.add(row1);
 
-            Title rightTitle = Title.builder()
-                .name("용사")
-                .rarity(TitleRarity.RARE)
-                .positionType(TitlePosition.RIGHT)
-                .build();
+            Title rightTitle =
+                    Title.builder()
+                            .name("용사")
+                            .rarity(TitleRarity.RARE)
+                            .positionType(TitlePosition.RIGHT)
+                            .build();
             setId(rightTitle, 1L);
 
-            UserTitle rightUserTitle = UserTitle.builder()
-                .userId(testUserId)
-                .title(rightTitle)
-                .isEquipped(true)
-                .equippedPosition(TitlePosition.RIGHT)
-                .build();
+            UserTitle rightUserTitle =
+                    UserTitle.builder()
+                            .userId(testUserId)
+                            .title(rightTitle)
+                            .isEquipped(true)
+                            .equippedPosition(TitlePosition.RIGHT)
+                            .build();
 
-            when(seasonRepository.findCurrentSeason(any(LocalDateTime.class))).thenReturn(Optional.of(testSeason));
+            when(seasonRepository.findCurrentSeason(any(LocalDateTime.class)))
+                    .thenReturn(Optional.of(testSeason));
             when(experienceHistoryRepository.findTopExpGainersByPeriod(any(), any(), any()))
-                .thenReturn(topGainers);
+                    .thenReturn(topGainers);
             when(guildQueryFacadeService.getTopExpGuildsByPeriod(any(), any(), any()))
-                .thenReturn(List.of());
-            when(userQueryFacadeService.getActiveUserIds(List.of(testUserId))).thenReturn(List.of(testUserId));
-            when(userQueryFacadeService.getUserProfiles(List.of(testUserId))).thenReturn(java.util.Map.of(testUserId, new UserProfileInfo(testUserId, "테스터", "https://example.com/profile.jpg", 5, null, null, null)));
+                    .thenReturn(List.of());
+            when(userQueryFacadeService.getActiveUserIds(List.of(testUserId)))
+                    .thenReturn(List.of(testUserId));
+            when(userQueryFacadeService.getUserProfiles(List.of(testUserId)))
+                    .thenReturn(
+                            java.util.Map.of(
+                                    testUserId,
+                                    new UserProfileInfo(
+                                            testUserId,
+                                            "테스터",
+                                            "https://example.com/profile.jpg",
+                                            5,
+                                            null,
+                                            null,
+                                            null)));
             when(userExperienceRepository.findByUserIdIn(List.of(testUserId)))
-                .thenReturn(List.of(testUserExperience));
+                    .thenReturn(List.of(testUserExperience));
             when(userTitleRepository.findEquippedTitlesByUserIdIn(List.of(testUserId)))
-                .thenReturn(List.of(rightUserTitle));
+                    .thenReturn(List.of(rightUserTitle));
 
             // when
             Optional<SeasonMvpData> resultOpt = seasonRankingService.getSeasonMvpData(null);
@@ -290,17 +344,30 @@ class SeasonRankingServiceTest {
             List<Object[]> topGainers = new ArrayList<>();
             topGainers.add(row1);
 
-            when(seasonRepository.findCurrentSeason(any(LocalDateTime.class))).thenReturn(Optional.of(testSeason));
+            when(seasonRepository.findCurrentSeason(any(LocalDateTime.class)))
+                    .thenReturn(Optional.of(testSeason));
             when(experienceHistoryRepository.findTopExpGainersByPeriod(any(), any(), any()))
-                .thenReturn(topGainers);
+                    .thenReturn(topGainers);
             when(guildQueryFacadeService.getTopExpGuildsByPeriod(any(), any(), any()))
-                .thenReturn(List.of());
-            when(userQueryFacadeService.getActiveUserIds(List.of(testUserId))).thenReturn(List.of(testUserId));
-            when(userQueryFacadeService.getUserProfiles(List.of(testUserId))).thenReturn(java.util.Map.of(testUserId, new UserProfileInfo(testUserId, "테스터", "https://example.com/profile.jpg", 5, null, null, null)));
+                    .thenReturn(List.of());
+            when(userQueryFacadeService.getActiveUserIds(List.of(testUserId)))
+                    .thenReturn(List.of(testUserId));
+            when(userQueryFacadeService.getUserProfiles(List.of(testUserId)))
+                    .thenReturn(
+                            java.util.Map.of(
+                                    testUserId,
+                                    new UserProfileInfo(
+                                            testUserId,
+                                            "테스터",
+                                            "https://example.com/profile.jpg",
+                                            5,
+                                            null,
+                                            null,
+                                            null)));
             when(userExperienceRepository.findByUserIdIn(List.of(testUserId)))
-                .thenReturn(List.of(testUserExperience));
+                    .thenReturn(List.of(testUserExperience));
             when(userTitleRepository.findEquippedTitlesByUserIdIn(List.of(testUserId)))
-                .thenReturn(List.of());
+                    .thenReturn(List.of());
 
             // when
             Optional<SeasonMvpData> resultOpt = seasonRankingService.getSeasonMvpData(null);
@@ -324,7 +391,8 @@ class SeasonRankingServiceTest {
         @DisplayName("활성 시즌이 없으면 빈 Optional을 반환한다")
         void getSeasonMvpData_returnsEmptyWhenNoActiveSeason() {
             // given
-            when(seasonRepository.findCurrentSeason(any(LocalDateTime.class))).thenReturn(Optional.empty());
+            when(seasonRepository.findCurrentSeason(any(LocalDateTime.class)))
+                    .thenReturn(Optional.empty());
 
             // when
             Optional<SeasonMvpData> result = seasonRankingService.getSeasonMvpData(null);
@@ -343,7 +411,7 @@ class SeasonRankingServiceTest {
         void getCurrentSeason_success() {
             // given
             when(seasonRepository.findCurrentSeason(any(LocalDateTime.class)))
-                .thenReturn(Optional.of(testSeason));
+                    .thenReturn(Optional.of(testSeason));
 
             // when
             var result = seasonRankingService.getCurrentSeason();
@@ -358,7 +426,7 @@ class SeasonRankingServiceTest {
         void getCurrentSeason_noActiveSeason() {
             // given
             when(seasonRepository.findCurrentSeason(any(LocalDateTime.class)))
-                .thenReturn(Optional.empty());
+                    .thenReturn(Optional.empty());
 
             // when
             var result = seasonRankingService.getCurrentSeason();
@@ -414,13 +482,25 @@ class SeasonRankingServiceTest {
             topGainers.add(row1);
 
             when(experienceHistoryRepository.findTopExpGainersByPeriod(any(), any(), any()))
-                .thenReturn(topGainers);
-            when(userQueryFacadeService.getActiveUserIds(List.of(testUserId))).thenReturn(List.of(testUserId));
-            when(userQueryFacadeService.getUserProfiles(List.of(testUserId))).thenReturn(java.util.Map.of(testUserId, new UserProfileInfo(testUserId, "테스터", "https://example.com/profile.jpg", 5, null, null, null)));
+                    .thenReturn(topGainers);
+            when(userQueryFacadeService.getActiveUserIds(List.of(testUserId)))
+                    .thenReturn(List.of(testUserId));
+            when(userQueryFacadeService.getUserProfiles(List.of(testUserId)))
+                    .thenReturn(
+                            java.util.Map.of(
+                                    testUserId,
+                                    new UserProfileInfo(
+                                            testUserId,
+                                            "테스터",
+                                            "https://example.com/profile.jpg",
+                                            5,
+                                            null,
+                                            null,
+                                            null)));
             when(userExperienceRepository.findByUserIdIn(List.of(testUserId)))
-                .thenReturn(List.of(testUserExperience));
+                    .thenReturn(List.of(testUserExperience));
             when(userTitleRepository.findEquippedTitlesByUserIdIn(List.of(testUserId)))
-                .thenReturn(List.of());
+                    .thenReturn(List.of());
 
             // when
             var result = seasonRankingService.getSeasonPlayerRankings(testSeason, null, 10, null);
@@ -439,17 +519,31 @@ class SeasonRankingServiceTest {
             List<Object[]> topGainers = new ArrayList<>();
             topGainers.add(row1);
 
-            when(experienceHistoryRepository.findTopExpGainersByCategoryAndPeriod(any(), any(), any(), any()))
-                .thenReturn(topGainers);
-            when(userQueryFacadeService.getActiveUserIds(List.of(testUserId))).thenReturn(List.of(testUserId));
-            when(userQueryFacadeService.getUserProfiles(List.of(testUserId))).thenReturn(java.util.Map.of(testUserId, new UserProfileInfo(testUserId, "테스터", "https://example.com/profile.jpg", 5, null, null, null)));
+            when(experienceHistoryRepository.findTopExpGainersByCategoryAndPeriod(
+                            any(), any(), any(), any()))
+                    .thenReturn(topGainers);
+            when(userQueryFacadeService.getActiveUserIds(List.of(testUserId)))
+                    .thenReturn(List.of(testUserId));
+            when(userQueryFacadeService.getUserProfiles(List.of(testUserId)))
+                    .thenReturn(
+                            java.util.Map.of(
+                                    testUserId,
+                                    new UserProfileInfo(
+                                            testUserId,
+                                            "테스터",
+                                            "https://example.com/profile.jpg",
+                                            5,
+                                            null,
+                                            null,
+                                            null)));
             when(userExperienceRepository.findByUserIdIn(List.of(testUserId)))
-                .thenReturn(List.of(testUserExperience));
+                    .thenReturn(List.of(testUserExperience));
             when(userTitleRepository.findEquippedTitlesByUserIdIn(List.of(testUserId)))
-                .thenReturn(List.of());
+                    .thenReturn(List.of());
 
             // when
-            var result = seasonRankingService.getSeasonPlayerRankings(testSeason, "HEALTH", 10, null);
+            var result =
+                    seasonRankingService.getSeasonPlayerRankings(testSeason, "HEALTH", 10, null);
 
             // then
             assertThat(result).hasSize(1);
@@ -461,7 +555,7 @@ class SeasonRankingServiceTest {
         void getSeasonPlayerRankings_empty() {
             // given
             when(experienceHistoryRepository.findTopExpGainersByPeriod(any(), any(), any()))
-                .thenReturn(List.of());
+                    .thenReturn(List.of());
 
             // when
             var result = seasonRankingService.getSeasonPlayerRankings(testSeason, null, 10, null);
@@ -480,11 +574,10 @@ class SeasonRankingServiceTest {
         void getMySeasonRanking_success() {
             // given
             when(experienceHistoryRepository.sumExpByUserIdAndPeriod(any(), any(), any()))
-                .thenReturn(1000L);
+                    .thenReturn(1000L);
             when(experienceHistoryRepository.countUsersWithMoreExpByPeriod(any(), any(), any()))
-                .thenReturn(4L);
-            when(guildQueryFacadeService.getUserGuildMemberships(testUserId))
-                .thenReturn(List.of());
+                    .thenReturn(4L);
+            when(guildQueryFacadeService.getUserGuildMemberships(testUserId)).thenReturn(List.of());
 
             // when
             var result = seasonRankingService.getMySeasonRanking(testSeason, testUserId);
@@ -500,9 +593,8 @@ class SeasonRankingServiceTest {
         void getMySeasonRanking_noExp() {
             // given
             when(experienceHistoryRepository.sumExpByUserIdAndPeriod(any(), any(), any()))
-                .thenReturn(null);
-            when(guildQueryFacadeService.getUserGuildMemberships(testUserId))
-                .thenReturn(List.of());
+                    .thenReturn(null);
+            when(guildQueryFacadeService.getUserGuildMemberships(testUserId)).thenReturn(List.of());
 
             // when
             var result = seasonRankingService.getMySeasonRanking(testSeason, testUserId);
@@ -557,7 +649,7 @@ class SeasonRankingServiceTest {
 
             // then
             org.mockito.Mockito.verify(redisTemplate, org.mockito.Mockito.never())
-                .delete(org.mockito.ArgumentMatchers.anyCollection());
+                    .delete(org.mockito.ArgumentMatchers.anyCollection());
         }
 
         @Test
@@ -571,7 +663,7 @@ class SeasonRankingServiceTest {
 
             // then
             org.mockito.Mockito.verify(redisTemplate, org.mockito.Mockito.never())
-                .delete(org.mockito.ArgumentMatchers.anyCollection());
+                    .delete(org.mockito.ArgumentMatchers.anyCollection());
         }
     }
 
@@ -584,9 +676,8 @@ class SeasonRankingServiceTest {
         void getMySeasonRanking_zeroExp_nullRank() {
             // given
             when(experienceHistoryRepository.sumExpByUserIdAndPeriod(any(), any(), any()))
-                .thenReturn(0L);
-            when(guildQueryFacadeService.getUserGuildMemberships(testUserId))
-                .thenReturn(List.of());
+                    .thenReturn(0L);
+            when(guildQueryFacadeService.getUserGuildMemberships(testUserId)).thenReturn(List.of());
 
             // when
             var result = seasonRankingService.getMySeasonRanking(testSeason, testUserId);
@@ -602,19 +693,19 @@ class SeasonRankingServiceTest {
         void getMySeasonRanking_withGuildAndExp() {
             // given
             when(experienceHistoryRepository.sumExpByUserIdAndPeriod(any(), any(), any()))
-                .thenReturn(500L);
+                    .thenReturn(500L);
             when(experienceHistoryRepository.countUsersWithMoreExpByPeriod(any(), any(), any()))
-                .thenReturn(2L);
+                    .thenReturn(2L);
 
             io.pinkspider.global.facade.dto.GuildMembershipInfo guildMembership =
-                new io.pinkspider.global.facade.dto.GuildMembershipInfo(
-                    10L, "테스트길드", "https://example.com/guild.jpg", 5, false, false);
+                    new io.pinkspider.global.facade.dto.GuildMembershipInfo(
+                            10L, "테스트길드", "https://example.com/guild.jpg", 5, false, false);
             when(guildQueryFacadeService.getUserGuildMemberships(testUserId))
-                .thenReturn(List.of(guildMembership));
+                    .thenReturn(List.of(guildMembership));
             when(guildQueryFacadeService.sumGuildExpByPeriod(eq(10L), any(), any()))
-                .thenReturn(2000L);
+                    .thenReturn(2000L);
             when(guildQueryFacadeService.countGuildsWithMoreExp(any(), any(), any()))
-                .thenReturn(1L);
+                    .thenReturn(1L);
 
             // when
             var result = seasonRankingService.getMySeasonRanking(testSeason, testUserId);
@@ -632,15 +723,14 @@ class SeasonRankingServiceTest {
         void getMySeasonRanking_guildZeroExp_nullGuildRank() {
             // given
             when(experienceHistoryRepository.sumExpByUserIdAndPeriod(any(), any(), any()))
-                .thenReturn(null);
+                    .thenReturn(null);
 
             io.pinkspider.global.facade.dto.GuildMembershipInfo guildMembership =
-                new io.pinkspider.global.facade.dto.GuildMembershipInfo(
-                    20L, "길드A", "https://example.com/guild.jpg", 3, true, false);
+                    new io.pinkspider.global.facade.dto.GuildMembershipInfo(
+                            20L, "길드A", "https://example.com/guild.jpg", 3, true, false);
             when(guildQueryFacadeService.getUserGuildMemberships(testUserId))
-                .thenReturn(List.of(guildMembership));
-            when(guildQueryFacadeService.sumGuildExpByPeriod(eq(20L), any(), any()))
-                .thenReturn(0L);
+                    .thenReturn(List.of(guildMembership));
+            when(guildQueryFacadeService.sumGuildExpByPeriod(eq(20L), any(), any())).thenReturn(0L);
 
             // when
             var result = seasonRankingService.getMySeasonRanking(testSeason, testUserId);
@@ -668,19 +758,19 @@ class SeasonRankingServiceTest {
 
             when(seasonRepository.findCurrentSeason(any())).thenReturn(Optional.of(testSeason));
             when(experienceHistoryRepository.findTopExpGainersByPeriod(any(), any(), any()))
-                .thenReturn(topGainers);
+                    .thenReturn(topGainers);
             when(guildQueryFacadeService.getTopExpGuildsByPeriod(any(), any(), any()))
-                .thenReturn(List.of());
+                    .thenReturn(List.of());
             // activeUserId만 활성 사용자 반환 (withdrawnUserId는 제외)
-            when(userQueryFacadeService.getActiveUserIds(any()))
-                .thenReturn(List.of(activeUserId));
+            when(userQueryFacadeService.getActiveUserIds(any())).thenReturn(List.of(activeUserId));
             when(userQueryFacadeService.getUserProfiles(any()))
-                .thenReturn(java.util.Map.of(
-                    activeUserId, new UserProfileInfo(activeUserId, "활성유저", null, 5, null, null, null)));
-            when(userExperienceRepository.findByUserIdIn(any()))
-                .thenReturn(List.of());
-            when(userTitleRepository.findEquippedTitlesByUserIdIn(any()))
-                .thenReturn(List.of());
+                    .thenReturn(
+                            java.util.Map.of(
+                                    activeUserId,
+                                    new UserProfileInfo(
+                                            activeUserId, "활성유저", null, 5, null, null, null)));
+            when(userExperienceRepository.findByUserIdIn(any())).thenReturn(List.of());
+            when(userTitleRepository.findEquippedTitlesByUserIdIn(any())).thenReturn(List.of());
 
             // when
             var result = seasonRankingService.getSeasonMvpData(null);
@@ -706,12 +796,11 @@ class SeasonRankingServiceTest {
 
             when(seasonRepository.findCurrentSeason(any())).thenReturn(Optional.of(testSeason));
             when(experienceHistoryRepository.findTopExpGainersByPeriod(any(), any(), any()))
-                .thenReturn(List.of());
+                    .thenReturn(List.of());
             when(guildQueryFacadeService.getTopExpGuildsByPeriod(any(), any(), any()))
-                .thenReturn(topGuilds);
+                    .thenReturn(topGuilds);
             // 길드 정보 없음 (빈 map)
-            when(guildQueryFacadeService.getGuildsWithMemberCounts(any()))
-                .thenReturn(List.of());
+            when(guildQueryFacadeService.getGuildsWithMemberCounts(any())).thenReturn(List.of());
 
             // when
             var result = seasonRankingService.getSeasonMvpData(null);
@@ -745,9 +834,9 @@ class SeasonRankingServiceTest {
             // given
             when(seasonRepository.findCurrentSeason(any())).thenReturn(Optional.of(testSeason));
             when(experienceHistoryRepository.findTopExpGainersByPeriod(any(), any(), any()))
-                .thenReturn(List.of());
+                    .thenReturn(List.of());
             when(guildQueryFacadeService.getTopExpGuildsByPeriod(any(), any(), any()))
-                .thenReturn(List.of());
+                    .thenReturn(List.of());
 
             // when
             var result = seasonRankingService.getSeasonMvpDataDto(null);
@@ -773,13 +862,13 @@ class SeasonRankingServiceTest {
             topGuilds.add(guildRow);
 
             io.pinkspider.global.facade.dto.GuildWithMemberCount guildInfo =
-                new io.pinkspider.global.facade.dto.GuildWithMemberCount(
-                    50L, "챔피언길드", "https://example.com/guild.jpg", 10, 25);
+                    new io.pinkspider.global.facade.dto.GuildWithMemberCount(
+                            50L, "챔피언길드", "https://example.com/guild.jpg", 10, 25);
 
             when(guildQueryFacadeService.getTopExpGuildsByPeriod(any(), any(), any()))
-                .thenReturn(topGuilds);
+                    .thenReturn(topGuilds);
             when(guildQueryFacadeService.getGuildsWithMemberCounts(any()))
-                .thenReturn(List.of(guildInfo));
+                    .thenReturn(List.of(guildInfo));
 
             // when
             var result = seasonRankingService.getSeasonGuildRankings(testSeason, 10);
@@ -795,7 +884,7 @@ class SeasonRankingServiceTest {
         void getSeasonGuildRankings_empty() {
             // given
             when(guildQueryFacadeService.getTopExpGuildsByPeriod(any(), any(), any()))
-                .thenReturn(List.of());
+                    .thenReturn(List.of());
 
             // when
             var result = seasonRankingService.getSeasonGuildRankings(testSeason, 10);
@@ -817,29 +906,34 @@ class SeasonRankingServiceTest {
 
         private UserTitle equipped(Title t, TitlePosition position) {
             return UserTitle.builder()
-                .userId(testUserId)
-                .title(t)
-                .isEquipped(true)
-                .equippedPosition(position)
-                .build();
+                    .userId(testUserId)
+                    .title(t)
+                    .isEquipped(true)
+                    .equippedPosition(position)
+                    .build();
         }
 
         private void stubSingleActivePlayer(List<UserTitle> titles) {
             List<Object[]> topGainers = new ArrayList<>();
-            topGainers.add(new Object[]{testUserId, 1000L});
-            when(seasonRepository.findCurrentSeason(any(LocalDateTime.class))).thenReturn(Optional.of(testSeason));
+            topGainers.add(new Object[] {testUserId, 1000L});
+            when(seasonRepository.findCurrentSeason(any(LocalDateTime.class)))
+                    .thenReturn(Optional.of(testSeason));
             when(experienceHistoryRepository.findTopExpGainersByPeriod(any(), any(), any()))
-                .thenReturn(topGainers);
+                    .thenReturn(topGainers);
             when(guildQueryFacadeService.getTopExpGuildsByPeriod(any(), any(), any()))
-                .thenReturn(List.of());
-            when(userQueryFacadeService.getActiveUserIds(List.of(testUserId))).thenReturn(List.of(testUserId));
+                    .thenReturn(List.of());
+            when(userQueryFacadeService.getActiveUserIds(List.of(testUserId)))
+                    .thenReturn(List.of(testUserId));
             when(userQueryFacadeService.getUserProfiles(List.of(testUserId)))
-                .thenReturn(java.util.Map.of(testUserId,
-                    new UserProfileInfo(testUserId, "테스터", null, 5, null, null, null)));
+                    .thenReturn(
+                            java.util.Map.of(
+                                    testUserId,
+                                    new UserProfileInfo(
+                                            testUserId, "테스터", null, 5, null, null, null)));
             when(userExperienceRepository.findByUserIdIn(List.of(testUserId)))
-                .thenReturn(List.of(testUserExperience));
+                    .thenReturn(List.of(testUserExperience));
             when(userTitleRepository.findEquippedTitlesByUserIdIn(List.of(testUserId)))
-                .thenReturn(titles);
+                    .thenReturn(titles);
         }
 
         @Test
@@ -847,15 +941,18 @@ class SeasonRankingServiceTest {
         void getSeasonMvpDataDto_copiesEquippedItemRarities() {
             stubSingleActivePlayer(List.of());
             when(userItemService.getEquippedItemRarityMap(List.of(testUserId)))
-                .thenReturn(java.util.Map.of(testUserId,
-                    List.of(new EquippedItemRarityDto("HEAD", TitleRarity.EPIC))));
+                    .thenReturn(
+                            java.util.Map.of(
+                                    testUserId,
+                                    List.of(new EquippedItemRarityDto("HEAD", TitleRarity.EPIC))));
 
             var result = seasonRankingService.getSeasonMvpDataDto(null);
 
             assertThat(result).isPresent();
             assertThat(result.get().seasonMvpPlayers()).hasSize(1);
             assertThat(result.get().seasonMvpPlayers().get(0).equippedItemRarities())
-                .extracting(EquippedItemRarityDto::itemType).containsExactly("HEAD");
+                    .extracting(EquippedItemRarityDto::itemType)
+                    .containsExactly("HEAD");
             assertThat(result.get().currentSeason().title()).isEqualTo("2024 시즌 1");
         }
 
@@ -863,14 +960,38 @@ class SeasonRankingServiceTest {
         @DisplayName("getSeasonMvpDataDto — 플레이어의 장착 아이템 희귀도가 null 이면 빈 목록으로 변환한다")
         void getSeasonMvpDataDto_nullRarities_becomesEmptyList() {
             SeasonRankingService spy = org.mockito.Mockito.spy(seasonRankingService);
-            io.pinkspider.leveluptogethermvp.gamificationservice.season.api.dto.SeasonResponse season =
-                new io.pinkspider.leveluptogethermvp.gamificationservice.season.api.dto.SeasonResponse(
-                    1L, "시즌", "설명", LocalDateTime.now().minusDays(1), LocalDateTime.now().plusDays(1),
-                    null, null, SeasonStatus.ACTIVE, SeasonStatus.ACTIVE.getDescription());
-            SeasonMvpPlayerResponse player = new SeasonMvpPlayerResponse(
-                testUserId, "닉", null, 5, null, null, null, null, null, null, 100L, 1, null);
-            org.mockito.Mockito.doReturn(Optional.of(SeasonMvpData.of(season, List.of(player), List.of())))
-                .when(spy).getSeasonMvpData("ko");
+            io.pinkspider.leveluptogethermvp.gamificationservice.season.api.dto.SeasonResponse
+                    season =
+                            new io.pinkspider.leveluptogethermvp.gamificationservice.season.api.dto
+                                    .SeasonResponse(
+                                    1L,
+                                    "시즌",
+                                    "설명",
+                                    LocalDateTime.now().minusDays(1),
+                                    LocalDateTime.now().plusDays(1),
+                                    null,
+                                    null,
+                                    SeasonStatus.ACTIVE,
+                                    SeasonStatus.ACTIVE.getDescription());
+            SeasonMvpPlayerResponse player =
+                    new SeasonMvpPlayerResponse(
+                            testUserId,
+                            "닉",
+                            null,
+                            5,
+                            null,
+                            null,
+                            null,
+                            null,
+                            null,
+                            null,
+                            100L,
+                            1,
+                            null);
+            org.mockito.Mockito.doReturn(
+                            Optional.of(SeasonMvpData.of(season, List.of(player), List.of())))
+                    .when(spy)
+                    .getSeasonMvpData("ko");
 
             var result = spy.getSeasonMvpDataDto("ko");
 
@@ -883,8 +1004,11 @@ class SeasonRankingServiceTest {
         @Test
         @DisplayName("LEFT 칭호만 있으면 LEFT 이름·등급이 대표값이고 RIGHT 는 null 이다")
         void getSeasonMvpData_leftTitleOnly() {
-            stubSingleActivePlayer(List.of(
-                equipped(title("강인한", TitleRarity.RARE, TitlePosition.LEFT, 1L), TitlePosition.LEFT)));
+            stubSingleActivePlayer(
+                    List.of(
+                            equipped(
+                                    title("강인한", TitleRarity.RARE, TitlePosition.LEFT, 1L),
+                                    TitlePosition.LEFT)));
 
             Optional<SeasonMvpData> result = seasonRankingService.getSeasonMvpData(null);
 
@@ -900,9 +1024,14 @@ class SeasonRankingServiceTest {
         @Test
         @DisplayName("LEFT 칭호 등급이 RIGHT 보다 높으면 LEFT 등급이 대표 등급이다")
         void getSeasonMvpData_leftRarityHigher() {
-            stubSingleActivePlayer(List.of(
-                equipped(title("전설의", TitleRarity.LEGENDARY, TitlePosition.LEFT, 1L), TitlePosition.LEFT),
-                equipped(title("전사", TitleRarity.COMMON, TitlePosition.RIGHT, 2L), TitlePosition.RIGHT)));
+            stubSingleActivePlayer(
+                    List.of(
+                            equipped(
+                                    title("전설의", TitleRarity.LEGENDARY, TitlePosition.LEFT, 1L),
+                                    TitlePosition.LEFT),
+                            equipped(
+                                    title("전사", TitleRarity.COMMON, TitlePosition.RIGHT, 2L),
+                                    TitlePosition.RIGHT)));
 
             Optional<SeasonMvpData> result = seasonRankingService.getSeasonMvpData(null);
 
@@ -915,16 +1044,21 @@ class SeasonRankingServiceTest {
         @DisplayName("시즌 MVP 플레이어의 프로필이 없으면 닉네임·이미지가 null 이다")
         void getSeasonMvpData_missingProfile() {
             List<Object[]> topGainers = new ArrayList<>();
-            topGainers.add(new Object[]{testUserId, 1000L});
-            when(seasonRepository.findCurrentSeason(any(LocalDateTime.class))).thenReturn(Optional.of(testSeason));
+            topGainers.add(new Object[] {testUserId, 1000L});
+            when(seasonRepository.findCurrentSeason(any(LocalDateTime.class)))
+                    .thenReturn(Optional.of(testSeason));
             when(experienceHistoryRepository.findTopExpGainersByPeriod(any(), any(), any()))
-                .thenReturn(topGainers);
+                    .thenReturn(topGainers);
             when(guildQueryFacadeService.getTopExpGuildsByPeriod(any(), any(), any()))
-                .thenReturn(List.of());
-            when(userQueryFacadeService.getActiveUserIds(List.of(testUserId))).thenReturn(List.of(testUserId));
-            when(userQueryFacadeService.getUserProfiles(List.of(testUserId))).thenReturn(java.util.Map.of());
-            when(userExperienceRepository.findByUserIdIn(List.of(testUserId))).thenReturn(List.of());
-            when(userTitleRepository.findEquippedTitlesByUserIdIn(List.of(testUserId))).thenReturn(List.of());
+                    .thenReturn(List.of());
+            when(userQueryFacadeService.getActiveUserIds(List.of(testUserId)))
+                    .thenReturn(List.of(testUserId));
+            when(userQueryFacadeService.getUserProfiles(List.of(testUserId)))
+                    .thenReturn(java.util.Map.of());
+            when(userExperienceRepository.findByUserIdIn(List.of(testUserId)))
+                    .thenReturn(List.of());
+            when(userTitleRepository.findEquippedTitlesByUserIdIn(List.of(testUserId)))
+                    .thenReturn(List.of());
 
             Optional<SeasonMvpData> result = seasonRankingService.getSeasonMvpData(null);
 
@@ -939,18 +1073,18 @@ class SeasonRankingServiceTest {
         void getSeasonPlayerRankings_withdrawnFiltered_missingProfile() {
             String withdrawn = "withdrawn-user";
             List<Object[]> topGainers = new ArrayList<>();
-            topGainers.add(new Object[]{withdrawn, 2000L});
-            topGainers.add(new Object[]{testUserId, 1000L});
+            topGainers.add(new Object[] {withdrawn, 2000L});
+            topGainers.add(new Object[] {testUserId, 1000L});
             when(experienceHistoryRepository.findTopExpGainersByPeriod(any(), any(), any()))
-                .thenReturn(topGainers);
+                    .thenReturn(topGainers);
             when(userQueryFacadeService.getActiveUserIds(List.of(withdrawn, testUserId)))
-                .thenReturn(List.of(testUserId));
+                    .thenReturn(List.of(testUserId));
             when(userQueryFacadeService.getUserProfiles(List.of(withdrawn, testUserId)))
-                .thenReturn(java.util.Map.of());
+                    .thenReturn(java.util.Map.of());
             when(userExperienceRepository.findByUserIdIn(List.of(withdrawn, testUserId)))
-                .thenReturn(List.of(testUserExperience));
+                    .thenReturn(List.of(testUserExperience));
             when(userTitleRepository.findEquippedTitlesByUserIdIn(List.of(withdrawn, testUserId)))
-                .thenReturn(List.of());
+                    .thenReturn(List.of());
 
             var result = seasonRankingService.getSeasonPlayerRankings(testSeason, null, 10, null);
 
@@ -965,14 +1099,14 @@ class SeasonRankingServiceTest {
         @DisplayName("getMySeasonRanking — 길드 경험치 합계가 null 이면 길드 랭킹 없이 길드 정보만 반환한다")
         void getMySeasonRanking_guildExpNull() {
             when(experienceHistoryRepository.sumExpByUserIdAndPeriod(any(), any(), any()))
-                .thenReturn(null);
+                    .thenReturn(null);
             io.pinkspider.global.facade.dto.GuildMembershipInfo guildMembership =
-                new io.pinkspider.global.facade.dto.GuildMembershipInfo(
-                    30L, "길드B", null, 2, false, false);
+                    new io.pinkspider.global.facade.dto.GuildMembershipInfo(
+                            30L, "길드B", null, 2, false, false);
             when(guildQueryFacadeService.getUserGuildMemberships(testUserId))
-                .thenReturn(List.of(guildMembership));
+                    .thenReturn(List.of(guildMembership));
             when(guildQueryFacadeService.sumGuildExpByPeriod(eq(30L), any(), any()))
-                .thenReturn(null);
+                    .thenReturn(null);
 
             var result = seasonRankingService.getMySeasonRanking(testSeason, testUserId);
 
@@ -982,5 +1116,4 @@ class SeasonRankingServiceTest {
             assertThat(result.guildSeasonExp()).isNull();
         }
     }
-
 }

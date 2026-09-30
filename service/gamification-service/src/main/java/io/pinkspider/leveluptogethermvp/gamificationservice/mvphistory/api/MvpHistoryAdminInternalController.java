@@ -16,10 +16,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-/**
- * Admin 내부 API 컨트롤러 - MVP History
- * 인증 불필요 (SecurityConfig에서 /api/internal/** permitAll)
- */
+/** Admin 내부 API 컨트롤러 - MVP History 인증 불필요 (SecurityConfig에서 /api/internal/** permitAll) */
 @RestController
 @RequestMapping("/api/internal/mvp-history")
 @RequiredArgsConstructor
@@ -31,8 +28,8 @@ public class MvpHistoryAdminInternalController {
     public ApiResult<List<MvpHistoryAdminResponse>> getMvpHistoryByDate(
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
         return ApiResult.<List<MvpHistoryAdminResponse>>builder()
-            .value(mvpHistoryAdminService.getMvpHistoryByDate(date))
-            .build();
+                .value(mvpHistoryAdminService.getMvpHistoryByDate(date))
+                .build();
     }
 
     @GetMapping("/period")
@@ -42,8 +39,8 @@ public class MvpHistoryAdminInternalController {
             @RequestParam(required = false, defaultValue = "0") int page,
             @RequestParam(required = false, defaultValue = "20") int size) {
         return ApiResult.<MvpHistoryAdminPageResponse>builder()
-            .value(mvpHistoryAdminService.getMvpHistoryByPeriod(startDate, endDate, page, size))
-            .build();
+                .value(mvpHistoryAdminService.getMvpHistoryByPeriod(startDate, endDate, page, size))
+                .build();
     }
 
     @GetMapping("/user/{userId}")
@@ -52,8 +49,8 @@ public class MvpHistoryAdminInternalController {
             @RequestParam(required = false, defaultValue = "0") int page,
             @RequestParam(required = false, defaultValue = "20") int size) {
         return ApiResult.<MvpHistoryAdminPageResponse>builder()
-            .value(mvpHistoryAdminService.getMvpHistoryByUser(userId, page, size))
-            .build();
+                .value(mvpHistoryAdminService.getMvpHistoryByUser(userId, page, size))
+                .build();
     }
 
     @GetMapping("/stats")
@@ -62,8 +59,8 @@ public class MvpHistoryAdminInternalController {
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate,
             @RequestParam(required = false, defaultValue = "10") int topUserLimit) {
         return ApiResult.<MvpStatsAdminResponse>builder()
-            .value(mvpHistoryAdminService.getMvpStats(startDate, endDate, topUserLimit))
-            .build();
+                .value(mvpHistoryAdminService.getMvpStats(startDate, endDate, topUserLimit))
+                .build();
     }
 
     @GetMapping("/user/{userId}/category-activity")
@@ -72,7 +69,7 @@ public class MvpHistoryAdminInternalController {
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate) {
         return ApiResult.<List<UserCategoryActivityAdminResponse>>builder()
-            .value(mvpHistoryAdminService.getUserCategoryActivity(userId, startDate, endDate))
-            .build();
+                .value(mvpHistoryAdminService.getUserCategoryActivity(userId, startDate, endDate))
+                .build();
     }
 }

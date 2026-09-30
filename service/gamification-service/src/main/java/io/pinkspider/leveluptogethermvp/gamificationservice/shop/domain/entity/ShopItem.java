@@ -21,10 +21,7 @@ import lombok.Setter;
 import lombok.experimental.SuperBuilder;
 import org.hibernate.annotations.Comment;
 
-/**
- * 상점 아이템 (QA-225)
- * 구매 시 다이아 차감: diamond_history.type=SHOP, source_id=shop_item.id (QA-220)
- */
+/** 상점 아이템 (QA-225) 구매 시 다이아 차감: diamond_history.type=SHOP, source_id=shop_item.id (QA-220) */
 @Entity
 @Getter
 @Setter

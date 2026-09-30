@@ -21,8 +21,8 @@ import org.hibernate.annotations.Comment;
 /**
  * 구독 일일 스티펜드 지급 기록 (LUT-453)
  *
- * <p>멱등키 = (구독 ID, 지급일 UTC) 유니크 제약 — 스케줄러 재실행·동시 실행에도 중복 지급이 불가능하다.
- * 다이아 원장(diamond_history, type=SUBSCRIPTION)과 한 트랜잭션으로 기록된다.
+ * <p>멱등키 = (구독 ID, 지급일 UTC) 유니크 제약 — 스케줄러 재실행·동시 실행에도 중복 지급이 불가능하다. 다이아 원장(diamond_history,
+ * type=SUBSCRIPTION)과 한 트랜잭션으로 기록된다.
  */
 @Entity
 @Getter

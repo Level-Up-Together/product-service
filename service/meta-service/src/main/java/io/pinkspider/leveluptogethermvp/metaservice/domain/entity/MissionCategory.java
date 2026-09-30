@@ -28,9 +28,7 @@ import org.hibernate.annotations.Comment;
 @Comment("미션 카테고리")
 public class MissionCategory extends LocalDateTimeBaseEntity {
 
-    /**
-     * 기본 카테고리명 (출석체크, 업적 등 미션 외 경험치 출처에 사용)
-     */
+    /** 기본 카테고리명 (출석체크, 업적 등 미션 외 경험치 출처에 사용) */
     public static final String DEFAULT_CATEGORY_NAME = "기타";
 
     @Id
@@ -102,17 +100,14 @@ public class MissionCategory extends LocalDateTimeBaseEntity {
         this.isActive = false;
     }
 
-    /**
-     * locale에 따라 카테고리 이름을 반환합니다.
-     */
+    /** locale에 따라 카테고리 이름을 반환합니다. */
     public String getLocalizedName(String locale) {
         return LocaleUtils.getLocalizedText(name, nameEn, nameAr, nameJa, locale);
     }
 
-    /**
-     * locale에 따라 카테고리 설명을 반환합니다.
-     */
+    /** locale에 따라 카테고리 설명을 반환합니다. */
     public String getLocalizedDescription(String locale) {
-        return LocaleUtils.getLocalizedText(description, descriptionEn, descriptionAr, descriptionJa, locale);
+        return LocaleUtils.getLocalizedText(
+                description, descriptionEn, descriptionAr, descriptionJa, locale);
     }
 }

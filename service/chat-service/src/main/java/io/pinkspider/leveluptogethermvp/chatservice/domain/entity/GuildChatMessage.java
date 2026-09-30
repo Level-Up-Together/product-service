@@ -28,12 +28,13 @@ import org.hibernate.annotations.Comment;
 @SuperBuilder
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @AllArgsConstructor
-@Table(name = "guild_chat_message",
-    indexes = {
-        @Index(name = "idx_chat_guild", columnList = "guild_id"),
-        @Index(name = "idx_chat_guild_created", columnList = "guild_id, created_at DESC"),
-        @Index(name = "idx_chat_sender", columnList = "sender_id")
-    })
+@Table(
+        name = "guild_chat_message",
+        indexes = {
+            @Index(name = "idx_chat_guild", columnList = "guild_id"),
+            @Index(name = "idx_chat_guild_created", columnList = "guild_id, created_at DESC"),
+            @Index(name = "idx_chat_sender", columnList = "sender_id")
+        })
 @Comment("길드 채팅 메시지")
 public class GuildChatMessage extends LocalDateTimeBaseEntity {
 
@@ -89,36 +90,39 @@ public class GuildChatMessage extends LocalDateTimeBaseEntity {
     @Comment("삭제 시간")
     private LocalDateTime deletedAt;
 
-    public static GuildChatMessage createTextMessage(Long guildId, String senderId,
-                                                      String senderNickname, String content) {
+    public static GuildChatMessage createTextMessage(
+            Long guildId, String senderId, String senderNickname, String content) {
         return GuildChatMessage.builder()
-            .guildId(guildId)
-            .senderId(senderId)
-            .senderNickname(senderNickname)
-            .messageType(ChatMessageType.TEXT)
-            .content(content)
-            .build();
+                .guildId(guildId)
+                .senderId(senderId)
+                .senderNickname(senderNickname)
+                .messageType(ChatMessageType.TEXT)
+                .content(content)
+                .build();
     }
 
-    public static GuildChatMessage createSystemMessage(Long guildId, ChatMessageType type,
-                                                        String content) {
+    public static GuildChatMessage createSystemMessage(
+            Long guildId, ChatMessageType type, String content) {
         return GuildChatMessage.builder()
-            .guildId(guildId)
-            .messageType(type)
-            .content(content)
-            .build();
+                .guildId(guildId)
+                .messageType(type)
+                .content(content)
+                .build();
     }
 
-    public static GuildChatMessage createSystemMessage(Long guildId, ChatMessageType type,
-                                                        String content, String referenceType,
-                                                        Long referenceId) {
+    public static GuildChatMessage createSystemMessage(
+            Long guildId,
+            ChatMessageType type,
+            String content,
+            String referenceType,
+            Long referenceId) {
         return GuildChatMessage.builder()
-            .guildId(guildId)
-            .messageType(type)
-            .content(content)
-            .referenceType(referenceType)
-            .referenceId(referenceId)
-            .build();
+                .guildId(guildId)
+                .messageType(type)
+                .content(content)
+                .referenceType(referenceType)
+                .referenceId(referenceId)
+                .build();
     }
 
     public void delete() {

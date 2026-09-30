@@ -5,8 +5,4 @@ import com.fasterxml.jackson.databind.annotation.JsonNaming;
 
 @JsonNaming(SnakeCaseStrategy.class)
 public record TitleStatisticsResponse(
-    Long totalCount,
-    Long activeCount,
-    Long leftTitleCount,
-    Long rightTitleCount
-) {}
+        Long totalCount, Long activeCount, Long leftTitleCount, Long rightTitleCount) {}

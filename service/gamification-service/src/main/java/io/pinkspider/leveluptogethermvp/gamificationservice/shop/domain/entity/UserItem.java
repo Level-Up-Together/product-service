@@ -24,8 +24,8 @@ import lombok.experimental.SuperBuilder;
 import org.hibernate.annotations.Comment;
 
 /**
- * LUT-296: 유저 보유 아이템 (아이템 인벤토리). user_title 패턴을 따르며, 장착은 아이템 타입당 최대 1개
- * (전환은 {@code UserItemService.equipItem}에서 같은 타입 기존 장착 해제로 보장).
+ * LUT-296: 유저 보유 아이템 (아이템 인벤토리). user_title 패턴을 따르며, 장착은 아이템 타입당 최대 1개 (전환은 {@code
+ * UserItemService.equipItem}에서 같은 타입 기존 장착 해제로 보장).
  */
 @Entity
 @Getter
@@ -33,12 +33,13 @@ import org.hibernate.annotations.Comment;
 @SuperBuilder
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @AllArgsConstructor
-@Table(name = "user_item",
-    uniqueConstraints = @UniqueConstraint(
-        name = "uk_user_item",
-        columnNames = {"user_id", "shop_item_id"}
-    ),
-    indexes = @Index(name = "idx_user_item_user_id", columnList = "user_id"))
+@Table(
+        name = "user_item",
+        uniqueConstraints =
+                @UniqueConstraint(
+                        name = "uk_user_item",
+                        columnNames = {"user_id", "shop_item_id"}),
+        indexes = @Index(name = "idx_user_item_user_id", columnList = "user_id"))
 @Comment("유저 보유 아이템")
 public class UserItem extends LocalDateTimeBaseEntity {
 

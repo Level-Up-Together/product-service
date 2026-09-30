@@ -31,21 +31,21 @@ class KakaoAuthErrorDecoderTest {
 
     private Response buildResponse(int status, String body) {
         Map<String, Collection<String>> headers = Collections.emptyMap();
-        Request dummyRequest = Request.create(
-            HttpMethod.POST,
-            "https://kauth.kakao.com/oauth/token",
-            headers,
-            null,
-            StandardCharsets.UTF_8,
-            null
-        );
+        Request dummyRequest =
+                Request.create(
+                        HttpMethod.POST,
+                        "https://kauth.kakao.com/oauth/token",
+                        headers,
+                        null,
+                        StandardCharsets.UTF_8,
+                        null);
         return Response.builder()
-            .status(status)
-            .reason("reason")
-            .request(dummyRequest)
-            .headers(headers)
-            .body(body, StandardCharsets.UTF_8)
-            .build();
+                .status(status)
+                .reason("reason")
+                .request(dummyRequest)
+                .headers(headers)
+                .body(body, StandardCharsets.UTF_8)
+                .build();
     }
 
     @Nested

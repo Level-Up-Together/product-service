@@ -1,6 +1,5 @@
 package io.pinkspider.leveluptogethermvp.userservice.core.page;
 
-
 import io.pinkspider.global.enums.SortType;
 
 public interface Pageable {

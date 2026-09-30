@@ -51,16 +51,14 @@ import org.springframework.web.client.RestTemplate;
 /**
  * LUT-451: 구독 영수증 검증 — 최초 구매/복원 공용.
  *
- * <p>iap.verification.enabled=false(기본, dev)면 검증을 건너뛰고 요청 값을 신뢰한다.
- * 자격증명·저수준 헬퍼는 {@code IapVerificationService}(LUT-354)와 같은 설정 키를 공유하되,
- * 검증 대상 API가 달라(구독: iOS App Store Server API 단독 / Android subscriptionsv2)
- * 별도 서비스로 둔다.
+ * <p>iap.verification.enabled=false(기본, dev)면 검증을 건너뛰고 요청 값을 신뢰한다. 자격증명·저수준 헬퍼는 {@code
+ * IapVerificationService}(LUT-354)와 같은 설정 키를 공유하되, 검증 대상 API가 달라(구독: iOS App Store Server API 단독 /
+ * Android subscriptionsv2) 별도 서비스로 둔다.
  *
  * <ul>
- *   <li>iOS: App Store Server API {@code getTransactionInfo(transactionId)} → JWS 검증·디코딩.
- *       구버전 verifyReceipt 를 쓰지 않는다(구독 만료/오퍼 정보가 JWS payload에 있음). 프로덕션에서
- *       못 찾으면 샌드박스로 재시도(심사 표준 흐름). autoRenew 는 트랜잭션 payload에 없어 기본
- *       true — 해지/재개는 LUT-452 웹훅이 정정한다.
+ *   <li>iOS: App Store Server API {@code getTransactionInfo(transactionId)} → JWS 검증·디코딩. 구버전
+ *       verifyReceipt 를 쓰지 않는다(구독 만료/오퍼 정보가 JWS payload에 있음). 프로덕션에서 못 찾으면 샌드박스로 재시도(심사 표준 흐름).
+ *       autoRenew 는 트랜잭션 payload에 없어 기본 true — 해지/재개는 LUT-452 웹훅이 정정한다.
  *   <li>Android: Play Developer API {@code purchases.subscriptionsv2.get} — base plan(월/연 구분
  *       키)·만료·자동갱신·오퍼가 모두 응답에 있다. 구독 상품은 v1 products.get 으로는 검증 불가.
  * </ul>
@@ -184,13 +182,14 @@ public class SubscriptionVerificationService {
                 applePriceToDecimal(payload.getPrice()),
                 payload.getCurrency(),
                 null,
-                payload.getAppAccountToken() != null ? payload.getAppAccountToken().toString() : null);
+                payload.getAppAccountToken() != null
+                        ? payload.getAppAccountToken().toString()
+                        : null);
     }
 
     /**
-     * ASSN V2 signedPayload 를 서명 검증·디코딩한다 (LUT-452). 알림의 environment 에 맞는 검증기가
-     * 필요하므로 프로덕션 검증기 실패 시 샌드박스로 재시도한다. 테스트에서 스텁할 수 있게
-     * package-private.
+     * ASSN V2 signedPayload 를 서명 검증·디코딩한다 (LUT-452). 알림의 environment 에 맞는 검증기가 필요하므로 프로덕션 검증기 실패 시
+     * 샌드박스로 재시도한다. 테스트에서 스텁할 수 있게 package-private.
      *
      * @throws CustomException 서명 검증 실패 (120702)
      */
@@ -228,14 +227,17 @@ public class SubscriptionVerificationService {
             }
         }
         return new AppleSubscriptionNotification(
-                payload.getRawNotificationType(), payload.getRawSubtype(), transaction, renewalInfo);
+                payload.getRawNotificationType(),
+                payload.getRawSubtype(),
+                transaction,
+                renewalInfo);
     }
 
     /**
      * LUT-499: App Store Server API "Get All Subscription Statuses" 로 구독 그룹의 **최신** 트랜잭션·갱신 정보를
-     * 조회한다. {@link #fetchAppleTransaction} 은 지정한 트랜잭션 1건만 주므로 갱신 뒤 최신 만료를 알 수 없다 —
-     * 웹훅이 유실됐을 때의 자가 치유({@link SubscriptionSelfHealService})가 쓴다. 프로덕션→샌드박스 재시도는 동일.
-     * 테스트에서 스텁할 수 있게 package-private.
+     * 조회한다. {@link #fetchAppleTransaction} 은 지정한 트랜잭션 1건만 주므로 갱신 뒤 최신 만료를 알 수 없다 — 웹훅이 유실됐을 때의 자가
+     * 치유({@link SubscriptionSelfHealService})가 쓴다. 프로덕션→샌드박스 재시도는 동일. 테스트에서 스텁할 수 있게
+     * package-private.
      */
     AppleSubscriptionSnapshot fetchAppleLatestSubscription(String originalTransactionId) {
         try {
@@ -251,10 +253,11 @@ public class SubscriptionVerificationService {
         }
     }
 
-    private AppleSubscriptionSnapshot fetchLatestSnapshot(boolean sandbox, String originalTransactionId)
-            throws Exception {
+    private AppleSubscriptionSnapshot fetchLatestSnapshot(
+            boolean sandbox, String originalTransactionId) throws Exception {
         StatusResponse response =
-                appStoreServerAPIClient(sandbox).getAllSubscriptionStatuses(originalTransactionId, null);
+                appStoreServerAPIClient(sandbox)
+                        .getAllSubscriptionStatuses(originalTransactionId, null);
         SignedDataVerifier verifier = signedDataVerifier(sandbox);
         LastTransactionsItem matched = null;
         for (SubscriptionGroupIdentifierItem group : nullSafe(response.getData())) {
@@ -285,8 +288,8 @@ public class SubscriptionVerificationService {
     }
 
     /**
-     * App Store Server API 로 트랜잭션 조회 + JWS 검증·디코딩. 프로덕션에서 못 찾으면 샌드박스로
-     * 재시도한다(심사/TestFlight 표준 흐름). 테스트에서 스텁할 수 있게 package-private.
+     * App Store Server API 로 트랜잭션 조회 + JWS 검증·디코딩. 프로덕션에서 못 찾으면 샌드박스로 재시도한다(심사/TestFlight 표준 흐름).
+     * 테스트에서 스텁할 수 있게 package-private.
      */
     JWSTransactionDecodedPayload fetchAppleTransaction(String transactionId) {
         try {
@@ -395,9 +398,8 @@ public class SubscriptionVerificationService {
     }
 
     /**
-     * Play Developer API subscriptionsv2 로 구독 현재 상태를 조회한다. 영수증 검증(LUT-451)과 RTDN
-     * 웹훅(LUT-452)이 공유 — RTDN 은 트리거일 뿐이고 상태의 진실은 항상 이 재조회 결과다(페이로드 위조
-     * 방어 겸용). 테스트에서 스텁할 수 있게 package-private.
+     * Play Developer API subscriptionsv2 로 구독 현재 상태를 조회한다. 영수증 검증(LUT-451)과 RTDN 웹훅(LUT-452)이 공유 —
+     * RTDN 은 트리거일 뿐이고 상태의 진실은 항상 이 재조회 결과다(페이로드 위조 방어 겸용). 테스트에서 스텁할 수 있게 package-private.
      */
     GoogleSubscriptionState fetchGoogleSubscription(String purchaseToken) {
         try {
@@ -440,7 +442,9 @@ public class SubscriptionVerificationService {
             boolean autoRenew =
                     latest.path("autoRenewingPlan").path("autoRenewEnabled").asBoolean(false);
             LocalDateTime startedAt =
-                    json.hasNonNull("startTime") ? parseRfc3339(json.path("startTime").asText()) : null;
+                    json.hasNonNull("startTime")
+                            ? parseRfc3339(json.path("startTime").asText())
+                            : null;
 
             // LUT-499: 연속성 키(재구독·플랜 변경으로 대체된 옛 토큰)와 최신 주문 ID(결제 이력 거래 ID)
             String linkedPurchaseToken = json.path("linkedPurchaseToken").asText(null);

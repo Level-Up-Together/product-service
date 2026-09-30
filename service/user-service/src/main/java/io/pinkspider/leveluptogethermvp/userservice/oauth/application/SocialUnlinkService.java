@@ -11,14 +11,13 @@ import org.springframework.stereotype.Service;
 /**
  * 회원 탈퇴 시 소셜 로그인 연동 해제 (LUT-476).
  *
- * <p>전부 best-effort — 실패해도 탈퇴 자체는 진행한다 (연동은 소셜 측 설정에서도 해제 가능하고,
- * 웹훅 수신으로도 정합이 맞춰진다).
+ * <p>전부 best-effort — 실패해도 탈퇴 자체는 진행한다 (연동은 소셜 측 설정에서도 해제 가능하고, 웹훅 수신으로도 정합이 맞춰진다).
  *
  * <ul>
- *   <li>kakao: 어드민 키 unlink (provider_user_id = 카카오 회원번호)</li>
- *   <li>apple: 저장된 refresh token 으로 /auth/revoke — App Store 심사 5.1.1(v) 요건 (LUT-477).
- *       로그인 시 code 를 안 보낸 구 클라이언트 유저는 토큰이 없어 스킵된다</li>
- *   <li>google: 토큰 미저장이라 revoke 생략 (필수 아님 — 유저가 구글 계정 설정에서 자체 해제 가능)</li>
+ *   <li>kakao: 어드민 키 unlink (provider_user_id = 카카오 회원번호)
+ *   <li>apple: 저장된 refresh token 으로 /auth/revoke — App Store 심사 5.1.1(v) 요건 (LUT-477). 로그인 시 code 를
+ *       안 보낸 구 클라이언트 유저는 토큰이 없어 스킵된다
+ *   <li>google: 토큰 미저장이라 revoke 생략 (필수 아님 — 유저가 구글 계정 설정에서 자체 해제 가능)
  * </ul>
  */
 @Service
@@ -37,12 +36,18 @@ public class SocialUnlinkService {
                 case "kakao" -> unlinkKakao(user);
                 case "apple" -> revokeApple(user);
                 case "google" -> log.info("google 연동 해제 스킵 (토큰 미저장): userId={}", user.getId());
-                default -> log.warn("알 수 없는 provider, 연동 해제 스킵: userId={}, provider={}",
-                    user.getId(), user.getProvider());
+                default ->
+                        log.warn(
+                                "알 수 없는 provider, 연동 해제 스킵: userId={}, provider={}",
+                                user.getId(),
+                                user.getProvider());
             }
         } catch (Exception e) {
-            log.error("소셜 연동 해제 실패 (탈퇴는 계속 진행): userId={}, provider={}, error={}",
-                user.getId(), provider, e.getMessage());
+            log.error(
+                    "소셜 연동 해제 실패 (탈퇴는 계속 진행): userId={}, provider={}, error={}",
+                    user.getId(),
+                    provider,
+                    e.getMessage());
         }
     }
 
@@ -58,7 +63,7 @@ public class SocialUnlinkService {
             return;
         }
         kakaoAdminFeignClient.unlink(
-            "KakaoAK " + adminKey, "user_id", Long.parseLong(user.getProviderUserId()));
+                "KakaoAK " + adminKey, "user_id", Long.parseLong(user.getProviderUserId()));
         log.info("카카오 연결 해제 완료: userId={}", user.getId());
     }
 

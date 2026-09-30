@@ -14,8 +14,8 @@ import lombok.experimental.SuperBuilder;
 import org.hibernate.annotations.Comment;
 
 /**
- * LUT-528: 장착 아이템 푸시 발송 설정. 발송 시각을 메시지 단위가 아니라 아이템 단위로 1개만 둔다. 행이 존재하면 그 아이템이 지정 시각에 발송되고, 행이
- * 없으면 발송하지 않는다. HEAD 타입 아이템에만 등록을 허용한다(서비스에서 검증). {@code shop_item.id} 를 그대로 PK 로 써서 아이템과 1:1.
+ * LUT-528: 장착 아이템 푸시 발송 설정. 발송 시각을 메시지 단위가 아니라 아이템 단위로 1개만 둔다. 행이 존재하면 그 아이템이 지정 시각에 발송되고, 행이 없으면
+ * 발송하지 않는다. HEAD 타입 아이템에만 등록을 허용한다(서비스에서 검증). {@code shop_item.id} 를 그대로 PK 로 써서 아이템과 1:1.
  */
 @Entity
 @Getter

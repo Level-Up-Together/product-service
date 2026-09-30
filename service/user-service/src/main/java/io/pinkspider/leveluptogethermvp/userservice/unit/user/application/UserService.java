@@ -19,29 +19,33 @@ public class UserService {
 
     /**
      * 이메일과 provider로 사용자 조회
+     *
      * @param email 평문 이메일 (내부에서 암호화하여 조회)
      * @param provider OAuth2 제공자
      * @return 사용자 엔티티
      */
     public Users findByEmailAndProvider(String email, String provider) {
         String encryptedEmail = CryptoUtils.encryptAes(email);
-        return userRepository.findActiveByEncryptedEmailAndProvider(encryptedEmail, provider)
-            .orElseThrow(() -> new CustomException("404", "error.user.not_found"));
+        return userRepository
+                .findActiveByEncryptedEmailAndProvider(encryptedEmail, provider)
+                .orElseThrow(() -> new CustomException("404", "error.user.not_found"));
     }
 
     public Users findByUserId(String userId) {
-        return userRepository.findById(userId)
-            .orElseThrow(() -> new CustomException("", ""));
+        return userRepository.findById(userId).orElseThrow(() -> new CustomException("", ""));
     }
 
-    /**
-     * 오늘 가입한 신규 유저인지 확인
-     */
+    /** 오늘 가입한 신규 유저인지 확인 */
     @Transactional(transactionManager = "userTransactionManager", readOnly = true)
     public boolean isNewUserToday(String userId) {
-        return userRepository.findById(userId)
-            .map(user -> user.getCreatedAt() != null &&
-                         user.getCreatedAt().toLocalDate().equals(LocalDate.now()))
-            .orElse(false);
+        return userRepository
+                .findById(userId)
+                .map(
+                        user ->
+                                user.getCreatedAt() != null
+                                        && user.getCreatedAt()
+                                                .toLocalDate()
+                                                .equals(LocalDate.now()))
+                .orElse(false);
     }
 }

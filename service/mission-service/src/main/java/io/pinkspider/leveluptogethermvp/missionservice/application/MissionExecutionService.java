@@ -5,13 +5,13 @@ import io.pinkspider.global.exception.CustomException;
 import io.pinkspider.global.saga.SagaResult;
 import io.pinkspider.leveluptogethermvp.feedservice.domain.enums.FeedVisibility;
 import io.pinkspider.leveluptogethermvp.missionservice.application.strategy.MissionExecutionStrategyResolver;
-import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionExecutionMode;
-import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionType;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MissionExecutionResponse;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.Mission;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.MissionExecution;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.MissionParticipant;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.ExecutionStatus;
+import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionExecutionMode;
+import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionType;
 import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.MissionExecutionRepository;
 import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.MissionParticipantRepository;
 import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.MissionRepository;
@@ -26,7 +26,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
-
 @Service
 @Slf4j
 @RequiredArgsConstructor
@@ -36,21 +35,25 @@ public class MissionExecutionService {
     private final MissionExecutionRepository executionRepository;
     private final MissionParticipantRepository participantRepository;
     private final MissionRepository missionRepository;
-    private final io.pinkspider.leveluptogethermvp.missionservice.infrastructure.DailyMissionInstanceRepository dailyMissionInstanceRepository;
+    private final io.pinkspider.leveluptogethermvp.missionservice.infrastructure
+                    .DailyMissionInstanceRepository
+            dailyMissionInstanceRepository;
     private final MissionCompletionSaga missionCompletionSaga;
     private final MissionExecutionStrategyResolver strategyResolver;
     private final MissionExecutionQueryService executionQueryService;
-    private final io.pinkspider.leveluptogethermvp.feedservice.application.FeedQueryService feedQueryService;
+    private final io.pinkspider.leveluptogethermvp.feedservice.application.FeedQueryService
+            feedQueryService;
 
     /**
-     * QA-181: 모집중(OPEN) 길드 미션은 아직 시작되지 않았으므로 수행(start/skip/complete) 차단.
-     * "나의 미션" 목록 비노출과 짝이 되는 서버측 방어선 — 클라이언트가 직접 호출해도 거부한다.
+     * QA-181: 모집중(OPEN) 길드 미션은 아직 시작되지 않았으므로 수행(start/skip/complete) 차단. "나의 미션" 목록 비노출과 짝이 되는 서버측
+     * 방어선 — 클라이언트가 직접 호출해도 거부한다.
      */
     private void validateMissionStarted(Long missionId) {
         Mission mission =
                 missionRepository
                         .findById(missionId)
-                        .orElseThrow(() -> new CustomException("050101", "error.mission.not_found"));
+                        .orElseThrow(
+                                () -> new CustomException("050101", "error.mission.not_found"));
         if (mission.getType() == MissionType.GUILD && mission.getStatus() == MissionStatus.OPEN) {
             throw new CustomException("050109", "error.mission.guild.not_started");
         }
@@ -59,8 +62,8 @@ public class MissionExecutionService {
     /**
      * 미션 참여 시 실행 일정 생성
      *
-     * - 고정 미션(isPinned=true): DailyMissionInstance를 사용하므로 여기서 생성하지 않음
-     * - 일반 미션(isPinned=false): 오늘 하루치만 생성 (1회성 미션)
+     * <p>- 고정 미션(isPinned=true): DailyMissionInstance를 사용하므로 여기서 생성하지 않음 - 일반 미션(isPinned=false):
+     * 오늘 하루치만 생성 (1회성 미션)
      */
     @Transactional(transactionManager = "missionTransactionManager")
     public void generateExecutionsForParticipant(MissionParticipant participant) {
@@ -68,71 +71,95 @@ public class MissionExecutionService {
         LocalDate today = LocalDate.now(ZoneId.of("Asia/Seoul"));
 
         if (Boolean.TRUE.equals(mission.getIsPinned())) {
-            log.info("고정 미션은 DailyMissionInstance를 사용하므로 MissionExecution 생성 건너뜀: missionId={}",
-                mission.getId());
+            log.info(
+                    "고정 미션은 DailyMissionInstance를 사용하므로 MissionExecution 생성 건너뜀: missionId={}",
+                    mission.getId());
             return;
         }
 
-        boolean alreadyExists = executionRepository.findByParticipantIdAndExecutionDate(
-            participant.getId(), today).isPresent();
+        boolean alreadyExists =
+                executionRepository
+                        .findByParticipantIdAndExecutionDate(participant.getId(), today)
+                        .isPresent();
 
         if (alreadyExists) {
             log.info("미션 수행 일정 생성 건너뜀: participantId={}, 오늘 날짜 기존재", participant.getId());
             return;
         }
 
-        MissionExecution execution = MissionExecution.builder()
-            .participant(participant)
-            .executionDate(today)
-            .status(ExecutionStatus.PENDING)
-            .build();
+        MissionExecution execution =
+                MissionExecution.builder()
+                        .participant(participant)
+                        .executionDate(today)
+                        .status(ExecutionStatus.PENDING)
+                        .build();
 
         executionRepository.save(execution);
-        log.info("일반 미션 수행 일정 생성: participantId={}, missionId={}, date={}",
-            participant.getId(), mission.getId(), today);
+        log.info(
+                "일반 미션 수행 일정 생성: participantId={}, missionId={}, date={}",
+                participant.getId(),
+                mission.getId(),
+                today);
     }
 
     // ============ Strategy 패턴으로 위임하는 메서드들 ============
 
     @Transactional(transactionManager = "missionTransactionManager")
-    public MissionExecutionResponse startExecution(Long missionId, String userId, LocalDate executionDate) {
+    public MissionExecutionResponse startExecution(
+            Long missionId, String userId, LocalDate executionDate) {
         // SIMPLE 일일 한도 도달은 더 이상 차단 사유가 아님 (수행은 가능, EXP만 0 처리)
         validateMissionStarted(missionId);
-        return strategyResolver.resolve(missionId, userId).startExecution(missionId, userId, executionDate);
+        return strategyResolver
+                .resolve(missionId, userId)
+                .startExecution(missionId, userId, executionDate);
     }
 
     @Transactional(transactionManager = "missionTransactionManager")
-    public MissionExecutionResponse skipExecution(Long missionId, String userId, LocalDate executionDate) {
+    public MissionExecutionResponse skipExecution(
+            Long missionId, String userId, LocalDate executionDate) {
         validateMissionStarted(missionId);
-        return strategyResolver.resolve(missionId, userId).skipExecution(missionId, userId, executionDate);
+        return strategyResolver
+                .resolve(missionId, userId)
+                .skipExecution(missionId, userId, executionDate);
     }
 
     @Transactional(transactionManager = "missionTransactionManager")
-    public MissionExecutionResponse completeExecution(Long missionId, String userId, LocalDate executionDate, String note) {
+    public MissionExecutionResponse completeExecution(
+            Long missionId, String userId, LocalDate executionDate, String note) {
         return completeExecution(missionId, userId, executionDate, note, (FeedVisibility) null);
     }
 
     @Transactional(transactionManager = "missionTransactionManager")
-    public MissionExecutionResponse completeExecution(Long missionId, String userId, LocalDate executionDate, String note, boolean shareToFeed) {
+    public MissionExecutionResponse completeExecution(
+            Long missionId,
+            String userId,
+            LocalDate executionDate,
+            String note,
+            boolean shareToFeed) {
         FeedVisibility visibility = shareToFeed ? FeedVisibility.PUBLIC : FeedVisibility.PRIVATE;
         return completeExecution(missionId, userId, executionDate, note, visibility);
     }
 
     @Transactional(transactionManager = "missionTransactionManager")
-    public MissionExecutionResponse completeExecution(Long missionId, String userId, LocalDate executionDate, String note, FeedVisibility feedVisibility) {
+    public MissionExecutionResponse completeExecution(
+            Long missionId,
+            String userId,
+            LocalDate executionDate,
+            String note,
+            FeedVisibility feedVisibility) {
         // SIMPLE 일일 한도는 차단하지 않음 (Strategy/Saga에서 EXP 0 처리 + 응답 플래그)
         validateMissionStarted(missionId);
 
         // LUT-318: feedVisibility가 null이면 PRIVATE — 완료만으로는 피드를 생성하지 않는다.
         // 피드는 유저가 미션 상세 등록(기록 페이지)에서 공개범위를 직접 선택해 공유할 때만 생성.
         // (마이페이지 공개범위 기본 설정은 미션 생성/상세 등록 폼의 프리필 값일 뿐, 자동 공유 의사가 아님)
-        FeedVisibility resolvedVisibility = feedVisibility != null
-            ? feedVisibility
-            : FeedVisibility.PRIVATE;
+        FeedVisibility resolvedVisibility =
+                feedVisibility != null ? feedVisibility : FeedVisibility.PRIVATE;
 
         // 미션 완료 처리 (Saga)
-        return strategyResolver.resolve(missionId, userId)
-            .completeExecution(missionId, userId, executionDate, note, resolvedVisibility);
+        return strategyResolver
+                .resolve(missionId, userId)
+                .completeExecution(missionId, userId, executionDate, note, resolvedVisibility);
     }
 
     // === 후처리 메서드 (instanceId 지원) ===
@@ -140,41 +167,67 @@ public class MissionExecutionService {
     // === QA-53: 다중 이미지 (단수형 image 메서드는 제거됨) ===
 
     @Transactional(transactionManager = "missionTransactionManager")
-    public MissionExecutionResponse uploadExecutionImages(Long missionId, String userId, LocalDate executionDate,
-                                                          List<MultipartFile> images, Long instanceId) {
-        return strategyResolver.resolve(missionId, userId)
-            .uploadExecutionImages(missionId, userId, executionDate, images, instanceId);
+    public MissionExecutionResponse uploadExecutionImages(
+            Long missionId,
+            String userId,
+            LocalDate executionDate,
+            List<MultipartFile> images,
+            Long instanceId) {
+        return strategyResolver
+                .resolve(missionId, userId)
+                .uploadExecutionImages(missionId, userId, executionDate, images, instanceId);
     }
 
     @Transactional(transactionManager = "missionTransactionManager")
-    public MissionExecutionResponse deleteExecutionImageByUrl(Long missionId, String userId, LocalDate executionDate,
-                                                              String imageUrl, Long instanceId) {
-        return strategyResolver.resolve(missionId, userId)
-            .deleteExecutionImageByUrl(missionId, userId, executionDate, imageUrl, instanceId);
+    public MissionExecutionResponse deleteExecutionImageByUrl(
+            Long missionId,
+            String userId,
+            LocalDate executionDate,
+            String imageUrl,
+            Long instanceId) {
+        return strategyResolver
+                .resolve(missionId, userId)
+                .deleteExecutionImageByUrl(missionId, userId, executionDate, imageUrl, instanceId);
     }
 
     @Transactional(transactionManager = "missionTransactionManager")
-    public MissionExecutionResponse shareExecutionToFeed(Long missionId, String userId, LocalDate executionDate, Long instanceId) {
-        return shareExecutionToFeed(missionId, userId, executionDate, instanceId, FeedVisibility.PUBLIC);
+    public MissionExecutionResponse shareExecutionToFeed(
+            Long missionId, String userId, LocalDate executionDate, Long instanceId) {
+        return shareExecutionToFeed(
+                missionId, userId, executionDate, instanceId, FeedVisibility.PUBLIC);
     }
 
     @Transactional(transactionManager = "missionTransactionManager")
-    public MissionExecutionResponse shareExecutionToFeed(Long missionId, String userId, LocalDate executionDate, Long instanceId, FeedVisibility feedVisibility) {
-        return strategyResolver.resolve(missionId, userId).shareExecutionToFeed(missionId, userId, executionDate, instanceId, feedVisibility);
+    public MissionExecutionResponse shareExecutionToFeed(
+            Long missionId,
+            String userId,
+            LocalDate executionDate,
+            Long instanceId,
+            FeedVisibility feedVisibility) {
+        return strategyResolver
+                .resolve(missionId, userId)
+                .shareExecutionToFeed(missionId, userId, executionDate, instanceId, feedVisibility);
     }
 
     @Transactional(transactionManager = "missionTransactionManager")
-    public MissionExecutionResponse updateExecutionNote(Long missionId, String userId, LocalDate executionDate, String note, Long instanceId) {
-        return strategyResolver.resolve(missionId, userId).updateExecutionNote(missionId, userId, executionDate, note, instanceId);
+    public MissionExecutionResponse updateExecutionNote(
+            Long missionId, String userId, LocalDate executionDate, String note, Long instanceId) {
+        return strategyResolver
+                .resolve(missionId, userId)
+                .updateExecutionNote(missionId, userId, executionDate, note, instanceId);
     }
 
     @Transactional(transactionManager = "missionTransactionManager")
-    public MissionExecutionResponse unshareExecutionFromFeed(Long missionId, String userId, LocalDate executionDate, Long instanceId) {
-        return strategyResolver.resolve(missionId, userId).unshareExecutionFromFeed(missionId, userId, executionDate, instanceId);
+    public MissionExecutionResponse unshareExecutionFromFeed(
+            Long missionId, String userId, LocalDate executionDate, Long instanceId) {
+        return strategyResolver
+                .resolve(missionId, userId)
+                .unshareExecutionFromFeed(missionId, userId, executionDate, instanceId);
     }
 
     @Transactional(transactionManager = "missionTransactionManager", readOnly = true)
-    public MissionExecutionResponse getExecutionByDate(Long missionId, String userId, LocalDate date, Long instanceId) {
+    public MissionExecutionResponse getExecutionByDate(
+            Long missionId, String userId, LocalDate date, Long instanceId) {
         return getExecutionByDate(missionId, userId, date, instanceId, null);
     }
 
@@ -182,11 +235,14 @@ public class MissionExecutionService {
     @Transactional(transactionManager = "missionTransactionManager", readOnly = true)
     public MissionExecutionResponse getExecutionByDate(
             Long missionId, String userId, LocalDate date, Long instanceId, String locale) {
-        MissionExecutionResponse response = strategyResolver.resolve(missionId, userId).getExecutionByDate(missionId, userId, date, instanceId);
+        MissionExecutionResponse response =
+                strategyResolver
+                        .resolve(missionId, userId)
+                        .getExecutionByDate(missionId, userId, date, instanceId);
         // 연결된 피드의 공개범위 조회 (LUT-381: ID 충돌 대비 userId 스코프)
         if (response.getId() != null) {
             response.setFeedVisibility(
-                feedQueryService.getFeedVisibilityByExecutionId(response.getId(), userId));
+                    feedQueryService.getFeedVisibilityByExecutionId(response.getId(), userId));
         }
         executionQueryService.localizeMissionFields(List.of(response), locale);
         return response;
@@ -214,27 +270,32 @@ public class MissionExecutionService {
         return count;
     }
 
-    /**
-     * Saga 패턴을 사용한 미션 수행 완료 처리
-     */
-    public MissionExecutionResponse completeExecution(Long executionId, String userId, String note) {
+    /** Saga 패턴을 사용한 미션 수행 완료 처리 */
+    public MissionExecutionResponse completeExecution(
+            Long executionId, String userId, String note) {
         return completeExecution(executionId, userId, note, false);
     }
 
-    /**
-     * Saga 패턴을 사용한 미션 수행 완료 처리 (피드 공유 옵션 포함)
-     */
-    public MissionExecutionResponse completeExecution(Long executionId, String userId, String note, boolean shareToFeed) {
-        log.info("미션 수행 완료 요청 (Saga): executionId={}, userId={}, shareToFeed={}",
-            executionId, userId, shareToFeed);
+    /** Saga 패턴을 사용한 미션 수행 완료 처리 (피드 공유 옵션 포함) */
+    public MissionExecutionResponse completeExecution(
+            Long executionId, String userId, String note, boolean shareToFeed) {
+        log.info(
+                "미션 수행 완료 요청 (Saga): executionId={}, userId={}, shareToFeed={}",
+                executionId,
+                userId,
+                shareToFeed);
 
-        SagaResult<MissionCompletionContext> result = missionCompletionSaga.execute(executionId, userId, note, shareToFeed);
+        SagaResult<MissionCompletionContext> result =
+                missionCompletionSaga.execute(executionId, userId, note, shareToFeed);
 
         if (result.isSuccess()) {
             return missionCompletionSaga.toResponse(result);
         } else {
-            log.warn("미션 완료 처리 실패 (sagaId={}, status={}): {}",
-                result.getSagaId(), result.getStatus(), result.getMessage());
+            log.warn(
+                    "미션 완료 처리 실패 (sagaId={}, status={}): {}",
+                    result.getSagaId(),
+                    result.getStatus(),
+                    result.getMessage());
 
             if (result.isCompensated()) {
                 log.info("미션 완료 실패 - 보상 트랜잭션 완료: sagaId={}", result.getSagaId());
@@ -245,23 +306,32 @@ public class MissionExecutionService {
     }
 
     @Transactional(transactionManager = "missionTransactionManager")
-    public MissionExecutionResponse completeExecutionByDate(Long missionId, String userId, LocalDate date, String note) {
-        MissionParticipant participant = participantRepository.findByMissionIdAndUserId(missionId, userId)
-            .orElseThrow(() -> new IllegalArgumentException("미션 참여 정보를 찾을 수 없습니다."));
+    public MissionExecutionResponse completeExecutionByDate(
+            Long missionId, String userId, LocalDate date, String note) {
+        MissionParticipant participant =
+                participantRepository
+                        .findByMissionIdAndUserId(missionId, userId)
+                        .orElseThrow(() -> new IllegalArgumentException("미션 참여 정보를 찾을 수 없습니다."));
 
-        MissionExecution execution = executionRepository.findByParticipantIdAndExecutionDate(participant.getId(), date)
-            .orElseThrow(() -> new IllegalArgumentException("해당 날짜의 수행 기록을 찾을 수 없습니다: " + date));
+        MissionExecution execution =
+                executionRepository
+                        .findByParticipantIdAndExecutionDate(participant.getId(), date)
+                        .orElseThrow(
+                                () ->
+                                        new IllegalArgumentException(
+                                                "해당 날짜의 수행 기록을 찾을 수 없습니다: " + date));
 
         return completeExecution(execution.getId(), userId, note);
     }
 
-    /**
-     * 완료된 미션 수행 기록의 시작/종료 시간 수정
-     * 경험치는 변경하지 않음
-     */
+    /** 완료된 미션 수행 기록의 시작/종료 시간 수정 경험치는 변경하지 않음 */
     @Transactional(transactionManager = "missionTransactionManager")
-    public void updateExecutionTime(Long missionId, String userId, LocalDate executionDate,
-                                    java.time.LocalDateTime startedAt, java.time.LocalDateTime completedAt) {
+    public void updateExecutionTime(
+            Long missionId,
+            String userId,
+            LocalDate executionDate,
+            java.time.LocalDateTime startedAt,
+            java.time.LocalDateTime completedAt) {
         if (!startedAt.isBefore(completedAt)) {
             throw new IllegalArgumentException("시작 시간은 종료 시간보다 이전이어야 합니다.");
         }
@@ -269,8 +339,10 @@ public class MissionExecutionService {
         // 해당 시간대에 다른 완료 미션이 있는지 검증
         validateNoOverlappingExecution(userId, missionId, executionDate, startedAt, completedAt);
 
-        MissionParticipant participant = participantRepository.findByMissionIdAndUserId(missionId, userId)
-            .orElseThrow(() -> new IllegalArgumentException("미션 참여 정보를 찾을 수 없습니다."));
+        MissionParticipant participant =
+                participantRepository
+                        .findByMissionIdAndUserId(missionId, userId)
+                        .orElseThrow(() -> new IllegalArgumentException("미션 참여 정보를 찾을 수 없습니다."));
 
         Mission mission = participant.getMission();
 
@@ -280,44 +352,64 @@ public class MissionExecutionService {
             updateRegularExecutionTime(participant, executionDate, startedAt, completedAt);
         }
 
-        log.info("미션 수행 시간 수정: missionId={}, userId={}, date={}, startedAt={}, completedAt={}",
-            missionId, userId, executionDate, startedAt, completedAt);
+        log.info(
+                "미션 수행 시간 수정: missionId={}, userId={}, date={}, startedAt={}, completedAt={}",
+                missionId,
+                userId,
+                executionDate,
+                startedAt,
+                completedAt);
     }
 
-    /**
-     * 해당 시간대에 다른 완료 미션이 겹치는지 검증
-     */
-    private void validateNoOverlappingExecution(String userId, Long currentMissionId, LocalDate executionDate,
-                                                java.time.LocalDateTime startedAt, java.time.LocalDateTime completedAt) {
+    /** 해당 시간대에 다른 완료 미션이 겹치는지 검증 */
+    private void validateNoOverlappingExecution(
+            String userId,
+            Long currentMissionId,
+            LocalDate executionDate,
+            java.time.LocalDateTime startedAt,
+            java.time.LocalDateTime completedAt) {
         // 일반 미션 겹침 체크
-        List<MissionExecution> regularExecutions = executionRepository
-            .findCompletedByUserIdAndDateRange(userId, executionDate, executionDate);
+        List<MissionExecution> regularExecutions =
+                executionRepository.findCompletedByUserIdAndDateRange(
+                        userId, executionDate, executionDate);
         for (MissionExecution exec : regularExecutions) {
             if (exec.getParticipant().getMission().getId().equals(currentMissionId)) continue;
             if (exec.getStartedAt() != null && exec.getCompletedAt() != null) {
-                if (startedAt.isBefore(exec.getCompletedAt()) && completedAt.isAfter(exec.getStartedAt())) {
+                if (startedAt.isBefore(exec.getCompletedAt())
+                        && completedAt.isAfter(exec.getStartedAt())) {
                     throw new IllegalStateException("해당 시간대에 이미 수행한 미션이 있습니다.");
                 }
             }
         }
 
         // 고정 미션 겹침 체크
-        List<io.pinkspider.leveluptogethermvp.missionservice.domain.entity.DailyMissionInstance> pinnedInstances =
-            dailyMissionInstanceRepository.findCompletedByUserIdAndDateRange(userId, executionDate, executionDate);
+        List<io.pinkspider.leveluptogethermvp.missionservice.domain.entity.DailyMissionInstance>
+                pinnedInstances =
+                        dailyMissionInstanceRepository.findCompletedByUserIdAndDateRange(
+                                userId, executionDate, executionDate);
         for (var instance : pinnedInstances) {
             if (instance.getParticipant().getMission().getId().equals(currentMissionId)) continue;
             if (instance.getStartedAt() != null && instance.getCompletedAt() != null) {
-                if (startedAt.isBefore(instance.getCompletedAt()) && completedAt.isAfter(instance.getStartedAt())) {
+                if (startedAt.isBefore(instance.getCompletedAt())
+                        && completedAt.isAfter(instance.getStartedAt())) {
                     throw new IllegalStateException("해당 시간대에 이미 수행한 미션이 있습니다.");
                 }
             }
         }
     }
 
-    private void updateRegularExecutionTime(MissionParticipant participant, LocalDate executionDate,
-                                            java.time.LocalDateTime startedAt, java.time.LocalDateTime completedAt) {
-        MissionExecution execution = executionRepository.findByParticipantIdAndExecutionDate(participant.getId(), executionDate)
-            .orElseThrow(() -> new IllegalArgumentException("해당 날짜의 수행 기록을 찾을 수 없습니다: " + executionDate));
+    private void updateRegularExecutionTime(
+            MissionParticipant participant,
+            LocalDate executionDate,
+            java.time.LocalDateTime startedAt,
+            java.time.LocalDateTime completedAt) {
+        MissionExecution execution =
+                executionRepository
+                        .findByParticipantIdAndExecutionDate(participant.getId(), executionDate)
+                        .orElseThrow(
+                                () ->
+                                        new IllegalArgumentException(
+                                                "해당 날짜의 수행 기록을 찾을 수 없습니다: " + executionDate));
 
         if (execution.getStatus() != ExecutionStatus.COMPLETED) {
             throw new IllegalStateException("완료된 미션만 시간을 수정할 수 있습니다.");
@@ -328,10 +420,14 @@ public class MissionExecutionService {
         executionRepository.save(execution);
     }
 
-    private void updatePinnedExecutionTime(MissionParticipant participant, LocalDate executionDate,
-                                           java.time.LocalDateTime startedAt, java.time.LocalDateTime completedAt) {
-        var instances = dailyMissionInstanceRepository
-            .findCompletedByParticipantIdAndDate(participant.getId(), executionDate);
+    private void updatePinnedExecutionTime(
+            MissionParticipant participant,
+            LocalDate executionDate,
+            java.time.LocalDateTime startedAt,
+            java.time.LocalDateTime completedAt) {
+        var instances =
+                dailyMissionInstanceRepository.findCompletedByParticipantIdAndDate(
+                        participant.getId(), executionDate);
 
         if (instances.isEmpty()) {
             throw new IllegalArgumentException("해당 날짜의 고정 미션 수행 기록을 찾을 수 없습니다: " + executionDate);
@@ -345,15 +441,15 @@ public class MissionExecutionService {
     }
 
     /**
-     * 유저의 오늘 SIMPLE 미션 완료 횟수가 일일 한도(SIMPLE_DAILY_LIMIT)에 도달했는지 확인.
-     * 일반(MissionExecution) + 고정(DailyMissionInstance) 합산.
+     * 유저의 오늘 SIMPLE 미션 완료 횟수가 일일 한도(SIMPLE_DAILY_LIMIT)에 도달했는지 확인. 일반(MissionExecution) +
+     * 고정(DailyMissionInstance) 합산.
      *
-     * 도달 시 추가 수행은 가능하지만 EXP는 0으로 처리한다.
+     * <p>도달 시 추가 수행은 가능하지만 EXP는 0으로 처리한다.
      */
     public boolean isSimpleDailyLimitReached(String userId, LocalDate date) {
         long regularCount = executionRepository.countSimpleCompletedByUserIdAndDate(userId, date);
-        long pinnedCount = dailyMissionInstanceRepository.countSimpleCompletedByUserIdAndDate(userId, date);
+        long pinnedCount =
+                dailyMissionInstanceRepository.countSimpleCompletedByUserIdAndDate(userId, date);
         return (regularCount + pinnedCount) >= MissionExecutionMode.SIMPLE_DAILY_LIMIT;
     }
-
 }

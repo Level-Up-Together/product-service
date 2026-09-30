@@ -1,8 +1,6 @@
 package io.pinkspider.leveluptogethermvp.missionservice.application.strategy;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -26,11 +24,9 @@ import org.springframework.web.multipart.MultipartFile;
 @ExtendWith(MockitoExtension.class)
 class PinnedMissionExecutionStrategyTest {
 
-    @Mock
-    private DailyMissionInstanceService dailyMissionInstanceService;
+    @Mock private DailyMissionInstanceService dailyMissionInstanceService;
 
-    @InjectMocks
-    private PinnedMissionExecutionStrategy strategy;
+    @InjectMocks private PinnedMissionExecutionStrategy strategy;
 
     private String testUserId;
     private Long testMissionId;
@@ -55,8 +51,10 @@ class PinnedMissionExecutionStrategyTest {
         when(mockResponse.getInstanceDate()).thenReturn(testDate);
         when(mockResponse.getStatus()).thenReturn(status);
         when(mockResponse.getStartedAt()).thenReturn(LocalDateTime.now());
-        when(mockResponse.getCompletedAt()).thenReturn(status == ExecutionStatus.COMPLETED ? LocalDateTime.now() : null);
-        when(mockResponse.getDurationMinutes()).thenReturn(status == ExecutionStatus.COMPLETED ? 30 : null);
+        when(mockResponse.getCompletedAt())
+                .thenReturn(status == ExecutionStatus.COMPLETED ? LocalDateTime.now() : null);
+        when(mockResponse.getDurationMinutes())
+                .thenReturn(status == ExecutionStatus.COMPLETED ? 30 : null);
         when(mockResponse.getExpEarned()).thenReturn(status == ExecutionStatus.COMPLETED ? 50 : 0);
         when(mockResponse.getNote()).thenReturn(null);
         when(mockResponse.getImageUrl()).thenReturn(null);
@@ -71,14 +69,17 @@ class PinnedMissionExecutionStrategyTest {
         // given
         DailyMissionInstanceResponse mockResponse = createMockResponse(ExecutionStatus.IN_PROGRESS);
 
-        when(dailyMissionInstanceService.startInstanceByMission(testMissionId, testUserId, testDate))
-            .thenReturn(mockResponse);
+        when(dailyMissionInstanceService.startInstanceByMission(
+                        testMissionId, testUserId, testDate))
+                .thenReturn(mockResponse);
 
         // when
-        MissionExecutionResponse response = strategy.startExecution(testMissionId, testUserId, testDate);
+        MissionExecutionResponse response =
+                strategy.startExecution(testMissionId, testUserId, testDate);
 
         // then
-        verify(dailyMissionInstanceService).startInstanceByMission(testMissionId, testUserId, testDate);
+        verify(dailyMissionInstanceService)
+                .startInstanceByMission(testMissionId, testUserId, testDate);
         assertThat(response).isNotNull();
         assertThat(response.getId()).isEqualTo(1L);
         assertThat(response.getMissionId()).isEqualTo(testMissionId);
@@ -92,13 +93,15 @@ class PinnedMissionExecutionStrategyTest {
         DailyMissionInstanceResponse mockResponse = createMockResponse(ExecutionStatus.PENDING);
 
         when(dailyMissionInstanceService.skipInstanceByMission(testMissionId, testUserId, testDate))
-            .thenReturn(mockResponse);
+                .thenReturn(mockResponse);
 
         // when
-        MissionExecutionResponse response = strategy.skipExecution(testMissionId, testUserId, testDate);
+        MissionExecutionResponse response =
+                strategy.skipExecution(testMissionId, testUserId, testDate);
 
         // then
-        verify(dailyMissionInstanceService).skipInstanceByMission(testMissionId, testUserId, testDate);
+        verify(dailyMissionInstanceService)
+                .skipInstanceByMission(testMissionId, testUserId, testDate);
         assertThat(response).isNotNull();
         assertThat(response.getId()).isEqualTo(1L);
         assertThat(response.getMissionId()).isEqualTo(testMissionId);
@@ -113,14 +116,19 @@ class PinnedMissionExecutionStrategyTest {
         DailyMissionInstanceResponse mockResponse = createMockResponse(ExecutionStatus.COMPLETED);
         when(mockResponse.getNote()).thenReturn(note);
 
-        when(dailyMissionInstanceService.completeInstanceByMission(testMissionId, testUserId, testDate, note, feedVisibility))
-            .thenReturn(mockResponse);
+        when(dailyMissionInstanceService.completeInstanceByMission(
+                        testMissionId, testUserId, testDate, note, feedVisibility))
+                .thenReturn(mockResponse);
 
         // when
-        MissionExecutionResponse response = strategy.completeExecution(testMissionId, testUserId, testDate, note, feedVisibility);
+        MissionExecutionResponse response =
+                strategy.completeExecution(
+                        testMissionId, testUserId, testDate, note, feedVisibility);
 
         // then
-        verify(dailyMissionInstanceService).completeInstanceByMission(testMissionId, testUserId, testDate, note, feedVisibility);
+        verify(dailyMissionInstanceService)
+                .completeInstanceByMission(
+                        testMissionId, testUserId, testDate, note, feedVisibility);
         assertThat(response).isNotNull();
         assertThat(response.getStatus()).isEqualTo(ExecutionStatus.COMPLETED);
     }
@@ -134,14 +142,17 @@ class PinnedMissionExecutionStrategyTest {
         DailyMissionInstanceResponse mockResponse = createMockResponse(ExecutionStatus.COMPLETED);
         when(mockResponse.getImageUrl()).thenReturn("https://example.com/image.jpg");
 
-        when(dailyMissionInstanceService.uploadImagesByMission(testMissionId, testUserId, testDate, files, null))
-            .thenReturn(mockResponse);
+        when(dailyMissionInstanceService.uploadImagesByMission(
+                        testMissionId, testUserId, testDate, files, null))
+                .thenReturn(mockResponse);
 
         // when
-        MissionExecutionResponse response = strategy.uploadExecutionImages(testMissionId, testUserId, testDate, files, null);
+        MissionExecutionResponse response =
+                strategy.uploadExecutionImages(testMissionId, testUserId, testDate, files, null);
 
         // then
-        verify(dailyMissionInstanceService).uploadImagesByMission(testMissionId, testUserId, testDate, files, null);
+        verify(dailyMissionInstanceService)
+                .uploadImagesByMission(testMissionId, testUserId, testDate, files, null);
         assertThat(response).isNotNull();
         assertThat(response.getImageUrl()).isEqualTo("https://example.com/image.jpg");
     }
@@ -153,14 +164,18 @@ class PinnedMissionExecutionStrategyTest {
         String imageUrl = "https://example.com/image.jpg";
         DailyMissionInstanceResponse mockResponse = createMockResponse(ExecutionStatus.COMPLETED);
 
-        when(dailyMissionInstanceService.deleteImageByUrlAndMission(testMissionId, testUserId, testDate, imageUrl, null))
-            .thenReturn(mockResponse);
+        when(dailyMissionInstanceService.deleteImageByUrlAndMission(
+                        testMissionId, testUserId, testDate, imageUrl, null))
+                .thenReturn(mockResponse);
 
         // when
-        MissionExecutionResponse response = strategy.deleteExecutionImageByUrl(testMissionId, testUserId, testDate, imageUrl, null);
+        MissionExecutionResponse response =
+                strategy.deleteExecutionImageByUrl(
+                        testMissionId, testUserId, testDate, imageUrl, null);
 
         // then
-        verify(dailyMissionInstanceService).deleteImageByUrlAndMission(testMissionId, testUserId, testDate, imageUrl, null);
+        verify(dailyMissionInstanceService)
+                .deleteImageByUrlAndMission(testMissionId, testUserId, testDate, imageUrl, null);
         assertThat(response).isNotNull();
         assertThat(response.getImageUrl()).isNull();
     }
@@ -173,14 +188,18 @@ class PinnedMissionExecutionStrategyTest {
         DailyMissionInstanceResponse mockResponse = createMockResponse(ExecutionStatus.COMPLETED);
         when(mockResponse.getIsSharedToFeed()).thenReturn(true);
 
-        when(dailyMissionInstanceService.shareToFeedByMission(testMissionId, testUserId, testDate, null, feedVisibility))
-            .thenReturn(mockResponse);
+        when(dailyMissionInstanceService.shareToFeedByMission(
+                        testMissionId, testUserId, testDate, null, feedVisibility))
+                .thenReturn(mockResponse);
 
         // when
-        MissionExecutionResponse response = strategy.shareExecutionToFeed(testMissionId, testUserId, testDate, null, feedVisibility);
+        MissionExecutionResponse response =
+                strategy.shareExecutionToFeed(
+                        testMissionId, testUserId, testDate, null, feedVisibility);
 
         // then
-        verify(dailyMissionInstanceService).shareToFeedByMission(testMissionId, testUserId, testDate, null, feedVisibility);
+        verify(dailyMissionInstanceService)
+                .shareToFeedByMission(testMissionId, testUserId, testDate, null, feedVisibility);
         assertThat(response).isNotNull();
         assertThat(response.getIsSharedToFeed()).isTrue();
     }
@@ -191,14 +210,17 @@ class PinnedMissionExecutionStrategyTest {
         // given
         DailyMissionInstanceResponse mockResponse = createMockResponse(ExecutionStatus.PENDING);
 
-        when(dailyMissionInstanceService.getInstanceByMission(testMissionId, testUserId, testDate, null))
-            .thenReturn(mockResponse);
+        when(dailyMissionInstanceService.getInstanceByMission(
+                        testMissionId, testUserId, testDate, null))
+                .thenReturn(mockResponse);
 
         // when
-        MissionExecutionResponse response = strategy.getExecutionByDate(testMissionId, testUserId, testDate, null);
+        MissionExecutionResponse response =
+                strategy.getExecutionByDate(testMissionId, testUserId, testDate, null);
 
         // then
-        verify(dailyMissionInstanceService).getInstanceByMission(testMissionId, testUserId, testDate, null);
+        verify(dailyMissionInstanceService)
+                .getInstanceByMission(testMissionId, testUserId, testDate, null);
         assertThat(response).isNotNull();
         assertThat(response.getMissionId()).isEqualTo(testMissionId);
         assertThat(response.getExecutionDate()).isEqualTo(testDate);

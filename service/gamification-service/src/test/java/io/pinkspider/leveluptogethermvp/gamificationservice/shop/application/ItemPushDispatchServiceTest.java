@@ -75,8 +75,7 @@ class ItemPushDispatchServiceTest {
         ItemPushMessage only = message(1L, "안녕 {nickname}");
 
         // 오늘 완료 → AFTER_COMPLETE (백오프 없음), ANY 풀 단일 폴백
-        dispatchService.trySendForUser(
-                USER_ID, headItem, DATE, SLOT, List.of(only), Set.of(DATE));
+        dispatchService.trySendForUser(USER_ID, headItem, DATE, SLOT, List.of(only), Set.of(DATE));
 
         verify(sendLogRepository).saveAndFlush(any(ItemPushSendLog.class));
         ArgumentCaptor<EquippedItemPushDueEvent> captor =
@@ -92,7 +91,8 @@ class ItemPushDispatchServiceTest {
     void picksOneRandomlyAmongPool() {
         when(sendLogRepository.existsByUserIdAndSendDate(USER_ID, DATE)).thenReturn(false);
         when(sendLogRepository.findRecentSentMessageIds(eq(USER_ID), any())).thenReturn(List.of());
-        List<ItemPushMessage> due = List.of(message(10L, "A"), message(11L, "B"), message(12L, "C"));
+        List<ItemPushMessage> due =
+                List.of(message(10L, "A"), message(11L, "B"), message(12L, "C"));
         when(random.nextInt(3)).thenReturn(1); // index 1 → id 11
 
         dispatchService.trySendForUser(USER_ID, headItem, DATE, SLOT, due, Set.of(DATE));

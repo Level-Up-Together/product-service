@@ -35,8 +35,8 @@ import org.springframework.stereotype.Component;
  * 타임존(preferred_timezone) 로컬 시각(HH:mm)이 아이템의 발송 시각과 일치하는 유저에게 발송을 시도한다. 30·45분 오프셋 타임존도 매 분 실행이라
  * 자연히 처리된다. 유저·로컬날짜당 정확히 1회만 발송한다({@code item_push_send_log} 의 (user_id, send_date) 유니크).
  *
- * <p>LUT-529: 발송 여부·대사는 발송 시점의 유저 상태(오늘/전날 미션 완료 여부, 연속 미완료 일수)로 결정된다. 상태 판정에 필요한 미션 완료 데이터는
- * 타임존 그룹별로 <b>배치 조회</b>하여 N+1 을 피한다. 실제 상태 판정·백오프·대사 선택·발송 선점은 유저별 짧은 트랜잭션인 {@link
+ * <p>LUT-529: 발송 여부·대사는 발송 시점의 유저 상태(오늘/전날 미션 완료 여부, 연속 미완료 일수)로 결정된다. 상태 판정에 필요한 미션 완료 데이터는 타임존
+ * 그룹별로 <b>배치 조회</b>하여 N+1 을 피한다. 실제 상태 판정·백오프·대사 선택·발송 선점은 유저별 짧은 트랜잭션인 {@link
  * ItemPushDispatchService#trySendForUser} 가 담당한다.
  */
 @Component
@@ -54,8 +54,8 @@ public class ItemPushScheduler {
     private static final ZoneId DEFAULT_ZONE = ZoneId.of("Asia/Seoul");
 
     /**
-     * 상태 판정용 미션 완료 조회 창(일). 어제부터 거꾸로 센 연속 미완료 일수 k 를 최대 14 까지 구분하려면 오늘 기준 15일 전(어제-14일)까지의 완료
-     * 여부가 필요하다.
+     * 상태 판정용 미션 완료 조회 창(일). 어제부터 거꾸로 센 연속 미완료 일수 k 를 최대 14 까지 구분하려면 오늘 기준 15일 전(어제-14일)까지의 완료 여부가
+     * 필요하다.
      */
     private static final int COMPLETION_WINDOW_DAYS = 15;
 
@@ -87,7 +87,8 @@ public class ItemPushScheduler {
                 itemPushSettingRepository.findByShopItemIdIn(byItem.keySet()).stream()
                         .collect(
                                 Collectors.toMap(
-                                        ItemPushSetting::getShopItemId, ItemPushSetting::getSendTime));
+                                        ItemPushSetting::getShopItemId,
+                                        ItemPushSetting::getSendTime));
 
         for (Map.Entry<Long, List<ItemPushMessage>> entry : byItem.entrySet()) {
             String slot = slotByItem.get(entry.getKey());
@@ -97,7 +98,8 @@ public class ItemPushScheduler {
             try {
                 dispatchItem(entry.getValue(), slot);
             } catch (Exception e) {
-                log.error("장착 아이템 푸시 처리 실패: itemId={}, error={}", entry.getKey(), e.getMessage(), e);
+                log.error(
+                        "장착 아이템 푸시 처리 실패: itemId={}, error={}", entry.getKey(), e.getMessage(), e);
             }
         }
     }
@@ -131,7 +133,11 @@ public class ItemPushScheduler {
 
     /** 같은 타임존 후보 유저들에 대해 완료데이터를 한 번에 배치조회한 뒤 유저별 발송을 시도한다. */
     private void dispatchTzGroup(
-            ShopItem item, List<ItemPushMessage> itemMessages, String slot, String tz, List<String> groupUsers) {
+            ShopItem item,
+            List<ItemPushMessage> itemMessages,
+            String slot,
+            String tz,
+            List<String> groupUsers) {
         ZoneId zone = resolveZone(tz);
         LocalDate today = ZonedDateTime.now(clock.withZone(zone)).toLocalDate();
 
@@ -142,7 +148,10 @@ public class ItemPushScheduler {
                         .withZoneSameInstant(ZoneOffset.UTC)
                         .toLocalDateTime();
         LocalDateTime endUtc =
-                today.plusDays(1).atStartOfDay(zone).withZoneSameInstant(ZoneOffset.UTC).toLocalDateTime();
+                today.plusDays(1)
+                        .atStartOfDay(zone)
+                        .withZoneSameInstant(ZoneOffset.UTC)
+                        .toLocalDateTime();
 
         Map<String, Set<LocalDate>> completedByUser =
                 missionQueryFacade.findMissionCompletedLocalDates(groupUsers, startUtc, endUtc, tz);

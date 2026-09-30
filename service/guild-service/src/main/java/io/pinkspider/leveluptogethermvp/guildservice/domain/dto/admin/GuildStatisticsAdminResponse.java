@@ -9,17 +9,16 @@ import lombok.Builder;
 @Builder
 @JsonNaming(SnakeCaseStrategy.class)
 public record GuildStatisticsAdminResponse(
-    long totalGuilds,
-    long activeGuilds,
-    long inactiveGuilds,
-    long publicGuilds,
-    long privateGuilds,
-    long newGuildsToday,
-    long newGuildsThisWeek,
-    long newGuildsThisMonth,
-    Map<String, Long> guildsByCategory,
-    List<DailyCountDto> dailyNewGuilds
-) {
+        long totalGuilds,
+        long activeGuilds,
+        long inactiveGuilds,
+        long publicGuilds,
+        long privateGuilds,
+        long newGuildsToday,
+        long newGuildsThisWeek,
+        long newGuildsThisMonth,
+        Map<String, Long> guildsByCategory,
+        List<DailyCountDto> dailyNewGuilds) {
     @Builder
     public record DailyCountDto(String date, Long count) {}
 }

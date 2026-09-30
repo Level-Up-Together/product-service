@@ -23,9 +23,9 @@ import org.hibernate.annotations.Comment;
 /**
  * LUT-508: 관리자 푸시 발송 이력(캠페인).
  *
- * <p>어드민이 입력한 제목/본문/링크와 대상, 발송 결과 건수를 남긴다. 발송 자체는 유저별 {@code Notification}
- * 생성(기존 파이프라인)으로 이뤄지므로, 이 행은 "무엇을 누구에게 보냈고 몇 명에게 만들어졌는가"의 원장이다.
- * 상태는 이력 행 생성(PENDING) → 비동기 발송 시작(SENDING) → COMPLETED/FAILED 로 단조 진행한다.
+ * <p>어드민이 입력한 제목/본문/링크와 대상, 발송 결과 건수를 남긴다. 발송 자체는 유저별 {@code Notification} 생성(기존 파이프라인)으로 이뤄지므로, 이
+ * 행은 "무엇을 누구에게 보냈고 몇 명에게 만들어졌는가"의 원장이다. 상태는 이력 행 생성(PENDING) → 비동기 발송 시작(SENDING) →
+ * COMPLETED/FAILED 로 단조 진행한다.
  */
 @Entity
 @Getter
@@ -153,7 +153,8 @@ public class AdminPushCampaign extends LocalDateTimeBaseEntity {
         this.skippedCount = skipped;
         this.failedCount = failed;
         this.status = AdminPushCampaignStatus.FAILED;
-        this.errorMessage = message != null && message.length() > 500 ? message.substring(0, 500) : message;
+        this.errorMessage =
+                message != null && message.length() > 500 ? message.substring(0, 500) : message;
         this.completedAt = now;
     }
 }

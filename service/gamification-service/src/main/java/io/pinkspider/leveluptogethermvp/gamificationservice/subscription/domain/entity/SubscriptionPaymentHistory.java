@@ -26,13 +26,12 @@ import org.hibernate.annotations.Comment;
 /**
  * 구독 결제 이력 (LUT-486) — 어드민 CS/환불 대응용 append-only 원장.
  *
- * <p>{@link UserSubscription}은 유저당 1행 갱신 방식이라 결제 건별 기록이 남지 않는다. 이 테이블은
- * verify/웹훅이 구독 만료를 <b>엄격히 연장할 때만</b> 한 행씩 적재해, verify·웹훅 이중 도착과
- * at-least-once 재전송에 자연 멱등이다. uk (user_id, event_type, expires_at)는 동시성 레이스의
- * 최후 방어선.
+ * <p>{@link UserSubscription}은 유저당 1행 갱신 방식이라 결제 건별 기록이 남지 않는다. 이 테이블은 verify/웹훅이 구독 만료를 <b>엄격히 연장할
+ * 때만</b> 한 행씩 적재해, verify·웹훅 이중 도착과 at-least-once 재전송에 자연 멱등이다. uk (user_id, event_type,
+ * expires_at)는 동시성 레이스의 최후 방어선.
  *
- * <p>가격은 iOS JWS payload만 제공한다(best-effort, LUT-401 패턴) — Android subscriptionsv2
- * 응답에는 실결제가가 없어 null.
+ * <p>가격은 iOS JWS payload만 제공한다(best-effort, LUT-401 패턴) — Android subscriptionsv2 응답에는 실결제가가 없어
+ * null.
  */
 @Entity
 @Getter

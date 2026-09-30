@@ -12,12 +12,15 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 @Repository
-public interface AttendanceRewardConfigRepository extends JpaRepository<AttendanceRewardConfig, Long> {
+public interface AttendanceRewardConfigRepository
+        extends JpaRepository<AttendanceRewardConfig, Long> {
 
-    Optional<AttendanceRewardConfig> findByRewardTypeAndIsActiveTrue(AttendanceRewardType rewardType);
+    Optional<AttendanceRewardConfig> findByRewardTypeAndIsActiveTrue(
+            AttendanceRewardType rewardType);
 
-    @Query("SELECT arc FROM AttendanceRewardConfig arc WHERE arc.isActive = true " +
-           "AND arc.rewardType LIKE 'CONSECUTIVE%' ORDER BY arc.requiredDays ASC")
+    @Query(
+            "SELECT arc FROM AttendanceRewardConfig arc WHERE arc.isActive = true "
+                    + "AND arc.rewardType LIKE 'CONSECUTIVE%' ORDER BY arc.requiredDays ASC")
     List<AttendanceRewardConfig> findActiveConsecutiveRewards();
 
     List<AttendanceRewardConfig> findByIsActiveTrueOrderByRequiredDaysAsc();
@@ -26,8 +29,10 @@ public interface AttendanceRewardConfigRepository extends JpaRepository<Attendan
 
     boolean existsByRewardType(AttendanceRewardType rewardType);
 
-    @Query("SELECT arc FROM AttendanceRewardConfig arc WHERE " +
-           "(:keyword IS NULL OR arc.description LIKE %:keyword% " +
-           "OR CAST(arc.rewardType AS string) LIKE %:keyword%)")
-    Page<AttendanceRewardConfig> searchByKeyword(@Param("keyword") String keyword, Pageable pageable);
+    @Query(
+            "SELECT arc FROM AttendanceRewardConfig arc WHERE "
+                    + "(:keyword IS NULL OR arc.description LIKE %:keyword% "
+                    + "OR CAST(arc.rewardType AS string) LIKE %:keyword%)")
+    Page<AttendanceRewardConfig> searchByKeyword(
+            @Param("keyword") String keyword, Pageable pageable);
 }

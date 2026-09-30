@@ -28,11 +28,9 @@ import org.mockito.junit.jupiter.MockitoExtension;
 @DisplayName("SocialUnlinkService 테스트 (LUT-476/477)")
 class SocialUnlinkServiceTest {
 
-    @Mock
-    private KakaoAdminFeignClient kakaoAdminFeignClient;
+    @Mock private KakaoAdminFeignClient kakaoAdminFeignClient;
 
-    @Mock
-    private AppleTokenService appleTokenService;
+    @Mock private AppleTokenService appleTokenService;
 
     private OAuth2Properties oAuth2Properties;
     private SocialUnlinkService socialUnlinkService;
@@ -43,17 +41,18 @@ class SocialUnlinkServiceTest {
         OAuth2Properties.KakaoWebhook kakaoWebhook = new OAuth2Properties.KakaoWebhook();
         kakaoWebhook.setAdminKey("test-admin-key");
         oAuth2Properties.setKakaoWebhook(kakaoWebhook);
-        socialUnlinkService = new SocialUnlinkService(kakaoAdminFeignClient, oAuth2Properties, appleTokenService);
+        socialUnlinkService =
+                new SocialUnlinkService(kakaoAdminFeignClient, oAuth2Properties, appleTokenService);
     }
 
     private Users kakaoUser(String providerUserId) {
         return Users.builder()
-            .id("user-1")
-            .email("e")
-            .nickname("n")
-            .provider("kakao")
-            .providerUserId(providerUserId)
-            .build();
+                .id("user-1")
+                .email("e")
+                .nickname("n")
+                .provider("kakao")
+                .providerUserId(providerUserId)
+                .build();
     }
 
     @Test
@@ -86,17 +85,23 @@ class SocialUnlinkServiceTest {
     @DisplayName("unlink 실패는 삼켜진다 — 탈퇴는 계속 진행돼야 한다")
     void withdrawal_unlinkFailure_isSwallowed() {
         when(kakaoAdminFeignClient.unlink(anyString(), anyString(), anyLong()))
-            .thenThrow(new RuntimeException("kakao down"));
+                .thenThrow(new RuntimeException("kakao down"));
 
         assertThatCode(() -> socialUnlinkService.unlinkOnWithdrawal(kakaoUser("987654321")))
-            .doesNotThrowAnyException();
+                .doesNotThrowAnyException();
     }
 
     @Test
     @DisplayName("google 유저는 unlink 호출 없이 스킵한다")
     void withdrawal_google_skips() {
-        socialUnlinkService.unlinkOnWithdrawal(Users.builder()
-            .id("u3").email("e").nickname("n").provider("google").providerUserId("sub-2").build());
+        socialUnlinkService.unlinkOnWithdrawal(
+                Users.builder()
+                        .id("u3")
+                        .email("e")
+                        .nickname("n")
+                        .provider("google")
+                        .providerUserId("sub-2")
+                        .build());
 
         verify(kakaoAdminFeignClient, never()).unlink(anyString(), anyString(), eq(0L));
         verifyNoInteractions(kakaoAdminFeignClient);
@@ -105,30 +110,35 @@ class SocialUnlinkServiceTest {
 
     // ==================== LUT-477: apple revoke ====================
 
-    private static final CryptoMetaData TEST_CRYPTO = CryptoMetaData.builder()
-        .secretKey("km2c/ZNA4pyuLXQYVeiq7wsOE6+PPrpPzIx9EUM7uEc=") // 테스트 전용 키
-        .iv("K4Dw+xcX91fMfi3SNU0gQg==")
-        .cipher("AES/CBC/PKCS5Padding")
-        .build();
+    private static final CryptoMetaData TEST_CRYPTO =
+            CryptoMetaData.builder()
+                    .secretKey("km2c/ZNA4pyuLXQYVeiq7wsOE6+PPrpPzIx9EUM7uEc=") // 테스트 전용 키
+                    .iv("K4Dw+xcX91fMfi3SNU0gQg==")
+                    .cipher("AES/CBC/PKCS5Padding")
+                    .build();
 
     private Users appleUser(String encRefreshToken, String clientId) {
         return Users.builder()
-            .id("u2").email("e").nickname("n").provider("apple").providerUserId("sub-1")
-            .appleRefreshToken(encRefreshToken)
-            .appleClientId(clientId)
-            .build();
+                .id("u2")
+                .email("e")
+                .nickname("n")
+                .provider("apple")
+                .providerUserId("sub-1")
+                .appleRefreshToken(encRefreshToken)
+                .appleClientId(clientId)
+                .build();
     }
 
     @Test
     @DisplayName("apple 유저 탈퇴 시 저장된 refresh token 을 복호화해 revoke 를 호출한다")
     void withdrawal_apple_revokesWithDecryptedToken() {
         try (MockedStatic<CryptoMetaDataLoader> loader =
-                 Mockito.mockStatic(CryptoMetaDataLoader.class)) {
+                Mockito.mockStatic(CryptoMetaDataLoader.class)) {
             loader.when(CryptoMetaDataLoader::getCryptoMetaDataDto).thenReturn(TEST_CRYPTO);
 
             String encrypted = CryptoUtils.encryptAes("apple-refresh-token");
             when(appleTokenService.revoke("apple-refresh-token", "io.pinkspider.lut"))
-                .thenReturn(true);
+                    .thenReturn(true);
 
             socialUnlinkService.unlinkOnWithdrawal(appleUser(encrypted, "io.pinkspider.lut"));
 
@@ -157,16 +167,18 @@ class SocialUnlinkServiceTest {
     @DisplayName("apple revoke 중 예외는 삼켜진다 — 탈퇴는 계속 진행돼야 한다")
     void withdrawal_appleRevokeFailure_isSwallowed() {
         try (MockedStatic<CryptoMetaDataLoader> loader =
-                 Mockito.mockStatic(CryptoMetaDataLoader.class)) {
+                Mockito.mockStatic(CryptoMetaDataLoader.class)) {
             loader.when(CryptoMetaDataLoader::getCryptoMetaDataDto).thenReturn(TEST_CRYPTO);
 
             String encrypted = CryptoUtils.encryptAes("apple-refresh-token");
             when(appleTokenService.revoke(anyString(), anyString()))
-                .thenThrow(new RuntimeException("apple down"));
+                    .thenThrow(new RuntimeException("apple down"));
 
-            assertThatCode(() -> socialUnlinkService.unlinkOnWithdrawal(
-                appleUser(encrypted, "io.pinkspider.lut")))
-                .doesNotThrowAnyException();
+            assertThatCode(
+                            () ->
+                                    socialUnlinkService.unlinkOnWithdrawal(
+                                            appleUser(encrypted, "io.pinkspider.lut")))
+                    .doesNotThrowAnyException();
         }
     }
 }

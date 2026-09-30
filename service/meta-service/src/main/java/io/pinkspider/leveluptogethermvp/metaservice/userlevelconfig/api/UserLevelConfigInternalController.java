@@ -21,8 +21,8 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
- * Admin 내부 API 컨트롤러 (Admin Backend → MVP 서비스 간 통신)
- * 인증 불필요 (SecurityConfig에서 /api/internal/** permitAll)
+ * Admin 내부 API 컨트롤러 (Admin Backend → MVP 서비스 간 통신) 인증 불필요 (SecurityConfig에서 /api/internal/**
+ * permitAll)
  */
 @RestController
 @RequestMapping("/api/internal/user-level-configs")
@@ -37,51 +37,54 @@ public class UserLevelConfigInternalController {
             @RequestParam(required = false, defaultValue = "0") int page,
             @RequestParam(required = false, defaultValue = "20") int size,
             @RequestParam(name = "sort_by", required = false, defaultValue = "id") String sortBy,
-            @RequestParam(name = "sort_direction", required = false, defaultValue = "DESC") String sortDirection) {
-        Sort sort = "ASC".equalsIgnoreCase(sortDirection)
-            ? Sort.by(sortBy).ascending()
-            : Sort.by(sortBy).descending();
+            @RequestParam(name = "sort_direction", required = false, defaultValue = "DESC")
+                    String sortDirection) {
+        Sort sort =
+                "ASC".equalsIgnoreCase(sortDirection)
+                        ? Sort.by(sortBy).ascending()
+                        : Sort.by(sortBy).descending();
         return ApiResult.<UserLevelConfigPageResponse>builder()
-            .value(userLevelConfigCacheService.searchLevelConfigs(keyword, PageRequest.of(page, size, sort)))
-            .build();
+                .value(
+                        userLevelConfigCacheService.searchLevelConfigs(
+                                keyword, PageRequest.of(page, size, sort)))
+                .build();
     }
 
     @GetMapping("/all")
     public ApiResult<List<UserLevelConfigResponse>> getAllLevelConfigs() {
         return ApiResult.<List<UserLevelConfigResponse>>builder()
-            .value(userLevelConfigCacheService.getAllLevelConfigResponses())
-            .build();
+                .value(userLevelConfigCacheService.getAllLevelConfigResponses())
+                .build();
     }
 
     @GetMapping("/{id}")
     public ApiResult<UserLevelConfigResponse> getLevelConfig(@PathVariable Long id) {
         return ApiResult.<UserLevelConfigResponse>builder()
-            .value(userLevelConfigCacheService.getLevelConfigById(id))
-            .build();
+                .value(userLevelConfigCacheService.getLevelConfigById(id))
+                .build();
     }
 
     @GetMapping("/level/{level}")
     public ApiResult<UserLevelConfigResponse> getLevelConfigByLevel(@PathVariable Integer level) {
         return ApiResult.<UserLevelConfigResponse>builder()
-            .value(userLevelConfigCacheService.getLevelConfigResponseByLevel(level))
-            .build();
+                .value(userLevelConfigCacheService.getLevelConfigResponseByLevel(level))
+                .build();
     }
 
     @PostMapping
     public ApiResult<UserLevelConfigResponse> createLevelConfig(
             @Valid @RequestBody UserLevelConfigRequest request) {
         return ApiResult.<UserLevelConfigResponse>builder()
-            .value(userLevelConfigCacheService.createLevelConfig(request))
-            .build();
+                .value(userLevelConfigCacheService.createLevelConfig(request))
+                .build();
     }
 
     @PutMapping("/{id}")
     public ApiResult<UserLevelConfigResponse> updateLevelConfig(
-            @PathVariable Long id,
-            @Valid @RequestBody UserLevelConfigRequest request) {
+            @PathVariable Long id, @Valid @RequestBody UserLevelConfigRequest request) {
         return ApiResult.<UserLevelConfigResponse>builder()
-            .value(userLevelConfigCacheService.updateLevelConfig(id, request))
-            .build();
+                .value(userLevelConfigCacheService.updateLevelConfig(id, request))
+                .build();
     }
 
     @DeleteMapping("/{id}")

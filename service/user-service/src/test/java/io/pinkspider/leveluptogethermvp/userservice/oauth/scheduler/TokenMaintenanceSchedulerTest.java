@@ -20,17 +20,13 @@ import org.springframework.data.redis.core.StringRedisTemplate;
 @ExtendWith(MockitoExtension.class)
 class TokenMaintenanceSchedulerTest {
 
-    @Mock
-    private StringRedisTemplate redisTemplate;
+    @Mock private StringRedisTemplate redisTemplate;
 
-    @Mock
-    private MultiDeviceTokenService tokenService;
+    @Mock private MultiDeviceTokenService tokenService;
 
-    @Mock
-    private SetOperations<String, String> setOperations;
+    @Mock private SetOperations<String, String> setOperations;
 
-    @InjectMocks
-    private TokenMaintenanceScheduler scheduler;
+    @InjectMocks private TokenMaintenanceScheduler scheduler;
 
     @Nested
     @DisplayName("cleanupExpiredSessions 테스트")
@@ -55,7 +51,8 @@ class TokenMaintenanceSchedulerTest {
         @DisplayName("정리 중 예외가 발생해도 스케줄러는 전파하지 않는다")
         void swallowsExceptionFromCleanup() {
             // given
-            when(tokenService.cleanupExpiredSessions()).thenThrow(new RuntimeException("redis down"));
+            when(tokenService.cleanupExpiredSessions())
+                    .thenThrow(new RuntimeException("redis down"));
 
             // when - no exception
             scheduler.cleanupExpiredSessions();

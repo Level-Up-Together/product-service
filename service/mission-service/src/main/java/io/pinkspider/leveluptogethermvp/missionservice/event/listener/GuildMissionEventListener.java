@@ -20,11 +20,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.event.TransactionPhase;
 import org.springframework.transaction.event.TransactionalEventListener;
 
-/**
- * 길드 멤버 변경 이벤트 리스너
- * - 길드 가입 시: 해당 길드의 활성 미션에 자동 참여
- * - 길드 탈퇴/추방 시: 해당 길드 미션 참여 철회
- */
+/** 길드 멤버 변경 이벤트 리스너 - 길드 가입 시: 해당 길드의 활성 미션에 자동 참여 - 길드 탈퇴/추방 시: 해당 길드 미션 참여 철회 */
 @Component
 @Slf4j
 @RequiredArgsConstructor
@@ -34,12 +30,12 @@ public class GuildMissionEventListener {
     private final MissionParticipantRepository participantRepository;
     private final MissionParticipantService participantService;
 
-    /**
-     * 길드 가입 시 해당 길드의 활성 미션에 자동 참여
-     */
+    /** 길드 가입 시 해당 길드의 활성 미션에 자동 참여 */
     @Async(EVENT_EXECUTOR)
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
-    @Transactional(transactionManager = "missionTransactionManager", propagation = Propagation.REQUIRES_NEW)
+    @Transactional(
+            transactionManager = "missionTransactionManager",
+            propagation = Propagation.REQUIRES_NEW)
     public void handleGuildMemberJoined(GuildJoinedEvent event) {
         String userId = event.userId();
         Long guildId = event.guildId();
@@ -47,10 +43,10 @@ public class GuildMissionEventListener {
         log.info("길드 가입 이벤트 수신 - 길드 고정 미션 자동 참여 처리: userId={}, guildId={}", userId, guildId);
 
         // LUT-518: 가입 시에는 진행중인 고정 미션만 자동 생성 (일반 길드 미션은 제외)
-        List<Mission> guildMissions = missionRepository.findActivePinnedGuildMissions(
-            String.valueOf(guildId),
-            List.of(MissionStatus.OPEN, MissionStatus.IN_PROGRESS)
-        );
+        List<Mission> guildMissions =
+                missionRepository.findActivePinnedGuildMissions(
+                        String.valueOf(guildId),
+                        List.of(MissionStatus.OPEN, MissionStatus.IN_PROGRESS));
 
         if (guildMissions.isEmpty()) {
             log.debug("활성 고정 길드 미션 없음: guildId={}", guildId);
@@ -63,30 +59,37 @@ public class GuildMissionEventListener {
                 participantService.addGuildMemberAsParticipant(mission, userId);
                 enrolled++;
             } catch (Exception e) {
-                log.warn("길드 미션 자동 참여 실패: missionId={}, userId={}, error={}",
-                    mission.getId(), userId, e.getMessage());
+                log.warn(
+                        "길드 미션 자동 참여 실패: missionId={}, userId={}, error={}",
+                        mission.getId(),
+                        userId,
+                        e.getMessage());
             }
         }
 
-        log.info("길드 미션 자동 참여 완료: userId={}, guildId={}, enrolled={}/{}",
-            userId, guildId, enrolled, guildMissions.size());
+        log.info(
+                "길드 미션 자동 참여 완료: userId={}, guildId={}, enrolled={}/{}",
+                userId,
+                guildId,
+                enrolled,
+                guildMissions.size());
     }
 
-    /**
-     * 길드 탈퇴/추방 시 해당 길드 미션 참여 철회
-     */
+    /** 길드 탈퇴/추방 시 해당 길드 미션 참여 철회 */
     @Async(EVENT_EXECUTOR)
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
-    @Transactional(transactionManager = "missionTransactionManager", propagation = Propagation.REQUIRES_NEW)
+    @Transactional(
+            transactionManager = "missionTransactionManager",
+            propagation = Propagation.REQUIRES_NEW)
     public void handleGuildMemberRemoved(GuildMemberRemovedEvent event) {
         String userId = event.userId();
         Long guildId = event.guildId();
 
         log.info("길드 멤버 제거 이벤트 수신 - 길드 미션 참여 정리: userId={}, guildId={}", userId, guildId);
 
-        List<MissionParticipant> participations = participantRepository.findActiveGuildMissionParticipations(
-            userId, String.valueOf(guildId)
-        );
+        List<MissionParticipant> participations =
+                participantRepository.findActiveGuildMissionParticipations(
+                        userId, String.valueOf(guildId));
 
         if (participations.isEmpty()) {
             log.debug("정리할 길드 미션 참여 없음: userId={}, guildId={}", userId, guildId);
@@ -99,12 +102,20 @@ public class GuildMissionEventListener {
                 participant.withdraw();
                 withdrawn++;
             } catch (Exception e) {
-                log.warn("길드 미션 참여 철회 실패: participantId={}, missionId={}, userId={}, error={}",
-                    participant.getId(), participant.getMission().getId(), userId, e.getMessage());
+                log.warn(
+                        "길드 미션 참여 철회 실패: participantId={}, missionId={}, userId={}, error={}",
+                        participant.getId(),
+                        participant.getMission().getId(),
+                        userId,
+                        e.getMessage());
             }
         }
 
-        log.info("길드 미션 참여 정리 완료: userId={}, guildId={}, withdrawn={}/{}",
-            userId, guildId, withdrawn, participations.size());
+        log.info(
+                "길드 미션 참여 정리 완료: userId={}, guildId={}, withdrawn={}/{}",
+                userId,
+                guildId,
+                withdrawn,
+                participations.size());
     }
 }

@@ -32,86 +32,76 @@ import org.mockito.junit.jupiter.MockitoExtension;
 @ExtendWith(MockitoExtension.class)
 class UserTermsServiceTest {
 
-    @Mock
-    private UserService userService;
+    @Mock private UserService userService;
 
-    @Mock
-    private TermsService termsService;
+    @Mock private TermsService termsService;
 
-    @Mock
-    private TermVersionService termVersionService;
+    @Mock private TermVersionService termVersionService;
 
-    @Mock
-    private UserTermAgreementsService userTermAgreementsService;
+    @Mock private UserTermAgreementsService userTermAgreementsService;
 
-    @InjectMocks
-    private UserTermsService userTermsService;
+    @InjectMocks private UserTermsService userTermsService;
 
     private static final String TEST_USER_ID = "test-user-123";
 
     private Users createTestUser(String userId, String nickname) {
-        Users user = Users.builder()
-            .nickname(nickname)
-            .email(userId + "@test.com")
-            .build();
+        Users user = Users.builder().nickname(nickname).email(userId + "@test.com").build();
         setId(user, userId);
         return user;
     }
 
     private TermVersion createTestTermVersion(Long id, String version) {
-        TermVersion termVersion = TermVersion.builder()
-            .version(version)
-            .content("약관 내용")
-            .build();
+        TermVersion termVersion = TermVersion.builder().version(version).content("약관 내용").build();
         termVersion.publish(); // 동의 대상은 게시된 버전이어야 한다 (LUT-364)
         setId(termVersion, id);
         return termVersion;
     }
 
     private TermVersion createDraftTermVersion(Long id, String version) {
-        TermVersion termVersion = TermVersion.builder()
-            .version(version)
-            .content("약관 내용")
-            .build();
+        TermVersion termVersion = TermVersion.builder().version(version).content("약관 내용").build();
         setId(termVersion, id);
         return termVersion;
     }
 
-    private UserTermAgreement createTestUserTermAgreement(Long id, Users user, TermVersion termVersion, boolean isAgreed) {
-        UserTermAgreement agreement = UserTermAgreement.builder()
-            .users(user)
-            .termVersion(termVersion)
-            .isAgreed(isAgreed)
-            .build();
+    private UserTermAgreement createTestUserTermAgreement(
+            Long id, Users user, TermVersion termVersion, boolean isAgreed) {
+        UserTermAgreement agreement =
+                UserTermAgreement.builder()
+                        .users(user)
+                        .termVersion(termVersion)
+                        .isAgreed(isAgreed)
+                        .build();
         setId(agreement, id);
         return agreement;
     }
 
     // Class-based DTO factory methods
-    private RecentTermsResponseDto createMockRecentTerms(String termId, String termTitle, boolean isRequired) {
+    private RecentTermsResponseDto createMockRecentTerms(
+            String termId, String termTitle, boolean isRequired) {
         return RecentTermsResponseDto.builder()
-            .termId(termId)
-            .termTitle(termTitle)
-            .code("TERMS_001")
-            .type("REQUIRED")
-            .isRequired(isRequired)
-            .versionId("1")
-            .version("1.0")
-            .createdAt("2024-01-01")
-            .content("약관 내용")
-            .build();
+                .termId(termId)
+                .termTitle(termTitle)
+                .code("TERMS_001")
+                .type("REQUIRED")
+                .isRequired(isRequired)
+                .versionId("1")
+                .version("1.0")
+                .createdAt("2024-01-01")
+                .content("약관 내용")
+                .build();
     }
 
-    private TermAgreementsByUserResponseDto createMockTermAgreement(String termId, String termTitle, boolean isAgreed) {
+    private TermAgreementsByUserResponseDto createMockTermAgreement(
+            String termId, String termTitle, boolean isAgreed) {
         return TermAgreementsByUserResponseDto.builder()
-            .termId(termId)
-            .termTitle(termTitle)
-            .isRequired(true)
-            .latestVersionId("1")
-            .version("1.0")
-            .isAgreed(isAgreed)
-            .agreedAt(isAgreed ? "2024-01-01" : null)
-            .build();
+                .termId(termId)
+                .termTitle(termTitle)
+                .isRequired(true)
+                .latestVersionId("1")
+                .version("1.0")
+                .isAgreed(isAgreed)
+                .agreedAt(isAgreed ? "2024-01-01" : null)
+                .build();
     }
 
     @Nested
@@ -161,7 +151,8 @@ class UserTermsServiceTest {
             when(termsService.getTermAgreementsByUser(TEST_USER_ID)).thenReturn(List.of(agreement));
 
             // when
-            List<TermAgreementsByUserResponseDto> result = userTermsService.getTermAgreementsByUser(TEST_USER_ID);
+            List<TermAgreementsByUserResponseDto> result =
+                    userTermsService.getTermAgreementsByUser(TEST_USER_ID);
 
             // then
             assertThat(result).hasSize(1);
@@ -177,12 +168,14 @@ class UserTermsServiceTest {
         @DisplayName("동의하지 않은 약관 목록을 조회한다")
         void getPendingTermsByUser_success() {
             // given
-            TermAgreementsByUserResponseDto pendingTerm = createMockTermAgreement("1", "이용약관", false);
+            TermAgreementsByUserResponseDto pendingTerm =
+                    createMockTermAgreement("1", "이용약관", false);
 
             when(termsService.getPendingTermsByUser(TEST_USER_ID)).thenReturn(List.of(pendingTerm));
 
             // when
-            List<TermAgreementsByUserResponseDto> result = userTermsService.getPendingTermsByUser(TEST_USER_ID);
+            List<TermAgreementsByUserResponseDto> result =
+                    userTermsService.getPendingTermsByUser(TEST_USER_ID);
 
             // then
             assertThat(result).hasSize(1);
@@ -194,10 +187,12 @@ class UserTermsServiceTest {
         @DisplayName("모든 약관에 동의했으면 빈 목록을 반환한다")
         void getPendingTermsByUser_allAgreed() {
             // given
-            when(termsService.getPendingTermsByUser(TEST_USER_ID)).thenReturn(Collections.emptyList());
+            when(termsService.getPendingTermsByUser(TEST_USER_ID))
+                    .thenReturn(Collections.emptyList());
 
             // when
-            List<TermAgreementsByUserResponseDto> result = userTermsService.getPendingTermsByUser(TEST_USER_ID);
+            List<TermAgreementsByUserResponseDto> result =
+                    userTermsService.getPendingTermsByUser(TEST_USER_ID);
 
             // then
             assertThat(result).isEmpty();
@@ -214,19 +209,19 @@ class UserTermsServiceTest {
             // given
             Users user = createTestUser(TEST_USER_ID, "테스트유저");
             TermVersion termVersion = createTestTermVersion(1L, "1.0");
-            UserTermAgreement existingAgreement = createTestUserTermAgreement(1L, user, termVersion, false);
+            UserTermAgreement existingAgreement =
+                    createTestUserTermAgreement(1L, user, termVersion, false);
 
-            AgreementTerms agreementTerms = AgreementTerms.builder()
-                .termVersionId(1L)
-                .isAgreed(true)
-                .build();
+            AgreementTerms agreementTerms =
+                    AgreementTerms.builder().termVersionId(1L).isAgreed(true).build();
 
-            AgreementTermsByUserRequestDto requestDto = AgreementTermsByUserRequestDto.builder()
-                .AgreementTermsList(List.of(agreementTerms))
-                .build();
+            AgreementTermsByUserRequestDto requestDto =
+                    AgreementTermsByUserRequestDto.builder()
+                            .AgreementTermsList(List.of(agreementTerms))
+                            .build();
 
             when(userTermAgreementsService.findAllByUserIdAndTermVersionId(TEST_USER_ID, 1L))
-                .thenReturn(existingAgreement);
+                    .thenReturn(existingAgreement);
 
             // when
             userTermsService.agreementTermsByUser(TEST_USER_ID, requestDto);
@@ -245,17 +240,16 @@ class UserTermsServiceTest {
             Users user = createTestUser(TEST_USER_ID, "테스트유저");
             TermVersion termVersion = createTestTermVersion(1L, "1.0");
 
-            AgreementTerms agreementTerms = AgreementTerms.builder()
-                .termVersionId(1L)
-                .isAgreed(true)
-                .build();
+            AgreementTerms agreementTerms =
+                    AgreementTerms.builder().termVersionId(1L).isAgreed(true).build();
 
-            AgreementTermsByUserRequestDto requestDto = AgreementTermsByUserRequestDto.builder()
-                .AgreementTermsList(List.of(agreementTerms))
-                .build();
+            AgreementTermsByUserRequestDto requestDto =
+                    AgreementTermsByUserRequestDto.builder()
+                            .AgreementTermsList(List.of(agreementTerms))
+                            .build();
 
             when(userTermAgreementsService.findAllByUserIdAndTermVersionId(TEST_USER_ID, 1L))
-                .thenReturn(null);
+                    .thenReturn(null);
             when(userService.findByUserId(TEST_USER_ID)).thenReturn(user);
             when(termVersionService.findById(1L)).thenReturn(termVersion);
 
@@ -263,7 +257,8 @@ class UserTermsServiceTest {
             userTermsService.agreementTermsByUser(TEST_USER_ID, requestDto);
 
             // then
-            ArgumentCaptor<UserTermAgreement> captor = ArgumentCaptor.forClass(UserTermAgreement.class);
+            ArgumentCaptor<UserTermAgreement> captor =
+                    ArgumentCaptor.forClass(UserTermAgreement.class);
             verify(userTermAgreementsService).save(captor.capture());
 
             UserTermAgreement savedAgreement = captor.getValue();
@@ -279,26 +274,24 @@ class UserTermsServiceTest {
             Users user = createTestUser(TEST_USER_ID, "테스트유저");
             TermVersion termVersion1 = createTestTermVersion(1L, "1.0");
             TermVersion termVersion2 = createTestTermVersion(2L, "1.0");
-            UserTermAgreement existingAgreement = createTestUserTermAgreement(1L, user, termVersion1, false);
+            UserTermAgreement existingAgreement =
+                    createTestUserTermAgreement(1L, user, termVersion1, false);
 
-            AgreementTerms agreementTerms1 = AgreementTerms.builder()
-                .termVersionId(1L)
-                .isAgreed(true)
-                .build();
+            AgreementTerms agreementTerms1 =
+                    AgreementTerms.builder().termVersionId(1L).isAgreed(true).build();
 
-            AgreementTerms agreementTerms2 = AgreementTerms.builder()
-                .termVersionId(2L)
-                .isAgreed(true)
-                .build();
+            AgreementTerms agreementTerms2 =
+                    AgreementTerms.builder().termVersionId(2L).isAgreed(true).build();
 
-            AgreementTermsByUserRequestDto requestDto = AgreementTermsByUserRequestDto.builder()
-                .AgreementTermsList(List.of(agreementTerms1, agreementTerms2))
-                .build();
+            AgreementTermsByUserRequestDto requestDto =
+                    AgreementTermsByUserRequestDto.builder()
+                            .AgreementTermsList(List.of(agreementTerms1, agreementTerms2))
+                            .build();
 
             when(userTermAgreementsService.findAllByUserIdAndTermVersionId(TEST_USER_ID, 1L))
-                .thenReturn(existingAgreement);
+                    .thenReturn(existingAgreement);
             when(userTermAgreementsService.findAllByUserIdAndTermVersionId(TEST_USER_ID, 2L))
-                .thenReturn(null);
+                    .thenReturn(null);
             when(userService.findByUserId(TEST_USER_ID)).thenReturn(user);
             when(termVersionService.findById(2L)).thenReturn(termVersion2);
 
@@ -317,24 +310,24 @@ class UserTermsServiceTest {
             Users user = createTestUser(TEST_USER_ID, "테스트유저");
             TermVersion draftVersion = createDraftTermVersion(1L, "1.0");
 
-            AgreementTerms agreementTerms = AgreementTerms.builder()
-                .termVersionId(1L)
-                .isAgreed(true)
-                .build();
+            AgreementTerms agreementTerms =
+                    AgreementTerms.builder().termVersionId(1L).isAgreed(true).build();
 
-            AgreementTermsByUserRequestDto requestDto = AgreementTermsByUserRequestDto.builder()
-                .AgreementTermsList(List.of(agreementTerms))
-                .build();
+            AgreementTermsByUserRequestDto requestDto =
+                    AgreementTermsByUserRequestDto.builder()
+                            .AgreementTermsList(List.of(agreementTerms))
+                            .build();
 
             when(userTermAgreementsService.findAllByUserIdAndTermVersionId(TEST_USER_ID, 1L))
-                .thenReturn(null);
+                    .thenReturn(null);
             when(userService.findByUserId(TEST_USER_ID)).thenReturn(user);
             when(termVersionService.findById(1L)).thenReturn(draftVersion);
 
             // when & then
-            assertThatThrownBy(() -> userTermsService.agreementTermsByUser(TEST_USER_ID, requestDto))
-                .isInstanceOf(CustomException.class)
-                .hasMessageContaining("error.terms.version.not_published");
+            assertThatThrownBy(
+                            () -> userTermsService.agreementTermsByUser(TEST_USER_ID, requestDto))
+                    .isInstanceOf(CustomException.class)
+                    .hasMessageContaining("error.terms.version.not_published");
             verify(userTermAgreementsService, never()).save(any(UserTermAgreement.class));
         }
 
@@ -344,19 +337,19 @@ class UserTermsServiceTest {
             // given
             Users user = createTestUser(TEST_USER_ID, "테스트유저");
             TermVersion termVersion = createTestTermVersion(1L, "1.0");
-            UserTermAgreement existingAgreement = createTestUserTermAgreement(1L, user, termVersion, true);
+            UserTermAgreement existingAgreement =
+                    createTestUserTermAgreement(1L, user, termVersion, true);
 
-            AgreementTerms agreementTerms = AgreementTerms.builder()
-                .termVersionId(1L)
-                .isAgreed(false)
-                .build();
+            AgreementTerms agreementTerms =
+                    AgreementTerms.builder().termVersionId(1L).isAgreed(false).build();
 
-            AgreementTermsByUserRequestDto requestDto = AgreementTermsByUserRequestDto.builder()
-                .AgreementTermsList(List.of(agreementTerms))
-                .build();
+            AgreementTermsByUserRequestDto requestDto =
+                    AgreementTermsByUserRequestDto.builder()
+                            .AgreementTermsList(List.of(agreementTerms))
+                            .build();
 
             when(userTermAgreementsService.findAllByUserIdAndTermVersionId(TEST_USER_ID, 1L))
-                .thenReturn(existingAgreement);
+                    .thenReturn(existingAgreement);
 
             // when
             userTermsService.agreementTermsByUser(TEST_USER_ID, requestDto);
@@ -374,22 +367,24 @@ class UserTermsServiceTest {
         private RecentTermsResponseDto createTermWithVersion(
                 String termId, String title, boolean isRequired, String versionId) {
             return RecentTermsResponseDto.builder()
-                .termId(termId)
-                .termTitle(title)
-                .isRequired(isRequired)
-                .versionId(versionId)
-                .version("1.0")
-                .build();
+                    .termId(termId)
+                    .termTitle(title)
+                    .isRequired(isRequired)
+                    .versionId(versionId)
+                    .version("1.0")
+                    .build();
         }
 
         @Test
         @DisplayName("필수 약관 전부 동의하면 통과한다 (선택 약관 미동의 무관)")
         void allRequiredAgreed_passes() {
             // given: 필수 2건(v10, v20) + 선택 1건(v30)
-            when(termsService.getRecentAllTerms()).thenReturn(List.of(
-                createTermWithVersion("1", "서비스 이용약관", true, "10"),
-                createTermWithVersion("4", "만 15세 이상입니다", true, "20"),
-                createTermWithVersion("3", "마케팅 정보 수신 동의", false, "30")));
+            when(termsService.getRecentAllTerms())
+                    .thenReturn(
+                            List.of(
+                                    createTermWithVersion("1", "서비스 이용약관", true, "10"),
+                                    createTermWithVersion("4", "만 15세 이상입니다", true, "20"),
+                                    createTermWithVersion("3", "마케팅 정보 수신 동의", false, "30")));
 
             // when & then: 선택(v30)은 빠져도 예외 없음
             userTermsService.validateRequiredTermsAgreed(java.util.Set.of(10L, 20L));
@@ -399,38 +394,47 @@ class UserTermsServiceTest {
         @DisplayName("필수 약관이 하나라도 빠지면 가입을 차단한다")
         void missingRequired_throwsException() {
             // given: 만 15세(v20) 미동의
-            when(termsService.getRecentAllTerms()).thenReturn(List.of(
-                createTermWithVersion("1", "서비스 이용약관", true, "10"),
-                createTermWithVersion("4", "만 15세 이상입니다", true, "20")));
+            when(termsService.getRecentAllTerms())
+                    .thenReturn(
+                            List.of(
+                                    createTermWithVersion("1", "서비스 이용약관", true, "10"),
+                                    createTermWithVersion("4", "만 15세 이상입니다", true, "20")));
 
             // when & then
-            assertThatThrownBy(() -> userTermsService.validateRequiredTermsAgreed(java.util.Set.of(10L)))
-                .isInstanceOf(CustomException.class)
-                .hasMessageContaining("error.terms.required_not_agreed");
+            assertThatThrownBy(
+                            () ->
+                                    userTermsService.validateRequiredTermsAgreed(
+                                            java.util.Set.of(10L)))
+                    .isInstanceOf(CustomException.class)
+                    .hasMessageContaining("error.terms.required_not_agreed");
         }
 
         @Test
         @DisplayName("동의 목록이 비어 있으면 필수 약관 존재 시 차단한다")
         void emptyAgreements_throwsException() {
             // given
-            when(termsService.getRecentAllTerms()).thenReturn(List.of(
-                createTermWithVersion("1", "서비스 이용약관", true, "10")));
+            when(termsService.getRecentAllTerms())
+                    .thenReturn(List.of(createTermWithVersion("1", "서비스 이용약관", true, "10")));
 
             // when & then
-            assertThatThrownBy(() -> userTermsService.validateRequiredTermsAgreed(java.util.Set.of()))
-                .isInstanceOf(CustomException.class);
+            assertThatThrownBy(
+                            () -> userTermsService.validateRequiredTermsAgreed(java.util.Set.of()))
+                    .isInstanceOf(CustomException.class);
         }
 
         @Test
         @DisplayName("최신 게시 버전이 아닌 옛 버전 동의는 필수 충족으로 치지 않는다")
         void staleVersionAgreement_throwsException() {
             // given: 최신 게시 버전은 v11인데 옛 버전 v10으로 동의
-            when(termsService.getRecentAllTerms()).thenReturn(List.of(
-                createTermWithVersion("1", "서비스 이용약관", true, "11")));
+            when(termsService.getRecentAllTerms())
+                    .thenReturn(List.of(createTermWithVersion("1", "서비스 이용약관", true, "11")));
 
             // when & then
-            assertThatThrownBy(() -> userTermsService.validateRequiredTermsAgreed(java.util.Set.of(10L)))
-                .isInstanceOf(CustomException.class);
+            assertThatThrownBy(
+                            () ->
+                                    userTermsService.validateRequiredTermsAgreed(
+                                            java.util.Set.of(10L)))
+                    .isInstanceOf(CustomException.class);
         }
 
         @Test

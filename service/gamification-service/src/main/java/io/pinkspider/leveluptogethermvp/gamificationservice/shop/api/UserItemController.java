@@ -24,16 +24,16 @@ public class UserItemController {
     // 내 보유 아이템 목록 (기본 아이템 미보유 시 lazy 지급)
     @GetMapping
     public ResponseEntity<ApiResult<List<UserItemResponse>>> getMyItems(
-        @CurrentUser String userId) {
+            @CurrentUser String userId) {
         List<UserItemResponse> responses = userItemService.getMyItems(userId);
-        return ResponseEntity.ok(ApiResult.<List<UserItemResponse>>builder().value(responses).build());
+        return ResponseEntity.ok(
+                ApiResult.<List<UserItemResponse>>builder().value(responses).build());
     }
 
     // 아이템 장착 (같은 타입 기존 장착은 해제 — 타입당 1개)
     @PostMapping("/{shopItemId}/equip")
     public ResponseEntity<ApiResult<UserItemResponse>> equipItem(
-        @CurrentUser String userId,
-        @PathVariable Long shopItemId) {
+            @CurrentUser String userId, @PathVariable Long shopItemId) {
         UserItemResponse response = userItemService.equipItem(userId, shopItemId);
         return ResponseEntity.ok(ApiResult.<UserItemResponse>builder().value(response).build());
     }
@@ -41,8 +41,7 @@ public class UserItemController {
     // 아이템 장착해제 (LUT-299, 미장착 상태면 멱등 no-op)
     @PostMapping("/{shopItemId}/unequip")
     public ResponseEntity<ApiResult<UserItemResponse>> unequipItem(
-        @CurrentUser String userId,
-        @PathVariable Long shopItemId) {
+            @CurrentUser String userId, @PathVariable Long shopItemId) {
         UserItemResponse response = userItemService.unequipItem(userId, shopItemId);
         return ResponseEntity.ok(ApiResult.<UserItemResponse>builder().value(response).build());
     }

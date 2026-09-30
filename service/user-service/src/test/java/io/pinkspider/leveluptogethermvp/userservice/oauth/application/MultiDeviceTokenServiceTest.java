@@ -34,26 +34,19 @@ import org.springframework.data.redis.core.ValueOperations;
 @ExtendWith(MockitoExtension.class)
 class MultiDeviceTokenServiceTest {
 
-    @Mock
-    private StringRedisTemplate redisTemplate;
+    @Mock private StringRedisTemplate redisTemplate;
 
-    @Mock
-    private JwtUtil jwtUtil;
+    @Mock private JwtUtil jwtUtil;
 
-    @Mock
-    private SlidingExpirationService slidingExpirationService;
+    @Mock private SlidingExpirationService slidingExpirationService;
 
-    @Mock
-    private ObjectMapper objectMapper;
+    @Mock private ObjectMapper objectMapper;
 
-    @Mock
-    private HashOperations<String, Object, Object> hashOperations;
+    @Mock private HashOperations<String, Object, Object> hashOperations;
 
-    @Mock
-    private SetOperations<String, String> setOperations;
+    @Mock private SetOperations<String, String> setOperations;
 
-    @Mock
-    private ValueOperations<String, String> valueOperations;
+    @Mock private ValueOperations<String, String> valueOperations;
 
     private MultiDeviceTokenService multiDeviceTokenService;
 
@@ -67,9 +60,9 @@ class MultiDeviceTokenServiceTest {
 
     @BeforeEach
     void setUp() {
-        multiDeviceTokenService = new MultiDeviceTokenService(
-            redisTemplate, jwtUtil, slidingExpirationService, objectMapper
-        );
+        multiDeviceTokenService =
+                new MultiDeviceTokenService(
+                        redisTemplate, jwtUtil, slidingExpirationService, objectMapper);
         // LUT-336: resolveSessionKey 가 신 키 존재를 먼저 확인한다 — 구 키 이관 경로를 타지 않도록 고정
         org.mockito.Mockito.lenient().when(redisTemplate.hasKey(SESSION_KEY)).thenReturn(true);
         org.mockito.Mockito.lenient().when(redisTemplate.opsForSet()).thenReturn(setOperations);
@@ -81,7 +74,7 @@ class MultiDeviceTokenServiceTest {
     private Map<String, String> captureAllPutFields() {
         ArgumentCaptor<Map> captor = ArgumentCaptor.forClass(Map.class);
         verify(hashOperations, org.mockito.Mockito.atLeastOnce())
-            .putAll(eq(SESSION_KEY), captor.capture());
+                .putAll(eq(SESSION_KEY), captor.capture());
         Map<String, String> merged = new HashMap<>();
         for (Map map : captor.getAllValues()) {
             merged.putAll(map);
@@ -99,13 +92,16 @@ class MultiDeviceTokenServiceTest {
             // given
             when(redisTemplate.opsForHash()).thenReturn(hashOperations);
             when(redisTemplate.opsForSet()).thenReturn(setOperations);
-            when(jwtUtil.getRemainingTime(REFRESH_TOKEN)).thenReturn(Duration.ofDays(90).toMillis());
+            when(jwtUtil.getRemainingTime(REFRESH_TOKEN))
+                    .thenReturn(Duration.ofDays(90).toMillis());
             when(jwtUtil.getJtiFromToken(REFRESH_TOKEN)).thenReturn("refresh-jti");
-            when(jwtUtil.getRemainingTime(ACCESS_TOKEN)).thenReturn(Duration.ofHours(24).toMillis());
+            when(jwtUtil.getRemainingTime(ACCESS_TOKEN))
+                    .thenReturn(Duration.ofHours(24).toMillis());
             when(jwtUtil.getJtiFromToken(ACCESS_TOKEN)).thenReturn("access-jti");
 
             // when
-            multiDeviceTokenService.saveTokensToRedis(TEST_USER_ID, DEVICE_TYPE, DEVICE_ID, ACCESS_TOKEN, REFRESH_TOKEN);
+            multiDeviceTokenService.saveTokensToRedis(
+                    TEST_USER_ID, DEVICE_TYPE, DEVICE_ID, ACCESS_TOKEN, REFRESH_TOKEN);
 
             // then — 원문 대신 해시 + 메타데이터 저장 (QA-231)
             Map<String, String> stored = captureAllPutFields();
@@ -117,7 +113,8 @@ class MultiDeviceTokenServiceTest {
 
             // refresh 잔여 90일 + 버퍼 1일
             verify(redisTemplate).expire(eq(SESSION_KEY), eq(Duration.ofDays(91)));
-            verify(redisTemplate).expire(eq("userSessions:" + TEST_USER_ID), eq(Duration.ofDays(91)));
+            verify(redisTemplate)
+                    .expire(eq("userSessions:" + TEST_USER_ID), eq(Duration.ofDays(91)));
         }
 
         @Test
@@ -126,11 +123,13 @@ class MultiDeviceTokenServiceTest {
             // given
             when(redisTemplate.opsForHash()).thenReturn(hashOperations);
             when(redisTemplate.opsForSet()).thenReturn(setOperations);
-            when(jwtUtil.getRemainingTime(anyString())).thenThrow(new RuntimeException("parse error"));
+            when(jwtUtil.getRemainingTime(anyString()))
+                    .thenThrow(new RuntimeException("parse error"));
             when(jwtUtil.getJtiFromToken(anyString())).thenReturn("some-jti");
 
             // when
-            multiDeviceTokenService.saveTokensToRedis(TEST_USER_ID, DEVICE_TYPE, DEVICE_ID, ACCESS_TOKEN, REFRESH_TOKEN);
+            multiDeviceTokenService.saveTokensToRedis(
+                    TEST_USER_ID, DEVICE_TYPE, DEVICE_ID, ACCESS_TOKEN, REFRESH_TOKEN);
 
             // then
             verify(redisTemplate).expire(eq(SESSION_KEY), eq(Duration.ofDays(1)));
@@ -148,12 +147,14 @@ class MultiDeviceTokenServiceTest {
             long refreshExpiresAt = System.currentTimeMillis() + Duration.ofDays(30).toMillis();
             when(redisTemplate.opsForHash()).thenReturn(hashOperations);
             when(hashOperations.get(SESSION_KEY, "refreshExpiresAt"))
-                .thenReturn(String.valueOf(refreshExpiresAt));
+                    .thenReturn(String.valueOf(refreshExpiresAt));
             when(jwtUtil.getJtiFromToken("new-access-token")).thenReturn("new-access-jti");
-            when(jwtUtil.getRemainingTime("new-access-token")).thenReturn(Duration.ofHours(24).toMillis());
+            when(jwtUtil.getRemainingTime("new-access-token"))
+                    .thenReturn(Duration.ofHours(24).toMillis());
 
             // when
-            multiDeviceTokenService.updateTokens(TEST_USER_ID, DEVICE_TYPE, DEVICE_ID, "new-access-token", null);
+            multiDeviceTokenService.updateTokens(
+                    TEST_USER_ID, DEVICE_TYPE, DEVICE_ID, "new-access-token", null);
 
             // then
             Map<String, String> stored = captureAllPutFields();
@@ -166,7 +167,8 @@ class MultiDeviceTokenServiceTest {
             verify(redisTemplate).expire(eq(SESSION_KEY), ttlCaptor.capture());
             // exp 잔여(~30일) + 버퍼 1일
             assertThat(ttlCaptor.getValue().toMillis())
-                .isBetween(Duration.ofDays(30).toMillis(), Duration.ofDays(31).toMillis() + 1000);
+                    .isBetween(
+                            Duration.ofDays(30).toMillis(), Duration.ofDays(31).toMillis() + 1000);
         }
 
         @Test
@@ -183,19 +185,22 @@ class MultiDeviceTokenServiceTest {
             when(hashOperations.get(SESSION_KEY, "previousRefreshToken")).thenReturn(null);
             when(hashOperations.get(SESSION_KEY, "previousRefreshTime")).thenReturn(null);
             when(jwtUtil.getJtiFromToken("new-refresh-token")).thenReturn("new-refresh-jti");
-            when(jwtUtil.getRemainingTime("new-refresh-token")).thenReturn(Duration.ofDays(90).toMillis());
+            when(jwtUtil.getRemainingTime("new-refresh-token"))
+                    .thenReturn(Duration.ofDays(90).toMillis());
             when(jwtUtil.getJtiFromToken("new-access-token")).thenReturn("new-access-jti");
-            when(jwtUtil.getRemainingTime("new-access-token")).thenReturn(Duration.ofHours(24).toMillis());
+            when(jwtUtil.getRemainingTime("new-access-token"))
+                    .thenReturn(Duration.ofHours(24).toMillis());
 
             // when
-            multiDeviceTokenService.updateTokens(TEST_USER_ID, DEVICE_TYPE, DEVICE_ID, "new-access-token", "new-refresh-token");
+            multiDeviceTokenService.updateTokens(
+                    TEST_USER_ID, DEVICE_TYPE, DEVICE_ID, "new-access-token", "new-refresh-token");
 
             // then
             Map<String, String> stored = captureAllPutFields();
             assertThat(stored.get("previousRefreshToken")).isEqualTo(currentHash);
             assertThat(stored.get("previousRefreshJti")).isEqualTo("current-jti");
             assertThat(stored.get("refreshToken"))
-                .isEqualTo(MultiDeviceTokenService.hashToken("new-refresh-token"));
+                    .isEqualTo(MultiDeviceTokenService.hashToken("new-refresh-token"));
             assertThat(stored.get("refreshJti")).isEqualTo("new-refresh-jti");
             assertThat(stored).containsKey("previousRefreshTime");
 
@@ -208,26 +213,32 @@ class MultiDeviceTokenServiceTest {
             // given
             when(redisTemplate.opsForHash()).thenReturn(hashOperations);
             when(hashOperations.get(SESSION_KEY, "refreshToken"))
-                .thenReturn(MultiDeviceTokenService.hashToken(REFRESH_TOKEN));
+                    .thenReturn(MultiDeviceTokenService.hashToken(REFRESH_TOKEN));
             when(hashOperations.get(SESSION_KEY, "refreshJti")).thenReturn("current-jti");
             when(hashOperations.get(SESSION_KEY, "refreshExpiresAt")).thenReturn("1893456000000");
             when(hashOperations.get(SESSION_KEY, "previousRefreshJti")).thenReturn("prev-jti");
             when(hashOperations.get(SESSION_KEY, "previousRefreshExpiresAt"))
-                .thenReturn(String.valueOf(System.currentTimeMillis() + 1000L));
+                    .thenReturn(String.valueOf(System.currentTimeMillis() + 1000L));
             // LUT-336: grace window(2분) 밖이어야 블랙리스트 대상이 된다
             when(hashOperations.get(SESSION_KEY, "previousRefreshTime"))
-                .thenReturn(String.valueOf(System.currentTimeMillis() - Duration.ofMinutes(5).toMillis()));
+                    .thenReturn(
+                            String.valueOf(
+                                    System.currentTimeMillis() - Duration.ofMinutes(5).toMillis()));
             when(jwtUtil.getJtiFromToken("new-refresh-token")).thenReturn("new-refresh-jti");
-            when(jwtUtil.getRemainingTime("new-refresh-token")).thenReturn(Duration.ofDays(90).toMillis());
+            when(jwtUtil.getRemainingTime("new-refresh-token"))
+                    .thenReturn(Duration.ofDays(90).toMillis());
             when(jwtUtil.getJtiFromToken("new-access-token")).thenReturn("new-access-jti");
-            when(jwtUtil.getRemainingTime("new-access-token")).thenReturn(Duration.ofHours(24).toMillis());
+            when(jwtUtil.getRemainingTime("new-access-token"))
+                    .thenReturn(Duration.ofHours(24).toMillis());
             when(redisTemplate.opsForValue()).thenReturn(valueOperations);
 
             // when
-            multiDeviceTokenService.updateTokens(TEST_USER_ID, DEVICE_TYPE, DEVICE_ID, "new-access-token", "new-refresh-token");
+            multiDeviceTokenService.updateTokens(
+                    TEST_USER_ID, DEVICE_TYPE, DEVICE_ID, "new-access-token", "new-refresh-token");
 
             // then
-            verify(valueOperations).set(eq("blacklist:prev-jti"), eq("revoked"), any(Duration.class));
+            verify(valueOperations)
+                    .set(eq("blacklist:prev-jti"), eq("revoked"), any(Duration.class));
         }
     }
 
@@ -235,8 +246,7 @@ class MultiDeviceTokenServiceTest {
     @DisplayName("LUT-336: 세션 키 정합성 테스트")
     class SessionKeyCompatibilityTest {
 
-        private static final String LEGACY_KEY =
-            "session:" + TEST_USER_ID + ":ios:" + DEVICE_ID;
+        private static final String LEGACY_KEY = "session:" + TEST_USER_ID + ":ios:" + DEVICE_ID;
         private static final String USER_SESSIONS_KEY = "userSessions:" + TEST_USER_ID;
 
         @Test
@@ -267,13 +277,15 @@ class MultiDeviceTokenServiceTest {
             when(setOperations.members(USER_SESSIONS_KEY)).thenReturn(Set.of(LEGACY_KEY));
             when(redisTemplate.opsForHash()).thenReturn(hashOperations);
             when(hashOperations.get(SESSION_KEY, "refreshToken"))
-                .thenReturn(MultiDeviceTokenService.hashToken(REFRESH_TOKEN));
+                    .thenReturn(MultiDeviceTokenService.hashToken(REFRESH_TOKEN));
 
             // when — deviceType 만 다르게 두 번 조회 (앱 → 웹)
-            RefreshTokenMatch asApp = multiDeviceTokenService.checkRefreshToken(
-                TEST_USER_ID, "ios", DEVICE_ID, REFRESH_TOKEN);
-            RefreshTokenMatch asWeb = multiDeviceTokenService.checkRefreshToken(
-                TEST_USER_ID, "web", DEVICE_ID, REFRESH_TOKEN);
+            RefreshTokenMatch asApp =
+                    multiDeviceTokenService.checkRefreshToken(
+                            TEST_USER_ID, "ios", DEVICE_ID, REFRESH_TOKEN);
+            RefreshTokenMatch asWeb =
+                    multiDeviceTokenService.checkRefreshToken(
+                            TEST_USER_ID, "web", DEVICE_ID, REFRESH_TOKEN);
 
             // then — 예전에는 웹이 NO_SESSION 을 받아 강제 로그아웃됐다
             assertThat(asApp).isEqualTo(RefreshTokenMatch.MATCH);
@@ -286,21 +298,21 @@ class MultiDeviceTokenServiceTest {
             // given — 1초 전 rotation 된 previous 가 남아 있는 상태에서 또 rotation
             when(redisTemplate.opsForHash()).thenReturn(hashOperations);
             when(hashOperations.get(SESSION_KEY, "refreshToken"))
-                .thenReturn(MultiDeviceTokenService.hashToken(REFRESH_TOKEN));
+                    .thenReturn(MultiDeviceTokenService.hashToken(REFRESH_TOKEN));
             when(hashOperations.get(SESSION_KEY, "refreshJti")).thenReturn("current-jti");
             when(hashOperations.get(SESSION_KEY, "refreshExpiresAt")).thenReturn("1893456000000");
             when(hashOperations.get(SESSION_KEY, "previousRefreshTime"))
-                .thenReturn(String.valueOf(System.currentTimeMillis() - 1000L));
+                    .thenReturn(String.valueOf(System.currentTimeMillis() - 1000L));
             when(jwtUtil.getJtiFromToken("new-refresh-token")).thenReturn("new-refresh-jti");
             when(jwtUtil.getRemainingTime("new-refresh-token"))
-                .thenReturn(Duration.ofDays(90).toMillis());
+                    .thenReturn(Duration.ofDays(90).toMillis());
             when(jwtUtil.getJtiFromToken("new-access-token")).thenReturn("new-access-jti");
             when(jwtUtil.getRemainingTime("new-access-token"))
-                .thenReturn(Duration.ofHours(24).toMillis());
+                    .thenReturn(Duration.ofHours(24).toMillis());
 
             // when
             multiDeviceTokenService.updateTokens(
-                TEST_USER_ID, DEVICE_TYPE, DEVICE_ID, "new-access-token", "new-refresh-token");
+                    TEST_USER_ID, DEVICE_TYPE, DEVICE_ID, "new-access-token", "new-refresh-token");
 
             // then — 다른 클라이언트가 아직 쥐고 있을 수 있으므로 blacklist 하지 않는다.
             // (예전에는 grace 가 시간이 아니라 rotation 횟수로 닫혀 2초 만에 폐기됐다)
@@ -313,7 +325,7 @@ class MultiDeviceTokenServiceTest {
             String lockKey = "lock:" + SESSION_KEY;
             when(redisTemplate.opsForValue()).thenReturn(valueOperations);
             when(valueOperations.setIfAbsent(eq(lockKey), eq("1"), any(Duration.class)))
-                .thenReturn(true, false);
+                    .thenReturn(true, false);
 
             assertThat(multiDeviceTokenService.tryLockSession(TEST_USER_ID, DEVICE_ID)).isTrue();
             assertThat(multiDeviceTokenService.tryLockSession(TEST_USER_ID, DEVICE_ID)).isFalse();
@@ -333,18 +345,24 @@ class MultiDeviceTokenServiceTest {
             // given
             when(redisTemplate.opsForHash()).thenReturn(hashOperations);
             when(jwtUtil.getJtiFromToken("retry-refresh-token")).thenReturn("retry-refresh-jti");
-            when(jwtUtil.getRemainingTime("retry-refresh-token")).thenReturn(Duration.ofDays(90).toMillis());
+            when(jwtUtil.getRemainingTime("retry-refresh-token"))
+                    .thenReturn(Duration.ofDays(90).toMillis());
             when(jwtUtil.getJtiFromToken("retry-access-token")).thenReturn("retry-access-jti");
-            when(jwtUtil.getRemainingTime("retry-access-token")).thenReturn(Duration.ofHours(24).toMillis());
+            when(jwtUtil.getRemainingTime("retry-access-token"))
+                    .thenReturn(Duration.ofHours(24).toMillis());
 
             // when
             multiDeviceTokenService.updateTokensForGraceRetry(
-                TEST_USER_ID, DEVICE_TYPE, DEVICE_ID, "retry-access-token", "retry-refresh-token");
+                    TEST_USER_ID,
+                    DEVICE_TYPE,
+                    DEVICE_ID,
+                    "retry-access-token",
+                    "retry-refresh-token");
 
             // then
             Map<String, String> stored = captureAllPutFields();
             assertThat(stored.get("refreshToken"))
-                .isEqualTo(MultiDeviceTokenService.hashToken("retry-refresh-token"));
+                    .isEqualTo(MultiDeviceTokenService.hashToken("retry-refresh-token"));
             // previous 필드는 건드리지 않는다 (반복 재시도 허용)
             assertThat(stored).doesNotContainKey("previousRefreshToken");
             assertThat(stored).doesNotContainKey("previousRefreshTime");
@@ -362,11 +380,12 @@ class MultiDeviceTokenServiceTest {
         void hashedMatch() {
             when(redisTemplate.opsForHash()).thenReturn(hashOperations);
             when(hashOperations.get(SESSION_KEY, "refreshToken"))
-                .thenReturn(MultiDeviceTokenService.hashToken(REFRESH_TOKEN));
+                    .thenReturn(MultiDeviceTokenService.hashToken(REFRESH_TOKEN));
 
-            assertThat(multiDeviceTokenService.checkRefreshToken(
-                TEST_USER_ID, DEVICE_TYPE, DEVICE_ID, REFRESH_TOKEN))
-                .isEqualTo(RefreshTokenMatch.MATCH);
+            assertThat(
+                            multiDeviceTokenService.checkRefreshToken(
+                                    TEST_USER_ID, DEVICE_TYPE, DEVICE_ID, REFRESH_TOKEN))
+                    .isEqualTo(RefreshTokenMatch.MATCH);
         }
 
         @Test
@@ -375,9 +394,10 @@ class MultiDeviceTokenServiceTest {
             when(redisTemplate.opsForHash()).thenReturn(hashOperations);
             when(hashOperations.get(SESSION_KEY, "refreshToken")).thenReturn(REFRESH_TOKEN);
 
-            assertThat(multiDeviceTokenService.checkRefreshToken(
-                TEST_USER_ID, DEVICE_TYPE, DEVICE_ID, REFRESH_TOKEN))
-                .isEqualTo(RefreshTokenMatch.MATCH);
+            assertThat(
+                            multiDeviceTokenService.checkRefreshToken(
+                                    TEST_USER_ID, DEVICE_TYPE, DEVICE_ID, REFRESH_TOKEN))
+                    .isEqualTo(RefreshTokenMatch.MATCH);
         }
 
         @Test
@@ -385,11 +405,12 @@ class MultiDeviceTokenServiceTest {
         void mismatch() {
             when(redisTemplate.opsForHash()).thenReturn(hashOperations);
             when(hashOperations.get(SESSION_KEY, "refreshToken"))
-                .thenReturn(MultiDeviceTokenService.hashToken("other-token"));
+                    .thenReturn(MultiDeviceTokenService.hashToken("other-token"));
 
-            assertThat(multiDeviceTokenService.checkRefreshToken(
-                TEST_USER_ID, DEVICE_TYPE, DEVICE_ID, REFRESH_TOKEN))
-                .isEqualTo(RefreshTokenMatch.MISMATCH);
+            assertThat(
+                            multiDeviceTokenService.checkRefreshToken(
+                                    TEST_USER_ID, DEVICE_TYPE, DEVICE_ID, REFRESH_TOKEN))
+                    .isEqualTo(RefreshTokenMatch.MISMATCH);
         }
 
         @Test
@@ -398,9 +419,10 @@ class MultiDeviceTokenServiceTest {
             when(redisTemplate.opsForHash()).thenReturn(hashOperations);
             when(hashOperations.get(SESSION_KEY, "refreshToken")).thenReturn(null);
 
-            assertThat(multiDeviceTokenService.checkRefreshToken(
-                TEST_USER_ID, DEVICE_TYPE, DEVICE_ID, REFRESH_TOKEN))
-                .isEqualTo(RefreshTokenMatch.NO_SESSION);
+            assertThat(
+                            multiDeviceTokenService.checkRefreshToken(
+                                    TEST_USER_ID, DEVICE_TYPE, DEVICE_ID, REFRESH_TOKEN))
+                    .isEqualTo(RefreshTokenMatch.NO_SESSION);
         }
     }
 
@@ -413,12 +435,14 @@ class MultiDeviceTokenServiceTest {
         void withinGrace_returnsTrue() {
             when(redisTemplate.opsForHash()).thenReturn(hashOperations);
             when(hashOperations.get(SESSION_KEY, "previousRefreshToken"))
-                .thenReturn(MultiDeviceTokenService.hashToken(REFRESH_TOKEN));
+                    .thenReturn(MultiDeviceTokenService.hashToken(REFRESH_TOKEN));
             when(hashOperations.get(SESSION_KEY, "previousRefreshTime"))
-                .thenReturn(String.valueOf(System.currentTimeMillis() - 1000L));
+                    .thenReturn(String.valueOf(System.currentTimeMillis() - 1000L));
 
-            assertThat(multiDeviceTokenService.isWithinRotationGrace(
-                TEST_USER_ID, DEVICE_TYPE, DEVICE_ID, REFRESH_TOKEN)).isTrue();
+            assertThat(
+                            multiDeviceTokenService.isWithinRotationGrace(
+                                    TEST_USER_ID, DEVICE_TYPE, DEVICE_ID, REFRESH_TOKEN))
+                    .isTrue();
         }
 
         @Test
@@ -426,12 +450,16 @@ class MultiDeviceTokenServiceTest {
         void expiredGrace_returnsFalse() {
             when(redisTemplate.opsForHash()).thenReturn(hashOperations);
             when(hashOperations.get(SESSION_KEY, "previousRefreshToken"))
-                .thenReturn(MultiDeviceTokenService.hashToken(REFRESH_TOKEN));
+                    .thenReturn(MultiDeviceTokenService.hashToken(REFRESH_TOKEN));
             when(hashOperations.get(SESSION_KEY, "previousRefreshTime"))
-                .thenReturn(String.valueOf(System.currentTimeMillis() - Duration.ofMinutes(3).toMillis()));
+                    .thenReturn(
+                            String.valueOf(
+                                    System.currentTimeMillis() - Duration.ofMinutes(3).toMillis()));
 
-            assertThat(multiDeviceTokenService.isWithinRotationGrace(
-                TEST_USER_ID, DEVICE_TYPE, DEVICE_ID, REFRESH_TOKEN)).isFalse();
+            assertThat(
+                            multiDeviceTokenService.isWithinRotationGrace(
+                                    TEST_USER_ID, DEVICE_TYPE, DEVICE_ID, REFRESH_TOKEN))
+                    .isFalse();
         }
 
         @Test
@@ -439,10 +467,12 @@ class MultiDeviceTokenServiceTest {
         void tokenMismatch_returnsFalse() {
             when(redisTemplate.opsForHash()).thenReturn(hashOperations);
             when(hashOperations.get(SESSION_KEY, "previousRefreshToken"))
-                .thenReturn(MultiDeviceTokenService.hashToken("other-token"));
+                    .thenReturn(MultiDeviceTokenService.hashToken("other-token"));
 
-            assertThat(multiDeviceTokenService.isWithinRotationGrace(
-                TEST_USER_ID, DEVICE_TYPE, DEVICE_ID, REFRESH_TOKEN)).isFalse();
+            assertThat(
+                            multiDeviceTokenService.isWithinRotationGrace(
+                                    TEST_USER_ID, DEVICE_TYPE, DEVICE_ID, REFRESH_TOKEN))
+                    .isFalse();
         }
 
         @Test
@@ -451,8 +481,10 @@ class MultiDeviceTokenServiceTest {
             when(redisTemplate.opsForHash()).thenReturn(hashOperations);
             when(hashOperations.get(SESSION_KEY, "previousRefreshToken")).thenReturn(null);
 
-            assertThat(multiDeviceTokenService.isWithinRotationGrace(
-                TEST_USER_ID, DEVICE_TYPE, DEVICE_ID, REFRESH_TOKEN)).isFalse();
+            assertThat(
+                            multiDeviceTokenService.isWithinRotationGrace(
+                                    TEST_USER_ID, DEVICE_TYPE, DEVICE_ID, REFRESH_TOKEN))
+                    .isFalse();
         }
     }
 
@@ -467,7 +499,7 @@ class MultiDeviceTokenServiceTest {
             when(hashOperations.get(SESSION_KEY, "loginTime")).thenReturn("1713000000000");
 
             assertThat(multiDeviceTokenService.getLoginTime(TEST_USER_ID, DEVICE_TYPE, DEVICE_ID))
-                .isEqualTo(1713000000000L);
+                    .isEqualTo(1713000000000L);
         }
 
         @Test
@@ -476,7 +508,8 @@ class MultiDeviceTokenServiceTest {
             when(redisTemplate.opsForHash()).thenReturn(hashOperations);
             when(hashOperations.get(SESSION_KEY, "loginTime")).thenReturn(null);
 
-            assertThat(multiDeviceTokenService.getLoginTime(TEST_USER_ID, DEVICE_TYPE, DEVICE_ID)).isNull();
+            assertThat(multiDeviceTokenService.getLoginTime(TEST_USER_ID, DEVICE_TYPE, DEVICE_ID))
+                    .isNull();
         }
 
         @Test
@@ -485,7 +518,8 @@ class MultiDeviceTokenServiceTest {
             when(redisTemplate.opsForHash()).thenReturn(hashOperations);
             when(hashOperations.get(SESSION_KEY, "loginTime")).thenReturn("not-a-number");
 
-            assertThat(multiDeviceTokenService.getLoginTime(TEST_USER_ID, DEVICE_TYPE, DEVICE_ID)).isNull();
+            assertThat(multiDeviceTokenService.getLoginTime(TEST_USER_ID, DEVICE_TYPE, DEVICE_ID))
+                    .isNull();
         }
     }
 
@@ -580,7 +614,7 @@ class MultiDeviceTokenServiceTest {
             verify(valueOperations).set(eq("blacklist:" + jti), eq("revoked"), ttlCaptor.capture());
             // jti 블랙리스트는 exp 시각 기준으로 계산되므로 수 ms 오차 허용
             assertThat(ttlCaptor.getValue().toMillis())
-                .isBetween(remainingTime - 1000, remainingTime + 1000);
+                    .isBetween(remainingTime - 1000, remainingTime + 1000);
         }
 
         @Test
@@ -611,7 +645,7 @@ class MultiDeviceTokenServiceTest {
             when(jwtUtil.validateToken(ACCESS_TOKEN)).thenThrow(new RuntimeException("JWT error"));
 
             org.junit.jupiter.api.Assertions.assertDoesNotThrow(
-                () -> multiDeviceTokenService.blacklistToken(ACCESS_TOKEN));
+                    () -> multiDeviceTokenService.blacklistToken(ACCESS_TOKEN));
         }
     }
 
@@ -628,17 +662,21 @@ class MultiDeviceTokenServiceTest {
 
             long futureExp = System.currentTimeMillis() + Duration.ofHours(1).toMillis();
             when(hashOperations.get(SESSION_KEY, "accessJti")).thenReturn("access-jti");
-            when(hashOperations.get(SESSION_KEY, "accessExpiresAt")).thenReturn(String.valueOf(futureExp));
+            when(hashOperations.get(SESSION_KEY, "accessExpiresAt"))
+                    .thenReturn(String.valueOf(futureExp));
             when(hashOperations.get(SESSION_KEY, "refreshJti")).thenReturn("refresh-jti");
-            when(hashOperations.get(SESSION_KEY, "refreshExpiresAt")).thenReturn(String.valueOf(futureExp));
+            when(hashOperations.get(SESSION_KEY, "refreshExpiresAt"))
+                    .thenReturn(String.valueOf(futureExp));
             when(hashOperations.get(SESSION_KEY, "previousRefreshJti")).thenReturn(null);
             when(hashOperations.get(SESSION_KEY, "previousRefreshExpiresAt")).thenReturn(null);
             when(hashOperations.get(SESSION_KEY, "previousRefreshToken")).thenReturn(null);
 
             multiDeviceTokenService.logout(TEST_USER_ID, DEVICE_TYPE, DEVICE_ID);
 
-            verify(valueOperations).set(eq("blacklist:access-jti"), eq("revoked"), any(Duration.class));
-            verify(valueOperations).set(eq("blacklist:refresh-jti"), eq("revoked"), any(Duration.class));
+            verify(valueOperations)
+                    .set(eq("blacklist:access-jti"), eq("revoked"), any(Duration.class));
+            verify(valueOperations)
+                    .set(eq("blacklist:refresh-jti"), eq("revoked"), any(Duration.class));
             verify(redisTemplate).delete(SESSION_KEY);
             verify(setOperations).remove(eq("userSessions:" + TEST_USER_ID), eq(SESSION_KEY));
         }
@@ -712,7 +750,8 @@ class MultiDeviceTokenServiceTest {
         void sessionExists_exists_returnsTrue() {
             when(redisTemplate.hasKey(SESSION_KEY)).thenReturn(true);
 
-            assertThat(multiDeviceTokenService.sessionExists(TEST_USER_ID, DEVICE_TYPE, DEVICE_ID)).isTrue();
+            assertThat(multiDeviceTokenService.sessionExists(TEST_USER_ID, DEVICE_TYPE, DEVICE_ID))
+                    .isTrue();
         }
 
         @Test
@@ -720,7 +759,8 @@ class MultiDeviceTokenServiceTest {
         void sessionExists_notExists_returnsFalse() {
             when(redisTemplate.hasKey(SESSION_KEY)).thenReturn(false);
 
-            assertThat(multiDeviceTokenService.sessionExists(TEST_USER_ID, DEVICE_TYPE, DEVICE_ID)).isFalse();
+            assertThat(multiDeviceTokenService.sessionExists(TEST_USER_ID, DEVICE_TYPE, DEVICE_ID))
+                    .isFalse();
         }
     }
 
@@ -737,14 +777,16 @@ class MultiDeviceTokenServiceTest {
             sessionData.put("previousRefreshToken", MultiDeviceTokenService.hashToken("old"));
             sessionData.put("accessToken", ACCESS_TOKEN); // 레거시 필드
             sessionData.put("userId", TEST_USER_ID);
-            sessionData.put("refreshExpiresAt",
-                String.valueOf(System.currentTimeMillis() + Duration.ofDays(60).toMillis()));
+            sessionData.put(
+                    "refreshExpiresAt",
+                    String.valueOf(System.currentTimeMillis() + Duration.ofDays(60).toMillis()));
             when(hashOperations.entries(SESSION_KEY)).thenReturn(sessionData);
 
-            Map<String, Object> result = multiDeviceTokenService.getSessionInfo(
-                TEST_USER_ID, DEVICE_TYPE, DEVICE_ID);
+            Map<String, Object> result =
+                    multiDeviceTokenService.getSessionInfo(TEST_USER_ID, DEVICE_TYPE, DEVICE_ID);
 
-            assertThat(result).doesNotContainKeys("refreshToken", "previousRefreshToken", "accessToken");
+            assertThat(result)
+                    .doesNotContainKeys("refreshToken", "previousRefreshToken", "accessToken");
             assertThat(result).containsKey("userId");
         }
 
@@ -754,16 +796,18 @@ class MultiDeviceTokenServiceTest {
             when(redisTemplate.opsForHash()).thenReturn(hashOperations);
             Map<Object, Object> sessionData = new HashMap<>();
             sessionData.put("refreshToken", MultiDeviceTokenService.hashToken(REFRESH_TOKEN));
-            sessionData.put("refreshExpiresAt",
-                String.valueOf(System.currentTimeMillis() + Duration.ofDays(60).toMillis()));
+            sessionData.put(
+                    "refreshExpiresAt",
+                    String.valueOf(System.currentTimeMillis() + Duration.ofDays(60).toMillis()));
             sessionData.put("loginTime", String.valueOf(System.currentTimeMillis()));
             when(hashOperations.entries(SESSION_KEY)).thenReturn(sessionData);
-            when(slidingExpirationService.shouldRenewByRemainingMillis(org.mockito.ArgumentMatchers.anyLong()))
-                .thenReturn(true);
+            when(slidingExpirationService.shouldRenewByRemainingMillis(
+                            org.mockito.ArgumentMatchers.anyLong()))
+                    .thenReturn(true);
             when(slidingExpirationService.isSessionWithinMaxLifetime(any())).thenReturn(true);
 
-            Map<String, Object> result = multiDeviceTokenService.getSessionInfo(
-                TEST_USER_ID, DEVICE_TYPE, DEVICE_ID);
+            Map<String, Object> result =
+                    multiDeviceTokenService.getSessionInfo(TEST_USER_ID, DEVICE_TYPE, DEVICE_ID);
 
             assertThat(result.get("refreshTokenValid")).isEqualTo(true);
             assertThat(result.get("shouldRenewRefreshToken")).isEqualTo(true);
@@ -779,8 +823,8 @@ class MultiDeviceTokenServiceTest {
             sessionData.put("userId", TEST_USER_ID);
             when(hashOperations.entries(SESSION_KEY)).thenReturn(sessionData);
 
-            Map<String, Object> result = multiDeviceTokenService.getSessionInfo(
-                TEST_USER_ID, DEVICE_TYPE, DEVICE_ID);
+            Map<String, Object> result =
+                    multiDeviceTokenService.getSessionInfo(TEST_USER_ID, DEVICE_TYPE, DEVICE_ID);
 
             assertThat(result).doesNotContainKey("refreshTokenRemaining");
         }
@@ -793,10 +837,11 @@ class MultiDeviceTokenServiceTest {
             sessionData.put("refreshToken", REFRESH_TOKEN); // 평문
             when(hashOperations.entries(SESSION_KEY)).thenReturn(sessionData);
             when(jwtUtil.getRemainingTime(REFRESH_TOKEN)).thenReturn(86400000L);
-            when(slidingExpirationService.shouldRenewByRemainingMillis(86400000L)).thenReturn(false);
+            when(slidingExpirationService.shouldRenewByRemainingMillis(86400000L))
+                    .thenReturn(false);
 
-            Map<String, Object> result = multiDeviceTokenService.getSessionInfo(
-                TEST_USER_ID, DEVICE_TYPE, DEVICE_ID);
+            Map<String, Object> result =
+                    multiDeviceTokenService.getSessionInfo(TEST_USER_ID, DEVICE_TYPE, DEVICE_ID);
 
             assertThat(result.get("refreshTokenRemaining")).isEqualTo(86400000L);
             assertThat(result.get("refreshTokenValid")).isEqualTo(true);
@@ -829,7 +874,7 @@ class MultiDeviceTokenServiceTest {
             sessions.add("session:" + TEST_USER_ID + ":mobile:device1");
             when(setOperations.members("userSessions:" + TEST_USER_ID)).thenReturn(sessions);
             when(hashOperations.entries("session:" + TEST_USER_ID + ":mobile:device1"))
-                .thenReturn(new HashMap<>());
+                    .thenReturn(new HashMap<>());
 
             List<Session> result = multiDeviceTokenService.getActiveSessions(TEST_USER_ID);
 
@@ -852,13 +897,16 @@ class MultiDeviceTokenServiceTest {
             sessionData.put("deviceType", "mobile");
             sessionData.put("deviceId", "device1");
             sessionData.put("refreshToken", MultiDeviceTokenService.hashToken(REFRESH_TOKEN));
-            sessionData.put("refreshExpiresAt", String.valueOf(now + Duration.ofDays(60).toMillis()));
-            sessionData.put("accessExpiresAt", String.valueOf(now + Duration.ofHours(1).toMillis()));
+            sessionData.put(
+                    "refreshExpiresAt", String.valueOf(now + Duration.ofDays(60).toMillis()));
+            sessionData.put(
+                    "accessExpiresAt", String.valueOf(now + Duration.ofHours(1).toMillis()));
             sessionData.put("loginTime", "1000000");
             sessionData.put("userId", TEST_USER_ID);
             when(hashOperations.entries(sessionKey)).thenReturn(sessionData);
-            when(slidingExpirationService.shouldRenewByRemainingMillis(org.mockito.ArgumentMatchers.anyLong()))
-                .thenReturn(false);
+            when(slidingExpirationService.shouldRenewByRemainingMillis(
+                            org.mockito.ArgumentMatchers.anyLong()))
+                    .thenReturn(false);
 
             List<Session> result = multiDeviceTokenService.getActiveSessions(TEST_USER_ID);
 
@@ -894,7 +942,7 @@ class MultiDeviceTokenServiceTest {
             when(redisTemplate.opsForHash()).thenReturn(hashOperations);
             when(redisTemplate.opsForSet()).thenReturn(setOperations);
             when(hashOperations.get("session:user1:mobile:device1", "refreshExpiresAt"))
-                .thenReturn(String.valueOf(System.currentTimeMillis() - 1000L));
+                    .thenReturn(String.valueOf(System.currentTimeMillis() - 1000L));
 
             assertThat(multiDeviceTokenService.cleanupExpiredSessions()).isEqualTo(1);
             verify(redisTemplate).delete("session:user1:mobile:device1");
@@ -909,7 +957,9 @@ class MultiDeviceTokenServiceTest {
             when(redisTemplate.keys("session:*")).thenReturn(sessionKeys);
             when(redisTemplate.opsForHash()).thenReturn(hashOperations);
             when(hashOperations.get("session:user3:mobile:device3", "refreshExpiresAt"))
-                .thenReturn(String.valueOf(System.currentTimeMillis() + Duration.ofDays(30).toMillis()));
+                    .thenReturn(
+                            String.valueOf(
+                                    System.currentTimeMillis() + Duration.ofDays(30).toMillis()));
 
             assertThat(multiDeviceTokenService.cleanupExpiredSessions()).isEqualTo(0);
             verify(redisTemplate, never()).delete(eq("session:user3:mobile:device3"));
@@ -924,8 +974,10 @@ class MultiDeviceTokenServiceTest {
             when(redisTemplate.keys("session:*")).thenReturn(sessionKeys);
             when(redisTemplate.opsForHash()).thenReturn(hashOperations);
             when(redisTemplate.opsForSet()).thenReturn(setOperations);
-            when(hashOperations.get("session:user1:mobile:device1", "refreshExpiresAt")).thenReturn(null);
-            when(hashOperations.get("session:user1:mobile:device1", "refreshToken")).thenReturn(REFRESH_TOKEN);
+            when(hashOperations.get("session:user1:mobile:device1", "refreshExpiresAt"))
+                    .thenReturn(null);
+            when(hashOperations.get("session:user1:mobile:device1", "refreshToken"))
+                    .thenReturn(REFRESH_TOKEN);
             when(jwtUtil.validateToken(REFRESH_TOKEN)).thenReturn(false);
 
             assertThat(multiDeviceTokenService.cleanupExpiredSessions()).isEqualTo(1);
@@ -941,7 +993,8 @@ class MultiDeviceTokenServiceTest {
             when(redisTemplate.keys("session:*")).thenReturn(sessionKeys);
             when(redisTemplate.opsForHash()).thenReturn(hashOperations);
             when(redisTemplate.opsForSet()).thenReturn(setOperations);
-            when(hashOperations.get("session:user2:web:device2", "refreshExpiresAt")).thenReturn(null);
+            when(hashOperations.get("session:user2:web:device2", "refreshExpiresAt"))
+                    .thenReturn(null);
             when(hashOperations.get("session:user2:web:device2", "refreshToken")).thenReturn(null);
 
             assertThat(multiDeviceTokenService.cleanupExpiredSessions()).isEqualTo(1);
@@ -956,9 +1009,10 @@ class MultiDeviceTokenServiceTest {
 
             when(redisTemplate.keys("session:*")).thenReturn(sessionKeys);
             when(redisTemplate.opsForHash()).thenReturn(hashOperations);
-            when(hashOperations.get("session:user4:mobile:device4", "refreshExpiresAt")).thenReturn(null);
+            when(hashOperations.get("session:user4:mobile:device4", "refreshExpiresAt"))
+                    .thenReturn(null);
             when(hashOperations.get("session:user4:mobile:device4", "refreshToken"))
-                .thenReturn(MultiDeviceTokenService.hashToken(REFRESH_TOKEN));
+                    .thenReturn(MultiDeviceTokenService.hashToken(REFRESH_TOKEN));
 
             assertThat(multiDeviceTokenService.cleanupExpiredSessions()).isEqualTo(0);
             verify(redisTemplate, never()).delete(eq("session:user4:mobile:device4"));
@@ -982,9 +1036,9 @@ class MultiDeviceTokenServiceTest {
         @DisplayName("같은 입력은 같은 해시, 다른 입력은 다른 해시를 생성한다")
         void hashToken_deterministic() {
             assertThat(MultiDeviceTokenService.hashToken(REFRESH_TOKEN))
-                .isEqualTo(MultiDeviceTokenService.hashToken(REFRESH_TOKEN));
+                    .isEqualTo(MultiDeviceTokenService.hashToken(REFRESH_TOKEN));
             assertThat(MultiDeviceTokenService.hashToken(REFRESH_TOKEN))
-                .isNotEqualTo(MultiDeviceTokenService.hashToken("other-token"));
+                    .isNotEqualTo(MultiDeviceTokenService.hashToken("other-token"));
         }
     }
 
@@ -995,8 +1049,10 @@ class MultiDeviceTokenServiceTest {
         @Test
         @DisplayName("제시 토큰이 null이면 Redis 조회 없이 false")
         void nullPresentedToken_returnsFalse() {
-            assertThat(multiDeviceTokenService.isWithinRotationGrace(
-                TEST_USER_ID, DEVICE_TYPE, DEVICE_ID, null)).isFalse();
+            assertThat(
+                            multiDeviceTokenService.isWithinRotationGrace(
+                                    TEST_USER_ID, DEVICE_TYPE, DEVICE_ID, null))
+                    .isFalse();
 
             verify(redisTemplate, never()).opsForHash();
         }
@@ -1006,11 +1062,13 @@ class MultiDeviceTokenServiceTest {
         void missingPreviousTime_returnsFalse() {
             when(redisTemplate.opsForHash()).thenReturn(hashOperations);
             when(hashOperations.get(SESSION_KEY, "previousRefreshToken"))
-                .thenReturn(MultiDeviceTokenService.hashToken(REFRESH_TOKEN));
+                    .thenReturn(MultiDeviceTokenService.hashToken(REFRESH_TOKEN));
             when(hashOperations.get(SESSION_KEY, "previousRefreshTime")).thenReturn(null);
 
-            assertThat(multiDeviceTokenService.isWithinRotationGrace(
-                TEST_USER_ID, DEVICE_TYPE, DEVICE_ID, REFRESH_TOKEN)).isFalse();
+            assertThat(
+                            multiDeviceTokenService.isWithinRotationGrace(
+                                    TEST_USER_ID, DEVICE_TYPE, DEVICE_ID, REFRESH_TOKEN))
+                    .isFalse();
         }
 
         @Test
@@ -1018,11 +1076,13 @@ class MultiDeviceTokenServiceTest {
         void corruptedPreviousTime_returnsFalse() {
             when(redisTemplate.opsForHash()).thenReturn(hashOperations);
             when(hashOperations.get(SESSION_KEY, "previousRefreshToken"))
-                .thenReturn(MultiDeviceTokenService.hashToken(REFRESH_TOKEN));
+                    .thenReturn(MultiDeviceTokenService.hashToken(REFRESH_TOKEN));
             when(hashOperations.get(SESSION_KEY, "previousRefreshTime")).thenReturn("not-a-number");
 
-            assertThat(multiDeviceTokenService.isWithinRotationGrace(
-                TEST_USER_ID, DEVICE_TYPE, DEVICE_ID, REFRESH_TOKEN)).isFalse();
+            assertThat(
+                            multiDeviceTokenService.isWithinRotationGrace(
+                                    TEST_USER_ID, DEVICE_TYPE, DEVICE_ID, REFRESH_TOKEN))
+                    .isFalse();
         }
     }
 
@@ -1035,11 +1095,12 @@ class MultiDeviceTokenServiceTest {
         void nullPresentedToken_returnsMismatch() {
             when(redisTemplate.opsForHash()).thenReturn(hashOperations);
             when(hashOperations.get(SESSION_KEY, "refreshToken"))
-                .thenReturn(MultiDeviceTokenService.hashToken(REFRESH_TOKEN));
+                    .thenReturn(MultiDeviceTokenService.hashToken(REFRESH_TOKEN));
 
-            assertThat(multiDeviceTokenService.checkRefreshToken(
-                TEST_USER_ID, DEVICE_TYPE, DEVICE_ID, null))
-                .isEqualTo(RefreshTokenMatch.MISMATCH);
+            assertThat(
+                            multiDeviceTokenService.checkRefreshToken(
+                                    TEST_USER_ID, DEVICE_TYPE, DEVICE_ID, null))
+                    .isEqualTo(RefreshTokenMatch.MISMATCH);
         }
     }
 
@@ -1093,10 +1154,10 @@ class MultiDeviceTokenServiceTest {
         void expiredRefresh_notValid() {
             when(redisTemplate.opsForHash()).thenReturn(hashOperations);
             when(hashOperations.entries(SESSION_KEY))
-                .thenReturn(sessionWithRefreshExp(System.currentTimeMillis() - 1000L));
+                    .thenReturn(sessionWithRefreshExp(System.currentTimeMillis() - 1000L));
 
-            Map<String, Object> result = multiDeviceTokenService.getSessionInfo(
-                TEST_USER_ID, DEVICE_TYPE, DEVICE_ID);
+            Map<String, Object> result =
+                    multiDeviceTokenService.getSessionInfo(TEST_USER_ID, DEVICE_TYPE, DEVICE_ID);
 
             assertThat(result.get("refreshTokenValid")).isEqualTo(false);
             assertThat(result.get("canRenewRefreshToken")).isEqualTo(false);
@@ -1108,13 +1169,15 @@ class MultiDeviceTokenServiceTest {
         void shouldNotRenew_cannotRenew() {
             when(redisTemplate.opsForHash()).thenReturn(hashOperations);
             when(hashOperations.entries(SESSION_KEY))
-                .thenReturn(sessionWithRefreshExp(
-                    System.currentTimeMillis() + Duration.ofDays(60).toMillis()));
+                    .thenReturn(
+                            sessionWithRefreshExp(
+                                    System.currentTimeMillis() + Duration.ofDays(60).toMillis()));
             when(slidingExpirationService.shouldRenewByRemainingMillis(
-                org.mockito.ArgumentMatchers.anyLong())).thenReturn(false);
+                            org.mockito.ArgumentMatchers.anyLong()))
+                    .thenReturn(false);
 
-            Map<String, Object> result = multiDeviceTokenService.getSessionInfo(
-                TEST_USER_ID, DEVICE_TYPE, DEVICE_ID);
+            Map<String, Object> result =
+                    multiDeviceTokenService.getSessionInfo(TEST_USER_ID, DEVICE_TYPE, DEVICE_ID);
 
             assertThat(result.get("refreshTokenValid")).isEqualTo(true);
             assertThat(result.get("shouldRenewRefreshToken")).isEqualTo(false);
@@ -1127,14 +1190,16 @@ class MultiDeviceTokenServiceTest {
         void beyondMaxLifetime_cannotRenew() {
             when(redisTemplate.opsForHash()).thenReturn(hashOperations);
             when(hashOperations.entries(SESSION_KEY))
-                .thenReturn(sessionWithRefreshExp(
-                    System.currentTimeMillis() + Duration.ofDays(60).toMillis()));
+                    .thenReturn(
+                            sessionWithRefreshExp(
+                                    System.currentTimeMillis() + Duration.ofDays(60).toMillis()));
             when(slidingExpirationService.shouldRenewByRemainingMillis(
-                org.mockito.ArgumentMatchers.anyLong())).thenReturn(true);
+                            org.mockito.ArgumentMatchers.anyLong()))
+                    .thenReturn(true);
             when(slidingExpirationService.isSessionWithinMaxLifetime(any())).thenReturn(false);
 
-            Map<String, Object> result = multiDeviceTokenService.getSessionInfo(
-                TEST_USER_ID, DEVICE_TYPE, DEVICE_ID);
+            Map<String, Object> result =
+                    multiDeviceTokenService.getSessionInfo(TEST_USER_ID, DEVICE_TYPE, DEVICE_ID);
 
             assertThat(result.get("shouldRenewRefreshToken")).isEqualTo(true);
             assertThat(result.get("canRenewRefreshToken")).isEqualTo(false);
@@ -1149,8 +1214,8 @@ class MultiDeviceTokenServiceTest {
             when(hashOperations.entries(SESSION_KEY)).thenReturn(sessionData);
             when(jwtUtil.getRemainingTime(REFRESH_TOKEN)).thenThrow(new RuntimeException("bad"));
 
-            Map<String, Object> result = multiDeviceTokenService.getSessionInfo(
-                TEST_USER_ID, DEVICE_TYPE, DEVICE_ID);
+            Map<String, Object> result =
+                    multiDeviceTokenService.getSessionInfo(TEST_USER_ID, DEVICE_TYPE, DEVICE_ID);
 
             assertThat(result.get("refreshTokenRemaining")).isEqualTo(0L);
             assertThat(result.get("refreshTokenValid")).isEqualTo(false);
@@ -1220,7 +1285,7 @@ class MultiDeviceTokenServiceTest {
 
             Session session = result.get(0);
             assertThat(session.getAccessTokenRemaining())
-                .isEqualTo(java.math.BigInteger.valueOf(5_000L));
+                    .isEqualTo(java.math.BigInteger.valueOf(5_000L));
             assertThat(session.isAccessTokenValid()).isTrue();
             // 레거시 refresh 파싱 실패 → 0 취급
             assertThat(session.getRefreshTokenRemaining()).isEqualTo(java.math.BigInteger.ZERO);
@@ -1274,7 +1339,8 @@ class MultiDeviceTokenServiceTest {
             when(redisTemplate.opsForHash()).thenReturn(hashOperations);
             String key1 = "session:" + TEST_USER_ID + ":d1";
             String key2 = "session:" + TEST_USER_ID + ":d2";
-            when(setOperations.members("userSessions:" + TEST_USER_ID)).thenReturn(Set.of(key1, key2));
+            when(setOperations.members("userSessions:" + TEST_USER_ID))
+                    .thenReturn(Set.of(key1, key2));
 
             Map<Object, Object> s1 = new HashMap<>();
             s1.put("deviceType", "ios");
@@ -1285,7 +1351,7 @@ class MultiDeviceTokenServiceTest {
             when(hashOperations.entries(key1)).thenReturn(s1);
             when(hashOperations.entries(key2)).thenReturn(s2);
             when(objectMapper.convertValue(any(), eq(Session.class)))
-                .thenReturn(Session.builder().build());
+                    .thenReturn(Session.builder().build());
 
             multiDeviceTokenService.getSessionStats(TEST_USER_ID);
 
@@ -1309,7 +1375,7 @@ class MultiDeviceTokenServiceTest {
             when(redisTemplate.keys("session:*")).thenReturn(Set.of("session:"));
             when(redisTemplate.opsForHash()).thenReturn(hashOperations);
             when(hashOperations.get("session:", "refreshExpiresAt"))
-                .thenReturn(String.valueOf(System.currentTimeMillis() - 1000L));
+                    .thenReturn(String.valueOf(System.currentTimeMillis() - 1000L));
 
             assertThat(multiDeviceTokenService.cleanupExpiredSessions()).isEqualTo(1);
 
@@ -1339,13 +1405,13 @@ class MultiDeviceTokenServiceTest {
         private void stubNewAccess() {
             when(jwtUtil.getJtiFromToken("new-access-token")).thenReturn("new-access-jti");
             when(jwtUtil.getRemainingTime("new-access-token"))
-                .thenReturn(Duration.ofHours(24).toMillis());
+                    .thenReturn(Duration.ofHours(24).toMillis());
         }
 
         private void stubNewRefresh() {
             when(jwtUtil.getJtiFromToken("new-refresh-token")).thenReturn("new-refresh-jti");
             when(jwtUtil.getRemainingTime("new-refresh-token"))
-                .thenReturn(Duration.ofDays(90).toMillis());
+                    .thenReturn(Duration.ofDays(90).toMillis());
         }
 
         /** rotation 경로가 읽는 previous* 필드를 전부 없음으로 고정 (strict stubs) */
@@ -1365,7 +1431,7 @@ class MultiDeviceTokenServiceTest {
             when(hashOperations.get(SESSION_KEY, "refreshToken")).thenReturn(null);
 
             multiDeviceTokenService.updateTokens(
-                TEST_USER_ID, DEVICE_TYPE, DEVICE_ID, "bad-access", null);
+                    TEST_USER_ID, DEVICE_TYPE, DEVICE_ID, "bad-access", null);
 
             verify(hashOperations, never()).putAll(eq(SESSION_KEY), any());
             verify(hashOperations).delete(SESSION_KEY, "accessToken");
@@ -1378,10 +1444,10 @@ class MultiDeviceTokenServiceTest {
             when(redisTemplate.opsForHash()).thenReturn(hashOperations);
             stubNewAccess();
             when(hashOperations.get(SESSION_KEY, "refreshExpiresAt"))
-                .thenReturn(String.valueOf(System.currentTimeMillis() - 1000L));
+                    .thenReturn(String.valueOf(System.currentTimeMillis() - 1000L));
 
             multiDeviceTokenService.updateTokens(
-                TEST_USER_ID, DEVICE_TYPE, DEVICE_ID, "new-access-token", null);
+                    TEST_USER_ID, DEVICE_TYPE, DEVICE_ID, "new-access-token", null);
 
             verify(redisTemplate).expire(eq(SESSION_KEY), eq(Duration.ofDays(1)));
         }
@@ -1393,10 +1459,11 @@ class MultiDeviceTokenServiceTest {
             stubNewAccess();
             when(hashOperations.get(SESSION_KEY, "refreshExpiresAt")).thenReturn(null);
             when(hashOperations.get(SESSION_KEY, "refreshToken")).thenReturn(REFRESH_TOKEN);
-            when(jwtUtil.getRemainingTime(REFRESH_TOKEN)).thenReturn(Duration.ofDays(10).toMillis());
+            when(jwtUtil.getRemainingTime(REFRESH_TOKEN))
+                    .thenReturn(Duration.ofDays(10).toMillis());
 
             multiDeviceTokenService.updateTokens(
-                TEST_USER_ID, DEVICE_TYPE, DEVICE_ID, "new-access-token", null);
+                    TEST_USER_ID, DEVICE_TYPE, DEVICE_ID, "new-access-token", null);
 
             verify(redisTemplate).expire(eq(SESSION_KEY), eq(Duration.ofDays(11)));
         }
@@ -1408,10 +1475,10 @@ class MultiDeviceTokenServiceTest {
             stubNewAccess();
             when(hashOperations.get(SESSION_KEY, "refreshExpiresAt")).thenReturn(null);
             when(hashOperations.get(SESSION_KEY, "refreshToken"))
-                .thenReturn(MultiDeviceTokenService.hashToken(REFRESH_TOKEN));
+                    .thenReturn(MultiDeviceTokenService.hashToken(REFRESH_TOKEN));
 
             multiDeviceTokenService.updateTokens(
-                TEST_USER_ID, DEVICE_TYPE, DEVICE_ID, "new-access-token", null);
+                    TEST_USER_ID, DEVICE_TYPE, DEVICE_ID, "new-access-token", null);
 
             verify(redisTemplate).expire(eq(SESSION_KEY), eq(Duration.ofDays(1)));
             verify(jwtUtil, never()).getRemainingTime(REFRESH_TOKEN);
@@ -1427,7 +1494,7 @@ class MultiDeviceTokenServiceTest {
             when(hashOperations.get(SESSION_KEY, "refreshToken")).thenReturn(null);
 
             multiDeviceTokenService.updateTokens(
-                TEST_USER_ID, DEVICE_TYPE, DEVICE_ID, "new-access-token", "new-refresh-token");
+                    TEST_USER_ID, DEVICE_TYPE, DEVICE_ID, "new-access-token", "new-refresh-token");
 
             Map<String, String> stored = captureAllPutFields();
             assertThat(stored).doesNotContainKeys("previousRefreshToken", "previousRefreshTime");
@@ -1448,7 +1515,7 @@ class MultiDeviceTokenServiceTest {
             when(jwtUtil.getRemainingTime(REFRESH_TOKEN)).thenReturn(1_000L);
 
             multiDeviceTokenService.updateTokens(
-                TEST_USER_ID, DEVICE_TYPE, DEVICE_ID, "new-access-token", "new-refresh-token");
+                    TEST_USER_ID, DEVICE_TYPE, DEVICE_ID, "new-access-token", "new-refresh-token");
 
             Map<String, String> stored = captureAllPutFields();
             assertThat(stored.get("previousRefreshToken")).isEqualTo(REFRESH_TOKEN);
@@ -1469,7 +1536,7 @@ class MultiDeviceTokenServiceTest {
             when(jwtUtil.getJtiFromToken(REFRESH_TOKEN)).thenThrow(new RuntimeException("bad"));
 
             multiDeviceTokenService.updateTokens(
-                TEST_USER_ID, DEVICE_TYPE, DEVICE_ID, "new-access-token", "new-refresh-token");
+                    TEST_USER_ID, DEVICE_TYPE, DEVICE_ID, "new-access-token", "new-refresh-token");
 
             Map<String, String> stored = captureAllPutFields();
             assertThat(stored.get("previousRefreshToken")).isEqualTo(REFRESH_TOKEN);
@@ -1484,12 +1551,12 @@ class MultiDeviceTokenServiceTest {
             stubNewRefresh();
             stubNoPrevious();
             when(hashOperations.get(SESSION_KEY, "refreshToken"))
-                .thenReturn(MultiDeviceTokenService.hashToken(REFRESH_TOKEN));
+                    .thenReturn(MultiDeviceTokenService.hashToken(REFRESH_TOKEN));
             when(hashOperations.get(SESSION_KEY, "refreshJti")).thenReturn(null);
             when(hashOperations.get(SESSION_KEY, "refreshExpiresAt")).thenReturn("1893456000000");
 
             multiDeviceTokenService.updateTokens(
-                TEST_USER_ID, DEVICE_TYPE, DEVICE_ID, "new-access-token", "new-refresh-token");
+                    TEST_USER_ID, DEVICE_TYPE, DEVICE_ID, "new-access-token", "new-refresh-token");
 
             Map<String, String> stored = captureAllPutFields();
             assertThat(stored).doesNotContainKey("previousRefreshJti");
@@ -1515,7 +1582,7 @@ class MultiDeviceTokenServiceTest {
             when(hashOperations.get(SESSION_KEY, "refreshJti")).thenReturn(null);
             when(hashOperations.get(SESSION_KEY, "refreshExpiresAt")).thenReturn(null);
             when(hashOperations.get(SESSION_KEY, "refreshToken"))
-                .thenReturn(MultiDeviceTokenService.hashToken(REFRESH_TOKEN));
+                    .thenReturn(MultiDeviceTokenService.hashToken(REFRESH_TOKEN));
             when(hashOperations.get(SESSION_KEY, "previousRefreshJti")).thenReturn("prev-jti");
             when(hashOperations.get(SESSION_KEY, "previousRefreshExpiresAt")).thenReturn(null);
             when(hashOperations.get(SESSION_KEY, "previousRefreshToken")).thenReturn("old-plain");
@@ -1525,9 +1592,10 @@ class MultiDeviceTokenServiceTest {
 
             multiDeviceTokenService.logout(TEST_USER_ID, DEVICE_TYPE, DEVICE_ID);
 
-            verify(valueOperations).set(eq("blacklist:old-jti"), eq("revoked"), any(Duration.class));
+            verify(valueOperations)
+                    .set(eq("blacklist:old-jti"), eq("revoked"), any(Duration.class));
             verify(valueOperations, org.mockito.Mockito.times(1))
-                .set(anyString(), anyString(), any(Duration.class));
+                    .set(anyString(), anyString(), any(Duration.class));
             verify(redisTemplate).delete(SESSION_KEY);
         }
 
@@ -1543,11 +1611,12 @@ class MultiDeviceTokenServiceTest {
             when(hashOperations.get(SESSION_KEY, "refreshJti")).thenReturn(null);
             when(hashOperations.get(SESSION_KEY, "refreshExpiresAt")).thenReturn("1893456000000");
             when(hashOperations.get(SESSION_KEY, "refreshToken"))
-                .thenReturn(MultiDeviceTokenService.hashToken(REFRESH_TOKEN));
+                    .thenReturn(MultiDeviceTokenService.hashToken(REFRESH_TOKEN));
             when(hashOperations.get(SESSION_KEY, "previousRefreshJti")).thenReturn(null);
-            when(hashOperations.get(SESSION_KEY, "previousRefreshExpiresAt")).thenReturn("1893456000000");
+            when(hashOperations.get(SESSION_KEY, "previousRefreshExpiresAt"))
+                    .thenReturn("1893456000000");
             when(hashOperations.get(SESSION_KEY, "previousRefreshToken"))
-                .thenReturn(MultiDeviceTokenService.hashToken("old"));
+                    .thenReturn(MultiDeviceTokenService.hashToken("old"));
 
             multiDeviceTokenService.logout(TEST_USER_ID, DEVICE_TYPE, DEVICE_ID);
 
@@ -1564,7 +1633,8 @@ class MultiDeviceTokenServiceTest {
         private static final String USER_SESSIONS_KEY = "userSessions:" + TEST_USER_ID;
         private static final String KEY_IOS = "session:" + TEST_USER_ID + ":ios:" + DEVICE_ID;
         private static final String KEY_WEB = "session:" + TEST_USER_ID + ":web:" + DEVICE_ID;
-        private static final String KEY_ANDROID = "session:" + TEST_USER_ID + ":android:" + DEVICE_ID;
+        private static final String KEY_ANDROID =
+                "session:" + TEST_USER_ID + ":android:" + DEVICE_ID;
         private static final String KEY_DEAD = "session:" + TEST_USER_ID + ":ipad:" + DEVICE_ID;
 
         @Test
@@ -1576,7 +1646,7 @@ class MultiDeviceTokenServiceTest {
             when(hashOperations.get(SESSION_KEY, "loginTime")).thenReturn("100");
 
             assertThat(multiDeviceTokenService.getLoginTime(TEST_USER_ID, DEVICE_TYPE, DEVICE_ID))
-                .isEqualTo(100L);
+                    .isEqualTo(100L);
             verify(redisTemplate, never()).rename(anyString(), anyString());
         }
 
@@ -1584,11 +1654,16 @@ class MultiDeviceTokenServiceTest {
         @DisplayName("요청 deviceType 키가 없으면 가장 최근 활동 키를 이관하고 나머지 중복은 정리한다")
         void picksMostRecentLegacyAndRemovesDuplicates() {
             when(redisTemplate.hasKey(SESSION_KEY)).thenReturn(false);
-            when(setOperations.members(USER_SESSIONS_KEY)).thenReturn(Set.of(
-                KEY_IOS, KEY_WEB, KEY_ANDROID, KEY_DEAD,
-                "session:" + TEST_USER_ID + ":ios:other-device", // suffix 불일치
-                "other:" + TEST_USER_ID + ":ios:" + DEVICE_ID,   // prefix 불일치
-                SESSION_KEY));                                     // 신 키 자체는 제외
+            when(setOperations.members(USER_SESSIONS_KEY))
+                    .thenReturn(
+                            Set.of(
+                                    KEY_IOS,
+                                    KEY_WEB,
+                                    KEY_ANDROID,
+                                    KEY_DEAD,
+                                    "session:" + TEST_USER_ID + ":ios:other-device", // suffix 불일치
+                                    "other:" + TEST_USER_ID + ":ios:" + DEVICE_ID, // prefix 불일치
+                                    SESSION_KEY)); // 신 키 자체는 제외
             when(redisTemplate.hasKey(KEY_IOS)).thenReturn(true);
             when(redisTemplate.hasKey(KEY_WEB)).thenReturn(true);
             when(redisTemplate.hasKey(KEY_ANDROID)).thenReturn(true);
@@ -1625,12 +1700,13 @@ class MultiDeviceTokenServiceTest {
             when(redisTemplate.hasKey(KEY_IOS)).thenReturn(true);
             when(setOperations.members(USER_SESSIONS_KEY)).thenReturn(Set.of(KEY_IOS));
             org.mockito.Mockito.doThrow(new RuntimeException("redis down"))
-                .when(redisTemplate).rename(KEY_IOS, SESSION_KEY);
+                    .when(redisTemplate)
+                    .rename(KEY_IOS, SESSION_KEY);
             when(redisTemplate.opsForHash()).thenReturn(hashOperations);
             when(hashOperations.get(KEY_IOS, "loginTime")).thenReturn("123");
 
             assertThat(multiDeviceTokenService.getLoginTime(TEST_USER_ID, "ios", DEVICE_ID))
-                .isEqualTo(123L);
+                    .isEqualTo(123L);
             verify(setOperations, never()).add(USER_SESSIONS_KEY, SESSION_KEY);
         }
     }

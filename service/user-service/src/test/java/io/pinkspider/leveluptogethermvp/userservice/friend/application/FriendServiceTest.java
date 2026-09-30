@@ -4,20 +4,17 @@ import static io.pinkspider.global.test.TestReflectionUtils.setId;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyInt;
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import io.pinkspider.global.enums.TitlePosition;
+import io.pinkspider.global.enums.TitleRarity;
 import io.pinkspider.global.event.FriendRemovedEvent;
 import io.pinkspider.global.event.FriendRequestAcceptedEvent;
 import io.pinkspider.global.event.FriendRequestEvent;
 import io.pinkspider.global.event.FriendRequestProcessedEvent;
 import io.pinkspider.global.event.FriendRequestRejectedEvent;
-import io.pinkspider.global.enums.TitlePosition;
-import io.pinkspider.global.enums.TitleRarity;
 import io.pinkspider.global.facade.GamificationQueryFacade;
 import io.pinkspider.global.facade.dto.EquippedItemRarityDto;
 import io.pinkspider.global.facade.dto.UserTitleDto;
@@ -47,42 +44,31 @@ import org.springframework.data.domain.Pageable;
 @ExtendWith(MockitoExtension.class)
 class FriendServiceTest {
 
-    @Mock
-    private FriendshipRepository friendshipRepository;
+    @Mock private FriendshipRepository friendshipRepository;
 
-    @Mock
-    private FriendCacheService friendCacheService;
+    @Mock private FriendCacheService friendCacheService;
 
-    @Mock
-    private ApplicationEventPublisher eventPublisher;
+    @Mock private ApplicationEventPublisher eventPublisher;
 
-    @Mock
-    private UserRepository userRepository;
+    @Mock private UserRepository userRepository;
 
-    @Mock
-    private GamificationQueryFacade gamificationQueryFacadeService;
+    @Mock private GamificationQueryFacade gamificationQueryFacadeService;
 
-    @InjectMocks
-    private FriendService friendService;
+    @InjectMocks private FriendService friendService;
 
     private static final String TEST_USER_ID = "test-user-123";
     private static final String FRIEND_USER_ID = "friend-user-456";
 
-    private Friendship createTestFriendship(Long id, String userId, String friendId, FriendshipStatus status) {
-        Friendship friendship = Friendship.builder()
-            .userId(userId)
-            .friendId(friendId)
-            .status(status)
-            .build();
+    private Friendship createTestFriendship(
+            Long id, String userId, String friendId, FriendshipStatus status) {
+        Friendship friendship =
+                Friendship.builder().userId(userId).friendId(friendId).status(status).build();
         setId(friendship, id);
         return friendship;
     }
 
     private Users createTestUser(String userId, String nickname) {
-        Users user = Users.builder()
-            .nickname(nickname)
-            .email(userId + "@test.com")
-            .build();
+        Users user = Users.builder().nickname(nickname).email(userId + "@test.com").build();
         setId(user, userId);
         return user;
     }
@@ -95,14 +81,17 @@ class FriendServiceTest {
         @DisplayName("친구 요청을 정상적으로 보낸다")
         void sendFriendRequest_success() {
             // given (LUT-383: 방향별 조회 — 미스텁 findByUserIdAndFriendId 는 Optional.empty)
-            Friendship savedFriendship = createTestFriendship(1L, TEST_USER_ID, FRIEND_USER_ID, FriendshipStatus.PENDING);
+            Friendship savedFriendship =
+                    createTestFriendship(
+                            1L, TEST_USER_ID, FRIEND_USER_ID, FriendshipStatus.PENDING);
             Users requester = createTestUser(TEST_USER_ID, "테스터");
 
             when(friendshipRepository.save(any(Friendship.class))).thenReturn(savedFriendship);
             when(userRepository.findById(TEST_USER_ID)).thenReturn(Optional.of(requester));
 
             // when
-            FriendRequestResponse result = friendService.sendFriendRequest(TEST_USER_ID, FRIEND_USER_ID, "친구하자!");
+            FriendRequestResponse result =
+                    friendService.sendFriendRequest(TEST_USER_ID, FRIEND_USER_ID, "친구하자!");
 
             // then
             assertThat(result).isNotNull();
@@ -114,71 +103,94 @@ class FriendServiceTest {
         @DisplayName("자기 자신에게 친구 요청을 보내면 예외가 발생한다")
         void sendFriendRequest_toSelf_throwsException() {
             // when & then
-            assertThatThrownBy(() -> friendService.sendFriendRequest(TEST_USER_ID, TEST_USER_ID, "메시지"))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessage("자기 자신에게 친구 요청을 보낼 수 없습니다.");
+            assertThatThrownBy(
+                            () ->
+                                    friendService.sendFriendRequest(
+                                            TEST_USER_ID, TEST_USER_ID, "메시지"))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessage("자기 자신에게 친구 요청을 보낼 수 없습니다.");
         }
 
         @Test
         @DisplayName("이미 친구인 경우 예외가 발생한다")
         void sendFriendRequest_alreadyFriends_throwsException() {
             // given
-            Friendship existingFriendship = createTestFriendship(1L, TEST_USER_ID, FRIEND_USER_ID, FriendshipStatus.ACCEPTED);
+            Friendship existingFriendship =
+                    createTestFriendship(
+                            1L, TEST_USER_ID, FRIEND_USER_ID, FriendshipStatus.ACCEPTED);
 
             when(friendshipRepository.findByUserIdAndFriendId(TEST_USER_ID, FRIEND_USER_ID))
-                .thenReturn(Optional.of(existingFriendship));
+                    .thenReturn(Optional.of(existingFriendship));
 
             // when & then
-            assertThatThrownBy(() -> friendService.sendFriendRequest(TEST_USER_ID, FRIEND_USER_ID, "메시지"))
-                .isInstanceOf(IllegalStateException.class)
-                .hasMessage("이미 친구입니다.");
+            assertThatThrownBy(
+                            () ->
+                                    friendService.sendFriendRequest(
+                                            TEST_USER_ID, FRIEND_USER_ID, "메시지"))
+                    .isInstanceOf(IllegalStateException.class)
+                    .hasMessage("이미 친구입니다.");
         }
 
         @Test
         @DisplayName("이미 요청 중인 경우 예외가 발생한다")
         void sendFriendRequest_alreadyPending_throwsException() {
             // given
-            Friendship pendingFriendship = createTestFriendship(1L, TEST_USER_ID, FRIEND_USER_ID, FriendshipStatus.PENDING);
+            Friendship pendingFriendship =
+                    createTestFriendship(
+                            1L, TEST_USER_ID, FRIEND_USER_ID, FriendshipStatus.PENDING);
 
             when(friendshipRepository.findByUserIdAndFriendId(TEST_USER_ID, FRIEND_USER_ID))
-                .thenReturn(Optional.of(pendingFriendship));
+                    .thenReturn(Optional.of(pendingFriendship));
 
             // when & then
-            assertThatThrownBy(() -> friendService.sendFriendRequest(TEST_USER_ID, FRIEND_USER_ID, "메시지"))
-                .isInstanceOf(IllegalStateException.class)
-                .hasMessage("이미 친구 요청이 진행 중입니다.");
+            assertThatThrownBy(
+                            () ->
+                                    friendService.sendFriendRequest(
+                                            TEST_USER_ID, FRIEND_USER_ID, "메시지"))
+                    .isInstanceOf(IllegalStateException.class)
+                    .hasMessage("이미 친구 요청이 진행 중입니다.");
         }
 
         @Test
         @DisplayName("내가 차단한 사용자에게 친구 요청을 보내면 예외가 발생한다")
         void sendFriendRequest_blocked_throwsException() {
             // given: 내(발신자)가 상대를 차단한 행 — 차단자에게는 에러를 그대로 노출
-            Friendship blockedFriendship = createTestFriendship(1L, TEST_USER_ID, FRIEND_USER_ID, FriendshipStatus.BLOCKED);
+            Friendship blockedFriendship =
+                    createTestFriendship(
+                            1L, TEST_USER_ID, FRIEND_USER_ID, FriendshipStatus.BLOCKED);
 
             when(friendshipRepository.findByUserIdAndFriendId(TEST_USER_ID, FRIEND_USER_ID))
-                .thenReturn(Optional.of(blockedFriendship));
+                    .thenReturn(Optional.of(blockedFriendship));
 
             // when & then
-            assertThatThrownBy(() -> friendService.sendFriendRequest(TEST_USER_ID, FRIEND_USER_ID, "메시지"))
-                .isInstanceOf(IllegalStateException.class)
-                .hasMessage("차단된 사용자에게 친구 요청을 보낼 수 없습니다.");
+            assertThatThrownBy(
+                            () ->
+                                    friendService.sendFriendRequest(
+                                            TEST_USER_ID, FRIEND_USER_ID, "메시지"))
+                    .isInstanceOf(IllegalStateException.class)
+                    .hasMessage("차단된 사용자에게 친구 요청을 보낼 수 없습니다.");
         }
 
         @Test
         @DisplayName("LUT-383: 상대가 나를 차단했으면 요청은 저장되지만 알림 이벤트는 발행되지 않는다 (shadow block)")
         void sendFriendRequest_shadowBlocked_savedWithoutEvent() {
             // given: 상대(FRIEND_USER_ID)가 나(TEST_USER_ID)를 차단한 행만 존재
-            Friendship reverseBlocked = createTestFriendship(9L, FRIEND_USER_ID, TEST_USER_ID, FriendshipStatus.BLOCKED);
-            Friendship savedFriendship = createTestFriendship(1L, TEST_USER_ID, FRIEND_USER_ID, FriendshipStatus.PENDING);
+            Friendship reverseBlocked =
+                    createTestFriendship(
+                            9L, FRIEND_USER_ID, TEST_USER_ID, FriendshipStatus.BLOCKED);
+            Friendship savedFriendship =
+                    createTestFriendship(
+                            1L, TEST_USER_ID, FRIEND_USER_ID, FriendshipStatus.PENDING);
 
             when(friendshipRepository.findByUserIdAndFriendId(TEST_USER_ID, FRIEND_USER_ID))
-                .thenReturn(Optional.empty());
+                    .thenReturn(Optional.empty());
             when(friendshipRepository.findByUserIdAndFriendId(FRIEND_USER_ID, TEST_USER_ID))
-                .thenReturn(Optional.of(reverseBlocked));
+                    .thenReturn(Optional.of(reverseBlocked));
             when(friendshipRepository.save(any(Friendship.class))).thenReturn(savedFriendship);
 
             // when
-            FriendRequestResponse result = friendService.sendFriendRequest(TEST_USER_ID, FRIEND_USER_ID, "친구하자!");
+            FriendRequestResponse result =
+                    friendService.sendFriendRequest(TEST_USER_ID, FRIEND_USER_ID, "친구하자!");
 
             // then: 정상 성공 응답으로 위장(요청됨 상태 유지)하되, 상대에게 가는 알림은 없다
             assertThat(result).isNotNull();
@@ -190,16 +202,19 @@ class FriendServiceTest {
         @DisplayName("거절된 후 다시 친구 요청을 보낼 수 있다")
         void sendFriendRequest_afterRejected_success() {
             // given
-            Friendship rejectedFriendship = createTestFriendship(1L, TEST_USER_ID, FRIEND_USER_ID, FriendshipStatus.REJECTED);
+            Friendship rejectedFriendship =
+                    createTestFriendship(
+                            1L, TEST_USER_ID, FRIEND_USER_ID, FriendshipStatus.REJECTED);
             Users requester = createTestUser(TEST_USER_ID, "테스터");
 
             when(friendshipRepository.findByUserIdAndFriendId(TEST_USER_ID, FRIEND_USER_ID))
-                .thenReturn(Optional.of(rejectedFriendship));
+                    .thenReturn(Optional.of(rejectedFriendship));
             when(friendshipRepository.save(any(Friendship.class))).thenReturn(rejectedFriendship);
             when(userRepository.findById(TEST_USER_ID)).thenReturn(Optional.of(requester));
 
             // when
-            FriendRequestResponse result = friendService.sendFriendRequest(TEST_USER_ID, FRIEND_USER_ID, "다시 친구하자!");
+            FriendRequestResponse result =
+                    friendService.sendFriendRequest(TEST_USER_ID, FRIEND_USER_ID, "다시 친구하자!");
 
             // then
             assertThat(result).isNotNull();
@@ -218,7 +233,9 @@ class FriendServiceTest {
         void acceptFriendRequest_success() {
             // given
             Long requestId = 1L;
-            Friendship friendship = createTestFriendship(requestId, FRIEND_USER_ID, TEST_USER_ID, FriendshipStatus.PENDING);
+            Friendship friendship =
+                    createTestFriendship(
+                            requestId, FRIEND_USER_ID, TEST_USER_ID, FriendshipStatus.PENDING);
             Users accepter = createTestUser(TEST_USER_ID, "수락자");
 
             when(friendshipRepository.findById(requestId)).thenReturn(Optional.of(friendship));
@@ -242,8 +259,8 @@ class FriendServiceTest {
 
             // when & then
             assertThatThrownBy(() -> friendService.acceptFriendRequest(TEST_USER_ID, 999L))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessage("친구 요청을 찾을 수 없습니다.");
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessage("친구 요청을 찾을 수 없습니다.");
         }
 
         @Test
@@ -252,14 +269,16 @@ class FriendServiceTest {
             // given
             Long requestId = 1L;
             String otherUserId = "other-user-789";
-            Friendship friendship = createTestFriendship(requestId, FRIEND_USER_ID, otherUserId, FriendshipStatus.PENDING);
+            Friendship friendship =
+                    createTestFriendship(
+                            requestId, FRIEND_USER_ID, otherUserId, FriendshipStatus.PENDING);
 
             when(friendshipRepository.findById(requestId)).thenReturn(Optional.of(friendship));
 
             // when & then
             assertThatThrownBy(() -> friendService.acceptFriendRequest(TEST_USER_ID, requestId))
-                .isInstanceOf(IllegalStateException.class)
-                .hasMessage("본인에게 온 요청만 수락할 수 있습니다.");
+                    .isInstanceOf(IllegalStateException.class)
+                    .hasMessage("본인에게 온 요청만 수락할 수 있습니다.");
         }
     }
 
@@ -272,7 +291,9 @@ class FriendServiceTest {
         void rejectFriendRequest_success() {
             // given
             Long requestId = 1L;
-            Friendship friendship = createTestFriendship(requestId, FRIEND_USER_ID, TEST_USER_ID, FriendshipStatus.PENDING);
+            Friendship friendship =
+                    createTestFriendship(
+                            requestId, FRIEND_USER_ID, TEST_USER_ID, FriendshipStatus.PENDING);
 
             when(friendshipRepository.findById(requestId)).thenReturn(Optional.of(friendship));
 
@@ -289,7 +310,9 @@ class FriendServiceTest {
         void rejectFriendRequest_doesNotPublishRejectedEvent() {
             // given
             Long requestId = 1L;
-            Friendship friendship = createTestFriendship(requestId, FRIEND_USER_ID, TEST_USER_ID, FriendshipStatus.PENDING);
+            Friendship friendship =
+                    createTestFriendship(
+                            requestId, FRIEND_USER_ID, TEST_USER_ID, FriendshipStatus.PENDING);
 
             when(friendshipRepository.findById(requestId)).thenReturn(Optional.of(friendship));
 
@@ -309,10 +332,12 @@ class FriendServiceTest {
         @DisplayName("친구를 정상적으로 삭제한다")
         void removeFriend_success() {
             // given
-            Friendship friendship = createTestFriendship(1L, TEST_USER_ID, FRIEND_USER_ID, FriendshipStatus.ACCEPTED);
+            Friendship friendship =
+                    createTestFriendship(
+                            1L, TEST_USER_ID, FRIEND_USER_ID, FriendshipStatus.ACCEPTED);
 
             when(friendshipRepository.findFriendship(TEST_USER_ID, FRIEND_USER_ID))
-                .thenReturn(Optional.of(friendship));
+                    .thenReturn(Optional.of(friendship));
 
             // when
             friendService.removeFriend(TEST_USER_ID, FRIEND_USER_ID);
@@ -326,15 +351,17 @@ class FriendServiceTest {
         @DisplayName("친구 관계가 아닌 경우 예외가 발생한다")
         void removeFriend_notFriends_throwsException() {
             // given
-            Friendship friendship = createTestFriendship(1L, TEST_USER_ID, FRIEND_USER_ID, FriendshipStatus.PENDING);
+            Friendship friendship =
+                    createTestFriendship(
+                            1L, TEST_USER_ID, FRIEND_USER_ID, FriendshipStatus.PENDING);
 
             when(friendshipRepository.findFriendship(TEST_USER_ID, FRIEND_USER_ID))
-                .thenReturn(Optional.of(friendship));
+                    .thenReturn(Optional.of(friendship));
 
             // when & then
             assertThatThrownBy(() -> friendService.removeFriend(TEST_USER_ID, FRIEND_USER_ID))
-                .isInstanceOf(IllegalStateException.class)
-                .hasMessage("친구 관계가 아닙니다.");
+                    .isInstanceOf(IllegalStateException.class)
+                    .hasMessage("친구 관계가 아닙니다.");
         }
     }
 
@@ -346,10 +373,12 @@ class FriendServiceTest {
         @DisplayName("기존 친구 관계가 있는 사용자를 차단하면 FriendRemovedEvent가 발행된다")
         void blockUser_existingAcceptedRelation() {
             // given
-            Friendship friendship = createTestFriendship(1L, TEST_USER_ID, FRIEND_USER_ID, FriendshipStatus.ACCEPTED);
+            Friendship friendship =
+                    createTestFriendship(
+                            1L, TEST_USER_ID, FRIEND_USER_ID, FriendshipStatus.ACCEPTED);
 
             when(friendshipRepository.findByUserIdAndFriendId(TEST_USER_ID, FRIEND_USER_ID))
-                .thenReturn(Optional.of(friendship));
+                    .thenReturn(Optional.of(friendship));
 
             // when
             friendService.blockUser(TEST_USER_ID, FRIEND_USER_ID);
@@ -363,10 +392,12 @@ class FriendServiceTest {
         @DisplayName("PENDING 관계인 사용자를 차단하면 FriendRemovedEvent가 발행되지 않는다")
         void blockUser_existingPendingRelation_noEvent() {
             // given
-            Friendship friendship = createTestFriendship(1L, TEST_USER_ID, FRIEND_USER_ID, FriendshipStatus.PENDING);
+            Friendship friendship =
+                    createTestFriendship(
+                            1L, TEST_USER_ID, FRIEND_USER_ID, FriendshipStatus.PENDING);
 
             when(friendshipRepository.findByUserIdAndFriendId(TEST_USER_ID, FRIEND_USER_ID))
-                .thenReturn(Optional.of(friendship));
+                    .thenReturn(Optional.of(friendship));
 
             // when
             friendService.blockUser(TEST_USER_ID, FRIEND_USER_ID);
@@ -381,7 +412,7 @@ class FriendServiceTest {
         void blockUser_noExistingRelation() {
             // given
             when(friendshipRepository.findByUserIdAndFriendId(TEST_USER_ID, FRIEND_USER_ID))
-                .thenReturn(Optional.empty());
+                    .thenReturn(Optional.empty());
 
             // when
             friendService.blockUser(TEST_USER_ID, FRIEND_USER_ID);
@@ -394,11 +425,13 @@ class FriendServiceTest {
         @DisplayName("LUT-367: 상대가 만든 ACCEPTED 행이 있으면 삭제해 친구 집계에서 제외한다")
         void blockUser_reverseAcceptedRow_deleted() {
             // given: 친구 관계 행이 상대(요청자) 방향으로 존재
-            Friendship reverse = createTestFriendship(2L, FRIEND_USER_ID, TEST_USER_ID, FriendshipStatus.ACCEPTED);
+            Friendship reverse =
+                    createTestFriendship(
+                            2L, FRIEND_USER_ID, TEST_USER_ID, FriendshipStatus.ACCEPTED);
             when(friendshipRepository.findByUserIdAndFriendId(TEST_USER_ID, FRIEND_USER_ID))
-                .thenReturn(Optional.empty());
+                    .thenReturn(Optional.empty());
             when(friendshipRepository.findByUserIdAndFriendId(FRIEND_USER_ID, TEST_USER_ID))
-                .thenReturn(Optional.of(reverse));
+                    .thenReturn(Optional.of(reverse));
 
             // when
             friendService.blockUser(TEST_USER_ID, FRIEND_USER_ID);
@@ -413,11 +446,13 @@ class FriendServiceTest {
         @DisplayName("LUT-367: 상대도 나를 차단한 행(BLOCKED)은 유지한다")
         void blockUser_reverseBlockedRow_kept() {
             // given
-            Friendship reverse = createTestFriendship(2L, FRIEND_USER_ID, TEST_USER_ID, FriendshipStatus.BLOCKED);
+            Friendship reverse =
+                    createTestFriendship(
+                            2L, FRIEND_USER_ID, TEST_USER_ID, FriendshipStatus.BLOCKED);
             when(friendshipRepository.findByUserIdAndFriendId(TEST_USER_ID, FRIEND_USER_ID))
-                .thenReturn(Optional.empty());
+                    .thenReturn(Optional.empty());
             when(friendshipRepository.findByUserIdAndFriendId(FRIEND_USER_ID, TEST_USER_ID))
-                .thenReturn(Optional.of(reverse));
+                    .thenReturn(Optional.of(reverse));
 
             // when
             friendService.blockUser(TEST_USER_ID, FRIEND_USER_ID);
@@ -430,8 +465,8 @@ class FriendServiceTest {
         @DisplayName("LUT-367: 자기 자신은 차단할 수 없다")
         void blockUser_self_throws() {
             org.assertj.core.api.Assertions.assertThatThrownBy(
-                    () -> friendService.blockUser(TEST_USER_ID, TEST_USER_ID))
-                .isInstanceOf(IllegalArgumentException.class);
+                            () -> friendService.blockUser(TEST_USER_ID, TEST_USER_ID))
+                    .isInstanceOf(IllegalArgumentException.class);
         }
     }
 
@@ -443,10 +478,12 @@ class FriendServiceTest {
         @DisplayName("차단을 정상적으로 해제한다")
         void unblockUser_success() {
             // given
-            Friendship friendship = createTestFriendship(1L, TEST_USER_ID, FRIEND_USER_ID, FriendshipStatus.BLOCKED);
+            Friendship friendship =
+                    createTestFriendship(
+                            1L, TEST_USER_ID, FRIEND_USER_ID, FriendshipStatus.BLOCKED);
 
             when(friendshipRepository.findByUserIdAndFriendId(TEST_USER_ID, FRIEND_USER_ID))
-                .thenReturn(Optional.of(friendship));
+                    .thenReturn(Optional.of(friendship));
 
             // when
             friendService.unblockUser(TEST_USER_ID, FRIEND_USER_ID);
@@ -459,15 +496,17 @@ class FriendServiceTest {
         @DisplayName("차단된 사용자가 아니면 예외가 발생한다")
         void unblockUser_notBlocked_throwsException() {
             // given
-            Friendship friendship = createTestFriendship(1L, TEST_USER_ID, FRIEND_USER_ID, FriendshipStatus.ACCEPTED);
+            Friendship friendship =
+                    createTestFriendship(
+                            1L, TEST_USER_ID, FRIEND_USER_ID, FriendshipStatus.ACCEPTED);
 
             when(friendshipRepository.findByUserIdAndFriendId(TEST_USER_ID, FRIEND_USER_ID))
-                .thenReturn(Optional.of(friendship));
+                    .thenReturn(Optional.of(friendship));
 
             // when & then
             assertThatThrownBy(() -> friendService.unblockUser(TEST_USER_ID, FRIEND_USER_ID))
-                .isInstanceOf(IllegalStateException.class)
-                .hasMessage("차단된 사용자가 아닙니다.");
+                    .isInstanceOf(IllegalStateException.class)
+                    .hasMessage("차단된 사용자가 아닙니다.");
         }
     }
 
@@ -480,18 +519,26 @@ class FriendServiceTest {
         void getFriends_success() {
             // given
             Pageable pageable = PageRequest.of(0, 10);
-            Friendship friendship = createTestFriendship(1L, TEST_USER_ID, FRIEND_USER_ID, FriendshipStatus.ACCEPTED);
+            Friendship friendship =
+                    createTestFriendship(
+                            1L, TEST_USER_ID, FRIEND_USER_ID, FriendshipStatus.ACCEPTED);
             Page<Friendship> page = new PageImpl<>(List.of(friendship), pageable, 1);
             Users friend = createTestUser(FRIEND_USER_ID, "친구");
 
             when(friendshipRepository.findFriends(TEST_USER_ID, pageable)).thenReturn(page);
             when(userRepository.findAllById(List.of(FRIEND_USER_ID))).thenReturn(List.of(friend));
-            when(gamificationQueryFacadeService.getUserLevelMap(List.of(FRIEND_USER_ID))).thenReturn(Map.of());
+            when(gamificationQueryFacadeService.getUserLevelMap(List.of(FRIEND_USER_ID)))
+                    .thenReturn(Map.of());
             when(gamificationQueryFacadeService.getEquippedTitlesByUserIds(List.of(FRIEND_USER_ID)))
-                .thenReturn(Map.of(FRIEND_USER_ID, List.of(
-                    titleDto(FRIEND_USER_ID, "테스트 칭호", TitlePosition.LEFT),
-                    titleDto(FRIEND_USER_ID, "우측 칭호", TitlePosition.RIGHT)
-                )));
+                    .thenReturn(
+                            Map.of(
+                                    FRIEND_USER_ID,
+                                    List.of(
+                                            titleDto(FRIEND_USER_ID, "테스트 칭호", TitlePosition.LEFT),
+                                            titleDto(
+                                                    FRIEND_USER_ID,
+                                                    "우측 칭호",
+                                                    TitlePosition.RIGHT))));
 
             // when
             Page<FriendResponse> result = friendService.getFriends(TEST_USER_ID, pageable);
@@ -507,15 +554,18 @@ class FriendServiceTest {
         void getFriends_withNullTitle_success() {
             // given
             Pageable pageable = PageRequest.of(0, 10);
-            Friendship friendship = createTestFriendship(1L, TEST_USER_ID, FRIEND_USER_ID, FriendshipStatus.ACCEPTED);
+            Friendship friendship =
+                    createTestFriendship(
+                            1L, TEST_USER_ID, FRIEND_USER_ID, FriendshipStatus.ACCEPTED);
             Page<Friendship> page = new PageImpl<>(List.of(friendship), pageable, 1);
             Users friend = createTestUser(FRIEND_USER_ID, "친구");
 
             when(friendshipRepository.findFriends(TEST_USER_ID, pageable)).thenReturn(page);
             when(userRepository.findAllById(List.of(FRIEND_USER_ID))).thenReturn(List.of(friend));
-            when(gamificationQueryFacadeService.getUserLevelMap(List.of(FRIEND_USER_ID))).thenReturn(Map.of());
+            when(gamificationQueryFacadeService.getUserLevelMap(List.of(FRIEND_USER_ID)))
+                    .thenReturn(Map.of());
             when(gamificationQueryFacadeService.getEquippedTitlesByUserIds(List.of(FRIEND_USER_ID)))
-                .thenReturn(Map.of()); // 칭호 없음
+                    .thenReturn(Map.of()); // 칭호 없음
 
             // when
             Page<FriendResponse> result = friendService.getFriends(TEST_USER_ID, pageable);
@@ -532,18 +582,24 @@ class FriendServiceTest {
         void getFriends_returnsEquippedItemRarities() {
             // given
             Pageable pageable = PageRequest.of(0, 10);
-            Friendship friendship = createTestFriendship(1L, TEST_USER_ID, FRIEND_USER_ID, FriendshipStatus.ACCEPTED);
+            Friendship friendship =
+                    createTestFriendship(
+                            1L, TEST_USER_ID, FRIEND_USER_ID, FriendshipStatus.ACCEPTED);
             Page<Friendship> page = new PageImpl<>(List.of(friendship), pageable, 1);
             Users friend = createTestUser(FRIEND_USER_ID, "친구");
 
             when(friendshipRepository.findFriends(TEST_USER_ID, pageable)).thenReturn(page);
             when(userRepository.findAllById(List.of(FRIEND_USER_ID))).thenReturn(List.of(friend));
-            when(gamificationQueryFacadeService.getUserLevelMap(List.of(FRIEND_USER_ID))).thenReturn(Map.of());
+            when(gamificationQueryFacadeService.getUserLevelMap(List.of(FRIEND_USER_ID)))
+                    .thenReturn(Map.of());
             when(gamificationQueryFacadeService.getEquippedTitlesByUserIds(List.of(FRIEND_USER_ID)))
-                .thenReturn(Map.of());
-            when(gamificationQueryFacadeService.getEquippedItemRaritiesByUserIds(List.of(FRIEND_USER_ID)))
-                .thenReturn(Map.of(FRIEND_USER_ID,
-                    List.of(new EquippedItemRarityDto("HEAD", TitleRarity.EPIC))));
+                    .thenReturn(Map.of());
+            when(gamificationQueryFacadeService.getEquippedItemRaritiesByUserIds(
+                            List.of(FRIEND_USER_ID)))
+                    .thenReturn(
+                            Map.of(
+                                    FRIEND_USER_ID,
+                                    List.of(new EquippedItemRarityDto("HEAD", TitleRarity.EPIC))));
 
             // when
             Page<FriendResponse> result = friendService.getFriends(TEST_USER_ID, pageable);
@@ -551,9 +607,9 @@ class FriendServiceTest {
             // then
             assertThat(result.getContent().get(0).getEquippedItemRarities()).hasSize(1);
             assertThat(result.getContent().get(0).getEquippedItemRarities().get(0).itemType())
-                .isEqualTo("HEAD");
+                    .isEqualTo("HEAD");
             assertThat(result.getContent().get(0).getEquippedItemRarities().get(0).rarity())
-                .isEqualTo(TitleRarity.EPIC);
+                    .isEqualTo(TitleRarity.EPIC);
         }
 
         @Test
@@ -561,17 +617,21 @@ class FriendServiceTest {
         void getFriends_itemRarityFetchFailure_keepsResponse() {
             // given
             Pageable pageable = PageRequest.of(0, 10);
-            Friendship friendship = createTestFriendship(1L, TEST_USER_ID, FRIEND_USER_ID, FriendshipStatus.ACCEPTED);
+            Friendship friendship =
+                    createTestFriendship(
+                            1L, TEST_USER_ID, FRIEND_USER_ID, FriendshipStatus.ACCEPTED);
             Page<Friendship> page = new PageImpl<>(List.of(friendship), pageable, 1);
             Users friend = createTestUser(FRIEND_USER_ID, "친구");
 
             when(friendshipRepository.findFriends(TEST_USER_ID, pageable)).thenReturn(page);
             when(userRepository.findAllById(List.of(FRIEND_USER_ID))).thenReturn(List.of(friend));
-            when(gamificationQueryFacadeService.getUserLevelMap(List.of(FRIEND_USER_ID))).thenReturn(Map.of());
+            when(gamificationQueryFacadeService.getUserLevelMap(List.of(FRIEND_USER_ID)))
+                    .thenReturn(Map.of());
             when(gamificationQueryFacadeService.getEquippedTitlesByUserIds(List.of(FRIEND_USER_ID)))
-                .thenReturn(Map.of());
-            when(gamificationQueryFacadeService.getEquippedItemRaritiesByUserIds(List.of(FRIEND_USER_ID)))
-                .thenThrow(new RuntimeException("gamification_db down"));
+                    .thenReturn(Map.of());
+            when(gamificationQueryFacadeService.getEquippedItemRaritiesByUserIds(
+                            List.of(FRIEND_USER_ID)))
+                    .thenThrow(new RuntimeException("gamification_db down"));
 
             // when
             Page<FriendResponse> result = friendService.getFriends(TEST_USER_ID, pageable);
@@ -585,17 +645,25 @@ class FriendServiceTest {
         @DisplayName("차단 목록에도 장착 아이템 타입·희귀도를 내려준다 (LUT-424)")
         void getBlockedUsers_returnsEquippedItemRarities() {
             // given
-            Friendship blocked = createTestFriendship(1L, TEST_USER_ID, FRIEND_USER_ID, FriendshipStatus.BLOCKED);
+            Friendship blocked =
+                    createTestFriendship(
+                            1L, TEST_USER_ID, FRIEND_USER_ID, FriendshipStatus.BLOCKED);
             Users target = createTestUser(FRIEND_USER_ID, "차단유저");
 
             when(friendshipRepository.findBlockedUsers(TEST_USER_ID)).thenReturn(List.of(blocked));
             when(userRepository.findAllById(List.of(FRIEND_USER_ID))).thenReturn(List.of(target));
-            when(gamificationQueryFacadeService.getUserLevelMap(List.of(FRIEND_USER_ID))).thenReturn(Map.of());
+            when(gamificationQueryFacadeService.getUserLevelMap(List.of(FRIEND_USER_ID)))
+                    .thenReturn(Map.of());
             when(gamificationQueryFacadeService.getEquippedTitlesByUserIds(List.of(FRIEND_USER_ID)))
-                .thenReturn(Map.of());
-            when(gamificationQueryFacadeService.getEquippedItemRaritiesByUserIds(List.of(FRIEND_USER_ID)))
-                .thenReturn(Map.of(FRIEND_USER_ID,
-                    List.of(new EquippedItemRarityDto("EFFECT", TitleRarity.LEGENDARY))));
+                    .thenReturn(Map.of());
+            when(gamificationQueryFacadeService.getEquippedItemRaritiesByUserIds(
+                            List.of(FRIEND_USER_ID)))
+                    .thenReturn(
+                            Map.of(
+                                    FRIEND_USER_ID,
+                                    List.of(
+                                            new EquippedItemRarityDto(
+                                                    "EFFECT", TitleRarity.LEGENDARY))));
 
             // when
             List<FriendResponse> result = friendService.getBlockedUsers(TEST_USER_ID);
@@ -603,19 +671,30 @@ class FriendServiceTest {
             // then
             assertThat(result).hasSize(1);
             assertThat(result.get(0).getEquippedItemRarities()).hasSize(1);
-            assertThat(result.get(0).getEquippedItemRarities().get(0).itemType()).isEqualTo("EFFECT");
+            assertThat(result.get(0).getEquippedItemRarities().get(0).itemType())
+                    .isEqualTo("EFFECT");
         }
 
         private UserTitleDto titleDto(String userId, String name, TitlePosition position) {
             return new UserTitleDto(
-                1L, userId, 1L,
-                name, null, null, null,
-                null, null, null, null,
-                TitleRarity.COMMON,
-                position, "#FFFFFF", null,
-                true, position,
-                java.time.LocalDateTime.now()
-            );
+                    1L,
+                    userId,
+                    1L,
+                    name,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    TitleRarity.COMMON,
+                    position,
+                    "#FFFFFF",
+                    null,
+                    true,
+                    position,
+                    java.time.LocalDateTime.now());
         }
     }
 
@@ -628,7 +707,9 @@ class FriendServiceTest {
         void cancelFriendRequest_success() {
             // given
             Long requestId = 1L;
-            Friendship friendship = createTestFriendship(requestId, TEST_USER_ID, FRIEND_USER_ID, FriendshipStatus.PENDING);
+            Friendship friendship =
+                    createTestFriendship(
+                            requestId, TEST_USER_ID, FRIEND_USER_ID, FriendshipStatus.PENDING);
 
             when(friendshipRepository.findById(requestId)).thenReturn(Optional.of(friendship));
 
@@ -644,14 +725,16 @@ class FriendServiceTest {
         void cancelFriendRequest_notSender_throwsException() {
             // given
             Long requestId = 1L;
-            Friendship friendship = createTestFriendship(requestId, FRIEND_USER_ID, TEST_USER_ID, FriendshipStatus.PENDING);
+            Friendship friendship =
+                    createTestFriendship(
+                            requestId, FRIEND_USER_ID, TEST_USER_ID, FriendshipStatus.PENDING);
 
             when(friendshipRepository.findById(requestId)).thenReturn(Optional.of(friendship));
 
             // when & then
             assertThatThrownBy(() -> friendService.cancelFriendRequest(TEST_USER_ID, requestId))
-                .isInstanceOf(IllegalStateException.class)
-                .hasMessage("본인이 보낸 요청만 취소할 수 있습니다.");
+                    .isInstanceOf(IllegalStateException.class)
+                    .hasMessage("본인이 보낸 요청만 취소할 수 있습니다.");
         }
 
         @Test
@@ -659,14 +742,16 @@ class FriendServiceTest {
         void cancelFriendRequest_notPending_throwsException() {
             // given
             Long requestId = 1L;
-            Friendship friendship = createTestFriendship(requestId, TEST_USER_ID, FRIEND_USER_ID, FriendshipStatus.ACCEPTED);
+            Friendship friendship =
+                    createTestFriendship(
+                            requestId, TEST_USER_ID, FRIEND_USER_ID, FriendshipStatus.ACCEPTED);
 
             when(friendshipRepository.findById(requestId)).thenReturn(Optional.of(friendship));
 
             // when & then
             assertThatThrownBy(() -> friendService.cancelFriendRequest(TEST_USER_ID, requestId))
-                .isInstanceOf(IllegalStateException.class)
-                .hasMessage("대기 중인 요청만 취소할 수 있습니다.");
+                    .isInstanceOf(IllegalStateException.class)
+                    .hasMessage("대기 중인 요청만 취소할 수 있습니다.");
         }
     }
 
@@ -722,17 +807,25 @@ class FriendServiceTest {
         @DisplayName("전체 친구 목록을 조회한다")
         void getAllFriends_success() {
             // given
-            Friendship friendship = createTestFriendship(1L, TEST_USER_ID, FRIEND_USER_ID, FriendshipStatus.ACCEPTED);
+            Friendship friendship =
+                    createTestFriendship(
+                            1L, TEST_USER_ID, FRIEND_USER_ID, FriendshipStatus.ACCEPTED);
             Users friend = createTestUser(FRIEND_USER_ID, "친구");
 
             when(friendshipRepository.findAllFriends(TEST_USER_ID)).thenReturn(List.of(friendship));
             when(userRepository.findAllById(List.of(FRIEND_USER_ID))).thenReturn(List.of(friend));
-            when(gamificationQueryFacadeService.getUserLevelMap(List.of(FRIEND_USER_ID))).thenReturn(Map.of());
+            when(gamificationQueryFacadeService.getUserLevelMap(List.of(FRIEND_USER_ID)))
+                    .thenReturn(Map.of());
             when(gamificationQueryFacadeService.getEquippedTitlesByUserIds(List.of(FRIEND_USER_ID)))
-                .thenReturn(Map.of(FRIEND_USER_ID, List.of(
-                    titleDto(FRIEND_USER_ID, "테스트 칭호", TitlePosition.LEFT),
-                    titleDto(FRIEND_USER_ID, "우측 칭호", TitlePosition.RIGHT)
-                )));
+                    .thenReturn(
+                            Map.of(
+                                    FRIEND_USER_ID,
+                                    List.of(
+                                            titleDto(FRIEND_USER_ID, "테스트 칭호", TitlePosition.LEFT),
+                                            titleDto(
+                                                    FRIEND_USER_ID,
+                                                    "우측 칭호",
+                                                    TitlePosition.RIGHT))));
 
             // when
             List<FriendResponse> result = friendService.getAllFriends(TEST_USER_ID);
@@ -747,14 +840,17 @@ class FriendServiceTest {
         @DisplayName("칭호가 없는 친구도 정상적으로 조회한다")
         void getAllFriends_withNullTitle_success() {
             // given
-            Friendship friendship = createTestFriendship(1L, TEST_USER_ID, FRIEND_USER_ID, FriendshipStatus.ACCEPTED);
+            Friendship friendship =
+                    createTestFriendship(
+                            1L, TEST_USER_ID, FRIEND_USER_ID, FriendshipStatus.ACCEPTED);
             Users friend = createTestUser(FRIEND_USER_ID, "친구");
 
             when(friendshipRepository.findAllFriends(TEST_USER_ID)).thenReturn(List.of(friendship));
             when(userRepository.findAllById(List.of(FRIEND_USER_ID))).thenReturn(List.of(friend));
-            when(gamificationQueryFacadeService.getUserLevelMap(List.of(FRIEND_USER_ID))).thenReturn(Map.of());
+            when(gamificationQueryFacadeService.getUserLevelMap(List.of(FRIEND_USER_ID)))
+                    .thenReturn(Map.of());
             when(gamificationQueryFacadeService.getEquippedTitlesByUserIds(List.of(FRIEND_USER_ID)))
-                .thenReturn(Map.of()); // 칭호 없음
+                    .thenReturn(Map.of()); // 칭호 없음
 
             // when
             List<FriendResponse> result = friendService.getAllFriends(TEST_USER_ID);
@@ -769,16 +865,20 @@ class FriendServiceTest {
         @DisplayName("좌측만 있는 친구는 우측이 null로 반환된다 (QA-93 회귀 방지)")
         void getAllFriends_onlyLeftTitle_rightIsNull() {
             // given
-            Friendship friendship = createTestFriendship(1L, TEST_USER_ID, FRIEND_USER_ID, FriendshipStatus.ACCEPTED);
+            Friendship friendship =
+                    createTestFriendship(
+                            1L, TEST_USER_ID, FRIEND_USER_ID, FriendshipStatus.ACCEPTED);
             Users friend = createTestUser(FRIEND_USER_ID, "친구");
 
             when(friendshipRepository.findAllFriends(TEST_USER_ID)).thenReturn(List.of(friendship));
             when(userRepository.findAllById(List.of(FRIEND_USER_ID))).thenReturn(List.of(friend));
-            when(gamificationQueryFacadeService.getUserLevelMap(List.of(FRIEND_USER_ID))).thenReturn(Map.of());
+            when(gamificationQueryFacadeService.getUserLevelMap(List.of(FRIEND_USER_ID)))
+                    .thenReturn(Map.of());
             when(gamificationQueryFacadeService.getEquippedTitlesByUserIds(List.of(FRIEND_USER_ID)))
-                .thenReturn(Map.of(FRIEND_USER_ID, List.of(
-                    titleDto(FRIEND_USER_ID, "좌측만", TitlePosition.LEFT)
-                )));
+                    .thenReturn(
+                            Map.of(
+                                    FRIEND_USER_ID,
+                                    List.of(titleDto(FRIEND_USER_ID, "좌측만", TitlePosition.LEFT))));
 
             // when
             List<FriendResponse> result = friendService.getAllFriends(TEST_USER_ID);
@@ -793,16 +893,20 @@ class FriendServiceTest {
         @DisplayName("우측만 있는 친구는 좌측이 null로 반환된다 (QA-93 회귀 방지)")
         void getAllFriends_onlyRightTitle_leftIsNull() {
             // given
-            Friendship friendship = createTestFriendship(1L, TEST_USER_ID, FRIEND_USER_ID, FriendshipStatus.ACCEPTED);
+            Friendship friendship =
+                    createTestFriendship(
+                            1L, TEST_USER_ID, FRIEND_USER_ID, FriendshipStatus.ACCEPTED);
             Users friend = createTestUser(FRIEND_USER_ID, "친구");
 
             when(friendshipRepository.findAllFriends(TEST_USER_ID)).thenReturn(List.of(friendship));
             when(userRepository.findAllById(List.of(FRIEND_USER_ID))).thenReturn(List.of(friend));
-            when(gamificationQueryFacadeService.getUserLevelMap(List.of(FRIEND_USER_ID))).thenReturn(Map.of());
+            when(gamificationQueryFacadeService.getUserLevelMap(List.of(FRIEND_USER_ID)))
+                    .thenReturn(Map.of());
             when(gamificationQueryFacadeService.getEquippedTitlesByUserIds(List.of(FRIEND_USER_ID)))
-                .thenReturn(Map.of(FRIEND_USER_ID, List.of(
-                    titleDto(FRIEND_USER_ID, "우측만", TitlePosition.RIGHT)
-                )));
+                    .thenReturn(
+                            Map.of(
+                                    FRIEND_USER_ID,
+                                    List.of(titleDto(FRIEND_USER_ID, "우측만", TitlePosition.RIGHT))));
 
             // when
             List<FriendResponse> result = friendService.getAllFriends(TEST_USER_ID);
@@ -820,23 +924,37 @@ class FriendServiceTest {
             String friendWithTitleId = "friend-with-title";
             String friendWithoutTitleId = "friend-without-title";
 
-            Friendship friendship1 = createTestFriendship(1L, TEST_USER_ID, friendWithTitleId, FriendshipStatus.ACCEPTED);
-            Friendship friendship2 = createTestFriendship(2L, TEST_USER_ID, friendWithoutTitleId, FriendshipStatus.ACCEPTED);
+            Friendship friendship1 =
+                    createTestFriendship(
+                            1L, TEST_USER_ID, friendWithTitleId, FriendshipStatus.ACCEPTED);
+            Friendship friendship2 =
+                    createTestFriendship(
+                            2L, TEST_USER_ID, friendWithoutTitleId, FriendshipStatus.ACCEPTED);
 
             Users friendWithTitle = createTestUser(friendWithTitleId, "칭호있는친구");
             Users friendWithoutTitle = createTestUser(friendWithoutTitleId, "칭호없는친구");
 
             when(friendshipRepository.findAllFriends(TEST_USER_ID))
-                .thenReturn(List.of(friendship1, friendship2));
+                    .thenReturn(List.of(friendship1, friendship2));
             when(userRepository.findAllById(List.of(friendWithTitleId, friendWithoutTitleId)))
-                .thenReturn(List.of(friendWithTitle, friendWithoutTitle));
-            when(gamificationQueryFacadeService.getUserLevelMap(List.of(friendWithTitleId, friendWithoutTitleId)))
-                .thenReturn(Map.of());
-            when(gamificationQueryFacadeService.getEquippedTitlesByUserIds(List.of(friendWithTitleId, friendWithoutTitleId)))
-                .thenReturn(Map.of(friendWithTitleId, List.of(
-                    titleDto(friendWithTitleId, "테스트 칭호", TitlePosition.LEFT),
-                    titleDto(friendWithTitleId, "우측 칭호", TitlePosition.RIGHT)
-                )));
+                    .thenReturn(List.of(friendWithTitle, friendWithoutTitle));
+            when(gamificationQueryFacadeService.getUserLevelMap(
+                            List.of(friendWithTitleId, friendWithoutTitleId)))
+                    .thenReturn(Map.of());
+            when(gamificationQueryFacadeService.getEquippedTitlesByUserIds(
+                            List.of(friendWithTitleId, friendWithoutTitleId)))
+                    .thenReturn(
+                            Map.of(
+                                    friendWithTitleId,
+                                    List.of(
+                                            titleDto(
+                                                    friendWithTitleId,
+                                                    "테스트 칭호",
+                                                    TitlePosition.LEFT),
+                                            titleDto(
+                                                    friendWithTitleId,
+                                                    "우측 칭호",
+                                                    TitlePosition.RIGHT))));
 
             // when
             List<FriendResponse> result = friendService.getAllFriends(TEST_USER_ID);
@@ -847,14 +965,24 @@ class FriendServiceTest {
 
         private UserTitleDto titleDto(String userId, String name, TitlePosition position) {
             return new UserTitleDto(
-                1L, userId, 1L,
-                name, null, null, null,
-                null, null, null, null,
-                TitleRarity.COMMON,
-                position, "#FFFFFF", null,
-                true, position,
-                java.time.LocalDateTime.now()
-            );
+                    1L,
+                    userId,
+                    1L,
+                    name,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    TitleRarity.COMMON,
+                    position,
+                    "#FFFFFF",
+                    null,
+                    true,
+                    position,
+                    java.time.LocalDateTime.now());
         }
     }
 
@@ -866,15 +994,21 @@ class FriendServiceTest {
         @DisplayName("받은 친구 요청 목록을 조회한다")
         void getPendingRequestsReceived_success() {
             // given
-            Friendship pendingRequest = createTestFriendship(1L, FRIEND_USER_ID, TEST_USER_ID, FriendshipStatus.PENDING);
+            Friendship pendingRequest =
+                    createTestFriendship(
+                            1L, FRIEND_USER_ID, TEST_USER_ID, FriendshipStatus.PENDING);
             Users requester = createTestUser(FRIEND_USER_ID, "요청자");
 
-            when(friendshipRepository.findPendingRequestsReceived(TEST_USER_ID)).thenReturn(List.of(pendingRequest));
-            when(userRepository.findAllById(List.of(FRIEND_USER_ID))).thenReturn(List.of(requester));
-            when(gamificationQueryFacadeService.getUserLevelMap(List.of(FRIEND_USER_ID))).thenReturn(Map.of());
+            when(friendshipRepository.findPendingRequestsReceived(TEST_USER_ID))
+                    .thenReturn(List.of(pendingRequest));
+            when(userRepository.findAllById(List.of(FRIEND_USER_ID)))
+                    .thenReturn(List.of(requester));
+            when(gamificationQueryFacadeService.getUserLevelMap(List.of(FRIEND_USER_ID)))
+                    .thenReturn(Map.of());
 
             // when
-            List<FriendRequestResponse> result = friendService.getPendingRequestsReceived(TEST_USER_ID);
+            List<FriendRequestResponse> result =
+                    friendService.getPendingRequestsReceived(TEST_USER_ID);
 
             // then
             assertThat(result).hasSize(1);
@@ -889,9 +1023,12 @@ class FriendServiceTest {
         @DisplayName("보낸 친구 요청 목록을 조회한다")
         void getPendingRequestsSent_success() {
             // given
-            Friendship sentRequest = createTestFriendship(1L, TEST_USER_ID, FRIEND_USER_ID, FriendshipStatus.PENDING);
+            Friendship sentRequest =
+                    createTestFriendship(
+                            1L, TEST_USER_ID, FRIEND_USER_ID, FriendshipStatus.PENDING);
 
-            when(friendshipRepository.findPendingRequestsSent(TEST_USER_ID)).thenReturn(List.of(sentRequest));
+            when(friendshipRepository.findPendingRequestsSent(TEST_USER_ID))
+                    .thenReturn(List.of(sentRequest));
 
             // when
             List<FriendRequestResponse> result = friendService.getPendingRequestsSent(TEST_USER_ID);
@@ -909,9 +1046,12 @@ class FriendServiceTest {
         @DisplayName("차단한 사용자 목록을 조회한다")
         void getBlockedUsers_success() {
             // given
-            Friendship blockedUser = createTestFriendship(1L, TEST_USER_ID, FRIEND_USER_ID, FriendshipStatus.BLOCKED);
+            Friendship blockedUser =
+                    createTestFriendship(
+                            1L, TEST_USER_ID, FRIEND_USER_ID, FriendshipStatus.BLOCKED);
 
-            when(friendshipRepository.findBlockedUsers(TEST_USER_ID)).thenReturn(List.of(blockedUser));
+            when(friendshipRepository.findBlockedUsers(TEST_USER_ID))
+                    .thenReturn(List.of(blockedUser));
 
             // when
             List<FriendResponse> result = friendService.getBlockedUsers(TEST_USER_ID);
@@ -925,16 +1065,27 @@ class FriendServiceTest {
     @DisplayName("LUT-255 다국어")
     class LocaleTest {
 
-        private UserTitleDto titleDtoWithEn(String userId, String name, String nameEn, TitlePosition position) {
+        private UserTitleDto titleDtoWithEn(
+                String userId, String name, String nameEn, TitlePosition position) {
             return new UserTitleDto(
-                1L, userId, 1L,
-                name, nameEn, null, null,
-                null, null, null, null,
-                TitleRarity.COMMON,
-                position, "#FFFFFF", null,
-                true, position,
-                java.time.LocalDateTime.now()
-            );
+                    1L,
+                    userId,
+                    1L,
+                    name,
+                    nameEn,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    TitleRarity.COMMON,
+                    position,
+                    "#FFFFFF",
+                    null,
+                    true,
+                    position,
+                    java.time.LocalDateTime.now());
         }
 
         @Test
@@ -942,18 +1093,31 @@ class FriendServiceTest {
         void getFriends_localeEn_returnsEnglishTitles() {
             // given
             Pageable pageable = PageRequest.of(0, 10);
-            Friendship friendship = createTestFriendship(1L, TEST_USER_ID, FRIEND_USER_ID, FriendshipStatus.ACCEPTED);
+            Friendship friendship =
+                    createTestFriendship(
+                            1L, TEST_USER_ID, FRIEND_USER_ID, FriendshipStatus.ACCEPTED);
             Page<Friendship> page = new PageImpl<>(List.of(friendship), pageable, 1);
             Users friend = createTestUser(FRIEND_USER_ID, "친구");
 
             when(friendshipRepository.findFriends(TEST_USER_ID, pageable)).thenReturn(page);
             when(userRepository.findAllById(List.of(FRIEND_USER_ID))).thenReturn(List.of(friend));
-            when(gamificationQueryFacadeService.getUserLevelMap(List.of(FRIEND_USER_ID))).thenReturn(Map.of());
+            when(gamificationQueryFacadeService.getUserLevelMap(List.of(FRIEND_USER_ID)))
+                    .thenReturn(Map.of());
             when(gamificationQueryFacadeService.getEquippedTitlesByUserIds(List.of(FRIEND_USER_ID)))
-                .thenReturn(Map.of(FRIEND_USER_ID, List.of(
-                    titleDtoWithEn(FRIEND_USER_ID, "용감한", "Brave", TitlePosition.LEFT),
-                    titleDtoWithEn(FRIEND_USER_ID, "전사", "Warrior", TitlePosition.RIGHT)
-                )));
+                    .thenReturn(
+                            Map.of(
+                                    FRIEND_USER_ID,
+                                    List.of(
+                                            titleDtoWithEn(
+                                                    FRIEND_USER_ID,
+                                                    "용감한",
+                                                    "Brave",
+                                                    TitlePosition.LEFT),
+                                            titleDtoWithEn(
+                                                    FRIEND_USER_ID,
+                                                    "전사",
+                                                    "Warrior",
+                                                    TitlePosition.RIGHT))));
 
             // when
             Page<FriendResponse> result = friendService.getFriends(TEST_USER_ID, pageable, "en");
@@ -969,18 +1133,31 @@ class FriendServiceTest {
         void getFriends_localeNull_returnsKoreanTitles() {
             // given
             Pageable pageable = PageRequest.of(0, 10);
-            Friendship friendship = createTestFriendship(1L, TEST_USER_ID, FRIEND_USER_ID, FriendshipStatus.ACCEPTED);
+            Friendship friendship =
+                    createTestFriendship(
+                            1L, TEST_USER_ID, FRIEND_USER_ID, FriendshipStatus.ACCEPTED);
             Page<Friendship> page = new PageImpl<>(List.of(friendship), pageable, 1);
             Users friend = createTestUser(FRIEND_USER_ID, "친구");
 
             when(friendshipRepository.findFriends(TEST_USER_ID, pageable)).thenReturn(page);
             when(userRepository.findAllById(List.of(FRIEND_USER_ID))).thenReturn(List.of(friend));
-            when(gamificationQueryFacadeService.getUserLevelMap(List.of(FRIEND_USER_ID))).thenReturn(Map.of());
+            when(gamificationQueryFacadeService.getUserLevelMap(List.of(FRIEND_USER_ID)))
+                    .thenReturn(Map.of());
             when(gamificationQueryFacadeService.getEquippedTitlesByUserIds(List.of(FRIEND_USER_ID)))
-                .thenReturn(Map.of(FRIEND_USER_ID, List.of(
-                    titleDtoWithEn(FRIEND_USER_ID, "용감한", "Brave", TitlePosition.LEFT),
-                    titleDtoWithEn(FRIEND_USER_ID, "전사", "Warrior", TitlePosition.RIGHT)
-                )));
+                    .thenReturn(
+                            Map.of(
+                                    FRIEND_USER_ID,
+                                    List.of(
+                                            titleDtoWithEn(
+                                                    FRIEND_USER_ID,
+                                                    "용감한",
+                                                    "Brave",
+                                                    TitlePosition.LEFT),
+                                            titleDtoWithEn(
+                                                    FRIEND_USER_ID,
+                                                    "전사",
+                                                    "Warrior",
+                                                    TitlePosition.RIGHT))));
 
             // when
             Page<FriendResponse> result = friendService.getFriends(TEST_USER_ID, pageable, null);
@@ -1000,41 +1177,63 @@ class FriendServiceTest {
         @DisplayName("상대가 만든 ACCEPTED 행이 있으면 이미 친구 예외가 발생한다")
         void theirsAccepted_throws() {
             when(friendshipRepository.findByUserIdAndFriendId(TEST_USER_ID, FRIEND_USER_ID))
-                .thenReturn(Optional.empty());
+                    .thenReturn(Optional.empty());
             when(friendshipRepository.findByUserIdAndFriendId(FRIEND_USER_ID, TEST_USER_ID))
-                .thenReturn(Optional.of(createTestFriendship(1L, FRIEND_USER_ID, TEST_USER_ID, FriendshipStatus.ACCEPTED)));
+                    .thenReturn(
+                            Optional.of(
+                                    createTestFriendship(
+                                            1L,
+                                            FRIEND_USER_ID,
+                                            TEST_USER_ID,
+                                            FriendshipStatus.ACCEPTED)));
 
-            assertThatThrownBy(() -> friendService.sendFriendRequest(TEST_USER_ID, FRIEND_USER_ID, null))
-                .isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining("이미 친구");
+            assertThatThrownBy(
+                            () ->
+                                    friendService.sendFriendRequest(
+                                            TEST_USER_ID, FRIEND_USER_ID, null))
+                    .isInstanceOf(IllegalStateException.class)
+                    .hasMessageContaining("이미 친구");
         }
 
         @Test
         @DisplayName("상대가 보낸 PENDING 요청이 있으면 진행 중 예외가 발생한다")
         void theirsPending_throws() {
             when(friendshipRepository.findByUserIdAndFriendId(TEST_USER_ID, FRIEND_USER_ID))
-                .thenReturn(Optional.empty());
+                    .thenReturn(Optional.empty());
             when(friendshipRepository.findByUserIdAndFriendId(FRIEND_USER_ID, TEST_USER_ID))
-                .thenReturn(Optional.of(createTestFriendship(1L, FRIEND_USER_ID, TEST_USER_ID, FriendshipStatus.PENDING)));
+                    .thenReturn(
+                            Optional.of(
+                                    createTestFriendship(
+                                            1L,
+                                            FRIEND_USER_ID,
+                                            TEST_USER_ID,
+                                            FriendshipStatus.PENDING)));
 
-            assertThatThrownBy(() -> friendService.sendFriendRequest(TEST_USER_ID, FRIEND_USER_ID, null))
-                .isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining("진행 중");
+            assertThatThrownBy(
+                            () ->
+                                    friendService.sendFriendRequest(
+                                            TEST_USER_ID, FRIEND_USER_ID, null))
+                    .isInstanceOf(IllegalStateException.class)
+                    .hasMessageContaining("진행 중");
         }
 
         @Test
         @DisplayName("요청자 정보를 찾지 못하면 기본 닉네임으로 이벤트를 발행한다")
         void requesterNotFound_defaultNickname() {
-            Friendship saved = createTestFriendship(1L, TEST_USER_ID, FRIEND_USER_ID, FriendshipStatus.PENDING);
+            Friendship saved =
+                    createTestFriendship(
+                            1L, TEST_USER_ID, FRIEND_USER_ID, FriendshipStatus.PENDING);
             when(friendshipRepository.save(any(Friendship.class))).thenReturn(saved);
             when(userRepository.findById(TEST_USER_ID)).thenReturn(Optional.empty());
 
             friendService.sendFriendRequest(TEST_USER_ID, FRIEND_USER_ID, null);
 
-            org.mockito.ArgumentCaptor<Object> captor = org.mockito.ArgumentCaptor.forClass(Object.class);
+            org.mockito.ArgumentCaptor<Object> captor =
+                    org.mockito.ArgumentCaptor.forClass(Object.class);
             verify(eventPublisher).publishEvent(captor.capture());
             assertThat(captor.getValue()).isInstanceOf(FriendRequestEvent.class);
-            assertThat(((FriendRequestEvent) captor.getValue()).requesterNickname()).isEqualTo("사용자");
+            assertThat(((FriendRequestEvent) captor.getValue()).requesterNickname())
+                    .isEqualTo("사용자");
         }
     }
 
@@ -1045,29 +1244,36 @@ class FriendServiceTest {
         @Test
         @DisplayName("수락자 정보를 찾지 못하면 기본 닉네임으로 수락 이벤트를 발행한다")
         void accepterNotFound_defaultNickname() {
-            Friendship request = createTestFriendship(1L, FRIEND_USER_ID, TEST_USER_ID, FriendshipStatus.PENDING);
+            Friendship request =
+                    createTestFriendship(
+                            1L, FRIEND_USER_ID, TEST_USER_ID, FriendshipStatus.PENDING);
             when(friendshipRepository.findById(1L)).thenReturn(Optional.of(request));
             when(userRepository.findById(TEST_USER_ID)).thenReturn(Optional.empty());
 
             friendService.acceptFriendRequest(TEST_USER_ID, 1L);
 
-            org.mockito.ArgumentCaptor<Object> captor = org.mockito.ArgumentCaptor.forClass(Object.class);
+            org.mockito.ArgumentCaptor<Object> captor =
+                    org.mockito.ArgumentCaptor.forClass(Object.class);
             verify(eventPublisher, org.mockito.Mockito.times(2)).publishEvent(captor.capture());
-            FriendRequestAcceptedEvent accepted = captor.getAllValues().stream()
-                .filter(FriendRequestAcceptedEvent.class::isInstance)
-                .map(FriendRequestAcceptedEvent.class::cast)
-                .findFirst().orElseThrow();
+            FriendRequestAcceptedEvent accepted =
+                    captor.getAllValues().stream()
+                            .filter(FriendRequestAcceptedEvent.class::isInstance)
+                            .map(FriendRequestAcceptedEvent.class::cast)
+                            .findFirst()
+                            .orElseThrow();
             assertThat(accepted.accepterNickname()).isEqualTo("사용자");
         }
 
         @Test
         @DisplayName("본인에게 온 요청이 아니면 거절할 수 없다")
         void rejectNotMine_throws() {
-            Friendship request = createTestFriendship(1L, FRIEND_USER_ID, "someone-else", FriendshipStatus.PENDING);
+            Friendship request =
+                    createTestFriendship(
+                            1L, FRIEND_USER_ID, "someone-else", FriendshipStatus.PENDING);
             when(friendshipRepository.findById(1L)).thenReturn(Optional.of(request));
 
             assertThatThrownBy(() -> friendService.rejectFriendRequest(TEST_USER_ID, 1L))
-                .isInstanceOf(IllegalStateException.class);
+                    .isInstanceOf(IllegalStateException.class);
             verify(eventPublisher, never()).publishEvent(any(FriendRequestProcessedEvent.class));
         }
     }
@@ -1079,11 +1285,13 @@ class FriendServiceTest {
         @Test
         @DisplayName("LUT-367: 상대가 보낸 PENDING 행은 이벤트 없이 삭제한다")
         void reversePending_deletedWithoutEvent() {
-            Friendship reversePending = createTestFriendship(2L, FRIEND_USER_ID, TEST_USER_ID, FriendshipStatus.PENDING);
+            Friendship reversePending =
+                    createTestFriendship(
+                            2L, FRIEND_USER_ID, TEST_USER_ID, FriendshipStatus.PENDING);
             when(friendshipRepository.findByUserIdAndFriendId(TEST_USER_ID, FRIEND_USER_ID))
-                .thenReturn(Optional.empty());
+                    .thenReturn(Optional.empty());
             when(friendshipRepository.findByUserIdAndFriendId(FRIEND_USER_ID, TEST_USER_ID))
-                .thenReturn(Optional.of(reversePending));
+                    .thenReturn(Optional.of(reversePending));
 
             friendService.blockUser(TEST_USER_ID, FRIEND_USER_ID);
 
@@ -1098,8 +1306,24 @@ class FriendServiceTest {
 
         private UserTitleDto titleDto(String userId, TitleRarity rarity, TitlePosition position) {
             return new UserTitleDto(
-                1L, userId, 1L, "칭호", null, null, null, null, null, null, null,
-                rarity, position, "#FFFFFF", null, true, position, java.time.LocalDateTime.now());
+                    1L,
+                    userId,
+                    1L,
+                    "칭호",
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    rarity,
+                    position,
+                    "#FFFFFF",
+                    null,
+                    true,
+                    position,
+                    java.time.LocalDateTime.now());
         }
 
         @Test
@@ -1107,14 +1331,18 @@ class FriendServiceTest {
         void getFriends_reverseDirection_andMissingUser() {
             Pageable pageable = PageRequest.of(0, 10);
             // 상대(FRIEND)가 요청자, 내가 수신자인 ACCEPTED 행
-            Friendship friendship = createTestFriendship(1L, FRIEND_USER_ID, TEST_USER_ID, FriendshipStatus.ACCEPTED);
+            Friendship friendship =
+                    createTestFriendship(
+                            1L, FRIEND_USER_ID, TEST_USER_ID, FriendshipStatus.ACCEPTED);
             Page<Friendship> page = new PageImpl<>(List.of(friendship), pageable, 1);
 
             when(friendshipRepository.findFriends(TEST_USER_ID, pageable)).thenReturn(page);
-            when(userRepository.findAllById(List.of(FRIEND_USER_ID))).thenReturn(List.of()); // 탈퇴 등으로 누락
-            when(gamificationQueryFacadeService.getUserLevelMap(List.of(FRIEND_USER_ID))).thenReturn(Map.of());
+            when(userRepository.findAllById(List.of(FRIEND_USER_ID)))
+                    .thenReturn(List.of()); // 탈퇴 등으로 누락
+            when(gamificationQueryFacadeService.getUserLevelMap(List.of(FRIEND_USER_ID)))
+                    .thenReturn(Map.of());
             when(gamificationQueryFacadeService.getEquippedTitlesByUserIds(List.of(FRIEND_USER_ID)))
-                .thenReturn(Map.of());
+                    .thenReturn(Map.of());
 
             Page<FriendResponse> result = friendService.getFriends(TEST_USER_ID, pageable);
 
@@ -1127,13 +1355,16 @@ class FriendServiceTest {
         @Test
         @DisplayName("전체 친구 목록도 역방향 행과 유저 누락을 동일하게 처리한다")
         void getAllFriends_reverseDirection_andMissingUser() {
-            Friendship friendship = createTestFriendship(1L, FRIEND_USER_ID, TEST_USER_ID, FriendshipStatus.ACCEPTED);
+            Friendship friendship =
+                    createTestFriendship(
+                            1L, FRIEND_USER_ID, TEST_USER_ID, FriendshipStatus.ACCEPTED);
 
             when(friendshipRepository.findAllFriends(TEST_USER_ID)).thenReturn(List.of(friendship));
             when(userRepository.findAllById(List.of(FRIEND_USER_ID))).thenReturn(List.of());
-            when(gamificationQueryFacadeService.getUserLevelMap(List.of(FRIEND_USER_ID))).thenReturn(Map.of());
+            when(gamificationQueryFacadeService.getUserLevelMap(List.of(FRIEND_USER_ID)))
+                    .thenReturn(Map.of());
             when(gamificationQueryFacadeService.getEquippedTitlesByUserIds(List.of(FRIEND_USER_ID)))
-                .thenReturn(Map.of());
+                    .thenReturn(Map.of());
 
             List<FriendResponse> result = friendService.getAllFriends(TEST_USER_ID);
 
@@ -1159,17 +1390,23 @@ class FriendServiceTest {
         @Test
         @DisplayName("칭호 등급이 없거나 장착 위치가 없는 칭호는 등급/이름을 null 로 처리한다")
         void titlePair_nullRarity_andNullPosition() {
-            Friendship friendship = createTestFriendship(1L, TEST_USER_ID, FRIEND_USER_ID, FriendshipStatus.ACCEPTED);
+            Friendship friendship =
+                    createTestFriendship(
+                            1L, TEST_USER_ID, FRIEND_USER_ID, FriendshipStatus.ACCEPTED);
             Users friend = createTestUser(FRIEND_USER_ID, "친구");
 
             when(friendshipRepository.findAllFriends(TEST_USER_ID)).thenReturn(List.of(friendship));
             when(userRepository.findAllById(List.of(FRIEND_USER_ID))).thenReturn(List.of(friend));
-            when(gamificationQueryFacadeService.getUserLevelMap(List.of(FRIEND_USER_ID))).thenReturn(Map.of());
+            when(gamificationQueryFacadeService.getUserLevelMap(List.of(FRIEND_USER_ID)))
+                    .thenReturn(Map.of());
             when(gamificationQueryFacadeService.getEquippedTitlesByUserIds(List.of(FRIEND_USER_ID)))
-                .thenReturn(Map.of(FRIEND_USER_ID, List.of(
-                    titleDto(FRIEND_USER_ID, null, TitlePosition.LEFT),
-                    titleDto(FRIEND_USER_ID, null, TitlePosition.RIGHT),
-                    titleDto(FRIEND_USER_ID, TitleRarity.RARE, null))));
+                    .thenReturn(
+                            Map.of(
+                                    FRIEND_USER_ID,
+                                    List.of(
+                                            titleDto(FRIEND_USER_ID, null, TitlePosition.LEFT),
+                                            titleDto(FRIEND_USER_ID, null, TitlePosition.RIGHT),
+                                            titleDto(FRIEND_USER_ID, TitleRarity.RARE, null))));
 
             List<FriendResponse> result = friendService.getAllFriends(TEST_USER_ID);
 
@@ -1182,16 +1419,19 @@ class FriendServiceTest {
         @Test
         @DisplayName("칭호 목록이 null 인 유저는 빈 칭호 페어로 처리한다")
         void titlePair_nullList_treatedAsEmpty() {
-            Friendship friendship = createTestFriendship(1L, TEST_USER_ID, FRIEND_USER_ID, FriendshipStatus.ACCEPTED);
+            Friendship friendship =
+                    createTestFriendship(
+                            1L, TEST_USER_ID, FRIEND_USER_ID, FriendshipStatus.ACCEPTED);
             Users friend = createTestUser(FRIEND_USER_ID, "친구");
             java.util.Map<String, List<UserTitleDto>> titlesWithNull = new java.util.HashMap<>();
             titlesWithNull.put(FRIEND_USER_ID, null);
 
             when(friendshipRepository.findAllFriends(TEST_USER_ID)).thenReturn(List.of(friendship));
             when(userRepository.findAllById(List.of(FRIEND_USER_ID))).thenReturn(List.of(friend));
-            when(gamificationQueryFacadeService.getUserLevelMap(List.of(FRIEND_USER_ID))).thenReturn(Map.of());
+            when(gamificationQueryFacadeService.getUserLevelMap(List.of(FRIEND_USER_ID)))
+                    .thenReturn(Map.of());
             when(gamificationQueryFacadeService.getEquippedTitlesByUserIds(List.of(FRIEND_USER_ID)))
-                .thenReturn(titlesWithNull);
+                    .thenReturn(titlesWithNull);
 
             List<FriendResponse> result = friendService.getAllFriends(TEST_USER_ID);
 
@@ -1207,13 +1447,18 @@ class FriendServiceTest {
         @Test
         @DisplayName("요청자 정보가 없으면 닉네임/사진을 null 로 내린다")
         void requesterMissing_nullFields() {
-            Friendship pendingRequest = createTestFriendship(1L, FRIEND_USER_ID, TEST_USER_ID, FriendshipStatus.PENDING);
+            Friendship pendingRequest =
+                    createTestFriendship(
+                            1L, FRIEND_USER_ID, TEST_USER_ID, FriendshipStatus.PENDING);
 
-            when(friendshipRepository.findPendingRequestsReceived(TEST_USER_ID)).thenReturn(List.of(pendingRequest));
+            when(friendshipRepository.findPendingRequestsReceived(TEST_USER_ID))
+                    .thenReturn(List.of(pendingRequest));
             when(userRepository.findAllById(List.of(FRIEND_USER_ID))).thenReturn(List.of());
-            when(gamificationQueryFacadeService.getUserLevelMap(List.of(FRIEND_USER_ID))).thenReturn(Map.of());
+            when(gamificationQueryFacadeService.getUserLevelMap(List.of(FRIEND_USER_ID)))
+                    .thenReturn(Map.of());
 
-            List<FriendRequestResponse> result = friendService.getPendingRequestsReceived(TEST_USER_ID);
+            List<FriendRequestResponse> result =
+                    friendService.getPendingRequestsReceived(TEST_USER_ID);
 
             assertThat(result).hasSize(1);
             assertThat(result.get(0).getRequesterNickname()).isNull();

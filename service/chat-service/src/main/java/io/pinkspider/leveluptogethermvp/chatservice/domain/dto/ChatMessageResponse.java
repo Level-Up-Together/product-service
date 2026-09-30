@@ -31,34 +31,34 @@ public class ChatMessageResponse {
 
     public static ChatMessageResponse from(GuildChatMessage message) {
         return ChatMessageResponse.builder()
-            .id(message.getId())
-            .guildId(message.getGuildId())
-            .senderId(message.getSenderId())
-            .senderNickname(message.getSenderNickname())
-            .messageType(message.getMessageType())
-            .content(message.getContent())
-            .imageUrl(message.getImageUrl())
-            .referenceType(message.getReferenceType())
-            .referenceId(message.getReferenceId())
-            .isSystemMessage(message.isSystemMessage())
-            .createdAt(message.getCreatedAt())
-            .build();
+                .id(message.getId())
+                .guildId(message.getGuildId())
+                .senderId(message.getSenderId())
+                .senderNickname(message.getSenderNickname())
+                .messageType(message.getMessageType())
+                .content(message.getContent())
+                .imageUrl(message.getImageUrl())
+                .referenceType(message.getReferenceType())
+                .referenceId(message.getReferenceId())
+                .isSystemMessage(message.isSystemMessage())
+                .createdAt(message.getCreatedAt())
+                .build();
     }
 
     public static ChatMessageResponse from(GuildChatMessage message, int unreadCount) {
         return ChatMessageResponse.builder()
-            .id(message.getId())
-            .guildId(message.getGuildId())
-            .senderId(message.getSenderId())
-            .senderNickname(message.getSenderNickname())
-            .messageType(message.getMessageType())
-            .content(message.getContent())
-            .imageUrl(message.getImageUrl())
-            .referenceType(message.getReferenceType())
-            .referenceId(message.getReferenceId())
-            .isSystemMessage(message.isSystemMessage())
-            .createdAt(message.getCreatedAt())
-            .unreadCount(unreadCount)
-            .build();
+                .id(message.getId())
+                .guildId(message.getGuildId())
+                .senderId(message.getSenderId())
+                .senderNickname(message.getSenderNickname())
+                .messageType(message.getMessageType())
+                .content(message.getContent())
+                .imageUrl(message.getImageUrl())
+                .referenceType(message.getReferenceType())
+                .referenceId(message.getReferenceId())
+                .isSystemMessage(message.isSystemMessage())
+                .createdAt(message.getCreatedAt())
+                .unreadCount(unreadCount)
+                .build();
     }
 }

@@ -22,20 +22,29 @@ import org.springframework.web.filter.OncePerRequestFilter;
 public class ExceptionHandlerFilter extends OncePerRequestFilter {
 
     @Override
-    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain) throws IllegalStateException {
+    protected void doFilterInternal(
+            HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
+            throws IllegalStateException {
         try {
             filterChain.doFilter(request, response);
         } catch (AccessTokenNotValidException e) {
             // ErrorResponse를 사용하므로 errorCode값은 3자리 int 여야 한다. 그러므로 HttpStatus의 코드를 사용하였다.
-            setErrorResponse(response, HttpStatus.NOT_ACCEPTABLE.value(), UserApiStatus.NOT_VALID_ACCESS_TOKEN.getResultMessage());
+            setErrorResponse(
+                    response,
+                    HttpStatus.NOT_ACCEPTABLE.value(),
+                    UserApiStatus.NOT_VALID_ACCESS_TOKEN.getResultMessage());
         } catch (ServletException | IllegalStateException | CustomMissingRequestHeaderException e) {
-            setErrorResponse(response, HttpStatus.NOT_ACCEPTABLE.value(), UserApiStatus.NOT_EXIST_TOKEN.getResultMessage());
+            setErrorResponse(
+                    response,
+                    HttpStatus.NOT_ACCEPTABLE.value(),
+                    UserApiStatus.NOT_EXIST_TOKEN.getResultMessage());
         } catch (Exception e) {
             setErrorResponse(response, HttpStatus.FORBIDDEN.value(), e.getMessage());
         }
     }
 
-    private void setErrorResponse(HttpServletResponse response, int errorCode, String errorMessage) {
+    private void setErrorResponse(
+            HttpServletResponse response, int errorCode, String errorMessage) {
         ObjectMapper objectMapper = new ObjectMapper();
         response.setStatus(errorCode);
         response.setContentType(APPLICATION_JSON_VALUE);

@@ -17,16 +17,13 @@ import org.mockito.junit.jupiter.MockitoExtension;
 @DisplayName("GuildProfileSnapshotEventListener 테스트")
 class GuildProfileSnapshotEventListenerTest {
 
-    @Mock
-    private GuildPostRepository guildPostRepository;
-    @Mock
-    private GuildPostCommentRepository guildPostCommentRepository;
+    @Mock private GuildPostRepository guildPostRepository;
+    @Mock private GuildPostCommentRepository guildPostCommentRepository;
 
-    @InjectMocks
-    private GuildProfileSnapshotEventListener listener;
+    @InjectMocks private GuildProfileSnapshotEventListener listener;
 
     private static final UserProfileChangedEvent TEST_EVENT =
-        new UserProfileChangedEvent("user-123", "새닉네임", "https://img.example.com/pic.jpg", 5);
+            new UserProfileChangedEvent("user-123", "새닉네임", "https://img.example.com/pic.jpg", 5);
 
     @Test
     @DisplayName("Guild 스냅샷을 동기화한다")
@@ -41,7 +38,8 @@ class GuildProfileSnapshotEventListenerTest {
     @DisplayName("Guild 동기화 실패해도 예외를 전파하지 않는다")
     void handleUserProfileChanged_guildFailure_doesNotPropagate() {
         doThrow(new RuntimeException("Guild DB 오류"))
-            .when(guildPostRepository).updateAuthorNicknameByUserId("user-123", "새닉네임");
+                .when(guildPostRepository)
+                .updateAuthorNicknameByUserId("user-123", "새닉네임");
 
         listener.handleUserProfileChanged(TEST_EVENT);
     }

@@ -32,18 +32,19 @@ import org.springframework.core.io.ClassPathResource;
 
 /**
  * FCM 푸시 알림 통합 테스트
- * <p>
- * 실제 Firebase로 푸시를 전송하는 테스트입니다. 테스트 실행 전 아래 사항을 확인하세요: 1. src/main/resources/firebase-service-account.json 파일 존재 2. 아래 FCM_TOKEN을 실제 앱에서 발급받은 토큰으로
- * 교체
  *
- * @Disabled 어노테이션을 제거하고 실행하세요.
+ * <p>실제 Firebase로 푸시를 전송하는 테스트입니다. 테스트 실행 전 아래 사항을 확인하세요: 1.
+ * src/main/resources/firebase-service-account.json 파일 존재 2. 아래 FCM_TOKEN을 실제 앱에서 발급받은 토큰으로
+ * 교체 @Disabled 어노테이션을 제거하고 실행하세요.
  */
 @Disabled("실제 FCM 테스트 - firebase-service-account.json 필요")
 class FcmPushIntegrationTest {
 
     // ⚠️ 실제 앱에서 발급받은 FCM 토큰으로 교체하세요
-//    private static final String FCM_TOKEN = "fCOGOrM-Q0G_5reL31nEd2:APA91bHIIapqUlLNmeS_WhTPDZ6zg3n9BIGDKY_M0XsdPq_j_mEUgrOT63zZZMk32k3CZ0BW6eM5PgHu-f9P1LohgoQknJXLCSrLVnF9JTTqjkYmaObhOdw";
-    private static final String FCM_TOKEN = "fCOGOrM-Q0G_5reL31nEd2:APA91bHIIapqUlLNmeS_WhTPDZ6zg3n9BIGDKY_M0XsdPq_j_mEUgrOT63zZZMk32k3CZ0BW6eM5PgHu-f9P1LohgoQknJXLCSrLVnF9JTTqjkYmaObhOdw";
+    //    private static final String FCM_TOKEN =
+    // "fCOGOrM-Q0G_5reL31nEd2:APA91bHIIapqUlLNmeS_WhTPDZ6zg3n9BIGDKY_M0XsdPq_j_mEUgrOT63zZZMk32k3CZ0BW6eM5PgHu-f9P1LohgoQknJXLCSrLVnF9JTTqjkYmaObhOdw";
+    private static final String FCM_TOKEN =
+            "fCOGOrM-Q0G_5reL31nEd2:APA91bHIIapqUlLNmeS_WhTPDZ6zg3n9BIGDKY_M0XsdPq_j_mEUgrOT63zZZMk32k3CZ0BW6eM5PgHu-f9P1LohgoQknJXLCSrLVnF9JTTqjkYmaObhOdw";
 
     private static final String SERVICE_ACCOUNT_PATH = "firebase-service-account.json";
 
@@ -68,9 +69,11 @@ class FcmPushIntegrationTest {
         // Credentials 로드 (FCM scope 명시적 지정)
         GoogleCredentials credentials;
         try (InputStream is = resource.getInputStream()) {
-            credentials = GoogleCredentials.fromStream(is)
-                .createScoped("https://www.googleapis.com/auth/firebase.messaging",
-                    "https://www.googleapis.com/auth/cloud-platform");
+            credentials =
+                    GoogleCredentials.fromStream(is)
+                            .createScoped(
+                                    "https://www.googleapis.com/auth/firebase.messaging",
+                                    "https://www.googleapis.com/auth/cloud-platform");
         }
         System.out.println("Credentials type: " + credentials.getClass().getSimpleName());
 
@@ -78,13 +81,15 @@ class FcmPushIntegrationTest {
         credentials.refreshIfExpired();
         AccessToken token = credentials.getAccessToken();
         if (token != null) {
-            System.out.println("Access token prefix: " + token.getTokenValue().substring(0, 20) + "...");
+            System.out.println(
+                    "Access token prefix: " + token.getTokenValue().substring(0, 20) + "...");
         }
 
-        FirebaseOptions options = FirebaseOptions.builder()
-            .setCredentials(credentials)
-            .setProjectId(projectId)  // 명시적으로 project ID 설정
-            .build();
+        FirebaseOptions options =
+                FirebaseOptions.builder()
+                        .setCredentials(credentials)
+                        .setProjectId(projectId) // 명시적으로 project ID 설정
+                        .build();
 
         FirebaseApp.initializeApp(options);
         System.out.println("✅ Firebase initialized successfully");
@@ -92,34 +97,40 @@ class FcmPushIntegrationTest {
     }
 
     @Test
-//    @Disabled("실제 푸시 전송 테스트 - FCM_TOKEN 설정 후 @Disabled 제거")
+    //    @Disabled("실제 푸시 전송 테스트 - FCM_TOKEN 설정 후 @Disabled 제거")
     void sendPushNotification_실제전송테스트() {
         try {
             // Given
-            Message message = Message.builder()
-                .setToken(FCM_TOKEN)
-                .setNotification(Notification.builder()
-                    .setTitle("테스트 알림 🔔")
-                    .setBody("Level Up Together 푸시 알림 테스트입니다!")
-                    .build())
-                .putAllData(Map.of(
-                    "notification_type", "TEST",
-                    "click_action", "/home"
-                ))
-                // iOS 설정
-                .setApnsConfig(ApnsConfig.builder()
-                    .setAps(Aps.builder()
-                        .setBadge(1)
-                        .setSound("default")
-                        .build())
-                    .build())
-                // Android 설정
-                .setAndroidConfig(AndroidConfig.builder()
-                    .setNotification(AndroidNotification.builder()
-                        .setSound("default")
-                        .build())
-                    .build())
-                .build();
+            Message message =
+                    Message.builder()
+                            .setToken(FCM_TOKEN)
+                            .setNotification(
+                                    Notification.builder()
+                                            .setTitle("테스트 알림 🔔")
+                                            .setBody("Level Up Together 푸시 알림 테스트입니다!")
+                                            .build())
+                            .putAllData(
+                                    Map.of(
+                                            "notification_type", "TEST",
+                                            "click_action", "/home"))
+                            // iOS 설정
+                            .setApnsConfig(
+                                    ApnsConfig.builder()
+                                            .setAps(
+                                                    Aps.builder()
+                                                            .setBadge(1)
+                                                            .setSound("default")
+                                                            .build())
+                                            .build())
+                            // Android 설정
+                            .setAndroidConfig(
+                                    AndroidConfig.builder()
+                                            .setNotification(
+                                                    AndroidNotification.builder()
+                                                            .setSound("default")
+                                                            .build())
+                                            .build())
+                            .build();
 
             // When
             String response = FirebaseMessaging.getInstance().send(message);
@@ -142,25 +153,29 @@ class FcmPushIntegrationTest {
     @Test
     @Disabled("친구 요청 알림 테스트 - FCM_TOKEN 설정 후 @Disabled 제거")
     void sendFriendRequestNotification() throws FirebaseMessagingException {
-        Message message = Message.builder()
-            .setToken(FCM_TOKEN)
-            .setNotification(Notification.builder()
-                .setTitle("새 친구 요청")
-                .setBody("테스트유저님이 친구 요청을 보냈습니다.")
-                .build())
-            .putAllData(Map.of(
-                "notification_type", "FRIEND_REQUEST",
-                "reference_type", "FRIEND_REQUEST",
-                "reference_id", "123",
-                "action_url", "/mypage/friends/requests"
-            ))
-            .setApnsConfig(ApnsConfig.builder()
-                .setAps(Aps.builder()
-                    .setBadge(1)
-                    .setSound("default")
-                    .build())
-                .build())
-            .build();
+        Message message =
+                Message.builder()
+                        .setToken(FCM_TOKEN)
+                        .setNotification(
+                                Notification.builder()
+                                        .setTitle("새 친구 요청")
+                                        .setBody("테스트유저님이 친구 요청을 보냈습니다.")
+                                        .build())
+                        .putAllData(
+                                Map.of(
+                                        "notification_type", "FRIEND_REQUEST",
+                                        "reference_type", "FRIEND_REQUEST",
+                                        "reference_id", "123",
+                                        "action_url", "/mypage/friends/requests"))
+                        .setApnsConfig(
+                                ApnsConfig.builder()
+                                        .setAps(
+                                                Aps.builder()
+                                                        .setBadge(1)
+                                                        .setSound("default")
+                                                        .build())
+                                        .build())
+                        .build();
 
         String response = FirebaseMessaging.getInstance().send(message);
         System.out.println("✅ 친구 요청 알림 전송 성공: " + response);
@@ -169,25 +184,29 @@ class FcmPushIntegrationTest {
     @Test
     @Disabled("길드 채팅 알림 테스트 - FCM_TOKEN 설정 후 @Disabled 제거")
     void sendGuildChatNotification() throws FirebaseMessagingException {
-        Message message = Message.builder()
-            .setToken(FCM_TOKEN)
-            .setNotification(Notification.builder()
-                .setTitle("테스트 길드")
-                .setBody("길드원: 안녕하세요! 오늘 미션 같이 해요~")
-                .build())
-            .putAllData(Map.of(
-                "notification_type", "GUILD_CHAT",
-                "reference_type", "GUILD_CHAT",
-                "guild_id", "1",
-                "action_url", "/guild/1/chat"
-            ))
-            .setApnsConfig(ApnsConfig.builder()
-                .setAps(Aps.builder()
-                    .setBadge(3)
-                    .setSound("default")
-                    .build())
-                .build())
-            .build();
+        Message message =
+                Message.builder()
+                        .setToken(FCM_TOKEN)
+                        .setNotification(
+                                Notification.builder()
+                                        .setTitle("테스트 길드")
+                                        .setBody("길드원: 안녕하세요! 오늘 미션 같이 해요~")
+                                        .build())
+                        .putAllData(
+                                Map.of(
+                                        "notification_type", "GUILD_CHAT",
+                                        "reference_type", "GUILD_CHAT",
+                                        "guild_id", "1",
+                                        "action_url", "/guild/1/chat"))
+                        .setApnsConfig(
+                                ApnsConfig.builder()
+                                        .setAps(
+                                                Aps.builder()
+                                                        .setBadge(3)
+                                                        .setSound("default")
+                                                        .build())
+                                        .build())
+                        .build();
 
         String response = FirebaseMessaging.getInstance().send(message);
         System.out.println("✅ 길드 채팅 알림 전송 성공: " + response);
@@ -196,25 +215,29 @@ class FcmPushIntegrationTest {
     @Test
     @Disabled("댓글 알림 테스트 - FCM_TOKEN 설정 후 @Disabled 제거")
     void sendCommentNotification() throws FirebaseMessagingException {
-        Message message = Message.builder()
-            .setToken(FCM_TOKEN)
-            .setNotification(Notification.builder()
-                .setTitle("새 댓글")
-                .setBody("친구님이 회원님의 글에 댓글을 남겼습니다.")
-                .build())
-            .putAllData(Map.of(
-                "notification_type", "COMMENT_ON_MY_FEED",
-                "reference_type", "FEED",
-                "reference_id", "456",
-                "action_url", "/feed/456"
-            ))
-            .setApnsConfig(ApnsConfig.builder()
-                .setAps(Aps.builder()
-                    .setBadge(2)
-                    .setSound("default")
-                    .build())
-                .build())
-            .build();
+        Message message =
+                Message.builder()
+                        .setToken(FCM_TOKEN)
+                        .setNotification(
+                                Notification.builder()
+                                        .setTitle("새 댓글")
+                                        .setBody("친구님이 회원님의 글에 댓글을 남겼습니다.")
+                                        .build())
+                        .putAllData(
+                                Map.of(
+                                        "notification_type", "COMMENT_ON_MY_FEED",
+                                        "reference_type", "FEED",
+                                        "reference_id", "456",
+                                        "action_url", "/feed/456"))
+                        .setApnsConfig(
+                                ApnsConfig.builder()
+                                        .setAps(
+                                                Aps.builder()
+                                                        .setBadge(2)
+                                                        .setSound("default")
+                                                        .build())
+                                        .build())
+                        .build();
 
         String response = FirebaseMessaging.getInstance().send(message);
         System.out.println("✅ 댓글 알림 전송 성공: " + response);
@@ -233,11 +256,11 @@ class FcmPushIntegrationTest {
 
         GoogleCredentials credentials;
         try (InputStream is = resource.getInputStream()) {
-            credentials = GoogleCredentials.fromStream(is)
-                .createScoped(
-                    "https://www.googleapis.com/auth/firebase.messaging",
-                    "https://www.googleapis.com/auth/cloud-platform"
-                );
+            credentials =
+                    GoogleCredentials.fromStream(is)
+                            .createScoped(
+                                    "https://www.googleapis.com/auth/firebase.messaging",
+                                    "https://www.googleapis.com/auth/cloud-platform");
         }
         credentials.refreshIfExpired();
         String accessToken = credentials.getAccessToken().getTokenValue();
@@ -256,21 +279,26 @@ class FcmPushIntegrationTest {
         System.out.println("curl -X POST '" + fcmUrl + "' \\");
         System.out.println("  -H 'Authorization: Bearer " + accessToken + "' \\");
         System.out.println("  -H 'Content-Type: application/json' \\");
-        System.out.println("  -d '{\"message\":{\"token\":\"" + FCM_TOKEN + "\",\"notification\":{\"title\":\"Test\",\"body\":\"Test\"}}}'");
+        System.out.println(
+                "  -d '{\"message\":{\"token\":\""
+                        + FCM_TOKEN
+                        + "\",\"notification\":{\"title\":\"Test\",\"body\":\"Test\"}}}'");
         System.out.println("=== End of curl command ===\n");
 
         // JSON body
-        String jsonBody = """
-            {
-              "message": {
-                "token": "%s",
-                "notification": {
-                  "title": "Raw HTTP Test",
-                  "body": "Testing FCM with raw HTTP request"
+        String jsonBody =
+                """
+                {
+                  "message": {
+                    "token": "%s",
+                    "notification": {
+                      "title": "Raw HTTP Test",
+                      "body": "Testing FCM with raw HTTP request"
+                    }
+                  }
                 }
-              }
-            }
-            """.formatted(FCM_TOKEN);
+                """
+                        .formatted(FCM_TOKEN);
 
         // HTTP 요청
         URL url = new URL(fcmUrl);
@@ -287,9 +315,10 @@ class FcmPushIntegrationTest {
         int responseCode = conn.getResponseCode();
         System.out.println("Response Code: " + responseCode);
 
-        InputStream responseStream = (responseCode >= 200 && responseCode < 300)
-            ? conn.getInputStream()
-            : conn.getErrorStream();
+        InputStream responseStream =
+                (responseCode >= 200 && responseCode < 300)
+                        ? conn.getInputStream()
+                        : conn.getErrorStream();
 
         if (responseStream != null) {
             String response = new String(responseStream.readAllBytes(), StandardCharsets.UTF_8);
@@ -309,11 +338,11 @@ class FcmPushIntegrationTest {
         ClassPathResource resource = new ClassPathResource(SERVICE_ACCOUNT_PATH);
         GoogleCredentials credentials;
         try (InputStream is = resource.getInputStream()) {
-            credentials = GoogleCredentials.fromStream(is)
-                .createScoped(
-                    "https://www.googleapis.com/auth/firebase.messaging",
-                    "https://www.googleapis.com/auth/cloud-platform"
-                );
+            credentials =
+                    GoogleCredentials.fromStream(is)
+                            .createScoped(
+                                    "https://www.googleapis.com/auth/firebase.messaging",
+                                    "https://www.googleapis.com/auth/cloud-platform");
         }
 
         // 명시적으로 토큰 갱신
@@ -321,15 +350,20 @@ class FcmPushIntegrationTest {
         AccessToken accessToken = credentials.getAccessToken();
 
         System.out.println("=== Access Token Test ===");
-        System.out.println("Access Token: " + (accessToken != null ?
-            accessToken.getTokenValue().substring(0, 20) + "..." : "null"));
-        System.out.println("Expiration: " + (accessToken != null ? accessToken.getExpirationTime() : "null"));
+        System.out.println(
+                "Access Token: "
+                        + (accessToken != null
+                                ? accessToken.getTokenValue().substring(0, 20) + "..."
+                                : "null"));
+        System.out.println(
+                "Expiration: " + (accessToken != null ? accessToken.getExpirationTime() : "null"));
 
         if (accessToken != null && accessToken.getTokenValue() != null) {
             System.out.println("✅ Access token obtained successfully!");
 
             // Cloud Resource Manager API로 토큰 유효성 검증
-            String testUrl = "https://cloudresourcemanager.googleapis.com/v1/projects/level-up-together-dev-486205";
+            String testUrl =
+                    "https://cloudresourcemanager.googleapis.com/v1/projects/level-up-together-dev-486205";
             URL url = new URL(testUrl);
             HttpURLConnection conn = (HttpURLConnection) url.openConnection();
             conn.setRequestMethod("GET");
@@ -358,8 +392,9 @@ class FcmPushIntegrationTest {
         ClassPathResource resource = new ClassPathResource(SERVICE_ACCOUNT_PATH);
         GoogleCredentials credentials;
         try (InputStream is = resource.getInputStream()) {
-            credentials = GoogleCredentials.fromStream(is)
-                .createScoped("https://www.googleapis.com/auth/cloud-platform");
+            credentials =
+                    GoogleCredentials.fromStream(is)
+                            .createScoped("https://www.googleapis.com/auth/cloud-platform");
         }
         credentials.refreshIfExpired();
         String accessToken = credentials.getAccessToken().getTokenValue();
@@ -367,23 +402,31 @@ class FcmPushIntegrationTest {
         HttpClient client = HttpClient.newHttpClient();
 
         // Android 앱 목록
-        HttpRequest androidRequest = HttpRequest.newBuilder()
-            .uri(URI.create("https://firebase.googleapis.com/v1beta1/projects/level-up-together-dev-486205/androidApps"))
-            .header("Authorization", "Bearer " + accessToken)
-            .GET()
-            .build();
+        HttpRequest androidRequest =
+                HttpRequest.newBuilder()
+                        .uri(
+                                URI.create(
+                                        "https://firebase.googleapis.com/v1beta1/projects/level-up-together-dev-486205/androidApps"))
+                        .header("Authorization", "Bearer " + accessToken)
+                        .GET()
+                        .build();
 
-        HttpResponse<String> androidResponse = client.send(androidRequest, HttpResponse.BodyHandlers.ofString());
+        HttpResponse<String> androidResponse =
+                client.send(androidRequest, HttpResponse.BodyHandlers.ofString());
         System.out.println("Android Apps: " + androidResponse.body());
 
         // iOS 앱 목록
-        HttpRequest iosRequest = HttpRequest.newBuilder()
-            .uri(URI.create("https://firebase.googleapis.com/v1beta1/projects/level-up-together-dev-486205/iosApps"))
-            .header("Authorization", "Bearer " + accessToken)
-            .GET()
-            .build();
+        HttpRequest iosRequest =
+                HttpRequest.newBuilder()
+                        .uri(
+                                URI.create(
+                                        "https://firebase.googleapis.com/v1beta1/projects/level-up-together-dev-486205/iosApps"))
+                        .header("Authorization", "Bearer " + accessToken)
+                        .GET()
+                        .build();
 
-        HttpResponse<String> iosResponse = client.send(iosRequest, HttpResponse.BodyHandlers.ofString());
+        HttpResponse<String> iosResponse =
+                client.send(iosRequest, HttpResponse.BodyHandlers.ofString());
         System.out.println("iOS Apps: " + iosResponse.body());
     }
 
@@ -402,11 +445,11 @@ class FcmPushIntegrationTest {
 
         GoogleCredentials credentials;
         try (InputStream is = resource.getInputStream()) {
-            credentials = GoogleCredentials.fromStream(is)
-                .createScoped(
-                    "https://www.googleapis.com/auth/firebase.messaging",
-                    "https://www.googleapis.com/auth/cloud-platform"
-                );
+            credentials =
+                    GoogleCredentials.fromStream(is)
+                            .createScoped(
+                                    "https://www.googleapis.com/auth/firebase.messaging",
+                                    "https://www.googleapis.com/auth/cloud-platform");
         }
         credentials.refreshIfExpired();
         String accessToken = credentials.getAccessToken().getTokenValue();
@@ -414,25 +457,28 @@ class FcmPushIntegrationTest {
         System.out.println("Access Token: " + accessToken.substring(0, 30) + "...");
 
         String fcmUrl = "https://fcm.googleapis.com/v1/projects/" + projectId + "/messages:send";
-        String jsonBody = """
-            {
-              "message": {
-                "token": "%s",
-                "notification": {
-                  "title": "HttpClient Test",
-                  "body": "Testing with Java HttpClient"
+        String jsonBody =
+                """
+                {
+                  "message": {
+                    "token": "%s",
+                    "notification": {
+                      "title": "HttpClient Test",
+                      "body": "Testing with Java HttpClient"
+                    }
+                  }
                 }
-              }
-            }
-            """.formatted(FCM_TOKEN);
+                """
+                        .formatted(FCM_TOKEN);
 
         HttpClient client = HttpClient.newHttpClient();
-        HttpRequest request = HttpRequest.newBuilder()
-            .uri(URI.create(fcmUrl))
-            .header("Authorization", "Bearer " + accessToken)
-            .header("Content-Type", "application/json; charset=UTF-8")
-            .POST(HttpRequest.BodyPublishers.ofString(jsonBody))
-            .build();
+        HttpRequest request =
+                HttpRequest.newBuilder()
+                        .uri(URI.create(fcmUrl))
+                        .header("Authorization", "Bearer " + accessToken)
+                        .header("Content-Type", "application/json; charset=UTF-8")
+                        .POST(HttpRequest.BodyPublishers.ofString(jsonBody))
+                        .build();
 
         // 요청 헤더 출력
         System.out.println("Request URL: " + fcmUrl);
@@ -457,34 +503,40 @@ class FcmPushIntegrationTest {
         // Firebase Console > Project Settings > Cloud Messaging > Server key
         System.out.println("=== Legacy FCM API Test ===");
         System.out.println("Note: This requires the Server Key from Firebase Console");
-        System.out.println("Go to: https://console.firebase.google.com/project/level-up-together-dev-486205/settings/cloudmessaging");
+        System.out.println(
+                "Go to:"
+                    + " https://console.firebase.google.com/project/level-up-together-dev-486205/settings/cloudmessaging");
         System.out.println("Copy the 'Server key' and set it below");
 
         // 서비스 계정으로 Cloud Messaging API 정보 조회 테스트
         ClassPathResource resource = new ClassPathResource(SERVICE_ACCOUNT_PATH);
         GoogleCredentials credentials;
         try (InputStream is = resource.getInputStream()) {
-            credentials = GoogleCredentials.fromStream(is)
-                .createScoped("https://www.googleapis.com/auth/cloud-platform");
+            credentials =
+                    GoogleCredentials.fromStream(is)
+                            .createScoped("https://www.googleapis.com/auth/cloud-platform");
         }
         credentials.refreshIfExpired();
         String accessToken = credentials.getAccessToken().getTokenValue();
 
         // Firebase Cloud Messaging API 상태 확인
         // 1. 먼저 Firebase project 확인
-        String apiCheckUrl = "https://firebase.googleapis.com/v1beta1/projects/level-up-together-dev-486205";
+        String apiCheckUrl =
+                "https://firebase.googleapis.com/v1beta1/projects/level-up-together-dev-486205";
 
         // 2. GCP Service Usage API로 FCM API 활성화 상태 확인
-        String fcmApiCheckUrl = "https://serviceusage.googleapis.com/v1/projects/level-up-together-dev-486205/services/fcm.googleapis.com";
+        String fcmApiCheckUrl =
+                "https://serviceusage.googleapis.com/v1/projects/level-up-together-dev-486205/services/fcm.googleapis.com";
         URL fcmUrl = new URL(fcmApiCheckUrl);
         HttpURLConnection fcmConn = (HttpURLConnection) fcmUrl.openConnection();
         fcmConn.setRequestMethod("GET");
         fcmConn.setRequestProperty("Authorization", "Bearer " + accessToken);
 
         System.out.println("FCM API Status Check - Response Code: " + fcmConn.getResponseCode());
-        InputStream fcmStream = (fcmConn.getResponseCode() >= 200 && fcmConn.getResponseCode() < 300)
-            ? fcmConn.getInputStream()
-            : fcmConn.getErrorStream();
+        InputStream fcmStream =
+                (fcmConn.getResponseCode() >= 200 && fcmConn.getResponseCode() < 300)
+                        ? fcmConn.getInputStream()
+                        : fcmConn.getErrorStream();
         if (fcmStream != null) {
             String fcmResponse = new String(fcmStream.readAllBytes(), StandardCharsets.UTF_8);
             System.out.println("FCM API Status: " + fcmResponse);
@@ -497,13 +549,15 @@ class FcmPushIntegrationTest {
         int responseCode = conn.getResponseCode();
         System.out.println("Firebase Project API Check - Response Code: " + responseCode);
 
-        InputStream responseStream = (responseCode >= 200 && responseCode < 300)
-            ? conn.getInputStream()
-            : conn.getErrorStream();
+        InputStream responseStream =
+                (responseCode >= 200 && responseCode < 300)
+                        ? conn.getInputStream()
+                        : conn.getErrorStream();
 
         if (responseStream != null) {
             String response = new String(responseStream.readAllBytes(), StandardCharsets.UTF_8);
-            System.out.println("Response: " + response.substring(0, Math.min(500, response.length())));
+            System.out.println(
+                    "Response: " + response.substring(0, Math.min(500, response.length())));
         }
     }
 
@@ -512,13 +566,12 @@ class FcmPushIntegrationTest {
     void validateToken() {
         try {
             // Dry run으로 토큰 유효성만 검사 (실제 전송 안 함)
-            Message message = Message.builder()
-                .setToken(FCM_TOKEN)
-                .setNotification(Notification.builder()
-                    .setTitle("Test")
-                    .setBody("Test")
-                    .build())
-                .build();
+            Message message =
+                    Message.builder()
+                            .setToken(FCM_TOKEN)
+                            .setNotification(
+                                    Notification.builder().setTitle("Test").setBody("Test").build())
+                            .build();
 
             String response = FirebaseMessaging.getInstance().send(message, true); // dryRun = true
             System.out.println("✅ 토큰 유효함: " + response);

@@ -43,37 +43,27 @@ import org.springframework.data.domain.PageRequest;
 @ExtendWith(MockitoExtension.class)
 class DailyMvpHistoryServiceTest {
 
-    @Mock
-    private DailyMvpHistoryRepository historyRepository;
+    @Mock private DailyMvpHistoryRepository historyRepository;
 
-    @Mock
-    private DailyMvpCategoryStatsRepository categoryStatsRepository;
+    @Mock private DailyMvpCategoryStatsRepository categoryStatsRepository;
 
-    @Mock
-    private ExperienceHistoryRepository experienceHistoryRepository;
+    @Mock private ExperienceHistoryRepository experienceHistoryRepository;
 
-    @Mock
-    private UserQueryFacade userQueryFacadeService;
+    @Mock private UserQueryFacade userQueryFacadeService;
 
-    @Mock
-    private UserExperienceRepository userExperienceRepository;
+    @Mock private UserExperienceRepository userExperienceRepository;
 
-    @Mock
-    private UserTitleRepository userTitleRepository;
+    @Mock private UserTitleRepository userTitleRepository;
 
-    @Mock
-    private MissionCategoryService missionCategoryService;
+    @Mock private MissionCategoryService missionCategoryService;
 
-    @InjectMocks
-    private DailyMvpHistoryService dailyMvpHistoryService;
+    @InjectMocks private DailyMvpHistoryService dailyMvpHistoryService;
 
     private static final LocalDate TEST_DATE = LocalDate.of(2025, 1, 15);
 
     // ===================== 헬퍼 메서드 =====================
 
-    /**
-     * [userId, earnedExp] 형태의 Object[] 생성
-     */
+    /** [userId, earnedExp] 형태의 Object[] 생성 */
     private List<Object[]> topGainersOf(Object[]... rows) {
         List<Object[]> result = new ArrayList<>();
         for (Object[] row : rows) {
@@ -83,14 +73,13 @@ class DailyMvpHistoryServiceTest {
     }
 
     private Object[] topGainerRow(String userId, long earnedExp) {
-        return new Object[]{userId, earnedExp};
+        return new Object[] {userId, earnedExp};
     }
 
-    /**
-     * [categoryName, categoryId, exp, activityCount] 형태의 Object[] 생성
-     */
-    private Object[] categoryStatRow(String categoryName, String categoryId, long exp, int activityCount) {
-        return new Object[]{categoryName, categoryId, exp, activityCount};
+    /** [categoryName, categoryId, exp, activityCount] 형태의 Object[] 생성 */
+    private Object[] categoryStatRow(
+            String categoryName, String categoryId, long exp, int activityCount) {
+        return new Object[] {categoryName, categoryId, exp, activityCount};
     }
 
     private List<Object[]> categoryStatsOf(Object[]... rows) {
@@ -102,48 +91,48 @@ class DailyMvpHistoryServiceTest {
     }
 
     private UserExperience createUserExperience(String userId, int level) {
-        UserExperience ue = UserExperience.builder()
-            .userId(userId)
-            .currentLevel(level)
-            .currentExp(0)
-            .totalExp(0)
-            .build();
+        UserExperience ue =
+                UserExperience.builder()
+                        .userId(userId)
+                        .currentLevel(level)
+                        .currentExp(0)
+                        .totalExp(0)
+                        .build();
         setId(ue, 1L);
         return ue;
     }
 
     private Title createTitle(Long id, String name, TitleRarity rarity, TitlePosition position) {
-        Title title = Title.builder()
-            .name(name)
-            .rarity(rarity)
-            .positionType(position)
-            .isActive(true)
-            .build();
+        Title title =
+                Title.builder()
+                        .name(name)
+                        .rarity(rarity)
+                        .positionType(position)
+                        .isActive(true)
+                        .build();
         setId(title, id);
         return title;
     }
 
     private UserTitle createUserTitle(Long id, String userId, Title title, TitlePosition position) {
-        UserTitle userTitle = UserTitle.builder()
-            .userId(userId)
-            .title(title)
-            .isEquipped(true)
-            .equippedPosition(position)
-            .build();
+        UserTitle userTitle =
+                UserTitle.builder()
+                        .userId(userId)
+                        .title(title)
+                        .isEquipped(true)
+                        .equippedPosition(position)
+                        .build();
         setId(userTitle, id);
         return userTitle;
     }
 
     private MissionCategoryResponse createCategoryResponse(Long id, String name) {
-        return MissionCategoryResponse.builder()
-            .id(id)
-            .name(name)
-            .isActive(true)
-            .build();
+        return MissionCategoryResponse.builder().id(id).name(name).isActive(true).build();
     }
 
     private UserProfileInfo createUserProfileInfo(String userId, String nickname) {
-        return new UserProfileInfo(userId, nickname, "https://example.com/picture.jpg", 5, null, null, null);
+        return new UserProfileInfo(
+                userId, nickname, "https://example.com/picture.jpg", 5, null, null, null);
     }
 
     // ===================== captureAndSaveDailyMvp 테스트 =====================
@@ -156,14 +145,16 @@ class DailyMvpHistoryServiceTest {
         @DisplayName("이미 5개 이상의 MVP 히스토리가 저장된 경우 스킵한다")
         void captureAndSaveDailyMvp_alreadySaved_skips() {
             // given
-            when(historyRepository.countByMvpDateAndTimezone(TEST_DATE, "Asia/Seoul")).thenReturn(5L);
+            when(historyRepository.countByMvpDateAndTimezone(TEST_DATE, "Asia/Seoul"))
+                    .thenReturn(5L);
 
             // when
             dailyMvpHistoryService.captureAndSaveDailyMvp(TEST_DATE);
 
             // then
             verify(historyRepository, never()).deleteByMvpDateAndTimezone(any(), any());
-            verify(experienceHistoryRepository, never()).findTopExpGainersByPeriod(any(), any(), any());
+            verify(experienceHistoryRepository, never())
+                    .findTopExpGainersByPeriod(any(), any(), any());
             verify(historyRepository, never()).save(any());
         }
 
@@ -171,7 +162,8 @@ class DailyMvpHistoryServiceTest {
         @DisplayName("이미 MVP_COUNT(5)보다 많은 경우에도 스킵한다")
         void captureAndSaveDailyMvp_moreThanMvpCount_skips() {
             // given
-            when(historyRepository.countByMvpDateAndTimezone(TEST_DATE, "Asia/Seoul")).thenReturn(7L);
+            when(historyRepository.countByMvpDateAndTimezone(TEST_DATE, "Asia/Seoul"))
+                    .thenReturn(7L);
 
             // when
             dailyMvpHistoryService.captureAndSaveDailyMvp(TEST_DATE);
@@ -186,24 +178,25 @@ class DailyMvpHistoryServiceTest {
         void captureAndSaveDailyMvp_partialSaved_deletesAndResaves() {
             // given
             String userId = "user-1";
-            when(historyRepository.countByMvpDateAndTimezone(TEST_DATE, "Asia/Seoul")).thenReturn(3L);
+            when(historyRepository.countByMvpDateAndTimezone(TEST_DATE, "Asia/Seoul"))
+                    .thenReturn(3L);
 
             List<Object[]> topGainers = topGainersOf(topGainerRow(userId, 500L));
-            when(experienceHistoryRepository.findTopExpGainersByPeriod(any(), any(), any(PageRequest.class)))
-                .thenReturn(topGainers);
+            when(experienceHistoryRepository.findTopExpGainersByPeriod(
+                            any(), any(), any(PageRequest.class)))
+                    .thenReturn(topGainers);
 
             when(userQueryFacadeService.getUserProfiles(anyList()))
-                .thenReturn(Map.of(userId, createUserProfileInfo(userId, "테스터")));
+                    .thenReturn(Map.of(userId, createUserProfileInfo(userId, "테스터")));
             when(userExperienceRepository.findByUserIdIn(anyList()))
-                .thenReturn(List.of(createUserExperience(userId, 10)));
+                    .thenReturn(List.of(createUserExperience(userId, 10)));
             when(userTitleRepository.findEquippedTitlesByUserIdIn(anyList()))
-                .thenReturn(Collections.emptyList());
+                    .thenReturn(Collections.emptyList());
             when(experienceHistoryRepository.findUserCategoryExpByPeriod(eq(userId), any(), any()))
-                .thenReturn(Collections.emptyList());
-            when(missionCategoryService.getActiveCategories())
-                .thenReturn(Collections.emptyList());
+                    .thenReturn(Collections.emptyList());
+            when(missionCategoryService.getActiveCategories()).thenReturn(Collections.emptyList());
             when(historyRepository.save(any(DailyMvpHistory.class)))
-                .thenAnswer(inv -> inv.getArgument(0));
+                    .thenAnswer(inv -> inv.getArgument(0));
 
             // when
             dailyMvpHistoryService.captureAndSaveDailyMvp(TEST_DATE);
@@ -218,9 +211,11 @@ class DailyMvpHistoryServiceTest {
         @DisplayName("MVP 데이터가 없는 경우(topGainers가 빈 리스트) 저장 없이 종료한다")
         void captureAndSaveDailyMvp_noData_doesNotSave() {
             // given
-            when(historyRepository.countByMvpDateAndTimezone(TEST_DATE, "Asia/Seoul")).thenReturn(0L);
-            when(experienceHistoryRepository.findTopExpGainersByPeriod(any(), any(), any(PageRequest.class)))
-                .thenReturn(Collections.emptyList());
+            when(historyRepository.countByMvpDateAndTimezone(TEST_DATE, "Asia/Seoul"))
+                    .thenReturn(0L);
+            when(experienceHistoryRepository.findTopExpGainersByPeriod(
+                            any(), any(), any(PageRequest.class)))
+                    .thenReturn(Collections.emptyList());
 
             // when
             dailyMvpHistoryService.captureAndSaveDailyMvp(TEST_DATE);
@@ -237,35 +232,34 @@ class DailyMvpHistoryServiceTest {
             String userId1 = "user-1";
             String userId2 = "user-2";
 
-            when(historyRepository.countByMvpDateAndTimezone(TEST_DATE, "Asia/Seoul")).thenReturn(0L);
+            when(historyRepository.countByMvpDateAndTimezone(TEST_DATE, "Asia/Seoul"))
+                    .thenReturn(0L);
 
-            List<Object[]> topGainers = topGainersOf(
-                topGainerRow(userId1, 1000L),
-                topGainerRow(userId2, 800L)
-            );
-            when(experienceHistoryRepository.findTopExpGainersByPeriod(any(), any(), any(PageRequest.class)))
-                .thenReturn(topGainers);
+            List<Object[]> topGainers =
+                    topGainersOf(topGainerRow(userId1, 1000L), topGainerRow(userId2, 800L));
+            when(experienceHistoryRepository.findTopExpGainersByPeriod(
+                            any(), any(), any(PageRequest.class)))
+                    .thenReturn(topGainers);
 
             when(userQueryFacadeService.getUserProfiles(anyList()))
-                .thenReturn(Map.of(
-                    userId1, createUserProfileInfo(userId1, "유저1"),
-                    userId2, createUserProfileInfo(userId2, "유저2")
-                ));
+                    .thenReturn(
+                            Map.of(
+                                    userId1, createUserProfileInfo(userId1, "유저1"),
+                                    userId2, createUserProfileInfo(userId2, "유저2")));
             when(userExperienceRepository.findByUserIdIn(anyList()))
-                .thenReturn(List.of(
-                    createUserExperience(userId1, 15),
-                    createUserExperience(userId2, 12)
-                ));
+                    .thenReturn(
+                            List.of(
+                                    createUserExperience(userId1, 15),
+                                    createUserExperience(userId2, 12)));
             when(userTitleRepository.findEquippedTitlesByUserIdIn(anyList()))
-                .thenReturn(Collections.emptyList());
+                    .thenReturn(Collections.emptyList());
             when(experienceHistoryRepository.findUserCategoryExpByPeriod(eq(userId1), any(), any()))
-                .thenReturn(Collections.emptyList());
+                    .thenReturn(Collections.emptyList());
             when(experienceHistoryRepository.findUserCategoryExpByPeriod(eq(userId2), any(), any()))
-                .thenReturn(Collections.emptyList());
-            when(missionCategoryService.getActiveCategories())
-                .thenReturn(Collections.emptyList());
+                    .thenReturn(Collections.emptyList());
+            when(missionCategoryService.getActiveCategories()).thenReturn(Collections.emptyList());
             when(historyRepository.save(any(DailyMvpHistory.class)))
-                .thenAnswer(inv -> inv.getArgument(0));
+                    .thenAnswer(inv -> inv.getArgument(0));
 
             // when
             dailyMvpHistoryService.captureAndSaveDailyMvp(TEST_DATE);
@@ -294,25 +288,26 @@ class DailyMvpHistoryServiceTest {
             // given
             String userId = "user-no-profile";
 
-            when(historyRepository.countByMvpDateAndTimezone(TEST_DATE, "Asia/Seoul")).thenReturn(0L);
+            when(historyRepository.countByMvpDateAndTimezone(TEST_DATE, "Asia/Seoul"))
+                    .thenReturn(0L);
 
             List<Object[]> topGainers = topGainersOf(topGainerRow(userId, 300L));
-            when(experienceHistoryRepository.findTopExpGainersByPeriod(any(), any(), any(PageRequest.class)))
-                .thenReturn(topGainers);
+            when(experienceHistoryRepository.findTopExpGainersByPeriod(
+                            any(), any(), any(PageRequest.class)))
+                    .thenReturn(topGainers);
 
             // profileMap에 해당 userId 없음
             when(userQueryFacadeService.getUserProfiles(anyList()))
-                .thenReturn(Collections.emptyMap());
+                    .thenReturn(Collections.emptyMap());
             when(userExperienceRepository.findByUserIdIn(anyList()))
-                .thenReturn(Collections.emptyList());
+                    .thenReturn(Collections.emptyList());
             when(userTitleRepository.findEquippedTitlesByUserIdIn(anyList()))
-                .thenReturn(Collections.emptyList());
+                    .thenReturn(Collections.emptyList());
             when(experienceHistoryRepository.findUserCategoryExpByPeriod(eq(userId), any(), any()))
-                .thenReturn(Collections.emptyList());
-            when(missionCategoryService.getActiveCategories())
-                .thenReturn(Collections.emptyList());
+                    .thenReturn(Collections.emptyList());
+            when(missionCategoryService.getActiveCategories()).thenReturn(Collections.emptyList());
             when(historyRepository.save(any(DailyMvpHistory.class)))
-                .thenAnswer(inv -> inv.getArgument(0));
+                    .thenAnswer(inv -> inv.getArgument(0));
 
             // when
             dailyMvpHistoryService.captureAndSaveDailyMvp(TEST_DATE);
@@ -332,25 +327,26 @@ class DailyMvpHistoryServiceTest {
             // given
             String userId = "user-no-level";
 
-            when(historyRepository.countByMvpDateAndTimezone(TEST_DATE, "Asia/Seoul")).thenReturn(0L);
+            when(historyRepository.countByMvpDateAndTimezone(TEST_DATE, "Asia/Seoul"))
+                    .thenReturn(0L);
 
             List<Object[]> topGainers = topGainersOf(topGainerRow(userId, 300L));
-            when(experienceHistoryRepository.findTopExpGainersByPeriod(any(), any(), any(PageRequest.class)))
-                .thenReturn(topGainers);
+            when(experienceHistoryRepository.findTopExpGainersByPeriod(
+                            any(), any(), any(PageRequest.class)))
+                    .thenReturn(topGainers);
 
             when(userQueryFacadeService.getUserProfiles(anyList()))
-                .thenReturn(Map.of(userId, createUserProfileInfo(userId, "레벨없는유저")));
+                    .thenReturn(Map.of(userId, createUserProfileInfo(userId, "레벨없는유저")));
             // levelMap 비어있음 - getOrDefault(userId, 1) → 1
             when(userExperienceRepository.findByUserIdIn(anyList()))
-                .thenReturn(Collections.emptyList());
+                    .thenReturn(Collections.emptyList());
             when(userTitleRepository.findEquippedTitlesByUserIdIn(anyList()))
-                .thenReturn(Collections.emptyList());
+                    .thenReturn(Collections.emptyList());
             when(experienceHistoryRepository.findUserCategoryExpByPeriod(eq(userId), any(), any()))
-                .thenReturn(Collections.emptyList());
-            when(missionCategoryService.getActiveCategories())
-                .thenReturn(Collections.emptyList());
+                    .thenReturn(Collections.emptyList());
+            when(missionCategoryService.getActiveCategories()).thenReturn(Collections.emptyList());
             when(historyRepository.save(any(DailyMvpHistory.class)))
-                .thenAnswer(inv -> inv.getArgument(0));
+                    .thenAnswer(inv -> inv.getArgument(0));
 
             // when
             dailyMvpHistoryService.captureAndSaveDailyMvp(TEST_DATE);
@@ -369,11 +365,13 @@ class DailyMvpHistoryServiceTest {
             // given
             String userId = "user-with-title";
 
-            when(historyRepository.countByMvpDateAndTimezone(TEST_DATE, "Asia/Seoul")).thenReturn(0L);
+            when(historyRepository.countByMvpDateAndTimezone(TEST_DATE, "Asia/Seoul"))
+                    .thenReturn(0L);
 
             List<Object[]> topGainers = topGainersOf(topGainerRow(userId, 500L));
-            when(experienceHistoryRepository.findTopExpGainersByPeriod(any(), any(), any(PageRequest.class)))
-                .thenReturn(topGainers);
+            when(experienceHistoryRepository.findTopExpGainersByPeriod(
+                            any(), any(), any(PageRequest.class)))
+                    .thenReturn(topGainers);
 
             Title leftTitle = createTitle(1L, "용감한", TitleRarity.EPIC, TitlePosition.LEFT);
             Title rightTitle = createTitle(2L, "전사", TitleRarity.RARE, TitlePosition.RIGHT);
@@ -381,17 +379,16 @@ class DailyMvpHistoryServiceTest {
             UserTitle rightUserTitle = createUserTitle(2L, userId, rightTitle, TitlePosition.RIGHT);
 
             when(userQueryFacadeService.getUserProfiles(anyList()))
-                .thenReturn(Map.of(userId, createUserProfileInfo(userId, "용사")));
+                    .thenReturn(Map.of(userId, createUserProfileInfo(userId, "용사")));
             when(userExperienceRepository.findByUserIdIn(anyList()))
-                .thenReturn(List.of(createUserExperience(userId, 20)));
+                    .thenReturn(List.of(createUserExperience(userId, 20)));
             when(userTitleRepository.findEquippedTitlesByUserIdIn(anyList()))
-                .thenReturn(List.of(leftUserTitle, rightUserTitle));
+                    .thenReturn(List.of(leftUserTitle, rightUserTitle));
             when(experienceHistoryRepository.findUserCategoryExpByPeriod(eq(userId), any(), any()))
-                .thenReturn(Collections.emptyList());
-            when(missionCategoryService.getActiveCategories())
-                .thenReturn(Collections.emptyList());
+                    .thenReturn(Collections.emptyList());
+            when(missionCategoryService.getActiveCategories()).thenReturn(Collections.emptyList());
             when(historyRepository.save(any(DailyMvpHistory.class)))
-                .thenAnswer(inv -> inv.getArgument(0));
+                    .thenAnswer(inv -> inv.getArgument(0));
 
             // when
             dailyMvpHistoryService.captureAndSaveDailyMvp(TEST_DATE);
@@ -412,27 +409,28 @@ class DailyMvpHistoryServiceTest {
             // given
             String userId = "user-left-only";
 
-            when(historyRepository.countByMvpDateAndTimezone(TEST_DATE, "Asia/Seoul")).thenReturn(0L);
+            when(historyRepository.countByMvpDateAndTimezone(TEST_DATE, "Asia/Seoul"))
+                    .thenReturn(0L);
 
             List<Object[]> topGainers = topGainersOf(topGainerRow(userId, 500L));
-            when(experienceHistoryRepository.findTopExpGainersByPeriod(any(), any(), any(PageRequest.class)))
-                .thenReturn(topGainers);
+            when(experienceHistoryRepository.findTopExpGainersByPeriod(
+                            any(), any(), any(PageRequest.class)))
+                    .thenReturn(topGainers);
 
             Title leftTitle = createTitle(1L, "용감한", TitleRarity.RARE, TitlePosition.LEFT);
             UserTitle leftUserTitle = createUserTitle(1L, userId, leftTitle, TitlePosition.LEFT);
 
             when(userQueryFacadeService.getUserProfiles(anyList()))
-                .thenReturn(Map.of(userId, createUserProfileInfo(userId, "유저")));
+                    .thenReturn(Map.of(userId, createUserProfileInfo(userId, "유저")));
             when(userExperienceRepository.findByUserIdIn(anyList()))
-                .thenReturn(List.of(createUserExperience(userId, 10)));
+                    .thenReturn(List.of(createUserExperience(userId, 10)));
             when(userTitleRepository.findEquippedTitlesByUserIdIn(anyList()))
-                .thenReturn(List.of(leftUserTitle));
+                    .thenReturn(List.of(leftUserTitle));
             when(experienceHistoryRepository.findUserCategoryExpByPeriod(eq(userId), any(), any()))
-                .thenReturn(Collections.emptyList());
-            when(missionCategoryService.getActiveCategories())
-                .thenReturn(Collections.emptyList());
+                    .thenReturn(Collections.emptyList());
+            when(missionCategoryService.getActiveCategories()).thenReturn(Collections.emptyList());
             when(historyRepository.save(any(DailyMvpHistory.class)))
-                .thenAnswer(inv -> inv.getArgument(0));
+                    .thenAnswer(inv -> inv.getArgument(0));
 
             // when
             dailyMvpHistoryService.captureAndSaveDailyMvp(TEST_DATE);
@@ -452,24 +450,25 @@ class DailyMvpHistoryServiceTest {
             // given
             String userId = "user-no-title";
 
-            when(historyRepository.countByMvpDateAndTimezone(TEST_DATE, "Asia/Seoul")).thenReturn(0L);
+            when(historyRepository.countByMvpDateAndTimezone(TEST_DATE, "Asia/Seoul"))
+                    .thenReturn(0L);
 
             List<Object[]> topGainers = topGainersOf(topGainerRow(userId, 400L));
-            when(experienceHistoryRepository.findTopExpGainersByPeriod(any(), any(), any(PageRequest.class)))
-                .thenReturn(topGainers);
+            when(experienceHistoryRepository.findTopExpGainersByPeriod(
+                            any(), any(), any(PageRequest.class)))
+                    .thenReturn(topGainers);
 
             when(userQueryFacadeService.getUserProfiles(anyList()))
-                .thenReturn(Map.of(userId, createUserProfileInfo(userId, "칭호없는유저")));
+                    .thenReturn(Map.of(userId, createUserProfileInfo(userId, "칭호없는유저")));
             when(userExperienceRepository.findByUserIdIn(anyList()))
-                .thenReturn(List.of(createUserExperience(userId, 5)));
+                    .thenReturn(List.of(createUserExperience(userId, 5)));
             when(userTitleRepository.findEquippedTitlesByUserIdIn(anyList()))
-                .thenReturn(Collections.emptyList());
+                    .thenReturn(Collections.emptyList());
             when(experienceHistoryRepository.findUserCategoryExpByPeriod(eq(userId), any(), any()))
-                .thenReturn(Collections.emptyList());
-            when(missionCategoryService.getActiveCategories())
-                .thenReturn(Collections.emptyList());
+                    .thenReturn(Collections.emptyList());
+            when(missionCategoryService.getActiveCategories()).thenReturn(Collections.emptyList());
             when(historyRepository.save(any(DailyMvpHistory.class)))
-                .thenAnswer(inv -> inv.getArgument(0));
+                    .thenAnswer(inv -> inv.getArgument(0));
 
             // when
             dailyMvpHistoryService.captureAndSaveDailyMvp(TEST_DATE);
@@ -491,31 +490,34 @@ class DailyMvpHistoryServiceTest {
             String categoryName = "운동";
             Long categoryId = 10L;
 
-            when(historyRepository.countByMvpDateAndTimezone(TEST_DATE, "Asia/Seoul")).thenReturn(0L);
+            when(historyRepository.countByMvpDateAndTimezone(TEST_DATE, "Asia/Seoul"))
+                    .thenReturn(0L);
 
             List<Object[]> topGainers = topGainersOf(topGainerRow(userId, 700L));
-            when(experienceHistoryRepository.findTopExpGainersByPeriod(any(), any(), any(PageRequest.class)))
-                .thenReturn(topGainers);
+            when(experienceHistoryRepository.findTopExpGainersByPeriod(
+                            any(), any(), any(PageRequest.class)))
+                    .thenReturn(topGainers);
 
-            // categoryStats: 이미 경험치 순으로 정렬된 상태 (findUserCategoryExpByPeriod 쿼리에서 ORDER BY totalExp DESC)
+            // categoryStats: 이미 경험치 순으로 정렬된 상태 (findUserCategoryExpByPeriod 쿼리에서 ORDER BY totalExp
+            // DESC)
             // [categoryName, categoryId(unused), exp, activityCount]
-            List<Object[]> categoryStats = categoryStatsOf(
-                categoryStatRow(categoryName, "운동", 500L, 3),
-                categoryStatRow("독서", "독서", 200L, 2)
-            );
+            List<Object[]> categoryStats =
+                    categoryStatsOf(
+                            categoryStatRow(categoryName, "운동", 500L, 3),
+                            categoryStatRow("독서", "독서", 200L, 2));
 
             when(userQueryFacadeService.getUserProfiles(anyList()))
-                .thenReturn(Map.of(userId, createUserProfileInfo(userId, "카테고리유저")));
+                    .thenReturn(Map.of(userId, createUserProfileInfo(userId, "카테고리유저")));
             when(userExperienceRepository.findByUserIdIn(anyList()))
-                .thenReturn(List.of(createUserExperience(userId, 8)));
+                    .thenReturn(List.of(createUserExperience(userId, 8)));
             when(userTitleRepository.findEquippedTitlesByUserIdIn(anyList()))
-                .thenReturn(Collections.emptyList());
+                    .thenReturn(Collections.emptyList());
             when(experienceHistoryRepository.findUserCategoryExpByPeriod(eq(userId), any(), any()))
-                .thenReturn(categoryStats);
+                    .thenReturn(categoryStats);
             when(missionCategoryService.getActiveCategories())
-                .thenReturn(List.of(createCategoryResponse(categoryId, categoryName)));
+                    .thenReturn(List.of(createCategoryResponse(categoryId, categoryName)));
             when(historyRepository.save(any(DailyMvpHistory.class)))
-                .thenAnswer(inv -> inv.getArgument(0));
+                    .thenAnswer(inv -> inv.getArgument(0));
 
             // when
             dailyMvpHistoryService.captureAndSaveDailyMvp(TEST_DATE);
@@ -536,24 +538,25 @@ class DailyMvpHistoryServiceTest {
             // given
             String userId = "user-no-category";
 
-            when(historyRepository.countByMvpDateAndTimezone(TEST_DATE, "Asia/Seoul")).thenReturn(0L);
+            when(historyRepository.countByMvpDateAndTimezone(TEST_DATE, "Asia/Seoul"))
+                    .thenReturn(0L);
 
             List<Object[]> topGainers = topGainersOf(topGainerRow(userId, 300L));
-            when(experienceHistoryRepository.findTopExpGainersByPeriod(any(), any(), any(PageRequest.class)))
-                .thenReturn(topGainers);
+            when(experienceHistoryRepository.findTopExpGainersByPeriod(
+                            any(), any(), any(PageRequest.class)))
+                    .thenReturn(topGainers);
 
             when(userQueryFacadeService.getUserProfiles(anyList()))
-                .thenReturn(Map.of(userId, createUserProfileInfo(userId, "유저")));
+                    .thenReturn(Map.of(userId, createUserProfileInfo(userId, "유저")));
             when(userExperienceRepository.findByUserIdIn(anyList()))
-                .thenReturn(List.of(createUserExperience(userId, 5)));
+                    .thenReturn(List.of(createUserExperience(userId, 5)));
             when(userTitleRepository.findEquippedTitlesByUserIdIn(anyList()))
-                .thenReturn(Collections.emptyList());
+                    .thenReturn(Collections.emptyList());
             when(experienceHistoryRepository.findUserCategoryExpByPeriod(eq(userId), any(), any()))
-                .thenReturn(Collections.emptyList());
-            when(missionCategoryService.getActiveCategories())
-                .thenReturn(Collections.emptyList());
+                    .thenReturn(Collections.emptyList());
+            when(missionCategoryService.getActiveCategories()).thenReturn(Collections.emptyList());
             when(historyRepository.save(any(DailyMvpHistory.class)))
-                .thenAnswer(inv -> inv.getArgument(0));
+                    .thenAnswer(inv -> inv.getArgument(0));
 
             // when
             dailyMvpHistoryService.captureAndSaveDailyMvp(TEST_DATE);
@@ -576,28 +579,29 @@ class DailyMvpHistoryServiceTest {
             String categoryName = "운동";
             Long categoryId = 10L;
 
-            when(historyRepository.countByMvpDateAndTimezone(TEST_DATE, "Asia/Seoul")).thenReturn(0L);
+            when(historyRepository.countByMvpDateAndTimezone(TEST_DATE, "Asia/Seoul"))
+                    .thenReturn(0L);
 
             List<Object[]> topGainers = topGainersOf(topGainerRow(userId, 600L));
-            when(experienceHistoryRepository.findTopExpGainersByPeriod(any(), any(), any(PageRequest.class)))
-                .thenReturn(topGainers);
+            when(experienceHistoryRepository.findTopExpGainersByPeriod(
+                            any(), any(), any(PageRequest.class)))
+                    .thenReturn(topGainers);
 
-            List<Object[]> categoryStats = categoryStatsOf(
-                categoryStatRow(categoryName, "운동", 600L, 4)
-            );
+            List<Object[]> categoryStats =
+                    categoryStatsOf(categoryStatRow(categoryName, "운동", 600L, 4));
 
             when(userQueryFacadeService.getUserProfiles(anyList()))
-                .thenReturn(Map.of(userId, createUserProfileInfo(userId, "유저")));
+                    .thenReturn(Map.of(userId, createUserProfileInfo(userId, "유저")));
             when(userExperienceRepository.findByUserIdIn(anyList()))
-                .thenReturn(List.of(createUserExperience(userId, 7)));
+                    .thenReturn(List.of(createUserExperience(userId, 7)));
             when(userTitleRepository.findEquippedTitlesByUserIdIn(anyList()))
-                .thenReturn(Collections.emptyList());
+                    .thenReturn(Collections.emptyList());
             when(experienceHistoryRepository.findUserCategoryExpByPeriod(eq(userId), any(), any()))
-                .thenReturn(categoryStats);
+                    .thenReturn(categoryStats);
             when(missionCategoryService.getActiveCategories())
-                .thenReturn(List.of(createCategoryResponse(categoryId, categoryName)));
+                    .thenReturn(List.of(createCategoryResponse(categoryId, categoryName)));
             when(historyRepository.save(any(DailyMvpHistory.class)))
-                .thenAnswer(inv -> inv.getArgument(0));
+                    .thenAnswer(inv -> inv.getArgument(0));
 
             // when
             dailyMvpHistoryService.captureAndSaveDailyMvp(TEST_DATE);
@@ -612,30 +616,31 @@ class DailyMvpHistoryServiceTest {
             // given
             String userId = "user-unknown-category";
 
-            when(historyRepository.countByMvpDateAndTimezone(TEST_DATE, "Asia/Seoul")).thenReturn(0L);
+            when(historyRepository.countByMvpDateAndTimezone(TEST_DATE, "Asia/Seoul"))
+                    .thenReturn(0L);
 
             List<Object[]> topGainers = topGainersOf(topGainerRow(userId, 400L));
-            when(experienceHistoryRepository.findTopExpGainersByPeriod(any(), any(), any(PageRequest.class)))
-                .thenReturn(topGainers);
+            when(experienceHistoryRepository.findTopExpGainersByPeriod(
+                            any(), any(), any(PageRequest.class)))
+                    .thenReturn(topGainers);
 
             // 카테고리 이름이 "존재하지않는카테고리"이고 missionCategoryService에는 없음
-            List<Object[]> categoryStats = categoryStatsOf(
-                categoryStatRow("존재하지않는카테고리", "unknown", 400L, 2)
-            );
+            List<Object[]> categoryStats =
+                    categoryStatsOf(categoryStatRow("존재하지않는카테고리", "unknown", 400L, 2));
 
             when(userQueryFacadeService.getUserProfiles(anyList()))
-                .thenReturn(Map.of(userId, createUserProfileInfo(userId, "유저")));
+                    .thenReturn(Map.of(userId, createUserProfileInfo(userId, "유저")));
             when(userExperienceRepository.findByUserIdIn(anyList()))
-                .thenReturn(List.of(createUserExperience(userId, 5)));
+                    .thenReturn(List.of(createUserExperience(userId, 5)));
             when(userTitleRepository.findEquippedTitlesByUserIdIn(anyList()))
-                .thenReturn(Collections.emptyList());
+                    .thenReturn(Collections.emptyList());
             when(experienceHistoryRepository.findUserCategoryExpByPeriod(eq(userId), any(), any()))
-                .thenReturn(categoryStats);
+                    .thenReturn(categoryStats);
             // categoryNameToIdMap에 "존재하지않는카테고리"가 없음
             when(missionCategoryService.getActiveCategories())
-                .thenReturn(List.of(createCategoryResponse(1L, "운동")));
+                    .thenReturn(List.of(createCategoryResponse(1L, "운동")));
             when(historyRepository.save(any(DailyMvpHistory.class)))
-                .thenAnswer(inv -> inv.getArgument(0));
+                    .thenAnswer(inv -> inv.getArgument(0));
 
             // when
             dailyMvpHistoryService.captureAndSaveDailyMvp(TEST_DATE);
@@ -658,21 +663,21 @@ class DailyMvpHistoryServiceTest {
             String userId = "user-1";
 
             List<Object[]> topGainers = topGainersOf(topGainerRow(userId, 500L));
-            when(experienceHistoryRepository.findTopExpGainersByPeriod(any(), any(), any(PageRequest.class)))
-                .thenReturn(topGainers);
+            when(experienceHistoryRepository.findTopExpGainersByPeriod(
+                            any(), any(), any(PageRequest.class)))
+                    .thenReturn(topGainers);
 
             when(userQueryFacadeService.getUserProfiles(anyList()))
-                .thenReturn(Map.of(userId, createUserProfileInfo(userId, "유저1")));
+                    .thenReturn(Map.of(userId, createUserProfileInfo(userId, "유저1")));
             when(userExperienceRepository.findByUserIdIn(anyList()))
-                .thenReturn(List.of(createUserExperience(userId, 10)));
+                    .thenReturn(List.of(createUserExperience(userId, 10)));
             when(userTitleRepository.findEquippedTitlesByUserIdIn(anyList()))
-                .thenReturn(Collections.emptyList());
+                    .thenReturn(Collections.emptyList());
             when(experienceHistoryRepository.findUserCategoryExpByPeriod(eq(userId), any(), any()))
-                .thenReturn(Collections.emptyList());
-            when(missionCategoryService.getActiveCategories())
-                .thenReturn(Collections.emptyList());
+                    .thenReturn(Collections.emptyList());
+            when(missionCategoryService.getActiveCategories()).thenReturn(Collections.emptyList());
             when(historyRepository.save(any(DailyMvpHistory.class)))
-                .thenAnswer(inv -> inv.getArgument(0));
+                    .thenAnswer(inv -> inv.getArgument(0));
 
             // when
             dailyMvpHistoryService.reprocessDailyMvp(TEST_DATE);
@@ -687,8 +692,9 @@ class DailyMvpHistoryServiceTest {
         @DisplayName("재처리 시 데이터가 없는 경우 삭제만 하고 저장하지 않는다")
         void reprocessDailyMvp_noData_onlyDeletes() {
             // given
-            when(experienceHistoryRepository.findTopExpGainersByPeriod(any(), any(), any(PageRequest.class)))
-                .thenReturn(Collections.emptyList());
+            when(experienceHistoryRepository.findTopExpGainersByPeriod(
+                            any(), any(), any(PageRequest.class)))
+                    .thenReturn(Collections.emptyList());
 
             // when
             dailyMvpHistoryService.reprocessDailyMvp(TEST_DATE);
@@ -706,21 +712,21 @@ class DailyMvpHistoryServiceTest {
             String userId = "user-reprocess";
 
             List<Object[]> topGainers = topGainersOf(topGainerRow(userId, 600L));
-            when(experienceHistoryRepository.findTopExpGainersByPeriod(any(), any(), any(PageRequest.class)))
-                .thenReturn(topGainers);
+            when(experienceHistoryRepository.findTopExpGainersByPeriod(
+                            any(), any(), any(PageRequest.class)))
+                    .thenReturn(topGainers);
 
             when(userQueryFacadeService.getUserProfiles(anyList()))
-                .thenReturn(Map.of(userId, createUserProfileInfo(userId, "재처리유저")));
+                    .thenReturn(Map.of(userId, createUserProfileInfo(userId, "재처리유저")));
             when(userExperienceRepository.findByUserIdIn(anyList()))
-                .thenReturn(List.of(createUserExperience(userId, 12)));
+                    .thenReturn(List.of(createUserExperience(userId, 12)));
             when(userTitleRepository.findEquippedTitlesByUserIdIn(anyList()))
-                .thenReturn(Collections.emptyList());
+                    .thenReturn(Collections.emptyList());
             when(experienceHistoryRepository.findUserCategoryExpByPeriod(eq(userId), any(), any()))
-                .thenReturn(Collections.emptyList());
-            when(missionCategoryService.getActiveCategories())
-                .thenReturn(Collections.emptyList());
+                    .thenReturn(Collections.emptyList());
+            when(missionCategoryService.getActiveCategories()).thenReturn(Collections.emptyList());
             when(historyRepository.save(any(DailyMvpHistory.class)))
-                .thenAnswer(inv -> inv.getArgument(0));
+                    .thenAnswer(inv -> inv.getArgument(0));
 
             // when
             dailyMvpHistoryService.reprocessDailyMvp(TEST_DATE);
@@ -739,38 +745,38 @@ class DailyMvpHistoryServiceTest {
             String userId2 = "user-2";
             String userId3 = "user-3";
 
-            List<Object[]> topGainers = topGainersOf(
-                topGainerRow(userId1, 1000L),
-                topGainerRow(userId2, 800L),
-                topGainerRow(userId3, 600L)
-            );
-            when(experienceHistoryRepository.findTopExpGainersByPeriod(any(), any(), any(PageRequest.class)))
-                .thenReturn(topGainers);
+            List<Object[]> topGainers =
+                    topGainersOf(
+                            topGainerRow(userId1, 1000L),
+                            topGainerRow(userId2, 800L),
+                            topGainerRow(userId3, 600L));
+            when(experienceHistoryRepository.findTopExpGainersByPeriod(
+                            any(), any(), any(PageRequest.class)))
+                    .thenReturn(topGainers);
 
             when(userQueryFacadeService.getUserProfiles(anyList()))
-                .thenReturn(Map.of(
-                    userId1, createUserProfileInfo(userId1, "유저1"),
-                    userId2, createUserProfileInfo(userId2, "유저2"),
-                    userId3, createUserProfileInfo(userId3, "유저3")
-                ));
+                    .thenReturn(
+                            Map.of(
+                                    userId1, createUserProfileInfo(userId1, "유저1"),
+                                    userId2, createUserProfileInfo(userId2, "유저2"),
+                                    userId3, createUserProfileInfo(userId3, "유저3")));
             when(userExperienceRepository.findByUserIdIn(anyList()))
-                .thenReturn(List.of(
-                    createUserExperience(userId1, 20),
-                    createUserExperience(userId2, 15),
-                    createUserExperience(userId3, 10)
-                ));
+                    .thenReturn(
+                            List.of(
+                                    createUserExperience(userId1, 20),
+                                    createUserExperience(userId2, 15),
+                                    createUserExperience(userId3, 10)));
             when(userTitleRepository.findEquippedTitlesByUserIdIn(anyList()))
-                .thenReturn(Collections.emptyList());
+                    .thenReturn(Collections.emptyList());
             when(experienceHistoryRepository.findUserCategoryExpByPeriod(eq(userId1), any(), any()))
-                .thenReturn(Collections.emptyList());
+                    .thenReturn(Collections.emptyList());
             when(experienceHistoryRepository.findUserCategoryExpByPeriod(eq(userId2), any(), any()))
-                .thenReturn(Collections.emptyList());
+                    .thenReturn(Collections.emptyList());
             when(experienceHistoryRepository.findUserCategoryExpByPeriod(eq(userId3), any(), any()))
-                .thenReturn(Collections.emptyList());
-            when(missionCategoryService.getActiveCategories())
-                .thenReturn(Collections.emptyList());
+                    .thenReturn(Collections.emptyList());
+            when(missionCategoryService.getActiveCategories()).thenReturn(Collections.emptyList());
             when(historyRepository.save(any(DailyMvpHistory.class)))
-                .thenAnswer(inv -> inv.getArgument(0));
+                    .thenAnswer(inv -> inv.getArgument(0));
 
             // when
             dailyMvpHistoryService.reprocessDailyMvp(TEST_DATE);

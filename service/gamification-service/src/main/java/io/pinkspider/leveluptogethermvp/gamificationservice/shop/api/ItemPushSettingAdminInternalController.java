@@ -16,8 +16,9 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
- * Admin 내부 API 컨트롤러 - 장착 아이템 푸시 발송 설정 (LUT-528). 아이템 단위 발송 시각을 관리한다. 기존 shop-items 리소스 하위에 중첩.
- * 인증 불필요 (SecurityConfig 에서 /api/internal/** permitAll — InternalApiKeyFilter 가 방어). HEAD 검증은 서비스에서 수행.
+ * Admin 내부 API 컨트롤러 - 장착 아이템 푸시 발송 설정 (LUT-528). 아이템 단위 발송 시각을 관리한다. 기존 shop-items 리소스 하위에 중첩. 인증
+ * 불필요 (SecurityConfig 에서 /api/internal/** permitAll — InternalApiKeyFilter 가 방어). HEAD 검증은 서비스에서
+ * 수행.
  */
 @RestController
 @RequestMapping("/api/internal/shop-items/{itemId}/push-setting")

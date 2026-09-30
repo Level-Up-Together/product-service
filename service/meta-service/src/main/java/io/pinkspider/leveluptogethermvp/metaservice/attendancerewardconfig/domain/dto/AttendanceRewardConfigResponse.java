@@ -33,18 +33,18 @@ public class AttendanceRewardConfigResponse {
 
     public static AttendanceRewardConfigResponse from(AttendanceRewardConfig entity) {
         return AttendanceRewardConfigResponse.builder()
-            .id(entity.getId())
-            .rewardType(entity.getRewardType())
-            .rewardTypeDisplayName(entity.getRewardType().getDisplayName())
-            .requiredDays(entity.getRequiredDays())
-            .rewardExp(entity.getRewardExp())
-            .rewardTitleId(entity.getRewardTitleId())
-            .description(entity.getDescription())
-            .startDate(entity.getStartDate())
-            .endDate(entity.getEndDate())
-            .isActive(entity.getIsActive())
-            .createdAt(entity.getCreatedAt())
-            .modifiedAt(entity.getModifiedAt())
-            .build();
+                .id(entity.getId())
+                .rewardType(entity.getRewardType())
+                .rewardTypeDisplayName(entity.getRewardType().getDisplayName())
+                .requiredDays(entity.getRequiredDays())
+                .rewardExp(entity.getRewardExp())
+                .rewardTitleId(entity.getRewardTitleId())
+                .description(entity.getDescription())
+                .startDate(entity.getStartDate())
+                .endDate(entity.getEndDate())
+                .isActive(entity.getIsActive())
+                .createdAt(entity.getCreatedAt())
+                .modifiedAt(entity.getModifiedAt())
+                .build();
     }
 }

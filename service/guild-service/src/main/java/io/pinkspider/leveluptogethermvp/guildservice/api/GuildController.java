@@ -1,7 +1,7 @@
 package io.pinkspider.leveluptogethermvp.guildservice.api;
 
-import io.pinkspider.global.api.ApiResult;
 import io.pinkspider.global.annotation.CurrentUser;
+import io.pinkspider.global.api.ApiResult;
 import io.pinkspider.leveluptogethermvp.guildservice.application.GuildExperienceService;
 import io.pinkspider.leveluptogethermvp.guildservice.application.GuildHeadquartersService;
 import io.pinkspider.leveluptogethermvp.guildservice.application.GuildMemberService;
@@ -55,8 +55,7 @@ public class GuildController {
 
     @PostMapping
     public ResponseEntity<ApiResult<GuildResponse>> createGuild(
-        @CurrentUser String userId,
-        @Valid @RequestBody GuildCreateRequest request) {
+            @CurrentUser String userId, @Valid @RequestBody GuildCreateRequest request) {
 
         GuildResponse response = guildService.createGuild(userId, request);
         return ResponseEntity.ok(ApiResult.<GuildResponse>builder().value(response).build());
@@ -64,9 +63,10 @@ public class GuildController {
 
     @GetMapping("/{guildId}")
     public ResponseEntity<ApiResult<GuildResponse>> getGuild(
-        @PathVariable Long guildId,
-        @CurrentUser(required = false) String userId,
-        @RequestHeader(value = HttpHeaders.ACCEPT_LANGUAGE, required = false) String acceptLanguage) {
+            @PathVariable Long guildId,
+            @CurrentUser(required = false) String userId,
+            @RequestHeader(value = HttpHeaders.ACCEPT_LANGUAGE, required = false)
+                    String acceptLanguage) {
 
         GuildResponse response = guildQueryService.getGuild(guildId, userId, acceptLanguage);
         return ResponseEntity.ok(ApiResult.<GuildResponse>builder().value(response).build());
@@ -74,40 +74,47 @@ public class GuildController {
 
     @GetMapping("/public")
     public ResponseEntity<ApiResult<Page<GuildResponse>>> getPublicGuilds(
-        @CurrentUser(required = false) String userId,
-        @PageableDefault(size = 20) Pageable pageable,
-        @RequestHeader(value = HttpHeaders.ACCEPT_LANGUAGE, required = false) String acceptLanguage) {
+            @CurrentUser(required = false) String userId,
+            @PageableDefault(size = 20) Pageable pageable,
+            @RequestHeader(value = HttpHeaders.ACCEPT_LANGUAGE, required = false)
+                    String acceptLanguage) {
 
-        Page<GuildResponse> responses = guildQueryService.getPublicGuilds(userId, pageable, acceptLanguage);
+        Page<GuildResponse> responses =
+                guildQueryService.getPublicGuilds(userId, pageable, acceptLanguage);
         return ResponseEntity.ok(ApiResult.<Page<GuildResponse>>builder().value(responses).build());
     }
 
     /** LUT-483: 길드 랭킹 — 누적 활동 포인트 내림차순 서버 정렬 */
     @GetMapping("/ranking")
     public ResponseEntity<ApiResult<Page<GuildResponse>>> getGuildRanking(
-        @CurrentUser(required = false) String userId,
-        @PageableDefault(size = 20) Pageable pageable,
-        @RequestHeader(value = HttpHeaders.ACCEPT_LANGUAGE, required = false) String acceptLanguage) {
+            @CurrentUser(required = false) String userId,
+            @PageableDefault(size = 20) Pageable pageable,
+            @RequestHeader(value = HttpHeaders.ACCEPT_LANGUAGE, required = false)
+                    String acceptLanguage) {
 
-        Page<GuildResponse> responses = guildQueryService.getGuildRanking(userId, pageable, acceptLanguage);
+        Page<GuildResponse> responses =
+                guildQueryService.getGuildRanking(userId, pageable, acceptLanguage);
         return ResponseEntity.ok(ApiResult.<Page<GuildResponse>>builder().value(responses).build());
     }
 
     @GetMapping("/search")
     public ResponseEntity<ApiResult<Page<GuildResponse>>> searchGuilds(
-        @CurrentUser(required = false) String userId,
-        @RequestParam String keyword,
-        @PageableDefault(size = 20) Pageable pageable,
-        @RequestHeader(value = HttpHeaders.ACCEPT_LANGUAGE, required = false) String acceptLanguage) {
+            @CurrentUser(required = false) String userId,
+            @RequestParam String keyword,
+            @PageableDefault(size = 20) Pageable pageable,
+            @RequestHeader(value = HttpHeaders.ACCEPT_LANGUAGE, required = false)
+                    String acceptLanguage) {
 
-        Page<GuildResponse> responses = guildQueryService.searchGuilds(userId, keyword, pageable, acceptLanguage);
+        Page<GuildResponse> responses =
+                guildQueryService.searchGuilds(userId, keyword, pageable, acceptLanguage);
         return ResponseEntity.ok(ApiResult.<Page<GuildResponse>>builder().value(responses).build());
     }
 
     @GetMapping("/my")
     public ResponseEntity<ApiResult<List<GuildResponse>>> getMyGuilds(
-        @CurrentUser String userId,
-        @RequestHeader(value = HttpHeaders.ACCEPT_LANGUAGE, required = false) String acceptLanguage) {
+            @CurrentUser String userId,
+            @RequestHeader(value = HttpHeaders.ACCEPT_LANGUAGE, required = false)
+                    String acceptLanguage) {
 
         List<GuildResponse> responses = guildQueryService.getMyGuilds(userId, acceptLanguage);
         return ResponseEntity.ok(ApiResult.<List<GuildResponse>>builder().value(responses).build());
@@ -115,9 +122,9 @@ public class GuildController {
 
     @PutMapping("/{guildId}")
     public ResponseEntity<ApiResult<GuildResponse>> updateGuild(
-        @PathVariable Long guildId,
-        @CurrentUser String userId,
-        @Valid @RequestBody GuildUpdateRequest request) {
+            @PathVariable Long guildId,
+            @CurrentUser String userId,
+            @Valid @RequestBody GuildUpdateRequest request) {
 
         GuildResponse response = guildService.updateGuild(guildId, userId, request);
         return ResponseEntity.ok(ApiResult.<GuildResponse>builder().value(response).build());
@@ -125,9 +132,9 @@ public class GuildController {
 
     @PostMapping(value = "/{guildId}/image", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<ApiResult<GuildResponse>> uploadGuildImage(
-        @PathVariable Long guildId,
-        @CurrentUser String userId,
-        @RequestPart("image") MultipartFile image) {
+            @PathVariable Long guildId,
+            @CurrentUser String userId,
+            @RequestPart("image") MultipartFile image) {
 
         GuildResponse response = guildService.uploadGuildImage(guildId, userId, image);
         return ResponseEntity.ok(ApiResult.<GuildResponse>builder().value(response).build());
@@ -135,31 +142,31 @@ public class GuildController {
 
     @PostMapping("/{guildId}/transfer-master")
     public ResponseEntity<ApiResult<Void>> transferMaster(
-        @PathVariable Long guildId,
-        @CurrentUser String userId,
-        @Valid @RequestBody TransferMasterRequest request) {
+            @PathVariable Long guildId,
+            @CurrentUser String userId,
+            @Valid @RequestBody TransferMasterRequest request) {
 
         guildMemberService.transferMaster(guildId, userId, request.getNewMasterId());
         return ResponseEntity.ok(ApiResult.getBase());
     }
 
-    /**
-     * 길드 멤버 목록 조회. QA-172: 공개 길드는 비로그인도 조회 가능 (비공개 길드는 service 에서 멤버십 검증).
-     */
+    /** 길드 멤버 목록 조회. QA-172: 공개 길드는 비로그인도 조회 가능 (비공개 길드는 service 에서 멤버십 검증). */
     @GetMapping("/{guildId}/members")
     public ResponseEntity<ApiResult<List<GuildMemberResponse>>> getGuildMembers(
-        @PathVariable Long guildId,
-        @CurrentUser(required = false) String userId,
-        @RequestHeader(value = HttpHeaders.ACCEPT_LANGUAGE, required = false) String acceptLanguage) {
+            @PathVariable Long guildId,
+            @CurrentUser(required = false) String userId,
+            @RequestHeader(value = HttpHeaders.ACCEPT_LANGUAGE, required = false)
+                    String acceptLanguage) {
 
-        List<GuildMemberResponse> responses = guildQueryService.getGuildMembers(guildId, userId, acceptLanguage);
-        return ResponseEntity.ok(ApiResult.<List<GuildMemberResponse>>builder().value(responses).build());
+        List<GuildMemberResponse> responses =
+                guildQueryService.getGuildMembers(guildId, userId, acceptLanguage);
+        return ResponseEntity.ok(
+                ApiResult.<List<GuildMemberResponse>>builder().value(responses).build());
     }
 
     @DeleteMapping("/{guildId}/members/me")
     public ResponseEntity<ApiResult<Void>> leaveGuild(
-        @PathVariable Long guildId,
-        @CurrentUser String userId) {
+            @PathVariable Long guildId, @CurrentUser String userId) {
 
         guildMemberService.leaveGuild(guildId, userId);
         return ResponseEntity.ok(ApiResult.getBase());
@@ -168,30 +175,33 @@ public class GuildController {
     // 가입 신청 (공개 길드)
     @PostMapping("/{guildId}/join-requests")
     public ResponseEntity<ApiResult<GuildJoinRequestResponse>> requestJoin(
-        @PathVariable Long guildId,
-        @CurrentUser String userId,
-        @RequestBody(required = false) GuildJoinRequestDto request) {
+            @PathVariable Long guildId,
+            @CurrentUser String userId,
+            @RequestBody(required = false) GuildJoinRequestDto request) {
 
-        GuildJoinRequestResponse response = guildMemberService.requestJoin(guildId, userId, request);
-        return ResponseEntity.ok(ApiResult.<GuildJoinRequestResponse>builder().value(response).build());
+        GuildJoinRequestResponse response =
+                guildMemberService.requestJoin(guildId, userId, request);
+        return ResponseEntity.ok(
+                ApiResult.<GuildJoinRequestResponse>builder().value(response).build());
     }
 
     // 가입 신청 목록 조회 (마스터 전용)
     @GetMapping("/{guildId}/join-requests")
     public ResponseEntity<ApiResult<Page<GuildJoinRequestResponse>>> getPendingJoinRequests(
-        @PathVariable Long guildId,
-        @CurrentUser String userId,
-        @PageableDefault(size = 20) Pageable pageable) {
+            @PathVariable Long guildId,
+            @CurrentUser String userId,
+            @PageableDefault(size = 20) Pageable pageable) {
 
-        Page<GuildJoinRequestResponse> responses = guildMemberService.getPendingJoinRequests(guildId, userId, pageable);
-        return ResponseEntity.ok(ApiResult.<Page<GuildJoinRequestResponse>>builder().value(responses).build());
+        Page<GuildJoinRequestResponse> responses =
+                guildMemberService.getPendingJoinRequests(guildId, userId, pageable);
+        return ResponseEntity.ok(
+                ApiResult.<Page<GuildJoinRequestResponse>>builder().value(responses).build());
     }
 
     // 가입 신청 승인 (마스터 전용)
     @PostMapping("/join-requests/{requestId}/approve")
     public ResponseEntity<ApiResult<GuildMemberResponse>> approveJoinRequest(
-        @PathVariable Long requestId,
-        @CurrentUser String userId) {
+            @PathVariable Long requestId, @CurrentUser String userId) {
 
         GuildMemberResponse response = guildMemberService.approveJoinRequest(requestId, userId);
         return ResponseEntity.ok(ApiResult.<GuildMemberResponse>builder().value(response).build());
@@ -200,21 +210,23 @@ public class GuildController {
     // 가입 신청 거절 (마스터 전용)
     @PostMapping("/join-requests/{requestId}/reject")
     public ResponseEntity<ApiResult<GuildJoinRequestResponse>> rejectJoinRequest(
-        @PathVariable Long requestId,
-        @CurrentUser String userId,
-        @RequestBody(required = false) JoinRequestProcessRequest request) {
+            @PathVariable Long requestId,
+            @CurrentUser String userId,
+            @RequestBody(required = false) JoinRequestProcessRequest request) {
 
         String reason = request != null ? request.getRejectReason() : null;
-        GuildJoinRequestResponse response = guildMemberService.rejectJoinRequest(requestId, userId, reason);
-        return ResponseEntity.ok(ApiResult.<GuildJoinRequestResponse>builder().value(response).build());
+        GuildJoinRequestResponse response =
+                guildMemberService.rejectJoinRequest(requestId, userId, reason);
+        return ResponseEntity.ok(
+                ApiResult.<GuildJoinRequestResponse>builder().value(response).build());
     }
 
     // 멤버 초대 (비공개 길드용, 마스터 또는 부길드마스터)
     @PostMapping("/{guildId}/members/{inviteeId}")
     public ResponseEntity<ApiResult<GuildMemberResponse>> inviteMember(
-        @PathVariable Long guildId,
-        @PathVariable String inviteeId,
-        @CurrentUser String userId) {
+            @PathVariable Long guildId,
+            @PathVariable String inviteeId,
+            @CurrentUser String userId) {
 
         GuildMemberResponse response = guildMemberService.inviteMember(guildId, userId, inviteeId);
         return ResponseEntity.ok(ApiResult.<GuildMemberResponse>builder().value(response).build());
@@ -223,35 +235,39 @@ public class GuildController {
     // 부길드마스터 승격 (마스터 전용)
     @PostMapping("/{guildId}/members/{targetUserId}/promote-sub-master")
     public ResponseEntity<ApiResult<GuildMemberResponse>> promoteToSubMaster(
-        @PathVariable Long guildId,
-        @PathVariable String targetUserId,
-        @CurrentUser String userId,
-        @RequestHeader(value = HttpHeaders.ACCEPT_LANGUAGE, required = false) String acceptLanguage) {
+            @PathVariable Long guildId,
+            @PathVariable String targetUserId,
+            @CurrentUser String userId,
+            @RequestHeader(value = HttpHeaders.ACCEPT_LANGUAGE, required = false)
+                    String acceptLanguage) {
 
         GuildMemberResponse response =
-            guildMemberService.promoteToSubMaster(guildId, userId, targetUserId, acceptLanguage);
+                guildMemberService.promoteToSubMaster(
+                        guildId, userId, targetUserId, acceptLanguage);
         return ResponseEntity.ok(ApiResult.<GuildMemberResponse>builder().value(response).build());
     }
 
     // 부길드마스터 강등 (마스터 전용)
     @PostMapping("/{guildId}/members/{targetUserId}/demote-sub-master")
     public ResponseEntity<ApiResult<GuildMemberResponse>> demoteFromSubMaster(
-        @PathVariable Long guildId,
-        @PathVariable String targetUserId,
-        @CurrentUser String userId,
-        @RequestHeader(value = HttpHeaders.ACCEPT_LANGUAGE, required = false) String acceptLanguage) {
+            @PathVariable Long guildId,
+            @PathVariable String targetUserId,
+            @CurrentUser String userId,
+            @RequestHeader(value = HttpHeaders.ACCEPT_LANGUAGE, required = false)
+                    String acceptLanguage) {
 
         GuildMemberResponse response =
-            guildMemberService.demoteFromSubMaster(guildId, userId, targetUserId, acceptLanguage);
+                guildMemberService.demoteFromSubMaster(
+                        guildId, userId, targetUserId, acceptLanguage);
         return ResponseEntity.ok(ApiResult.<GuildMemberResponse>builder().value(response).build());
     }
 
     // 멤버 추방 (마스터 또는 부길드마스터)
     @DeleteMapping("/{guildId}/members/{targetUserId}")
     public ResponseEntity<ApiResult<Void>> kickMember(
-        @PathVariable Long guildId,
-        @PathVariable String targetUserId,
-        @CurrentUser String userId) {
+            @PathVariable Long guildId,
+            @PathVariable String targetUserId,
+            @CurrentUser String userId) {
 
         guildMemberService.kickMember(guildId, userId, targetUserId);
         return ResponseEntity.ok(ApiResult.getBase());
@@ -260,8 +276,7 @@ public class GuildController {
     // 길드 해체 (마스터 전용, 자신 외 멤버가 없어야 함)
     @DeleteMapping("/{guildId}")
     public ResponseEntity<ApiResult<Void>> dissolveGuild(
-        @PathVariable Long guildId,
-        @CurrentUser String userId) {
+            @PathVariable Long guildId, @CurrentUser String userId) {
 
         guildService.dissolveGuild(guildId, userId);
         return ResponseEntity.ok(ApiResult.getBase());
@@ -270,45 +285,53 @@ public class GuildController {
     // 길드 경험치/레벨 정보 조회
     @GetMapping("/{guildId}/experience")
     public ResponseEntity<ApiResult<GuildExperienceResponse>> getGuildExperience(
-        @PathVariable Long guildId) {
+            @PathVariable Long guildId) {
 
         GuildExperienceResponse response = guildExperienceService.getGuildExperience(guildId);
-        return ResponseEntity.ok(ApiResult.<GuildExperienceResponse>builder().value(response).build());
+        return ResponseEntity.ok(
+                ApiResult.<GuildExperienceResponse>builder().value(response).build());
     }
 
     // 모든 길드 거점 정보 조회 (지도 표시용)
     @GetMapping("/headquarters")
     public ResponseEntity<ApiResult<GuildHeadquartersInfoResponse>> getAllHeadquarters() {
         GuildHeadquartersInfoResponse response = guildHeadquartersService.getAllHeadquartersInfo();
-        return ResponseEntity.ok(ApiResult.<GuildHeadquartersInfoResponse>builder().value(response).build());
+        return ResponseEntity.ok(
+                ApiResult.<GuildHeadquartersInfoResponse>builder().value(response).build());
     }
 
     // 거점 설정 가능 여부 검증 (마스터용)
     @PostMapping("/{guildId}/headquarters/validate")
     public ResponseEntity<ApiResult<GuildHeadquartersValidationResponse>> validateHeadquarters(
-        @PathVariable Long guildId,
-        @CurrentUser String userId,
-        @Valid @RequestBody GuildHeadquartersValidationRequest request) {
+            @PathVariable Long guildId,
+            @CurrentUser String userId,
+            @Valid @RequestBody GuildHeadquartersValidationRequest request) {
 
-        GuildHeadquartersValidationResponse response = guildHeadquartersService.validateHeadquartersLocation(
-            guildId, request.getLatitude(), request.getLongitude());
-        return ResponseEntity.ok(ApiResult.<GuildHeadquartersValidationResponse>builder().value(response).build());
+        GuildHeadquartersValidationResponse response =
+                guildHeadquartersService.validateHeadquartersLocation(
+                        guildId, request.getLatitude(), request.getLongitude());
+        return ResponseEntity.ok(
+                ApiResult.<GuildHeadquartersValidationResponse>builder().value(response).build());
     }
 
     // 거점 설정 가능 여부 검증 (길드 생성 전)
     @PostMapping("/headquarters/validate")
-    public ResponseEntity<ApiResult<GuildHeadquartersValidationResponse>> validateHeadquartersForNew(
-        @Valid @RequestBody GuildHeadquartersValidationRequest request) {
+    public ResponseEntity<ApiResult<GuildHeadquartersValidationResponse>>
+            validateHeadquartersForNew(
+                    @Valid @RequestBody GuildHeadquartersValidationRequest request) {
 
-        GuildHeadquartersValidationResponse response = guildHeadquartersService.validateHeadquartersLocation(
-            null, request.getLatitude(), request.getLongitude());
-        return ResponseEntity.ok(ApiResult.<GuildHeadquartersValidationResponse>builder().value(response).build());
+        GuildHeadquartersValidationResponse response =
+                guildHeadquartersService.validateHeadquartersLocation(
+                        null, request.getLatitude(), request.getLongitude());
+        return ResponseEntity.ok(
+                ApiResult.<GuildHeadquartersValidationResponse>builder().value(response).build());
     }
 
     // 길드 레벨 설정 조회 (길드 생성 시 최대 인원 확인용)
     @GetMapping("/level-configs")
     public ResponseEntity<ApiResult<List<GuildLevelConfig>>> getLevelConfigs() {
         List<GuildLevelConfig> configs = guildExperienceService.getAllLevelConfigs();
-        return ResponseEntity.ok(ApiResult.<List<GuildLevelConfig>>builder().value(configs).build());
+        return ResponseEntity.ok(
+                ApiResult.<List<GuildLevelConfig>>builder().value(configs).build());
     }
 }

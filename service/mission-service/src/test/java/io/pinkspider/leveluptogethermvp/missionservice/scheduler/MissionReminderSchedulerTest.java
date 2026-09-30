@@ -9,9 +9,9 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import io.pinkspider.global.enums.MissionStatus;
 import io.pinkspider.global.event.MissionReminderEvent;
 import io.pinkspider.global.facade.UserQueryFacade;
-import io.pinkspider.global.enums.MissionStatus;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.Mission;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.MissionExecution;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.MissionParticipant;
@@ -46,26 +46,19 @@ import org.springframework.context.ApplicationEventPublisher;
 @DisplayName("MissionReminderScheduler 테스트 (LUT-282)")
 class MissionReminderSchedulerTest {
 
-    @Mock
-    private MissionRepository missionRepository;
+    @Mock private MissionRepository missionRepository;
 
-    @Mock
-    private MissionParticipantRepository participantRepository;
+    @Mock private MissionParticipantRepository participantRepository;
 
-    @Mock
-    private MissionExecutionRepository executionRepository;
+    @Mock private MissionExecutionRepository executionRepository;
 
-    @Mock
-    private DailyMissionInstanceRepository instanceRepository;
+    @Mock private DailyMissionInstanceRepository instanceRepository;
 
-    @Mock
-    private UserQueryFacade userQueryFacadeService;
+    @Mock private UserQueryFacade userQueryFacadeService;
 
-    @Mock
-    private ApplicationEventPublisher eventPublisher;
+    @Mock private ApplicationEventPublisher eventPublisher;
 
-    @InjectMocks
-    private MissionReminderScheduler scheduler;
+    @InjectMocks private MissionReminderScheduler scheduler;
 
     private static final String USER_ID = "user-1";
 
@@ -78,20 +71,21 @@ class MissionReminderSchedulerTest {
 
     @BeforeEach
     void setUp() {
-        reminderMission = Mission.builder()
-            .title("아침 운동")
-            .status(MissionStatus.IN_PROGRESS)
-            .type(MissionType.PERSONAL)
-            .creatorId(USER_ID)
-            .isPinned(false)
-            .build();
+        reminderMission =
+                Mission.builder()
+                        .title("아침 운동")
+                        .status(MissionStatus.IN_PROGRESS)
+                        .type(MissionType.PERSONAL)
+                        .creatorId(USER_ID)
+                        .isPinned(false)
+                        .build();
         reminderMission.updateReminder(9, 0, List.of(DayOfWeek.MONDAY, DayOfWeek.WEDNESDAY));
         setId(reminderMission, 1L);
 
         when(userQueryFacadeService.getPreferredTimezone(USER_ID)).thenReturn("Asia/Seoul");
         when(missionRepository.findActiveReminderMissions()).thenReturn(List.of(reminderMission));
         when(participantRepository.findByMissionIdAndUserId(anyLong(), anyString()))
-            .thenReturn(Optional.empty());
+                .thenReturn(Optional.empty());
         scheduler.setClock(Clock.fixed(MON_00_UTC, ZoneOffset.UTC));
     }
 
@@ -101,7 +95,7 @@ class MissionReminderSchedulerTest {
         scheduler.sendReminders();
 
         ArgumentCaptor<MissionReminderEvent> captor =
-            ArgumentCaptor.forClass(MissionReminderEvent.class);
+                ArgumentCaptor.forClass(MissionReminderEvent.class);
         verify(eventPublisher).publishEvent(captor.capture());
         assertThat(captor.getValue().userId()).isEqualTo(USER_ID);
         assertThat(captor.getValue().missionId()).isEqualTo(1L);
@@ -182,16 +176,18 @@ class MissionReminderSchedulerTest {
     @DisplayName("당일(유저 로컬) 이미 완료한 일반 미션은 발행하지 않는다")
     void sendReminders_completedToday_skips() {
         MissionParticipant participant = activeParticipant();
-        MissionExecution completed = MissionExecution.builder()
-            .participant(participant)
-            .executionDate(LocalDate.of(2026, 7, 27))
-            .status(ExecutionStatus.COMPLETED)
-            .build();
+        MissionExecution completed =
+                MissionExecution.builder()
+                        .participant(participant)
+                        .executionDate(LocalDate.of(2026, 7, 27))
+                        .status(ExecutionStatus.COMPLETED)
+                        .build();
 
         when(participantRepository.findByMissionIdAndUserId(1L, USER_ID))
-            .thenReturn(Optional.of(participant));
-        when(executionRepository.findByParticipantIdAndExecutionDate(11L, LocalDate.of(2026, 7, 27)))
-            .thenReturn(Optional.of(completed));
+                .thenReturn(Optional.of(participant));
+        when(executionRepository.findByParticipantIdAndExecutionDate(
+                        11L, LocalDate.of(2026, 7, 27)))
+                .thenReturn(Optional.of(completed));
 
         scheduler.sendReminders();
 
@@ -205,9 +201,10 @@ class MissionReminderSchedulerTest {
         MissionParticipant participant = activeParticipant();
 
         when(participantRepository.findByMissionIdAndUserId(1L, USER_ID))
-            .thenReturn(Optional.of(participant));
-        when(instanceRepository.countCompletedByParticipantIdAndDate(11L, LocalDate.of(2026, 7, 27)))
-            .thenReturn(1L);
+                .thenReturn(Optional.of(participant));
+        when(instanceRepository.countCompletedByParticipantIdAndDate(
+                        11L, LocalDate.of(2026, 7, 27)))
+                .thenReturn(1L);
 
         scheduler.sendReminders();
 
@@ -220,10 +217,11 @@ class MissionReminderSchedulerTest {
         MissionParticipant participant = participantWithStatus(ParticipantStatus.COMPLETED);
 
         when(participantRepository.findByMissionIdAndUserId(1L, USER_ID))
-            .thenReturn(Optional.of(participant));
+                .thenReturn(Optional.of(participant));
         // 일반 미션 완료 시 미래의 PENDING execution 이 삭제되므로 당일 execution 은 존재하지 않는다
-        when(executionRepository.findByParticipantIdAndExecutionDate(11L, LocalDate.of(2026, 7, 27)))
-            .thenReturn(Optional.empty());
+        when(executionRepository.findByParticipantIdAndExecutionDate(
+                        11L, LocalDate.of(2026, 7, 27)))
+                .thenReturn(Optional.empty());
 
         scheduler.sendReminders();
 
@@ -233,9 +231,10 @@ class MissionReminderSchedulerTest {
     @Test
     @DisplayName("LUT-335: 철회·실패한 미션은 발행하지 않는다")
     void sendReminders_participantWithdrawnOrFailed_skips() {
-        for (ParticipantStatus status : List.of(ParticipantStatus.WITHDRAWN, ParticipantStatus.FAILED)) {
+        for (ParticipantStatus status :
+                List.of(ParticipantStatus.WITHDRAWN, ParticipantStatus.FAILED)) {
             when(participantRepository.findByMissionIdAndUserId(1L, USER_ID))
-                .thenReturn(Optional.of(participantWithStatus(status)));
+                    .thenReturn(Optional.of(participantWithStatus(status)));
 
             scheduler.sendReminders();
         }
@@ -247,9 +246,10 @@ class MissionReminderSchedulerTest {
     @DisplayName("LUT-335: 진행 중이고 당일 수행 기록이 없으면 정상 발행한다")
     void sendReminders_activeParticipantNotDoneToday_publishes() {
         when(participantRepository.findByMissionIdAndUserId(1L, USER_ID))
-            .thenReturn(Optional.of(activeParticipant()));
-        when(executionRepository.findByParticipantIdAndExecutionDate(11L, LocalDate.of(2026, 7, 27)))
-            .thenReturn(Optional.empty());
+                .thenReturn(Optional.of(activeParticipant()));
+        when(executionRepository.findByParticipantIdAndExecutionDate(
+                        11L, LocalDate.of(2026, 7, 27)))
+                .thenReturn(Optional.empty());
 
         scheduler.sendReminders();
 
@@ -261,11 +261,12 @@ class MissionReminderSchedulerTest {
     }
 
     private MissionParticipant participantWithStatus(ParticipantStatus status) {
-        MissionParticipant participant = MissionParticipant.builder()
-            .mission(reminderMission)
-            .userId(USER_ID)
-            .status(status)
-            .build();
+        MissionParticipant participant =
+                MissionParticipant.builder()
+                        .mission(reminderMission)
+                        .userId(USER_ID)
+                        .status(status)
+                        .build();
         setId(participant, 11L);
         return participant;
     }
@@ -274,7 +275,7 @@ class MissionReminderSchedulerTest {
     @DisplayName("타임존 조회 실패 시 Asia/Seoul 폴백으로 동작한다")
     void sendReminders_timezoneLookupFails_fallsBackToSeoul() {
         when(userQueryFacadeService.getPreferredTimezone(USER_ID))
-            .thenThrow(new RuntimeException("user_db unavailable"));
+                .thenThrow(new RuntimeException("user_db unavailable"));
 
         scheduler.sendReminders();
 
@@ -285,28 +286,29 @@ class MissionReminderSchedulerTest {
     @Test
     @DisplayName("개별 미션 처리 실패가 다른 미션 발송을 막지 않는다")
     void sendReminders_oneMissionFails_othersContinue() {
-        Mission failing = Mission.builder()
-            .title("실패 미션")
-            .status(MissionStatus.IN_PROGRESS)
-            .type(MissionType.PERSONAL)
-            .creatorId("user-err")
-            .isPinned(false)
-            .build();
+        Mission failing =
+                Mission.builder()
+                        .title("실패 미션")
+                        .status(MissionStatus.IN_PROGRESS)
+                        .type(MissionType.PERSONAL)
+                        .creatorId("user-err")
+                        .isPinned(false)
+                        .build();
         failing.updateReminder(9, 0, List.of(DayOfWeek.MONDAY));
         setId(failing, 2L);
 
         when(missionRepository.findActiveReminderMissions())
-            .thenReturn(List.of(failing, reminderMission));
+                .thenReturn(List.of(failing, reminderMission));
         // user-err 참가자 조회에서 예외 발생 (getPreferredTimezone 은 내부 try/catch 로 폴백되므로
         // 폴백이 없는 참가자 조회 단계에서 실패시킨다)
         when(userQueryFacadeService.getPreferredTimezone("user-err")).thenReturn("Asia/Seoul");
         when(participantRepository.findByMissionIdAndUserId(2L, "user-err"))
-            .thenThrow(new RuntimeException("db error"));
+                .thenThrow(new RuntimeException("db error"));
 
         scheduler.sendReminders();
 
         ArgumentCaptor<MissionReminderEvent> captor =
-            ArgumentCaptor.forClass(MissionReminderEvent.class);
+                ArgumentCaptor.forClass(MissionReminderEvent.class);
         verify(eventPublisher).publishEvent(captor.capture());
         assertThat(captor.getValue().missionId()).isEqualTo(1L);
     }

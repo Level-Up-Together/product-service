@@ -10,4 +10,4 @@ import lombok.Builder;
  */
 @Builder
 public record GuildInviteLinkResponse(
-    @JsonProperty("code") String code, @JsonProperty("invite_path") String invitePath) {}
+        @JsonProperty("code") String code, @JsonProperty("invite_path") String invitePath) {}

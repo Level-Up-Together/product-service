@@ -1,20 +1,29 @@
 package io.pinkspider.leveluptogethermvp.feedservice.application;
 
+import static io.pinkspider.global.test.TestReflectionUtils.setId;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import io.pinkspider.global.enums.TitlePosition;
+import io.pinkspider.global.enums.TitleRarity;
 import io.pinkspider.global.event.FeedCommentDeletedEvent;
 import io.pinkspider.global.event.FeedCommentLikedEvent;
 import io.pinkspider.global.event.FeedCommentReplyEvent;
 import io.pinkspider.global.event.FeedLikedEvent;
 import io.pinkspider.global.event.FeedUnlikedEvent;
 import io.pinkspider.global.exception.CustomException;
+import io.pinkspider.global.facade.GamificationQueryFacade;
+import io.pinkspider.global.facade.UserQueryFacade;
+import io.pinkspider.global.facade.dto.DetailedTitleInfoDto;
+import io.pinkspider.global.facade.dto.EquippedItemRarityDto;
+import io.pinkspider.global.facade.dto.TitleInfoDto;
+import io.pinkspider.global.facade.dto.UserProfileInfo;
+import io.pinkspider.global.facade.dto.UserTitleDto;
 import io.pinkspider.global.test.TestReflectionUtils;
 import io.pinkspider.leveluptogethermvp.feedservice.api.dto.ActivityFeedResponse;
 import io.pinkspider.leveluptogethermvp.feedservice.api.dto.CreateFeedRequest;
@@ -23,9 +32,6 @@ import io.pinkspider.leveluptogethermvp.feedservice.api.dto.FeedCommentRequest;
 import io.pinkspider.leveluptogethermvp.feedservice.api.dto.FeedCommentResponse;
 import io.pinkspider.leveluptogethermvp.feedservice.api.dto.FeedCommentUpdateRequest;
 import io.pinkspider.leveluptogethermvp.feedservice.api.dto.FeedLikeResponse;
-import io.pinkspider.global.facade.dto.DetailedTitleInfoDto;
-import io.pinkspider.global.facade.dto.TitleInfoDto;
-import io.pinkspider.global.facade.GamificationQueryFacade;
 import io.pinkspider.leveluptogethermvp.feedservice.domain.entity.ActivityFeed;
 import io.pinkspider.leveluptogethermvp.feedservice.domain.entity.FeedComment;
 import io.pinkspider.leveluptogethermvp.feedservice.domain.entity.FeedCommentLike;
@@ -36,13 +42,6 @@ import io.pinkspider.leveluptogethermvp.feedservice.infrastructure.ActivityFeedR
 import io.pinkspider.leveluptogethermvp.feedservice.infrastructure.FeedCommentLikeRepository;
 import io.pinkspider.leveluptogethermvp.feedservice.infrastructure.FeedCommentRepository;
 import io.pinkspider.leveluptogethermvp.feedservice.infrastructure.FeedLikeRepository;
-import io.pinkspider.global.enums.TitlePosition;
-import io.pinkspider.global.enums.TitleRarity;
-import io.pinkspider.global.facade.UserQueryFacade;
-import io.pinkspider.global.facade.dto.EquippedItemRarityDto;
-import io.pinkspider.global.facade.dto.UserProfileInfo;
-import io.pinkspider.global.facade.dto.UserTitleDto;
-import static io.pinkspider.global.test.TestReflectionUtils.setId;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -58,39 +57,32 @@ import org.mockito.junit.jupiter.MockitoExtension;
 @ExtendWith(MockitoExtension.class)
 class FeedCommandServiceTest {
 
-    @Mock
-    private ActivityFeedRepository activityFeedRepository;
+    @Mock private ActivityFeedRepository activityFeedRepository;
 
     @Mock
-    private io.pinkspider.leveluptogethermvp.feedservice.infrastructure.ActivityFeedImageRepository activityFeedImageRepository;
+    private io.pinkspider.leveluptogethermvp.feedservice.infrastructure.ActivityFeedImageRepository
+            activityFeedImageRepository;
 
-    @Mock
-    private FeedLikeRepository feedLikeRepository;
+    @Mock private FeedLikeRepository feedLikeRepository;
 
-    @Mock
-    private FeedCommentRepository feedCommentRepository;
+    @Mock private FeedCommentRepository feedCommentRepository;
 
-    @Mock
-    private FeedCommentLikeRepository feedCommentLikeRepository;
+    @Mock private FeedCommentLikeRepository feedCommentLikeRepository;
 
-    @Mock
-    private UserQueryFacade userQueryFacadeService;
+    @Mock private UserQueryFacade userQueryFacadeService;
 
-    @Mock
-    private org.springframework.context.ApplicationEventPublisher eventPublisher;
+    @Mock private org.springframework.context.ApplicationEventPublisher eventPublisher;
 
-    @Mock
-    private GamificationQueryFacade gamificationQueryFacadeService;
+    @Mock private GamificationQueryFacade gamificationQueryFacadeService;
 
-    @Mock
-    private FeedAccessChecker feedAccessChecker;
+    @Mock private FeedAccessChecker feedAccessChecker;
 
-    @InjectMocks
-    private FeedCommandService feedCommandService;
+    @InjectMocks private FeedCommandService feedCommandService;
 
     private static final String TEST_USER_ID = "test-user-123";
     private static final String OTHER_USER_ID = "other-user-456";
-    private static final DetailedTitleInfoDto EMPTY_DETAILED_TITLE = new DetailedTitleInfoDto(null, null, null, null, null, null);
+    private static final DetailedTitleInfoDto EMPTY_DETAILED_TITLE =
+            new DetailedTitleInfoDto(null, null, null, null, null, null);
 
     private CreateFeedRequest createTestFeedRequest() {
         CreateFeedRequest request = new CreateFeedRequest();
@@ -114,17 +106,27 @@ class FeedCommandServiceTest {
     }
 
     /** LUT-428: 작성/수정 응답 채움 검증용 장착 칭호 DTO */
-    private UserTitleDto equippedTitleDto(String userId, String name, String nameEn,
-                                          TitleRarity rarity, TitlePosition position) {
+    private UserTitleDto equippedTitleDto(
+            String userId, String name, String nameEn, TitleRarity rarity, TitlePosition position) {
         return new UserTitleDto(
-            1L, userId, 1L,
-            name, nameEn, null, null,
-            null, null, null, null,
-            rarity,
-            position, "#FFFFFF", null,
-            true, position,
-            java.time.LocalDateTime.now()
-        );
+                1L,
+                userId,
+                1L,
+                name,
+                nameEn,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                rarity,
+                position,
+                "#FFFFFF",
+                null,
+                true,
+                position,
+                java.time.LocalDateTime.now());
     }
 
     private FeedCommentUpdateRequest createTestUpdateRequest(String content) {
@@ -133,33 +135,36 @@ class FeedCommandServiceTest {
         return request;
     }
 
-    private FeedComment createTestComment(Long id, ActivityFeed feed, String userId, FeedComment parent) {
-        FeedComment comment = FeedComment.builder()
-            .feed(feed)
-            .userId(userId)
-            .userNickname("nickname-" + userId)
-            .content("기존 댓글")
-            .parent(parent)
-            .isDeleted(false)
-            .isEdited(false)
-            .build();
+    private FeedComment createTestComment(
+            Long id, ActivityFeed feed, String userId, FeedComment parent) {
+        FeedComment comment =
+                FeedComment.builder()
+                        .feed(feed)
+                        .userId(userId)
+                        .userNickname("nickname-" + userId)
+                        .content("기존 댓글")
+                        .parent(parent)
+                        .isDeleted(false)
+                        .isEdited(false)
+                        .build();
         setId(comment, id);
         return comment;
     }
 
     private ActivityFeed createTestFeed(Long id, String userId) {
-        ActivityFeed feed = ActivityFeed.builder()
-            .userId(userId)
-            .userNickname("테스트유저")
-            .userProfileImageUrl("https://example.com/profile.jpg")
-            .userLevel(5)
-            .activityType(ActivityType.MISSION_COMPLETED)
-            .title("테스트 피드")
-            .description("테스트 설명")
-            .visibility(FeedVisibility.PUBLIC)
-            .likeCount(0)
-            .commentCount(0)
-            .build();
+        ActivityFeed feed =
+                ActivityFeed.builder()
+                        .userId(userId)
+                        .userNickname("테스트유저")
+                        .userProfileImageUrl("https://example.com/profile.jpg")
+                        .userLevel(5)
+                        .activityType(ActivityType.MISSION_COMPLETED)
+                        .title("테스트 피드")
+                        .description("테스트 설명")
+                        .visibility(FeedVisibility.PUBLIC)
+                        .likeCount(0)
+                        .commentCount(0)
+                        .build();
         setId(feed, id);
         return feed;
     }
@@ -173,17 +178,30 @@ class FeedCommandServiceTest {
         void createActivityFeed_success() {
             // given
             ActivityFeed savedFeed = createTestFeed(1L, TEST_USER_ID);
-            when(gamificationQueryFacadeService.getDetailedEquippedTitleInfo(TEST_USER_ID)).thenReturn(EMPTY_DETAILED_TITLE);
+            when(gamificationQueryFacadeService.getDetailedEquippedTitleInfo(TEST_USER_ID))
+                    .thenReturn(EMPTY_DETAILED_TITLE);
             when(activityFeedRepository.save(any(ActivityFeed.class))).thenReturn(savedFeed);
 
             // when
-            ActivityFeed result = feedCommandService.createActivityFeed(
-                TEST_USER_ID, "테스트유저", "https://example.com/profile.jpg",
-                5, "테스트칭호", TitleRarity.RARE, "#FFFFFF",
-                ActivityType.MISSION_COMPLETED, "미션 완료", "설명",
-                "MISSION", 1L, "테스트미션",
-                FeedVisibility.PUBLIC, null, null, null
-            );
+            ActivityFeed result =
+                    feedCommandService.createActivityFeed(
+                            TEST_USER_ID,
+                            "테스트유저",
+                            "https://example.com/profile.jpg",
+                            5,
+                            "테스트칭호",
+                            TitleRarity.RARE,
+                            "#FFFFFF",
+                            ActivityType.MISSION_COMPLETED,
+                            "미션 완료",
+                            "설명",
+                            "MISSION",
+                            1L,
+                            "테스트미션",
+                            FeedVisibility.PUBLIC,
+                            null,
+                            null,
+                            null);
 
             // then
             assertThat(result).isNotNull();
@@ -204,10 +222,20 @@ class FeedCommandServiceTest {
             CreateFeedRequest request = createTestFeedRequest();
 
             when(userQueryFacadeService.userExistsById(TEST_USER_ID)).thenReturn(true);
-            when(userQueryFacadeService.getUserProfile(TEST_USER_ID)).thenReturn(new UserProfileInfo(TEST_USER_ID, "테스트유저", "https://example.com/profile.jpg", 5, null, null, null));
+            when(userQueryFacadeService.getUserProfile(TEST_USER_ID))
+                    .thenReturn(
+                            new UserProfileInfo(
+                                    TEST_USER_ID,
+                                    "테스트유저",
+                                    "https://example.com/profile.jpg",
+                                    5,
+                                    null,
+                                    null,
+                                    null));
             when(gamificationQueryFacadeService.getCombinedEquippedTitleInfo(TEST_USER_ID))
-                .thenReturn(new TitleInfoDto("초보 모험가", TitleRarity.COMMON, "#FFFFFF"));
-            when(gamificationQueryFacadeService.getDetailedEquippedTitleInfo(TEST_USER_ID)).thenReturn(EMPTY_DETAILED_TITLE);
+                    .thenReturn(new TitleInfoDto("초보 모험가", TitleRarity.COMMON, "#FFFFFF"));
+            when(gamificationQueryFacadeService.getDetailedEquippedTitleInfo(TEST_USER_ID))
+                    .thenReturn(EMPTY_DETAILED_TITLE);
             when(activityFeedRepository.save(any(ActivityFeed.class))).thenReturn(savedFeed);
 
             // when
@@ -229,8 +257,8 @@ class FeedCommandServiceTest {
 
             // when & then
             assertThatThrownBy(() -> feedCommandService.createFeed(TEST_USER_ID, request))
-                .isInstanceOf(CustomException.class)
-                .hasMessageContaining("error.user.not_found");
+                    .isInstanceOf(CustomException.class)
+                    .hasMessageContaining("error.user.not_found");
         }
     }
 
@@ -246,7 +274,8 @@ class FeedCommandServiceTest {
             ActivityFeed feed = createTestFeed(feedId, OTHER_USER_ID);
 
             when(activityFeedRepository.findById(feedId)).thenReturn(Optional.of(feed));
-            when(feedLikeRepository.findByFeedIdAndUserId(feedId, TEST_USER_ID)).thenReturn(Optional.empty());
+            when(feedLikeRepository.findByFeedIdAndUserId(feedId, TEST_USER_ID))
+                    .thenReturn(Optional.empty());
             when(feedLikeRepository.save(any(FeedLike.class))).thenAnswer(i -> i.getArgument(0));
             when(activityFeedRepository.save(any(ActivityFeed.class))).thenReturn(feed);
 
@@ -267,13 +296,11 @@ class FeedCommandServiceTest {
             Long feedId = 1L;
             ActivityFeed feed = createTestFeed(feedId, OTHER_USER_ID);
             feed.incrementLikeCount(); // 이미 좋아요 상태
-            FeedLike existingLike = FeedLike.builder()
-                .feed(feed)
-                .userId(TEST_USER_ID)
-                .build();
+            FeedLike existingLike = FeedLike.builder().feed(feed).userId(TEST_USER_ID).build();
 
             when(activityFeedRepository.findById(feedId)).thenReturn(Optional.of(feed));
-            when(feedLikeRepository.findByFeedIdAndUserId(feedId, TEST_USER_ID)).thenReturn(Optional.of(existingLike));
+            when(feedLikeRepository.findByFeedIdAndUserId(feedId, TEST_USER_ID))
+                    .thenReturn(Optional.of(existingLike));
             when(activityFeedRepository.save(any(ActivityFeed.class))).thenReturn(feed);
 
             // when
@@ -296,8 +323,8 @@ class FeedCommandServiceTest {
 
             // when & then
             assertThatThrownBy(() -> feedCommandService.toggleLike(feedId, TEST_USER_ID))
-                .isInstanceOf(CustomException.class)
-                .hasMessageContaining("error.feed.self_like");
+                    .isInstanceOf(CustomException.class)
+                    .hasMessageContaining("error.feed.self_like");
         }
     }
 
@@ -311,20 +338,26 @@ class FeedCommandServiceTest {
             // given
             Long feedId = 1L;
             ActivityFeed feed = createTestFeed(feedId, OTHER_USER_ID);
-            UserProfileInfo userProfile = new UserProfileInfo(
-                TEST_USER_ID, "테스트유저", "https://example.com/profile.jpg",
-                5, null, null, null
-            );
+            UserProfileInfo userProfile =
+                    new UserProfileInfo(
+                            TEST_USER_ID,
+                            "테스트유저",
+                            "https://example.com/profile.jpg",
+                            5,
+                            null,
+                            null,
+                            null);
             FeedCommentRequest request = createTestCommentRequest("테스트 댓글");
 
-            FeedComment savedComment = FeedComment.builder()
-                .feed(feed)
-                .userId(TEST_USER_ID)
-                .userNickname(userProfile.nickname())
-                .userLevel(userProfile.level())
-                .content("테스트 댓글")
-                .isDeleted(false)
-                .build();
+            FeedComment savedComment =
+                    FeedComment.builder()
+                            .feed(feed)
+                            .userId(TEST_USER_ID)
+                            .userNickname(userProfile.nickname())
+                            .userLevel(userProfile.level())
+                            .content("테스트 댓글")
+                            .isDeleted(false)
+                            .build();
             setId(savedComment, 1L);
 
             when(activityFeedRepository.findById(feedId)).thenReturn(Optional.of(feed));
@@ -333,7 +366,8 @@ class FeedCommandServiceTest {
             when(activityFeedRepository.save(any(ActivityFeed.class))).thenReturn(feed);
 
             // when
-            FeedCommentResponse result = feedCommandService.addComment(feedId, TEST_USER_ID, request);
+            FeedCommentResponse result =
+                    feedCommandService.addComment(feedId, TEST_USER_ID, request);
 
             // then
             assertThat(result).isNotNull();
@@ -347,18 +381,19 @@ class FeedCommandServiceTest {
             // given
             Long feedId = 1L;
             ActivityFeed feed = createTestFeed(feedId, OTHER_USER_ID);
-            UserProfileInfo userProfile = new UserProfileInfo(
-                TEST_USER_ID, "테스트유저", null, 5, null, null, null);
+            UserProfileInfo userProfile =
+                    new UserProfileInfo(TEST_USER_ID, "테스트유저", null, 5, null, null, null);
             FeedCommentRequest request = createTestCommentRequest("테스트 댓글");
 
-            FeedComment savedComment = FeedComment.builder()
-                .feed(feed)
-                .userId(TEST_USER_ID)
-                .userNickname(userProfile.nickname())
-                .userLevel(userProfile.level())
-                .content("테스트 댓글")
-                .isDeleted(false)
-                .build();
+            FeedComment savedComment =
+                    FeedComment.builder()
+                            .feed(feed)
+                            .userId(TEST_USER_ID)
+                            .userNickname(userProfile.nickname())
+                            .userLevel(userProfile.level())
+                            .content("테스트 댓글")
+                            .isDeleted(false)
+                            .build();
             setId(savedComment, 1L);
 
             when(activityFeedRepository.findById(feedId)).thenReturn(Optional.of(feed));
@@ -366,15 +401,30 @@ class FeedCommandServiceTest {
             when(feedCommentRepository.save(any(FeedComment.class))).thenReturn(savedComment);
             when(activityFeedRepository.save(any(ActivityFeed.class))).thenReturn(feed);
             when(gamificationQueryFacadeService.getEquippedTitlesByUserId(TEST_USER_ID))
-                .thenReturn(List.of(
-                    equippedTitleDto(TEST_USER_ID, "강인한", "Strong", TitleRarity.UNCOMMON, TitlePosition.LEFT),
-                    equippedTitleDto(TEST_USER_ID, "정복자", "Conqueror", TitleRarity.MYTHIC, TitlePosition.RIGHT)));
-            when(gamificationQueryFacadeService.getEquippedItemRaritiesByUserIds(List.of(TEST_USER_ID)))
-                .thenReturn(Map.of(TEST_USER_ID, List.of(
-                    new EquippedItemRarityDto("HEAD", TitleRarity.EPIC))));
+                    .thenReturn(
+                            List.of(
+                                    equippedTitleDto(
+                                            TEST_USER_ID,
+                                            "강인한",
+                                            "Strong",
+                                            TitleRarity.UNCOMMON,
+                                            TitlePosition.LEFT),
+                                    equippedTitleDto(
+                                            TEST_USER_ID,
+                                            "정복자",
+                                            "Conqueror",
+                                            TitleRarity.MYTHIC,
+                                            TitlePosition.RIGHT)));
+            when(gamificationQueryFacadeService.getEquippedItemRaritiesByUserIds(
+                            List.of(TEST_USER_ID)))
+                    .thenReturn(
+                            Map.of(
+                                    TEST_USER_ID,
+                                    List.of(new EquippedItemRarityDto("HEAD", TitleRarity.EPIC))));
 
             // when
-            FeedCommentResponse result = feedCommandService.addComment(feedId, TEST_USER_ID, request, "ko");
+            FeedCommentResponse result =
+                    feedCommandService.addComment(feedId, TEST_USER_ID, request, "ko");
 
             // then — 목록 조회(getComments)와 동일한 작성자 표시 정보
             assertThat(result.getUserNickname()).isEqualTo("테스트유저");
@@ -394,18 +444,19 @@ class FeedCommandServiceTest {
             // given
             Long feedId = 1L;
             ActivityFeed feed = createTestFeed(feedId, OTHER_USER_ID);
-            UserProfileInfo userProfile = new UserProfileInfo(
-                TEST_USER_ID, "테스트유저", null, 5, null, null, null);
+            UserProfileInfo userProfile =
+                    new UserProfileInfo(TEST_USER_ID, "테스트유저", null, 5, null, null, null);
             FeedCommentRequest request = createTestCommentRequest("테스트 댓글");
 
-            FeedComment savedComment = FeedComment.builder()
-                .feed(feed)
-                .userId(TEST_USER_ID)
-                .userNickname(userProfile.nickname())
-                .userLevel(userProfile.level())
-                .content("테스트 댓글")
-                .isDeleted(false)
-                .build();
+            FeedComment savedComment =
+                    FeedComment.builder()
+                            .feed(feed)
+                            .userId(TEST_USER_ID)
+                            .userNickname(userProfile.nickname())
+                            .userLevel(userProfile.level())
+                            .content("테스트 댓글")
+                            .isDeleted(false)
+                            .build();
             setId(savedComment, 1L);
 
             when(activityFeedRepository.findById(feedId)).thenReturn(Optional.of(feed));
@@ -413,12 +464,14 @@ class FeedCommandServiceTest {
             when(feedCommentRepository.save(any(FeedComment.class))).thenReturn(savedComment);
             when(activityFeedRepository.save(any(ActivityFeed.class))).thenReturn(feed);
             when(gamificationQueryFacadeService.getEquippedTitlesByUserId(TEST_USER_ID))
-                .thenThrow(new RuntimeException("facade down"));
-            when(gamificationQueryFacadeService.getEquippedItemRaritiesByUserIds(List.of(TEST_USER_ID)))
-                .thenThrow(new RuntimeException("facade down"));
+                    .thenThrow(new RuntimeException("facade down"));
+            when(gamificationQueryFacadeService.getEquippedItemRaritiesByUserIds(
+                            List.of(TEST_USER_ID)))
+                    .thenThrow(new RuntimeException("facade down"));
 
             // when
-            FeedCommentResponse result = feedCommandService.addComment(feedId, TEST_USER_ID, request, "ko");
+            FeedCommentResponse result =
+                    feedCommandService.addComment(feedId, TEST_USER_ID, request, "ko");
 
             // then — 댓글 작성은 성공, 표시 정보만 미포함
             assertThat(result).isNotNull();
@@ -437,8 +490,8 @@ class FeedCommandServiceTest {
 
             // when & then
             assertThatThrownBy(() -> feedCommandService.addComment(999L, TEST_USER_ID, request))
-                .isInstanceOf(CustomException.class)
-                .hasMessageContaining("error.feed.not_found");
+                    .isInstanceOf(CustomException.class)
+                    .hasMessageContaining("error.feed.not_found");
         }
 
         @Test
@@ -451,19 +504,21 @@ class FeedCommandServiceTest {
             FeedComment parent = createTestComment(parentId, feed, OTHER_USER_ID, null);
             FeedCommentRequest request = createTestReplyRequest("대댓글", parentId);
 
-            UserProfileInfo userProfile = new UserProfileInfo(
-                TEST_USER_ID, "테스트유저", null, 5, null, null, null);
+            UserProfileInfo userProfile =
+                    new UserProfileInfo(TEST_USER_ID, "테스트유저", null, 5, null, null, null);
 
             when(activityFeedRepository.findById(feedId)).thenReturn(Optional.of(feed));
             when(feedCommentRepository.findById(parentId)).thenReturn(Optional.of(parent));
             when(userQueryFacadeService.getUserProfile(TEST_USER_ID)).thenReturn(userProfile);
             when(feedCommentRepository.findReplyAuthorsByParentId(parentId))
-                .thenReturn(java.util.List.of());
-            when(feedCommentRepository.save(any(FeedComment.class))).thenAnswer(inv -> {
-                FeedComment c = inv.getArgument(0);
-                setId(c, 100L);
-                return c;
-            });
+                    .thenReturn(java.util.List.of());
+            when(feedCommentRepository.save(any(FeedComment.class)))
+                    .thenAnswer(
+                            inv -> {
+                                FeedComment c = inv.getArgument(0);
+                                setId(c, 100L);
+                                return c;
+                            });
             when(activityFeedRepository.save(any(ActivityFeed.class))).thenReturn(feed);
 
             // when
@@ -492,8 +547,8 @@ class FeedCommandServiceTest {
 
             // when & then
             assertThatThrownBy(() -> feedCommandService.addComment(feedId, TEST_USER_ID, request))
-                .isInstanceOf(CustomException.class)
-                .hasMessageContaining("error.feed.comment.reply_depth_exceeded");
+                    .isInstanceOf(CustomException.class)
+                    .hasMessageContaining("error.feed.comment.reply_depth_exceeded");
         }
 
         @Test
@@ -513,8 +568,8 @@ class FeedCommandServiceTest {
 
             // when & then
             assertThatThrownBy(() -> feedCommandService.addComment(feedId, TEST_USER_ID, request))
-                .isInstanceOf(CustomException.class)
-                .hasMessageContaining("error.feed.comment.wrong_feed");
+                    .isInstanceOf(CustomException.class)
+                    .hasMessageContaining("error.feed.comment.wrong_feed");
         }
     }
 
@@ -558,21 +613,34 @@ class FeedCommandServiceTest {
             when(feedCommentRepository.countActiveRepliesByParentId(commentId)).thenReturn(0);
             when(feedCommentRepository.save(any(FeedComment.class))).thenReturn(comment);
             when(gamificationQueryFacadeService.getEquippedTitlesByUserId(TEST_USER_ID))
-                .thenReturn(List.of(
-                    equippedTitleDto(TEST_USER_ID, "강인한", "Strong", TitleRarity.UNCOMMON, TitlePosition.LEFT)));
-            when(gamificationQueryFacadeService.getEquippedItemRaritiesByUserIds(List.of(TEST_USER_ID)))
-                .thenReturn(Map.of(TEST_USER_ID, List.of(
-                    new EquippedItemRarityDto("EFFECT", TitleRarity.RARE))));
+                    .thenReturn(
+                            List.of(
+                                    equippedTitleDto(
+                                            TEST_USER_ID,
+                                            "강인한",
+                                            "Strong",
+                                            TitleRarity.UNCOMMON,
+                                            TitlePosition.LEFT)));
+            when(gamificationQueryFacadeService.getEquippedItemRaritiesByUserIds(
+                            List.of(TEST_USER_ID)))
+                    .thenReturn(
+                            Map.of(
+                                    TEST_USER_ID,
+                                    List.of(
+                                            new EquippedItemRarityDto(
+                                                    "EFFECT", TitleRarity.RARE))));
 
             // when
             FeedCommentResponse result =
-                feedCommandService.updateComment(feedId, commentId, TEST_USER_ID, request, "en");
+                    feedCommandService.updateComment(
+                            feedId, commentId, TEST_USER_ID, request, "en");
 
             // then — locale(en) 반영 칭호 + 아이템 희귀도 + 수정 가능
             assertThat(result.getUserLeftTitle()).isEqualTo("Strong");
             assertThat(result.getUserLeftTitleRarity()).isEqualTo(TitleRarity.UNCOMMON);
             assertThat(result.getEquippedItemRarities()).hasSize(1);
-            assertThat(result.getEquippedItemRarities().get(0).rarity()).isEqualTo(TitleRarity.RARE);
+            assertThat(result.getEquippedItemRarities().get(0).rarity())
+                    .isEqualTo(TitleRarity.RARE);
             assertThat(result.getIsMyComment()).isTrue();
             assertThat(result.getIsEditable()).isTrue();
         }
@@ -590,10 +658,12 @@ class FeedCommandServiceTest {
             when(feedCommentRepository.findById(commentId)).thenReturn(Optional.of(comment));
 
             // when & then
-            assertThatThrownBy(() ->
-                feedCommandService.updateComment(feedId, commentId, TEST_USER_ID, request))
-                .isInstanceOf(CustomException.class)
-                .hasMessageContaining("error.feed.comment.not_owner");
+            assertThatThrownBy(
+                            () ->
+                                    feedCommandService.updateComment(
+                                            feedId, commentId, TEST_USER_ID, request))
+                    .isInstanceOf(CustomException.class)
+                    .hasMessageContaining("error.feed.comment.not_owner");
         }
 
         @Test
@@ -610,10 +680,12 @@ class FeedCommandServiceTest {
             when(feedCommentRepository.countActiveRepliesByParentId(commentId)).thenReturn(2);
 
             // when & then
-            assertThatThrownBy(() ->
-                feedCommandService.updateComment(feedId, commentId, TEST_USER_ID, request))
-                .isInstanceOf(CustomException.class)
-                .hasMessageContaining("error.feed.comment.has_replies_uneditable");
+            assertThatThrownBy(
+                            () ->
+                                    feedCommandService.updateComment(
+                                            feedId, commentId, TEST_USER_ID, request))
+                    .isInstanceOf(CustomException.class)
+                    .hasMessageContaining("error.feed.comment.has_replies_uneditable");
         }
 
         @Test
@@ -630,10 +702,12 @@ class FeedCommandServiceTest {
             when(feedCommentRepository.findById(commentId)).thenReturn(Optional.of(comment));
 
             // when & then
-            assertThatThrownBy(() ->
-                feedCommandService.updateComment(feedId, commentId, TEST_USER_ID, request))
-                .isInstanceOf(CustomException.class)
-                .hasMessageContaining("error.feed.comment.deleted");
+            assertThatThrownBy(
+                            () ->
+                                    feedCommandService.updateComment(
+                                            feedId, commentId, TEST_USER_ID, request))
+                    .isInstanceOf(CustomException.class)
+                    .hasMessageContaining("error.feed.comment.deleted");
         }
     }
 
@@ -649,17 +723,18 @@ class FeedCommandServiceTest {
             Long commentId = 10L;
             ActivityFeed feed = createTestFeed(feedId, OTHER_USER_ID);
             FeedComment comment = createTestComment(commentId, feed, OTHER_USER_ID, null);
-            UserProfileInfo likerProfile = new UserProfileInfo(
-                TEST_USER_ID, "테스트유저", null, 5, null, null, null);
+            UserProfileInfo likerProfile =
+                    new UserProfileInfo(TEST_USER_ID, "테스트유저", null, 5, null, null, null);
 
             when(feedCommentRepository.findById(commentId)).thenReturn(Optional.of(comment));
             when(feedCommentLikeRepository.findByCommentIdAndUserId(commentId, TEST_USER_ID))
-                .thenReturn(Optional.empty());
+                    .thenReturn(Optional.empty());
             when(userQueryFacadeService.getUserProfile(TEST_USER_ID)).thenReturn(likerProfile);
             when(feedCommentLikeRepository.countByCommentId(commentId)).thenReturn(1);
 
             // when
-            FeedCommentLikeResponse result = feedCommandService.toggleCommentLike(feedId, commentId, TEST_USER_ID);
+            FeedCommentLikeResponse result =
+                    feedCommandService.toggleCommentLike(feedId, commentId, TEST_USER_ID);
 
             // then
             assertThat(result.isLiked()).isTrue();
@@ -676,18 +751,17 @@ class FeedCommandServiceTest {
             Long commentId = 10L;
             ActivityFeed feed = createTestFeed(feedId, OTHER_USER_ID);
             FeedComment comment = createTestComment(commentId, feed, OTHER_USER_ID, null);
-            FeedCommentLike existing = FeedCommentLike.builder()
-                .comment(comment)
-                .userId(TEST_USER_ID)
-                .build();
+            FeedCommentLike existing =
+                    FeedCommentLike.builder().comment(comment).userId(TEST_USER_ID).build();
 
             when(feedCommentRepository.findById(commentId)).thenReturn(Optional.of(comment));
             when(feedCommentLikeRepository.findByCommentIdAndUserId(commentId, TEST_USER_ID))
-                .thenReturn(Optional.of(existing));
+                    .thenReturn(Optional.of(existing));
             when(feedCommentLikeRepository.countByCommentId(commentId)).thenReturn(0);
 
             // when
-            FeedCommentLikeResponse result = feedCommandService.toggleCommentLike(feedId, commentId, TEST_USER_ID);
+            FeedCommentLikeResponse result =
+                    feedCommandService.toggleCommentLike(feedId, commentId, TEST_USER_ID);
 
             // then
             assertThat(result.isLiked()).isFalse();
@@ -706,11 +780,12 @@ class FeedCommandServiceTest {
 
             when(feedCommentRepository.findById(commentId)).thenReturn(Optional.of(comment));
             when(feedCommentLikeRepository.findByCommentIdAndUserId(commentId, TEST_USER_ID))
-                .thenReturn(Optional.empty());
+                    .thenReturn(Optional.empty());
             when(feedCommentLikeRepository.countByCommentId(commentId)).thenReturn(1);
 
             // when
-            FeedCommentLikeResponse result = feedCommandService.toggleCommentLike(feedId, commentId, TEST_USER_ID);
+            FeedCommentLikeResponse result =
+                    feedCommandService.toggleCommentLike(feedId, commentId, TEST_USER_ID);
 
             // then
             assertThat(result.isLiked()).isTrue();
@@ -732,12 +807,13 @@ class FeedCommandServiceTest {
             ActivityFeed feed = createTestFeed(feedId, OTHER_USER_ID);
             feed.incrementCommentCount();
 
-            FeedComment comment = FeedComment.builder()
-                .feed(feed)
-                .userId(TEST_USER_ID)
-                .content("테스트 댓글")
-                .isDeleted(false)
-                .build();
+            FeedComment comment =
+                    FeedComment.builder()
+                            .feed(feed)
+                            .userId(TEST_USER_ID)
+                            .content("테스트 댓글")
+                            .isDeleted(false)
+                            .build();
             setId(comment, commentId);
 
             when(feedCommentRepository.findById(commentId)).thenReturn(Optional.of(comment));
@@ -759,20 +835,22 @@ class FeedCommandServiceTest {
             Long commentId = 1L;
             ActivityFeed feed = createTestFeed(feedId, OTHER_USER_ID);
 
-            FeedComment comment = FeedComment.builder()
-                .feed(feed)
-                .userId(OTHER_USER_ID) // 다른 사용자의 댓글
-                .content("테스트 댓글")
-                .isDeleted(false)
-                .build();
+            FeedComment comment =
+                    FeedComment.builder()
+                            .feed(feed)
+                            .userId(OTHER_USER_ID) // 다른 사용자의 댓글
+                            .content("테스트 댓글")
+                            .isDeleted(false)
+                            .build();
             setId(comment, commentId);
 
             when(feedCommentRepository.findById(commentId)).thenReturn(Optional.of(comment));
 
             // when & then
-            assertThatThrownBy(() -> feedCommandService.deleteComment(feedId, commentId, TEST_USER_ID))
-                .isInstanceOf(CustomException.class)
-                .hasMessageContaining("error.feed.comment.not_owner");
+            assertThatThrownBy(
+                            () -> feedCommandService.deleteComment(feedId, commentId, TEST_USER_ID))
+                    .isInstanceOf(CustomException.class)
+                    .hasMessageContaining("error.feed.comment.not_owner");
         }
 
         @Test
@@ -784,20 +862,24 @@ class FeedCommandServiceTest {
             Long commentId = 1L;
             ActivityFeed feed = createTestFeed(feedId, OTHER_USER_ID);
 
-            FeedComment comment = FeedComment.builder()
-                .feed(feed)
-                .userId(TEST_USER_ID)
-                .content("테스트 댓글")
-                .isDeleted(false)
-                .build();
+            FeedComment comment =
+                    FeedComment.builder()
+                            .feed(feed)
+                            .userId(TEST_USER_ID)
+                            .content("테스트 댓글")
+                            .isDeleted(false)
+                            .build();
             setId(comment, commentId);
 
             when(feedCommentRepository.findById(commentId)).thenReturn(Optional.of(comment));
 
             // when & then
-            assertThatThrownBy(() -> feedCommandService.deleteComment(wrongFeedId, commentId, TEST_USER_ID))
-                .isInstanceOf(CustomException.class)
-                .hasMessageContaining("error.feed.comment.wrong_feed");
+            assertThatThrownBy(
+                            () ->
+                                    feedCommandService.deleteComment(
+                                            wrongFeedId, commentId, TEST_USER_ID))
+                    .isInstanceOf(CustomException.class)
+                    .hasMessageContaining("error.feed.comment.wrong_feed");
         }
 
         @Test
@@ -817,7 +899,7 @@ class FeedCommandServiceTest {
 
             // then
             ArgumentCaptor<FeedCommentDeletedEvent> captor =
-                ArgumentCaptor.forClass(FeedCommentDeletedEvent.class);
+                    ArgumentCaptor.forClass(FeedCommentDeletedEvent.class);
             verify(eventPublisher).publishEvent(captor.capture());
             assertThat(captor.getValue().userId()).isEqualTo(TEST_USER_ID);
             assertThat(captor.getValue().feedOwnerId()).isEqualTo(OTHER_USER_ID);
@@ -938,8 +1020,8 @@ class FeedCommandServiceTest {
 
             // when & then
             assertThatThrownBy(() -> feedCommandService.deleteFeed(feedId, TEST_USER_ID))
-                .isInstanceOf(CustomException.class)
-                .hasMessageContaining("error.feed.not_owner");
+                    .isInstanceOf(CustomException.class)
+                    .hasMessageContaining("error.feed.not_owner");
         }
     }
 
@@ -954,11 +1036,13 @@ class FeedCommandServiceTest {
             Long referenceId = 1L;
             String referenceType = "MISSION";
 
-            when(activityFeedRepository.deleteByReferenceIdAndReferenceType(referenceId, referenceType))
-                .thenReturn(3);
+            when(activityFeedRepository.deleteByReferenceIdAndReferenceType(
+                            referenceId, referenceType))
+                    .thenReturn(3);
 
             // when
-            int deletedCount = feedCommandService.deleteFeedsByReferenceId(referenceId, referenceType);
+            int deletedCount =
+                    feedCommandService.deleteFeedsByReferenceId(referenceId, referenceType);
 
             // then
             assertThat(deletedCount).isEqualTo(3);
@@ -993,26 +1077,39 @@ class FeedCommandServiceTest {
         @DisplayName("미션 공유 피드를 생성한다")
         void createMissionSharedFeed_success() {
             // given
-            ActivityFeed savedFeed = ActivityFeed.builder()
-                .userId(TEST_USER_ID)
-                .activityType(ActivityType.MISSION_SHARED)
-                .visibility(FeedVisibility.PUBLIC)
-                .likeCount(0)
-                .commentCount(0)
-                .build();
+            ActivityFeed savedFeed =
+                    ActivityFeed.builder()
+                            .userId(TEST_USER_ID)
+                            .activityType(ActivityType.MISSION_SHARED)
+                            .visibility(FeedVisibility.PUBLIC)
+                            .likeCount(0)
+                            .commentCount(0)
+                            .build();
             setId(savedFeed, 1L);
 
             when(activityFeedRepository.save(any(ActivityFeed.class))).thenReturn(savedFeed);
-            when(gamificationQueryFacadeService.getDetailedEquippedTitleInfo(TEST_USER_ID)).thenReturn(EMPTY_DETAILED_TITLE);
+            when(gamificationQueryFacadeService.getDetailedEquippedTitleInfo(TEST_USER_ID))
+                    .thenReturn(EMPTY_DETAILED_TITLE);
 
             // when
-            ActivityFeed result = feedCommandService.createMissionSharedFeed(
-                TEST_USER_ID, "테스트유저", "https://example.com/profile.jpg",
-                5, "테스트칭호", TitleRarity.RARE, "#FFFFFF",
-                1L, 2L, "테스트미션", "미션 설명", 1L,
-                "노트 내용", "https://example.com/image.jpg",
-                30, 100
-            );
+            ActivityFeed result =
+                    feedCommandService.createMissionSharedFeed(
+                            TEST_USER_ID,
+                            "테스트유저",
+                            "https://example.com/profile.jpg",
+                            5,
+                            "테스트칭호",
+                            TitleRarity.RARE,
+                            "#FFFFFF",
+                            1L,
+                            2L,
+                            "테스트미션",
+                            "미션 설명",
+                            1L,
+                            "노트 내용",
+                            "https://example.com/image.jpg",
+                            30,
+                            100);
 
             // then
             assertThat(result).isNotNull();
@@ -1089,20 +1186,26 @@ class FeedCommandServiceTest {
             // given
             Long feedId = 1L;
             ActivityFeed feed = createTestFeed(feedId, TEST_USER_ID); // 작성자가 본인
-            UserProfileInfo userProfile = new UserProfileInfo(
-                TEST_USER_ID, "테스트유저", "https://example.com/profile.jpg",
-                5, null, null, null
-            );
+            UserProfileInfo userProfile =
+                    new UserProfileInfo(
+                            TEST_USER_ID,
+                            "테스트유저",
+                            "https://example.com/profile.jpg",
+                            5,
+                            null,
+                            null,
+                            null);
             FeedCommentRequest request = createTestCommentRequest("테스트 댓글");
 
-            FeedComment savedComment = FeedComment.builder()
-                .feed(feed)
-                .userId(TEST_USER_ID)
-                .userNickname(userProfile.nickname())
-                .userLevel(userProfile.level())
-                .content("테스트 댓글")
-                .isDeleted(false)
-                .build();
+            FeedComment savedComment =
+                    FeedComment.builder()
+                            .feed(feed)
+                            .userId(TEST_USER_ID)
+                            .userNickname(userProfile.nickname())
+                            .userLevel(userProfile.level())
+                            .content("테스트 댓글")
+                            .isDeleted(false)
+                            .build();
             setId(savedComment, 1L);
 
             when(activityFeedRepository.findById(feedId)).thenReturn(Optional.of(feed));
@@ -1132,7 +1235,9 @@ class FeedCommandServiceTest {
             when(activityFeedRepository.save(any(ActivityFeed.class))).thenReturn(feed);
 
             // when
-            ActivityFeedResponse result = feedCommandService.updateFeedVisibility(feedId, TEST_USER_ID, FeedVisibility.PRIVATE);
+            ActivityFeedResponse result =
+                    feedCommandService.updateFeedVisibility(
+                            feedId, TEST_USER_ID, FeedVisibility.PRIVATE);
 
             // then
             assertThat(result).isNotNull();
@@ -1147,9 +1252,12 @@ class FeedCommandServiceTest {
             when(activityFeedRepository.findById(999L)).thenReturn(Optional.empty());
 
             // when & then
-            assertThatThrownBy(() -> feedCommandService.updateFeedVisibility(999L, TEST_USER_ID, FeedVisibility.PRIVATE))
-                .isInstanceOf(CustomException.class)
-                .hasMessageContaining("error.feed.not_found");
+            assertThatThrownBy(
+                            () ->
+                                    feedCommandService.updateFeedVisibility(
+                                            999L, TEST_USER_ID, FeedVisibility.PRIVATE))
+                    .isInstanceOf(CustomException.class)
+                    .hasMessageContaining("error.feed.not_found");
         }
 
         @Test
@@ -1161,9 +1269,12 @@ class FeedCommandServiceTest {
             when(activityFeedRepository.findById(feedId)).thenReturn(Optional.of(feed));
 
             // when & then
-            assertThatThrownBy(() -> feedCommandService.updateFeedVisibility(feedId, TEST_USER_ID, FeedVisibility.PRIVATE))
-                .isInstanceOf(CustomException.class)
-                .hasMessageContaining("error.feed.not_owner");
+            assertThatThrownBy(
+                            () ->
+                                    feedCommandService.updateFeedVisibility(
+                                            feedId, TEST_USER_ID, FeedVisibility.PRIVATE))
+                    .isInstanceOf(CustomException.class)
+                    .hasMessageContaining("error.feed.not_owner");
         }
     }
 
@@ -1177,8 +1288,9 @@ class FeedCommandServiceTest {
             // given
             Long executionId = 10L;
             ActivityFeed feed = createTestFeed(1L, TEST_USER_ID);
-            when(activityFeedRepository.findFirstByExecutionIdAndUserIdOrderByCreatedAtDesc(executionId, TEST_USER_ID))
-                .thenReturn(Optional.of(feed));
+            when(activityFeedRepository.findFirstByExecutionIdAndUserIdOrderByCreatedAtDesc(
+                            executionId, TEST_USER_ID))
+                    .thenReturn(Optional.of(feed));
 
             // when
             feedCommandService.deleteFeedByExecutionId(executionId, TEST_USER_ID);
@@ -1192,8 +1304,9 @@ class FeedCommandServiceTest {
         void deleteFeedByExecutionId_notFound_doesNothing() {
             // given
             Long executionId = 999L;
-            when(activityFeedRepository.findFirstByExecutionIdAndUserIdOrderByCreatedAtDesc(executionId, TEST_USER_ID))
-                .thenReturn(Optional.empty());
+            when(activityFeedRepository.findFirstByExecutionIdAndUserIdOrderByCreatedAtDesc(
+                            executionId, TEST_USER_ID))
+                    .thenReturn(Optional.empty());
 
             // when
             feedCommandService.deleteFeedByExecutionId(executionId, TEST_USER_ID);
@@ -1214,12 +1327,14 @@ class FeedCommandServiceTest {
             Long executionId = 10L;
             String newImageUrl = "https://example.com/updated.jpg";
             ActivityFeed feed = createTestFeed(1L, TEST_USER_ID);
-            when(activityFeedRepository.findFirstByExecutionIdAndUserIdOrderByCreatedAtDesc(executionId, TEST_USER_ID))
-                .thenReturn(Optional.of(feed));
+            when(activityFeedRepository.findFirstByExecutionIdAndUserIdOrderByCreatedAtDesc(
+                            executionId, TEST_USER_ID))
+                    .thenReturn(Optional.of(feed));
             when(activityFeedRepository.save(any(ActivityFeed.class))).thenReturn(feed);
 
             // when
-            feedCommandService.updateFeedImageUrlByExecutionId(executionId, TEST_USER_ID, newImageUrl);
+            feedCommandService.updateFeedImageUrlByExecutionId(
+                    executionId, TEST_USER_ID, newImageUrl);
 
             // then
             assertThat(feed.getImageUrl()).isEqualTo(newImageUrl);
@@ -1234,19 +1349,21 @@ class FeedCommandServiceTest {
             // 내 피드는 미갱신되는(홈 피드 이미지 미반영) 원인이었다.
             Long executionId = 10L;
             ActivityFeed myFeed = createTestFeed(1L, TEST_USER_ID);
-            when(activityFeedRepository.findFirstByExecutionIdAndUserIdOrderByCreatedAtDesc(executionId, TEST_USER_ID))
-                .thenReturn(Optional.of(myFeed));
+            when(activityFeedRepository.findFirstByExecutionIdAndUserIdOrderByCreatedAtDesc(
+                            executionId, TEST_USER_ID))
+                    .thenReturn(Optional.of(myFeed));
             when(activityFeedRepository.save(any(ActivityFeed.class))).thenReturn(myFeed);
 
             // when
             feedCommandService.updateFeedImagesByExecutionId(
-                executionId, TEST_USER_ID, List.of("https://x.com/new.jpg"));
+                    executionId, TEST_USER_ID, List.of("https://x.com/new.jpg"));
 
             // then
             assertThat(myFeed.getImageUrl()).isEqualTo("https://x.com/new.jpg");
             verify(activityFeedRepository)
-                .findFirstByExecutionIdAndUserIdOrderByCreatedAtDesc(executionId, TEST_USER_ID);
-            verify(activityFeedRepository, never()).findFirstByExecutionIdOrderByCreatedAtDesc(any());
+                    .findFirstByExecutionIdAndUserIdOrderByCreatedAtDesc(executionId, TEST_USER_ID);
+            verify(activityFeedRepository, never())
+                    .findFirstByExecutionIdOrderByCreatedAtDesc(any());
         }
 
         @Test
@@ -1255,13 +1372,16 @@ class FeedCommandServiceTest {
             // given — 재등록으로 이미지가 2장이 된 상태의 동기화
             Long executionId = 10L;
             ActivityFeed feed = createTestFeed(1L, TEST_USER_ID);
-            when(activityFeedRepository.findFirstByExecutionIdAndUserIdOrderByCreatedAtDesc(executionId, TEST_USER_ID))
-                .thenReturn(Optional.of(feed));
+            when(activityFeedRepository.findFirstByExecutionIdAndUserIdOrderByCreatedAtDesc(
+                            executionId, TEST_USER_ID))
+                    .thenReturn(Optional.of(feed));
             when(activityFeedRepository.save(any(ActivityFeed.class))).thenReturn(feed);
 
             // when
             feedCommandService.updateFeedImagesByExecutionId(
-                executionId, TEST_USER_ID, List.of("https://x.com/a.jpg", "https://x.com/b.jpg"));
+                    executionId,
+                    TEST_USER_ID,
+                    List.of("https://x.com/a.jpg", "https://x.com/b.jpg"));
 
             // then — 삭제가 신규 저장보다 먼저여야 한다. 실제 flush 순서 보장은
             // ActivityFeedImageRepository.deleteByFeedId 의 벌크 @Query가 담당한다
@@ -1269,7 +1389,10 @@ class FeedCommandServiceTest {
             org.mockito.InOrder inOrder = org.mockito.Mockito.inOrder(activityFeedImageRepository);
             inOrder.verify(activityFeedImageRepository).deleteByFeedId(1L);
             inOrder.verify(activityFeedImageRepository, org.mockito.Mockito.times(2))
-                .save(any(io.pinkspider.leveluptogethermvp.feedservice.domain.entity.ActivityFeedImage.class));
+                    .save(
+                            any(
+                                    io.pinkspider.leveluptogethermvp.feedservice.domain.entity
+                                            .ActivityFeedImage.class));
             assertThat(feed.getImageUrl()).isEqualTo("https://x.com/a.jpg");
         }
 
@@ -1278,11 +1401,13 @@ class FeedCommandServiceTest {
         void updateFeedImageUrlByExecutionId_notFound_doesNothing() {
             // given
             Long executionId = 999L;
-            when(activityFeedRepository.findFirstByExecutionIdAndUserIdOrderByCreatedAtDesc(executionId, TEST_USER_ID))
-                .thenReturn(Optional.empty());
+            when(activityFeedRepository.findFirstByExecutionIdAndUserIdOrderByCreatedAtDesc(
+                            executionId, TEST_USER_ID))
+                    .thenReturn(Optional.empty());
 
             // when
-            feedCommandService.updateFeedImageUrlByExecutionId(executionId, TEST_USER_ID, "https://x.com/img.jpg");
+            feedCommandService.updateFeedImageUrlByExecutionId(
+                    executionId, TEST_USER_ID, "https://x.com/img.jpg");
 
             // then
             verify(activityFeedRepository, never()).save(any(ActivityFeed.class));
@@ -1300,12 +1425,14 @@ class FeedCommandServiceTest {
             Long executionId = 10L;
             String newDescription = "업데이트된 노트";
             ActivityFeed feed = createTestFeed(1L, TEST_USER_ID);
-            when(activityFeedRepository.findFirstByExecutionIdAndUserIdOrderByCreatedAtDesc(executionId, TEST_USER_ID))
-                .thenReturn(Optional.of(feed));
+            when(activityFeedRepository.findFirstByExecutionIdAndUserIdOrderByCreatedAtDesc(
+                            executionId, TEST_USER_ID))
+                    .thenReturn(Optional.of(feed));
             when(activityFeedRepository.save(any(ActivityFeed.class))).thenReturn(feed);
 
             // when
-            feedCommandService.updateFeedDescriptionByExecutionId(executionId, TEST_USER_ID, newDescription);
+            feedCommandService.updateFeedDescriptionByExecutionId(
+                    executionId, TEST_USER_ID, newDescription);
 
             // then
             assertThat(feed.getDescription()).isEqualTo(newDescription);
@@ -1317,8 +1444,9 @@ class FeedCommandServiceTest {
         void updateFeedDescriptionByExecutionId_notFound_doesNothing() {
             // given
             Long executionId = 999L;
-            when(activityFeedRepository.findFirstByExecutionIdAndUserIdOrderByCreatedAtDesc(executionId, TEST_USER_ID))
-                .thenReturn(Optional.empty());
+            when(activityFeedRepository.findFirstByExecutionIdAndUserIdOrderByCreatedAtDesc(
+                            executionId, TEST_USER_ID))
+                    .thenReturn(Optional.empty());
 
             // when
             feedCommandService.updateFeedDescriptionByExecutionId(executionId, TEST_USER_ID, "노트");
@@ -1333,8 +1461,9 @@ class FeedCommandServiceTest {
             // given
             Long executionId = 10L;
             ActivityFeed feed = createTestFeed(1L, TEST_USER_ID);
-            when(activityFeedRepository.findFirstByExecutionIdAndUserIdOrderByCreatedAtDesc(executionId, TEST_USER_ID))
-                .thenReturn(Optional.of(feed));
+            when(activityFeedRepository.findFirstByExecutionIdAndUserIdOrderByCreatedAtDesc(
+                            executionId, TEST_USER_ID))
+                    .thenReturn(Optional.of(feed));
             when(activityFeedRepository.save(any(ActivityFeed.class))).thenReturn(feed);
 
             // when
@@ -1356,13 +1485,21 @@ class FeedCommandServiceTest {
             // given
             Long executionId = 10L;
             ActivityFeed feed = createTestFeed(1L, TEST_USER_ID);
-            when(activityFeedRepository.findFirstByExecutionIdAndUserIdOrderByCreatedAtDesc(executionId, TEST_USER_ID))
-                .thenReturn(Optional.of(feed));
+            when(activityFeedRepository.findFirstByExecutionIdAndUserIdOrderByCreatedAtDesc(
+                            executionId, TEST_USER_ID))
+                    .thenReturn(Optional.of(feed));
             when(activityFeedRepository.save(any(ActivityFeed.class))).thenReturn(feed);
 
             // when
-            ActivityFeed result = feedCommandService.updateFeedContentByExecutionId(
-                executionId, TEST_USER_ID, "새 설명", "https://example.com/img.jpg", FeedVisibility.FRIENDS, null, null);
+            ActivityFeed result =
+                    feedCommandService.updateFeedContentByExecutionId(
+                            executionId,
+                            TEST_USER_ID,
+                            "새 설명",
+                            "https://example.com/img.jpg",
+                            FeedVisibility.FRIENDS,
+                            null,
+                            null);
 
             // then
             assertThat(result).isNotNull();
@@ -1380,13 +1517,14 @@ class FeedCommandServiceTest {
             // given
             Long executionId = 10L;
             ActivityFeed feed = createTestFeed(1L, TEST_USER_ID);
-            when(activityFeedRepository.findFirstByExecutionIdAndUserIdOrderByCreatedAtDesc(executionId, TEST_USER_ID))
-                .thenReturn(Optional.of(feed));
+            when(activityFeedRepository.findFirstByExecutionIdAndUserIdOrderByCreatedAtDesc(
+                            executionId, TEST_USER_ID))
+                    .thenReturn(Optional.of(feed));
             when(activityFeedRepository.save(any(ActivityFeed.class))).thenReturn(feed);
 
             // when
             feedCommandService.updateFeedContentByExecutionId(
-                executionId, TEST_USER_ID, "설명", null, FeedVisibility.GUILD, 7L, "독서길드");
+                    executionId, TEST_USER_ID, "설명", null, FeedVisibility.GUILD, 7L, "독서길드");
 
             // then
             assertThat(feed.getVisibility()).isEqualTo(FeedVisibility.GUILD);
@@ -1399,12 +1537,20 @@ class FeedCommandServiceTest {
         void updateFeedContentByExecutionId_notFound_returnsNull() {
             // given
             Long executionId = 999L;
-            when(activityFeedRepository.findFirstByExecutionIdAndUserIdOrderByCreatedAtDesc(executionId, TEST_USER_ID))
-                .thenReturn(Optional.empty());
+            when(activityFeedRepository.findFirstByExecutionIdAndUserIdOrderByCreatedAtDesc(
+                            executionId, TEST_USER_ID))
+                    .thenReturn(Optional.empty());
 
             // when
-            ActivityFeed result = feedCommandService.updateFeedContentByExecutionId(
-                executionId, TEST_USER_ID, "설명", null, FeedVisibility.PUBLIC, null, null);
+            ActivityFeed result =
+                    feedCommandService.updateFeedContentByExecutionId(
+                            executionId,
+                            TEST_USER_ID,
+                            "설명",
+                            null,
+                            FeedVisibility.PUBLIC,
+                            null,
+                            null);
 
             // then
             assertThat(result).isNull();
@@ -1419,25 +1565,30 @@ class FeedCommandServiceTest {
         @DisplayName("사용자의 모든 피드 칭호 정보를 업데이트한다")
         void updateFeedTitles_success() {
             // given
-            DetailedTitleInfoDto detailedTitle = new DetailedTitleInfoDto(
-                "용감한", io.pinkspider.global.enums.TitleRarity.RARE,
-                "전사", io.pinkspider.global.enums.TitleRarity.EPIC,
-                null, null
-            );
+            DetailedTitleInfoDto detailedTitle =
+                    new DetailedTitleInfoDto(
+                            "용감한",
+                            io.pinkspider.global.enums.TitleRarity.RARE,
+                            "전사",
+                            io.pinkspider.global.enums.TitleRarity.EPIC,
+                            null,
+                            null);
             when(gamificationQueryFacadeService.getDetailedEquippedTitleInfo(TEST_USER_ID))
-                .thenReturn(detailedTitle);
+                    .thenReturn(detailedTitle);
             when(activityFeedRepository.updateUserTitleByUserId(
-                eq(TEST_USER_ID), any(), any(), any(), any(), any(), any(), any()))
-                .thenReturn(3);
+                            eq(TEST_USER_ID), any(), any(), any(), any(), any(), any(), any()))
+                    .thenReturn(3);
 
             // when
-            int result = feedCommandService.updateFeedTitles(
-                TEST_USER_ID, "용감한 전사", TitleRarity.EPIC, "#00FF00");
+            int result =
+                    feedCommandService.updateFeedTitles(
+                            TEST_USER_ID, "용감한 전사", TitleRarity.EPIC, "#00FF00");
 
             // then
             assertThat(result).isEqualTo(3);
-            verify(activityFeedRepository).updateUserTitleByUserId(
-                eq(TEST_USER_ID), any(), any(), any(), any(), any(), any(), any());
+            verify(activityFeedRepository)
+                    .updateUserTitleByUserId(
+                            eq(TEST_USER_ID), any(), any(), any(), any(), any(), any(), any());
         }
 
         @Test
@@ -1445,18 +1596,19 @@ class FeedCommandServiceTest {
         void updateFeedTitles_titleInfoFetchFails_usesEmpty() {
             // given
             when(gamificationQueryFacadeService.getDetailedEquippedTitleInfo(TEST_USER_ID))
-                .thenThrow(new RuntimeException("Feign 오류"));
+                    .thenThrow(new RuntimeException("Feign 오류"));
             when(activityFeedRepository.updateUserTitleByUserId(
-                eq(TEST_USER_ID), any(), any(), any(), any(), any(), any(), any()))
-                .thenReturn(2);
+                            eq(TEST_USER_ID), any(), any(), any(), any(), any(), any(), any()))
+                    .thenReturn(2);
 
             // when
             int result = feedCommandService.updateFeedTitles(TEST_USER_ID, null, null, null);
 
             // then
             assertThat(result).isEqualTo(2);
-            verify(activityFeedRepository).updateUserTitleByUserId(
-                eq(TEST_USER_ID), any(), any(), any(), any(), any(), any(), any());
+            verify(activityFeedRepository)
+                    .updateUserTitleByUserId(
+                            eq(TEST_USER_ID), any(), any(), any(), any(), any(), any(), any());
         }
     }
 
@@ -1487,8 +1639,8 @@ class FeedCommandServiceTest {
 
             // when & then
             assertThatThrownBy(() -> feedCommandService.deleteFeedByAdmin(999L, "사유", "admin"))
-                .isInstanceOf(CustomException.class)
-                .hasMessageContaining("error.feed.not_found");
+                    .isInstanceOf(CustomException.class)
+                    .hasMessageContaining("error.feed.not_found");
         }
     }
 
@@ -1505,12 +1657,13 @@ class FeedCommandServiceTest {
             ActivityFeed feed = createTestFeed(feedId, OTHER_USER_ID);
             feed.incrementCommentCount();
 
-            FeedComment comment = FeedComment.builder()
-                .feed(feed)
-                .userId(OTHER_USER_ID)
-                .content("부적절한 댓글")
-                .isDeleted(false)
-                .build();
+            FeedComment comment =
+                    FeedComment.builder()
+                            .feed(feed)
+                            .userId(OTHER_USER_ID)
+                            .content("부적절한 댓글")
+                            .isDeleted(false)
+                            .build();
             setId(comment, commentId);
 
             when(feedCommentRepository.findById(commentId)).thenReturn(Optional.of(comment));
@@ -1533,8 +1686,8 @@ class FeedCommandServiceTest {
 
             // when & then
             assertThatThrownBy(() -> feedCommandService.deleteCommentByAdmin(999L, "사유"))
-                .isInstanceOf(CustomException.class)
-                .hasMessageContaining("error.feed.comment.not_found");
+                    .isInstanceOf(CustomException.class)
+                    .hasMessageContaining("error.feed.comment.not_found");
         }
     }
 
@@ -1550,8 +1703,8 @@ class FeedCommandServiceTest {
 
             // when & then
             assertThatThrownBy(() -> feedCommandService.toggleLike(999L, TEST_USER_ID))
-                .isInstanceOf(CustomException.class)
-                .hasMessageContaining("error.feed.not_found");
+                    .isInstanceOf(CustomException.class)
+                    .hasMessageContaining("error.feed.not_found");
         }
     }
 
@@ -1568,12 +1721,20 @@ class FeedCommandServiceTest {
             // visibility 필드 세팅하지 않음(null 유지)
 
             when(userQueryFacadeService.userExistsById(TEST_USER_ID)).thenReturn(true);
-            when(userQueryFacadeService.getUserProfile(TEST_USER_ID)).thenReturn(
-                new UserProfileInfo(TEST_USER_ID, "테스트유저", "https://example.com/profile.jpg", 5, null, null, null));
+            when(userQueryFacadeService.getUserProfile(TEST_USER_ID))
+                    .thenReturn(
+                            new UserProfileInfo(
+                                    TEST_USER_ID,
+                                    "테스트유저",
+                                    "https://example.com/profile.jpg",
+                                    5,
+                                    null,
+                                    null,
+                                    null));
             when(gamificationQueryFacadeService.getCombinedEquippedTitleInfo(TEST_USER_ID))
-                .thenReturn(new TitleInfoDto("칭호", TitleRarity.COMMON, "#FFFFFF"));
+                    .thenReturn(new TitleInfoDto("칭호", TitleRarity.COMMON, "#FFFFFF"));
             when(gamificationQueryFacadeService.getDetailedEquippedTitleInfo(TEST_USER_ID))
-                .thenReturn(EMPTY_DETAILED_TITLE);
+                    .thenReturn(EMPTY_DETAILED_TITLE);
             when(activityFeedRepository.save(any(ActivityFeed.class))).thenReturn(savedFeed);
 
             // when
@@ -1593,26 +1754,40 @@ class FeedCommandServiceTest {
         @DisplayName("visibility 파라미터를 명시하여 미션 공유 피드를 생성한다")
         void createMissionSharedFeed_withVisibility_success() {
             // given
-            ActivityFeed savedFeed = ActivityFeed.builder()
-                .userId(TEST_USER_ID)
-                .activityType(ActivityType.MISSION_SHARED)
-                .visibility(FeedVisibility.FRIENDS)
-                .likeCount(0)
-                .commentCount(0)
-                .build();
+            ActivityFeed savedFeed =
+                    ActivityFeed.builder()
+                            .userId(TEST_USER_ID)
+                            .activityType(ActivityType.MISSION_SHARED)
+                            .visibility(FeedVisibility.FRIENDS)
+                            .likeCount(0)
+                            .commentCount(0)
+                            .build();
             setId(savedFeed, 2L);
 
             when(activityFeedRepository.save(any(ActivityFeed.class))).thenReturn(savedFeed);
             when(gamificationQueryFacadeService.getDetailedEquippedTitleInfo(TEST_USER_ID))
-                .thenReturn(EMPTY_DETAILED_TITLE);
+                    .thenReturn(EMPTY_DETAILED_TITLE);
 
             // when
-            ActivityFeed result = feedCommandService.createMissionSharedFeed(
-                TEST_USER_ID, "테스트유저", "https://example.com/profile.jpg",
-                5, null, null, null,
-                1L, 2L, "미션 제목", "미션 설명", 1L,
-                "노트", null, 60, 50, FeedVisibility.FRIENDS
-            );
+            ActivityFeed result =
+                    feedCommandService.createMissionSharedFeed(
+                            TEST_USER_ID,
+                            "테스트유저",
+                            "https://example.com/profile.jpg",
+                            5,
+                            null,
+                            null,
+                            null,
+                            1L,
+                            2L,
+                            "미션 제목",
+                            "미션 설명",
+                            1L,
+                            "노트",
+                            null,
+                            60,
+                            50,
+                            FeedVisibility.FRIENDS);
 
             // then
             assertThat(result).isNotNull();
@@ -1628,13 +1803,30 @@ class FeedCommandServiceTest {
         @Test
         @DisplayName("createActivityFeed: userLevel이 null이면 1로 저장한다")
         void createActivityFeed_nullLevel_defaultsToOne() {
-            when(gamificationQueryFacadeService.getDetailedEquippedTitleInfo(TEST_USER_ID)).thenReturn(EMPTY_DETAILED_TITLE);
-            when(activityFeedRepository.save(any(ActivityFeed.class))).thenAnswer(inv -> inv.getArgument(0));
+            when(gamificationQueryFacadeService.getDetailedEquippedTitleInfo(TEST_USER_ID))
+                    .thenReturn(EMPTY_DETAILED_TITLE);
+            when(activityFeedRepository.save(any(ActivityFeed.class)))
+                    .thenAnswer(inv -> inv.getArgument(0));
 
-            ActivityFeed result = feedCommandService.createActivityFeed(
-                TEST_USER_ID, "닉", null, null, null, null, null,
-                ActivityType.MISSION_COMPLETED, "제목", "설명",
-                "MISSION", 1L, "미션", FeedVisibility.PUBLIC, null, null, null);
+            ActivityFeed result =
+                    feedCommandService.createActivityFeed(
+                            TEST_USER_ID,
+                            "닉",
+                            null,
+                            null,
+                            null,
+                            null,
+                            null,
+                            ActivityType.MISSION_COMPLETED,
+                            "제목",
+                            "설명",
+                            "MISSION",
+                            1L,
+                            "미션",
+                            FeedVisibility.PUBLIC,
+                            null,
+                            null,
+                            null);
 
             assertThat(result.getUserLevel()).isEqualTo(1);
         }
@@ -1642,13 +1834,32 @@ class FeedCommandServiceTest {
         @Test
         @DisplayName("createMissionSharedFeed: userLevel이 null이면 1로 저장한다")
         void createMissionSharedFeed_nullLevel_defaultsToOne() {
-            when(gamificationQueryFacadeService.getDetailedEquippedTitleInfo(TEST_USER_ID)).thenReturn(EMPTY_DETAILED_TITLE);
-            when(activityFeedRepository.save(any(ActivityFeed.class))).thenAnswer(inv -> inv.getArgument(0));
+            when(gamificationQueryFacadeService.getDetailedEquippedTitleInfo(TEST_USER_ID))
+                    .thenReturn(EMPTY_DETAILED_TITLE);
+            when(activityFeedRepository.save(any(ActivityFeed.class)))
+                    .thenAnswer(inv -> inv.getArgument(0));
 
-            ActivityFeed result = feedCommandService.createMissionSharedFeed(
-                TEST_USER_ID, "닉", null, null, null, null, null,
-                1L, 2L, "미션 제목", "미션 설명", 1L,
-                "노트", null, 60, 50, FeedVisibility.PUBLIC, null, null);
+            ActivityFeed result =
+                    feedCommandService.createMissionSharedFeed(
+                            TEST_USER_ID,
+                            "닉",
+                            null,
+                            null,
+                            null,
+                            null,
+                            null,
+                            1L,
+                            2L,
+                            "미션 제목",
+                            "미션 설명",
+                            1L,
+                            "노트",
+                            null,
+                            60,
+                            50,
+                            FeedVisibility.PUBLIC,
+                            null,
+                            null);
 
             assertThat(result.getUserLevel()).isEqualTo(1);
         }
@@ -1659,17 +1870,20 @@ class FeedCommandServiceTest {
             CreateFeedRequest request = createTestFeedRequest();
             TestReflectionUtils.setField(request, "visibility", null);
             when(userQueryFacadeService.userExistsById(TEST_USER_ID)).thenReturn(true);
-            when(userQueryFacadeService.getUserProfile(TEST_USER_ID)).thenReturn(
-                new UserProfileInfo(TEST_USER_ID, "테스트유저", null, 5, null, null, null));
+            when(userQueryFacadeService.getUserProfile(TEST_USER_ID))
+                    .thenReturn(
+                            new UserProfileInfo(TEST_USER_ID, "테스트유저", null, 5, null, null, null));
             when(gamificationQueryFacadeService.getCombinedEquippedTitleInfo(TEST_USER_ID))
-                .thenReturn(new TitleInfoDto("칭호", TitleRarity.COMMON, "#FFFFFF"));
+                    .thenReturn(new TitleInfoDto("칭호", TitleRarity.COMMON, "#FFFFFF"));
             when(gamificationQueryFacadeService.getDetailedEquippedTitleInfo(TEST_USER_ID))
-                .thenReturn(EMPTY_DETAILED_TITLE);
-            when(activityFeedRepository.save(any(ActivityFeed.class))).thenAnswer(inv -> {
-                ActivityFeed f = inv.getArgument(0);
-                setId(f, 1L);
-                return f;
-            });
+                    .thenReturn(EMPTY_DETAILED_TITLE);
+            when(activityFeedRepository.save(any(ActivityFeed.class)))
+                    .thenAnswer(
+                            inv -> {
+                                ActivityFeed f = inv.getArgument(0);
+                                setId(f, 1L);
+                                return f;
+                            });
 
             ActivityFeedResponse result = feedCommandService.createFeed(TEST_USER_ID, request);
 
@@ -1683,10 +1897,12 @@ class FeedCommandServiceTest {
             FeedComment comment = createTestComment(10L, otherFeed, TEST_USER_ID, null);
             when(feedCommentRepository.findById(10L)).thenReturn(Optional.of(comment));
 
-            assertThatThrownBy(() ->
-                feedCommandService.updateComment(1L, 10L, TEST_USER_ID, createTestUpdateRequest("x")))
-                .isInstanceOf(CustomException.class)
-                .hasMessageContaining("error.feed.comment.wrong_feed");
+            assertThatThrownBy(
+                            () ->
+                                    feedCommandService.updateComment(
+                                            1L, 10L, TEST_USER_ID, createTestUpdateRequest("x")))
+                    .isInstanceOf(CustomException.class)
+                    .hasMessageContaining("error.feed.comment.wrong_feed");
         }
 
         @Test
@@ -1699,7 +1915,8 @@ class FeedCommandServiceTest {
             when(feedCommentRepository.save(any(FeedComment.class))).thenReturn(reply);
 
             FeedCommentResponse result =
-                feedCommandService.updateComment(1L, 11L, TEST_USER_ID, createTestUpdateRequest("수정"));
+                    feedCommandService.updateComment(
+                            1L, 11L, TEST_USER_ID, createTestUpdateRequest("수정"));
 
             assertThat(result.getIsEditable()).isTrue();
             verify(feedCommentRepository, never()).countActiveRepliesByParentId(any());
@@ -1713,10 +1930,12 @@ class FeedCommandServiceTest {
             when(feedCommentRepository.findById(10L)).thenReturn(Optional.of(comment));
             when(feedCommentRepository.countActiveRepliesByParentId(10L)).thenReturn(0);
             when(feedCommentRepository.save(any(FeedComment.class))).thenReturn(comment);
-            when(gamificationQueryFacadeService.getEquippedTitlesByUserId(TEST_USER_ID)).thenReturn(null);
+            when(gamificationQueryFacadeService.getEquippedTitlesByUserId(TEST_USER_ID))
+                    .thenReturn(null);
 
             FeedCommentResponse result =
-                feedCommandService.updateComment(1L, 10L, TEST_USER_ID, createTestUpdateRequest("수정"));
+                    feedCommandService.updateComment(
+                            1L, 10L, TEST_USER_ID, createTestUpdateRequest("수정"));
 
             assertThat(result.getUserLeftTitle()).isNull();
             assertThat(result.getUserRightTitle()).isNull();
@@ -1730,8 +1949,8 @@ class FeedCommandServiceTest {
             when(feedCommentRepository.findById(10L)).thenReturn(Optional.of(comment));
 
             assertThatThrownBy(() -> feedCommandService.toggleCommentLike(1L, 10L, TEST_USER_ID))
-                .isInstanceOf(CustomException.class)
-                .hasMessageContaining("error.feed.comment.wrong_feed");
+                    .isInstanceOf(CustomException.class)
+                    .hasMessageContaining("error.feed.comment.wrong_feed");
         }
 
         @Test
@@ -1743,18 +1962,20 @@ class FeedCommandServiceTest {
             when(feedCommentRepository.findById(10L)).thenReturn(Optional.of(comment));
 
             assertThatThrownBy(() -> feedCommandService.toggleCommentLike(1L, 10L, TEST_USER_ID))
-                .isInstanceOf(CustomException.class)
-                .hasMessageContaining("error.feed.comment.deleted");
+                    .isInstanceOf(CustomException.class)
+                    .hasMessageContaining("error.feed.comment.deleted");
         }
 
         private void stubReplyCreation(Long feedId, ActivityFeed feed, FeedComment parent) {
             when(activityFeedRepository.findById(feedId)).thenReturn(Optional.of(feed));
             when(feedCommentRepository.findById(parent.getId())).thenReturn(Optional.of(parent));
-            when(feedCommentRepository.save(any(FeedComment.class))).thenAnswer(inv -> {
-                FeedComment c = inv.getArgument(0);
-                setId(c, 100L);
-                return c;
-            });
+            when(feedCommentRepository.save(any(FeedComment.class)))
+                    .thenAnswer(
+                            inv -> {
+                                FeedComment c = inv.getArgument(0);
+                                setId(c, 100L);
+                                return c;
+                            });
             when(activityFeedRepository.save(any(ActivityFeed.class))).thenReturn(feed);
         }
 
@@ -1765,13 +1986,15 @@ class FeedCommandServiceTest {
             FeedComment parent = createTestComment(10L, feed, OTHER_USER_ID, null);
             stubReplyCreation(1L, feed, parent);
             when(userQueryFacadeService.getUserProfile(TEST_USER_ID))
-                .thenReturn(new UserProfileInfo(TEST_USER_ID, "테스트유저", null, 5, null, null, null));
+                    .thenReturn(
+                            new UserProfileInfo(TEST_USER_ID, "테스트유저", null, 5, null, null, null));
             when(feedCommentRepository.findReplyAuthorsByParentId(10L))
-                .thenReturn(List.of(TEST_USER_ID, OTHER_USER_ID, "third-user"));
+                    .thenReturn(List.of(TEST_USER_ID, OTHER_USER_ID, "third-user"));
 
             feedCommandService.addComment(1L, TEST_USER_ID, createTestReplyRequest("대댓글", 10L));
 
-            ArgumentCaptor<FeedCommentReplyEvent> captor = ArgumentCaptor.forClass(FeedCommentReplyEvent.class);
+            ArgumentCaptor<FeedCommentReplyEvent> captor =
+                    ArgumentCaptor.forClass(FeedCommentReplyEvent.class);
             verify(eventPublisher).publishEvent(captor.capture());
             assertThat(captor.getValue().parentCommentAuthorId()).isEqualTo(OTHER_USER_ID);
             assertThat(captor.getValue().threadParticipants()).containsExactly("third-user");
@@ -1784,8 +2007,10 @@ class FeedCommandServiceTest {
             FeedComment parent = createTestComment(10L, feed, TEST_USER_ID, null);
             stubReplyCreation(1L, feed, parent);
             when(userQueryFacadeService.getUserProfile(TEST_USER_ID))
-                .thenReturn(new UserProfileInfo(TEST_USER_ID, "테스트유저", null, 5, null, null, null));
-            when(feedCommentRepository.findReplyAuthorsByParentId(10L)).thenReturn(List.of(TEST_USER_ID));
+                    .thenReturn(
+                            new UserProfileInfo(TEST_USER_ID, "테스트유저", null, 5, null, null, null));
+            when(feedCommentRepository.findReplyAuthorsByParentId(10L))
+                    .thenReturn(List.of(TEST_USER_ID));
 
             feedCommandService.addComment(1L, TEST_USER_ID, createTestReplyRequest("대댓글", 10L));
 
@@ -1799,12 +2024,15 @@ class FeedCommandServiceTest {
             FeedComment parent = createTestComment(10L, feed, TEST_USER_ID, null);
             stubReplyCreation(1L, feed, parent);
             when(userQueryFacadeService.getUserProfile(TEST_USER_ID))
-                .thenReturn(new UserProfileInfo(TEST_USER_ID, "테스트유저", null, 5, null, null, null));
-            when(feedCommentRepository.findReplyAuthorsByParentId(10L)).thenReturn(List.of("third-user"));
+                    .thenReturn(
+                            new UserProfileInfo(TEST_USER_ID, "테스트유저", null, 5, null, null, null));
+            when(feedCommentRepository.findReplyAuthorsByParentId(10L))
+                    .thenReturn(List.of("third-user"));
 
             feedCommandService.addComment(1L, TEST_USER_ID, createTestReplyRequest("대댓글", 10L));
 
-            ArgumentCaptor<FeedCommentReplyEvent> captor = ArgumentCaptor.forClass(FeedCommentReplyEvent.class);
+            ArgumentCaptor<FeedCommentReplyEvent> captor =
+                    ArgumentCaptor.forClass(FeedCommentReplyEvent.class);
             verify(eventPublisher).publishEvent(captor.capture());
             assertThat(captor.getValue().parentCommentAuthorId()).isNull();
             assertThat(captor.getValue().threadParticipants()).containsExactly("third-user");
@@ -1829,8 +2057,9 @@ class FeedCommandServiceTest {
         void updateFeedImageUrlByExecutionId_null_clearsImages() {
             ActivityFeed feed = createTestFeed(1L, TEST_USER_ID);
             feed.setImageUrl("https://x.com/old.jpg");
-            when(activityFeedRepository.findFirstByExecutionIdAndUserIdOrderByCreatedAtDesc(10L, TEST_USER_ID))
-                .thenReturn(Optional.of(feed));
+            when(activityFeedRepository.findFirstByExecutionIdAndUserIdOrderByCreatedAtDesc(
+                            10L, TEST_USER_ID))
+                    .thenReturn(Optional.of(feed));
             when(activityFeedRepository.save(any(ActivityFeed.class))).thenReturn(feed);
 
             feedCommandService.updateFeedImageUrlByExecutionId(10L, TEST_USER_ID, null);
@@ -1838,7 +2067,10 @@ class FeedCommandServiceTest {
             assertThat(feed.getImageUrl()).isNull();
             verify(activityFeedImageRepository).deleteByFeedId(1L);
             verify(activityFeedImageRepository, never())
-                .save(any(io.pinkspider.leveluptogethermvp.feedservice.domain.entity.ActivityFeedImage.class));
+                    .save(
+                            any(
+                                    io.pinkspider.leveluptogethermvp.feedservice.domain.entity
+                                            .ActivityFeedImage.class));
         }
 
         @Test
@@ -1846,8 +2078,9 @@ class FeedCommandServiceTest {
         void updateFeedImagesByExecutionId_nullList_clearsImages() {
             ActivityFeed feed = createTestFeed(1L, TEST_USER_ID);
             feed.setImageUrl("https://x.com/old.jpg");
-            when(activityFeedRepository.findFirstByExecutionIdAndUserIdOrderByCreatedAtDesc(10L, TEST_USER_ID))
-                .thenReturn(Optional.of(feed));
+            when(activityFeedRepository.findFirstByExecutionIdAndUserIdOrderByCreatedAtDesc(
+                            10L, TEST_USER_ID))
+                    .thenReturn(Optional.of(feed));
             when(activityFeedRepository.save(any(ActivityFeed.class))).thenReturn(feed);
 
             feedCommandService.updateFeedImagesByExecutionId(10L, TEST_USER_ID, null);

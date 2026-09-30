@@ -17,16 +17,19 @@ public interface MissionCategoryRepository extends JpaRepository<MissionCategory
 
     boolean existsByName(String name);
 
-    @Query("SELECT c FROM MissionCategory c WHERE c.isActive = true ORDER BY c.displayOrder ASC NULLS LAST, c.name ASC")
+    @Query(
+            "SELECT c FROM MissionCategory c WHERE c.isActive = true ORDER BY c.displayOrder ASC"
+                    + " NULLS LAST, c.name ASC")
     List<MissionCategory> findAllActiveCategories();
 
     @Query("SELECT c FROM MissionCategory c ORDER BY c.displayOrder ASC NULLS LAST, c.name ASC")
     List<MissionCategory> findAllOrderByDisplayOrder();
 
-    @Query("SELECT c FROM MissionCategory c WHERE " +
-        "(:keyword IS NULL OR :keyword = '' OR LOWER(c.name) LIKE LOWER(CONCAT('%', :keyword, '%')) " +
-        "OR LOWER(c.description) LIKE LOWER(CONCAT('%', :keyword, '%'))) " +
-        "ORDER BY c.displayOrder ASC NULLS LAST, c.name ASC")
+    @Query(
+            "SELECT c FROM MissionCategory c WHERE (:keyword IS NULL OR :keyword = '' OR"
+                + " LOWER(c.name) LIKE LOWER(CONCAT('%', :keyword, '%')) OR LOWER(c.description)"
+                + " LIKE LOWER(CONCAT('%', :keyword, '%'))) ORDER BY c.displayOrder ASC NULLS LAST,"
+                + " c.name ASC")
     Page<MissionCategory> searchByKeyword(@Param("keyword") String keyword, Pageable pageable);
 
     List<MissionCategory> findAllByIdIn(List<Long> ids);

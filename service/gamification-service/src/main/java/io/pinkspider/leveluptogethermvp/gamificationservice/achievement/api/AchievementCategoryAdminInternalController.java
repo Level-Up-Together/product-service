@@ -17,10 +17,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-/**
- * Admin 내부 API 컨트롤러 - AchievementCategory
- * 인증 불필요 (SecurityConfig에서 /api/internal/** permitAll)
- */
+/** Admin 내부 API 컨트롤러 - AchievementCategory 인증 불필요 (SecurityConfig에서 /api/internal/** permitAll) */
 @RestController
 @RequestMapping("/api/internal/achievement-categories")
 @RequiredArgsConstructor
@@ -31,53 +28,53 @@ public class AchievementCategoryAdminInternalController {
     @GetMapping
     public ApiResult<List<AchievementCategoryAdminResponse>> getAllCategories() {
         return ApiResult.<List<AchievementCategoryAdminResponse>>builder()
-            .value(achievementCategoryAdminService.getAllCategories())
-            .build();
+                .value(achievementCategoryAdminService.getAllCategories())
+                .build();
     }
 
     @GetMapping("/active")
     public ApiResult<List<AchievementCategoryAdminResponse>> getActiveCategories() {
         return ApiResult.<List<AchievementCategoryAdminResponse>>builder()
-            .value(achievementCategoryAdminService.getActiveCategories())
-            .build();
+                .value(achievementCategoryAdminService.getActiveCategories())
+                .build();
     }
 
     @GetMapping("/{id}")
     public ApiResult<AchievementCategoryAdminResponse> getCategory(@PathVariable Long id) {
         return ApiResult.<AchievementCategoryAdminResponse>builder()
-            .value(achievementCategoryAdminService.getCategory(id))
-            .build();
+                .value(achievementCategoryAdminService.getCategory(id))
+                .build();
     }
 
     @GetMapping("/code/{code}")
-    public ApiResult<AchievementCategoryAdminResponse> getCategoryByCode(@PathVariable String code) {
+    public ApiResult<AchievementCategoryAdminResponse> getCategoryByCode(
+            @PathVariable String code) {
         return ApiResult.<AchievementCategoryAdminResponse>builder()
-            .value(achievementCategoryAdminService.getCategoryByCode(code))
-            .build();
+                .value(achievementCategoryAdminService.getCategoryByCode(code))
+                .build();
     }
 
     @PostMapping
     public ApiResult<AchievementCategoryAdminResponse> createCategory(
             @Valid @RequestBody AchievementCategoryAdminRequest request) {
         return ApiResult.<AchievementCategoryAdminResponse>builder()
-            .value(achievementCategoryAdminService.createCategory(request))
-            .build();
+                .value(achievementCategoryAdminService.createCategory(request))
+                .build();
     }
 
     @PutMapping("/{id}")
     public ApiResult<AchievementCategoryAdminResponse> updateCategory(
-            @PathVariable Long id,
-            @Valid @RequestBody AchievementCategoryAdminRequest request) {
+            @PathVariable Long id, @Valid @RequestBody AchievementCategoryAdminRequest request) {
         return ApiResult.<AchievementCategoryAdminResponse>builder()
-            .value(achievementCategoryAdminService.updateCategory(id, request))
-            .build();
+                .value(achievementCategoryAdminService.updateCategory(id, request))
+                .build();
     }
 
     @PatchMapping("/{id}/toggle-active")
     public ApiResult<AchievementCategoryAdminResponse> toggleActiveStatus(@PathVariable Long id) {
         return ApiResult.<AchievementCategoryAdminResponse>builder()
-            .value(achievementCategoryAdminService.toggleActiveStatus(id))
-            .build();
+                .value(achievementCategoryAdminService.toggleActiveStatus(id))
+                .build();
     }
 
     @DeleteMapping("/{id}")

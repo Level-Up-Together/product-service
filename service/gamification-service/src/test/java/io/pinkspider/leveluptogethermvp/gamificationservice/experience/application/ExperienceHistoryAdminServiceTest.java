@@ -24,11 +24,9 @@ import org.springframework.data.domain.Pageable;
 @DisplayName("ExperienceHistoryAdminService 테스트")
 class ExperienceHistoryAdminServiceTest {
 
-    @Mock
-    private ExperienceHistoryRepository experienceHistoryRepository;
+    @Mock private ExperienceHistoryRepository experienceHistoryRepository;
 
-    @InjectMocks
-    private ExperienceHistoryAdminService experienceHistoryAdminService;
+    @InjectMocks private ExperienceHistoryAdminService experienceHistoryAdminService;
 
     private final LocalDateTime startDate = LocalDateTime.of(2026, 1, 1, 0, 0);
     private final LocalDateTime endDate = LocalDateTime.of(2026, 1, 2, 0, 0);
@@ -43,12 +41,13 @@ class ExperienceHistoryAdminServiceTest {
             // given
             Object[] row1 = {"user-001", 500L};
             Object[] row2 = {"user-002", 300L};
-            when(experienceHistoryRepository.findTopExpGainersAllByPeriod(any(), any(), any(Pageable.class)))
-                .thenReturn(List.of(row1, row2));
+            when(experienceHistoryRepository.findTopExpGainersAllByPeriod(
+                            any(), any(), any(Pageable.class)))
+                    .thenReturn(List.of(row1, row2));
 
             // when
             List<TopExpGainerAdminResponse> result =
-                experienceHistoryAdminService.getTopExpGainersByPeriod(startDate, endDate, 10);
+                    experienceHistoryAdminService.getTopExpGainersByPeriod(startDate, endDate, 10);
 
             // then
             assertThat(result).hasSize(2);
@@ -56,19 +55,21 @@ class ExperienceHistoryAdminServiceTest {
             assertThat(result.get(0).totalExp()).isEqualTo(500L);
             assertThat(result.get(1).userId()).isEqualTo("user-002");
             assertThat(result.get(1).totalExp()).isEqualTo(300L);
-            verify(experienceHistoryRepository).findTopExpGainersAllByPeriod(any(), any(), any(Pageable.class));
+            verify(experienceHistoryRepository)
+                    .findTopExpGainersAllByPeriod(any(), any(), any(Pageable.class));
         }
 
         @Test
         @DisplayName("결과가 없으면 빈 목록을 반환한다")
         void getTopExpGainersByPeriod_returnsEmptyList_whenNoData() {
             // given
-            when(experienceHistoryRepository.findTopExpGainersAllByPeriod(any(), any(), any(Pageable.class)))
-                .thenReturn(List.of());
+            when(experienceHistoryRepository.findTopExpGainersAllByPeriod(
+                            any(), any(), any(Pageable.class)))
+                    .thenReturn(List.of());
 
             // when
             List<TopExpGainerAdminResponse> result =
-                experienceHistoryAdminService.getTopExpGainersByPeriod(startDate, endDate, 10);
+                    experienceHistoryAdminService.getTopExpGainersByPeriod(startDate, endDate, 10);
 
             // then
             assertThat(result).isEmpty();
@@ -87,31 +88,36 @@ class ExperienceHistoryAdminServiceTest {
             Object[] row = {"user-001", 500L};
             List<Object[]> rows = new java.util.ArrayList<>();
             rows.add(row);
-            when(experienceHistoryRepository.findTopExpGainersAllByPeriodExcluding(any(), any(), anyList(), any(Pageable.class)))
-                .thenReturn(rows);
+            when(experienceHistoryRepository.findTopExpGainersAllByPeriodExcluding(
+                            any(), any(), anyList(), any(Pageable.class)))
+                    .thenReturn(rows);
 
             // when
             List<TopExpGainerAdminResponse> result =
-                experienceHistoryAdminService.getTopExpGainersByPeriodExcluding(startDate, endDate, excludedUserIds, 10);
+                    experienceHistoryAdminService.getTopExpGainersByPeriodExcluding(
+                            startDate, endDate, excludedUserIds, 10);
 
             // then
             assertThat(result).hasSize(1);
             assertThat(result.get(0).userId()).isEqualTo("user-001");
             assertThat(result.get(0).totalExp()).isEqualTo(500L);
-            verify(experienceHistoryRepository).findTopExpGainersAllByPeriodExcluding(any(), any(), anyList(), any(Pageable.class));
+            verify(experienceHistoryRepository)
+                    .findTopExpGainersAllByPeriodExcluding(
+                            any(), any(), anyList(), any(Pageable.class));
         }
 
         @Test
         @DisplayName("제외 목록으로 인해 결과가 없으면 빈 목록을 반환한다")
         void getTopExpGainersByPeriodExcluding_returnsEmptyList_whenAllExcluded() {
             // given
-            when(experienceHistoryRepository.findTopExpGainersAllByPeriodExcluding(any(), any(), anyList(), any(Pageable.class)))
-                .thenReturn(List.of());
+            when(experienceHistoryRepository.findTopExpGainersAllByPeriodExcluding(
+                            any(), any(), anyList(), any(Pageable.class)))
+                    .thenReturn(List.of());
 
             // when
             List<TopExpGainerAdminResponse> result =
-                experienceHistoryAdminService.getTopExpGainersByPeriodExcluding(
-                    startDate, endDate, List.of("user-001", "user-002"), 10);
+                    experienceHistoryAdminService.getTopExpGainersByPeriodExcluding(
+                            startDate, endDate, List.of("user-001", "user-002"), 10);
 
             // then
             assertThat(result).isEmpty();
@@ -129,11 +135,12 @@ class ExperienceHistoryAdminServiceTest {
             Object[] row1 = {"운동", 100L, 2000L};
             Object[] row2 = {"공부", 50L, 1000L};
             when(experienceHistoryRepository.findCategoryMissionStatsByPeriod(any(), any()))
-                .thenReturn(List.of(row1, row2));
+                    .thenReturn(List.of(row1, row2));
 
             // when
             List<CategoryMissionStatsAdminResponse> result =
-                experienceHistoryAdminService.getCategoryMissionStatsByPeriod(startDate, endDate);
+                    experienceHistoryAdminService.getCategoryMissionStatsByPeriod(
+                            startDate, endDate);
 
             // then
             assertThat(result).hasSize(2);
@@ -149,11 +156,12 @@ class ExperienceHistoryAdminServiceTest {
         void getCategoryMissionStatsByPeriod_returnsEmptyList_whenNoData() {
             // given
             when(experienceHistoryRepository.findCategoryMissionStatsByPeriod(any(), any()))
-                .thenReturn(List.of());
+                    .thenReturn(List.of());
 
             // when
             List<CategoryMissionStatsAdminResponse> result =
-                experienceHistoryAdminService.getCategoryMissionStatsByPeriod(startDate, endDate);
+                    experienceHistoryAdminService.getCategoryMissionStatsByPeriod(
+                            startDate, endDate);
 
             // then
             assertThat(result).isEmpty();

@@ -21,37 +21,36 @@ import org.mockito.junit.jupiter.MockitoExtension;
 @ExtendWith(MockitoExtension.class)
 class GuildHelperTest {
 
-    @Mock
-    private GuildRepository guildRepository;
+    @Mock private GuildRepository guildRepository;
 
-    @Mock
-    private MissionCategoryService missionCategoryService;
+    @Mock private MissionCategoryService missionCategoryService;
 
-    @InjectMocks
-    private GuildHelper guildHelper;
+    @InjectMocks private GuildHelper guildHelper;
 
     private Guild testGuild;
     private MissionCategoryResponse testCategory;
 
     @BeforeEach
     void setUp() {
-        testGuild = Guild.builder()
-            .name("테스트 길드")
-            .description("설명")
-            .visibility(GuildVisibility.PUBLIC)
-            .masterId("master-id")
-            .maxMembers(50)
-            .categoryId(1L)
-            .build();
+        testGuild =
+                Guild.builder()
+                        .name("테스트 길드")
+                        .description("설명")
+                        .visibility(GuildVisibility.PUBLIC)
+                        .masterId("master-id")
+                        .maxMembers(50)
+                        .categoryId(1L)
+                        .build();
         setId(testGuild, 1L);
 
-        testCategory = MissionCategoryResponse.builder()
-            .id(1L)
-            .name("운동")
-            .nameEn("Exercise")
-            .nameJa("運動")
-            .icon("icon.png")
-            .build();
+        testCategory =
+                MissionCategoryResponse.builder()
+                        .id(1L)
+                        .name("운동")
+                        .nameEn("Exercise")
+                        .nameJa("運動")
+                        .icon("icon.png")
+                        .build();
     }
 
     @Test
@@ -98,11 +97,8 @@ class GuildHelperTest {
     @DisplayName("LUT-255: 해당 언어 값이 없으면 한국어로 fallback 한다")
     void buildGuildResponseWithCategory_missingTranslation_fallbackToKorean() {
         // given
-        MissionCategoryResponse noArCategory = MissionCategoryResponse.builder()
-            .id(1L)
-            .name("운동")
-            .nameEn("Exercise")
-            .build();
+        MissionCategoryResponse noArCategory =
+                MissionCategoryResponse.builder().id(1L).name("운동").nameEn("Exercise").build();
         when(missionCategoryService.getCategory(1L)).thenReturn(noArCategory);
 
         // when

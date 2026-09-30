@@ -26,54 +26,43 @@ public class EventController {
     private final EventService eventService;
     private final EventImageStorageService eventImageStorageService;
 
-    /**
-     * 현재 진행중인 이벤트 목록 조회
-     */
+    /** 현재 진행중인 이벤트 목록 조회 */
     @GetMapping("/current")
     public ApiResult<List<EventResponse>> getCurrentEvents(
-        @RequestHeader(value = "Accept-Language", required = false, defaultValue = "ko") String locale
-    ) {
+            @RequestHeader(value = "Accept-Language", required = false, defaultValue = "ko")
+                    String locale) {
         return ApiResult.<List<EventResponse>>builder()
-            .value(eventService.getCurrentEvents(locale))
-            .build();
+                .value(eventService.getCurrentEvents(locale))
+                .build();
     }
 
-    /**
-     * 현재 진행중 또는 예정된 이벤트 목록 조회 (Home 표시용)
-     */
+    /** 현재 진행중 또는 예정된 이벤트 목록 조회 (Home 표시용) */
     @GetMapping("/active")
     public ApiResult<List<EventResponse>> getActiveOrUpcomingEvents(
-        @RequestHeader(value = "Accept-Language", required = false, defaultValue = "ko") String locale
-    ) {
+            @RequestHeader(value = "Accept-Language", required = false, defaultValue = "ko")
+                    String locale) {
         return ApiResult.<List<EventResponse>>builder()
-            .value(eventService.getActiveOrUpcomingEvents(locale))
-            .build();
+                .value(eventService.getActiveOrUpcomingEvents(locale))
+                .build();
     }
 
-    /**
-     * 이벤트 상세 조회
-     */
+    /** 이벤트 상세 조회 */
     @GetMapping("/{id}")
     public ApiResult<EventResponse> getEvent(
-        @PathVariable Long id,
-        @RequestHeader(value = "Accept-Language", required = false, defaultValue = "ko") String locale
-    ) {
-        return ApiResult.<EventResponse>builder()
-            .value(eventService.getEvent(id, locale))
-            .build();
+            @PathVariable Long id,
+            @RequestHeader(value = "Accept-Language", required = false, defaultValue = "ko")
+                    String locale) {
+        return ApiResult.<EventResponse>builder().value(eventService.getEvent(id, locale)).build();
     }
 
-    /**
-     * 이벤트 이미지 업로드 (Admin용)
-     */
+    /** 이벤트 이미지 업로드 (Admin용) */
     @ModerateImage
     @PostMapping(value = "/upload-image", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ApiResult<EventImageUploadResponse> uploadEventImage(
-        @RequestPart("file") MultipartFile file
-    ) {
+            @RequestPart("file") MultipartFile file) {
         String imageUrl = eventImageStorageService.store(file);
         return ApiResult.<EventImageUploadResponse>builder()
-            .value(new EventImageUploadResponse(imageUrl))
-            .build();
+                .value(new EventImageUploadResponse(imageUrl))
+                .build();
     }
 }

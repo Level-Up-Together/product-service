@@ -14,10 +14,8 @@ import org.springframework.transaction.annotation.Transactional;
 /**
  * LUT-486: 구독 결제 이력 적재 — 호출자(grant/웹훅) 트랜잭션에 참여한다.
  *
- * <p>호출자가 이미 "만료 엄격 연장" 조건으로 중복을 걸러주므로 여기서는 uk 키 존재 확인만
- * 한 번 더 한다(verify·웹훅이 같은 결제를 각자 기록하려는 교차 케이스 방어). 잔여 동시성
- * 레이스는 uk_subscription_payment_dedup 이 막고, 그때의 예외는 호출자 트랜잭션 실패 →
- * 스토어 웹훅 재시도로 수렴한다.
+ * <p>호출자가 이미 "만료 엄격 연장" 조건으로 중복을 걸러주므로 여기서는 uk 키 존재 확인만 한 번 더 한다(verify·웹훅이 같은 결제를 각자 기록하려는 교차 케이스
+ * 방어). 잔여 동시성 레이스는 uk_subscription_payment_dedup 이 막고, 그때의 예외는 호출자 트랜잭션 실패 → 스토어 웹훅 재시도로 수렴한다.
  */
 @Component
 @RequiredArgsConstructor

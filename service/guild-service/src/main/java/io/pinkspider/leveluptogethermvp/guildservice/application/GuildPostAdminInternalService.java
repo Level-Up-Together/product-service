@@ -20,9 +20,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-/**
- * Admin Internal API 전용 길드 게시글/댓글 서비스
- */
+/** Admin Internal API 전용 길드 게시글/댓글 서비스 */
 @Service
 @RequiredArgsConstructor
 @Slf4j
@@ -35,8 +33,8 @@ public class GuildPostAdminInternalService {
 
     // ========== 게시글 ==========
 
-    public GuildPostAdminPageResponse getPostsByGuildId(Long guildId,
-            Boolean includeDeleted, Pageable pageable) {
+    public GuildPostAdminPageResponse getPostsByGuildId(
+            Long guildId, Boolean includeDeleted, Pageable pageable) {
         Page<GuildPost> posts;
         if (Boolean.TRUE.equals(includeDeleted)) {
             posts = guildPostRepository.findByGuildIdOrderByCreatedAtDesc(guildId, pageable);
@@ -57,14 +55,19 @@ public class GuildPostAdminInternalService {
     }
 
     public GuildPostAdminResponse getPost(Long guildId, Long postId) {
-        GuildPost post = guildPostRepository.findByIdAndGuildId(postId, guildId)
-            .orElseThrow(() -> new CustomException("404", "error.guild.post.not_found"));
+        GuildPost post =
+                guildPostRepository
+                        .findByIdAndGuildId(postId, guildId)
+                        .orElseThrow(
+                                () -> new CustomException("404", "error.guild.post.not_found"));
         return GuildPostAdminResponse.from(post);
     }
 
-    public GuildPostAdminPageResponse getPostsByType(Long guildId, String postType, Pageable pageable) {
+    public GuildPostAdminPageResponse getPostsByType(
+            Long guildId, String postType, Pageable pageable) {
         GuildPostType type = GuildPostType.valueOf(postType);
-        Page<GuildPost> posts = guildPostRepository.findByGuildIdAndPostTypeForAdmin(guildId, type, pageable);
+        Page<GuildPost> posts =
+                guildPostRepository.findByGuildIdAndPostTypeForAdmin(guildId, type, pageable);
         return GuildPostAdminPageResponse.from(posts.map(GuildPostAdminResponse::from));
     }
 
@@ -80,8 +83,11 @@ public class GuildPostAdminInternalService {
 
     @Transactional(transactionManager = "guildTransactionManager")
     public void softDeletePost(Long guildId, Long postId) {
-        GuildPost post = guildPostRepository.findByIdAndGuildId(postId, guildId)
-            .orElseThrow(() -> new CustomException("404", "error.guild.post.not_found"));
+        GuildPost post =
+                guildPostRepository
+                        .findByIdAndGuildId(postId, guildId)
+                        .orElseThrow(
+                                () -> new CustomException("404", "error.guild.post.not_found"));
         post.delete();
         guildPostRepository.save(post);
         log.info("게시글 삭제: guildId={}, postId={}", guildId, postId);
@@ -89,16 +95,22 @@ public class GuildPostAdminInternalService {
 
     @Transactional(transactionManager = "guildTransactionManager")
     public void hardDeletePost(Long guildId, Long postId) {
-        GuildPost post = guildPostRepository.findByIdAndGuildId(postId, guildId)
-            .orElseThrow(() -> new CustomException("404", "error.guild.post.not_found"));
+        GuildPost post =
+                guildPostRepository
+                        .findByIdAndGuildId(postId, guildId)
+                        .orElseThrow(
+                                () -> new CustomException("404", "error.guild.post.not_found"));
         guildPostRepository.delete(post);
         log.info("게시글 영구 삭제: guildId={}, postId={}", guildId, postId);
     }
 
     @Transactional(transactionManager = "guildTransactionManager")
     public GuildPostAdminResponse restorePost(Long guildId, Long postId) {
-        GuildPost post = guildPostRepository.findByIdAndGuildId(postId, guildId)
-            .orElseThrow(() -> new CustomException("404", "error.guild.post.not_found"));
+        GuildPost post =
+                guildPostRepository
+                        .findByIdAndGuildId(postId, guildId)
+                        .orElseThrow(
+                                () -> new CustomException("404", "error.guild.post.not_found"));
         if (!post.getIsDeleted()) {
             throw new CustomException("400", "error.guild.post.not_deleted");
         }
@@ -110,50 +122,66 @@ public class GuildPostAdminInternalService {
 
     // ========== 댓글 ==========
 
-    public GuildPostCommentAdminPageResponse getCommentsByPostId(Long postId,
-            Boolean includeDeleted, Pageable pageable) {
+    public GuildPostCommentAdminPageResponse getCommentsByPostId(
+            Long postId, Boolean includeDeleted, Pageable pageable) {
         Page<GuildPostComment> comments;
         if (Boolean.TRUE.equals(includeDeleted)) {
             comments = guildPostCommentRepository.findByPostIdOrderByCreatedAtAsc(postId, pageable);
         } else {
             comments = guildPostCommentRepository.findByPostIdAndNotDeletedPaged(postId, pageable);
         }
-        return GuildPostCommentAdminPageResponse.from(comments.map(GuildPostCommentAdminResponse::from));
+        return GuildPostCommentAdminPageResponse.from(
+                comments.map(GuildPostCommentAdminResponse::from));
     }
 
-    public List<GuildPostCommentAdminResponse> getAllCommentsByPostId(Long postId,
-            Boolean includeDeleted) {
+    public List<GuildPostCommentAdminResponse> getAllCommentsByPostId(
+            Long postId, Boolean includeDeleted) {
         List<GuildPostComment> comments;
         if (Boolean.TRUE.equals(includeDeleted)) {
             comments = guildPostCommentRepository.findAllByPostId(postId);
-            // findAllByPostId only gets non-deleted ones, so for includeDeleted we need a different approach
-            // Actually the existing method filters by isDeleted=false, so let's use the paged version with a large page
+            // findAllByPostId only gets non-deleted ones, so for includeDeleted we need a different
+            // approach
+            // Actually the existing method filters by isDeleted=false, so let's use the paged
+            // version with a large page
         } else {
             comments = guildPostCommentRepository.findAllByPostId(postId);
         }
-        return comments.stream().map(GuildPostCommentAdminResponse::from).collect(Collectors.toList());
+        return comments.stream()
+                .map(GuildPostCommentAdminResponse::from)
+                .collect(Collectors.toList());
     }
 
     public GuildPostCommentAdminResponse getComment(Long postId, Long commentId) {
-        GuildPostComment comment = guildPostCommentRepository.findByIdAndPostId(commentId, postId)
-            .orElseThrow(() -> new CustomException("404", "error.guild.comment.not_found"));
+        GuildPostComment comment =
+                guildPostCommentRepository
+                        .findByIdAndPostId(commentId, postId)
+                        .orElseThrow(
+                                () -> new CustomException("404", "error.guild.comment.not_found"));
         return GuildPostCommentAdminResponse.from(comment);
     }
 
     public GuildPostCommentAdminPageResponse getDeletedComments(Long postId, Pageable pageable) {
-        Page<GuildPostComment> comments = guildPostCommentRepository.findDeletedByPostId(postId, pageable);
-        return GuildPostCommentAdminPageResponse.from(comments.map(GuildPostCommentAdminResponse::from));
+        Page<GuildPostComment> comments =
+                guildPostCommentRepository.findDeletedByPostId(postId, pageable);
+        return GuildPostCommentAdminPageResponse.from(
+                comments.map(GuildPostCommentAdminResponse::from));
     }
 
-    public GuildPostCommentAdminPageResponse getAllCommentsByGuildId(Long guildId, Pageable pageable) {
-        Page<GuildPostComment> comments = guildPostCommentRepository.findAllByGuildId(guildId, pageable);
-        return GuildPostCommentAdminPageResponse.from(comments.map(GuildPostCommentAdminResponse::from));
+    public GuildPostCommentAdminPageResponse getAllCommentsByGuildId(
+            Long guildId, Pageable pageable) {
+        Page<GuildPostComment> comments =
+                guildPostCommentRepository.findAllByGuildId(guildId, pageable);
+        return GuildPostCommentAdminPageResponse.from(
+                comments.map(GuildPostCommentAdminResponse::from));
     }
 
     @Transactional(transactionManager = "guildTransactionManager")
     public void softDeleteComment(Long postId, Long commentId) {
-        GuildPostComment comment = guildPostCommentRepository.findByIdAndPostId(commentId, postId)
-            .orElseThrow(() -> new CustomException("404", "error.guild.comment.not_found"));
+        GuildPostComment comment =
+                guildPostCommentRepository
+                        .findByIdAndPostId(commentId, postId)
+                        .orElseThrow(
+                                () -> new CustomException("404", "error.guild.comment.not_found"));
         comment.delete();
         guildPostCommentRepository.save(comment);
 
@@ -168,16 +196,22 @@ public class GuildPostAdminInternalService {
 
     @Transactional(transactionManager = "guildTransactionManager")
     public void hardDeleteComment(Long postId, Long commentId) {
-        GuildPostComment comment = guildPostCommentRepository.findByIdAndPostId(commentId, postId)
-            .orElseThrow(() -> new CustomException("404", "error.guild.comment.not_found"));
+        GuildPostComment comment =
+                guildPostCommentRepository
+                        .findByIdAndPostId(commentId, postId)
+                        .orElseThrow(
+                                () -> new CustomException("404", "error.guild.comment.not_found"));
         guildPostCommentRepository.delete(comment);
         log.info("댓글 영구 삭제: postId={}, commentId={}", postId, commentId);
     }
 
     @Transactional(transactionManager = "guildTransactionManager")
     public GuildPostCommentAdminResponse restoreComment(Long postId, Long commentId) {
-        GuildPostComment comment = guildPostCommentRepository.findByIdAndPostId(commentId, postId)
-            .orElseThrow(() -> new CustomException("404", "error.guild.comment.not_found"));
+        GuildPostComment comment =
+                guildPostCommentRepository
+                        .findByIdAndPostId(commentId, postId)
+                        .orElseThrow(
+                                () -> new CustomException("404", "error.guild.comment.not_found"));
         if (!comment.getIsDeleted()) {
             throw new CustomException("400", "error.guild.comment.not_deleted");
         }

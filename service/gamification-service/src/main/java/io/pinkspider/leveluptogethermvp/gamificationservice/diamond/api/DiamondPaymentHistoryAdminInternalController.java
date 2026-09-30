@@ -13,8 +13,8 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
- * LUT-401: Admin 내부 API 컨트롤러 - 다이아 결제이력.
- * 인증 불필요 (SecurityConfig에서 /api/internal/** permitAll + InternalApiKeyFilter)
+ * LUT-401: Admin 내부 API 컨트롤러 - 다이아 결제이력. 인증 불필요 (SecurityConfig에서 /api/internal/** permitAll +
+ * InternalApiKeyFilter)
  */
 @RestController
 @RequestMapping("/api/internal/diamond-payments")
@@ -26,9 +26,11 @@ public class DiamondPaymentHistoryAdminInternalController {
     @GetMapping
     public ApiResult<DiamondPaymentHistoryPageResponse> getPaymentHistory(
             @RequestParam(name = "start_at", required = false)
-            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime startAt,
+                    @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
+                    LocalDateTime startAt,
             @RequestParam(name = "end_at", required = false)
-            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime endAt,
+                    @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
+                    LocalDateTime endAt,
             @RequestParam(required = false) String nickname,
             @RequestParam(name = "user_id", required = false) String userId,
             @RequestParam(required = false) String platform,
@@ -37,8 +39,10 @@ public class DiamondPaymentHistoryAdminInternalController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size) {
         return ApiResult.<DiamondPaymentHistoryPageResponse>builder()
-            .value(diamondPaymentHistoryAdminService.getPaymentHistory(
-                startAt, endAt, nickname, userId, platform, bundleId, status, page, size))
-            .build();
+                .value(
+                        diamondPaymentHistoryAdminService.getPaymentHistory(
+                                startAt, endAt, nickname, userId, platform, bundleId, status, page,
+                                size))
+                .build();
     }
 }

@@ -25,9 +25,9 @@ import org.springframework.transaction.annotation.Transactional;
 /**
  * LUT-508: 관리자 푸시 알림 관리 — 이력 행 생성 + 비동기 발송 트리거 + 이력 조회.
  *
- * <p>대상 산출은 요청 시점에 확정한다(전체 = ACTIVE 유저 전원, 일부 = 요청 ID 중 활성 유저). 이력 행이 커밋된
- * 뒤 {@link AdminPushCampaignCreatedEvent} 로 {@link AdminPushCampaignDispatcher} 가 유저별 알림을 만든다 —
- * 어드민 요청은 대상 수를 받고 바로 끝나고, 실제 발송 결과는 이력 조회로 확인한다.
+ * <p>대상 산출은 요청 시점에 확정한다(전체 = ACTIVE 유저 전원, 일부 = 요청 ID 중 활성 유저). 이력 행이 커밋된 뒤 {@link
+ * AdminPushCampaignCreatedEvent} 로 {@link AdminPushCampaignDispatcher} 가 유저별 알림을 만든다 — 어드민 요청은 대상
+ * 수를 받고 바로 끝나고, 실제 발송 결과는 이력 조회로 확인한다.
  */
 @Service
 @RequiredArgsConstructor
@@ -98,8 +98,8 @@ public class AdminPushCampaignService {
     }
 
     /**
-     * 대상 유저 확정. ALL = 활성 유저 전원. USERS = 요청 ID(중복 제거) 중 활성 유저만 — 미존재·정지·탈퇴 ID 는
-     * 조용히 제외하되 남는 대상이 없으면 요청 오류로 돌려준다(빈 캠페인 이력 방지).
+     * 대상 유저 확정. ALL = 활성 유저 전원. USERS = 요청 ID(중복 제거) 중 활성 유저만 — 미존재·정지·탈퇴 ID 는 조용히 제외하되 남는 대상이 없으면
+     * 요청 오류로 돌려준다(빈 캠페인 이력 방지).
      */
     private List<String> resolveTargets(AdminPushCampaignRequest request) {
         if (request.getTargetType() == AdminPushTargetType.ALL) {
@@ -115,7 +115,9 @@ public class AdminPushCampaignService {
                         : request.getUserIds().stream()
                                 .filter(id -> id != null && !id.isBlank())
                                 .map(String::trim)
-                                .collect(java.util.stream.Collectors.toCollection(LinkedHashSet::new))
+                                .collect(
+                                        java.util.stream.Collectors.toCollection(
+                                                LinkedHashSet::new))
                                 .stream()
                                 .toList();
         if (requested.isEmpty()) {

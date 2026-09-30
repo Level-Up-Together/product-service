@@ -1,11 +1,13 @@
 package io.pinkspider.leveluptogethermvp.gamificationservice.application;
 
+import io.pinkspider.global.enums.TitlePosition;
+import io.pinkspider.global.enums.TitleRarity;
+import io.pinkspider.global.facade.UserQueryFacade;
+import io.pinkspider.global.facade.dto.UserProfileInfo;
 import io.pinkspider.leveluptogethermvp.gamificationservice.domain.entity.DailyMvpCategoryStats;
 import io.pinkspider.leveluptogethermvp.gamificationservice.domain.entity.DailyMvpHistory;
 import io.pinkspider.leveluptogethermvp.gamificationservice.domain.entity.UserExperience;
 import io.pinkspider.leveluptogethermvp.gamificationservice.domain.entity.UserTitle;
-import io.pinkspider.global.enums.TitlePosition;
-import io.pinkspider.global.enums.TitleRarity;
 import io.pinkspider.leveluptogethermvp.gamificationservice.infrastructure.DailyMvpCategoryStatsRepository;
 import io.pinkspider.leveluptogethermvp.gamificationservice.infrastructure.DailyMvpHistoryRepository;
 import io.pinkspider.leveluptogethermvp.gamificationservice.infrastructure.ExperienceHistoryRepository;
@@ -13,14 +15,6 @@ import io.pinkspider.leveluptogethermvp.gamificationservice.infrastructure.UserE
 import io.pinkspider.leveluptogethermvp.gamificationservice.infrastructure.UserTitleRepository;
 import io.pinkspider.leveluptogethermvp.metaservice.application.MissionCategoryService;
 import io.pinkspider.leveluptogethermvp.metaservice.domain.dto.MissionCategoryResponse;
-import io.pinkspider.global.facade.UserQueryFacade;
-import io.pinkspider.global.facade.dto.UserProfileInfo;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
@@ -32,6 +26,11 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @Slf4j
@@ -48,31 +47,34 @@ public class DailyMvpHistoryService {
 
     private static final int MVP_COUNT = 5;
 
-    /**
-     * 특정 날짜의 MVP 데이터를 캡처하여 저장 (기본 타임존: Asia/Seoul)
-     */
+    /** 특정 날짜의 MVP 데이터를 캡처하여 저장 (기본 타임존: Asia/Seoul) */
     @Transactional(transactionManager = "gamificationTransactionManager")
     public void captureAndSaveDailyMvp(LocalDate targetDate) {
         captureAndSaveDailyMvp(targetDate, "Asia/Seoul");
     }
 
-    /**
-     * 특정 날짜 + 타임존의 MVP 데이터를 캡처하여 저장
-     * targetDate는 해당 타임존 기준 날짜이며, DB 쿼리 시 UTC로 변환하여 조회
-     */
+    /** 특정 날짜 + 타임존의 MVP 데이터를 캡처하여 저장 targetDate는 해당 타임존 기준 날짜이며, DB 쿼리 시 UTC로 변환하여 조회 */
     @Transactional(transactionManager = "gamificationTransactionManager")
     public void captureAndSaveDailyMvp(LocalDate targetDate, String timezone) {
         // 이미 존재하는 경우 스킵 (중복 방지)
         // 기존 레코드 수를 확인하여 완전히 저장된 경우만 스킵
         long existingCount = historyRepository.countByMvpDateAndTimezone(targetDate, timezone);
         if (existingCount >= MVP_COUNT) {
-            log.info("이미 저장된 MVP 히스토리가 있습니다: date={}, timezone={}, count={}", targetDate, timezone, existingCount);
+            log.info(
+                    "이미 저장된 MVP 히스토리가 있습니다: date={}, timezone={}, count={}",
+                    targetDate,
+                    timezone,
+                    existingCount);
             return;
         }
 
         // 부분적으로 저장된 경우 기존 데이터 삭제 후 재저장
         if (existingCount > 0) {
-            log.warn("부분적으로 저장된 MVP 히스토리 발견, 삭제 후 재저장: date={}, timezone={}, existingCount={}", targetDate, timezone, existingCount);
+            log.warn(
+                    "부분적으로 저장된 MVP 히스토리 발견, 삭제 후 재저장: date={}, timezone={}, existingCount={}",
+                    targetDate,
+                    timezone,
+                    existingCount);
             historyRepository.deleteByMvpDateAndTimezone(targetDate, timezone);
             categoryStatsRepository.deleteByStatsDateAndTimezone(targetDate, timezone);
         }
@@ -81,12 +83,14 @@ public class DailyMvpHistoryService {
         ZoneId zone = ZoneId.of(timezone);
         ZonedDateTime startZoned = targetDate.atStartOfDay(zone);
         ZonedDateTime endZoned = targetDate.atTime(LocalTime.MAX).atZone(zone);
-        LocalDateTime startDate = startZoned.withZoneSameInstant(ZoneId.of("UTC")).toLocalDateTime();
+        LocalDateTime startDate =
+                startZoned.withZoneSameInstant(ZoneId.of("UTC")).toLocalDateTime();
         LocalDateTime endDate = endZoned.withZoneSameInstant(ZoneId.of("UTC")).toLocalDateTime();
 
         // 1. 상위 5명의 MVP 조회
-        List<Object[]> topGainers = experienceHistoryRepository.findTopExpGainersByPeriod(
-            startDate, endDate, PageRequest.of(0, MVP_COUNT));
+        List<Object[]> topGainers =
+                experienceHistoryRepository.findTopExpGainersByPeriod(
+                        startDate, endDate, PageRequest.of(0, MVP_COUNT));
 
         if (topGainers.isEmpty()) {
             log.info("해당 날짜에 MVP 데이터가 없습니다: date={}, timezone={}", targetDate, timezone);
@@ -94,36 +98,41 @@ public class DailyMvpHistoryService {
         }
 
         // 2. 사용자 ID 추출
-        List<String> userIds = topGainers.stream()
-            .map(row -> (String) row[0])
-            .toList();
+        List<String> userIds = topGainers.stream().map(row -> (String) row[0]).toList();
 
         // 3. 배치 조회: 사용자 프로필 (캐시)
         Map<String, UserProfileInfo> profileMap = userQueryFacadeService.getUserProfiles(userIds);
 
         // 4. 배치 조회: 레벨 정보
-        Map<String, Integer> levelMap = userExperienceRepository.findByUserIdIn(userIds).stream()
-            .collect(Collectors.toMap(UserExperience::getUserId, UserExperience::getCurrentLevel));
+        Map<String, Integer> levelMap =
+                userExperienceRepository.findByUserIdIn(userIds).stream()
+                        .collect(
+                                Collectors.toMap(
+                                        UserExperience::getUserId,
+                                        UserExperience::getCurrentLevel));
 
         // 5. 배치 조회: 장착된 칭호
-        Map<String, List<UserTitle>> titleMap = userTitleRepository.findEquippedTitlesByUserIdIn(userIds).stream()
-            .collect(Collectors.groupingBy(UserTitle::getUserId));
+        Map<String, List<UserTitle>> titleMap =
+                userTitleRepository.findEquippedTitlesByUserIdIn(userIds).stream()
+                        .collect(Collectors.groupingBy(UserTitle::getUserId));
 
         // 6. 각 사용자별 카테고리 통계 조회
         Map<String, List<Object[]>> categoryStatsMap = new HashMap<>();
         for (String userId : userIds) {
-            List<Object[]> categoryStats = experienceHistoryRepository
-                .findUserCategoryExpByPeriod(userId, startDate, endDate);
+            List<Object[]> categoryStats =
+                    experienceHistoryRepository.findUserCategoryExpByPeriod(
+                            userId, startDate, endDate);
             categoryStatsMap.put(userId, categoryStats);
         }
 
         // 7. 카테고리 이름 -> ID 매핑 조회
-        Map<String, Long> categoryNameToIdMap = missionCategoryService.getActiveCategories().stream()
-            .collect(Collectors.toMap(
-                MissionCategoryResponse::getName,
-                MissionCategoryResponse::getId,
-                (existing, replacement) -> existing
-            ));
+        Map<String, Long> categoryNameToIdMap =
+                missionCategoryService.getActiveCategories().stream()
+                        .collect(
+                                Collectors.toMap(
+                                        MissionCategoryResponse::getName,
+                                        MissionCategoryResponse::getId,
+                                        (existing, replacement) -> existing));
 
         // 8. MVP 히스토리 저장
         int rank = 1;
@@ -136,23 +145,25 @@ public class DailyMvpHistoryService {
             TitleInfo titleInfo = buildTitleInfo(titleMap.get(odayUserId));
 
             // 최다 활동 카테고리 추출
-            CategoryInfo topCategory = getTopCategory(categoryStatsMap.get(odayUserId), categoryNameToIdMap);
+            CategoryInfo topCategory =
+                    getTopCategory(categoryStatsMap.get(odayUserId), categoryNameToIdMap);
 
-            DailyMvpHistory history = DailyMvpHistory.builder()
-                .mvpDate(targetDate)
-                .timezone(timezone)
-                .mvpRank(rank++)
-                .userId(odayUserId)
-                .nickname(profile != null ? profile.nickname() : null)
-                .picture(profile != null ? profile.picture() : null)
-                .userLevel(level)
-                .earnedExp(earnedExp)
-                .topCategoryName(topCategory.name())
-                .topCategoryId(topCategory.id())
-                .topCategoryExp(topCategory.exp())
-                .titleName(titleInfo.name())
-                .titleRarity(titleInfo.rarity())
-                .build();
+            DailyMvpHistory history =
+                    DailyMvpHistory.builder()
+                            .mvpDate(targetDate)
+                            .timezone(timezone)
+                            .mvpRank(rank++)
+                            .userId(odayUserId)
+                            .nickname(profile != null ? profile.nickname() : null)
+                            .picture(profile != null ? profile.picture() : null)
+                            .userLevel(level)
+                            .earnedExp(earnedExp)
+                            .topCategoryName(topCategory.name())
+                            .topCategoryId(topCategory.id())
+                            .topCategoryExp(topCategory.exp())
+                            .titleName(titleInfo.name())
+                            .titleRarity(titleInfo.rarity())
+                            .build();
 
             historyRepository.save(history);
         }
@@ -160,20 +171,20 @@ public class DailyMvpHistoryService {
         // 9. 카테고리 통계 저장 (Top 5 사용자의 카테고리별 활동)
         saveCategoryStats(targetDate, timezone, categoryStatsMap, categoryNameToIdMap);
 
-        log.info("MVP 히스토리 저장 완료: date={}, timezone={}, count={}", targetDate, timezone, topGainers.size());
+        log.info(
+                "MVP 히스토리 저장 완료: date={}, timezone={}, count={}",
+                targetDate,
+                timezone,
+                topGainers.size());
     }
 
-    /**
-     * 수동으로 특정 날짜의 MVP 데이터 재처리 (기본 타임존: Asia/Seoul)
-     */
+    /** 수동으로 특정 날짜의 MVP 데이터 재처리 (기본 타임존: Asia/Seoul) */
     @Transactional(transactionManager = "gamificationTransactionManager")
     public void reprocessDailyMvp(LocalDate targetDate) {
         reprocessDailyMvp(targetDate, "Asia/Seoul");
     }
 
-    /**
-     * 수동으로 특정 날짜 + 타임존의 MVP 데이터 재처리
-     */
+    /** 수동으로 특정 날짜 + 타임존의 MVP 데이터 재처리 */
     @Transactional(transactionManager = "gamificationTransactionManager")
     public void reprocessDailyMvp(LocalDate targetDate, String timezone) {
         log.info("MVP 히스토리 재처리 시작: date={}, timezone={}", targetDate, timezone);
@@ -188,50 +199,55 @@ public class DailyMvpHistoryService {
         log.info("MVP 히스토리 재처리 완료: date={}, timezone={}", targetDate, timezone);
     }
 
-    /**
-     * 내부용 저장 메서드 (존재 체크 없이)
-     */
+    /** 내부용 저장 메서드 (존재 체크 없이) */
     private void captureAndSaveDailyMvpInternal(LocalDate targetDate, String timezone) {
         // 타임존 기준 날짜 경계를 UTC로 변환
         ZoneId zone = ZoneId.of(timezone);
         ZonedDateTime startZoned = targetDate.atStartOfDay(zone);
         ZonedDateTime endZoned = targetDate.atTime(LocalTime.MAX).atZone(zone);
-        LocalDateTime startDate = startZoned.withZoneSameInstant(ZoneId.of("UTC")).toLocalDateTime();
+        LocalDateTime startDate =
+                startZoned.withZoneSameInstant(ZoneId.of("UTC")).toLocalDateTime();
         LocalDateTime endDate = endZoned.withZoneSameInstant(ZoneId.of("UTC")).toLocalDateTime();
 
-        List<Object[]> topGainers = experienceHistoryRepository.findTopExpGainersByPeriod(
-            startDate, endDate, PageRequest.of(0, MVP_COUNT));
+        List<Object[]> topGainers =
+                experienceHistoryRepository.findTopExpGainersByPeriod(
+                        startDate, endDate, PageRequest.of(0, MVP_COUNT));
 
         if (topGainers.isEmpty()) {
             log.info("해당 날짜에 MVP 데이터가 없습니다: date={}, timezone={}", targetDate, timezone);
             return;
         }
 
-        List<String> userIds = topGainers.stream()
-            .map(row -> (String) row[0])
-            .toList();
+        List<String> userIds = topGainers.stream().map(row -> (String) row[0]).toList();
 
         Map<String, UserProfileInfo> profileMap = userQueryFacadeService.getUserProfiles(userIds);
 
-        Map<String, Integer> levelMap = userExperienceRepository.findByUserIdIn(userIds).stream()
-            .collect(Collectors.toMap(UserExperience::getUserId, UserExperience::getCurrentLevel));
+        Map<String, Integer> levelMap =
+                userExperienceRepository.findByUserIdIn(userIds).stream()
+                        .collect(
+                                Collectors.toMap(
+                                        UserExperience::getUserId,
+                                        UserExperience::getCurrentLevel));
 
-        Map<String, List<UserTitle>> titleMap = userTitleRepository.findEquippedTitlesByUserIdIn(userIds).stream()
-            .collect(Collectors.groupingBy(UserTitle::getUserId));
+        Map<String, List<UserTitle>> titleMap =
+                userTitleRepository.findEquippedTitlesByUserIdIn(userIds).stream()
+                        .collect(Collectors.groupingBy(UserTitle::getUserId));
 
         Map<String, List<Object[]>> categoryStatsMap = new HashMap<>();
         for (String userId : userIds) {
-            List<Object[]> categoryStats = experienceHistoryRepository
-                .findUserCategoryExpByPeriod(userId, startDate, endDate);
+            List<Object[]> categoryStats =
+                    experienceHistoryRepository.findUserCategoryExpByPeriod(
+                            userId, startDate, endDate);
             categoryStatsMap.put(userId, categoryStats);
         }
 
-        Map<String, Long> categoryNameToIdMap = missionCategoryService.getActiveCategories().stream()
-            .collect(Collectors.toMap(
-                MissionCategoryResponse::getName,
-                MissionCategoryResponse::getId,
-                (existing, replacement) -> existing
-            ));
+        Map<String, Long> categoryNameToIdMap =
+                missionCategoryService.getActiveCategories().stream()
+                        .collect(
+                                Collectors.toMap(
+                                        MissionCategoryResponse::getName,
+                                        MissionCategoryResponse::getId,
+                                        (existing, replacement) -> existing));
 
         int rank = 1;
         for (Object[] row : topGainers) {
@@ -241,23 +257,25 @@ public class DailyMvpHistoryService {
             UserProfileInfo profile = profileMap.get(odayUserId);
             Integer level = levelMap.getOrDefault(odayUserId, 1);
             TitleInfo titleInfo = buildTitleInfo(titleMap.get(odayUserId));
-            CategoryInfo topCategory = getTopCategory(categoryStatsMap.get(odayUserId), categoryNameToIdMap);
+            CategoryInfo topCategory =
+                    getTopCategory(categoryStatsMap.get(odayUserId), categoryNameToIdMap);
 
-            DailyMvpHistory history = DailyMvpHistory.builder()
-                .mvpDate(targetDate)
-                .timezone(timezone)
-                .mvpRank(rank++)
-                .userId(odayUserId)
-                .nickname(profile != null ? profile.nickname() : null)
-                .picture(profile != null ? profile.picture() : null)
-                .userLevel(level)
-                .earnedExp(earnedExp)
-                .topCategoryName(topCategory.name())
-                .topCategoryId(topCategory.id())
-                .topCategoryExp(topCategory.exp())
-                .titleName(titleInfo.name())
-                .titleRarity(titleInfo.rarity())
-                .build();
+            DailyMvpHistory history =
+                    DailyMvpHistory.builder()
+                            .mvpDate(targetDate)
+                            .timezone(timezone)
+                            .mvpRank(rank++)
+                            .userId(odayUserId)
+                            .nickname(profile != null ? profile.nickname() : null)
+                            .picture(profile != null ? profile.picture() : null)
+                            .userLevel(level)
+                            .earnedExp(earnedExp)
+                            .topCategoryName(topCategory.name())
+                            .topCategoryId(topCategory.id())
+                            .topCategoryExp(topCategory.exp())
+                            .titleName(titleInfo.name())
+                            .titleRarity(titleInfo.rarity())
+                            .build();
 
             historyRepository.save(history);
         }
@@ -265,9 +283,11 @@ public class DailyMvpHistoryService {
         saveCategoryStats(targetDate, timezone, categoryStatsMap, categoryNameToIdMap);
     }
 
-    private void saveCategoryStats(LocalDate targetDate, String timezone,
-                                   Map<String, List<Object[]>> categoryStatsMap,
-                                   Map<String, Long> categoryNameToIdMap) {
+    private void saveCategoryStats(
+            LocalDate targetDate,
+            String timezone,
+            Map<String, List<Object[]>> categoryStatsMap,
+            Map<String, Long> categoryNameToIdMap) {
         for (Map.Entry<String, List<Object[]>> entry : categoryStatsMap.entrySet()) {
             String odayUserId = entry.getKey();
             List<Object[]> stats = entry.getValue();
@@ -283,15 +303,16 @@ public class DailyMvpHistoryService {
                 Long categoryId = categoryNameToIdMap.get(categoryName);
 
                 if (categoryId != null && categoryExp > 0) {
-                    DailyMvpCategoryStats categoryStat = DailyMvpCategoryStats.builder()
-                        .statsDate(targetDate)
-                        .timezone(timezone)
-                        .userId(odayUserId)
-                        .categoryId(categoryId)
-                        .categoryName(categoryName)
-                        .earnedExp(categoryExp)
-                        .activityCount(activityCount)
-                        .build();
+                    DailyMvpCategoryStats categoryStat =
+                            DailyMvpCategoryStats.builder()
+                                    .statsDate(targetDate)
+                                    .timezone(timezone)
+                                    .userId(odayUserId)
+                                    .categoryId(categoryId)
+                                    .categoryName(categoryName)
+                                    .earnedExp(categoryExp)
+                                    .activityCount(activityCount)
+                                    .build();
 
                     categoryStatsRepository.save(categoryStat);
                 }
@@ -305,32 +326,37 @@ public class DailyMvpHistoryService {
         }
 
         // LEFT + RIGHT 조합
-        String leftTitle = titles.stream()
-            .filter(t -> t.getEquippedPosition() == TitlePosition.LEFT)
-            .findFirst()
-            .map(t -> t.getTitle().getName())
-            .orElse(null);
+        String leftTitle =
+                titles.stream()
+                        .filter(t -> t.getEquippedPosition() == TitlePosition.LEFT)
+                        .findFirst()
+                        .map(t -> t.getTitle().getName())
+                        .orElse(null);
 
-        String rightTitle = titles.stream()
-            .filter(t -> t.getEquippedPosition() == TitlePosition.RIGHT)
-            .findFirst()
-            .map(t -> t.getTitle().getName())
-            .orElse(null);
+        String rightTitle =
+                titles.stream()
+                        .filter(t -> t.getEquippedPosition() == TitlePosition.RIGHT)
+                        .findFirst()
+                        .map(t -> t.getTitle().getName())
+                        .orElse(null);
 
-        TitleRarity highestRarity = titles.stream()
-            .map(t -> t.getTitle().getRarity())
-            .filter(Objects::nonNull)
-            .max((r1, r2) -> Integer.compare(r1.ordinal(), r2.ordinal()))
-            .orElse(null);
+        TitleRarity highestRarity =
+                titles.stream()
+                        .map(t -> t.getTitle().getRarity())
+                        .filter(Objects::nonNull)
+                        .max((r1, r2) -> Integer.compare(r1.ordinal(), r2.ordinal()))
+                        .orElse(null);
 
-        String combinedName = Stream.of(leftTitle, rightTitle)
-            .filter(Objects::nonNull)
-            .collect(Collectors.joining(" "));
+        String combinedName =
+                Stream.of(leftTitle, rightTitle)
+                        .filter(Objects::nonNull)
+                        .collect(Collectors.joining(" "));
 
         return new TitleInfo(combinedName.isEmpty() ? null : combinedName, highestRarity);
     }
 
-    private CategoryInfo getTopCategory(List<Object[]> categoryStats, Map<String, Long> categoryNameToIdMap) {
+    private CategoryInfo getTopCategory(
+            List<Object[]> categoryStats, Map<String, Long> categoryNameToIdMap) {
         if (categoryStats == null || categoryStats.isEmpty()) {
             return new CategoryInfo(null, null, 0L);
         }
@@ -344,5 +370,6 @@ public class DailyMvpHistoryService {
     }
 
     private record TitleInfo(String name, TitleRarity rarity) {}
+
     private record CategoryInfo(String name, Long id, Long exp) {}
 }

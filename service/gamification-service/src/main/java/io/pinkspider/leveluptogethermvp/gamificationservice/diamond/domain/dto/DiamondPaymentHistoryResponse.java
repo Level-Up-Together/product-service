@@ -24,21 +24,22 @@ public record DiamondPaymentHistoryResponse(
         LocalDateTime refundedAt,
         LocalDateTime purchasedAt) {
 
-    public static DiamondPaymentHistoryResponse from(DiamondPaymentHistoryRow row, String nickname) {
+    public static DiamondPaymentHistoryResponse from(
+            DiamondPaymentHistoryRow row, String nickname) {
         return new DiamondPaymentHistoryResponse(
-            row.id(),
-            row.userId(),
-            nickname,
-            row.bundleId(),
-            row.bundleName(),
-            row.platform(),
-            row.storeProductId(),
-            row.storeTransactionId(),
-            row.diamondCount(),
-            row.priceAmount(),
-            row.priceCurrency(),
-            row.status(),
-            row.refundedAt(),
-            row.purchasedAt());
+                row.id(),
+                row.userId(),
+                nickname,
+                row.bundleId(),
+                row.bundleName(),
+                row.platform(),
+                row.storeProductId(),
+                row.storeTransactionId(),
+                row.diamondCount(),
+                row.priceAmount(),
+                row.priceCurrency(),
+                row.status(),
+                row.refundedAt(),
+                row.purchasedAt());
     }
 }

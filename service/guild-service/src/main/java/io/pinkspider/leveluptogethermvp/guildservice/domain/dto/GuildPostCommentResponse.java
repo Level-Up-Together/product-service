@@ -36,38 +36,43 @@ public class GuildPostCommentResponse {
         return from(comment, null);
     }
 
-    public static GuildPostCommentResponse from(GuildPostComment comment, TranslationInfo translation) {
+    public static GuildPostCommentResponse from(
+            GuildPostComment comment, TranslationInfo translation) {
         return GuildPostCommentResponse.builder()
-            .id(comment.getId())
-            .postId(comment.getPost().getId())
-            .authorId(comment.getAuthorId())
-            .authorNickname(comment.getAuthorNickname())
-            .content(comment.getIsDeleted() ? "삭제된 댓글입니다." : comment.getContent())
-            .parentId(comment.getParent() != null ? comment.getParent().getId() : null)
-            .isDeleted(comment.getIsDeleted())
-            .createdAt(comment.getCreatedAt())
-            .modifiedAt(comment.getModifiedAt())
-            .translation(translation)
-            .build();
+                .id(comment.getId())
+                .postId(comment.getPost().getId())
+                .authorId(comment.getAuthorId())
+                .authorNickname(comment.getAuthorNickname())
+                .content(comment.getIsDeleted() ? "삭제된 댓글입니다." : comment.getContent())
+                .parentId(comment.getParent() != null ? comment.getParent().getId() : null)
+                .isDeleted(comment.getIsDeleted())
+                .createdAt(comment.getCreatedAt())
+                .modifiedAt(comment.getModifiedAt())
+                .translation(translation)
+                .build();
     }
 
-    public static GuildPostCommentResponse fromWithReplies(GuildPostComment comment, List<GuildPostCommentResponse> replies) {
+    public static GuildPostCommentResponse fromWithReplies(
+            GuildPostComment comment, List<GuildPostCommentResponse> replies) {
         return fromWithReplies(comment, replies, null);
     }
 
-    public static GuildPostCommentResponse fromWithReplies(GuildPostComment comment, List<GuildPostCommentResponse> replies, TranslationInfo translation) {
+    public static GuildPostCommentResponse fromWithReplies(
+            GuildPostComment comment,
+            List<GuildPostCommentResponse> replies,
+            TranslationInfo translation) {
         return GuildPostCommentResponse.builder()
-            .id(comment.getId())
-            .postId(comment.getPost().getId())
-            .authorId(comment.getAuthorId())
-            .authorNickname(comment.getAuthorNickname())
-            .content(comment.getIsDeleted() ? "삭제된 댓글입니다." : comment.getContent())
-            .parentId(comment.getParent() != null ? comment.getParent().getId() : null)
-            .replies(replies)
-            .isDeleted(comment.getIsDeleted())
-            .createdAt(comment.getCreatedAt())
-            .modifiedAt(comment.getModifiedAt())
-            .translation(translation)
-            .build();
+                .id(comment.getId())
+                .postId(comment.getPost().getId())
+                .authorId(comment.getAuthorId())
+                .authorNickname(comment.getAuthorNickname())
+                .content(comment.getIsDeleted() ? "삭제된 댓글입니다." : comment.getContent())
+                .parentId(comment.getParent() != null ? comment.getParent().getId() : null)
+                .replies(replies)
+                .isDeleted(comment.getIsDeleted())
+                .createdAt(comment.getCreatedAt())
+                .modifiedAt(comment.getModifiedAt())
+                .translation(translation)
+                .build();
     }
 }

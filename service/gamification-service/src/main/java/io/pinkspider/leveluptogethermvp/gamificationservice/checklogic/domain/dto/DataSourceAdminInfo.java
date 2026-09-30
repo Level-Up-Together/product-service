@@ -9,63 +9,57 @@ import java.util.List;
 
 @JsonNaming(SnakeCaseStrategy.class)
 public record DataSourceAdminInfo(
-    String code,
-    String displayName,
-    List<DataFieldInfo> availableFields
-) {
+        String code, String displayName, List<DataFieldInfo> availableFields) {
     @JsonNaming(SnakeCaseStrategy.class)
-    public record DataFieldInfo(
-        String fieldName,
-        String displayName
-    ) {}
+    public record DataFieldInfo(String fieldName, String displayName) {}
 
     /**
      * QA-145: USER_CATEGORY_EXPERIENCE 의 availableFields 는 실시간 mission_category 에서 생성한다.
      * activeCategories 는 meta-service 가 제공하는 활성 카테고리 목록.
      */
-    public static DataSourceAdminInfo from(CheckLogicDataSource ds, List<MissionCategoryResponse> activeCategories) {
-        return new DataSourceAdminInfo(ds.getCode(), ds.getDisplayName(), getFieldsForDataSource(ds, activeCategories));
+    public static DataSourceAdminInfo from(
+            CheckLogicDataSource ds, List<MissionCategoryResponse> activeCategories) {
+        return new DataSourceAdminInfo(
+                ds.getCode(), ds.getDisplayName(), getFieldsForDataSource(ds, activeCategories));
     }
 
     private static List<DataFieldInfo> getFieldsForDataSource(
-        CheckLogicDataSource ds,
-        List<MissionCategoryResponse> activeCategories) {
+            CheckLogicDataSource ds, List<MissionCategoryResponse> activeCategories) {
         return switch (ds) {
-            case USER_STATS -> List.of(
-                // QA-154: UserStatsCheckStrategy 가 처리하는 모든 필드를 노출한다.
-                new DataFieldInfo("totalMissionCompletions", "완료한 미션 수"),
-                new DataFieldInfo("totalMissionFullCompletions", "목표 도달 미션 수 (클리어 미션북)"),
-                new DataFieldInfo("totalGuildMissionCompletions", "완료한 길드 미션 수"),
-                new DataFieldInfo("currentStreak", "현재 연속 일수"),
-                new DataFieldInfo("maxStreak", "최대 연속 일수"),
-                new DataFieldInfo("totalAchievementsCompleted", "완료한 업적 수"),
-                new DataFieldInfo("totalTitlesAcquired", "획득한 칭호 수"),
-                new DataFieldInfo("maxCompletedMissionDuration", "최대 완료 미션 일수"),
-                new DataFieldInfo("guildJoinCount", "길드 가입 횟수"),
-                new DataFieldInfo("friendCount", "친구 수"),
-                new DataFieldInfo("totalLikesReceived", "받은 좋아요 수"),
-                new DataFieldInfo("totalCommentsReceived", "받은 댓글 수")
-            );
-            case USER_EXPERIENCE -> List.of(
-                new DataFieldInfo("currentLevel", "현재 레벨"),
-                new DataFieldInfo("totalExp", "총 경험치")
-            );
-            case USER_CATEGORY_EXPERIENCE -> activeCategories.stream()
-                .sorted(Comparator.comparing(
-                    MissionCategoryResponse::getDisplayOrder,
-                    Comparator.nullsLast(Comparator.naturalOrder())))
-                .map(c -> new DataFieldInfo("category_" + c.getId(), c.getName()))
-                .toList();
-            case FRIEND_SERVICE -> List.of(
-                new DataFieldInfo("friendCount", "친구 수")
-            );
-            case GUILD_SERVICE -> List.of(
-                new DataFieldInfo("isGuildMember", "길드 가입 여부"),
-                new DataFieldInfo("isGuildMaster", "길드장 여부")
-            );
-            case FEED_SERVICE -> List.of(
-                new DataFieldInfo("totalLikesReceived", "받은 좋아요 수")
-            );
+            case USER_STATS ->
+                    List.of(
+                            // QA-154: UserStatsCheckStrategy 가 처리하는 모든 필드를 노출한다.
+                            new DataFieldInfo("totalMissionCompletions", "완료한 미션 수"),
+                            new DataFieldInfo(
+                                    "totalMissionFullCompletions", "목표 도달 미션 수 (클리어 미션북)"),
+                            new DataFieldInfo("totalGuildMissionCompletions", "완료한 길드 미션 수"),
+                            new DataFieldInfo("currentStreak", "현재 연속 일수"),
+                            new DataFieldInfo("maxStreak", "최대 연속 일수"),
+                            new DataFieldInfo("totalAchievementsCompleted", "완료한 업적 수"),
+                            new DataFieldInfo("totalTitlesAcquired", "획득한 칭호 수"),
+                            new DataFieldInfo("maxCompletedMissionDuration", "최대 완료 미션 일수"),
+                            new DataFieldInfo("guildJoinCount", "길드 가입 횟수"),
+                            new DataFieldInfo("friendCount", "친구 수"),
+                            new DataFieldInfo("totalLikesReceived", "받은 좋아요 수"),
+                            new DataFieldInfo("totalCommentsReceived", "받은 댓글 수"));
+            case USER_EXPERIENCE ->
+                    List.of(
+                            new DataFieldInfo("currentLevel", "현재 레벨"),
+                            new DataFieldInfo("totalExp", "총 경험치"));
+            case USER_CATEGORY_EXPERIENCE ->
+                    activeCategories.stream()
+                            .sorted(
+                                    Comparator.comparing(
+                                            MissionCategoryResponse::getDisplayOrder,
+                                            Comparator.nullsLast(Comparator.naturalOrder())))
+                            .map(c -> new DataFieldInfo("category_" + c.getId(), c.getName()))
+                            .toList();
+            case FRIEND_SERVICE -> List.of(new DataFieldInfo("friendCount", "친구 수"));
+            case GUILD_SERVICE ->
+                    List.of(
+                            new DataFieldInfo("isGuildMember", "길드 가입 여부"),
+                            new DataFieldInfo("isGuildMaster", "길드장 여부"));
+            case FEED_SERVICE -> List.of(new DataFieldInfo("totalLikesReceived", "받은 좋아요 수"));
         };
     }
 }

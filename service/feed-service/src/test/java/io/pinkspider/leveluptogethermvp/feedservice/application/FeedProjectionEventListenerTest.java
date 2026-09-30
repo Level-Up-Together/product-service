@@ -2,7 +2,6 @@ package io.pinkspider.leveluptogethermvp.feedservice.application;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
-import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
@@ -10,6 +9,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import io.pinkspider.global.enums.TitleRarity;
 import io.pinkspider.global.event.AchievementCompletedEvent;
 import io.pinkspider.global.event.AttendanceStreakEvent;
 import io.pinkspider.global.event.FriendRequestAcceptedEvent;
@@ -19,11 +19,10 @@ import io.pinkspider.global.event.GuildLevelUpEvent;
 import io.pinkspider.global.event.TitleAcquiredEvent;
 import io.pinkspider.global.event.TitleEquippedEvent;
 import io.pinkspider.global.event.UserLevelUpEvent;
-import io.pinkspider.leveluptogethermvp.feedservice.domain.enums.ActivityType;
-import io.pinkspider.leveluptogethermvp.feedservice.domain.enums.FeedVisibility;
-import io.pinkspider.global.enums.TitleRarity;
 import io.pinkspider.global.facade.UserQueryFacade;
 import io.pinkspider.global.facade.dto.UserProfileInfo;
+import io.pinkspider.leveluptogethermvp.feedservice.domain.enums.ActivityType;
+import io.pinkspider.leveluptogethermvp.feedservice.domain.enums.FeedVisibility;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -37,14 +36,11 @@ import org.mockito.junit.jupiter.MockitoExtension;
 @DisplayName("FeedProjectionEventListener 단위 테스트")
 class FeedProjectionEventListenerTest {
 
-    @Mock
-    private FeedCommandService feedCommandService;
+    @Mock private FeedCommandService feedCommandService;
 
-    @Mock
-    private UserQueryFacade userQueryFacadeService;
+    @Mock private UserQueryFacade userQueryFacadeService;
 
-    @InjectMocks
-    private FeedProjectionEventListener feedProjectionEventListener;
+    @InjectMocks private FeedProjectionEventListener feedProjectionEventListener;
 
     private static final String TEST_USER_ID = "test-user-123";
     private static final String REQUESTER_USER_ID = "requester-user-456";
@@ -52,10 +48,15 @@ class FeedProjectionEventListenerTest {
 
     @BeforeEach
     void setUp() {
-        testProfile = new UserProfileInfo(
-            TEST_USER_ID, "테스트유저", "https://example.com/profile.jpg",
-            10, "초보 모험가", TitleRarity.COMMON, "#FFFFFF"
-        );
+        testProfile =
+                new UserProfileInfo(
+                        TEST_USER_ID,
+                        "테스트유저",
+                        "https://example.com/profile.jpg",
+                        10,
+                        "초보 모험가",
+                        TitleRarity.COMMON,
+                        "#FFFFFF");
     }
 
     @Nested
@@ -66,18 +67,32 @@ class FeedProjectionEventListenerTest {
         @DisplayName("칭호 획득 이벤트를 수신해도 피드를 생성하지 않는다")
         void handleTitleAcquired_disabled() {
             // given
-            TitleAcquiredEvent event = new TitleAcquiredEvent(TEST_USER_ID, 1L, "전설의 모험가", "LEGENDARY");
+            TitleAcquiredEvent event =
+                    new TitleAcquiredEvent(TEST_USER_ID, 1L, "전설의 모험가", "LEGENDARY");
 
             // when
             feedProjectionEventListener.handleTitleAcquired(event);
 
             // then
-            verify(feedCommandService, never()).createActivityFeed(
-                anyString(), anyString(), anyString(), anyInt(), anyString(),
-                any(TitleRarity.class), anyString(), any(ActivityType.class),
-                anyString(), anyString(), any(), any(), any(),
-                any(FeedVisibility.class), any(), any(), any()
-            );
+            verify(feedCommandService, never())
+                    .createActivityFeed(
+                            anyString(),
+                            anyString(),
+                            anyString(),
+                            anyInt(),
+                            anyString(),
+                            any(TitleRarity.class),
+                            anyString(),
+                            any(ActivityType.class),
+                            anyString(),
+                            anyString(),
+                            any(),
+                            any(),
+                            any(),
+                            any(FeedVisibility.class),
+                            any(),
+                            any(),
+                            any());
         }
     }
 
@@ -89,18 +104,32 @@ class FeedProjectionEventListenerTest {
         @DisplayName("업적 달성 이벤트를 수신해도 피드를 생성하지 않는다")
         void handleAchievementCompleted_disabled() {
             // given
-            AchievementCompletedEvent event = new AchievementCompletedEvent(TEST_USER_ID, 10L, "첫 걸음");
+            AchievementCompletedEvent event =
+                    new AchievementCompletedEvent(TEST_USER_ID, 10L, "첫 걸음");
 
             // when
             feedProjectionEventListener.handleAchievementCompleted(event);
 
             // then
-            verify(feedCommandService, never()).createActivityFeed(
-                anyString(), anyString(), anyString(), anyInt(), anyString(),
-                any(TitleRarity.class), anyString(), any(ActivityType.class),
-                anyString(), anyString(), any(), any(), any(),
-                any(FeedVisibility.class), any(), any(), any()
-            );
+            verify(feedCommandService, never())
+                    .createActivityFeed(
+                            anyString(),
+                            anyString(),
+                            anyString(),
+                            anyInt(),
+                            anyString(),
+                            any(TitleRarity.class),
+                            anyString(),
+                            any(ActivityType.class),
+                            anyString(),
+                            anyString(),
+                            any(),
+                            any(),
+                            any(),
+                            any(FeedVisibility.class),
+                            any(),
+                            any(),
+                            any());
         }
     }
 
@@ -118,12 +147,25 @@ class FeedProjectionEventListenerTest {
             feedProjectionEventListener.handleGuildJoined(event);
 
             // then
-            verify(feedCommandService, never()).createActivityFeed(
-                anyString(), anyString(), anyString(), anyInt(), anyString(),
-                any(TitleRarity.class), anyString(), any(ActivityType.class),
-                anyString(), anyString(), any(), any(), any(),
-                any(FeedVisibility.class), any(), any(), any()
-            );
+            verify(feedCommandService, never())
+                    .createActivityFeed(
+                            anyString(),
+                            anyString(),
+                            anyString(),
+                            anyInt(),
+                            anyString(),
+                            any(TitleRarity.class),
+                            anyString(),
+                            any(ActivityType.class),
+                            anyString(),
+                            anyString(),
+                            any(),
+                            any(),
+                            any(),
+                            any(FeedVisibility.class),
+                            any(),
+                            any(),
+                            any());
         }
     }
 
@@ -135,20 +177,32 @@ class FeedProjectionEventListenerTest {
         @DisplayName("친구 수락 이벤트를 수신해도 피드를 생성하지 않는다 (QA-35 비활성화)")
         void handleFriendRequestAccepted_disabled() {
             // given
-            FriendRequestAcceptedEvent event = new FriendRequestAcceptedEvent(
-                TEST_USER_ID, REQUESTER_USER_ID, "테스트유저", 100L
-            );
+            FriendRequestAcceptedEvent event =
+                    new FriendRequestAcceptedEvent(TEST_USER_ID, REQUESTER_USER_ID, "테스트유저", 100L);
 
             // when
             feedProjectionEventListener.handleFriendRequestAccepted(event);
 
             // then
-            verify(feedCommandService, never()).createActivityFeed(
-                anyString(), anyString(), anyString(), anyInt(), anyString(),
-                any(TitleRarity.class), anyString(), any(ActivityType.class),
-                anyString(), anyString(), any(), any(), any(),
-                any(FeedVisibility.class), any(), any(), any()
-            );
+            verify(feedCommandService, never())
+                    .createActivityFeed(
+                            anyString(),
+                            anyString(),
+                            anyString(),
+                            anyInt(),
+                            anyString(),
+                            any(TitleRarity.class),
+                            anyString(),
+                            any(ActivityType.class),
+                            anyString(),
+                            anyString(),
+                            any(),
+                            any(),
+                            any(),
+                            any(FeedVisibility.class),
+                            any(),
+                            any(),
+                            any());
         }
     }
 
@@ -166,12 +220,25 @@ class FeedProjectionEventListenerTest {
             feedProjectionEventListener.handleUserLevelUp(event);
 
             // then
-            verify(feedCommandService, never()).createActivityFeed(
-                anyString(), anyString(), anyString(), anyInt(), anyString(),
-                any(TitleRarity.class), anyString(), any(ActivityType.class),
-                anyString(), anyString(), any(), any(), any(),
-                any(FeedVisibility.class), any(), any(), any()
-            );
+            verify(feedCommandService, never())
+                    .createActivityFeed(
+                            anyString(),
+                            anyString(),
+                            anyString(),
+                            anyInt(),
+                            anyString(),
+                            any(TitleRarity.class),
+                            anyString(),
+                            any(ActivityType.class),
+                            anyString(),
+                            anyString(),
+                            any(),
+                            any(),
+                            any(),
+                            any(FeedVisibility.class),
+                            any(),
+                            any(),
+                            any());
         }
 
         @Test
@@ -185,14 +252,25 @@ class FeedProjectionEventListenerTest {
             feedProjectionEventListener.handleUserLevelUp(event);
 
             // then
-            verify(feedCommandService).createActivityFeed(
-                eq(TEST_USER_ID), eq("테스트유저"), eq("https://example.com/profile.jpg"),
-                eq(10), eq("초보 모험가"), eq(TitleRarity.COMMON), eq("#FFFFFF"),
-                eq(ActivityType.LEVEL_UP),
-                eq("레벨 10 달성!"), eq("레벨 10에 도달했습니다!"),
-                isNull(), isNull(), isNull(),
-                eq(FeedVisibility.PUBLIC), isNull(), isNull(), isNull()
-            );
+            verify(feedCommandService)
+                    .createActivityFeed(
+                            eq(TEST_USER_ID),
+                            eq("테스트유저"),
+                            eq("https://example.com/profile.jpg"),
+                            eq(10),
+                            eq("초보 모험가"),
+                            eq(TitleRarity.COMMON),
+                            eq("#FFFFFF"),
+                            eq(ActivityType.LEVEL_UP),
+                            eq("레벨 10 달성!"),
+                            eq("레벨 10에 도달했습니다!"),
+                            isNull(),
+                            isNull(),
+                            isNull(),
+                            eq(FeedVisibility.PUBLIC),
+                            isNull(),
+                            isNull(),
+                            isNull());
         }
     }
 
@@ -211,14 +289,25 @@ class FeedProjectionEventListenerTest {
             feedProjectionEventListener.handleGuildCreated(event);
 
             // then
-            verify(feedCommandService).createActivityFeed(
-                eq(TEST_USER_ID), eq("테스트유저"), eq("https://example.com/profile.jpg"),
-                eq(10), eq("초보 모험가"), eq(TitleRarity.COMMON), eq("#FFFFFF"),
-                eq(ActivityType.GUILD_CREATED),
-                eq("길드 창설: 새로운 길드"), eq("새로운 길드를 만들었습니다!"),
-                eq("GUILD"), eq(7L), eq("새로운 길드"),
-                eq(FeedVisibility.PUBLIC), eq(7L), isNull(), isNull()
-            );
+            verify(feedCommandService)
+                    .createActivityFeed(
+                            eq(TEST_USER_ID),
+                            eq("테스트유저"),
+                            eq("https://example.com/profile.jpg"),
+                            eq(10),
+                            eq("초보 모험가"),
+                            eq(TitleRarity.COMMON),
+                            eq("#FFFFFF"),
+                            eq(ActivityType.GUILD_CREATED),
+                            eq("길드 창설: 새로운 길드"),
+                            eq("새로운 길드를 만들었습니다!"),
+                            eq("GUILD"),
+                            eq(7L),
+                            eq("새로운 길드"),
+                            eq(FeedVisibility.PUBLIC),
+                            eq(7L),
+                            isNull(),
+                            isNull());
         }
 
         @Test
@@ -246,12 +335,25 @@ class FeedProjectionEventListenerTest {
             feedProjectionEventListener.handleGuildLevelUp(event);
 
             // then
-            verify(feedCommandService, never()).createActivityFeed(
-                anyString(), anyString(), anyString(), anyInt(), anyString(),
-                any(TitleRarity.class), anyString(), any(ActivityType.class),
-                anyString(), anyString(), any(), any(), any(),
-                any(FeedVisibility.class), any(), any(), any()
-            );
+            verify(feedCommandService, never())
+                    .createActivityFeed(
+                            anyString(),
+                            anyString(),
+                            anyString(),
+                            anyInt(),
+                            anyString(),
+                            any(TitleRarity.class),
+                            anyString(),
+                            any(ActivityType.class),
+                            anyString(),
+                            anyString(),
+                            any(),
+                            any(),
+                            any(),
+                            any(FeedVisibility.class),
+                            any(),
+                            any(),
+                            any());
         }
 
         @Test
@@ -265,14 +367,25 @@ class FeedProjectionEventListenerTest {
             feedProjectionEventListener.handleGuildLevelUp(event);
 
             // then
-            verify(feedCommandService).createActivityFeed(
-                eq(TEST_USER_ID), eq("테스트유저"), eq("https://example.com/profile.jpg"),
-                eq(10), eq("초보 모험가"), eq(TitleRarity.COMMON), eq("#FFFFFF"),
-                eq(ActivityType.GUILD_LEVEL_UP),
-                eq("길드 레벨업!"), eq("최강 길드 길드가 레벨 10에 도달했습니다!"),
-                eq("GUILD"), eq(5L), eq("최강 길드"),
-                eq(FeedVisibility.PUBLIC), eq(5L), isNull(), isNull()
-            );
+            verify(feedCommandService)
+                    .createActivityFeed(
+                            eq(TEST_USER_ID),
+                            eq("테스트유저"),
+                            eq("https://example.com/profile.jpg"),
+                            eq(10),
+                            eq("초보 모험가"),
+                            eq(TitleRarity.COMMON),
+                            eq("#FFFFFF"),
+                            eq(ActivityType.GUILD_LEVEL_UP),
+                            eq("길드 레벨업!"),
+                            eq("최강 길드 길드가 레벨 10에 도달했습니다!"),
+                            eq("GUILD"),
+                            eq(5L),
+                            eq("최강 길드"),
+                            eq(FeedVisibility.PUBLIC),
+                            eq(5L),
+                            isNull(),
+                            isNull());
         }
     }
 
@@ -290,12 +403,25 @@ class FeedProjectionEventListenerTest {
             feedProjectionEventListener.handleAttendanceStreak(event);
 
             // then
-            verify(feedCommandService, never()).createActivityFeed(
-                anyString(), anyString(), anyString(), anyInt(), anyString(),
-                any(TitleRarity.class), anyString(), any(ActivityType.class),
-                anyString(), anyString(), any(), any(), any(),
-                any(FeedVisibility.class), any(), any(), any()
-            );
+            verify(feedCommandService, never())
+                    .createActivityFeed(
+                            anyString(),
+                            anyString(),
+                            anyString(),
+                            anyInt(),
+                            anyString(),
+                            any(TitleRarity.class),
+                            anyString(),
+                            any(ActivityType.class),
+                            anyString(),
+                            anyString(),
+                            any(),
+                            any(),
+                            any(),
+                            any(FeedVisibility.class),
+                            any(),
+                            any(),
+                            any());
         }
     }
 
@@ -307,28 +433,30 @@ class FeedProjectionEventListenerTest {
         @DisplayName("칭호 장착 이벤트를 수신하면 피드 칭호를 업데이트한다")
         void handleTitleEquipped_success() {
             // given
-            TitleEquippedEvent event = new TitleEquippedEvent(
-                TEST_USER_ID, "전설적인 모험가", TitleRarity.LEGENDARY, "#FFD700");
+            TitleEquippedEvent event =
+                    new TitleEquippedEvent(
+                            TEST_USER_ID, "전설적인 모험가", TitleRarity.LEGENDARY, "#FFD700");
             when(feedCommandService.updateFeedTitles(
-                TEST_USER_ID, "전설적인 모험가", TitleRarity.LEGENDARY, "#FFD700"))
-                .thenReturn(5);
+                            TEST_USER_ID, "전설적인 모험가", TitleRarity.LEGENDARY, "#FFD700"))
+                    .thenReturn(5);
 
             // when
             feedProjectionEventListener.handleTitleEquipped(event);
 
             // then
-            verify(feedCommandService).updateFeedTitles(
-                TEST_USER_ID, "전설적인 모험가", TitleRarity.LEGENDARY, "#FFD700");
+            verify(feedCommandService)
+                    .updateFeedTitles(TEST_USER_ID, "전설적인 모험가", TitleRarity.LEGENDARY, "#FFD700");
         }
 
         @Test
         @DisplayName("피드 업데이트 실패 시 예외를 삼킨다")
         void handleTitleEquipped_failure() {
             // given
-            TitleEquippedEvent event = new TitleEquippedEvent(
-                TEST_USER_ID, "전설적인 모험가", TitleRarity.LEGENDARY, "#FFD700");
+            TitleEquippedEvent event =
+                    new TitleEquippedEvent(
+                            TEST_USER_ID, "전설적인 모험가", TitleRarity.LEGENDARY, "#FFD700");
             when(feedCommandService.updateFeedTitles(anyString(), any(), any(), any()))
-                .thenThrow(new RuntimeException("DB 오류"));
+                    .thenThrow(new RuntimeException("DB 오류"));
 
             // when - 예외가 발생하지 않아야 함
             feedProjectionEventListener.handleTitleEquipped(event);

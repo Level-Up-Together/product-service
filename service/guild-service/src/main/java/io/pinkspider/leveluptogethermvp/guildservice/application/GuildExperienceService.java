@@ -1,16 +1,16 @@
 package io.pinkspider.leveluptogethermvp.guildservice.application;
 
-import io.pinkspider.leveluptogethermvp.metaservice.guildlevelconfig.application.GuildLevelConfigCacheService;
-import io.pinkspider.leveluptogethermvp.metaservice.userlevelconfig.application.UserLevelConfigCacheService;
+import io.pinkspider.global.enums.GuildExpSourceType;
 import io.pinkspider.global.event.GuildLevelUpEvent;
 import io.pinkspider.leveluptogethermvp.guildservice.domain.dto.GuildExperienceResponse;
 import io.pinkspider.leveluptogethermvp.guildservice.domain.entity.Guild;
 import io.pinkspider.leveluptogethermvp.guildservice.domain.entity.GuildExperienceHistory;
-import io.pinkspider.global.enums.GuildExpSourceType;
-import io.pinkspider.leveluptogethermvp.metaservice.guildlevelconfig.domain.entity.GuildLevelConfig;
 import io.pinkspider.leveluptogethermvp.guildservice.infrastructure.GuildExperienceHistoryRepository;
 import io.pinkspider.leveluptogethermvp.guildservice.infrastructure.GuildMemberRepository;
 import io.pinkspider.leveluptogethermvp.guildservice.infrastructure.GuildRepository;
+import io.pinkspider.leveluptogethermvp.metaservice.guildlevelconfig.application.GuildLevelConfigCacheService;
+import io.pinkspider.leveluptogethermvp.metaservice.guildlevelconfig.domain.entity.GuildLevelConfig;
+import io.pinkspider.leveluptogethermvp.metaservice.userlevelconfig.application.UserLevelConfigCacheService;
 import io.pinkspider.leveluptogethermvp.metaservice.userlevelconfig.domain.entity.UserLevelConfig;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
@@ -36,10 +36,18 @@ public class GuildExperienceService {
     private final GuildPointService guildPointService;
 
     @Transactional
-    public GuildExperienceResponse addExperience(Long guildId, int expAmount, GuildExpSourceType sourceType,
-                                                 Long sourceId, String contributorId, String description) {
-        Guild guild = guildRepository.findByIdAndIsActiveTrue(guildId)
-            .orElseThrow(() -> new IllegalArgumentException("길드를 찾을 수 없습니다: " + guildId));
+    public GuildExperienceResponse addExperience(
+            Long guildId,
+            int expAmount,
+            GuildExpSourceType sourceType,
+            Long sourceId,
+            String contributorId,
+            String description) {
+        Guild guild =
+                guildRepository
+                        .findByIdAndIsActiveTrue(guildId)
+                        .orElseThrow(
+                                () -> new IllegalArgumentException("길드를 찾을 수 없습니다: " + guildId));
 
         int levelBefore = guild.getCurrentLevel();
 
@@ -55,35 +63,43 @@ public class GuildExperienceService {
 
         int levelAfter = guild.getCurrentLevel();
 
-        GuildExperienceHistory history = GuildExperienceHistory.builder()
-            .guild(guild)
-            .sourceType(sourceType)
-            .sourceId(sourceId)
-            .contributorId(contributorId)
-            .expAmount(expAmount)
-            .description(description)
-            .levelBefore(levelBefore)
-            .levelAfter(levelAfter)
-            .build();
+        GuildExperienceHistory history =
+                GuildExperienceHistory.builder()
+                        .guild(guild)
+                        .sourceType(sourceType)
+                        .sourceId(sourceId)
+                        .contributorId(contributorId)
+                        .expAmount(expAmount)
+                        .description(description)
+                        .levelBefore(levelBefore)
+                        .levelAfter(levelAfter)
+                        .build();
         historyRepository.save(history);
 
         if (levelAfter > levelBefore) {
             log.info("길드 레벨 업! guildId={}, {} -> {}", guildId, levelBefore, levelAfter);
 
             // 길드 레벨업 피드 프로젝션 이벤트 발행
-            eventPublisher.publishEvent(new GuildLevelUpEvent(
-                contributorId, guildId, guild.getName(), levelAfter));
+            eventPublisher.publishEvent(
+                    new GuildLevelUpEvent(contributorId, guildId, guild.getName(), levelAfter));
         }
 
-        log.info("길드 경험치 획득: guildId={}, amount={}, total={}, level={}",
-            guildId, expAmount, guild.getTotalExp(), guild.getCurrentLevel());
+        log.info(
+                "길드 경험치 획득: guildId={}, amount={}, total={}, level={}",
+                guildId,
+                expAmount,
+                guild.getTotalExp(),
+                guild.getCurrentLevel());
 
         return getGuildExperienceInfo(guild);
     }
 
     public GuildExperienceResponse getGuildExperience(Long guildId) {
-        Guild guild = guildRepository.findByIdAndIsActiveTrue(guildId)
-            .orElseThrow(() -> new IllegalArgumentException("길드를 찾을 수 없습니다: " + guildId));
+        Guild guild =
+                guildRepository
+                        .findByIdAndIsActiveTrue(guildId)
+                        .orElseThrow(
+                                () -> new IllegalArgumentException("길드를 찾을 수 없습니다: " + guildId));
 
         return getGuildExperienceInfo(guild);
     }
@@ -96,23 +112,20 @@ public class GuildExperienceService {
         return guildLevelConfigCacheService.getAllLevelConfigs();
     }
 
-    /**
-     * 길드 레벨업에 필요한 경험치 계산 공식: 길드 인원수 * 해당 레벨의 유저 레벨업 필요 경험치
-     */
+    /** 길드 레벨업에 필요한 경험치 계산 공식: 길드 인원수 * 해당 레벨의 유저 레벨업 필요 경험치 */
     public int calculateGuildRequiredExp(Long guildId, int level) {
         int memberCount = (int) guildMemberRepository.countActiveMembers(guildId);
         // 최소 1명으로 계산 (마스터만 있는 경우)
         memberCount = Math.max(1, memberCount);
 
         UserLevelConfig config = userLevelConfigCacheService.getLevelConfigByLevel(level);
-        int userRequiredExp = config != null ? config.getRequiredExp() : calculateDefaultUserRequiredExp(level);
+        int userRequiredExp =
+                config != null ? config.getRequiredExp() : calculateDefaultUserRequiredExp(level);
 
         return memberCount * userRequiredExp;
     }
 
-    /**
-     * 유저 레벨업 기본 공식 (설정이 없을 경우)
-     */
+    /** 유저 레벨업 기본 공식 (설정이 없을 경우) */
     private int calculateDefaultUserRequiredExp(int level) {
         return 100 + (level - 1) * 50;
     }
@@ -120,19 +133,27 @@ public class GuildExperienceService {
     /**
      * 길드 경험치 차감 (Saga 보상 트랜잭션용)
      *
-     * @param guildId       길드 ID
-     * @param expAmount     차감할 경험치
-     * @param sourceType    출처 유형
-     * @param sourceId      출처 ID
+     * @param guildId 길드 ID
+     * @param expAmount 차감할 경험치
+     * @param sourceType 출처 유형
+     * @param sourceId 출처 ID
      * @param contributorId 기여자 ID
-     * @param description   설명
+     * @param description 설명
      * @return 업데이트된 길드 경험치 정보
      */
     @Transactional
-    public GuildExperienceResponse subtractExperience(Long guildId, int expAmount, GuildExpSourceType sourceType,
-                                                      Long sourceId, String contributorId, String description) {
-        Guild guild = guildRepository.findByIdAndIsActiveTrue(guildId)
-            .orElseThrow(() -> new IllegalArgumentException("길드를 찾을 수 없습니다: " + guildId));
+    public GuildExperienceResponse subtractExperience(
+            Long guildId,
+            int expAmount,
+            GuildExpSourceType sourceType,
+            Long sourceId,
+            String contributorId,
+            String description) {
+        Guild guild =
+                guildRepository
+                        .findByIdAndIsActiveTrue(guildId)
+                        .orElseThrow(
+                                () -> new IllegalArgumentException("길드를 찾을 수 없습니다: " + guildId));
 
         int levelBefore = guild.getCurrentLevel();
 
@@ -145,38 +166,47 @@ public class GuildExperienceService {
         int levelAfter = guild.getCurrentLevel();
 
         // 히스토리 기록 (음수 경험치로 기록)
-        GuildExperienceHistory history = GuildExperienceHistory.builder()
-            .guild(guild)
-            .sourceType(sourceType)
-            .sourceId(sourceId)
-            .contributorId(contributorId)
-            .expAmount(-expAmount) // 음수로 기록
-            .description(description)
-            .levelBefore(levelBefore)
-            .levelAfter(levelAfter)
-            .build();
+        GuildExperienceHistory history =
+                GuildExperienceHistory.builder()
+                        .guild(guild)
+                        .sourceType(sourceType)
+                        .sourceId(sourceId)
+                        .contributorId(contributorId)
+                        .expAmount(-expAmount) // 음수로 기록
+                        .description(description)
+                        .levelBefore(levelBefore)
+                        .levelAfter(levelAfter)
+                        .build();
         historyRepository.save(history);
 
-        log.info("길드 경험치 차감: guildId={}, amount={}, total={}, level: {} -> {}",
-            guildId, expAmount, guild.getTotalExp(), levelBefore, levelAfter);
+        log.info(
+                "길드 경험치 차감: guildId={}, amount={}, total={}, level: {} -> {}",
+                guildId,
+                expAmount,
+                guild.getTotalExp(),
+                levelBefore,
+                levelAfter);
 
         return getGuildExperienceInfo(guild);
     }
 
-    public GuildLevelConfig createOrUpdateLevelConfig(Integer level, Integer requiredExp,
-                                                      Integer cumulativeExp, Integer maxMembers,
-                                                      String title, String description) {
-        return guildLevelConfigCacheService.createOrUpdateLevelConfig(level, requiredExp, cumulativeExp, maxMembers, title, description);
+    public GuildLevelConfig createOrUpdateLevelConfig(
+            Integer level,
+            Integer requiredExp,
+            Integer cumulativeExp,
+            Integer maxMembers,
+            String title,
+            String description) {
+        return guildLevelConfigCacheService.createOrUpdateLevelConfig(
+                level, requiredExp, cumulativeExp, maxMembers, title, description);
     }
 
     /**
      * 길드 레벨/현재 포인트 재계산.
      *
-     * <p>QA-204: 어드민 설정(guild_level_config)을 단일 기준으로 레벨을 계산한다.
-     * LUT-483: 레벨 기준을 누적 경험치(totalExp) → 누적 활동 포인트(totalPoint)로 전환.
-     * 누적 EXP 는 카테고리별 하루 획득 총량 차이로 순위·레벨이 편향되므로, 상한 있는 일간
-     * 포인트 사다리의 누적값(cumulative_point)으로 판정한다. EXP 필드(currentExp/totalExp)는
-     * 표기용으로만 유지되며 레벨과 무관해진다.
+     * <p>QA-204: 어드민 설정(guild_level_config)을 단일 기준으로 레벨을 계산한다. LUT-483: 레벨 기준을 누적 경험치(totalExp) →
+     * 누적 활동 포인트(totalPoint)로 전환. 누적 EXP 는 카테고리별 하루 획득 총량 차이로 순위·레벨이 편향되므로, 상한 있는 일간 포인트 사다리의
+     * 누적값(cumulative_point)으로 판정한다. EXP 필드(currentExp/totalExp)는 표기용으로만 유지되며 레벨과 무관해진다.
      */
     private void processLevelUp(Guild guild) {
         List<GuildLevelConfig> levelConfigs = guildLevelConfigCacheService.getAllLevelConfigs();
@@ -216,7 +246,8 @@ public class GuildExperienceService {
                         ? levelConfig.getRequiredExp()
                         : calculateDefaultUserRequiredExp(guild.getCurrentLevel());
 
-        String levelTitle = levelConfig != null ? levelConfig.getTitle() : "Lv." + guild.getCurrentLevel();
+        String levelTitle =
+                levelConfig != null ? levelConfig.getTitle() : "Lv." + guild.getCurrentLevel();
 
         return GuildExperienceResponse.from(guild, requiredExp, levelTitle);
     }

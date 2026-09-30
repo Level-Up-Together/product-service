@@ -19,8 +19,8 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
- * Admin 내부 API 컨트롤러 - GuildPost / GuildPostComment
- * 인증 불필요 (SecurityConfig에서 /api/internal/** permitAll)
+ * Admin 내부 API 컨트롤러 - GuildPost / GuildPostComment 인증 불필요 (SecurityConfig에서 /api/internal/**
+ * permitAll)
  */
 @RestController
 @RequestMapping("/api/internal/guilds/{guildId}")
@@ -34,29 +34,32 @@ public class GuildPostAdminInternalController {
     @GetMapping("/posts")
     public ApiResult<GuildPostAdminPageResponse> getPostsByGuildId(
             @PathVariable Long guildId,
-            @RequestParam(name = "include_deleted", required = false, defaultValue = "false") Boolean includeDeleted,
+            @RequestParam(name = "include_deleted", required = false, defaultValue = "false")
+                    Boolean includeDeleted,
             @PageableDefault(size = 20) Pageable pageable) {
         return ApiResult.<GuildPostAdminPageResponse>builder()
-            .value(guildPostAdminInternalService.getPostsByGuildId(guildId, includeDeleted, pageable))
-            .build();
+                .value(
+                        guildPostAdminInternalService.getPostsByGuildId(
+                                guildId, includeDeleted, pageable))
+                .build();
     }
 
     @GetMapping("/posts/all")
     public ApiResult<List<GuildPostAdminResponse>> getAllPostsByGuildId(
             @PathVariable Long guildId,
-            @RequestParam(name = "include_deleted", required = false, defaultValue = "false") Boolean includeDeleted) {
+            @RequestParam(name = "include_deleted", required = false, defaultValue = "false")
+                    Boolean includeDeleted) {
         return ApiResult.<List<GuildPostAdminResponse>>builder()
-            .value(guildPostAdminInternalService.getAllPostsByGuildId(guildId, includeDeleted))
-            .build();
+                .value(guildPostAdminInternalService.getAllPostsByGuildId(guildId, includeDeleted))
+                .build();
     }
 
     @GetMapping("/posts/{postId}")
     public ApiResult<GuildPostAdminResponse> getPost(
-            @PathVariable Long guildId,
-            @PathVariable Long postId) {
+            @PathVariable Long guildId, @PathVariable Long postId) {
         return ApiResult.<GuildPostAdminResponse>builder()
-            .value(guildPostAdminInternalService.getPost(guildId, postId))
-            .build();
+                .value(guildPostAdminInternalService.getPost(guildId, postId))
+                .build();
     }
 
     @GetMapping("/posts/type/{postType}")
@@ -65,17 +68,16 @@ public class GuildPostAdminInternalController {
             @PathVariable String postType,
             @PageableDefault(size = 20) Pageable pageable) {
         return ApiResult.<GuildPostAdminPageResponse>builder()
-            .value(guildPostAdminInternalService.getPostsByType(guildId, postType, pageable))
-            .build();
+                .value(guildPostAdminInternalService.getPostsByType(guildId, postType, pageable))
+                .build();
     }
 
     @GetMapping("/posts/deleted")
     public ApiResult<GuildPostAdminPageResponse> getDeletedPosts(
-            @PathVariable Long guildId,
-            @PageableDefault(size = 20) Pageable pageable) {
+            @PathVariable Long guildId, @PageableDefault(size = 20) Pageable pageable) {
         return ApiResult.<GuildPostAdminPageResponse>builder()
-            .value(guildPostAdminInternalService.getDeletedPosts(guildId, pageable))
-            .build();
+                .value(guildPostAdminInternalService.getDeletedPosts(guildId, pageable))
+                .build();
     }
 
     @GetMapping("/posts/search")
@@ -84,40 +86,35 @@ public class GuildPostAdminInternalController {
             @RequestParam String keyword,
             @PageableDefault(size = 20) Pageable pageable) {
         return ApiResult.<GuildPostAdminPageResponse>builder()
-            .value(guildPostAdminInternalService.searchPosts(guildId, keyword, pageable))
-            .build();
+                .value(guildPostAdminInternalService.searchPosts(guildId, keyword, pageable))
+                .build();
     }
 
     @DeleteMapping("/posts/{postId}")
-    public ApiResult<Void> softDeletePost(
-            @PathVariable Long guildId,
-            @PathVariable Long postId) {
+    public ApiResult<Void> softDeletePost(@PathVariable Long guildId, @PathVariable Long postId) {
         guildPostAdminInternalService.softDeletePost(guildId, postId);
         return ApiResult.<Void>builder().build();
     }
 
     @DeleteMapping("/posts/{postId}/hard")
-    public ApiResult<Void> hardDeletePost(
-            @PathVariable Long guildId,
-            @PathVariable Long postId) {
+    public ApiResult<Void> hardDeletePost(@PathVariable Long guildId, @PathVariable Long postId) {
         guildPostAdminInternalService.hardDeletePost(guildId, postId);
         return ApiResult.<Void>builder().build();
     }
 
     @PatchMapping("/posts/{postId}/restore")
     public ApiResult<GuildPostAdminResponse> restorePost(
-            @PathVariable Long guildId,
-            @PathVariable Long postId) {
+            @PathVariable Long guildId, @PathVariable Long postId) {
         return ApiResult.<GuildPostAdminResponse>builder()
-            .value(guildPostAdminInternalService.restorePost(guildId, postId))
-            .build();
+                .value(guildPostAdminInternalService.restorePost(guildId, postId))
+                .build();
     }
 
     @GetMapping("/posts/count")
     public ApiResult<Long> countPostsByGuildId(@PathVariable Long guildId) {
         return ApiResult.<Long>builder()
-            .value(guildPostAdminInternalService.countPostsByGuildId(guildId))
-            .build();
+                .value(guildPostAdminInternalService.countPostsByGuildId(guildId))
+                .build();
     }
 
     // ========== 댓글 API ==========
@@ -126,31 +123,33 @@ public class GuildPostAdminInternalController {
     public ApiResult<GuildPostCommentAdminPageResponse> getCommentsByPostId(
             @PathVariable Long guildId,
             @PathVariable Long postId,
-            @RequestParam(name = "include_deleted", required = false, defaultValue = "false") Boolean includeDeleted,
+            @RequestParam(name = "include_deleted", required = false, defaultValue = "false")
+                    Boolean includeDeleted,
             @PageableDefault(size = 50) Pageable pageable) {
         return ApiResult.<GuildPostCommentAdminPageResponse>builder()
-            .value(guildPostAdminInternalService.getCommentsByPostId(postId, includeDeleted, pageable))
-            .build();
+                .value(
+                        guildPostAdminInternalService.getCommentsByPostId(
+                                postId, includeDeleted, pageable))
+                .build();
     }
 
     @GetMapping("/posts/{postId}/comments/all")
     public ApiResult<List<GuildPostCommentAdminResponse>> getAllCommentsByPostId(
             @PathVariable Long guildId,
             @PathVariable Long postId,
-            @RequestParam(name = "include_deleted", required = false, defaultValue = "false") Boolean includeDeleted) {
+            @RequestParam(name = "include_deleted", required = false, defaultValue = "false")
+                    Boolean includeDeleted) {
         return ApiResult.<List<GuildPostCommentAdminResponse>>builder()
-            .value(guildPostAdminInternalService.getAllCommentsByPostId(postId, includeDeleted))
-            .build();
+                .value(guildPostAdminInternalService.getAllCommentsByPostId(postId, includeDeleted))
+                .build();
     }
 
     @GetMapping("/posts/{postId}/comments/{commentId}")
     public ApiResult<GuildPostCommentAdminResponse> getComment(
-            @PathVariable Long guildId,
-            @PathVariable Long postId,
-            @PathVariable Long commentId) {
+            @PathVariable Long guildId, @PathVariable Long postId, @PathVariable Long commentId) {
         return ApiResult.<GuildPostCommentAdminResponse>builder()
-            .value(guildPostAdminInternalService.getComment(postId, commentId))
-            .build();
+                .value(guildPostAdminInternalService.getComment(postId, commentId))
+                .build();
     }
 
     @GetMapping("/posts/{postId}/comments/deleted")
@@ -159,62 +158,54 @@ public class GuildPostAdminInternalController {
             @PathVariable Long postId,
             @PageableDefault(size = 50) Pageable pageable) {
         return ApiResult.<GuildPostCommentAdminPageResponse>builder()
-            .value(guildPostAdminInternalService.getDeletedComments(postId, pageable))
-            .build();
+                .value(guildPostAdminInternalService.getDeletedComments(postId, pageable))
+                .build();
     }
 
     @DeleteMapping("/posts/{postId}/comments/{commentId}")
     public ApiResult<Void> softDeleteComment(
-            @PathVariable Long guildId,
-            @PathVariable Long postId,
-            @PathVariable Long commentId) {
+            @PathVariable Long guildId, @PathVariable Long postId, @PathVariable Long commentId) {
         guildPostAdminInternalService.softDeleteComment(postId, commentId);
         return ApiResult.<Void>builder().build();
     }
 
     @DeleteMapping("/posts/{postId}/comments/{commentId}/hard")
     public ApiResult<Void> hardDeleteComment(
-            @PathVariable Long guildId,
-            @PathVariable Long postId,
-            @PathVariable Long commentId) {
+            @PathVariable Long guildId, @PathVariable Long postId, @PathVariable Long commentId) {
         guildPostAdminInternalService.hardDeleteComment(postId, commentId);
         return ApiResult.<Void>builder().build();
     }
 
     @PatchMapping("/posts/{postId}/comments/{commentId}/restore")
     public ApiResult<GuildPostCommentAdminResponse> restoreComment(
-            @PathVariable Long guildId,
-            @PathVariable Long postId,
-            @PathVariable Long commentId) {
+            @PathVariable Long guildId, @PathVariable Long postId, @PathVariable Long commentId) {
         return ApiResult.<GuildPostCommentAdminResponse>builder()
-            .value(guildPostAdminInternalService.restoreComment(postId, commentId))
-            .build();
+                .value(guildPostAdminInternalService.restoreComment(postId, commentId))
+                .build();
     }
 
     @GetMapping("/posts/{postId}/comments/count")
     public ApiResult<Long> countCommentsByPostId(
-            @PathVariable Long guildId,
-            @PathVariable Long postId) {
+            @PathVariable Long guildId, @PathVariable Long postId) {
         return ApiResult.<Long>builder()
-            .value(guildPostAdminInternalService.countCommentsByPostId(postId))
-            .build();
+                .value(guildPostAdminInternalService.countCommentsByPostId(postId))
+                .build();
     }
 
     // ========== 길드 전체 댓글 API ==========
 
     @GetMapping("/comments")
     public ApiResult<GuildPostCommentAdminPageResponse> getAllCommentsByGuildId(
-            @PathVariable Long guildId,
-            @PageableDefault(size = 50) Pageable pageable) {
+            @PathVariable Long guildId, @PageableDefault(size = 50) Pageable pageable) {
         return ApiResult.<GuildPostCommentAdminPageResponse>builder()
-            .value(guildPostAdminInternalService.getAllCommentsByGuildId(guildId, pageable))
-            .build();
+                .value(guildPostAdminInternalService.getAllCommentsByGuildId(guildId, pageable))
+                .build();
     }
 
     @GetMapping("/comments/count")
     public ApiResult<Long> countCommentsByGuildId(@PathVariable Long guildId) {
         return ApiResult.<Long>builder()
-            .value(guildPostAdminInternalService.countCommentsByGuildId(guildId))
-            .build();
+                .value(guildPostAdminInternalService.countCommentsByGuildId(guildId))
+                .build();
     }
 }

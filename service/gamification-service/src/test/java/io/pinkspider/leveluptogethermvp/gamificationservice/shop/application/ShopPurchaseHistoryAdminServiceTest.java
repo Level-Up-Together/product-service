@@ -32,19 +32,27 @@ import org.springframework.data.domain.Pageable;
 @ExtendWith(MockitoExtension.class)
 class ShopPurchaseHistoryAdminServiceTest {
 
-    @Mock
-    private DiamondHistoryRepository diamondHistoryRepository;
+    @Mock private DiamondHistoryRepository diamondHistoryRepository;
 
-    @Mock
-    private UserQueryFacade userQueryFacade;
+    @Mock private UserQueryFacade userQueryFacade;
 
-    @InjectMocks
-    private ShopPurchaseHistoryAdminService shopPurchaseHistoryAdminService;
+    @InjectMocks private ShopPurchaseHistoryAdminService shopPurchaseHistoryAdminService;
 
-    private ShopPurchaseHistoryRow row(Long historyId, String userId, int amount, Long itemId,
-            String itemName, TitleRarity rarity) {
-        return new ShopPurchaseHistoryRow(historyId, userId, amount,
-            LocalDateTime.of(2026, 8, 7, 10, 30), itemId, itemName, rarity);
+    private ShopPurchaseHistoryRow row(
+            Long historyId,
+            String userId,
+            int amount,
+            Long itemId,
+            String itemName,
+            TitleRarity rarity) {
+        return new ShopPurchaseHistoryRow(
+                historyId,
+                userId,
+                amount,
+                LocalDateTime.of(2026, 8, 7, 10, 30),
+                itemId,
+                itemName,
+                rarity);
     }
 
     private UserProfileInfo profile(String userId, String nickname) {
@@ -55,15 +63,17 @@ class ShopPurchaseHistoryAdminServiceTest {
     @DisplayName("검색어 없으면 전체 구매이력을 최신순으로 조회하고 닉네임을 벌크로 채운다")
     void getPurchaseHistory_noKeyword() {
         when(diamondHistoryRepository.searchShopPurchases(
-            eq(DiamondType.SHOP), eq(null), any(Pageable.class)))
-            .thenReturn(new PageImpl<>(
-                List.of(row(10L, "user-1", -300, 3L, "메딕의 날개", TitleRarity.RARE)),
-                PageRequest.of(0, 20), 1));
+                        eq(DiamondType.SHOP), eq(null), any(Pageable.class)))
+                .thenReturn(
+                        new PageImpl<>(
+                                List.of(row(10L, "user-1", -300, 3L, "메딕의 날개", TitleRarity.RARE)),
+                                PageRequest.of(0, 20),
+                                1));
         when(userQueryFacade.getUserProfiles(List.of("user-1")))
-            .thenReturn(Map.of("user-1", profile("user-1", "백루미")));
+                .thenReturn(Map.of("user-1", profile("user-1", "백루미")));
 
         ShopPurchaseHistoryAdminPageResponse result =
-            shopPurchaseHistoryAdminService.getPurchaseHistory(null, 0, 20);
+                shopPurchaseHistoryAdminService.getPurchaseHistory(null, 0, 20);
 
         assertThat(result.content()).hasSize(1);
         assertThat(result.content().get(0).itemName()).isEqualTo("메딕의 날개");
@@ -76,22 +86,23 @@ class ShopPurchaseHistoryAdminServiceTest {
     @Test
     @DisplayName("닉네임 매칭 유저가 있으면 아이템명 OR 구매자 검색 쿼리를 사용한다")
     void getPurchaseHistory_keywordWithNicknameMatch() {
-        when(userQueryFacade.findUserIdsByNicknameContaining("루미"))
-            .thenReturn(List.of("user-1"));
+        when(userQueryFacade.findUserIdsByNicknameContaining("루미")).thenReturn(List.of("user-1"));
         when(diamondHistoryRepository.searchShopPurchasesWithUsers(
-            eq(DiamondType.SHOP), eq("루미"), eq(List.of("user-1")), any(Pageable.class)))
-            .thenReturn(new PageImpl<>(
-                List.of(row(10L, "user-1", -300, 3L, "메딕의 날개", TitleRarity.RARE)),
-                PageRequest.of(0, 20), 1));
+                        eq(DiamondType.SHOP), eq("루미"), eq(List.of("user-1")), any(Pageable.class)))
+                .thenReturn(
+                        new PageImpl<>(
+                                List.of(row(10L, "user-1", -300, 3L, "메딕의 날개", TitleRarity.RARE)),
+                                PageRequest.of(0, 20),
+                                1));
         when(userQueryFacade.getUserProfiles(List.of("user-1")))
-            .thenReturn(Map.of("user-1", profile("user-1", "백루미")));
+                .thenReturn(Map.of("user-1", profile("user-1", "백루미")));
 
         ShopPurchaseHistoryAdminPageResponse result =
-            shopPurchaseHistoryAdminService.getPurchaseHistory("루미", 0, 20);
+                shopPurchaseHistoryAdminService.getPurchaseHistory("루미", 0, 20);
 
         assertThat(result.content()).hasSize(1);
-        verify(diamondHistoryRepository, never()).searchShopPurchases(
-            any(), anyString(), any(Pageable.class));
+        verify(diamondHistoryRepository, never())
+                .searchShopPurchases(any(), anyString(), any(Pageable.class));
     }
 
     @Test
@@ -99,20 +110,21 @@ class ShopPurchaseHistoryAdminServiceTest {
     void getPurchaseHistory_keywordWithoutNicknameMatch() {
         when(userQueryFacade.findUserIdsByNicknameContaining("날개")).thenReturn(List.of());
         when(diamondHistoryRepository.searchShopPurchases(
-            eq(DiamondType.SHOP), eq("날개"), any(Pageable.class)))
-            .thenReturn(new PageImpl<>(
-                List.of(row(11L, "user-2", 0, 2L, "무료 날개", TitleRarity.COMMON)),
-                PageRequest.of(0, 20), 1));
-        when(userQueryFacade.getUserProfiles(List.of("user-2")))
-            .thenReturn(Map.of());
+                        eq(DiamondType.SHOP), eq("날개"), any(Pageable.class)))
+                .thenReturn(
+                        new PageImpl<>(
+                                List.of(row(11L, "user-2", 0, 2L, "무료 날개", TitleRarity.COMMON)),
+                                PageRequest.of(0, 20),
+                                1));
+        when(userQueryFacade.getUserProfiles(List.of("user-2"))).thenReturn(Map.of());
 
         ShopPurchaseHistoryAdminPageResponse result =
-            shopPurchaseHistoryAdminService.getPurchaseHistory("날개", 0, 20);
+                shopPurchaseHistoryAdminService.getPurchaseHistory("날개", 0, 20);
 
         // 0원 구매(LUT-328)도 price 0 으로 노출, 탈퇴 등 프로필 부재 시 닉네임 null
         assertThat(result.content().get(0).price()).isZero();
         assertThat(result.content().get(0).nickname()).isNull();
-        verify(diamondHistoryRepository, never()).searchShopPurchasesWithUsers(
-            any(), anyString(), anyList(), any(Pageable.class));
+        verify(diamondHistoryRepository, never())
+                .searchShopPurchasesWithUsers(any(), anyString(), anyList(), any(Pageable.class));
     }
 }

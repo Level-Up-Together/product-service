@@ -15,9 +15,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
 
-/**
- * 로컬 파일 시스템에 상점 아이템 이미지를 저장하는 구현체 (QA-225)
- */
+/** 로컬 파일 시스템에 상점 아이템 이미지를 저장하는 구현체 (QA-225) */
 @Service
 @Profile("!prod")
 @Slf4j
@@ -73,8 +71,10 @@ public class LocalShopItemImageStorageService implements ShopItemImageStorageSer
                 relativePath = relativePath.substring(1);
             }
             // 경로 이탈 방지: 업로드 루트 밖 파일 삭제 차단 (저장 파일명은 UUID.ext 단일 세그먼트)
-            if (relativePath.isEmpty() || relativePath.contains("..")
-                || relativePath.contains("/") || relativePath.contains("\\")) {
+            if (relativePath.isEmpty()
+                    || relativePath.contains("..")
+                    || relativePath.contains("/")
+                    || relativePath.contains("\\")) {
                 log.warn("업로드 루트 밖 삭제 요청 거부: url={}", imageUrl);
                 return;
             }
@@ -153,8 +153,14 @@ public class LocalShopItemImageStorageService implements ShopItemImageStorageSer
             }
             // WEBP (RIFF....WEBP)
             return h.length >= 12
-                && h[0] == 'R' && h[1] == 'I' && h[2] == 'F' && h[3] == 'F'
-                && h[8] == 'W' && h[9] == 'E' && h[10] == 'B' && h[11] == 'P';
+                    && h[0] == 'R'
+                    && h[1] == 'I'
+                    && h[2] == 'F'
+                    && h[3] == 'F'
+                    && h[8] == 'W'
+                    && h[9] == 'E'
+                    && h[10] == 'B'
+                    && h[11] == 'P';
         } catch (IOException e) {
             return false;
         }

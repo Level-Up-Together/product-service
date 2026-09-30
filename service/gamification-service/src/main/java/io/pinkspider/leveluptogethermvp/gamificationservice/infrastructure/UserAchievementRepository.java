@@ -15,50 +15,65 @@ public interface UserAchievementRepository extends JpaRepository<UserAchievement
     // 사용자 노출 목록은 비활성 업적(achievement.is_active = false)을 숨긴다.
     // 단건 조회(findByUserIdAndAchievementId)는 sync/내부 로직에서 사용하므로 필터링하지 않는다.
 
-    @Query("SELECT ua FROM UserAchievement ua JOIN FETCH ua.achievement a WHERE ua.userId = :userId AND a.isActive = true")
+    @Query(
+            "SELECT ua FROM UserAchievement ua JOIN FETCH ua.achievement a WHERE ua.userId ="
+                    + " :userId AND a.isActive = true")
     List<UserAchievement> findByUserIdWithAchievement(@Param("userId") String userId);
 
-    @Query("SELECT ua FROM UserAchievement ua JOIN FETCH ua.achievement a WHERE ua.userId = :userId AND ua.isCompleted = true AND a.isActive = true")
+    @Query(
+            "SELECT ua FROM UserAchievement ua JOIN FETCH ua.achievement a WHERE ua.userId ="
+                    + " :userId AND ua.isCompleted = true AND a.isActive = true")
     List<UserAchievement> findCompletedByUserId(@Param("userId") String userId);
 
-    @Query("SELECT ua FROM UserAchievement ua JOIN FETCH ua.achievement a WHERE ua.userId = :userId AND ua.isCompleted = false AND a.isActive = true")
+    @Query(
+            "SELECT ua FROM UserAchievement ua JOIN FETCH ua.achievement a WHERE ua.userId ="
+                    + " :userId AND ua.isCompleted = false AND a.isActive = true")
     List<UserAchievement> findInProgressByUserId(@Param("userId") String userId);
 
-    @Query("SELECT ua FROM UserAchievement ua JOIN FETCH ua.achievement WHERE ua.userId = :userId AND ua.achievement.id = :achievementId")
-    Optional<UserAchievement> findByUserIdAndAchievementId(@Param("userId") String userId, @Param("achievementId") Long achievementId);
+    @Query(
+            "SELECT ua FROM UserAchievement ua JOIN FETCH ua.achievement WHERE ua.userId = :userId"
+                    + " AND ua.achievement.id = :achievementId")
+    Optional<UserAchievement> findByUserIdAndAchievementId(
+            @Param("userId") String userId, @Param("achievementId") Long achievementId);
 
     /**
-     * 사용자의 모든 user_achievement 행을 일괄 조회 (sync 배치용; is_active 무관).
-     * QA-116: syncUserAchievements 의 N+1 쿼리 제거 목적.
+     * 사용자의 모든 user_achievement 행을 일괄 조회 (sync 배치용; is_active 무관). QA-116: syncUserAchievements 의
+     * N+1 쿼리 제거 목적.
      */
     @Query("SELECT ua FROM UserAchievement ua WHERE ua.userId = :userId")
     List<UserAchievement> findAllByUserIdForSync(@Param("userId") String userId);
 
     // 보상 수령 가능 목록도 비활성 업적은 숨김 (자동 보상도 비활성 업적에는 지급되지 않음).
-    @Query("SELECT ua FROM UserAchievement ua JOIN FETCH ua.achievement a WHERE ua.userId = :userId AND ua.isCompleted = true AND ua.isRewardClaimed = false AND a.isActive = true")
+    @Query(
+            "SELECT ua FROM UserAchievement ua JOIN FETCH ua.achievement a WHERE ua.userId ="
+                + " :userId AND ua.isCompleted = true AND ua.isRewardClaimed = false AND a.isActive"
+                + " = true")
     List<UserAchievement> findClaimableByUserId(@Param("userId") String userId);
 
     /**
-     * 보상 수령 원자적 가드 — 이벤트 즉시 수령 / 홈 sync 자동 수령 / 수동 claim API 가
-     * 동시에 실행되어도 한 경로만 1을 반환한다. flushAutomatically 로 같은 트랜잭션에서
-     * 방금 완료 처리된(아직 flush 안 된) 행도 조건에 반영한다.
+     * 보상 수령 원자적 가드 — 이벤트 즉시 수령 / 홈 sync 자동 수령 / 수동 claim API 가 동시에 실행되어도 한 경로만 1을 반환한다.
+     * flushAutomatically 로 같은 트랜잭션에서 방금 완료 처리된(아직 flush 안 된) 행도 조건에 반영한다.
      */
     @Modifying(flushAutomatically = true)
-    @Query("UPDATE UserAchievement ua SET ua.isRewardClaimed = true, ua.rewardClaimedAt = CURRENT_TIMESTAMP WHERE ua.id = :id AND ua.isCompleted = true AND ua.isRewardClaimed = false")
+    @Query(
+            "UPDATE UserAchievement ua SET ua.isRewardClaimed = true, ua.rewardClaimedAt ="
+                    + " CURRENT_TIMESTAMP WHERE ua.id = :id AND ua.isCompleted = true AND"
+                    + " ua.isRewardClaimed = false")
     int markRewardClaimed(@Param("id") Long id);
 
-    @Query("SELECT COUNT(ua) FROM UserAchievement ua JOIN ua.achievement a WHERE ua.userId = :userId AND ua.isCompleted = true AND a.isActive = true")
+    @Query(
+            "SELECT COUNT(ua) FROM UserAchievement ua JOIN ua.achievement a WHERE ua.userId ="
+                    + " :userId AND ua.isCompleted = true AND a.isActive = true")
     long countCompletedByUserId(@Param("userId") String userId);
 
-    /**
-     * 특정 업적을 달성하고 보상을 수령한 사용자 조회 (소급 칭호 부여용)
-     */
-    @Query("SELECT ua FROM UserAchievement ua WHERE ua.achievement.id = :achievementId AND ua.isCompleted = true AND ua.isRewardClaimed = true")
-    List<UserAchievement> findByAchievementIdAndIsCompletedTrueAndIsRewardClaimedTrue(@Param("achievementId") Long achievementId);
+    /** 특정 업적을 달성하고 보상을 수령한 사용자 조회 (소급 칭호 부여용) */
+    @Query(
+            "SELECT ua FROM UserAchievement ua WHERE ua.achievement.id = :achievementId AND"
+                    + " ua.isCompleted = true AND ua.isRewardClaimed = true")
+    List<UserAchievement> findByAchievementIdAndIsCompletedTrueAndIsRewardClaimedTrue(
+            @Param("achievementId") Long achievementId);
 
-    /**
-     * QA-157: 어드민 업적 삭제 가드용 — 사용자 매핑(달성/진행)이 있으면 FK 위반 회피.
-     */
+    /** QA-157: 어드민 업적 삭제 가드용 — 사용자 매핑(달성/진행)이 있으면 FK 위반 회피. */
     @Query("SELECT COUNT(ua) FROM UserAchievement ua WHERE ua.achievement.id = :achievementId")
     long countByAchievementId(@Param("achievementId") Long achievementId);
 }

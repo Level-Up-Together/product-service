@@ -11,12 +11,12 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import io.pinkspider.global.enums.GuildExpSourceType;
+import io.pinkspider.global.enums.MissionStatus;
 import io.pinkspider.global.facade.GuildQueryFacade;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.DailyMissionInstance;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.Mission;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.MissionExecution;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.MissionParticipant;
-import io.pinkspider.global.enums.MissionStatus;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.ExecutionStatus;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionType;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.ParticipantStatus;
@@ -24,7 +24,6 @@ import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.DailyMissi
 import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.MissionExecutionRepository;
 import java.time.LocalDate;
 import java.util.Optional;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -36,41 +35,40 @@ import org.mockito.junit.jupiter.MockitoExtension;
 @DisplayName("GuildExpBackfillExecutor 테스트 (LUT-236)")
 class GuildExpBackfillExecutorTest {
 
-    @Mock
-    private MissionExecutionRepository executionRepository;
+    @Mock private MissionExecutionRepository executionRepository;
 
-    @Mock
-    private DailyMissionInstanceRepository instanceRepository;
+    @Mock private DailyMissionInstanceRepository instanceRepository;
 
-    @Mock
-    private GuildQueryFacade guildQueryFacade;
+    @Mock private GuildQueryFacade guildQueryFacade;
 
-    @InjectMocks
-    private GuildExpBackfillExecutor executor;
+    @InjectMocks private GuildExpBackfillExecutor executor;
 
     private static final String USER_ID = "user-1";
 
     private MissionExecution guildExecution(int expEarned, boolean alreadyGranted) {
-        Mission mission = Mission.builder()
-            .title("길드 미션")
-            .creatorId(USER_ID)
-            .status(MissionStatus.IN_PROGRESS)
-            .type(MissionType.GUILD)
-            .guildId("123")
-            .build();
+        Mission mission =
+                Mission.builder()
+                        .title("길드 미션")
+                        .creatorId(USER_ID)
+                        .status(MissionStatus.IN_PROGRESS)
+                        .type(MissionType.GUILD)
+                        .guildId("123")
+                        .build();
         setId(mission, 99L);
-        MissionParticipant participant = MissionParticipant.builder()
-            .mission(mission)
-            .userId(USER_ID)
-            .status(ParticipantStatus.COMPLETED)
-            .build();
-        MissionExecution execution = MissionExecution.builder()
-            .participant(participant)
-            .status(ExecutionStatus.COMPLETED)
-            .isAutoCompleted(true)
-            .guildExpGranted(alreadyGranted)
-            .expEarned(expEarned)
-            .build();
+        MissionParticipant participant =
+                MissionParticipant.builder()
+                        .mission(mission)
+                        .userId(USER_ID)
+                        .status(ParticipantStatus.COMPLETED)
+                        .build();
+        MissionExecution execution =
+                MissionExecution.builder()
+                        .participant(participant)
+                        .status(ExecutionStatus.COMPLETED)
+                        .isAutoCompleted(true)
+                        .guildExpGranted(alreadyGranted)
+                        .expEarned(expEarned)
+                        .build();
         setId(execution, 1L);
         return execution;
     }
@@ -86,9 +84,14 @@ class GuildExpBackfillExecutorTest {
 
         assertThat(granted).isEqualTo(120);
         assertThat(execution.getGuildExpGranted()).isTrue();
-        verify(guildQueryFacade).addGuildExperience(
-            eq(123L), eq(120), eq(GuildExpSourceType.GUILD_MISSION_EXECUTION),
-            eq(99L), eq(USER_ID), anyString());
+        verify(guildQueryFacade)
+                .addGuildExperience(
+                        eq(123L),
+                        eq(120),
+                        eq(GuildExpSourceType.GUILD_MISSION_EXECUTION),
+                        eq(99L),
+                        eq(USER_ID),
+                        anyString());
     }
 
     @Test
@@ -101,7 +104,7 @@ class GuildExpBackfillExecutorTest {
 
         assertThat(granted).isEqualTo(0);
         verify(guildQueryFacade, never())
-            .addGuildExperience(any(), anyInt(), any(), any(), any(), any());
+                .addGuildExperience(any(), anyInt(), any(), any(), any(), any());
     }
 
     @Test
@@ -115,7 +118,7 @@ class GuildExpBackfillExecutorTest {
         assertThat(granted).isEqualTo(0);
         assertThat(execution.getGuildExpGranted()).isTrue();
         verify(guildQueryFacade, never())
-            .addGuildExperience(any(), anyInt(), any(), any(), any(), any());
+                .addGuildExperience(any(), anyInt(), any(), any(), any(), any());
     }
 
     @Test
@@ -125,7 +128,7 @@ class GuildExpBackfillExecutorTest {
 
         assertThat(executor.grantForExecution(1L)).isEqualTo(0);
         verify(guildQueryFacade, never())
-            .addGuildExperience(any(), anyInt(), any(), any(), any(), any());
+                .addGuildExperience(any(), anyInt(), any(), any(), any(), any());
     }
 
     @Test
@@ -140,34 +143,37 @@ class GuildExpBackfillExecutorTest {
         assertThat(granted).isEqualTo(0);
         assertThat(execution.getGuildExpGranted()).isTrue(); // 마커 세팅 → 재실행 시 재시도/failed 집계 안 됨
         verify(guildQueryFacade, never())
-            .addGuildExperience(any(), anyInt(), any(), any(), any(), any());
+                .addGuildExperience(any(), anyInt(), any(), any(), any(), any());
     }
 
     private DailyMissionInstance guildInstance(Integer expEarned, boolean alreadyGranted) {
-        Mission mission = Mission.builder()
-            .title("김부장미션")
-            .creatorId(USER_ID)
-            .status(MissionStatus.IN_PROGRESS)
-            .type(MissionType.GUILD)
-            .guildId("6")
-            .isPinned(true)
-            .build();
+        Mission mission =
+                Mission.builder()
+                        .title("김부장미션")
+                        .creatorId(USER_ID)
+                        .status(MissionStatus.IN_PROGRESS)
+                        .type(MissionType.GUILD)
+                        .guildId("6")
+                        .isPinned(true)
+                        .build();
         setId(mission, 467L);
-        MissionParticipant participant = MissionParticipant.builder()
-            .mission(mission)
-            .userId(USER_ID)
-            .status(ParticipantStatus.IN_PROGRESS)
-            .build();
-        DailyMissionInstance instance = DailyMissionInstance.builder()
-            .participant(participant)
-            .instanceDate(LocalDate.now())
-            .sequenceNumber(1)
-            .missionTitle("김부장미션")
-            .status(ExecutionStatus.COMPLETED)
-            .isAutoCompleted(true)
-            .guildExpGranted(alreadyGranted)
-            .expEarned(expEarned)
-            .build();
+        MissionParticipant participant =
+                MissionParticipant.builder()
+                        .mission(mission)
+                        .userId(USER_ID)
+                        .status(ParticipantStatus.IN_PROGRESS)
+                        .build();
+        DailyMissionInstance instance =
+                DailyMissionInstance.builder()
+                        .participant(participant)
+                        .instanceDate(LocalDate.now())
+                        .sequenceNumber(1)
+                        .missionTitle("김부장미션")
+                        .status(ExecutionStatus.COMPLETED)
+                        .isAutoCompleted(true)
+                        .guildExpGranted(alreadyGranted)
+                        .expEarned(expEarned)
+                        .build();
         setId(instance, 3978L);
         return instance;
     }
@@ -183,9 +189,14 @@ class GuildExpBackfillExecutorTest {
 
         assertThat(granted).isEqualTo(120);
         assertThat(instance.getGuildExpGranted()).isTrue();
-        verify(guildQueryFacade).addGuildExperience(
-            eq(6L), eq(120), eq(GuildExpSourceType.GUILD_MISSION_EXECUTION),
-            eq(467L), eq(USER_ID), anyString());
+        verify(guildQueryFacade)
+                .addGuildExperience(
+                        eq(6L),
+                        eq(120),
+                        eq(GuildExpSourceType.GUILD_MISSION_EXECUTION),
+                        eq(467L),
+                        eq(USER_ID),
+                        anyString());
     }
 
     @Test
@@ -200,7 +211,7 @@ class GuildExpBackfillExecutorTest {
         assertThat(granted).isEqualTo(0);
         assertThat(instance.getGuildExpGranted()).isTrue();
         verify(guildQueryFacade, never())
-            .addGuildExperience(any(), anyInt(), any(), any(), any(), any());
+                .addGuildExperience(any(), anyInt(), any(), any(), any(), any());
     }
 
     @Test
@@ -213,7 +224,7 @@ class GuildExpBackfillExecutorTest {
 
         assertThat(granted).isEqualTo(0);
         verify(guildQueryFacade, never())
-            .addGuildExperience(any(), anyInt(), any(), any(), any(), any());
+                .addGuildExperience(any(), anyInt(), any(), any(), any(), any());
     }
 
     @Test
@@ -227,6 +238,6 @@ class GuildExpBackfillExecutorTest {
         assertThat(granted).isEqualTo(0);
         assertThat(instance.getGuildExpGranted()).isTrue();
         verify(guildQueryFacade, never())
-            .addGuildExperience(any(), anyInt(), any(), any(), any(), any());
+                .addGuildExperience(any(), anyInt(), any(), any(), any(), any());
     }
 }

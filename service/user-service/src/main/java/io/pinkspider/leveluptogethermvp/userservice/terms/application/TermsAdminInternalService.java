@@ -39,38 +39,44 @@ public class TermsAdminInternalService {
 
     public List<TermsAdminResponse> getAllTerms() {
         return termsRepository.findAllByOrderByIdDesc().stream()
-            .map(TermsAdminResponse::fromSimple)
-            .collect(Collectors.toList());
+                .map(TermsAdminResponse::fromSimple)
+                .collect(Collectors.toList());
     }
 
     public TermsAdminPageResponse searchTerms(String keyword, Pageable pageable) {
-        Page<TermsAdminResponse> page = termsRepository.searchByKeyword(keyword, pageable)
-            .map(TermsAdminResponse::fromSimple);
+        Page<TermsAdminResponse> page =
+                termsRepository
+                        .searchByKeyword(keyword, pageable)
+                        .map(TermsAdminResponse::fromSimple);
         return TermsAdminPageResponse.from(page);
     }
 
     public TermsAdminResponse getTerms(Long id) {
-        Term term = termsRepository.findByIdWithVersions(id)
-            .orElseThrow(() -> new CustomException("404", "error.terms.not_found"));
+        Term term =
+                termsRepository
+                        .findByIdWithVersions(id)
+                        .orElseThrow(() -> new CustomException("404", "error.terms.not_found"));
         return TermsAdminResponse.from(term);
     }
 
     public TermsAdminResponse getTermsByCode(String code) {
-        Term term = termsRepository.findByCode(code)
-            .orElseThrow(() -> new CustomException("404", "error.terms.not_found"));
+        Term term =
+                termsRepository
+                        .findByCode(code)
+                        .orElseThrow(() -> new CustomException("404", "error.terms.not_found"));
         return TermsAdminResponse.fromSimple(term);
     }
 
     public List<TermsAdminResponse> getRequiredTerms() {
         return termsRepository.findByIsRequiredTrueOrderByIdAsc().stream()
-            .map(TermsAdminResponse::fromSimple)
-            .collect(Collectors.toList());
+                .map(TermsAdminResponse::fromSimple)
+                .collect(Collectors.toList());
     }
 
     public List<TermsAdminResponse> getTermsByType(String type) {
         return termsRepository.findByTypeOrderByIdAsc(type).stream()
-            .map(TermsAdminResponse::fromSimple)
-            .collect(Collectors.toList());
+                .map(TermsAdminResponse::fromSimple)
+                .collect(Collectors.toList());
     }
 
     public List<String> getAllTermTypes() {
@@ -83,13 +89,14 @@ public class TermsAdminInternalService {
             throw new CustomException("400", "error.terms.duplicate_code");
         }
 
-        Term term = Term.builder()
-            .code(request.code())
-            .title(request.title())
-            .description(request.description())
-            .type(request.type())
-            .isRequired(request.isRequired() != null ? request.isRequired() : false)
-            .build();
+        Term term =
+                Term.builder()
+                        .code(request.code())
+                        .title(request.title())
+                        .description(request.description())
+                        .type(request.type())
+                        .isRequired(request.isRequired() != null ? request.isRequired() : false)
+                        .build();
 
         Term saved = termsRepository.save(term);
         log.info("약관 생성: id={}, code={}", saved.getId(), saved.getCode());
@@ -98,11 +105,13 @@ public class TermsAdminInternalService {
 
     @Transactional(transactionManager = "userTransactionManager")
     public TermsAdminResponse updateTerms(Long id, TermsAdminRequest request) {
-        Term term = termsRepository.findById(id)
-            .orElseThrow(() -> new CustomException("404", "error.terms.not_found"));
+        Term term =
+                termsRepository
+                        .findById(id)
+                        .orElseThrow(() -> new CustomException("404", "error.terms.not_found"));
 
         if (!term.getCode().equals(request.code())
-            && termsRepository.existsByCode(request.code())) {
+                && termsRepository.existsByCode(request.code())) {
             throw new CustomException("400", "error.terms.duplicate_code");
         }
 
@@ -136,53 +145,72 @@ public class TermsAdminInternalService {
             throw new CustomException("404", "error.terms.not_found");
         }
         return termVersionRepository.findByTermsIdOrderByIdDesc(termsId).stream()
-            .map(TermVersionAdminResponse::from)
-            .collect(Collectors.toList());
+                .map(TermVersionAdminResponse::from)
+                .collect(Collectors.toList());
     }
 
     public TermVersionAdminResponse getTermVersion(Long versionId) {
-        TermVersion version = termVersionRepository.findByIdWithTerms(versionId)
-            .orElseThrow(() -> new CustomException("404", "error.terms.version.not_found"));
+        TermVersion version =
+                termVersionRepository
+                        .findByIdWithTerms(versionId)
+                        .orElseThrow(
+                                () -> new CustomException("404", "error.terms.version.not_found"));
         return TermVersionAdminResponse.from(version);
     }
 
     public TermVersionAdminResponse getLatestTermVersion(Long termsId) {
-        TermVersion version = termVersionRepository.findTopByTermsIdOrderByIdDesc(termsId)
-            .orElseThrow(() -> new CustomException("404", "error.terms.version.not_found"));
+        TermVersion version =
+                termVersionRepository
+                        .findTopByTermsIdOrderByIdDesc(termsId)
+                        .orElseThrow(
+                                () -> new CustomException("404", "error.terms.version.not_found"));
         return TermVersionAdminResponse.from(version);
     }
 
     @Transactional(transactionManager = "userTransactionManager")
-    public TermVersionAdminResponse createTermVersion(Long termsId, TermVersionAdminRequest request) {
-        Term term = termsRepository.findById(termsId)
-            .orElseThrow(() -> new CustomException("404", "error.terms.not_found"));
+    public TermVersionAdminResponse createTermVersion(
+            Long termsId, TermVersionAdminRequest request) {
+        Term term =
+                termsRepository
+                        .findById(termsId)
+                        .orElseThrow(() -> new CustomException("404", "error.terms.not_found"));
 
         if (termVersionRepository.existsByTermsIdAndVersion(termsId, request.version())) {
             throw new CustomException("400", "error.terms.version.duplicate");
         }
 
-        TermVersion version = TermVersion.builder()
-            .terms(term)
-            .version(request.version())
-            .content(request.content())
-            .build();
+        TermVersion version =
+                TermVersion.builder()
+                        .terms(term)
+                        .version(request.version())
+                        .content(request.content())
+                        .build();
 
         TermVersion saved = termVersionRepository.save(version);
-        log.info("약관 버전 생성: termsId={}, versionId={}, version={}", termsId, saved.getId(), saved.getVersion());
+        log.info(
+                "약관 버전 생성: termsId={}, versionId={}, version={}",
+                termsId,
+                saved.getId(),
+                saved.getVersion());
         return TermVersionAdminResponse.from(saved);
     }
 
     @Transactional(transactionManager = "userTransactionManager")
-    public TermVersionAdminResponse updateTermVersion(Long versionId, TermVersionAdminRequest request) {
-        TermVersion version = termVersionRepository.findByIdWithTerms(versionId)
-            .orElseThrow(() -> new CustomException("404", "error.terms.version.not_found"));
+    public TermVersionAdminResponse updateTermVersion(
+            Long versionId, TermVersionAdminRequest request) {
+        TermVersion version =
+                termVersionRepository
+                        .findByIdWithTerms(versionId)
+                        .orElseThrow(
+                                () -> new CustomException("404", "error.terms.version.not_found"));
 
         if (version.isPublished()) {
             throw new CustomException("400", "error.terms.version.published_immutable");
         }
 
         if (!version.getVersion().equals(request.version())
-            && termVersionRepository.existsByTermsIdAndVersion(version.getTerms().getId(), request.version())) {
+                && termVersionRepository.existsByTermsIdAndVersion(
+                        version.getTerms().getId(), request.version())) {
             throw new CustomException("400", "error.terms.version.duplicate");
         }
 
@@ -196,8 +224,11 @@ public class TermsAdminInternalService {
 
     @Transactional(transactionManager = "userTransactionManager")
     public void deleteTermVersion(Long versionId) {
-        TermVersion version = termVersionRepository.findById(versionId)
-            .orElseThrow(() -> new CustomException("404", "error.terms.version.not_found"));
+        TermVersion version =
+                termVersionRepository
+                        .findById(versionId)
+                        .orElseThrow(
+                                () -> new CustomException("404", "error.terms.version.not_found"));
 
         if (version.isPublished()) {
             throw new CustomException("400", "error.terms.version.published_immutable");
@@ -208,13 +239,16 @@ public class TermsAdminInternalService {
     }
 
     /**
-     * 약관 버전 게시. DRAFT → PUBLISHED 단방향 전환이며 되돌릴 수 없다.
-     * 게시 시점부터 공개 약관 목록과 유저 재동의(pending) 판정에 반영된다. (LUT-364)
+     * 약관 버전 게시. DRAFT → PUBLISHED 단방향 전환이며 되돌릴 수 없다. 게시 시점부터 공개 약관 목록과 유저 재동의(pending) 판정에 반영된다.
+     * (LUT-364)
      */
     @Transactional(transactionManager = "userTransactionManager")
     public TermVersionAdminResponse publishTermVersion(Long versionId) {
-        TermVersion version = termVersionRepository.findByIdWithTerms(versionId)
-            .orElseThrow(() -> new CustomException("404", "error.terms.version.not_found"));
+        TermVersion version =
+                termVersionRepository
+                        .findByIdWithTerms(versionId)
+                        .orElseThrow(
+                                () -> new CustomException("404", "error.terms.version.not_found"));
 
         if (version.isPublished()) {
             throw new CustomException("400", "error.terms.version.already_published");
@@ -223,8 +257,11 @@ public class TermsAdminInternalService {
         version.publish();
 
         TermVersion saved = termVersionRepository.save(version);
-        log.info("약관 버전 게시: versionId={}, version={}, publishedAt={}",
-            versionId, saved.getVersion(), saved.getPublishedAt());
+        log.info(
+                "약관 버전 게시: versionId={}, version={}, publishedAt={}",
+                versionId,
+                saved.getVersion(),
+                saved.getPublishedAt());
         return TermVersionAdminResponse.from(saved);
     }
 
@@ -232,17 +269,18 @@ public class TermsAdminInternalService {
 
     public List<UserTermAgreementAdminResponse> getUserAgreements(String userId) {
         return userTermAgreementsRepository.findByUserIdWithTerms(userId).stream()
-            .map(UserTermAgreementAdminResponse::from)
-            .collect(Collectors.toList());
+                .map(UserTermAgreementAdminResponse::from)
+                .collect(Collectors.toList());
     }
 
-    public List<UserTermAgreementAdminResponse> getUserAgreementsByTerms(String userId, Long termsId) {
+    public List<UserTermAgreementAdminResponse> getUserAgreementsByTerms(
+            String userId, Long termsId) {
         if (!termsRepository.existsById(termsId)) {
             throw new CustomException("404", "error.terms.not_found");
         }
         return userTermAgreementsRepository.findByUserIdAndTermsId(userId, termsId).stream()
-            .map(UserTermAgreementAdminResponse::from)
-            .collect(Collectors.toList());
+                .map(UserTermAgreementAdminResponse::from)
+                .collect(Collectors.toList());
     }
 
     public Long getAgreementCountByTermVersion(Long termVersionId) {
@@ -261,24 +299,30 @@ public class TermsAdminInternalService {
 
     public UserTermAgreementAdminPageResponse searchAllAgreements(
             String userId, Long termsId, Boolean isAgreed, Pageable pageable) {
-        Page<UserTermAgreementAdminResponse> page = userTermAgreementsRepository.searchAgreementsWithFetch(
-                userId, termsId, isAgreed, pageable)
-            .map(UserTermAgreementAdminResponse::from);
+        Page<UserTermAgreementAdminResponse> page =
+                userTermAgreementsRepository
+                        .searchAgreementsWithFetch(userId, termsId, isAgreed, pageable)
+                        .map(UserTermAgreementAdminResponse::from);
         return UserTermAgreementAdminPageResponse.from(page);
     }
 
-    public UserAgreementSummaryAdminPageResponse getUserAgreementSummaries(String keyword, Pageable pageable) {
+    public UserAgreementSummaryAdminPageResponse getUserAgreementSummaries(
+            String keyword, Pageable pageable) {
         Page<String> userIds = userTermAgreementsRepository.findDistinctUserIds(keyword, pageable);
 
-        Page<UserAgreementSummaryAdminResponse> summaryPage = userIds.map(userId ->
-            new UserAgreementSummaryAdminResponse(
-                userId,
-                userTermAgreementsRepository.countByUsersId(userId),
-                userTermAgreementsRepository.countAgreedByUsersId(userId),
-                userTermAgreementsRepository.countRequiredTermsByUsersId(userId),
-                userTermAgreementsRepository.countRequiredAgreedByUsersId(userId),
-                userTermAgreementsRepository.findLastAgreedAtByUsersId(userId)
-            ));
+        Page<UserAgreementSummaryAdminResponse> summaryPage =
+                userIds.map(
+                        userId ->
+                                new UserAgreementSummaryAdminResponse(
+                                        userId,
+                                        userTermAgreementsRepository.countByUsersId(userId),
+                                        userTermAgreementsRepository.countAgreedByUsersId(userId),
+                                        userTermAgreementsRepository.countRequiredTermsByUsersId(
+                                                userId),
+                                        userTermAgreementsRepository.countRequiredAgreedByUsersId(
+                                                userId),
+                                        userTermAgreementsRepository.findLastAgreedAtByUsersId(
+                                                userId)));
 
         return UserAgreementSummaryAdminPageResponse.from(summaryPage);
     }

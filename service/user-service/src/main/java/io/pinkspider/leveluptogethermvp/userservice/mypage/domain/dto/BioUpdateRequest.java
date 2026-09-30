@@ -8,9 +8,7 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
-/**
- * 자기소개 수정 요청 DTO
- */
+/** 자기소개 수정 요청 DTO */
 @Getter
 @NoArgsConstructor
 @AllArgsConstructor

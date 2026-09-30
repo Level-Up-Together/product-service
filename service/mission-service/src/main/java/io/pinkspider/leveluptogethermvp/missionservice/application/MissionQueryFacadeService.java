@@ -22,9 +22,9 @@ import org.springframework.transaction.annotation.Transactional;
 
 /**
  * mission-service 외부 노출 read-only 구현체.
- * <p>
- * QA-158: 미션북 목록 응답의 has_achieved_target 와 동일 정의(exp_earned >= target_duration_minutes)로
- * 통일하기 위해 MissionExecutionRepository/DailyMissionInstanceRepository 의 JPQL 두 메서드 합집합을 사용.
+ *
+ * <p>QA-158: 미션북 목록 응답의 has_achieved_target 와 동일 정의(exp_earned >= target_duration_minutes)로 통일하기 위해
+ * MissionExecutionRepository/DailyMissionInstanceRepository 의 JPQL 두 메서드 합집합을 사용.
  */
 @Service
 @RequiredArgsConstructor
@@ -37,15 +37,18 @@ public class MissionQueryFacadeService implements MissionQueryFacade {
 
     @Override
     public Optional<InProgressMissionDto> findInProgressMission(String userId, String locale) {
-        Optional<MissionExecution> execution = missionExecutionRepository.findInProgressByUserId(userId);
-        Optional<DailyMissionInstance> instance = dailyMissionInstanceRepository.findInProgressByUserId(userId);
+        Optional<MissionExecution> execution =
+                missionExecutionRepository.findInProgressByUserId(userId);
+        Optional<DailyMissionInstance> instance =
+                dailyMissionInstanceRepository.findInProgressByUserId(userId);
 
-        InProgressMissionDto fromExecution = execution
-            .map(e -> toDto(e.getParticipant().getMission(), e.getStartedAt(), locale))
-            .orElse(null);
-        InProgressMissionDto fromInstance = instance
-            .map(i -> toDto(i.getParticipant().getMission(), i.getStartedAt(), locale))
-            .orElse(null);
+        InProgressMissionDto fromExecution =
+                execution
+                        .map(e -> toDto(e.getParticipant().getMission(), e.getStartedAt(), locale))
+                        .orElse(null);
+        InProgressMissionDto fromInstance =
+                instance.map(i -> toDto(i.getParticipant().getMission(), i.getStartedAt(), locale))
+                        .orElse(null);
 
         if (fromExecution == null) {
             return Optional.ofNullable(fromInstance);
@@ -54,13 +57,15 @@ public class MissionQueryFacadeService implements MissionQueryFacade {
             return Optional.of(fromExecution);
         }
         // 둘 다 진행중이면 최근 시작한 쪽 우선
-        return Optional.of(isAfter(fromExecution.startedAt(), fromInstance.startedAt())
-            ? fromExecution : fromInstance);
+        return Optional.of(
+                isAfter(fromExecution.startedAt(), fromInstance.startedAt())
+                        ? fromExecution
+                        : fromInstance);
     }
 
     /**
-     * LUT-275: 여러 유저의 진행중 미션 배치 조회. 단건과 동일한 병합 규칙(일반/고정 통합, 최근 시작 우선)을
-     * 유저별로 적용한다. 진행중 미션이 없는 유저는 결과 맵에 포함되지 않는다.
+     * LUT-275: 여러 유저의 진행중 미션 배치 조회. 단건과 동일한 병합 규칙(일반/고정 통합, 최근 시작 우선)을 유저별로 적용한다. 진행중 미션이 없는 유저는 결과
+     * 맵에 포함되지 않는다.
      */
     @Override
     public Map<String, InProgressMissionDto> findInProgressMissions(
@@ -70,36 +75,44 @@ public class MissionQueryFacadeService implements MissionQueryFacade {
         }
         Map<String, InProgressMissionDto> result = new java.util.HashMap<>();
         for (MissionExecution e : missionExecutionRepository.findInProgressByUserIdIn(userIds)) {
-            mergeLatest(result, e.getParticipant().getUserId(),
-                toDto(e.getParticipant().getMission(), e.getStartedAt(), locale));
+            mergeLatest(
+                    result,
+                    e.getParticipant().getUserId(),
+                    toDto(e.getParticipant().getMission(), e.getStartedAt(), locale));
         }
-        for (DailyMissionInstance i : dailyMissionInstanceRepository.findInProgressByUserIdIn(userIds)) {
-            mergeLatest(result, i.getParticipant().getUserId(),
-                toDto(i.getParticipant().getMission(), i.getStartedAt(), locale));
+        for (DailyMissionInstance i :
+                dailyMissionInstanceRepository.findInProgressByUserIdIn(userIds)) {
+            mergeLatest(
+                    result,
+                    i.getParticipant().getUserId(),
+                    toDto(i.getParticipant().getMission(), i.getStartedAt(), locale));
         }
         return result;
     }
 
-    /**
-     * LUT-297: 진행중 미션이 있는 전체 유저 조회 (실시간 랭킹용). 배치 조회와 동일한 병합 규칙(일반/고정 통합,
-     * 최근 시작 우선)을 유저별로 적용한다.
-     */
+    /** LUT-297: 진행중 미션이 있는 전체 유저 조회 (실시간 랭킹용). 배치 조회와 동일한 병합 규칙(일반/고정 통합, 최근 시작 우선)을 유저별로 적용한다. */
     @Override
     public Map<String, InProgressMissionDto> findAllInProgressMissions(String locale) {
         Map<String, InProgressMissionDto> result = new java.util.HashMap<>();
         for (MissionExecution e : missionExecutionRepository.findAllInProgress()) {
-            mergeLatest(result, e.getParticipant().getUserId(),
-                toDto(e.getParticipant().getMission(), e.getStartedAt(), locale));
+            mergeLatest(
+                    result,
+                    e.getParticipant().getUserId(),
+                    toDto(e.getParticipant().getMission(), e.getStartedAt(), locale));
         }
         for (DailyMissionInstance i : dailyMissionInstanceRepository.findAllInProgress()) {
-            mergeLatest(result, i.getParticipant().getUserId(),
-                toDto(i.getParticipant().getMission(), i.getStartedAt(), locale));
+            mergeLatest(
+                    result,
+                    i.getParticipant().getUserId(),
+                    toDto(i.getParticipant().getMission(), i.getStartedAt(), locale));
         }
         return result;
     }
 
-    private void mergeLatest(Map<String, InProgressMissionDto> result, String userId,
-                              InProgressMissionDto candidate) {
+    private void mergeLatest(
+            Map<String, InProgressMissionDto> result,
+            String userId,
+            InProgressMissionDto candidate) {
         InProgressMissionDto existing = result.get(userId);
         if (existing == null || isAfter(candidate.startedAt(), existing.startedAt())) {
             result.put(userId, candidate);
@@ -110,13 +123,13 @@ public class MissionQueryFacadeService implements MissionQueryFacade {
     // locale 번역 제목으로 내린다 (번역 없으면 원문 폴백, getLocalizedTitle 내장 동작)
     private InProgressMissionDto toDto(Mission mission, LocalDateTime startedAt, String locale) {
         return new InProgressMissionDto(
-            mission.getId(),
-            mission.getCategoryId(),
-            mission.getCategoryName(),
-            mission.getLocalizedTitle(locale),
-            mission.getVisibility() != null ? mission.getVisibility().name() : null,
-            mission.getGuildId(),
-            startedAt);
+                mission.getId(),
+                mission.getCategoryId(),
+                mission.getCategoryName(),
+                mission.getLocalizedTitle(locale),
+                mission.getVisibility() != null ? mission.getVisibility().name() : null,
+                mission.getGuildId(),
+                startedAt);
     }
 
     private boolean isAfter(LocalDateTime a, LocalDateTime b) {
@@ -133,7 +146,9 @@ public class MissionQueryFacadeService implements MissionQueryFacade {
 
     @Override
     public Set<Long> findClearedMissionBookTemplateIds(String userId) {
-        Set<Long> ids = new HashSet<>(missionExecutionRepository.findAchievedTargetTemplateIdsByUserId(userId));
+        Set<Long> ids =
+                new HashSet<>(
+                        missionExecutionRepository.findAchievedTargetTemplateIdsByUserId(userId));
         ids.addAll(dailyMissionInstanceRepository.findAchievedTargetTemplateIdsByUserId(userId));
         return ids;
     }
@@ -144,15 +159,15 @@ public class MissionQueryFacadeService implements MissionQueryFacade {
             return Map.of();
         }
         return missionTemplateRepository.findAllById(templateIds).stream()
-            .collect(Collectors.toMap(MissionTemplate::getId, MissionTemplate::getTitle));
+                .collect(Collectors.toMap(MissionTemplate::getId, MissionTemplate::getTitle));
     }
 
     @Override
     public Map<String, Set<LocalDate>> findMissionCompletedLocalDates(
-        java.util.Collection<String> userIds,
-        LocalDateTime startUtc,
-        LocalDateTime endUtc,
-        String timezone) {
+            java.util.Collection<String> userIds,
+            LocalDateTime startUtc,
+            LocalDateTime endUtc,
+            String timezone) {
         if (userIds == null || userIds.isEmpty()) {
             return Map.of();
         }
@@ -166,17 +181,21 @@ public class MissionQueryFacadeService implements MissionQueryFacade {
         Map<String, Set<LocalDate>> result = new java.util.HashMap<>();
         // 일반 미션 + 고정 미션 완료 기록 합집합 — completedAt(UTC) 을 유저 타임존 로컬 날짜로 버킷팅
         accumulateCompletedDates(
-            result, missionExecutionRepository.findCompletedUserAndTimeByUserIdIn(userIds, startUtc, endUtc), zone);
+                result,
+                missionExecutionRepository.findCompletedUserAndTimeByUserIdIn(
+                        userIds, startUtc, endUtc),
+                zone);
         accumulateCompletedDates(
-            result,
-            dailyMissionInstanceRepository.findCompletedUserAndTimeByUserIdIn(userIds, startUtc, endUtc),
-            zone);
+                result,
+                dailyMissionInstanceRepository.findCompletedUserAndTimeByUserIdIn(
+                        userIds, startUtc, endUtc),
+                zone);
         return result;
     }
 
     /** (userId, completedAt) 행들을 유저별 로컬 날짜 집합으로 누적한다. completedAt(UTC) 을 zone 로컬 날짜로 변환. */
     private void accumulateCompletedDates(
-        Map<String, Set<LocalDate>> acc, java.util.List<Object[]> rows, java.time.ZoneId zone) {
+            Map<String, Set<LocalDate>> acc, java.util.List<Object[]> rows, java.time.ZoneId zone) {
         for (Object[] row : rows) {
             String userId = (String) row[0];
             LocalDateTime completedAtUtc = (LocalDateTime) row[1];
@@ -184,7 +203,10 @@ public class MissionQueryFacadeService implements MissionQueryFacade {
                 continue;
             }
             LocalDate localDate =
-                completedAtUtc.atZone(java.time.ZoneOffset.UTC).withZoneSameInstant(zone).toLocalDate();
+                    completedAtUtc
+                            .atZone(java.time.ZoneOffset.UTC)
+                            .withZoneSameInstant(zone)
+                            .toLocalDate();
             acc.computeIfAbsent(userId, k -> new HashSet<>()).add(localDate);
         }
     }

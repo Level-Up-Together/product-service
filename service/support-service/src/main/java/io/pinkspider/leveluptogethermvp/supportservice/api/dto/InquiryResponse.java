@@ -46,6 +46,7 @@ public class InquiryResponse {
     public static class ReplyResponse {
         private Long id;
         private String content;
+
         @JsonProperty("created_at")
         private LocalDateTime createdAt;
     }

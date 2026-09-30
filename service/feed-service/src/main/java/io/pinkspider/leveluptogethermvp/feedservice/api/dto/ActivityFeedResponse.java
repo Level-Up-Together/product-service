@@ -4,9 +4,9 @@ import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.PropertyNamingStrategies;
 import com.fasterxml.jackson.databind.annotation.JsonNaming;
-import io.pinkspider.global.translation.dto.TranslationInfo;
 import io.pinkspider.global.enums.TitleRarity;
 import io.pinkspider.global.facade.dto.EquippedItemRarityDto;
+import io.pinkspider.global.translation.dto.TranslationInfo;
 import io.pinkspider.leveluptogethermvp.feedservice.domain.entity.ActivityFeed;
 import io.pinkspider.leveluptogethermvp.feedservice.domain.enums.ActivityType;
 import io.pinkspider.leveluptogethermvp.feedservice.domain.enums.FeedVisibility;
@@ -40,12 +40,10 @@ public class ActivityFeedResponse {
     private TitleRarity userRightTitleRarity;
 
     // LUT-424: 작성자 장착 아이템 타입·희귀도 (썸네일 등급 표식용). 스냅샷 없이 조회 시점 라이브 주입, 미장착이면 빈 배열.
-    @Builder.Default
-    private List<EquippedItemRarityDto> equippedItemRarities = List.of();
+    @Builder.Default private List<EquippedItemRarityDto> equippedItemRarities = List.of();
 
     // LUT-455: 작성자 구독자 여부 (구독자 뱃지용). 조회 시점 라이브 주입, 실패 시 false 유지.
-    @Builder.Default
-    private Boolean isSubscriber = false;
+    @Builder.Default private Boolean isSubscriber = false;
 
     private ActivityType activityType;
     private String activityTypeDisplayName;
@@ -88,50 +86,52 @@ public class ActivityFeedResponse {
     // 신고 처리중 여부
     private Boolean isUnderReview;
 
-    public static ActivityFeedResponse from(ActivityFeed feed, boolean likedByMe, boolean isMyFeed) {
+    public static ActivityFeedResponse from(
+            ActivityFeed feed, boolean likedByMe, boolean isMyFeed) {
         return from(feed, likedByMe, isMyFeed, null);
     }
 
-    public static ActivityFeedResponse from(ActivityFeed feed, boolean likedByMe, boolean isMyFeed, TranslationInfo translation) {
+    public static ActivityFeedResponse from(
+            ActivityFeed feed, boolean likedByMe, boolean isMyFeed, TranslationInfo translation) {
         return ActivityFeedResponse.builder()
-            .id(feed.getId())
-            .userId(feed.getUserId())
-            .userNickname(feed.getUserNickname())
-            .userProfileImageUrl(feed.getUserProfileImageUrl())
-            .userLevel(feed.getUserLevel() != null ? feed.getUserLevel() : 1)
-            .userTitle(feed.getUserTitle())
-            .userTitleRarity(feed.getUserTitleRarity())
-            .userTitleColorCode(feed.getUserTitleColorCode())
-            .userLeftTitle(feed.getUserLeftTitle())
-            .userLeftTitleRarity(feed.getUserLeftTitleRarity())
-            .userRightTitle(feed.getUserRightTitle())
-            .userRightTitleRarity(feed.getUserRightTitleRarity())
-            .activityType(feed.getActivityType())
-            .activityTypeDisplayName(feed.getActivityType().getDisplayName())
-            .category(feed.getActivityType().getCategory())
-            .title(feed.getTitle())
-            .description(feed.getDescription())
-            .referenceType(feed.getReferenceType())
-            .referenceId(feed.getReferenceId())
-            .referenceName(feed.getReferenceName())
-            .visibility(feed.getVisibility())
-            .guildId(feed.getGuildId())
-            .guildName(feed.getGuildName())
-            .imageUrl(feed.getImageUrl())
-            // QA-53: imageUrls 는 FeedQueryService.enrichWithImageUrls 에서 채운다.
-            //   여기서 폴백을 채우지 않는 이유는 RestDocs 응답 명세 호환 (필드 미존재 시 JSON 에서 빠짐).
-            .iconUrl(feed.getIconUrl())
-            .likeCount(feed.getLikeCount())
-            .commentCount(feed.getCommentCount())
-            .likedByMe(likedByMe)
-            .myFeed(isMyFeed)
-            .createdAt(feed.getCreatedAt())
-            .executionId(feed.getExecutionId())
-            .durationMinutes(feed.getDurationMinutes())
-            .expEarned(feed.getExpEarned())
-            .categoryId(feed.getCategoryId())
-            .translation(translation)
-            .build();
+                .id(feed.getId())
+                .userId(feed.getUserId())
+                .userNickname(feed.getUserNickname())
+                .userProfileImageUrl(feed.getUserProfileImageUrl())
+                .userLevel(feed.getUserLevel() != null ? feed.getUserLevel() : 1)
+                .userTitle(feed.getUserTitle())
+                .userTitleRarity(feed.getUserTitleRarity())
+                .userTitleColorCode(feed.getUserTitleColorCode())
+                .userLeftTitle(feed.getUserLeftTitle())
+                .userLeftTitleRarity(feed.getUserLeftTitleRarity())
+                .userRightTitle(feed.getUserRightTitle())
+                .userRightTitleRarity(feed.getUserRightTitleRarity())
+                .activityType(feed.getActivityType())
+                .activityTypeDisplayName(feed.getActivityType().getDisplayName())
+                .category(feed.getActivityType().getCategory())
+                .title(feed.getTitle())
+                .description(feed.getDescription())
+                .referenceType(feed.getReferenceType())
+                .referenceId(feed.getReferenceId())
+                .referenceName(feed.getReferenceName())
+                .visibility(feed.getVisibility())
+                .guildId(feed.getGuildId())
+                .guildName(feed.getGuildName())
+                .imageUrl(feed.getImageUrl())
+                // QA-53: imageUrls 는 FeedQueryService.enrichWithImageUrls 에서 채운다.
+                //   여기서 폴백을 채우지 않는 이유는 RestDocs 응답 명세 호환 (필드 미존재 시 JSON 에서 빠짐).
+                .iconUrl(feed.getIconUrl())
+                .likeCount(feed.getLikeCount())
+                .commentCount(feed.getCommentCount())
+                .likedByMe(likedByMe)
+                .myFeed(isMyFeed)
+                .createdAt(feed.getCreatedAt())
+                .executionId(feed.getExecutionId())
+                .durationMinutes(feed.getDurationMinutes())
+                .expEarned(feed.getExpEarned())
+                .categoryId(feed.getCategoryId())
+                .translation(translation)
+                .build();
     }
 
     public static ActivityFeedResponse from(ActivityFeed feed, boolean likedByMe) {

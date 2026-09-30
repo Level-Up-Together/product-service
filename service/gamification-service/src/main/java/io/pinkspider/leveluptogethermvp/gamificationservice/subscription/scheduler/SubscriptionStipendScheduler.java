@@ -10,8 +10,8 @@ import org.springframework.stereotype.Component;
 /**
  * LUT-453: 구독자 일일 다이아 스티펜드 스케줄러.
  *
- * <p>지급일 경계는 UTC(저장 시간대와 동일) — 자정 직후 10분에 실행해 만료 경계의 애매함을 줄인다.
- * 멱등키(구독 ID, 지급일) 덕에 재실행·수동 재기동에도 중복 지급이 없다.
+ * <p>지급일 경계는 UTC(저장 시간대와 동일) — 자정 직후 10분에 실행해 만료 경계의 애매함을 줄인다. 멱등키(구독 ID, 지급일) 덕에 재실행·수동 재기동에도 중복
+ * 지급이 없다.
  */
 @Component
 @RequiredArgsConstructor

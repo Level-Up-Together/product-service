@@ -8,22 +8,20 @@ import java.time.LocalDateTime;
 
 @JsonNaming(SnakeCaseStrategy.class)
 public record DailyMvpExclusionAdminResponse(
-    Long id,
-    LocalDate mvpDate,
-    String userId,
-    String reason,
-    Long adminId,
-    LocalDateTime createdAt
-) {
+        Long id,
+        LocalDate mvpDate,
+        String userId,
+        String reason,
+        Long adminId,
+        LocalDateTime createdAt) {
 
     public static DailyMvpExclusionAdminResponse from(DailyMvpExclusion entity) {
         return new DailyMvpExclusionAdminResponse(
-            entity.getId(),
-            entity.getMvpDate(),
-            entity.getUserId(),
-            entity.getReason(),
-            entity.getAdminId(),
-            entity.getCreatedAt()
-        );
+                entity.getId(),
+                entity.getMvpDate(),
+                entity.getUserId(),
+                entity.getReason(),
+                entity.getAdminId(),
+                entity.getCreatedAt());
     }
 }

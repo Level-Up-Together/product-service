@@ -30,9 +30,11 @@ public class MissionExecutionResponse {
     private String missionTitle;
     private String missionCategoryName;
     private MissionType missionType;
+
     /** QA-194: 길드 미션인 경우 길드명. 일반 미션이면 null. */
     @JsonInclude(JsonInclude.Include.NON_NULL)
     private String guildName;
+
     private String userId;
 
     private LocalDate executionDate;
@@ -72,87 +74,89 @@ public class MissionExecutionResponse {
     public static MissionExecutionResponse from(MissionExecution execution) {
         Integer durationMinutes = null;
         if (execution.getStartedAt() != null && execution.getCompletedAt() != null) {
-            durationMinutes = (int) java.time.Duration.between(
-                execution.getStartedAt(), execution.getCompletedAt()).toMinutes();
+            durationMinutes =
+                    (int)
+                            java.time.Duration.between(
+                                            execution.getStartedAt(), execution.getCompletedAt())
+                                    .toMinutes();
         }
 
         return MissionExecutionResponse.builder()
-            .id(execution.getId())
-            .participantId(execution.getParticipant().getId())
-            .missionId(execution.getParticipant().getMission().getId())
-            .missionTitle(execution.getParticipant().getMission().getTitle())
-            .missionCategoryName(execution.getParticipant().getMission().getCategoryName())
-            .missionType(execution.getParticipant().getMission().getType())
-            .guildName(execution.getParticipant().getMission().getGuildName())
-            .userId(execution.getParticipant().getUserId())
-            .executionDate(execution.getExecutionDate())
-            .status(execution.getStatus())
-            .startedAt(execution.getStartedAt())
-            .completedAt(execution.getCompletedAt())
-            .durationMinutes(durationMinutes)
-            .expEarned(execution.getExpEarned())
-            .note(execution.getNote())
-            .imageUrl(execution.getImageUrl())
-            .isSharedToFeed(Boolean.TRUE.equals(execution.getIsSharedToFeed()))
-            .isAutoCompleted(execution.getIsAutoCompleted())
-            .createdAt(execution.getCreatedAt())
-            .build();
+                .id(execution.getId())
+                .participantId(execution.getParticipant().getId())
+                .missionId(execution.getParticipant().getMission().getId())
+                .missionTitle(execution.getParticipant().getMission().getTitle())
+                .missionCategoryName(execution.getParticipant().getMission().getCategoryName())
+                .missionType(execution.getParticipant().getMission().getType())
+                .guildName(execution.getParticipant().getMission().getGuildName())
+                .userId(execution.getParticipant().getUserId())
+                .executionDate(execution.getExecutionDate())
+                .status(execution.getStatus())
+                .startedAt(execution.getStartedAt())
+                .completedAt(execution.getCompletedAt())
+                .durationMinutes(durationMinutes)
+                .expEarned(execution.getExpEarned())
+                .note(execution.getNote())
+                .imageUrl(execution.getImageUrl())
+                .isSharedToFeed(Boolean.TRUE.equals(execution.getIsSharedToFeed()))
+                .isAutoCompleted(execution.getIsAutoCompleted())
+                .createdAt(execution.getCreatedAt())
+                .build();
     }
 
-    /**
-     * DailyMissionInstanceResponse를 MissionExecutionResponse로 변환 (하위 호환성)
-     */
-    public static MissionExecutionResponse fromDailyInstance(DailyMissionInstanceResponse instanceResponse) {
+    /** DailyMissionInstanceResponse를 MissionExecutionResponse로 변환 (하위 호환성) */
+    public static MissionExecutionResponse fromDailyInstance(
+            DailyMissionInstanceResponse instanceResponse) {
         return MissionExecutionResponse.builder()
-            .id(instanceResponse.getId())
-            .participantId(instanceResponse.getParticipantId())
-            .missionId(instanceResponse.getMissionId())
-            .missionTitle(instanceResponse.getMissionTitle())
-            .missionCategoryName(instanceResponse.getMissionCategoryName())
-            // QA-184: 길드미션 공개 옵션 노출 판단용 mission_type 전파
-            .missionType(instanceResponse.getMissionType())
-            .guildName(instanceResponse.getGuildName())
-            .userId(instanceResponse.getUserId())
-            .executionDate(instanceResponse.getInstanceDate())
-            .status(instanceResponse.getStatus())
-            .startedAt(instanceResponse.getStartedAt())
-            .completedAt(instanceResponse.getCompletedAt())
-            .durationMinutes(instanceResponse.getDurationMinutes())
-            .expEarned(instanceResponse.getExpEarned())
-            .note(instanceResponse.getNote())
-            .imageUrl(instanceResponse.getImageUrl())
-            .imageUrls(instanceResponse.getImageUrls())
-            .isSharedToFeed(instanceResponse.getIsSharedToFeed())
-            .dailySimpleExpCapped(instanceResponse.getDailySimpleExpCapped())
-            .createdAt(instanceResponse.getCreatedAt())
-            .build();
+                .id(instanceResponse.getId())
+                .participantId(instanceResponse.getParticipantId())
+                .missionId(instanceResponse.getMissionId())
+                .missionTitle(instanceResponse.getMissionTitle())
+                .missionCategoryName(instanceResponse.getMissionCategoryName())
+                // QA-184: 길드미션 공개 옵션 노출 판단용 mission_type 전파
+                .missionType(instanceResponse.getMissionType())
+                .guildName(instanceResponse.getGuildName())
+                .userId(instanceResponse.getUserId())
+                .executionDate(instanceResponse.getInstanceDate())
+                .status(instanceResponse.getStatus())
+                .startedAt(instanceResponse.getStartedAt())
+                .completedAt(instanceResponse.getCompletedAt())
+                .durationMinutes(instanceResponse.getDurationMinutes())
+                .expEarned(instanceResponse.getExpEarned())
+                .note(instanceResponse.getNote())
+                .imageUrl(instanceResponse.getImageUrl())
+                .imageUrls(instanceResponse.getImageUrls())
+                .isSharedToFeed(instanceResponse.getIsSharedToFeed())
+                .dailySimpleExpCapped(instanceResponse.getDailySimpleExpCapped())
+                .createdAt(instanceResponse.getCreatedAt())
+                .build();
     }
 
     /**
-     * DailyMissionInstance를 MissionExecutionResponse로 변환
-     * 고정 미션(pinned mission)의 일일 인스턴스를 동일한 응답 포맷으로 변환
+     * DailyMissionInstance를 MissionExecutionResponse로 변환 고정 미션(pinned mission)의 일일 인스턴스를 동일한 응답
+     * 포맷으로 변환
      */
     public static MissionExecutionResponse fromDailyMissionInstance(DailyMissionInstance instance) {
         return MissionExecutionResponse.builder()
-            .id(instance.getId())
-            .participantId(instance.getParticipant().getId())
-            .missionId(instance.getParticipant().getMission().getId())
-            .missionTitle(instance.getMissionTitle())
-            .missionCategoryName(instance.getCategoryName())
-            .missionType(instance.getParticipant().getMission().getType())
-            .guildName(instance.getParticipant().getMission().getGuildName())
-            .userId(instance.getParticipant().getUserId())
-            .executionDate(instance.getInstanceDate())
-            .status(instance.getStatus())
-            .startedAt(instance.getStartedAt())
-            .completedAt(instance.getCompletedAt())
-            .durationMinutes(instance.getDurationMinutes())
-            .expEarned(instance.getExpEarned())
-            .note(instance.getNote())
-            .imageUrl(instance.getImageUrl())
-            .isSharedToFeed(Boolean.TRUE.equals(instance.getIsSharedToFeed()))
-            .isAutoCompleted(instance.getIsAutoCompleted())
-            .createdAt(instance.getCreatedAt())
-            .build();
+                .id(instance.getId())
+                .participantId(instance.getParticipant().getId())
+                .missionId(instance.getParticipant().getMission().getId())
+                .missionTitle(instance.getMissionTitle())
+                .missionCategoryName(instance.getCategoryName())
+                .missionType(instance.getParticipant().getMission().getType())
+                .guildName(instance.getParticipant().getMission().getGuildName())
+                .userId(instance.getParticipant().getUserId())
+                .executionDate(instance.getInstanceDate())
+                .status(instance.getStatus())
+                .startedAt(instance.getStartedAt())
+                .completedAt(instance.getCompletedAt())
+                .durationMinutes(instance.getDurationMinutes())
+                .expEarned(instance.getExpEarned())
+                .note(instance.getNote())
+                .imageUrl(instance.getImageUrl())
+                .isSharedToFeed(Boolean.TRUE.equals(instance.getIsSharedToFeed()))
+                .isAutoCompleted(instance.getIsAutoCompleted())
+                .createdAt(instance.getCreatedAt())
+                .build();
     }
 }

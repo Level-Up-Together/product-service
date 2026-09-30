@@ -1,5 +1,14 @@
 package io.pinkspider.leveluptogethermvp.guildservice.application;
 
+import io.pinkspider.global.enums.ReportTargetType;
+import io.pinkspider.global.facade.GamificationQueryFacade;
+import io.pinkspider.global.facade.UserQueryFacade;
+import io.pinkspider.global.facade.dto.DetailedTitleInfoDto;
+import io.pinkspider.global.facade.dto.EquippedItemRarityDto;
+import io.pinkspider.global.facade.dto.UserProfileInfo;
+import io.pinkspider.global.facade.dto.UserTitleDto;
+import io.pinkspider.global.feign.admin.AdminInternalFeignClient;
+import io.pinkspider.global.translation.TitleNameUtils;
 import io.pinkspider.leveluptogethermvp.guildservice.domain.dto.GuildMemberResponse;
 import io.pinkspider.leveluptogethermvp.guildservice.domain.dto.GuildResponse;
 import io.pinkspider.leveluptogethermvp.guildservice.domain.entity.Guild;
@@ -8,22 +17,12 @@ import io.pinkspider.leveluptogethermvp.guildservice.domain.enums.JoinRequestSta
 import io.pinkspider.leveluptogethermvp.guildservice.infrastructure.GuildJoinRequestRepository;
 import io.pinkspider.leveluptogethermvp.guildservice.infrastructure.GuildMemberRepository;
 import io.pinkspider.leveluptogethermvp.guildservice.infrastructure.GuildRepository;
-import io.pinkspider.global.feign.admin.AdminInternalFeignClient;
-import io.pinkspider.global.facade.GamificationQueryFacade;
-import io.pinkspider.global.facade.dto.DetailedTitleInfoDto;
-import io.pinkspider.global.facade.dto.EquippedItemRarityDto;
-import io.pinkspider.global.facade.UserQueryFacade;
-import io.pinkspider.global.facade.dto.UserProfileInfo;
-import io.pinkspider.global.facade.dto.UserTitleDto;
-import io.pinkspider.global.enums.ReportTargetType;
-import io.pinkspider.global.translation.TitleNameUtils;
 import io.pinkspider.leveluptogethermvp.supportservice.report.application.ReportService;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -61,16 +60,18 @@ public class GuildQueryService {
         }
 
         int memberCount = (int) guildMemberRepository.countActiveMembers(guildId);
-        GuildResponse response = guildHelper.buildGuildResponseWithCategory(guild, memberCount, locale);
+        GuildResponse response =
+                guildHelper.buildGuildResponseWithCategory(guild, memberCount, locale);
 
         // 신고 처리중 여부 확인
-        response.setIsUnderReview(reportService.isUnderReview(ReportTargetType.GUILD, String.valueOf(guildId)));
+        response.setIsUnderReview(
+                reportService.isUnderReview(ReportTargetType.GUILD, String.valueOf(guildId)));
 
         // 가입 신청 대기중 여부 확인 (로그인한 사용자인 경우)
         if (userId != null) {
             response.setIsPendingJoinRequest(
-                joinRequestRepository.existsByGuildIdAndRequesterIdAndStatus(guildId, userId, JoinRequestStatus.PENDING)
-            );
+                    joinRequestRepository.existsByGuildIdAndRequesterIdAndStatus(
+                            guildId, userId, JoinRequestStatus.PENDING));
         }
 
         return response;
@@ -85,13 +86,10 @@ public class GuildQueryService {
         Page<Guild> guilds = guildRepository.findPublicGuilds(pageable);
 
         // 배치로 신고 상태 조회
-        List<Long> guildIdLongs = guilds.getContent().stream()
-            .map(Guild::getId)
-            .toList();
-        List<String> guildIds = guildIdLongs.stream()
-            .map(String::valueOf)
-            .toList();
-        Map<String, Boolean> underReviewMap = reportService.isUnderReviewBatch(ReportTargetType.GUILD, guildIds);
+        List<Long> guildIdLongs = guilds.getContent().stream().map(Guild::getId).toList();
+        List<String> guildIds = guildIdLongs.stream().map(String::valueOf).toList();
+        Map<String, Boolean> underReviewMap =
+                reportService.isUnderReviewBatch(ReportTargetType.GUILD, guildIds);
 
         // 배치로 가입 신청 대기중 상태 조회 (로그인한 사용자인 경우)
         Set<Long> pendingGuildIds = getPendingJoinRequestGuildIds(userId, guildIdLongs);
@@ -99,40 +97,42 @@ public class GuildQueryService {
         // 배치로 활성 멤버 수 조회 (길드별 개별 COUNT N+1 방지)
         Map<Long, Integer> memberCountMap = getActiveMemberCounts(guildIdLongs);
 
-        return guilds.map(guild -> {
-            int memberCount = memberCountMap.getOrDefault(guild.getId(), 0);
-            GuildResponse response = guildHelper.buildGuildResponseWithCategory(guild, memberCount, locale);
-            response.setIsUnderReview(underReviewMap.getOrDefault(String.valueOf(guild.getId()), false));
-            response.setIsPendingJoinRequest(pendingGuildIds.contains(guild.getId()));
-            return response;
-        });
+        return guilds.map(
+                guild -> {
+                    int memberCount = memberCountMap.getOrDefault(guild.getId(), 0);
+                    GuildResponse response =
+                            guildHelper.buildGuildResponseWithCategory(guild, memberCount, locale);
+                    response.setIsUnderReview(
+                            underReviewMap.getOrDefault(String.valueOf(guild.getId()), false));
+                    response.setIsPendingJoinRequest(pendingGuildIds.contains(guild.getId()));
+                    return response;
+                });
     }
 
-    /**
-     * LUT-483: 길드 랭킹 — 누적 활동 포인트 기준 서버 정렬. Pageable 의 sort 는 무시되고
-     * 포인트 내림차순(+동점 안정 정렬)이 강제된다.
-     */
+    /** LUT-483: 길드 랭킹 — 누적 활동 포인트 기준 서버 정렬. Pageable 의 sort 는 무시되고 포인트 내림차순(+동점 안정 정렬)이 강제된다. */
     public Page<GuildResponse> getGuildRanking(String userId, Pageable pageable, String locale) {
-        Page<Guild> guilds = guildRepository.findGuildRanking(
-            org.springframework.data.domain.PageRequest.of(pageable.getPageNumber(), pageable.getPageSize()));
+        Page<Guild> guilds =
+                guildRepository.findGuildRanking(
+                        org.springframework.data.domain.PageRequest.of(
+                                pageable.getPageNumber(), pageable.getPageSize()));
 
-        List<Long> guildIdLongs = guilds.getContent().stream()
-            .map(Guild::getId)
-            .toList();
-        List<String> guildIds = guildIdLongs.stream()
-            .map(String::valueOf)
-            .toList();
-        Map<String, Boolean> underReviewMap = reportService.isUnderReviewBatch(ReportTargetType.GUILD, guildIds);
+        List<Long> guildIdLongs = guilds.getContent().stream().map(Guild::getId).toList();
+        List<String> guildIds = guildIdLongs.stream().map(String::valueOf).toList();
+        Map<String, Boolean> underReviewMap =
+                reportService.isUnderReviewBatch(ReportTargetType.GUILD, guildIds);
         Set<Long> pendingGuildIds = getPendingJoinRequestGuildIds(userId, guildIdLongs);
         Map<Long, Integer> memberCountMap = getActiveMemberCounts(guildIdLongs);
 
-        return guilds.map(guild -> {
-            int memberCount = memberCountMap.getOrDefault(guild.getId(), 0);
-            GuildResponse response = guildHelper.buildGuildResponseWithCategory(guild, memberCount, locale);
-            response.setIsUnderReview(underReviewMap.getOrDefault(String.valueOf(guild.getId()), false));
-            response.setIsPendingJoinRequest(pendingGuildIds.contains(guild.getId()));
-            return response;
-        });
+        return guilds.map(
+                guild -> {
+                    int memberCount = memberCountMap.getOrDefault(guild.getId(), 0);
+                    GuildResponse response =
+                            guildHelper.buildGuildResponseWithCategory(guild, memberCount, locale);
+                    response.setIsUnderReview(
+                            underReviewMap.getOrDefault(String.valueOf(guild.getId()), false));
+                    response.setIsPendingJoinRequest(pendingGuildIds.contains(guild.getId()));
+                    return response;
+                });
     }
 
     public Page<GuildResponse> searchGuilds(String userId, String keyword, Pageable pageable) {
@@ -140,17 +140,15 @@ public class GuildQueryService {
     }
 
     /** LUT-255: locale에 맞는 카테고리명으로 길드 검색 */
-    public Page<GuildResponse> searchGuilds(String userId, String keyword, Pageable pageable, String locale) {
+    public Page<GuildResponse> searchGuilds(
+            String userId, String keyword, Pageable pageable, String locale) {
         Page<Guild> guilds = guildRepository.searchPublicGuilds(keyword, pageable);
 
         // 배치로 신고 상태 조회
-        List<Long> guildIdLongs = guilds.getContent().stream()
-            .map(Guild::getId)
-            .toList();
-        List<String> guildIds = guildIdLongs.stream()
-            .map(String::valueOf)
-            .toList();
-        Map<String, Boolean> underReviewMap = reportService.isUnderReviewBatch(ReportTargetType.GUILD, guildIds);
+        List<Long> guildIdLongs = guilds.getContent().stream().map(Guild::getId).toList();
+        List<String> guildIds = guildIdLongs.stream().map(String::valueOf).toList();
+        Map<String, Boolean> underReviewMap =
+                reportService.isUnderReviewBatch(ReportTargetType.GUILD, guildIds);
 
         // 배치로 가입 신청 대기중 상태 조회 (로그인한 사용자인 경우)
         Set<Long> pendingGuildIds = getPendingJoinRequestGuildIds(userId, guildIdLongs);
@@ -158,27 +156,29 @@ public class GuildQueryService {
         // 배치로 활성 멤버 수 조회 (길드별 개별 COUNT N+1 방지)
         Map<Long, Integer> memberCountMap = getActiveMemberCounts(guildIdLongs);
 
-        return guilds.map(guild -> {
-            int memberCount = memberCountMap.getOrDefault(guild.getId(), 0);
-            GuildResponse response = guildHelper.buildGuildResponseWithCategory(guild, memberCount, locale);
-            response.setIsUnderReview(underReviewMap.getOrDefault(String.valueOf(guild.getId()), false));
-            response.setIsPendingJoinRequest(pendingGuildIds.contains(guild.getId()));
-            return response;
-        });
+        return guilds.map(
+                guild -> {
+                    int memberCount = memberCountMap.getOrDefault(guild.getId(), 0);
+                    GuildResponse response =
+                            guildHelper.buildGuildResponseWithCategory(guild, memberCount, locale);
+                    response.setIsUnderReview(
+                            underReviewMap.getOrDefault(String.valueOf(guild.getId()), false));
+                    response.setIsPendingJoinRequest(pendingGuildIds.contains(guild.getId()));
+                    return response;
+                });
     }
 
     /**
-     * 카테고리별 공개 길드 목록 조회 (하이브리드 선정)
-     * 1. Admin이 설정한 Featured Guild 먼저 표시
-     * 2. 자동 선정 (해당 카테고리의 공개 길드, 멤버 수 순)
-     * 3. 중복 제거 후 최대 5개 반환
+     * 카테고리별 공개 길드 목록 조회 (하이브리드 선정) 1. Admin이 설정한 Featured Guild 먼저 표시 2. 자동 선정 (해당 카테고리의 공개 길드, 멤버
+     * 수 순) 3. 중복 제거 후 최대 5개 반환
      */
     public List<GuildResponse> getPublicGuildsByCategory(String userId, Long categoryId) {
         return getPublicGuildsByCategory(userId, categoryId, null);
     }
 
     /** LUT-277: locale에 맞는 카테고리명으로 카테고리별 공개 길드 조회 */
-    public List<GuildResponse> getPublicGuildsByCategory(String userId, Long categoryId, String locale) {
+    public List<GuildResponse> getPublicGuildsByCategory(
+            String userId, Long categoryId, String locale) {
         List<Guild> selectedGuilds = new ArrayList<>();
         Set<Long> addedGuildIds = new HashSet<>();
         int maxGuilds = 5;
@@ -204,8 +204,9 @@ public class GuildQueryService {
         // 2. 자동 선정: 해당 카테고리의 공개 길드 (멤버 수 순)
         if (selectedGuilds.size() < maxGuilds) {
             int remaining = maxGuilds - selectedGuilds.size();
-            List<Guild> autoGuilds = guildRepository.findPublicGuildsByCategoryOrderByMemberCount(
-                categoryId, PageRequest.of(0, remaining + addedGuildIds.size()));
+            List<Guild> autoGuilds =
+                    guildRepository.findPublicGuildsByCategoryOrderByMemberCount(
+                            categoryId, PageRequest.of(0, remaining + addedGuildIds.size()));
 
             for (Guild guild : autoGuilds) {
                 if (selectedGuilds.size() >= maxGuilds) break;
@@ -217,26 +218,32 @@ public class GuildQueryService {
         }
 
         // 배치로 활성 멤버 수 조회 (길드별 개별 COUNT N+1 방지)
-        Map<Long, Integer> memberCountMap = getActiveMemberCounts(
-            selectedGuilds.stream().map(Guild::getId).toList());
-        List<GuildResponse> result = selectedGuilds.stream()
-            .map(guild -> guildHelper.buildGuildResponseWithCategory(
-                guild, memberCountMap.getOrDefault(guild.getId(), 0), locale))
-            .collect(Collectors.toCollection(ArrayList::new));
+        Map<Long, Integer> memberCountMap =
+                getActiveMemberCounts(selectedGuilds.stream().map(Guild::getId).toList());
+        List<GuildResponse> result =
+                selectedGuilds.stream()
+                        .map(
+                                guild ->
+                                        guildHelper.buildGuildResponseWithCategory(
+                                                guild,
+                                                memberCountMap.getOrDefault(guild.getId(), 0),
+                                                locale))
+                        .collect(Collectors.toCollection(ArrayList::new));
 
         // 배치로 신고 상태 및 가입 신청 상태 조회
         if (!result.isEmpty()) {
             List<Long> guildIdLongs = new ArrayList<>(addedGuildIds);
-            List<String> guildIds = guildIdLongs.stream()
-                .map(String::valueOf)
-                .toList();
-            Map<String, Boolean> underReviewMap = reportService.isUnderReviewBatch(ReportTargetType.GUILD, guildIds);
+            List<String> guildIds = guildIdLongs.stream().map(String::valueOf).toList();
+            Map<String, Boolean> underReviewMap =
+                    reportService.isUnderReviewBatch(ReportTargetType.GUILD, guildIds);
             Set<Long> pendingGuildIds = getPendingJoinRequestGuildIds(userId, guildIdLongs);
 
-            result.forEach(r -> {
-                r.setIsUnderReview(underReviewMap.getOrDefault(String.valueOf(r.getId()), false));
-                r.setIsPendingJoinRequest(pendingGuildIds.contains(r.getId()));
-            });
+            result.forEach(
+                    r -> {
+                        r.setIsUnderReview(
+                                underReviewMap.getOrDefault(String.valueOf(r.getId()), false));
+                        r.setIsPendingJoinRequest(pendingGuildIds.contains(r.getId()));
+                    });
         }
 
         return result;
@@ -251,24 +258,30 @@ public class GuildQueryService {
         List<GuildMember> members = guildMemberRepository.findActiveGuildsByUserId(userId);
 
         // 배치로 활성 멤버 수 조회 (길드별 개별 COUNT N+1 방지)
-        Map<Long, Integer> memberCountMap = getActiveMemberCounts(
-            members.stream().map(member -> member.getGuild().getId()).toList());
+        Map<Long, Integer> memberCountMap =
+                getActiveMemberCounts(
+                        members.stream().map(member -> member.getGuild().getId()).toList());
 
-        List<GuildResponse> result = members.stream()
-            .map(member -> {
-                Guild guild = member.getGuild();
-                int memberCount = memberCountMap.getOrDefault(guild.getId(), 0);
-                return guildHelper.buildGuildResponseWithCategory(guild, memberCount, locale);
-            })
-            .toList();
+        List<GuildResponse> result =
+                members.stream()
+                        .map(
+                                member -> {
+                                    Guild guild = member.getGuild();
+                                    int memberCount = memberCountMap.getOrDefault(guild.getId(), 0);
+                                    return guildHelper.buildGuildResponseWithCategory(
+                                            guild, memberCount, locale);
+                                })
+                        .toList();
 
         // 배치로 신고 상태 조회
         if (!result.isEmpty()) {
-            List<String> guildIds = result.stream()
-                .map(r -> String.valueOf(r.getId()))
-                .toList();
-            Map<String, Boolean> underReviewMap = reportService.isUnderReviewBatch(ReportTargetType.GUILD, guildIds);
-            result.forEach(r -> r.setIsUnderReview(underReviewMap.getOrDefault(String.valueOf(r.getId()), false)));
+            List<String> guildIds = result.stream().map(r -> String.valueOf(r.getId())).toList();
+            Map<String, Boolean> underReviewMap =
+                    reportService.isUnderReviewBatch(ReportTargetType.GUILD, guildIds);
+            result.forEach(
+                    r ->
+                            r.setIsUnderReview(
+                                    underReviewMap.getOrDefault(String.valueOf(r.getId()), false)));
         }
 
         return result;
@@ -289,23 +302,24 @@ public class GuildQueryService {
         List<GuildMember> members = guildMemberRepository.findActiveMembers(guildId);
 
         // 모든 멤버의 userId를 수집하여 한 번에 사용자 정보 조회
-        List<String> userIds = members.stream()
-            .map(GuildMember::getUserId)
-            .toList();
+        List<String> userIds = members.stream().map(GuildMember::getUserId).toList();
 
         // 탈퇴한 회원 필터링
         Set<String> activeUserIds = new HashSet<>(userQueryFacadeService.getActiveUserIds(userIds));
-        members = members.stream()
-            .filter(member -> activeUserIds.contains(member.getUserId()))
-            .toList();
+        members =
+                members.stream()
+                        .filter(member -> activeUserIds.contains(member.getUserId()))
+                        .toList();
 
         List<String> activeMemberUserIds = members.stream().map(GuildMember::getUserId).toList();
-        Map<String, UserProfileInfo> profileMap = userQueryFacadeService.getUserProfiles(activeMemberUserIds);
+        Map<String, UserProfileInfo> profileMap =
+                userQueryFacadeService.getUserProfiles(activeMemberUserIds);
 
         // 칭호 정보 배치 조회 (멤버별 개별 조회 N+1 방지)
         Map<String, List<UserTitleDto>> titlesMap;
         try {
-            titlesMap = gamificationQueryFacadeService.getEquippedTitlesByUserIds(activeMemberUserIds);
+            titlesMap =
+                    gamificationQueryFacadeService.getEquippedTitlesByUserIds(activeMemberUserIds);
         } catch (Exception e) {
             log.warn("칭호 정보 배치 조회 실패: guildId={}, error={}", guildId, e.getMessage());
             titlesMap = Map.of();
@@ -315,7 +329,9 @@ public class GuildQueryService {
         // 장착 아이템 희귀도 배치 조회 (LUT-424: 썸네일 등급 표식용, 실패 시 빈 배열 유지)
         Map<String, List<EquippedItemRarityDto>> itemRarityMap;
         try {
-            itemRarityMap = gamificationQueryFacadeService.getEquippedItemRaritiesByUserIds(activeMemberUserIds);
+            itemRarityMap =
+                    gamificationQueryFacadeService.getEquippedItemRaritiesByUserIds(
+                            activeMemberUserIds);
         } catch (Exception e) {
             log.warn("장착 아이템 희귀도 배치 조회 실패: guildId={}, error={}", guildId, e.getMessage());
             itemRarityMap = Map.of();
@@ -324,54 +340,57 @@ public class GuildQueryService {
 
         // 멤버 정보에 사용자 정보 추가
         return members.stream()
-            .map(member -> {
-                GuildMemberResponse response = GuildMemberResponse.from(member);
-                UserProfileInfo profile = profileMap.get(member.getUserId());
-                if (profile != null) {
-                    response.setNickname(profile.nickname());
-                    response.setProfileImageUrl(profile.picture());
-                    // QA-193: UserProfileInfo.level은 GamificationQueryFacade.getUserLevel()로 채워진 값
-                    response.setUserLevel(profile.level() != null ? profile.level() : 1);
-                    DetailedTitleInfoDto titleInfo = TitleNameUtils.buildDetailedTitleInfo(
-                        equippedTitlesMap.getOrDefault(member.getUserId(), List.of()), locale);
-                    response.setEquippedTitleName(titleInfo.combinedName());
-                    response.setEquippedTitleRarity(titleInfo.highestRarity());
-                    response.setLeftTitleName(titleInfo.leftTitle());
-                    response.setLeftTitleRarity(titleInfo.leftRarity());
-                    response.setRightTitleName(titleInfo.rightTitle());
-                    response.setRightTitleRarity(titleInfo.rightRarity());
-                }
-                response.setEquippedItemRarities(
-                    equippedItemRarityMap.getOrDefault(member.getUserId(), List.of()));
-                return response;
-            })
-            .toList();
+                .map(
+                        member -> {
+                            GuildMemberResponse response = GuildMemberResponse.from(member);
+                            UserProfileInfo profile = profileMap.get(member.getUserId());
+                            if (profile != null) {
+                                response.setNickname(profile.nickname());
+                                response.setProfileImageUrl(profile.picture());
+                                // QA-193: UserProfileInfo.level은
+                                // GamificationQueryFacade.getUserLevel()로 채워진 값
+                                response.setUserLevel(
+                                        profile.level() != null ? profile.level() : 1);
+                                DetailedTitleInfoDto titleInfo =
+                                        TitleNameUtils.buildDetailedTitleInfo(
+                                                equippedTitlesMap.getOrDefault(
+                                                        member.getUserId(), List.of()),
+                                                locale);
+                                response.setEquippedTitleName(titleInfo.combinedName());
+                                response.setEquippedTitleRarity(titleInfo.highestRarity());
+                                response.setLeftTitleName(titleInfo.leftTitle());
+                                response.setLeftTitleRarity(titleInfo.leftRarity());
+                                response.setRightTitleName(titleInfo.rightTitle());
+                                response.setRightTitleRarity(titleInfo.rightRarity());
+                            }
+                            response.setEquippedItemRarities(
+                                    equippedItemRarityMap.getOrDefault(
+                                            member.getUserId(), List.of()));
+                            return response;
+                        })
+                .toList();
     }
 
     private boolean isMember(Long guildId, String userId) {
         return guildMemberRepository.isActiveMember(guildId, userId);
     }
 
-    /**
-     * 여러 길드의 활성 멤버 수를 한 번의 쿼리로 조회
-     */
+    /** 여러 길드의 활성 멤버 수를 한 번의 쿼리로 조회 */
     private Map<Long, Integer> getActiveMemberCounts(List<Long> guildIds) {
         if (guildIds.isEmpty()) {
             return Map.of();
         }
         return guildMemberRepository.countActiveMembersByGuildIds(guildIds).stream()
-            .collect(Collectors.toMap(
-                row -> (Long) row[0],
-                row -> ((Long) row[1]).intValue()));
+                .collect(Collectors.toMap(row -> (Long) row[0], row -> ((Long) row[1]).intValue()));
     }
 
-    /**
-     * 사용자가 가입 신청 대기중인 길드 ID Set 반환
-     */
+    /** 사용자가 가입 신청 대기중인 길드 ID Set 반환 */
     private Set<Long> getPendingJoinRequestGuildIds(String userId, List<Long> guildIds) {
         if (userId == null || guildIds.isEmpty()) {
             return Set.of();
         }
-        return new HashSet<>(joinRequestRepository.findPendingGuildIdsByRequesterIdAndGuildIds(userId, guildIds));
+        return new HashSet<>(
+                joinRequestRepository.findPendingGuildIdsByRequesterIdAndGuildIds(
+                        userId, guildIds));
     }
 }

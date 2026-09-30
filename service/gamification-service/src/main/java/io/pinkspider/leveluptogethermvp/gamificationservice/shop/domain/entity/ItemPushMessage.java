@@ -24,8 +24,8 @@ import lombok.experimental.SuperBuilder;
 import org.hibernate.annotations.Comment;
 
 /**
- * LUT-516: HEAD 아이템 장착 유저에게 발송하는 개별 푸시 메시지 정의. 어드민이 아이템별로 메시지(4개 언어)와 발송 시각(HH:mm, 유저 로컬)을
- * 등록한다. 실제 발송은 {@code ItemPushScheduler} 가 담당하고, 이 엔티티는 정의만 보관한다.
+ * LUT-516: HEAD 아이템 장착 유저에게 발송하는 개별 푸시 메시지 정의. 어드민이 아이템별로 메시지(4개 언어)와 발송 시각(HH:mm, 유저 로컬)을 등록한다. 실제
+ * 발송은 {@code ItemPushScheduler} 가 담당하고, 이 엔티티는 정의만 보관한다.
  */
 @Entity
 @Getter

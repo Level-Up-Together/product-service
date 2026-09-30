@@ -7,6 +7,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import io.pinkspider.global.enums.MissionStatus;
 import io.pinkspider.global.saga.SagaEventPublisher;
 import io.pinkspider.global.saga.SagaResult;
 import io.pinkspider.global.saga.SagaStepResult;
@@ -15,7 +16,6 @@ import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.Mission;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.MissionExecution;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.MissionParticipant;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.ExecutionStatus;
-import io.pinkspider.global.enums.MissionStatus;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionType;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionVisibility;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.ParticipantStatus;
@@ -48,35 +48,23 @@ import org.mockito.quality.Strictness;
 class MissionCompletionSagaTest {
 
     // Regular-only steps
-    @Mock
-    private LoadMissionDataStep loadMissionDataStep;
-    @Mock
-    private CompleteExecutionStep completeExecutionStep;
-    @Mock
-    private UpdateParticipantProgressStep updateParticipantProgressStep;
-    @Mock
-    private GrantGuildExperienceStep grantGuildExperienceStep;
+    @Mock private LoadMissionDataStep loadMissionDataStep;
+    @Mock private CompleteExecutionStep completeExecutionStep;
+    @Mock private UpdateParticipantProgressStep updateParticipantProgressStep;
+    @Mock private GrantGuildExperienceStep grantGuildExperienceStep;
 
     // Pinned-only steps
-    @Mock
-    private LoadPinnedMissionDataStep loadPinnedMissionDataStep;
-    @Mock
-    private CompletePinnedInstanceStep completePinnedInstanceStep;
-    @Mock
-    private CreateNextPinnedInstanceStep createNextPinnedInstanceStep;
+    @Mock private LoadPinnedMissionDataStep loadPinnedMissionDataStep;
+    @Mock private CompletePinnedInstanceStep completePinnedInstanceStep;
+    @Mock private CreateNextPinnedInstanceStep createNextPinnedInstanceStep;
 
     // Unified steps
-    @Mock
-    private GrantUserExperienceStep grantUserExperienceStep;
-    @Mock
-    private GrantMissionBookDiamondStep grantMissionBookDiamondStep;
-    @Mock
-    private UpdateUserStatsStep updateUserStatsStep;
-    @Mock
-    private CreateFeedFromMissionStep createFeedFromMissionStep;
+    @Mock private GrantUserExperienceStep grantUserExperienceStep;
+    @Mock private GrantMissionBookDiamondStep grantMissionBookDiamondStep;
+    @Mock private UpdateUserStatsStep updateUserStatsStep;
+    @Mock private CreateFeedFromMissionStep createFeedFromMissionStep;
 
-    @Mock
-    private SagaEventPublisher sagaEventPublisher;
+    @Mock private SagaEventPublisher sagaEventPublisher;
 
     private MissionCompletionSaga missionCompletionSaga;
 
@@ -86,20 +74,21 @@ class MissionCompletionSagaTest {
     @BeforeEach
     void setUpSaga() {
         // MissionCompletionSaga 수동 생성 (tail Executor 주입을 위해)
-        missionCompletionSaga = new MissionCompletionSaga(
-                loadMissionDataStep,
-                completeExecutionStep,
-                updateParticipantProgressStep,
-                grantGuildExperienceStep,
-                loadPinnedMissionDataStep,
-                completePinnedInstanceStep,
-                createNextPinnedInstanceStep,
-                grantUserExperienceStep,
-                grantMissionBookDiamondStep,
-                updateUserStatsStep,
-                createFeedFromMissionStep,
-                sagaEventPublisher,
-                directExecutor);
+        missionCompletionSaga =
+                new MissionCompletionSaga(
+                        loadMissionDataStep,
+                        completeExecutionStep,
+                        updateParticipantProgressStep,
+                        grantGuildExperienceStep,
+                        loadPinnedMissionDataStep,
+                        completePinnedInstanceStep,
+                        createNextPinnedInstanceStep,
+                        grantUserExperienceStep,
+                        grantMissionBookDiamondStep,
+                        updateUserStatsStep,
+                        createFeedFromMissionStep,
+                        sagaEventPublisher,
+                        directExecutor);
     }
 
     private static final String TEST_USER_ID = "test-user-123";
@@ -112,43 +101,66 @@ class MissionCompletionSagaTest {
 
     @BeforeEach
     void setUp() {
-        mission = Mission.builder()
-            .title("30일 운동 챌린지")
-            .description("매일 운동하기")
-            .creatorId(TEST_USER_ID)
-            .status(MissionStatus.IN_PROGRESS)
-            .visibility(MissionVisibility.PUBLIC)
-            .type(MissionType.PERSONAL)
-            .expPerCompletion(50)
-            .build();
+        mission =
+                Mission.builder()
+                        .title("30일 운동 챌린지")
+                        .description("매일 운동하기")
+                        .creatorId(TEST_USER_ID)
+                        .status(MissionStatus.IN_PROGRESS)
+                        .visibility(MissionVisibility.PUBLIC)
+                        .type(MissionType.PERSONAL)
+                        .expPerCompletion(50)
+                        .build();
         setId(mission, 1L);
 
-        participant = MissionParticipant.builder()
-            .mission(mission)
-            .userId(TEST_USER_ID)
-            .status(ParticipantStatus.IN_PROGRESS)
-            .progress(5)
-            .build();
+        participant =
+                MissionParticipant.builder()
+                        .mission(mission)
+                        .userId(TEST_USER_ID)
+                        .status(ParticipantStatus.IN_PROGRESS)
+                        .progress(5)
+                        .build();
         setId(participant, 1L);
 
-        execution = MissionExecution.builder()
-            .participant(participant)
-            .executionDate(LocalDate.now())
-            .status(ExecutionStatus.IN_PROGRESS)
-            .build();
+        execution =
+                MissionExecution.builder()
+                        .participant(participant)
+                        .executionDate(LocalDate.now())
+                        .status(ExecutionStatus.IN_PROGRESS)
+                        .build();
         setId(execution, EXECUTION_ID);
         execution.setStartedAt(LocalDateTime.now().minusMinutes(30));
 
         // === Regular-only steps ===
         configureStep(loadMissionDataStep, "LoadMissionData", true, ctx -> !ctx.isPinned());
         configureStep(completeExecutionStep, "CompleteExecution", true, ctx -> !ctx.isPinned());
-        configureStep(updateParticipantProgressStep, "UpdateParticipantProgress", true, ctx -> !ctx.isPinned());
-        configureStep(grantGuildExperienceStep, "GrantGuildExperience", true, MissionCompletionContext::isGuildMission);
+        configureStep(
+                updateParticipantProgressStep,
+                "UpdateParticipantProgress",
+                true,
+                ctx -> !ctx.isPinned());
+        configureStep(
+                grantGuildExperienceStep,
+                "GrantGuildExperience",
+                true,
+                MissionCompletionContext::isGuildMission);
 
         // === Pinned-only steps ===
-        configureStep(loadPinnedMissionDataStep, "LoadPinnedMissionData", true, MissionCompletionContext::isPinned);
-        configureStep(completePinnedInstanceStep, "CompletePinnedInstance", true, MissionCompletionContext::isPinned);
-        configureStep(createNextPinnedInstanceStep, "CreateNextPinnedInstance", true, MissionCompletionContext::isPinned);
+        configureStep(
+                loadPinnedMissionDataStep,
+                "LoadPinnedMissionData",
+                true,
+                MissionCompletionContext::isPinned);
+        configureStep(
+                completePinnedInstanceStep,
+                "CompletePinnedInstance",
+                true,
+                MissionCompletionContext::isPinned);
+        configureStep(
+                createNextPinnedInstanceStep,
+                "CreateNextPinnedInstance",
+                true,
+                MissionCompletionContext::isPinned);
 
         // === Unified steps ===
         configureStep(grantUserExperienceStep, "GrantUserExperience", true, ctx -> true);
@@ -158,12 +170,13 @@ class MissionCompletionSagaTest {
 
         // QA-220 step은 흐름 테스트 대상이 아니므로 기본 성공 stub (LENIENT)
         when(grantMissionBookDiamondStep.execute(any()))
-            .thenReturn(SagaStepResult.success("다이아 지급 스킵"));
+                .thenReturn(SagaStepResult.success("다이아 지급 스킵"));
     }
 
     private void configureStep(
             io.pinkspider.global.saga.SagaStep<MissionCompletionContext> step,
-            String name, boolean mandatory,
+            String name,
+            boolean mandatory,
             java.util.function.Predicate<MissionCompletionContext> predicate) {
         when(step.getName()).thenReturn(name);
         when(step.shouldExecute()).thenReturn(predicate);
@@ -181,22 +194,27 @@ class MissionCompletionSagaTest {
         void execute_successWhenAllStepsSucceed() {
             // given
             when(loadMissionDataStep.execute(any(MissionCompletionContext.class)))
-                .thenAnswer(invocation -> {
-                    MissionCompletionContext ctx = invocation.getArgument(0);
-                    ctx.setExecution(execution);
-                    ctx.setParticipant(participant);
-                    ctx.setMission(mission);
-                    ctx.setUserExpEarned(50);
-                    return SagaStepResult.success("데이터 로드 성공");
-                });
+                    .thenAnswer(
+                            invocation -> {
+                                MissionCompletionContext ctx = invocation.getArgument(0);
+                                ctx.setExecution(execution);
+                                ctx.setParticipant(participant);
+                                ctx.setMission(mission);
+                                ctx.setUserExpEarned(50);
+                                return SagaStepResult.success("데이터 로드 성공");
+                            });
             when(completeExecutionStep.execute(any())).thenReturn(SagaStepResult.success("완료 처리됨"));
-            when(grantUserExperienceStep.execute(any())).thenReturn(SagaStepResult.success("경험치 지급됨"));
-            when(updateParticipantProgressStep.execute(any())).thenReturn(SagaStepResult.success("진행도 업데이트됨"));
+            when(grantUserExperienceStep.execute(any()))
+                    .thenReturn(SagaStepResult.success("경험치 지급됨"));
+            when(updateParticipantProgressStep.execute(any()))
+                    .thenReturn(SagaStepResult.success("진행도 업데이트됨"));
             when(updateUserStatsStep.execute(any())).thenReturn(SagaStepResult.success("통계 업데이트됨"));
-            when(createFeedFromMissionStep.execute(any())).thenReturn(SagaStepResult.success("피드 스킵"));
+            when(createFeedFromMissionStep.execute(any()))
+                    .thenReturn(SagaStepResult.success("피드 스킵"));
 
             // when
-            SagaResult<MissionCompletionContext> result = missionCompletionSaga.execute(EXECUTION_ID, TEST_USER_ID, "완료 메모");
+            SagaResult<MissionCompletionContext> result =
+                    missionCompletionSaga.execute(EXECUTION_ID, TEST_USER_ID, "완료 메모");
 
             // then
             assertThat(result.isSuccess()).isTrue();
@@ -230,39 +248,44 @@ class MissionCompletionSagaTest {
         void execute_tailStepsRunAfterSyncSagaReturns() {
             // given - 실행을 큐에 쌓아두는 Executor 로 응답 시점과 tail 실행 시점을 분리
             java.util.List<Runnable> queued = new java.util.ArrayList<>();
-            MissionCompletionSaga deferredSaga = new MissionCompletionSaga(
-                    loadMissionDataStep,
-                    completeExecutionStep,
-                    updateParticipantProgressStep,
-                    grantGuildExperienceStep,
-                    loadPinnedMissionDataStep,
-                    completePinnedInstanceStep,
-                    createNextPinnedInstanceStep,
-                    grantUserExperienceStep,
-                    grantMissionBookDiamondStep,
-                    updateUserStatsStep,
-                    createFeedFromMissionStep,
-                    sagaEventPublisher,
-                    queued::add);
+            MissionCompletionSaga deferredSaga =
+                    new MissionCompletionSaga(
+                            loadMissionDataStep,
+                            completeExecutionStep,
+                            updateParticipantProgressStep,
+                            grantGuildExperienceStep,
+                            loadPinnedMissionDataStep,
+                            completePinnedInstanceStep,
+                            createNextPinnedInstanceStep,
+                            grantUserExperienceStep,
+                            grantMissionBookDiamondStep,
+                            updateUserStatsStep,
+                            createFeedFromMissionStep,
+                            sagaEventPublisher,
+                            queued::add);
 
             when(loadMissionDataStep.execute(any(MissionCompletionContext.class)))
-                .thenAnswer(invocation -> {
-                    MissionCompletionContext ctx = invocation.getArgument(0);
-                    ctx.setExecution(execution);
-                    ctx.setParticipant(participant);
-                    ctx.setMission(mission);
-                    ctx.setUserExpEarned(50);
-                    return SagaStepResult.success("데이터 로드 성공");
-                });
+                    .thenAnswer(
+                            invocation -> {
+                                MissionCompletionContext ctx = invocation.getArgument(0);
+                                ctx.setExecution(execution);
+                                ctx.setParticipant(participant);
+                                ctx.setMission(mission);
+                                ctx.setUserExpEarned(50);
+                                return SagaStepResult.success("데이터 로드 성공");
+                            });
             when(completeExecutionStep.execute(any())).thenReturn(SagaStepResult.success("완료 처리됨"));
-            when(grantUserExperienceStep.execute(any())).thenReturn(SagaStepResult.success("경험치 지급됨"));
-            when(updateParticipantProgressStep.execute(any())).thenReturn(SagaStepResult.success("진행도 업데이트됨"));
+            when(grantUserExperienceStep.execute(any()))
+                    .thenReturn(SagaStepResult.success("경험치 지급됨"));
+            when(updateParticipantProgressStep.execute(any()))
+                    .thenReturn(SagaStepResult.success("진행도 업데이트됨"));
             when(updateUserStatsStep.execute(any())).thenReturn(SagaStepResult.success("통계 업데이트됨"));
-            when(createFeedFromMissionStep.execute(any())).thenReturn(SagaStepResult.success("피드 스킵"));
+            when(createFeedFromMissionStep.execute(any()))
+                    .thenReturn(SagaStepResult.success("피드 스킵"));
 
             // when - 동기 Saga 만 실행된 시점
             SagaResult<MissionCompletionContext> result =
-                missionCompletionSaga_deferredExecute(deferredSaga);
+                    missionCompletionSaga_deferredExecute(deferredSaga);
 
             // then - 응답은 성공이지만 tail Step 은 아직 미실행
             assertThat(result.isSuccess()).isTrue();
@@ -291,22 +314,23 @@ class MissionCompletionSagaTest {
         void execute_tailStepsNotRunWhenSyncSagaFails() {
             // given
             when(loadMissionDataStep.execute(any(MissionCompletionContext.class)))
-                .thenAnswer(invocation -> {
-                    MissionCompletionContext ctx = invocation.getArgument(0);
-                    ctx.setExecution(execution);
-                    ctx.setParticipant(participant);
-                    ctx.setMission(mission);
-                    return SagaStepResult.success("데이터 로드 성공");
-                });
+                    .thenAnswer(
+                            invocation -> {
+                                MissionCompletionContext ctx = invocation.getArgument(0);
+                                ctx.setExecution(execution);
+                                ctx.setParticipant(participant);
+                                ctx.setMission(mission);
+                                return SagaStepResult.success("데이터 로드 성공");
+                            });
             when(completeExecutionStep.execute(any())).thenReturn(SagaStepResult.success("완료 처리됨"));
             when(grantUserExperienceStep.execute(any()))
-                .thenReturn(SagaStepResult.failure(new RuntimeException("경험치 지급 실패")));
+                    .thenReturn(SagaStepResult.failure(new RuntimeException("경험치 지급 실패")));
             when(loadMissionDataStep.compensate(any())).thenReturn(SagaStepResult.success("보상됨"));
             when(completeExecutionStep.compensate(any())).thenReturn(SagaStepResult.success("보상됨"));
 
             // when
             SagaResult<MissionCompletionContext> result =
-                missionCompletionSaga.execute(EXECUTION_ID, TEST_USER_ID, "완료 메모");
+                    missionCompletionSaga.execute(EXECUTION_ID, TEST_USER_ID, "완료 메모");
 
             // then
             assertThat(result.isSuccess()).isFalse();
@@ -325,24 +349,28 @@ class MissionCompletionSagaTest {
         void execute_compensatesWhenMandatoryStepFails() {
             // given
             when(loadMissionDataStep.execute(any(MissionCompletionContext.class)))
-                .thenAnswer(invocation -> {
-                    MissionCompletionContext ctx = invocation.getArgument(0);
-                    ctx.setExecution(execution);
-                    ctx.setParticipant(participant);
-                    ctx.setMission(mission);
-                    return SagaStepResult.success("데이터 로드 성공");
-                });
+                    .thenAnswer(
+                            invocation -> {
+                                MissionCompletionContext ctx = invocation.getArgument(0);
+                                ctx.setExecution(execution);
+                                ctx.setParticipant(participant);
+                                ctx.setMission(mission);
+                                return SagaStepResult.success("데이터 로드 성공");
+                            });
             when(completeExecutionStep.execute(any())).thenReturn(SagaStepResult.success("완료 처리됨"));
             when(grantUserExperienceStep.execute(any()))
-                .thenReturn(SagaStepResult.failure("경험치 지급 실패"));
+                    .thenReturn(SagaStepResult.failure("경험치 지급 실패"));
             when(grantUserExperienceStep.isMandatory()).thenReturn(true);
 
             // 보상 메서드
-            when(completeExecutionStep.compensate(any())).thenReturn(SagaStepResult.success("완료 보상됨"));
-            when(loadMissionDataStep.compensate(any())).thenReturn(SagaStepResult.success("로드 보상됨"));
+            when(completeExecutionStep.compensate(any()))
+                    .thenReturn(SagaStepResult.success("완료 보상됨"));
+            when(loadMissionDataStep.compensate(any()))
+                    .thenReturn(SagaStepResult.success("로드 보상됨"));
 
             // when
-            SagaResult<MissionCompletionContext> result = missionCompletionSaga.execute(EXECUTION_ID, TEST_USER_ID, null);
+            SagaResult<MissionCompletionContext> result =
+                    missionCompletionSaga.execute(EXECUTION_ID, TEST_USER_ID, null);
 
             // then
             assertThat(result.isSuccess()).isFalse();
@@ -362,10 +390,11 @@ class MissionCompletionSagaTest {
         void execute_noCompensationWhenFirstStepFails() {
             // given
             when(loadMissionDataStep.execute(any()))
-                .thenReturn(SagaStepResult.failure("수행 기록을 찾을 수 없습니다"));
+                    .thenReturn(SagaStepResult.failure("수행 기록을 찾을 수 없습니다"));
 
             // when
-            SagaResult<MissionCompletionContext> result = missionCompletionSaga.execute(999L, TEST_USER_ID, null);
+            SagaResult<MissionCompletionContext> result =
+                    missionCompletionSaga.execute(999L, TEST_USER_ID, null);
 
             // then
             assertThat(result.isSuccess()).isFalse();
@@ -381,26 +410,33 @@ class MissionCompletionSagaTest {
         void execute_continuesWhenOptionalStepFails() {
             // given
             when(loadMissionDataStep.execute(any(MissionCompletionContext.class)))
-                .thenAnswer(invocation -> {
-                    MissionCompletionContext ctx = invocation.getArgument(0);
-                    ctx.setExecution(execution);
-                    ctx.setParticipant(participant);
-                    ctx.setMission(mission);
-                    return SagaStepResult.success("데이터 로드 성공");
-                });
+                    .thenAnswer(
+                            invocation -> {
+                                MissionCompletionContext ctx = invocation.getArgument(0);
+                                ctx.setExecution(execution);
+                                ctx.setParticipant(participant);
+                                ctx.setMission(mission);
+                                return SagaStepResult.success("데이터 로드 성공");
+                            });
             when(completeExecutionStep.execute(any())).thenReturn(SagaStepResult.success("완료 처리됨"));
-            when(grantUserExperienceStep.execute(any())).thenReturn(SagaStepResult.success("경험치 지급됨"));
-            when(grantGuildExperienceStep.execute(any())).thenReturn(SagaStepResult.success("길드 경험치 스킵"));
-            when(updateParticipantProgressStep.execute(any())).thenReturn(SagaStepResult.success("진행도 업데이트됨"));
+            when(grantUserExperienceStep.execute(any()))
+                    .thenReturn(SagaStepResult.success("경험치 지급됨"));
+            when(grantGuildExperienceStep.execute(any()))
+                    .thenReturn(SagaStepResult.success("길드 경험치 스킵"));
+            when(updateParticipantProgressStep.execute(any()))
+                    .thenReturn(SagaStepResult.success("진행도 업데이트됨"));
 
             // 선택적 Step 실패
-            when(updateUserStatsStep.execute(any())).thenReturn(SagaStepResult.failure("통계 업데이트 실패"));
+            when(updateUserStatsStep.execute(any()))
+                    .thenReturn(SagaStepResult.failure("통계 업데이트 실패"));
             when(updateUserStatsStep.isMandatory()).thenReturn(false);
 
-            when(createFeedFromMissionStep.execute(any())).thenReturn(SagaStepResult.success("피드 스킵"));
+            when(createFeedFromMissionStep.execute(any()))
+                    .thenReturn(SagaStepResult.success("피드 스킵"));
 
             // when
-            SagaResult<MissionCompletionContext> result = missionCompletionSaga.execute(EXECUTION_ID, TEST_USER_ID, null);
+            SagaResult<MissionCompletionContext> result =
+                    missionCompletionSaga.execute(EXECUTION_ID, TEST_USER_ID, null);
 
             // then
             assertThat(result.isSuccess()).isTrue();
@@ -418,47 +454,56 @@ class MissionCompletionSagaTest {
         @DisplayName("고정 미션 모든 Step이 성공하면 Saga가 성공한다")
         void executePinned_successWhenAllStepsSucceed() {
             // given
-            Mission pinnedMission = Mission.builder()
-                .title("매일 30분 운동")
-                .description("운동하기")
-                .creatorId(TEST_USER_ID)
-                .status(MissionStatus.IN_PROGRESS)
-                .visibility(MissionVisibility.PRIVATE)
-                .type(MissionType.PERSONAL)
-                .expPerCompletion(50)
-                .isPinned(true)
-                .build();
+            Mission pinnedMission =
+                    Mission.builder()
+                            .title("매일 30분 운동")
+                            .description("운동하기")
+                            .creatorId(TEST_USER_ID)
+                            .status(MissionStatus.IN_PROGRESS)
+                            .visibility(MissionVisibility.PRIVATE)
+                            .type(MissionType.PERSONAL)
+                            .expPerCompletion(50)
+                            .isPinned(true)
+                            .build();
             setId(pinnedMission, 10L);
 
-            MissionParticipant pinnedParticipant = MissionParticipant.builder()
-                .mission(pinnedMission)
-                .userId(TEST_USER_ID)
-                .status(ParticipantStatus.ACCEPTED)
-                .build();
+            MissionParticipant pinnedParticipant =
+                    MissionParticipant.builder()
+                            .mission(pinnedMission)
+                            .userId(TEST_USER_ID)
+                            .status(ParticipantStatus.ACCEPTED)
+                            .build();
             setId(pinnedParticipant, 10L);
 
-            DailyMissionInstance instance = DailyMissionInstance.createFrom(pinnedParticipant, LocalDate.now());
+            DailyMissionInstance instance =
+                    DailyMissionInstance.createFrom(pinnedParticipant, LocalDate.now());
             setId(instance, INSTANCE_ID);
 
             when(loadPinnedMissionDataStep.execute(any(MissionCompletionContext.class)))
-                .thenAnswer(invocation -> {
-                    MissionCompletionContext ctx = invocation.getArgument(0);
-                    ctx.setInstance(instance);
-                    ctx.setParticipant(pinnedParticipant);
-                    ctx.setMission(pinnedMission);
-                    ctx.setUserExpEarned(50);
-                    ctx.setMissionTitle(pinnedMission.getTitle());
-                    ctx.setInstanceDate(LocalDate.now());
-                    return SagaStepResult.success("데이터 로드 성공");
-                });
-            when(completePinnedInstanceStep.execute(any())).thenReturn(SagaStepResult.success("인스턴스 완료"));
-            when(grantUserExperienceStep.execute(any())).thenReturn(SagaStepResult.success("경험치 지급됨"));
+                    .thenAnswer(
+                            invocation -> {
+                                MissionCompletionContext ctx = invocation.getArgument(0);
+                                ctx.setInstance(instance);
+                                ctx.setParticipant(pinnedParticipant);
+                                ctx.setMission(pinnedMission);
+                                ctx.setUserExpEarned(50);
+                                ctx.setMissionTitle(pinnedMission.getTitle());
+                                ctx.setInstanceDate(LocalDate.now());
+                                return SagaStepResult.success("데이터 로드 성공");
+                            });
+            when(completePinnedInstanceStep.execute(any()))
+                    .thenReturn(SagaStepResult.success("인스턴스 완료"));
+            when(grantUserExperienceStep.execute(any()))
+                    .thenReturn(SagaStepResult.success("경험치 지급됨"));
             when(updateUserStatsStep.execute(any())).thenReturn(SagaStepResult.success("통계 업데이트됨"));
-            when(createFeedFromMissionStep.execute(any())).thenReturn(SagaStepResult.success("피드 스킵"));
-            when(createNextPinnedInstanceStep.execute(any())).thenReturn(SagaStepResult.success("다음 인스턴스 생성"));
+            when(createFeedFromMissionStep.execute(any()))
+                    .thenReturn(SagaStepResult.success("피드 스킵"));
+            when(createNextPinnedInstanceStep.execute(any()))
+                    .thenReturn(SagaStepResult.success("다음 인스턴스 생성"));
 
             // when
-            SagaResult<MissionCompletionContext> result = missionCompletionSaga.executePinned(INSTANCE_ID, TEST_USER_ID, "완료");
+            SagaResult<MissionCompletionContext> result =
+                    missionCompletionSaga.executePinned(INSTANCE_ID, TEST_USER_ID, "완료");
 
             // then
             assertThat(result.isSuccess()).isTrue();
@@ -490,21 +535,24 @@ class MissionCompletionSagaTest {
         void toResponse_extractsResponseFromSuccessResult() {
             // given
             when(loadMissionDataStep.execute(any(MissionCompletionContext.class)))
-                .thenAnswer(invocation -> {
-                    MissionCompletionContext ctx = invocation.getArgument(0);
-                    ctx.setExecution(execution);
-                    ctx.setParticipant(participant);
-                    ctx.setMission(mission);
-                    return SagaStepResult.success("데이터 로드 성공");
-                });
+                    .thenAnswer(
+                            invocation -> {
+                                MissionCompletionContext ctx = invocation.getArgument(0);
+                                ctx.setExecution(execution);
+                                ctx.setParticipant(participant);
+                                ctx.setMission(mission);
+                                return SagaStepResult.success("데이터 로드 성공");
+                            });
             when(completeExecutionStep.execute(any())).thenReturn(SagaStepResult.success("완료"));
             when(grantUserExperienceStep.execute(any())).thenReturn(SagaStepResult.success("경험치"));
             when(grantGuildExperienceStep.execute(any())).thenReturn(SagaStepResult.success("길드"));
-            when(updateParticipantProgressStep.execute(any())).thenReturn(SagaStepResult.success("진행도"));
+            when(updateParticipantProgressStep.execute(any()))
+                    .thenReturn(SagaStepResult.success("진행도"));
             when(updateUserStatsStep.execute(any())).thenReturn(SagaStepResult.success("통계"));
             when(createFeedFromMissionStep.execute(any())).thenReturn(SagaStepResult.success("피드"));
 
-            SagaResult<MissionCompletionContext> result = missionCompletionSaga.execute(EXECUTION_ID, TEST_USER_ID, null);
+            SagaResult<MissionCompletionContext> result =
+                    missionCompletionSaga.execute(EXECUTION_ID, TEST_USER_ID, null);
 
             // when
             var response = missionCompletionSaga.toResponse(result);
@@ -518,44 +566,51 @@ class MissionCompletionSagaTest {
         @DisplayName("성공한 고정 미션 Saga 결과에서 DailyMissionInstanceResponse를 추출한다")
         void toPinnedResponse_extractsResponseFromSuccessResult() {
             // given
-            Mission pinnedMission = Mission.builder()
-                .title("매일 운동")
-                .description("운동하기")
-                .creatorId(TEST_USER_ID)
-                .status(MissionStatus.IN_PROGRESS)
-                .visibility(MissionVisibility.PRIVATE)
-                .type(MissionType.PERSONAL)
-                .expPerCompletion(50)
-                .isPinned(true)
-                .build();
+            Mission pinnedMission =
+                    Mission.builder()
+                            .title("매일 운동")
+                            .description("운동하기")
+                            .creatorId(TEST_USER_ID)
+                            .status(MissionStatus.IN_PROGRESS)
+                            .visibility(MissionVisibility.PRIVATE)
+                            .type(MissionType.PERSONAL)
+                            .expPerCompletion(50)
+                            .isPinned(true)
+                            .build();
             setId(pinnedMission, 10L);
 
-            MissionParticipant pinnedParticipant = MissionParticipant.builder()
-                .mission(pinnedMission)
-                .userId(TEST_USER_ID)
-                .status(ParticipantStatus.ACCEPTED)
-                .build();
+            MissionParticipant pinnedParticipant =
+                    MissionParticipant.builder()
+                            .mission(pinnedMission)
+                            .userId(TEST_USER_ID)
+                            .status(ParticipantStatus.ACCEPTED)
+                            .build();
             setId(pinnedParticipant, 10L);
 
-            DailyMissionInstance instance = DailyMissionInstance.createFrom(pinnedParticipant, LocalDate.now());
+            DailyMissionInstance instance =
+                    DailyMissionInstance.createFrom(pinnedParticipant, LocalDate.now());
             setId(instance, INSTANCE_ID);
 
             when(loadPinnedMissionDataStep.execute(any(MissionCompletionContext.class)))
-                .thenAnswer(invocation -> {
-                    MissionCompletionContext ctx = invocation.getArgument(0);
-                    ctx.setInstance(instance);
-                    ctx.setParticipant(pinnedParticipant);
-                    ctx.setMission(pinnedMission);
-                    ctx.setUserExpEarned(50);
-                    return SagaStepResult.success("데이터 로드 성공");
-                });
-            when(completePinnedInstanceStep.execute(any())).thenReturn(SagaStepResult.success("완료"));
+                    .thenAnswer(
+                            invocation -> {
+                                MissionCompletionContext ctx = invocation.getArgument(0);
+                                ctx.setInstance(instance);
+                                ctx.setParticipant(pinnedParticipant);
+                                ctx.setMission(pinnedMission);
+                                ctx.setUserExpEarned(50);
+                                return SagaStepResult.success("데이터 로드 성공");
+                            });
+            when(completePinnedInstanceStep.execute(any()))
+                    .thenReturn(SagaStepResult.success("완료"));
             when(grantUserExperienceStep.execute(any())).thenReturn(SagaStepResult.success("경험치"));
             when(updateUserStatsStep.execute(any())).thenReturn(SagaStepResult.success("통계"));
             when(createFeedFromMissionStep.execute(any())).thenReturn(SagaStepResult.success("피드"));
-            when(createNextPinnedInstanceStep.execute(any())).thenReturn(SagaStepResult.success("다음"));
+            when(createNextPinnedInstanceStep.execute(any()))
+                    .thenReturn(SagaStepResult.success("다음"));
 
-            SagaResult<MissionCompletionContext> result = missionCompletionSaga.executePinned(INSTANCE_ID, TEST_USER_ID, null);
+            SagaResult<MissionCompletionContext> result =
+                    missionCompletionSaga.executePinned(INSTANCE_ID, TEST_USER_ID, null);
 
             // when
             var response = missionCompletionSaga.toPinnedResponse(result);

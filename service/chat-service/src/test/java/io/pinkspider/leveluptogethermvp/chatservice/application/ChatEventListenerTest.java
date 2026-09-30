@@ -19,14 +19,11 @@ import org.mockito.junit.jupiter.MockitoExtension;
 @ExtendWith(MockitoExtension.class)
 class ChatEventListenerTest {
 
-    @Mock
-    private GuildChatService guildChatService;
+    @Mock private GuildChatService guildChatService;
 
-    @Mock
-    private GuildDirectMessageService guildDirectMessageService;
+    @Mock private GuildDirectMessageService guildDirectMessageService;
 
-    @InjectMocks
-    private ChatEventListener chatEventListener;
+    @InjectMocks private ChatEventListener chatEventListener;
 
     @Nested
     @DisplayName("handleMemberJoined 테스트")
@@ -38,7 +35,8 @@ class ChatEventListenerTest {
             // given
             Long guildId = 1L;
             String nickname = "테스트유저";
-            GuildMemberJoinedChatNotifyEvent event = new GuildMemberJoinedChatNotifyEvent(guildId, nickname);
+            GuildMemberJoinedChatNotifyEvent event =
+                    new GuildMemberJoinedChatNotifyEvent(guildId, nickname);
 
             // when
             chatEventListener.handleMemberJoined(event);
@@ -58,7 +56,8 @@ class ChatEventListenerTest {
             // given
             Long guildId = 2L;
             String nickname = "탈퇴유저";
-            GuildMemberLeftChatNotifyEvent event = new GuildMemberLeftChatNotifyEvent(guildId, nickname);
+            GuildMemberLeftChatNotifyEvent event =
+                    new GuildMemberLeftChatNotifyEvent(guildId, nickname);
 
             // when
             chatEventListener.handleMemberLeft(event);
@@ -78,7 +77,8 @@ class ChatEventListenerTest {
             // given
             Long guildId = 3L;
             String nickname = "추방유저";
-            GuildMemberKickedChatNotifyEvent event = new GuildMemberKickedChatNotifyEvent(guildId, nickname);
+            GuildMemberKickedChatNotifyEvent event =
+                    new GuildMemberKickedChatNotifyEvent(guildId, nickname);
 
             // when
             chatEventListener.handleMemberKicked(event);

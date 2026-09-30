@@ -35,61 +35,72 @@ public class CheckLogicTypeAdminService {
 
     @Transactional(readOnly = true, transactionManager = "gamificationTransactionManager")
     public CheckLogicTypeAdminPageResponse searchCheckLogicTypes(Pageable pageable) {
-        Page<CheckLogicTypeAdminResponse> page = checkLogicTypeRepository.findAllByOrderBySortOrderAsc(pageable)
-            .map(CheckLogicTypeAdminResponse::from);
+        Page<CheckLogicTypeAdminResponse> page =
+                checkLogicTypeRepository
+                        .findAllByOrderBySortOrderAsc(pageable)
+                        .map(CheckLogicTypeAdminResponse::from);
         return CheckLogicTypeAdminPageResponse.from(page);
     }
 
     @Transactional(readOnly = true, transactionManager = "gamificationTransactionManager")
     public List<CheckLogicTypeAdminResponse> getAllCheckLogicTypes() {
         return checkLogicTypeRepository.findAllByOrderBySortOrderAsc().stream()
-            .map(CheckLogicTypeAdminResponse::from)
-            .collect(Collectors.toList());
+                .map(CheckLogicTypeAdminResponse::from)
+                .collect(Collectors.toList());
     }
 
     @Transactional(readOnly = true, transactionManager = "gamificationTransactionManager")
     public List<CheckLogicTypeAdminResponse> getActiveCheckLogicTypes() {
         return checkLogicTypeRepository.findByIsActiveTrueOrderBySortOrderAsc().stream()
-            .map(CheckLogicTypeAdminResponse::from)
-            .collect(Collectors.toList());
+                .map(CheckLogicTypeAdminResponse::from)
+                .collect(Collectors.toList());
     }
 
     @Transactional(readOnly = true, transactionManager = "gamificationTransactionManager")
     public List<CheckLogicTypeAdminResponse> getCheckLogicTypesByDataSource(String dataSourceCode) {
         CheckLogicDataSource dataSource = CheckLogicDataSource.fromCode(dataSourceCode);
-        return checkLogicTypeRepository.findByDataSourceAndIsActiveTrueOrderBySortOrderAsc(dataSource).stream()
-            .map(CheckLogicTypeAdminResponse::from)
-            .collect(Collectors.toList());
+        return checkLogicTypeRepository
+                .findByDataSourceAndIsActiveTrueOrderBySortOrderAsc(dataSource)
+                .stream()
+                .map(CheckLogicTypeAdminResponse::from)
+                .collect(Collectors.toList());
     }
 
     @Transactional(readOnly = true, transactionManager = "gamificationTransactionManager")
     public CheckLogicTypeAdminResponse getCheckLogicType(Long id) {
-        CheckLogicType entity = checkLogicTypeRepository.findById(id)
-            .orElseThrow(() -> new CustomException("120201", "error.checklogic.not_found"));
+        CheckLogicType entity =
+                checkLogicTypeRepository
+                        .findById(id)
+                        .orElseThrow(
+                                () -> new CustomException("120201", "error.checklogic.not_found"));
         return CheckLogicTypeAdminResponse.from(entity);
     }
 
     @Transactional(readOnly = true, transactionManager = "gamificationTransactionManager")
     public CheckLogicTypeAdminResponse getCheckLogicTypeByCode(String code) {
-        CheckLogicType entity = checkLogicTypeRepository.findByCode(code)
-            .orElseThrow(() -> new CustomException("120201", "error.checklogic.not_found"));
+        CheckLogicType entity =
+                checkLogicTypeRepository
+                        .findByCode(code)
+                        .orElseThrow(
+                                () -> new CustomException("120201", "error.checklogic.not_found"));
         return CheckLogicTypeAdminResponse.from(entity);
     }
 
     @Transactional(readOnly = true, transactionManager = "gamificationTransactionManager")
     public List<DataSourceAdminInfo> getDataSources() {
         // QA-145: USER_CATEGORY_EXPERIENCE 의 availableFields 는 실시간 mission_category 에서 채운다.
-        List<MissionCategoryResponse> activeCategories = missionCategoryService.getActiveCategories();
+        List<MissionCategoryResponse> activeCategories =
+                missionCategoryService.getActiveCategories();
         return Arrays.stream(CheckLogicDataSource.values())
-            .map(ds -> DataSourceAdminInfo.from(ds, activeCategories))
-            .collect(Collectors.toList());
+                .map(ds -> DataSourceAdminInfo.from(ds, activeCategories))
+                .collect(Collectors.toList());
     }
 
     @Transactional(readOnly = true, transactionManager = "gamificationTransactionManager")
     public List<ComparisonOperatorAdminInfo> getComparisonOperators() {
         return Arrays.stream(CheckLogicComparisonOperator.values())
-            .map(ComparisonOperatorAdminInfo::from)
-            .collect(Collectors.toList());
+                .map(ComparisonOperatorAdminInfo::from)
+                .collect(Collectors.toList());
     }
 
     public CheckLogicTypeAdminResponse createCheckLogicType(CheckLogicTypeAdminRequest request) {
@@ -98,39 +109,46 @@ public class CheckLogicTypeAdminService {
         }
 
         CheckLogicDataSource dataSource = CheckLogicDataSource.fromCode(request.dataSource());
-        CheckLogicComparisonOperator operator = request.comparisonOperator() != null
-            ? CheckLogicComparisonOperator.fromCode(request.comparisonOperator())
-            : CheckLogicComparisonOperator.GTE;
+        CheckLogicComparisonOperator operator =
+                request.comparisonOperator() != null
+                        ? CheckLogicComparisonOperator.fromCode(request.comparisonOperator())
+                        : CheckLogicComparisonOperator.GTE;
 
-        CheckLogicType entity = CheckLogicType.builder()
-            .code(request.code())
-            .name(request.name())
-            .description(request.description())
-            .dataSource(dataSource)
-            .dataField(request.dataField())
-            .comparisonOperator(operator)
-            .configJson(request.configJson())
-            .sortOrder(request.sortOrder() != null ? request.sortOrder() : 0)
-            .isActive(request.isActive() != null ? request.isActive() : true)
-            .build();
+        CheckLogicType entity =
+                CheckLogicType.builder()
+                        .code(request.code())
+                        .name(request.name())
+                        .description(request.description())
+                        .dataSource(dataSource)
+                        .dataField(request.dataField())
+                        .comparisonOperator(operator)
+                        .configJson(request.configJson())
+                        .sortOrder(request.sortOrder() != null ? request.sortOrder() : 0)
+                        .isActive(request.isActive() != null ? request.isActive() : true)
+                        .build();
 
         CheckLogicType saved = checkLogicTypeRepository.save(entity);
         log.info("체크 로직 유형 생성: {} (ID: {})", request.code(), saved.getId());
         return CheckLogicTypeAdminResponse.from(saved);
     }
 
-    public CheckLogicTypeAdminResponse updateCheckLogicType(Long id, CheckLogicTypeAdminRequest request) {
-        CheckLogicType entity = checkLogicTypeRepository.findById(id)
-            .orElseThrow(() -> new CustomException("120201", "error.checklogic.not_found"));
+    public CheckLogicTypeAdminResponse updateCheckLogicType(
+            Long id, CheckLogicTypeAdminRequest request) {
+        CheckLogicType entity =
+                checkLogicTypeRepository
+                        .findById(id)
+                        .orElseThrow(
+                                () -> new CustomException("120201", "error.checklogic.not_found"));
 
         if (checkLogicTypeRepository.existsByCodeAndIdNot(request.code(), id)) {
             throw new CustomException("120202", "error.checklogic.duplicate_code");
         }
 
         CheckLogicDataSource dataSource = CheckLogicDataSource.fromCode(request.dataSource());
-        CheckLogicComparisonOperator operator = request.comparisonOperator() != null
-            ? CheckLogicComparisonOperator.fromCode(request.comparisonOperator())
-            : entity.getComparisonOperator();
+        CheckLogicComparisonOperator operator =
+                request.comparisonOperator() != null
+                        ? CheckLogicComparisonOperator.fromCode(request.comparisonOperator())
+                        : entity.getComparisonOperator();
 
         entity.setCode(request.code());
         entity.setName(request.name());
@@ -152,8 +170,11 @@ public class CheckLogicTypeAdminService {
     }
 
     public CheckLogicTypeAdminResponse toggleActiveStatus(Long id) {
-        CheckLogicType entity = checkLogicTypeRepository.findById(id)
-            .orElseThrow(() -> new CustomException("120201", "error.checklogic.not_found"));
+        CheckLogicType entity =
+                checkLogicTypeRepository
+                        .findById(id)
+                        .orElseThrow(
+                                () -> new CustomException("120201", "error.checklogic.not_found"));
 
         entity.setIsActive(!entity.getIsActive());
         CheckLogicType updated = checkLogicTypeRepository.save(entity);
@@ -162,14 +183,20 @@ public class CheckLogicTypeAdminService {
     }
 
     public void deleteCheckLogicType(Long id) {
-        CheckLogicType entity = checkLogicTypeRepository.findById(id)
-            .orElseThrow(() -> new CustomException("120201", "error.checklogic.not_found"));
+        CheckLogicType entity =
+                checkLogicTypeRepository
+                        .findById(id)
+                        .orElseThrow(
+                                () -> new CustomException("120201", "error.checklogic.not_found"));
 
         // QA-154: achievement 가 참조 중이면 FK violation 으로 500 발생 → 사전 확인 후 명확한 에러 반환.
         long referencingAchievements = achievementRepository.countByCheckLogicTypeId(id);
         if (referencingAchievements > 0) {
-            log.warn("체크 로직 유형 삭제 거부 (참조 업적 존재): id={}, code={}, refs={}",
-                id, entity.getCode(), referencingAchievements);
+            log.warn(
+                    "체크 로직 유형 삭제 거부 (참조 업적 존재): id={}, code={}, refs={}",
+                    id,
+                    entity.getCode(),
+                    referencingAchievements);
             throw new CustomException("120203", "error.checklogic.in_use");
         }
 

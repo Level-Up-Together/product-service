@@ -16,10 +16,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
 
-/**
- * 로컬 파일 시스템에 미션 이미지를 저장하는 구현체
- * 추후 S3 등으로 교체 시 S3MissionImageStorageService를 만들어 교체
- */
+/** 로컬 파일 시스템에 미션 이미지를 저장하는 구현체 추후 S3 등으로 교체 시 S3MissionImageStorageService를 만들어 교체 */
 @Service
 @Profile("!prod")
 @Slf4j
@@ -50,16 +47,27 @@ public class LocalMissionImageStorageService implements MissionImageStorageServi
             // 파일 이름 생성 (executionDate_UUID.확장자)
             String originalFilename = StringUtils.cleanPath(file.getOriginalFilename());
             String extension = getExtension(originalFilename);
-            String newFilename = executionDate + "_" + UUID.randomUUID().toString() + "." + extension;
+            String newFilename =
+                    executionDate + "_" + UUID.randomUUID().toString() + "." + extension;
             byte[] originalBytes = file.getBytes();
 
             // 파일 저장
             Path targetPath = uploadDir.resolve(newFilename);
             Files.write(targetPath, originalBytes);
 
-            uploadVariant(uploadDir, newFilename, extension, originalBytes, THUMB_SUFFIX,
+            uploadVariant(
+                    uploadDir,
+                    newFilename,
+                    extension,
+                    originalBytes,
+                    THUMB_SUFFIX,
                     ImageResizer.THUMBNAIL_MAX_DIMENSION);
-            uploadVariant(uploadDir, newFilename, extension, originalBytes, MEDIUM_SUFFIX,
+            uploadVariant(
+                    uploadDir,
+                    newFilename,
+                    extension,
+                    originalBytes,
+                    MEDIUM_SUFFIX,
                     ImageResizer.MEDIUM_MAX_DIMENSION);
 
             log.info("미션 이미지 저장: userId={}, missionId={}, path={}", userId, missionId, targetPath);
@@ -74,8 +82,13 @@ public class LocalMissionImageStorageService implements MissionImageStorageServi
     }
 
     /** LUT-400: 원본과 같은 디렉터리에 리사이즈 변형(thumb/medium)을 best-effort로 함께 저장한다. */
-    private void uploadVariant(Path uploadDir, String originalFilename, String extension,
-            byte[] originalBytes, String suffix, int maxDimension) {
+    private void uploadVariant(
+            Path uploadDir,
+            String originalFilename,
+            String extension,
+            byte[] originalBytes,
+            String suffix,
+            int maxDimension) {
         try {
             Optional<byte[]> resized = imageResizer.resize(originalBytes, extension, maxDimension);
             if (resized.isEmpty()) {
@@ -97,9 +110,8 @@ public class LocalMissionImageStorageService implements MissionImageStorageServi
     }
 
     /**
-     * LUT-409: 변형(thumb/medium)이 없는 과거 업로드 원본에 변형을 생성한다. 멱등 —
-     * 이미 존재하는 변형 파일은 건너뛰고, 원본 바이트는 필요할 때 1회만 읽는다.
-     * 리사이즈 불가 포맷(GIF 등)은 변형 없이 원본 fallback 을 유지한다 (업로드 경로와 동일 정책).
+     * LUT-409: 변형(thumb/medium)이 없는 과거 업로드 원본에 변형을 생성한다. 멱등 — 이미 존재하는 변형 파일은 건너뛰고, 원본 바이트는 필요할 때
+     * 1회만 읽는다. 리사이즈 불가 포맷(GIF 등)은 변형 없이 원본 fallback 을 유지한다 (업로드 경로와 동일 정책).
      */
     @Override
     public int backfillVariants(String imageUrl) {
@@ -121,11 +133,13 @@ public class LocalMissionImageStorageService implements MissionImageStorageServi
             byte[] originalBytes = null;
             int created = 0;
 
-            for (Variant variant : List.of(
-                    new Variant(THUMB_SUFFIX, ImageResizer.THUMBNAIL_MAX_DIMENSION),
-                    new Variant(MEDIUM_SUFFIX, ImageResizer.MEDIUM_MAX_DIMENSION))) {
-                Path variantPath = Paths.get(properties.getPath(),
-                        insertSuffix(relativePath, variant.suffix()));
+            for (Variant variant :
+                    List.of(
+                            new Variant(THUMB_SUFFIX, ImageResizer.THUMBNAIL_MAX_DIMENSION),
+                            new Variant(MEDIUM_SUFFIX, ImageResizer.MEDIUM_MAX_DIMENSION))) {
+                Path variantPath =
+                        Paths.get(
+                                properties.getPath(), insertSuffix(relativePath, variant.suffix()));
                 if (Files.exists(variantPath)) {
                     continue;
                 }
@@ -220,9 +234,7 @@ public class LocalMissionImageStorageService implements MissionImageStorageServi
         return true;
     }
 
-    /**
-     * 파일 이름에서 확장자 추출
-     */
+    /** 파일 이름에서 확장자 추출 */
     private String getExtension(String filename) {
         if (filename == null || !filename.contains(".")) {
             return "";

@@ -12,22 +12,22 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import io.pinkspider.global.enums.ExpSourceType;
 import io.pinkspider.global.facade.GuildQueryFacade;
+import io.pinkspider.leveluptogethermvp.gamificationservice.achievement.domain.dto.AchievementResponse;
+import io.pinkspider.leveluptogethermvp.gamificationservice.achievement.domain.dto.UserAchievementResponse;
 import io.pinkspider.leveluptogethermvp.gamificationservice.achievement.strategy.AchievementCheckStrategy;
 import io.pinkspider.leveluptogethermvp.gamificationservice.achievement.strategy.AchievementCheckStrategyRegistry;
 import io.pinkspider.leveluptogethermvp.gamificationservice.achievement.strategy.AchievementSyncContext;
 import io.pinkspider.leveluptogethermvp.gamificationservice.domain.entity.Achievement;
 import io.pinkspider.leveluptogethermvp.gamificationservice.domain.entity.UserAchievement;
 import io.pinkspider.leveluptogethermvp.gamificationservice.domain.entity.UserStats;
-import io.pinkspider.global.enums.ExpSourceType;
+import io.pinkspider.leveluptogethermvp.gamificationservice.experience.application.UserExperienceService;
 import io.pinkspider.leveluptogethermvp.gamificationservice.infrastructure.AchievementRepository;
 import io.pinkspider.leveluptogethermvp.gamificationservice.infrastructure.UserAchievementRepository;
 import io.pinkspider.leveluptogethermvp.gamificationservice.infrastructure.UserCategoryExperienceRepository;
 import io.pinkspider.leveluptogethermvp.gamificationservice.infrastructure.UserExperienceRepository;
 import io.pinkspider.leveluptogethermvp.gamificationservice.infrastructure.UserStatsRepository;
-import io.pinkspider.leveluptogethermvp.gamificationservice.achievement.domain.dto.AchievementResponse;
-import io.pinkspider.leveluptogethermvp.gamificationservice.achievement.domain.dto.UserAchievementResponse;
-import io.pinkspider.leveluptogethermvp.gamificationservice.experience.application.UserExperienceService;
 import io.pinkspider.leveluptogethermvp.gamificationservice.stats.application.UserStatsService;
 import io.pinkspider.leveluptogethermvp.metaservice.application.MissionCategoryService;
 import io.pinkspider.leveluptogethermvp.metaservice.domain.dto.MissionCategoryResponse;
@@ -45,81 +45,75 @@ import org.springframework.context.ApplicationEventPublisher;
 @ExtendWith(MockitoExtension.class)
 class AchievementServiceTest {
 
-    @Mock
-    private AchievementRepository achievementRepository;
+    @Mock private AchievementRepository achievementRepository;
+
+    @Mock private UserAchievementRepository userAchievementRepository;
+
+    @Mock private UserStatsService userStatsService;
+
+    @Mock private UserExperienceService userExperienceService;
+
+    @Mock private TitleService titleService;
+
+    @Mock private ApplicationEventPublisher eventPublisher;
+
+    @Mock private AchievementCheckStrategyRegistry strategyRegistry;
+
+    @Mock private AchievementCheckStrategy mockStrategy;
+
+    @Mock private AchievementCacheService achievementCacheService;
+
+    @Mock private UserStatsRepository userStatsRepository;
+
+    @Mock private UserExperienceRepository userExperienceRepository;
+
+    @Mock private UserCategoryExperienceRepository userCategoryExperienceRepository;
+
+    @Mock private GuildQueryFacade guildQueryFacade;
+
+    @Mock private MissionCategoryService missionCategoryService;
 
     @Mock
-    private UserAchievementRepository userAchievementRepository;
+    private io.pinkspider.leveluptogethermvp.gamificationservice.infrastructure.TitleRepository
+            titleRepository;
 
-    @Mock
-    private UserStatsService userStatsService;
-
-    @Mock
-    private UserExperienceService userExperienceService;
-
-    @Mock
-    private TitleService titleService;
-
-    @Mock
-    private ApplicationEventPublisher eventPublisher;
-
-    @Mock
-    private AchievementCheckStrategyRegistry strategyRegistry;
-
-    @Mock
-    private AchievementCheckStrategy mockStrategy;
-
-    @Mock
-    private AchievementCacheService achievementCacheService;
-
-    @Mock
-    private UserStatsRepository userStatsRepository;
-
-    @Mock
-    private UserExperienceRepository userExperienceRepository;
-
-    @Mock
-    private UserCategoryExperienceRepository userCategoryExperienceRepository;
-
-    @Mock
-    private GuildQueryFacade guildQueryFacade;
-
-    @Mock
-    private MissionCategoryService missionCategoryService;
-
-    @Mock
-    private io.pinkspider.leveluptogethermvp.gamificationservice.infrastructure.TitleRepository titleRepository;
-
-    @InjectMocks
-    private AchievementService achievementService;
+    @InjectMocks private AchievementService achievementService;
 
     private static final String TEST_USER_ID = "test-user-123";
 
-    private Achievement createTestAchievement(Long id, String name, int targetCount, int rewardExp) {
-        Achievement achievement = Achievement.builder()
-            .name(name)
-            .description(name + " 설명")
-            .categoryCode("MISSION")
-            .requiredCount(targetCount)
-            .rewardExp(rewardExp)
-            .isActive(true)
-            .isHidden(false)
-            .checkLogicDataSource("USER_STATS")
-            .checkLogicDataField("totalMissionCompletions")
-            .comparisonOperator("GTE")
-            .build();
+    private Achievement createTestAchievement(
+            Long id, String name, int targetCount, int rewardExp) {
+        Achievement achievement =
+                Achievement.builder()
+                        .name(name)
+                        .description(name + " 설명")
+                        .categoryCode("MISSION")
+                        .requiredCount(targetCount)
+                        .rewardExp(rewardExp)
+                        .isActive(true)
+                        .isHidden(false)
+                        .checkLogicDataSource("USER_STATS")
+                        .checkLogicDataField("totalMissionCompletions")
+                        .comparisonOperator("GTE")
+                        .build();
         setId(achievement, id);
         return achievement;
     }
 
-    private UserAchievement createTestUserAchievement(Long id, String userId, Achievement achievement, int currentCount, boolean isCompleted) {
-        UserAchievement userAchievement = UserAchievement.builder()
-            .userId(userId)
-            .achievement(achievement)
-            .currentCount(currentCount)
-            .isCompleted(isCompleted)
-            .isRewardClaimed(false)
-            .build();
+    private UserAchievement createTestUserAchievement(
+            Long id,
+            String userId,
+            Achievement achievement,
+            int currentCount,
+            boolean isCompleted) {
+        UserAchievement userAchievement =
+                UserAchievement.builder()
+                        .userId(userId)
+                        .achievement(achievement)
+                        .currentCount(currentCount)
+                        .isCompleted(isCompleted)
+                        .isRewardClaimed(false)
+                        .build();
         setId(userAchievement, id);
         return userAchievement;
     }
@@ -135,7 +129,8 @@ class AchievementServiceTest {
             Achievement achievement1 = createTestAchievement(1L, "FIRST_MISSION_COMPLETE", 1, 50);
             Achievement achievement2 = createTestAchievement(2L, "MISSION_COMPLETE_10", 10, 100);
 
-            when(achievementCacheService.getVisibleAchievements()).thenReturn(List.of(achievement1, achievement2));
+            when(achievementCacheService.getVisibleAchievements())
+                    .thenReturn(List.of(achievement1, achievement2));
 
             // when
             List<AchievementResponse> result = achievementService.getAllAchievements();
@@ -158,10 +153,11 @@ class AchievementServiceTest {
             Achievement achievement = createTestAchievement(1L, "FIRST_MISSION_COMPLETE", 1, 50);
 
             when(achievementCacheService.getAchievementsByCategoryCode("MISSION"))
-                .thenReturn(List.of(achievement));
+                    .thenReturn(List.of(achievement));
 
             // when
-            List<AchievementResponse> result = achievementService.getAchievementsByCategoryCode("MISSION");
+            List<AchievementResponse> result =
+                    achievementService.getAchievementsByCategoryCode("MISSION");
 
             // then
             assertThat(result).hasSize(1);
@@ -178,13 +174,15 @@ class AchievementServiceTest {
         void getUserAchievements_success() {
             // given
             Achievement achievement = createTestAchievement(1L, "FIRST_MISSION_COMPLETE", 1, 50);
-            UserAchievement userAchievement = createTestUserAchievement(1L, TEST_USER_ID, achievement, 1, true);
+            UserAchievement userAchievement =
+                    createTestUserAchievement(1L, TEST_USER_ID, achievement, 1, true);
 
             when(userAchievementRepository.findByUserIdWithAchievement(TEST_USER_ID))
-                .thenReturn(List.of(userAchievement));
+                    .thenReturn(List.of(userAchievement));
 
             // when
-            List<UserAchievementResponse> result = achievementService.getUserAchievements(TEST_USER_ID);
+            List<UserAchievementResponse> result =
+                    achievementService.getUserAchievements(TEST_USER_ID);
 
             // then
             assertThat(result).hasSize(1);
@@ -195,43 +193,47 @@ class AchievementServiceTest {
         @DisplayName("QA-159: 응답에 보상 칭호 이름/등급과 check_logic 식별 필드가 채워진다")
         void getUserAchievements_QA159_rewardTitleAndCheckLogic() {
             // given: rewardTitleId=10, checkLogicTypeId=5, dataField=guildJoinCount 인 길드 가입 업적
-            Achievement achievement = Achievement.builder()
-                .name("길드 첫 가입")
-                .description("길드에 최초 가입")
-                .categoryCode("GUILD")
-                .requiredCount(1)
-                .rewardExp(50)
-                .isActive(true)
-                .isHidden(false)
-                .checkLogicTypeId(5L)
-                .checkLogicDataSource("USER_STATS")
-                .checkLogicDataField("guildJoinCount")
-                .comparisonOperator("GTE")
-                .rewardTitleId(10L)
-                .build();
+            Achievement achievement =
+                    Achievement.builder()
+                            .name("길드 첫 가입")
+                            .description("길드에 최초 가입")
+                            .categoryCode("GUILD")
+                            .requiredCount(1)
+                            .rewardExp(50)
+                            .isActive(true)
+                            .isHidden(false)
+                            .checkLogicTypeId(5L)
+                            .checkLogicDataSource("USER_STATS")
+                            .checkLogicDataField("guildJoinCount")
+                            .comparisonOperator("GTE")
+                            .rewardTitleId(10L)
+                            .build();
             setId(achievement, 1L);
             UserAchievement ua = createTestUserAchievement(1L, TEST_USER_ID, achievement, 1, true);
 
             io.pinkspider.leveluptogethermvp.gamificationservice.domain.entity.Title title =
-                io.pinkspider.leveluptogethermvp.gamificationservice.domain.entity.Title.builder()
-                    .name("최초의")
-                    .rarity(io.pinkspider.global.enums.TitleRarity.LEGENDARY)
-                    .build();
+                    io.pinkspider.leveluptogethermvp.gamificationservice.domain.entity.Title
+                            .builder()
+                            .name("최초의")
+                            .rarity(io.pinkspider.global.enums.TitleRarity.LEGENDARY)
+                            .build();
             setId(title, 10L);
 
             when(userAchievementRepository.findByUserIdWithAchievement(TEST_USER_ID))
-                .thenReturn(List.of(ua));
+                    .thenReturn(List.of(ua));
             when(titleRepository.findAllById(java.util.Set.of(10L))).thenReturn(List.of(title));
 
             // when
-            List<UserAchievementResponse> result = achievementService.getUserAchievements(TEST_USER_ID);
+            List<UserAchievementResponse> result =
+                    achievementService.getUserAchievements(TEST_USER_ID);
 
             // then
             assertThat(result).hasSize(1);
             UserAchievementResponse r = result.get(0);
             assertThat(r.getRewardTitleId()).isEqualTo(10L);
             assertThat(r.getRewardTitleName()).isEqualTo("최초의");
-            assertThat(r.getRewardTitleRarity()).isEqualTo(io.pinkspider.global.enums.TitleRarity.LEGENDARY);
+            assertThat(r.getRewardTitleRarity())
+                    .isEqualTo(io.pinkspider.global.enums.TitleRarity.LEGENDARY);
             assertThat(r.getCheckLogicTypeId()).isEqualTo(5L);
             assertThat(r.getCheckLogicDataField()).isEqualTo("guildJoinCount");
         }
@@ -241,30 +243,38 @@ class AchievementServiceTest {
         void getUserAchievements_missionCategoryName_filledFromMeta() {
             // given: achievement.missionCategoryName 은 NULL, mission_category_id=5 만 저장된 데이터.
             //        메타에 id=5 가 "독서" 로 등록되어 있으면 응답에 "독서" 가 채워져야 한다.
-            Achievement achievement = Achievement.builder()
-                .name("Reading 카테고리 경험치 7500")
-                .description("Reading 카테고리에서 경험치 7500을 획득하세요")
-                .categoryCode("MISSION")
-                .requiredCount(7500)
-                .rewardExp(0)
-                .isActive(true)
-                .isHidden(false)
-                .checkLogicDataSource("USER_CATEGORY_EXPERIENCE")
-                .checkLogicDataField("categoryExp")
-                .comparisonOperator("GTE")
-                .missionCategoryId(5L)
-                .build();
+            Achievement achievement =
+                    Achievement.builder()
+                            .name("Reading 카테고리 경험치 7500")
+                            .description("Reading 카테고리에서 경험치 7500을 획득하세요")
+                            .categoryCode("MISSION")
+                            .requiredCount(7500)
+                            .rewardExp(0)
+                            .isActive(true)
+                            .isHidden(false)
+                            .checkLogicDataSource("USER_CATEGORY_EXPERIENCE")
+                            .checkLogicDataField("categoryExp")
+                            .comparisonOperator("GTE")
+                            .missionCategoryId(5L)
+                            .build();
             setId(achievement, 267L);
-            UserAchievement ua = createTestUserAchievement(1221L, TEST_USER_ID, achievement, 686, false);
+            UserAchievement ua =
+                    createTestUserAchievement(1221L, TEST_USER_ID, achievement, 686, false);
 
             when(userAchievementRepository.findByUserIdWithAchievement(TEST_USER_ID))
-                .thenReturn(List.of(ua));
-            when(missionCategoryService.getActiveCategories()).thenReturn(List.of(
-                MissionCategoryResponse.builder().id(5L).name("독서").isActive(true).build()
-            ));
+                    .thenReturn(List.of(ua));
+            when(missionCategoryService.getActiveCategories())
+                    .thenReturn(
+                            List.of(
+                                    MissionCategoryResponse.builder()
+                                            .id(5L)
+                                            .name("독서")
+                                            .isActive(true)
+                                            .build()));
 
             // when
-            List<UserAchievementResponse> result = achievementService.getUserAchievements(TEST_USER_ID);
+            List<UserAchievementResponse> result =
+                    achievementService.getUserAchievements(TEST_USER_ID);
 
             // then
             assertThat(result).hasSize(1);
@@ -273,45 +283,65 @@ class AchievementServiceTest {
         }
 
         @Test
-        @DisplayName("QA-145: USER_CATEGORY_EXPERIENCE 업적 중 mission_category_id 가 메타에 없으면 응답에서 제외된다")
+        @DisplayName(
+                "QA-145: USER_CATEGORY_EXPERIENCE 업적 중 mission_category_id 가 메타에 없으면 응답에서 제외된다")
         void getUserAchievements_orphanedCategoryAchievement_filteredOut() {
             // given: 활성 메타 카테고리는 1(운동), 11(기타) 뿐. id=6 은 메타에서 사라진 옛 카테고리.
             Achievement aliveCategoryAchievement = createCategoryAchievement(1L, "운동 마스터", 1L);
-            Achievement orphanedCategoryAchievement = createCategoryAchievement(2L, "사회활동 1000", 6L);
-            Achievement nonCategoryAchievement = createTestAchievement(3L, "FIRST_MISSION_COMPLETE", 1, 50);
-            UserAchievement ua1 = createTestUserAchievement(1L, TEST_USER_ID, aliveCategoryAchievement, 1, true);
-            UserAchievement ua2 = createTestUserAchievement(2L, TEST_USER_ID, orphanedCategoryAchievement, 1, false);
-            UserAchievement ua3 = createTestUserAchievement(3L, TEST_USER_ID, nonCategoryAchievement, 1, true);
+            Achievement orphanedCategoryAchievement =
+                    createCategoryAchievement(2L, "사회활동 1000", 6L);
+            Achievement nonCategoryAchievement =
+                    createTestAchievement(3L, "FIRST_MISSION_COMPLETE", 1, 50);
+            UserAchievement ua1 =
+                    createTestUserAchievement(1L, TEST_USER_ID, aliveCategoryAchievement, 1, true);
+            UserAchievement ua2 =
+                    createTestUserAchievement(
+                            2L, TEST_USER_ID, orphanedCategoryAchievement, 1, false);
+            UserAchievement ua3 =
+                    createTestUserAchievement(3L, TEST_USER_ID, nonCategoryAchievement, 1, true);
 
             when(userAchievementRepository.findByUserIdWithAchievement(TEST_USER_ID))
-                .thenReturn(List.of(ua1, ua2, ua3));
-            when(missionCategoryService.getActiveCategories()).thenReturn(List.of(
-                MissionCategoryResponse.builder().id(1L).name("운동").isActive(true).build(),
-                MissionCategoryResponse.builder().id(11L).name("기타").isActive(true).build()
-            ));
+                    .thenReturn(List.of(ua1, ua2, ua3));
+            when(missionCategoryService.getActiveCategories())
+                    .thenReturn(
+                            List.of(
+                                    MissionCategoryResponse.builder()
+                                            .id(1L)
+                                            .name("운동")
+                                            .isActive(true)
+                                            .build(),
+                                    MissionCategoryResponse.builder()
+                                            .id(11L)
+                                            .name("기타")
+                                            .isActive(true)
+                                            .build()));
 
             // when
-            List<UserAchievementResponse> result = achievementService.getUserAchievements(TEST_USER_ID);
+            List<UserAchievementResponse> result =
+                    achievementService.getUserAchievements(TEST_USER_ID);
 
             // then: 사라진 카테고리(id=6) 업적만 제외, 다른 dataSource 업적은 영향 없음
-            assertThat(result).extracting(UserAchievementResponse::getName)
-                .containsExactlyInAnyOrder("운동 마스터", "FIRST_MISSION_COMPLETE");
+            assertThat(result)
+                    .extracting(UserAchievementResponse::getName)
+                    .containsExactlyInAnyOrder("운동 마스터", "FIRST_MISSION_COMPLETE");
         }
 
-        private Achievement createCategoryAchievement(Long id, String name, Long missionCategoryId) {
-            Achievement achievement = Achievement.builder()
-                .name(name)
-                .description(name + " 설명")
-                .categoryCode("MISSION")
-                .requiredCount(1000)
-                .rewardExp(100)
-                .isActive(true)
-                .isHidden(false)
-                .checkLogicDataSource("USER_CATEGORY_EXPERIENCE")
-                .checkLogicDataField("categoryExp")
-                .comparisonOperator("GTE")
-                .missionCategoryId(missionCategoryId)
-                .build();
+        private Achievement createCategoryAchievement(
+                Long id, String name, Long missionCategoryId) {
+            Achievement achievement =
+                    Achievement.builder()
+                            .name(name)
+                            .description(name + " 설명")
+                            .categoryCode("MISSION")
+                            .requiredCount(1000)
+                            .rewardExp(100)
+                            .isActive(true)
+                            .isHidden(false)
+                            .checkLogicDataSource("USER_CATEGORY_EXPERIENCE")
+                            .checkLogicDataField("categoryExp")
+                            .comparisonOperator("GTE")
+                            .missionCategoryId(missionCategoryId)
+                            .build();
             setId(achievement, id);
             return achievement;
         }
@@ -326,21 +356,31 @@ class AchievementServiceTest {
         void claimReward_success() {
             // given
             Long achievementId = 1L;
-            Achievement achievement = createTestAchievement(achievementId, "FIRST_MISSION_COMPLETE", 1, 50);
-            UserAchievement userAchievement = createTestUserAchievement(1L, TEST_USER_ID, achievement, 1, true);
+            Achievement achievement =
+                    createTestAchievement(achievementId, "FIRST_MISSION_COMPLETE", 1, 50);
+            UserAchievement userAchievement =
+                    createTestUserAchievement(1L, TEST_USER_ID, achievement, 1, true);
 
-            when(userAchievementRepository.findByUserIdAndAchievementId(TEST_USER_ID, achievementId))
-                .thenReturn(Optional.of(userAchievement));
+            when(userAchievementRepository.findByUserIdAndAchievementId(
+                            TEST_USER_ID, achievementId))
+                    .thenReturn(Optional.of(userAchievement));
             when(userAchievementRepository.markRewardClaimed(1L)).thenReturn(1);
 
             // when
-            UserAchievementResponse result = achievementService.claimReward(TEST_USER_ID, achievementId);
+            UserAchievementResponse result =
+                    achievementService.claimReward(TEST_USER_ID, achievementId);
 
             // then
             assertThat(result).isNotNull();
             assertThat(userAchievement.getIsRewardClaimed()).isTrue();
-            verify(userExperienceService).addExperience(
-                eq(TEST_USER_ID), eq(50), eq(ExpSourceType.ACHIEVEMENT), eq(achievementId), anyString(), eq("기타"));
+            verify(userExperienceService)
+                    .addExperience(
+                            eq(TEST_USER_ID),
+                            eq(50),
+                            eq(ExpSourceType.ACHIEVEMENT),
+                            eq(achievementId),
+                            anyString(),
+                            eq("기타"));
         }
 
         @Test
@@ -348,17 +388,21 @@ class AchievementServiceTest {
         void claimReward_notCompleted_throwsException() {
             // given
             Long achievementId = 1L;
-            Achievement achievement = createTestAchievement(achievementId, "FIRST_MISSION_COMPLETE", 1, 50);
-            UserAchievement userAchievement = createTestUserAchievement(1L, TEST_USER_ID, achievement, 0, false);
+            Achievement achievement =
+                    createTestAchievement(achievementId, "FIRST_MISSION_COMPLETE", 1, 50);
+            UserAchievement userAchievement =
+                    createTestUserAchievement(1L, TEST_USER_ID, achievement, 0, false);
 
-            when(userAchievementRepository.findByUserIdAndAchievementId(TEST_USER_ID, achievementId))
-                .thenReturn(Optional.of(userAchievement));
+            when(userAchievementRepository.findByUserIdAndAchievementId(
+                            TEST_USER_ID, achievementId))
+                    .thenReturn(Optional.of(userAchievement));
 
             // when & then
             assertThatThrownBy(() -> achievementService.claimReward(TEST_USER_ID, achievementId))
-                .isInstanceOf(IllegalStateException.class)
-                .hasMessage("업적을 완료하지 않았습니다.");
-            verify(userExperienceService, never()).addExperience(any(), anyInt(), any(), any(), any(), any());
+                    .isInstanceOf(IllegalStateException.class)
+                    .hasMessage("업적을 완료하지 않았습니다.");
+            verify(userExperienceService, never())
+                    .addExperience(any(), anyInt(), any(), any(), any(), any());
         }
 
         @Test
@@ -366,18 +410,22 @@ class AchievementServiceTest {
         void claimReward_alreadyClaimedByGuard_throwsException() {
             // given: 다른 경로(이벤트 즉시 수령/홈 sync)가 먼저 수령해 markRewardClaimed 가 0을 반환
             Long achievementId = 1L;
-            Achievement achievement = createTestAchievement(achievementId, "FIRST_MISSION_COMPLETE", 1, 50);
-            UserAchievement userAchievement = createTestUserAchievement(1L, TEST_USER_ID, achievement, 1, true);
+            Achievement achievement =
+                    createTestAchievement(achievementId, "FIRST_MISSION_COMPLETE", 1, 50);
+            UserAchievement userAchievement =
+                    createTestUserAchievement(1L, TEST_USER_ID, achievement, 1, true);
 
-            when(userAchievementRepository.findByUserIdAndAchievementId(TEST_USER_ID, achievementId))
-                .thenReturn(Optional.of(userAchievement));
+            when(userAchievementRepository.findByUserIdAndAchievementId(
+                            TEST_USER_ID, achievementId))
+                    .thenReturn(Optional.of(userAchievement));
             when(userAchievementRepository.markRewardClaimed(1L)).thenReturn(0);
 
             // when & then
             assertThatThrownBy(() -> achievementService.claimReward(TEST_USER_ID, achievementId))
-                .isInstanceOf(IllegalStateException.class)
-                .hasMessage("이미 보상을 수령했습니다.");
-            verify(userExperienceService, never()).addExperience(any(), anyInt(), any(), any(), any(), any());
+                    .isInstanceOf(IllegalStateException.class)
+                    .hasMessage("이미 보상을 수령했습니다.");
+            verify(userExperienceService, never())
+                    .addExperience(any(), anyInt(), any(), any(), any(), any());
             verify(titleService, never()).grantTitle(any(), any());
         }
 
@@ -387,12 +435,15 @@ class AchievementServiceTest {
             // given
             Long achievementId = 1L;
             Long rewardTitleId = 10L;
-            Achievement achievement = createTestAchievement(achievementId, "FIRST_MISSION_COMPLETE", 1, 50);
+            Achievement achievement =
+                    createTestAchievement(achievementId, "FIRST_MISSION_COMPLETE", 1, 50);
             achievement.setRewardTitleId(rewardTitleId);
-            UserAchievement userAchievement = createTestUserAchievement(1L, TEST_USER_ID, achievement, 1, true);
+            UserAchievement userAchievement =
+                    createTestUserAchievement(1L, TEST_USER_ID, achievement, 1, true);
 
-            when(userAchievementRepository.findByUserIdAndAchievementId(TEST_USER_ID, achievementId))
-                .thenReturn(Optional.of(userAchievement));
+            when(userAchievementRepository.findByUserIdAndAchievementId(
+                            TEST_USER_ID, achievementId))
+                    .thenReturn(Optional.of(userAchievement));
             when(userAchievementRepository.markRewardClaimed(1L)).thenReturn(1);
 
             // when
@@ -407,12 +458,12 @@ class AchievementServiceTest {
         void claimReward_notFound_throwsException() {
             // given
             when(userAchievementRepository.findByUserIdAndAchievementId(TEST_USER_ID, 999L))
-                .thenReturn(Optional.empty());
+                    .thenReturn(Optional.empty());
 
             // when & then
             assertThatThrownBy(() -> achievementService.claimReward(TEST_USER_ID, 999L))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessage("업적을 찾을 수 없습니다.");
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessage("업적을 찾을 수 없습니다.");
         }
     }
 
@@ -427,17 +478,22 @@ class AchievementServiceTest {
             Achievement achievement = createTestAchievement(1L, "MISSION_COMPLETE_10", 10, 100);
 
             when(achievementCacheService.getAchievementsWithCheckLogic())
-                .thenReturn(List.of(achievement));
+                    .thenReturn(List.of(achievement));
             when(strategyRegistry.getStrategy("USER_STATS")).thenReturn(mockStrategy);
-            when(mockStrategy.checkCondition(any(AchievementSyncContext.class), any(Achievement.class))).thenReturn(false);
-            when(mockStrategy.fetchCurrentValue(any(AchievementSyncContext.class), any(Achievement.class))).thenReturn(5);
-            when(userAchievementRepository.findAllByUserIdForSync(TEST_USER_ID)).thenReturn(List.of());
+            when(mockStrategy.checkCondition(
+                            any(AchievementSyncContext.class), any(Achievement.class)))
+                    .thenReturn(false);
+            when(mockStrategy.fetchCurrentValue(
+                            any(AchievementSyncContext.class), any(Achievement.class)))
+                    .thenReturn(5);
+            when(userAchievementRepository.findAllByUserIdForSync(TEST_USER_ID))
+                    .thenReturn(List.of());
             when(userAchievementRepository.findByUserIdAndAchievementId(anyString(), anyLong()))
-                .thenReturn(Optional.empty());
+                    .thenReturn(Optional.empty());
             when(userAchievementRepository.saveAndFlush(any(UserAchievement.class)))
-                .thenAnswer(invocation -> invocation.getArgument(0));
+                    .thenAnswer(invocation -> invocation.getArgument(0));
             when(userAchievementRepository.findClaimableByUserId(TEST_USER_ID))
-                .thenReturn(List.of());
+                    .thenReturn(List.of());
 
             // when
             achievementService.syncUserAchievements(TEST_USER_ID);
@@ -457,15 +513,18 @@ class AchievementServiceTest {
         void checkAllDynamicAchievements_completesAchievement() {
             // given
             Achievement achievement = createTestAchievement(1L, "MISSION_COMPLETE_10", 10, 100);
-            UserAchievement userAchievement = createTestUserAchievement(1L, TEST_USER_ID, achievement, 5, false);
+            UserAchievement userAchievement =
+                    createTestUserAchievement(1L, TEST_USER_ID, achievement, 5, false);
 
             when(achievementCacheService.getAchievementsWithCheckLogic())
-                .thenReturn(List.of(achievement));
+                    .thenReturn(List.of(achievement));
             when(strategyRegistry.getStrategy("USER_STATS")).thenReturn(mockStrategy);
-            when(mockStrategy.checkCondition(any(AchievementSyncContext.class), eq(achievement))).thenReturn(true);
-            when(mockStrategy.fetchCurrentValue(any(AchievementSyncContext.class), eq(achievement))).thenReturn(15);
+            when(mockStrategy.checkCondition(any(AchievementSyncContext.class), eq(achievement)))
+                    .thenReturn(true);
+            when(mockStrategy.fetchCurrentValue(any(AchievementSyncContext.class), eq(achievement)))
+                    .thenReturn(15);
             when(userAchievementRepository.findAllByUserIdForSync(TEST_USER_ID))
-                .thenReturn(List.of(userAchievement));
+                    .thenReturn(List.of(userAchievement));
 
             // when
             achievementService.checkAllDynamicAchievements(TEST_USER_ID);
@@ -481,21 +540,25 @@ class AchievementServiceTest {
         void checkAllDynamicAchievements_skipsCompletedAchievement() {
             // given
             Achievement achievement = createTestAchievement(1L, "FIRST_MISSION_COMPLETE", 1, 50);
-            UserAchievement completedAchievement = createTestUserAchievement(1L, TEST_USER_ID, achievement, 1, true);
+            UserAchievement completedAchievement =
+                    createTestUserAchievement(1L, TEST_USER_ID, achievement, 1, true);
 
             when(achievementCacheService.getAchievementsWithCheckLogic())
-                .thenReturn(List.of(achievement));
+                    .thenReturn(List.of(achievement));
             when(strategyRegistry.getStrategy("USER_STATS")).thenReturn(mockStrategy);
             when(userAchievementRepository.findAllByUserIdForSync(TEST_USER_ID))
-                .thenReturn(List.of(completedAchievement));
-            // 이미 완료된 행은 currentCount stale 보정만 수행 — fetchCurrentValue 호출은 OK, checkCondition 은 호출되지 않아야 함
-            when(mockStrategy.fetchCurrentValue(any(AchievementSyncContext.class), eq(achievement))).thenReturn(1);
+                    .thenReturn(List.of(completedAchievement));
+            // 이미 완료된 행은 currentCount stale 보정만 수행 — fetchCurrentValue 호출은 OK, checkCondition 은 호출되지
+            // 않아야 함
+            when(mockStrategy.fetchCurrentValue(any(AchievementSyncContext.class), eq(achievement)))
+                    .thenReturn(1);
 
             // when
             achievementService.checkAllDynamicAchievements(TEST_USER_ID);
 
             // then
-            verify(mockStrategy, never()).checkCondition(any(AchievementSyncContext.class), any(Achievement.class));
+            verify(mockStrategy, never())
+                    .checkCondition(any(AchievementSyncContext.class), any(Achievement.class));
         }
 
         @Test
@@ -505,15 +568,17 @@ class AchievementServiceTest {
             Achievement achievement = createTestAchievement(1L, "UNKNOWN_ACHIEVEMENT", 1, 50);
 
             when(achievementCacheService.getAchievementsWithCheckLogic())
-                .thenReturn(List.of(achievement));
+                    .thenReturn(List.of(achievement));
             when(strategyRegistry.getStrategy("USER_STATS")).thenReturn(null);
-            when(userAchievementRepository.findAllByUserIdForSync(TEST_USER_ID)).thenReturn(List.of());
+            when(userAchievementRepository.findAllByUserIdForSync(TEST_USER_ID))
+                    .thenReturn(List.of());
 
             // when
             achievementService.checkAllDynamicAchievements(TEST_USER_ID);
 
             // then
-            verify(userAchievementRepository, never()).findByUserIdAndAchievementId(anyString(), anyLong());
+            verify(userAchievementRepository, never())
+                    .findByUserIdAndAchievementId(anyString(), anyLong());
         }
     }
 
@@ -526,21 +591,28 @@ class AchievementServiceTest {
         void autoClaimRewards_claimsAllClaimable() {
             // given
             Achievement achievement = createTestAchievement(1L, "FIRST_MISSION_COMPLETE", 1, 50);
-            UserAchievement claimableAchievement = createTestUserAchievement(1L, TEST_USER_ID, achievement, 1, true);
+            UserAchievement claimableAchievement =
+                    createTestUserAchievement(1L, TEST_USER_ID, achievement, 1, true);
 
             when(userAchievementRepository.findClaimableByUserId(TEST_USER_ID))
-                .thenReturn(List.of(claimableAchievement));
+                    .thenReturn(List.of(claimableAchievement));
             when(userAchievementRepository.markRewardClaimed(1L)).thenReturn(1);
             when(userAchievementRepository.save(any(UserAchievement.class)))
-                .thenReturn(claimableAchievement);
+                    .thenReturn(claimableAchievement);
 
             // when
             achievementService.autoClaimRewards(TEST_USER_ID);
 
             // then
             assertThat(claimableAchievement.getIsRewardClaimed()).isTrue();
-            verify(userExperienceService).addExperience(
-                eq(TEST_USER_ID), eq(50), eq(ExpSourceType.ACHIEVEMENT), eq(1L), anyString(), eq("기타"));
+            verify(userExperienceService)
+                    .addExperience(
+                            eq(TEST_USER_ID),
+                            eq(50),
+                            eq(ExpSourceType.ACHIEVEMENT),
+                            eq(1L),
+                            anyString(),
+                            eq("기타"));
             verify(userAchievementRepository).save(claimableAchievement);
         }
 
@@ -549,17 +621,19 @@ class AchievementServiceTest {
         void autoClaimRewards_alreadyClaimedByGuard_skips() {
             // given: 이벤트 즉시 수령이 먼저 처리해 markRewardClaimed 가 0을 반환
             Achievement achievement = createTestAchievement(1L, "FIRST_MISSION_COMPLETE", 1, 50);
-            UserAchievement claimableAchievement = createTestUserAchievement(1L, TEST_USER_ID, achievement, 1, true);
+            UserAchievement claimableAchievement =
+                    createTestUserAchievement(1L, TEST_USER_ID, achievement, 1, true);
 
             when(userAchievementRepository.findClaimableByUserId(TEST_USER_ID))
-                .thenReturn(List.of(claimableAchievement));
+                    .thenReturn(List.of(claimableAchievement));
             when(userAchievementRepository.markRewardClaimed(1L)).thenReturn(0);
 
             // when
             achievementService.autoClaimRewards(TEST_USER_ID);
 
             // then: 경험치/칭호 재지급 없음
-            verify(userExperienceService, never()).addExperience(any(), anyInt(), any(), any(), any(), any());
+            verify(userExperienceService, never())
+                    .addExperience(any(), anyInt(), any(), any(), any(), any());
             verify(titleService, never()).grantTitle(any(), any());
             verify(userAchievementRepository, never()).save(any(UserAchievement.class));
         }
@@ -574,13 +648,15 @@ class AchievementServiceTest {
         void getCompletedAchievements_success() {
             // given
             Achievement achievement = createTestAchievement(1L, "FIRST_MISSION_COMPLETE", 1, 50);
-            UserAchievement completedAchievement = createTestUserAchievement(1L, TEST_USER_ID, achievement, 1, true);
+            UserAchievement completedAchievement =
+                    createTestUserAchievement(1L, TEST_USER_ID, achievement, 1, true);
 
             when(userAchievementRepository.findCompletedByUserId(TEST_USER_ID))
-                .thenReturn(List.of(completedAchievement));
+                    .thenReturn(List.of(completedAchievement));
 
             // when
-            List<UserAchievementResponse> result = achievementService.getCompletedAchievements(TEST_USER_ID);
+            List<UserAchievementResponse> result =
+                    achievementService.getCompletedAchievements(TEST_USER_ID);
 
             // then
             assertThat(result).hasSize(1);
@@ -597,13 +673,15 @@ class AchievementServiceTest {
         void getClaimableAchievements_success() {
             // given
             Achievement achievement = createTestAchievement(1L, "FIRST_MISSION_COMPLETE", 1, 50);
-            UserAchievement claimableAchievement = createTestUserAchievement(1L, TEST_USER_ID, achievement, 1, true);
+            UserAchievement claimableAchievement =
+                    createTestUserAchievement(1L, TEST_USER_ID, achievement, 1, true);
 
             when(userAchievementRepository.findClaimableByUserId(TEST_USER_ID))
-                .thenReturn(List.of(claimableAchievement));
+                    .thenReturn(List.of(claimableAchievement));
 
             // when
-            List<UserAchievementResponse> result = achievementService.getClaimableAchievements(TEST_USER_ID);
+            List<UserAchievementResponse> result =
+                    achievementService.getClaimableAchievements(TEST_USER_ID);
 
             // then
             assertThat(result).hasSize(1);
@@ -619,13 +697,15 @@ class AchievementServiceTest {
         void getAchievementsByMissionCategoryId_success() {
             // given
             Long missionCategoryId = 1L;
-            Achievement achievement = createTestAchievement(1L, "CATEGORY_MISSION_COMPLETE", 10, 100);
+            Achievement achievement =
+                    createTestAchievement(1L, "CATEGORY_MISSION_COMPLETE", 10, 100);
 
             when(achievementCacheService.getAchievementsByMissionCategoryId(missionCategoryId))
-                .thenReturn(List.of(achievement));
+                    .thenReturn(List.of(achievement));
 
             // when
-            List<AchievementResponse> result = achievementService.getAchievementsByMissionCategoryId(missionCategoryId);
+            List<AchievementResponse> result =
+                    achievementService.getAchievementsByMissionCategoryId(missionCategoryId);
 
             // then
             assertThat(result).hasSize(1);
@@ -638,10 +718,11 @@ class AchievementServiceTest {
             // given
             Long missionCategoryId = 999L;
             when(achievementCacheService.getAchievementsByMissionCategoryId(missionCategoryId))
-                .thenReturn(List.of());
+                    .thenReturn(List.of());
 
             // when
-            List<AchievementResponse> result = achievementService.getAchievementsByMissionCategoryId(missionCategoryId);
+            List<AchievementResponse> result =
+                    achievementService.getAchievementsByMissionCategoryId(missionCategoryId);
 
             // then
             assertThat(result).isEmpty();
@@ -657,13 +738,15 @@ class AchievementServiceTest {
         void getInProgressAchievements_success() {
             // given
             Achievement achievement = createTestAchievement(1L, "MISSION_COMPLETE_10", 10, 100);
-            UserAchievement inProgressAchievement = createTestUserAchievement(1L, TEST_USER_ID, achievement, 5, false);
+            UserAchievement inProgressAchievement =
+                    createTestUserAchievement(1L, TEST_USER_ID, achievement, 5, false);
 
             when(userAchievementRepository.findInProgressByUserId(TEST_USER_ID))
-                .thenReturn(List.of(inProgressAchievement));
+                    .thenReturn(List.of(inProgressAchievement));
 
             // when
-            List<UserAchievementResponse> result = achievementService.getInProgressAchievements(TEST_USER_ID);
+            List<UserAchievementResponse> result =
+                    achievementService.getInProgressAchievements(TEST_USER_ID);
 
             // then
             assertThat(result).hasSize(1);
@@ -676,10 +759,11 @@ class AchievementServiceTest {
         void getInProgressAchievements_empty() {
             // given
             when(userAchievementRepository.findInProgressByUserId(TEST_USER_ID))
-                .thenReturn(List.of());
+                    .thenReturn(List.of());
 
             // when
-            List<UserAchievementResponse> result = achievementService.getInProgressAchievements(TEST_USER_ID);
+            List<UserAchievementResponse> result =
+                    achievementService.getInProgressAchievements(TEST_USER_ID);
 
             // then
             assertThat(result).isEmpty();
@@ -697,14 +781,14 @@ class AchievementServiceTest {
             Achievement achievement = createTestAchievement(1L, "MISSION_COMPLETE_10", 10, 100);
 
             when(achievementCacheService.getAchievementsByDataSource("USER_STATS"))
-                .thenReturn(List.of(achievement));
+                    .thenReturn(List.of(achievement));
             when(strategyRegistry.getStrategy("USER_STATS")).thenReturn(mockStrategy);
             when(mockStrategy.checkCondition(TEST_USER_ID, achievement)).thenReturn(true);
             when(mockStrategy.fetchCurrentValue(TEST_USER_ID, achievement)).thenReturn(10);
             when(userAchievementRepository.findByUserIdAndAchievementId(TEST_USER_ID, 1L))
-                .thenReturn(Optional.empty());
+                    .thenReturn(Optional.empty());
             when(userAchievementRepository.saveAndFlush(any(UserAchievement.class)))
-                .thenAnswer(invocation -> invocation.getArgument(0));
+                    .thenAnswer(invocation -> invocation.getArgument(0));
 
             // when
             achievementService.checkAchievementsByDataSource(TEST_USER_ID, "USER_STATS");
@@ -724,7 +808,8 @@ class AchievementServiceTest {
             achievementService.checkAchievementsByDataSource(TEST_USER_ID, "UNKNOWN_SOURCE");
 
             // then
-            verify(achievementRepository, never()).findByCheckLogicDataSourceAndIsActiveTrue(anyString());
+            verify(achievementRepository, never())
+                    .findByCheckLogicDataSourceAndIsActiveTrue(anyString());
         }
 
         @Test
@@ -732,15 +817,16 @@ class AchievementServiceTest {
         void checkAchievementsByDataSource_completedAchievement_claimsImmediately() {
             // given
             Achievement achievement = createTestAchievement(1L, "MISSION_COMPLETE_10", 10, 100);
-            UserAchievement userAchievement = createTestUserAchievement(1L, TEST_USER_ID, achievement, 5, false);
+            UserAchievement userAchievement =
+                    createTestUserAchievement(1L, TEST_USER_ID, achievement, 5, false);
 
             when(achievementCacheService.getAchievementsByDataSource("USER_STATS"))
-                .thenReturn(List.of(achievement));
+                    .thenReturn(List.of(achievement));
             when(strategyRegistry.getStrategy("USER_STATS")).thenReturn(mockStrategy);
             when(mockStrategy.checkCondition(TEST_USER_ID, achievement)).thenReturn(true);
             when(mockStrategy.fetchCurrentValue(TEST_USER_ID, achievement)).thenReturn(10);
             when(userAchievementRepository.findByUserIdAndAchievementId(TEST_USER_ID, 1L))
-                .thenReturn(Optional.of(userAchievement));
+                    .thenReturn(Optional.of(userAchievement));
             when(userAchievementRepository.markRewardClaimed(1L)).thenReturn(1);
 
             // when
@@ -749,8 +835,14 @@ class AchievementServiceTest {
             // then: 완료 처리 + 즉시 보상 수령
             assertThat(userAchievement.getIsCompleted()).isTrue();
             assertThat(userAchievement.getIsRewardClaimed()).isTrue();
-            verify(userExperienceService).addExperience(
-                eq(TEST_USER_ID), eq(100), eq(ExpSourceType.ACHIEVEMENT), eq(1L), anyString(), eq("기타"));
+            verify(userExperienceService)
+                    .addExperience(
+                            eq(TEST_USER_ID),
+                            eq(100),
+                            eq(ExpSourceType.ACHIEVEMENT),
+                            eq(1L),
+                            anyString(),
+                            eq("기타"));
         }
 
         @Test
@@ -758,23 +850,26 @@ class AchievementServiceTest {
         void checkAchievementsByDataSource_immediateClaimFails_completionKept() {
             // given
             Achievement achievement = createTestAchievement(1L, "MISSION_COMPLETE_10", 10, 100);
-            UserAchievement userAchievement = createTestUserAchievement(1L, TEST_USER_ID, achievement, 5, false);
+            UserAchievement userAchievement =
+                    createTestUserAchievement(1L, TEST_USER_ID, achievement, 5, false);
 
             when(achievementCacheService.getAchievementsByDataSource("USER_STATS"))
-                .thenReturn(List.of(achievement));
+                    .thenReturn(List.of(achievement));
             when(strategyRegistry.getStrategy("USER_STATS")).thenReturn(mockStrategy);
             when(mockStrategy.checkCondition(TEST_USER_ID, achievement)).thenReturn(true);
             when(mockStrategy.fetchCurrentValue(TEST_USER_ID, achievement)).thenReturn(10);
             when(userAchievementRepository.findByUserIdAndAchievementId(TEST_USER_ID, 1L))
-                .thenReturn(Optional.of(userAchievement));
-            when(userAchievementRepository.markRewardClaimed(1L)).thenThrow(new RuntimeException("DB 오류"));
+                    .thenReturn(Optional.of(userAchievement));
+            when(userAchievementRepository.markRewardClaimed(1L))
+                    .thenThrow(new RuntimeException("DB 오류"));
 
             // when: 예외가 전파되지 않아야 함
             achievementService.checkAchievementsByDataSource(TEST_USER_ID, "USER_STATS");
 
             // then: 완료 상태는 유지 (보상은 다음 홈 sync 의 autoClaimRewards 가 재시도)
             assertThat(userAchievement.getIsCompleted()).isTrue();
-            verify(userExperienceService, never()).addExperience(any(), anyInt(), any(), any(), any(), any());
+            verify(userExperienceService, never())
+                    .addExperience(any(), anyInt(), any(), any(), any(), any());
         }
 
         @Test
@@ -782,22 +877,24 @@ class AchievementServiceTest {
         void checkAchievementsByDataSource_guardReturnsZero_noDoubleReward() {
             // given
             Achievement achievement = createTestAchievement(1L, "MISSION_COMPLETE_10", 10, 100);
-            UserAchievement userAchievement = createTestUserAchievement(1L, TEST_USER_ID, achievement, 5, false);
+            UserAchievement userAchievement =
+                    createTestUserAchievement(1L, TEST_USER_ID, achievement, 5, false);
 
             when(achievementCacheService.getAchievementsByDataSource("USER_STATS"))
-                .thenReturn(List.of(achievement));
+                    .thenReturn(List.of(achievement));
             when(strategyRegistry.getStrategy("USER_STATS")).thenReturn(mockStrategy);
             when(mockStrategy.checkCondition(TEST_USER_ID, achievement)).thenReturn(true);
             when(mockStrategy.fetchCurrentValue(TEST_USER_ID, achievement)).thenReturn(10);
             when(userAchievementRepository.findByUserIdAndAchievementId(TEST_USER_ID, 1L))
-                .thenReturn(Optional.of(userAchievement));
+                    .thenReturn(Optional.of(userAchievement));
             when(userAchievementRepository.markRewardClaimed(1L)).thenReturn(0);
 
             // when
             achievementService.checkAchievementsByDataSource(TEST_USER_ID, "USER_STATS");
 
             // then
-            verify(userExperienceService, never()).addExperience(any(), anyInt(), any(), any(), any(), any());
+            verify(userExperienceService, never())
+                    .addExperience(any(), anyInt(), any(), any(), any(), any());
             verify(titleService, never()).grantTitle(any(), any());
         }
     }
@@ -818,7 +915,7 @@ class AchievementServiceTest {
             achievement.setIsActive(false);
 
             when(achievementCacheService.getAchievementsByDataSource("USER_STATS"))
-                .thenReturn(List.of(achievement));
+                    .thenReturn(List.of(achievement));
             when(strategyRegistry.getStrategy("USER_STATS")).thenReturn(mockStrategy);
 
             // when
@@ -826,7 +923,8 @@ class AchievementServiceTest {
 
             // then
             verify(mockStrategy, never()).checkCondition(anyString(), any(Achievement.class));
-            verify(userAchievementRepository, never()).findByUserIdAndAchievementId(anyString(), anyLong());
+            verify(userAchievementRepository, never())
+                    .findByUserIdAndAchievementId(anyString(), anyLong());
         }
 
         @Test
@@ -834,13 +932,14 @@ class AchievementServiceTest {
         void dynamic_alreadyCompleted_staleSyncWithNumber() {
             // given
             Achievement achievement = createTestAchievement(1L, "COMPLETED_ACH", 5, 0);
-            UserAchievement completedUa = createTestUserAchievement(1L, TEST_USER_ID, achievement, 5, true);
+            UserAchievement completedUa =
+                    createTestUserAchievement(1L, TEST_USER_ID, achievement, 5, true);
 
             when(achievementCacheService.getAchievementsByDataSource("USER_STATS"))
-                .thenReturn(List.of(achievement));
+                    .thenReturn(List.of(achievement));
             when(strategyRegistry.getStrategy("USER_STATS")).thenReturn(mockStrategy);
             when(userAchievementRepository.findByUserIdAndAchievementId(TEST_USER_ID, 1L))
-                .thenReturn(Optional.of(completedUa));
+                    .thenReturn(Optional.of(completedUa));
             when(mockStrategy.fetchCurrentValue(TEST_USER_ID, achievement)).thenReturn(8);
 
             // when
@@ -856,14 +955,16 @@ class AchievementServiceTest {
         void dynamic_alreadyCompleted_nonNumberValueSkips() {
             // given
             Achievement achievement = createTestAchievement(1L, "COMPLETED_BOOL_ACH", 1, 0);
-            UserAchievement completedUa = createTestUserAchievement(1L, TEST_USER_ID, achievement, 1, true);
+            UserAchievement completedUa =
+                    createTestUserAchievement(1L, TEST_USER_ID, achievement, 1, true);
 
             when(achievementCacheService.getAchievementsByDataSource("USER_STATS"))
-                .thenReturn(List.of(achievement));
+                    .thenReturn(List.of(achievement));
             when(strategyRegistry.getStrategy("USER_STATS")).thenReturn(mockStrategy);
             when(userAchievementRepository.findByUserIdAndAchievementId(TEST_USER_ID, 1L))
-                .thenReturn(Optional.of(completedUa));
-            when(mockStrategy.fetchCurrentValue(TEST_USER_ID, achievement)).thenReturn("NOT_A_NUMBER");
+                    .thenReturn(Optional.of(completedUa));
+            when(mockStrategy.fetchCurrentValue(TEST_USER_ID, achievement))
+                    .thenReturn("NOT_A_NUMBER");
 
             // when
             achievementService.checkAchievementsByDataSource(TEST_USER_ID, "USER_STATS");
@@ -877,13 +978,14 @@ class AchievementServiceTest {
         void dynamic_alreadyCompleted_noOpWhenCountUnchanged() {
             // given
             Achievement achievement = createTestAchievement(1L, "COMPLETED_ACH", 5, 0);
-            UserAchievement completedUa = createTestUserAchievement(1L, TEST_USER_ID, achievement, 5, true);
+            UserAchievement completedUa =
+                    createTestUserAchievement(1L, TEST_USER_ID, achievement, 5, true);
 
             when(achievementCacheService.getAchievementsByDataSource("USER_STATS"))
-                .thenReturn(List.of(achievement));
+                    .thenReturn(List.of(achievement));
             when(strategyRegistry.getStrategy("USER_STATS")).thenReturn(mockStrategy);
             when(userAchievementRepository.findByUserIdAndAchievementId(TEST_USER_ID, 1L))
-                .thenReturn(Optional.of(completedUa));
+                    .thenReturn(Optional.of(completedUa));
             // 현재값과 동일한 5 반환
             when(mockStrategy.fetchCurrentValue(TEST_USER_ID, achievement)).thenReturn(5);
 
@@ -901,12 +1003,12 @@ class AchievementServiceTest {
             Achievement achievement = createTestAchievement(1L, "MISSION_10", 10, 50);
 
             when(achievementCacheService.getAchievementsByDataSource("USER_STATS"))
-                .thenReturn(List.of(achievement));
+                    .thenReturn(List.of(achievement));
             when(strategyRegistry.getStrategy("USER_STATS")).thenReturn(mockStrategy);
             when(userAchievementRepository.findByUserIdAndAchievementId(TEST_USER_ID, 1L))
-                .thenReturn(Optional.empty());
+                    .thenReturn(Optional.empty());
             when(userAchievementRepository.saveAndFlush(any(UserAchievement.class)))
-                .thenAnswer(inv -> inv.getArgument(0));
+                    .thenAnswer(inv -> inv.getArgument(0));
             when(mockStrategy.checkCondition(TEST_USER_ID, achievement)).thenReturn(true);
             when(mockStrategy.fetchCurrentValue(TEST_USER_ID, achievement)).thenReturn(10);
 
@@ -915,7 +1017,8 @@ class AchievementServiceTest {
 
             // then
             verify(userStatsService).recordAchievementCompleted(TEST_USER_ID);
-            verify(eventPublisher).publishEvent(any(io.pinkspider.global.event.AchievementCompletedEvent.class));
+            verify(eventPublisher)
+                    .publishEvent(any(io.pinkspider.global.event.AchievementCompletedEvent.class));
         }
 
         @Test
@@ -925,14 +1028,15 @@ class AchievementServiceTest {
             Achievement achievement = createTestAchievement(1L, "BOOLEAN_ACH", 1, 30);
 
             when(achievementCacheService.getAchievementsByDataSource("USER_STATS"))
-                .thenReturn(List.of(achievement));
+                    .thenReturn(List.of(achievement));
             when(strategyRegistry.getStrategy("USER_STATS")).thenReturn(mockStrategy);
             when(userAchievementRepository.findByUserIdAndAchievementId(TEST_USER_ID, 1L))
-                .thenReturn(Optional.empty());
+                    .thenReturn(Optional.empty());
             when(userAchievementRepository.saveAndFlush(any(UserAchievement.class)))
-                .thenAnswer(inv -> inv.getArgument(0));
+                    .thenAnswer(inv -> inv.getArgument(0));
             when(mockStrategy.checkCondition(TEST_USER_ID, achievement)).thenReturn(true);
-            when(mockStrategy.fetchCurrentValue(TEST_USER_ID, achievement)).thenReturn(Boolean.TRUE);
+            when(mockStrategy.fetchCurrentValue(TEST_USER_ID, achievement))
+                    .thenReturn(Boolean.TRUE);
 
             // when
             achievementService.checkAchievementsByDataSource(TEST_USER_ID, "USER_STATS");
@@ -949,12 +1053,12 @@ class AchievementServiceTest {
             achievement.setIsHidden(true);
 
             when(achievementCacheService.getAchievementsByDataSource("USER_STATS"))
-                .thenReturn(List.of(achievement));
+                    .thenReturn(List.of(achievement));
             when(strategyRegistry.getStrategy("USER_STATS")).thenReturn(mockStrategy);
             when(userAchievementRepository.findByUserIdAndAchievementId(TEST_USER_ID, 1L))
-                .thenReturn(Optional.empty());
+                    .thenReturn(Optional.empty());
             when(userAchievementRepository.saveAndFlush(any(UserAchievement.class)))
-                .thenAnswer(inv -> inv.getArgument(0));
+                    .thenAnswer(inv -> inv.getArgument(0));
             when(mockStrategy.checkCondition(TEST_USER_ID, achievement)).thenReturn(true);
             when(mockStrategy.fetchCurrentValue(TEST_USER_ID, achievement)).thenReturn(1);
 
@@ -971,13 +1075,14 @@ class AchievementServiceTest {
         void dynamic_conditionMet_existingUserAchievement_usesExisting() {
             // given
             Achievement achievement = createTestAchievement(1L, "MISSION_10", 10, 0);
-            UserAchievement existing = createTestUserAchievement(1L, TEST_USER_ID, achievement, 7, false);
+            UserAchievement existing =
+                    createTestUserAchievement(1L, TEST_USER_ID, achievement, 7, false);
 
             when(achievementCacheService.getAchievementsByDataSource("USER_STATS"))
-                .thenReturn(List.of(achievement));
+                    .thenReturn(List.of(achievement));
             when(strategyRegistry.getStrategy("USER_STATS")).thenReturn(mockStrategy);
             when(userAchievementRepository.findByUserIdAndAchievementId(TEST_USER_ID, 1L))
-                .thenReturn(Optional.of(existing));
+                    .thenReturn(Optional.of(existing));
             when(mockStrategy.checkCondition(TEST_USER_ID, achievement)).thenReturn(true);
             when(mockStrategy.fetchCurrentValue(TEST_USER_ID, achievement)).thenReturn(10);
 
@@ -997,12 +1102,12 @@ class AchievementServiceTest {
             Achievement achievement = createTestAchievement(1L, "MISSION_10", 10, 0);
 
             when(achievementCacheService.getAchievementsByDataSource("USER_STATS"))
-                .thenReturn(List.of(achievement));
+                    .thenReturn(List.of(achievement));
             when(strategyRegistry.getStrategy("USER_STATS")).thenReturn(mockStrategy);
             when(userAchievementRepository.findByUserIdAndAchievementId(TEST_USER_ID, 1L))
-                .thenReturn(Optional.empty());
+                    .thenReturn(Optional.empty());
             when(userAchievementRepository.saveAndFlush(any(UserAchievement.class)))
-                .thenAnswer(inv -> inv.getArgument(0));
+                    .thenAnswer(inv -> inv.getArgument(0));
             when(mockStrategy.checkCondition(TEST_USER_ID, achievement)).thenReturn(false);
             when(mockStrategy.fetchCurrentValue(TEST_USER_ID, achievement)).thenReturn(5);
 
@@ -1021,12 +1126,13 @@ class AchievementServiceTest {
             Achievement achievement = createTestAchievement(1L, "BOOL_ACH", 1, 0);
 
             when(achievementCacheService.getAchievementsByDataSource("USER_STATS"))
-                .thenReturn(List.of(achievement));
+                    .thenReturn(List.of(achievement));
             when(strategyRegistry.getStrategy("USER_STATS")).thenReturn(mockStrategy);
             when(userAchievementRepository.findByUserIdAndAchievementId(TEST_USER_ID, 1L))
-                .thenReturn(Optional.empty());
+                    .thenReturn(Optional.empty());
             when(mockStrategy.checkCondition(TEST_USER_ID, achievement)).thenReturn(false);
-            when(mockStrategy.fetchCurrentValue(TEST_USER_ID, achievement)).thenReturn(Boolean.FALSE);
+            when(mockStrategy.fetchCurrentValue(TEST_USER_ID, achievement))
+                    .thenReturn(Boolean.FALSE);
 
             // when
             achievementService.checkAchievementsByDataSource(TEST_USER_ID, "USER_STATS");
@@ -1040,13 +1146,14 @@ class AchievementServiceTest {
         void dynamic_conditionNotMet_existingUserAchievement_updatesProgress() {
             // given
             Achievement achievement = createTestAchievement(1L, "MISSION_10", 10, 0);
-            UserAchievement existing = createTestUserAchievement(1L, TEST_USER_ID, achievement, 3, false);
+            UserAchievement existing =
+                    createTestUserAchievement(1L, TEST_USER_ID, achievement, 3, false);
 
             when(achievementCacheService.getAchievementsByDataSource("USER_STATS"))
-                .thenReturn(List.of(achievement));
+                    .thenReturn(List.of(achievement));
             when(strategyRegistry.getStrategy("USER_STATS")).thenReturn(mockStrategy);
             when(userAchievementRepository.findByUserIdAndAchievementId(TEST_USER_ID, 1L))
-                .thenReturn(Optional.of(existing));
+                    .thenReturn(Optional.of(existing));
             when(mockStrategy.checkCondition(TEST_USER_ID, achievement)).thenReturn(false);
             when(mockStrategy.fetchCurrentValue(TEST_USER_ID, achievement)).thenReturn(6);
 
@@ -1059,29 +1166,34 @@ class AchievementServiceTest {
         }
 
         @Test
-        @DisplayName("Race condition — saveAndFlush에서 DataIntegrityViolationException 발생 시 기존 레코드를 조회한다")
+        @DisplayName(
+                "Race condition — saveAndFlush에서 DataIntegrityViolationException 발생 시 기존 레코드를 조회한다")
         void dynamic_raceCondition_duplicateKey_fallbackToExisting() {
             // given
             // checkAndUpdateAchievementDynamic 흐름:
             //   1. findByUserIdAndAchievementId → empty (미완료 판단)
             //   2. conditionMet=true → getOrCreateUserAchievement 호출
-            //      → findByUserIdAndAchievementId (2nd) → empty → saveAndFlush → DataIntegrityViolationException
+            //      → findByUserIdAndAchievementId (2nd) → empty → saveAndFlush →
+            // DataIntegrityViolationException
             //      → findByUserIdAndAchievementId (3rd) → 기존 레코드 반환
             Achievement achievement = createTestAchievement(1L, "MISSION_10", 10, 0);
-            UserAchievement existingAfterRace = createTestUserAchievement(1L, TEST_USER_ID, achievement, 0, false);
+            UserAchievement existingAfterRace =
+                    createTestUserAchievement(1L, TEST_USER_ID, achievement, 0, false);
 
             when(achievementCacheService.getAchievementsByDataSource("USER_STATS"))
-                .thenReturn(List.of(achievement));
+                    .thenReturn(List.of(achievement));
             when(strategyRegistry.getStrategy("USER_STATS")).thenReturn(mockStrategy);
             when(mockStrategy.checkCondition(TEST_USER_ID, achievement)).thenReturn(true);
             when(mockStrategy.fetchCurrentValue(TEST_USER_ID, achievement)).thenReturn(10);
             // 1st: empty(미완료 판단), 2nd: empty(getOrCreate 내 첫 조회), 3rd: 기존 레코드(fallback)
             when(userAchievementRepository.findByUserIdAndAchievementId(TEST_USER_ID, 1L))
-                .thenReturn(Optional.empty())
-                .thenReturn(Optional.empty())
-                .thenReturn(Optional.of(existingAfterRace));
+                    .thenReturn(Optional.empty())
+                    .thenReturn(Optional.empty())
+                    .thenReturn(Optional.of(existingAfterRace));
             when(userAchievementRepository.saveAndFlush(any(UserAchievement.class)))
-                .thenThrow(new org.springframework.dao.DataIntegrityViolationException("duplicate key"));
+                    .thenThrow(
+                            new org.springframework.dao.DataIntegrityViolationException(
+                                    "duplicate key"));
 
             // when
             achievementService.checkAchievementsByDataSource(TEST_USER_ID, "USER_STATS");
@@ -1096,21 +1208,16 @@ class AchievementServiceTest {
     class CheckAndUpdateAchievementWithContextTest {
 
         private UserStats buildUserStats() {
-            return UserStats.builder()
-                .userId(TEST_USER_ID)
-                .totalMissionCompletions(10)
-                .build();
+            return UserStats.builder().userId(TEST_USER_ID).totalMissionCompletions(10).build();
         }
 
         private void setupBuildSyncContextMocks() {
             when(userStatsRepository.findByUserId(TEST_USER_ID))
-                .thenReturn(Optional.of(buildUserStats()));
-            when(userExperienceRepository.findByUserId(TEST_USER_ID))
-                .thenReturn(Optional.empty());
+                    .thenReturn(Optional.of(buildUserStats()));
+            when(userExperienceRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.empty());
             when(userCategoryExperienceRepository.findByUserIdOrderByTotalExpDesc(TEST_USER_ID))
-                .thenReturn(List.of());
-            when(guildQueryFacade.getUserGuildMemberships(TEST_USER_ID))
-                .thenReturn(List.of());
+                    .thenReturn(List.of());
+            when(guildQueryFacade.getUserGuildMemberships(TEST_USER_ID)).thenReturn(List.of());
         }
 
         @Test
@@ -1121,16 +1228,20 @@ class AchievementServiceTest {
             achievement.setIsActive(false);
 
             setupBuildSyncContextMocks();
-            when(userAchievementRepository.findAllByUserIdForSync(TEST_USER_ID)).thenReturn(List.of());
-            when(achievementCacheService.getAchievementsWithCheckLogic()).thenReturn(List.of(achievement));
+            when(userAchievementRepository.findAllByUserIdForSync(TEST_USER_ID))
+                    .thenReturn(List.of());
+            when(achievementCacheService.getAchievementsWithCheckLogic())
+                    .thenReturn(List.of(achievement));
             when(strategyRegistry.getStrategy("USER_STATS")).thenReturn(mockStrategy);
-            when(userAchievementRepository.findClaimableByUserId(TEST_USER_ID)).thenReturn(List.of());
+            when(userAchievementRepository.findClaimableByUserId(TEST_USER_ID))
+                    .thenReturn(List.of());
 
             // when
             achievementService.syncUserAchievements(TEST_USER_ID);
 
             // then
-            verify(mockStrategy, never()).checkCondition(any(AchievementSyncContext.class), any(Achievement.class));
+            verify(mockStrategy, never())
+                    .checkCondition(any(AchievementSyncContext.class), any(Achievement.class));
         }
 
         @Test
@@ -1138,22 +1249,27 @@ class AchievementServiceTest {
         void withCtx_alreadyCompleted_staleSyncWithNumber() {
             // given
             Achievement achievement = createTestAchievement(1L, "COMPLETED_ACH", 5, 0);
-            UserAchievement completedUa = createTestUserAchievement(1L, TEST_USER_ID, achievement, 5, true);
+            UserAchievement completedUa =
+                    createTestUserAchievement(1L, TEST_USER_ID, achievement, 5, true);
 
             setupBuildSyncContextMocks();
             when(userAchievementRepository.findAllByUserIdForSync(TEST_USER_ID))
-                .thenReturn(List.of(completedUa));
-            when(achievementCacheService.getAchievementsWithCheckLogic()).thenReturn(List.of(achievement));
+                    .thenReturn(List.of(completedUa));
+            when(achievementCacheService.getAchievementsWithCheckLogic())
+                    .thenReturn(List.of(achievement));
             when(strategyRegistry.getStrategy("USER_STATS")).thenReturn(mockStrategy);
-            when(mockStrategy.fetchCurrentValue(any(AchievementSyncContext.class), eq(achievement))).thenReturn(9);
-            when(userAchievementRepository.findClaimableByUserId(TEST_USER_ID)).thenReturn(List.of());
+            when(mockStrategy.fetchCurrentValue(any(AchievementSyncContext.class), eq(achievement)))
+                    .thenReturn(9);
+            when(userAchievementRepository.findClaimableByUserId(TEST_USER_ID))
+                    .thenReturn(List.of());
 
             // when
             achievementService.syncUserAchievements(TEST_USER_ID);
 
             // then
             assertThat(completedUa.getCurrentCount()).isEqualTo(9);
-            verify(mockStrategy, never()).checkCondition(any(AchievementSyncContext.class), any(Achievement.class));
+            verify(mockStrategy, never())
+                    .checkCondition(any(AchievementSyncContext.class), any(Achievement.class));
         }
 
         @Test
@@ -1161,15 +1277,19 @@ class AchievementServiceTest {
         void withCtx_alreadyCompleted_noOpWhenCountSame() {
             // given
             Achievement achievement = createTestAchievement(1L, "COMPLETED_ACH", 5, 0);
-            UserAchievement completedUa = createTestUserAchievement(1L, TEST_USER_ID, achievement, 5, true);
+            UserAchievement completedUa =
+                    createTestUserAchievement(1L, TEST_USER_ID, achievement, 5, true);
 
             setupBuildSyncContextMocks();
             when(userAchievementRepository.findAllByUserIdForSync(TEST_USER_ID))
-                .thenReturn(List.of(completedUa));
-            when(achievementCacheService.getAchievementsWithCheckLogic()).thenReturn(List.of(achievement));
+                    .thenReturn(List.of(completedUa));
+            when(achievementCacheService.getAchievementsWithCheckLogic())
+                    .thenReturn(List.of(achievement));
             when(strategyRegistry.getStrategy("USER_STATS")).thenReturn(mockStrategy);
-            when(mockStrategy.fetchCurrentValue(any(AchievementSyncContext.class), eq(achievement))).thenReturn(5);
-            when(userAchievementRepository.findClaimableByUserId(TEST_USER_ID)).thenReturn(List.of());
+            when(mockStrategy.fetchCurrentValue(any(AchievementSyncContext.class), eq(achievement)))
+                    .thenReturn(5);
+            when(userAchievementRepository.findClaimableByUserId(TEST_USER_ID))
+                    .thenReturn(List.of());
 
             // when
             achievementService.syncUserAchievements(TEST_USER_ID);
@@ -1184,15 +1304,19 @@ class AchievementServiceTest {
         void withCtx_alreadyCompleted_nonNumberSkips() {
             // given
             Achievement achievement = createTestAchievement(1L, "COMPLETED_BOOL", 1, 0);
-            UserAchievement completedUa = createTestUserAchievement(1L, TEST_USER_ID, achievement, 1, true);
+            UserAchievement completedUa =
+                    createTestUserAchievement(1L, TEST_USER_ID, achievement, 1, true);
 
             setupBuildSyncContextMocks();
             when(userAchievementRepository.findAllByUserIdForSync(TEST_USER_ID))
-                .thenReturn(List.of(completedUa));
-            when(achievementCacheService.getAchievementsWithCheckLogic()).thenReturn(List.of(achievement));
+                    .thenReturn(List.of(completedUa));
+            when(achievementCacheService.getAchievementsWithCheckLogic())
+                    .thenReturn(List.of(achievement));
             when(strategyRegistry.getStrategy("USER_STATS")).thenReturn(mockStrategy);
-            when(mockStrategy.fetchCurrentValue(any(AchievementSyncContext.class), eq(achievement))).thenReturn("TEXT");
-            when(userAchievementRepository.findClaimableByUserId(TEST_USER_ID)).thenReturn(List.of());
+            when(mockStrategy.fetchCurrentValue(any(AchievementSyncContext.class), eq(achievement)))
+                    .thenReturn("TEXT");
+            when(userAchievementRepository.findClaimableByUserId(TEST_USER_ID))
+                    .thenReturn(List.of());
 
             // when
             achievementService.syncUserAchievements(TEST_USER_ID);
@@ -1208,21 +1332,27 @@ class AchievementServiceTest {
             Achievement achievement = createTestAchievement(1L, "MISSION_10", 10, 50);
 
             setupBuildSyncContextMocks();
-            when(userAchievementRepository.findAllByUserIdForSync(TEST_USER_ID)).thenReturn(List.of());
-            when(achievementCacheService.getAchievementsWithCheckLogic()).thenReturn(List.of(achievement));
+            when(userAchievementRepository.findAllByUserIdForSync(TEST_USER_ID))
+                    .thenReturn(List.of());
+            when(achievementCacheService.getAchievementsWithCheckLogic())
+                    .thenReturn(List.of(achievement));
             when(strategyRegistry.getStrategy("USER_STATS")).thenReturn(mockStrategy);
-            when(mockStrategy.checkCondition(any(AchievementSyncContext.class), eq(achievement))).thenReturn(true);
-            when(mockStrategy.fetchCurrentValue(any(AchievementSyncContext.class), eq(achievement))).thenReturn(10);
+            when(mockStrategy.checkCondition(any(AchievementSyncContext.class), eq(achievement)))
+                    .thenReturn(true);
+            when(mockStrategy.fetchCurrentValue(any(AchievementSyncContext.class), eq(achievement)))
+                    .thenReturn(10);
             when(userAchievementRepository.saveAndFlush(any(UserAchievement.class)))
-                .thenAnswer(inv -> inv.getArgument(0));
-            when(userAchievementRepository.findClaimableByUserId(TEST_USER_ID)).thenReturn(List.of());
+                    .thenAnswer(inv -> inv.getArgument(0));
+            when(userAchievementRepository.findClaimableByUserId(TEST_USER_ID))
+                    .thenReturn(List.of());
 
             // when
             achievementService.syncUserAchievements(TEST_USER_ID);
 
             // then
             verify(userStatsService).recordAchievementCompleted(TEST_USER_ID);
-            verify(eventPublisher).publishEvent(any(io.pinkspider.global.event.AchievementCompletedEvent.class));
+            verify(eventPublisher)
+                    .publishEvent(any(io.pinkspider.global.event.AchievementCompletedEvent.class));
         }
 
         @Test
@@ -1232,14 +1362,19 @@ class AchievementServiceTest {
             Achievement achievement = createTestAchievement(1L, "BOOLEAN_ACH", 1, 30);
 
             setupBuildSyncContextMocks();
-            when(userAchievementRepository.findAllByUserIdForSync(TEST_USER_ID)).thenReturn(List.of());
-            when(achievementCacheService.getAchievementsWithCheckLogic()).thenReturn(List.of(achievement));
+            when(userAchievementRepository.findAllByUserIdForSync(TEST_USER_ID))
+                    .thenReturn(List.of());
+            when(achievementCacheService.getAchievementsWithCheckLogic())
+                    .thenReturn(List.of(achievement));
             when(strategyRegistry.getStrategy("USER_STATS")).thenReturn(mockStrategy);
-            when(mockStrategy.checkCondition(any(AchievementSyncContext.class), eq(achievement))).thenReturn(true);
-            when(mockStrategy.fetchCurrentValue(any(AchievementSyncContext.class), eq(achievement))).thenReturn(Boolean.TRUE);
+            when(mockStrategy.checkCondition(any(AchievementSyncContext.class), eq(achievement)))
+                    .thenReturn(true);
+            when(mockStrategy.fetchCurrentValue(any(AchievementSyncContext.class), eq(achievement)))
+                    .thenReturn(Boolean.TRUE);
             when(userAchievementRepository.saveAndFlush(any(UserAchievement.class)))
-                .thenAnswer(inv -> inv.getArgument(0));
-            when(userAchievementRepository.findClaimableByUserId(TEST_USER_ID)).thenReturn(List.of());
+                    .thenAnswer(inv -> inv.getArgument(0));
+            when(userAchievementRepository.findClaimableByUserId(TEST_USER_ID))
+                    .thenReturn(List.of());
 
             // when
             achievementService.syncUserAchievements(TEST_USER_ID);
@@ -1254,15 +1389,21 @@ class AchievementServiceTest {
             // given
             // 기존 userAchievement가 있으면 getOrCreate 없이 바로 fetchCurrentValue 분기로 진입
             Achievement achievement = createTestAchievement(1L, "UNKNOWN_TYPE_ACH", 1, 0);
-            UserAchievement existing = createTestUserAchievement(1L, TEST_USER_ID, achievement, 0, false);
+            UserAchievement existing =
+                    createTestUserAchievement(1L, TEST_USER_ID, achievement, 0, false);
 
             setupBuildSyncContextMocks();
-            when(userAchievementRepository.findAllByUserIdForSync(TEST_USER_ID)).thenReturn(List.of(existing));
-            when(achievementCacheService.getAchievementsWithCheckLogic()).thenReturn(List.of(achievement));
+            when(userAchievementRepository.findAllByUserIdForSync(TEST_USER_ID))
+                    .thenReturn(List.of(existing));
+            when(achievementCacheService.getAchievementsWithCheckLogic())
+                    .thenReturn(List.of(achievement));
             when(strategyRegistry.getStrategy("USER_STATS")).thenReturn(mockStrategy);
-            when(mockStrategy.checkCondition(any(AchievementSyncContext.class), eq(achievement))).thenReturn(true);
-            when(mockStrategy.fetchCurrentValue(any(AchievementSyncContext.class), eq(achievement))).thenReturn("UNKNOWN");
-            when(userAchievementRepository.findClaimableByUserId(TEST_USER_ID)).thenReturn(List.of());
+            when(mockStrategy.checkCondition(any(AchievementSyncContext.class), eq(achievement)))
+                    .thenReturn(true);
+            when(mockStrategy.fetchCurrentValue(any(AchievementSyncContext.class), eq(achievement)))
+                    .thenReturn("UNKNOWN");
+            when(userAchievementRepository.findClaimableByUserId(TEST_USER_ID))
+                    .thenReturn(List.of());
 
             // when
             achievementService.syncUserAchievements(TEST_USER_ID);
@@ -1279,14 +1420,19 @@ class AchievementServiceTest {
             achievement.setIsHidden(true);
 
             setupBuildSyncContextMocks();
-            when(userAchievementRepository.findAllByUserIdForSync(TEST_USER_ID)).thenReturn(List.of());
-            when(achievementCacheService.getAchievementsWithCheckLogic()).thenReturn(List.of(achievement));
+            when(userAchievementRepository.findAllByUserIdForSync(TEST_USER_ID))
+                    .thenReturn(List.of());
+            when(achievementCacheService.getAchievementsWithCheckLogic())
+                    .thenReturn(List.of(achievement));
             when(strategyRegistry.getStrategy("USER_STATS")).thenReturn(mockStrategy);
-            when(mockStrategy.checkCondition(any(AchievementSyncContext.class), eq(achievement))).thenReturn(true);
-            when(mockStrategy.fetchCurrentValue(any(AchievementSyncContext.class), eq(achievement))).thenReturn(1);
+            when(mockStrategy.checkCondition(any(AchievementSyncContext.class), eq(achievement)))
+                    .thenReturn(true);
+            when(mockStrategy.fetchCurrentValue(any(AchievementSyncContext.class), eq(achievement)))
+                    .thenReturn(1);
             when(userAchievementRepository.saveAndFlush(any(UserAchievement.class)))
-                .thenAnswer(inv -> inv.getArgument(0));
-            when(userAchievementRepository.findClaimableByUserId(TEST_USER_ID)).thenReturn(List.of());
+                    .thenAnswer(inv -> inv.getArgument(0));
+            when(userAchievementRepository.findClaimableByUserId(TEST_USER_ID))
+                    .thenReturn(List.of());
 
             // when
             achievementService.syncUserAchievements(TEST_USER_ID);
@@ -1301,22 +1447,28 @@ class AchievementServiceTest {
         void withCtx_conditionMet_noOpWhenCountUnchanged() {
             // given
             Achievement achievement = createTestAchievement(1L, "MISSION_10", 10, 0);
-            UserAchievement existing = createTestUserAchievement(1L, TEST_USER_ID, achievement, 10, true);
+            UserAchievement existing =
+                    createTestUserAchievement(1L, TEST_USER_ID, achievement, 10, true);
 
             setupBuildSyncContextMocks();
-            when(userAchievementRepository.findAllByUserIdForSync(TEST_USER_ID)).thenReturn(List.of(existing));
-            when(achievementCacheService.getAchievementsWithCheckLogic()).thenReturn(List.of(achievement));
+            when(userAchievementRepository.findAllByUserIdForSync(TEST_USER_ID))
+                    .thenReturn(List.of(existing));
+            when(achievementCacheService.getAchievementsWithCheckLogic())
+                    .thenReturn(List.of(achievement));
             when(strategyRegistry.getStrategy("USER_STATS")).thenReturn(mockStrategy);
             // 이미 완료된 행 → fetchCurrentValue 호출 경로 (stale 보정)
-            when(mockStrategy.fetchCurrentValue(any(AchievementSyncContext.class), eq(achievement))).thenReturn(10);
-            when(userAchievementRepository.findClaimableByUserId(TEST_USER_ID)).thenReturn(List.of());
+            when(mockStrategy.fetchCurrentValue(any(AchievementSyncContext.class), eq(achievement)))
+                    .thenReturn(10);
+            when(userAchievementRepository.findClaimableByUserId(TEST_USER_ID))
+                    .thenReturn(List.of());
 
             // when
             achievementService.syncUserAchievements(TEST_USER_ID);
 
             // then: count 변화 없음, checkCondition 호출 없음
             assertThat(existing.getCurrentCount()).isEqualTo(10);
-            verify(mockStrategy, never()).checkCondition(any(AchievementSyncContext.class), any(Achievement.class));
+            verify(mockStrategy, never())
+                    .checkCondition(any(AchievementSyncContext.class), any(Achievement.class));
         }
 
         @Test
@@ -1324,15 +1476,21 @@ class AchievementServiceTest {
         void withCtx_conditionMet_existingUserAchievement_usesExisting() {
             // given
             Achievement achievement = createTestAchievement(1L, "MISSION_10", 10, 0);
-            UserAchievement existing = createTestUserAchievement(1L, TEST_USER_ID, achievement, 7, false);
+            UserAchievement existing =
+                    createTestUserAchievement(1L, TEST_USER_ID, achievement, 7, false);
 
             setupBuildSyncContextMocks();
-            when(userAchievementRepository.findAllByUserIdForSync(TEST_USER_ID)).thenReturn(List.of(existing));
-            when(achievementCacheService.getAchievementsWithCheckLogic()).thenReturn(List.of(achievement));
+            when(userAchievementRepository.findAllByUserIdForSync(TEST_USER_ID))
+                    .thenReturn(List.of(existing));
+            when(achievementCacheService.getAchievementsWithCheckLogic())
+                    .thenReturn(List.of(achievement));
             when(strategyRegistry.getStrategy("USER_STATS")).thenReturn(mockStrategy);
-            when(mockStrategy.checkCondition(any(AchievementSyncContext.class), eq(achievement))).thenReturn(true);
-            when(mockStrategy.fetchCurrentValue(any(AchievementSyncContext.class), eq(achievement))).thenReturn(10);
-            when(userAchievementRepository.findClaimableByUserId(TEST_USER_ID)).thenReturn(List.of());
+            when(mockStrategy.checkCondition(any(AchievementSyncContext.class), eq(achievement)))
+                    .thenReturn(true);
+            when(mockStrategy.fetchCurrentValue(any(AchievementSyncContext.class), eq(achievement)))
+                    .thenReturn(10);
+            when(userAchievementRepository.findClaimableByUserId(TEST_USER_ID))
+                    .thenReturn(List.of());
 
             // when
             achievementService.syncUserAchievements(TEST_USER_ID);
@@ -1350,14 +1508,19 @@ class AchievementServiceTest {
             Achievement achievement = createTestAchievement(1L, "MISSION_10", 10, 0);
 
             setupBuildSyncContextMocks();
-            when(userAchievementRepository.findAllByUserIdForSync(TEST_USER_ID)).thenReturn(List.of());
-            when(achievementCacheService.getAchievementsWithCheckLogic()).thenReturn(List.of(achievement));
+            when(userAchievementRepository.findAllByUserIdForSync(TEST_USER_ID))
+                    .thenReturn(List.of());
+            when(achievementCacheService.getAchievementsWithCheckLogic())
+                    .thenReturn(List.of(achievement));
             when(strategyRegistry.getStrategy("USER_STATS")).thenReturn(mockStrategy);
-            when(mockStrategy.checkCondition(any(AchievementSyncContext.class), eq(achievement))).thenReturn(false);
-            when(mockStrategy.fetchCurrentValue(any(AchievementSyncContext.class), eq(achievement))).thenReturn(4);
+            when(mockStrategy.checkCondition(any(AchievementSyncContext.class), eq(achievement)))
+                    .thenReturn(false);
+            when(mockStrategy.fetchCurrentValue(any(AchievementSyncContext.class), eq(achievement)))
+                    .thenReturn(4);
             when(userAchievementRepository.saveAndFlush(any(UserAchievement.class)))
-                .thenAnswer(inv -> inv.getArgument(0));
-            when(userAchievementRepository.findClaimableByUserId(TEST_USER_ID)).thenReturn(List.of());
+                    .thenAnswer(inv -> inv.getArgument(0));
+            when(userAchievementRepository.findClaimableByUserId(TEST_USER_ID))
+                    .thenReturn(List.of());
 
             // when
             achievementService.syncUserAchievements(TEST_USER_ID);
@@ -1374,12 +1537,17 @@ class AchievementServiceTest {
             Achievement achievement = createTestAchievement(1L, "BOOL_ACH", 1, 0);
 
             setupBuildSyncContextMocks();
-            when(userAchievementRepository.findAllByUserIdForSync(TEST_USER_ID)).thenReturn(List.of());
-            when(achievementCacheService.getAchievementsWithCheckLogic()).thenReturn(List.of(achievement));
+            when(userAchievementRepository.findAllByUserIdForSync(TEST_USER_ID))
+                    .thenReturn(List.of());
+            when(achievementCacheService.getAchievementsWithCheckLogic())
+                    .thenReturn(List.of(achievement));
             when(strategyRegistry.getStrategy("USER_STATS")).thenReturn(mockStrategy);
-            when(mockStrategy.checkCondition(any(AchievementSyncContext.class), eq(achievement))).thenReturn(false);
-            when(mockStrategy.fetchCurrentValue(any(AchievementSyncContext.class), eq(achievement))).thenReturn(Boolean.FALSE);
-            when(userAchievementRepository.findClaimableByUserId(TEST_USER_ID)).thenReturn(List.of());
+            when(mockStrategy.checkCondition(any(AchievementSyncContext.class), eq(achievement)))
+                    .thenReturn(false);
+            when(mockStrategy.fetchCurrentValue(any(AchievementSyncContext.class), eq(achievement)))
+                    .thenReturn(Boolean.FALSE);
+            when(userAchievementRepository.findClaimableByUserId(TEST_USER_ID))
+                    .thenReturn(List.of());
 
             // when
             achievementService.syncUserAchievements(TEST_USER_ID);
@@ -1393,15 +1561,21 @@ class AchievementServiceTest {
         void withCtx_conditionNotMet_existingUserAchievement_updatesCount() {
             // given
             Achievement achievement = createTestAchievement(1L, "MISSION_10", 10, 0);
-            UserAchievement existing = createTestUserAchievement(1L, TEST_USER_ID, achievement, 3, false);
+            UserAchievement existing =
+                    createTestUserAchievement(1L, TEST_USER_ID, achievement, 3, false);
 
             setupBuildSyncContextMocks();
-            when(userAchievementRepository.findAllByUserIdForSync(TEST_USER_ID)).thenReturn(List.of(existing));
-            when(achievementCacheService.getAchievementsWithCheckLogic()).thenReturn(List.of(achievement));
+            when(userAchievementRepository.findAllByUserIdForSync(TEST_USER_ID))
+                    .thenReturn(List.of(existing));
+            when(achievementCacheService.getAchievementsWithCheckLogic())
+                    .thenReturn(List.of(achievement));
             when(strategyRegistry.getStrategy("USER_STATS")).thenReturn(mockStrategy);
-            when(mockStrategy.checkCondition(any(AchievementSyncContext.class), eq(achievement))).thenReturn(false);
-            when(mockStrategy.fetchCurrentValue(any(AchievementSyncContext.class), eq(achievement))).thenReturn(6);
-            when(userAchievementRepository.findClaimableByUserId(TEST_USER_ID)).thenReturn(List.of());
+            when(mockStrategy.checkCondition(any(AchievementSyncContext.class), eq(achievement)))
+                    .thenReturn(false);
+            when(mockStrategy.fetchCurrentValue(any(AchievementSyncContext.class), eq(achievement)))
+                    .thenReturn(6);
+            when(userAchievementRepository.findClaimableByUserId(TEST_USER_ID))
+                    .thenReturn(List.of());
 
             // when
             achievementService.syncUserAchievements(TEST_USER_ID);
@@ -1416,15 +1590,21 @@ class AchievementServiceTest {
         void withCtx_conditionNotMet_noOpWhenCountSame() {
             // given
             Achievement achievement = createTestAchievement(1L, "MISSION_10", 10, 0);
-            UserAchievement existing = createTestUserAchievement(1L, TEST_USER_ID, achievement, 6, false);
+            UserAchievement existing =
+                    createTestUserAchievement(1L, TEST_USER_ID, achievement, 6, false);
 
             setupBuildSyncContextMocks();
-            when(userAchievementRepository.findAllByUserIdForSync(TEST_USER_ID)).thenReturn(List.of(existing));
-            when(achievementCacheService.getAchievementsWithCheckLogic()).thenReturn(List.of(achievement));
+            when(userAchievementRepository.findAllByUserIdForSync(TEST_USER_ID))
+                    .thenReturn(List.of(existing));
+            when(achievementCacheService.getAchievementsWithCheckLogic())
+                    .thenReturn(List.of(achievement));
             when(strategyRegistry.getStrategy("USER_STATS")).thenReturn(mockStrategy);
-            when(mockStrategy.checkCondition(any(AchievementSyncContext.class), eq(achievement))).thenReturn(false);
-            when(mockStrategy.fetchCurrentValue(any(AchievementSyncContext.class), eq(achievement))).thenReturn(6);
-            when(userAchievementRepository.findClaimableByUserId(TEST_USER_ID)).thenReturn(List.of());
+            when(mockStrategy.checkCondition(any(AchievementSyncContext.class), eq(achievement)))
+                    .thenReturn(false);
+            when(mockStrategy.fetchCurrentValue(any(AchievementSyncContext.class), eq(achievement)))
+                    .thenReturn(6);
+            when(userAchievementRepository.findClaimableByUserId(TEST_USER_ID))
+                    .thenReturn(List.of());
 
             // when
             achievementService.syncUserAchievements(TEST_USER_ID);
@@ -1448,15 +1628,21 @@ class AchievementServiceTest {
             when(userStatsRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.empty());
             when(userExperienceRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.empty());
             when(userCategoryExperienceRepository.findByUserIdOrderByTotalExpDesc(TEST_USER_ID))
-                .thenReturn(List.of());
+                    .thenReturn(List.of());
             when(guildQueryFacade.getUserGuildMemberships(TEST_USER_ID)).thenReturn(List.of());
-            when(userAchievementRepository.findAllByUserIdForSync(TEST_USER_ID)).thenReturn(List.of());
-            when(achievementCacheService.getAchievementsWithCheckLogic()).thenReturn(List.of(achievement));
+            when(userAchievementRepository.findAllByUserIdForSync(TEST_USER_ID))
+                    .thenReturn(List.of());
+            when(achievementCacheService.getAchievementsWithCheckLogic())
+                    .thenReturn(List.of(achievement));
             when(strategyRegistry.getStrategy("USER_STATS")).thenReturn(mockStrategy);
-            when(mockStrategy.checkCondition(any(AchievementSyncContext.class), eq(achievement))).thenReturn(false);
-            when(mockStrategy.fetchCurrentValue(any(AchievementSyncContext.class), eq(achievement))).thenReturn(0);
-            when(userAchievementRepository.saveAndFlush(any())).thenAnswer(inv -> inv.getArgument(0));
-            when(userAchievementRepository.findClaimableByUserId(TEST_USER_ID)).thenReturn(List.of());
+            when(mockStrategy.checkCondition(any(AchievementSyncContext.class), eq(achievement)))
+                    .thenReturn(false);
+            when(mockStrategy.fetchCurrentValue(any(AchievementSyncContext.class), eq(achievement)))
+                    .thenReturn(0);
+            when(userAchievementRepository.saveAndFlush(any()))
+                    .thenAnswer(inv -> inv.getArgument(0));
+            when(userAchievementRepository.findClaimableByUserId(TEST_USER_ID))
+                    .thenReturn(List.of());
 
             // when & then: 예외 없이 정상 동작
             assertThat(achievementService.syncUserAchievements(TEST_USER_ID)).isTrue();
@@ -1468,20 +1654,28 @@ class AchievementServiceTest {
             // given
             Achievement achievement = createTestAchievement(1L, "GUILD_MASTER_ACH", 1, 0);
             io.pinkspider.global.facade.dto.GuildMembershipInfo masterInfo =
-                new io.pinkspider.global.facade.dto.GuildMembershipInfo(1L, "테스트 길드", null, 1, true, false);
+                    new io.pinkspider.global.facade.dto.GuildMembershipInfo(
+                            1L, "테스트 길드", null, 1, true, false);
 
             when(userStatsRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.empty());
             when(userExperienceRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.empty());
             when(userCategoryExperienceRepository.findByUserIdOrderByTotalExpDesc(TEST_USER_ID))
-                .thenReturn(List.of());
-            when(guildQueryFacade.getUserGuildMemberships(TEST_USER_ID)).thenReturn(List.of(masterInfo));
-            when(userAchievementRepository.findAllByUserIdForSync(TEST_USER_ID)).thenReturn(List.of());
-            when(achievementCacheService.getAchievementsWithCheckLogic()).thenReturn(List.of(achievement));
+                    .thenReturn(List.of());
+            when(guildQueryFacade.getUserGuildMemberships(TEST_USER_ID))
+                    .thenReturn(List.of(masterInfo));
+            when(userAchievementRepository.findAllByUserIdForSync(TEST_USER_ID))
+                    .thenReturn(List.of());
+            when(achievementCacheService.getAchievementsWithCheckLogic())
+                    .thenReturn(List.of(achievement));
             when(strategyRegistry.getStrategy("USER_STATS")).thenReturn(mockStrategy);
-            when(mockStrategy.checkCondition(any(AchievementSyncContext.class), eq(achievement))).thenReturn(false);
-            when(mockStrategy.fetchCurrentValue(any(AchievementSyncContext.class), eq(achievement))).thenReturn(0);
-            when(userAchievementRepository.saveAndFlush(any())).thenAnswer(inv -> inv.getArgument(0));
-            when(userAchievementRepository.findClaimableByUserId(TEST_USER_ID)).thenReturn(List.of());
+            when(mockStrategy.checkCondition(any(AchievementSyncContext.class), eq(achievement)))
+                    .thenReturn(false);
+            when(mockStrategy.fetchCurrentValue(any(AchievementSyncContext.class), eq(achievement)))
+                    .thenReturn(0);
+            when(userAchievementRepository.saveAndFlush(any()))
+                    .thenAnswer(inv -> inv.getArgument(0));
+            when(userAchievementRepository.findClaimableByUserId(TEST_USER_ID))
+                    .thenReturn(List.of());
 
             // when & then: guildMaster 여부가 컨텍스트에 포함되어 정상 실행
             assertThat(achievementService.syncUserAchievements(TEST_USER_ID)).isTrue();
@@ -1496,16 +1690,22 @@ class AchievementServiceTest {
             when(userStatsRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.empty());
             when(userExperienceRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.empty());
             when(userCategoryExperienceRepository.findByUserIdOrderByTotalExpDesc(TEST_USER_ID))
-                .thenReturn(List.of());
+                    .thenReturn(List.of());
             when(guildQueryFacade.getUserGuildMemberships(TEST_USER_ID))
-                .thenThrow(new RuntimeException("서비스 연결 실패"));
-            when(userAchievementRepository.findAllByUserIdForSync(TEST_USER_ID)).thenReturn(List.of());
-            when(achievementCacheService.getAchievementsWithCheckLogic()).thenReturn(List.of(achievement));
+                    .thenThrow(new RuntimeException("서비스 연결 실패"));
+            when(userAchievementRepository.findAllByUserIdForSync(TEST_USER_ID))
+                    .thenReturn(List.of());
+            when(achievementCacheService.getAchievementsWithCheckLogic())
+                    .thenReturn(List.of(achievement));
             when(strategyRegistry.getStrategy("USER_STATS")).thenReturn(mockStrategy);
-            when(mockStrategy.checkCondition(any(AchievementSyncContext.class), eq(achievement))).thenReturn(false);
-            when(mockStrategy.fetchCurrentValue(any(AchievementSyncContext.class), eq(achievement))).thenReturn(0);
-            when(userAchievementRepository.saveAndFlush(any())).thenAnswer(inv -> inv.getArgument(0));
-            when(userAchievementRepository.findClaimableByUserId(TEST_USER_ID)).thenReturn(List.of());
+            when(mockStrategy.checkCondition(any(AchievementSyncContext.class), eq(achievement)))
+                    .thenReturn(false);
+            when(mockStrategy.fetchCurrentValue(any(AchievementSyncContext.class), eq(achievement)))
+                    .thenReturn(0);
+            when(userAchievementRepository.saveAndFlush(any()))
+                    .thenAnswer(inv -> inv.getArgument(0));
+            when(userAchievementRepository.findClaimableByUserId(TEST_USER_ID))
+                    .thenReturn(List.of());
 
             // when: 예외 발생해도 guildMaster=false로 정상 진행
             assertThat(achievementService.syncUserAchievements(TEST_USER_ID)).isTrue();
@@ -1520,15 +1720,21 @@ class AchievementServiceTest {
             when(userStatsRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.empty());
             when(userExperienceRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.empty());
             when(userCategoryExperienceRepository.findByUserIdOrderByTotalExpDesc(TEST_USER_ID))
-                .thenReturn(List.of());
+                    .thenReturn(List.of());
             when(guildQueryFacade.getUserGuildMemberships(TEST_USER_ID)).thenReturn(null);
-            when(userAchievementRepository.findAllByUserIdForSync(TEST_USER_ID)).thenReturn(List.of());
-            when(achievementCacheService.getAchievementsWithCheckLogic()).thenReturn(List.of(achievement));
+            when(userAchievementRepository.findAllByUserIdForSync(TEST_USER_ID))
+                    .thenReturn(List.of());
+            when(achievementCacheService.getAchievementsWithCheckLogic())
+                    .thenReturn(List.of(achievement));
             when(strategyRegistry.getStrategy("USER_STATS")).thenReturn(mockStrategy);
-            when(mockStrategy.checkCondition(any(AchievementSyncContext.class), eq(achievement))).thenReturn(false);
-            when(mockStrategy.fetchCurrentValue(any(AchievementSyncContext.class), eq(achievement))).thenReturn(0);
-            when(userAchievementRepository.saveAndFlush(any())).thenAnswer(inv -> inv.getArgument(0));
-            when(userAchievementRepository.findClaimableByUserId(TEST_USER_ID)).thenReturn(List.of());
+            when(mockStrategy.checkCondition(any(AchievementSyncContext.class), eq(achievement)))
+                    .thenReturn(false);
+            when(mockStrategy.fetchCurrentValue(any(AchievementSyncContext.class), eq(achievement)))
+                    .thenReturn(0);
+            when(userAchievementRepository.saveAndFlush(any()))
+                    .thenAnswer(inv -> inv.getArgument(0));
+            when(userAchievementRepository.findClaimableByUserId(TEST_USER_ID))
+                    .thenReturn(List.of());
 
             // when & then
             assertThat(achievementService.syncUserAchievements(TEST_USER_ID)).isTrue();
@@ -1545,17 +1751,20 @@ class AchievementServiceTest {
             // given
             Long achievementId = 2L;
             Achievement achievement = createTestAchievement(achievementId, "ZERO_EXP_ACH", 1, 0);
-            UserAchievement userAchievement = createTestUserAchievement(1L, TEST_USER_ID, achievement, 1, true);
+            UserAchievement userAchievement =
+                    createTestUserAchievement(1L, TEST_USER_ID, achievement, 1, true);
 
-            when(userAchievementRepository.findByUserIdAndAchievementId(TEST_USER_ID, achievementId))
-                .thenReturn(Optional.of(userAchievement));
+            when(userAchievementRepository.findByUserIdAndAchievementId(
+                            TEST_USER_ID, achievementId))
+                    .thenReturn(Optional.of(userAchievement));
             when(userAchievementRepository.markRewardClaimed(1L)).thenReturn(1);
 
             // when
             achievementService.claimReward(TEST_USER_ID, achievementId);
 
             // then: 경험치 지급 없음
-            verify(userExperienceService, never()).addExperience(any(), anyInt(), any(), any(), any(), any());
+            verify(userExperienceService, never())
+                    .addExperience(any(), anyInt(), any(), any(), any(), any());
         }
 
         @Test
@@ -1565,10 +1774,12 @@ class AchievementServiceTest {
             Long achievementId = 3L;
             Achievement achievement = createTestAchievement(achievementId, "NO_TITLE_ACH", 1, 100);
             // rewardTitleId = null (기본값)
-            UserAchievement userAchievement = createTestUserAchievement(1L, TEST_USER_ID, achievement, 1, true);
+            UserAchievement userAchievement =
+                    createTestUserAchievement(1L, TEST_USER_ID, achievement, 1, true);
 
-            when(userAchievementRepository.findByUserIdAndAchievementId(TEST_USER_ID, achievementId))
-                .thenReturn(Optional.of(userAchievement));
+            when(userAchievementRepository.findByUserIdAndAchievementId(
+                            TEST_USER_ID, achievementId))
+                    .thenReturn(Optional.of(userAchievement));
             when(userAchievementRepository.markRewardClaimed(1L)).thenReturn(1);
 
             // when
@@ -1583,10 +1794,11 @@ class AchievementServiceTest {
         void autoClaimRewards_zeroExp_noExpGranted() {
             // given
             Achievement achievement = createTestAchievement(1L, "ZERO_EXP_ACH", 1, 0);
-            UserAchievement claimable = createTestUserAchievement(1L, TEST_USER_ID, achievement, 1, true);
+            UserAchievement claimable =
+                    createTestUserAchievement(1L, TEST_USER_ID, achievement, 1, true);
 
             when(userAchievementRepository.findClaimableByUserId(TEST_USER_ID))
-                .thenReturn(List.of(claimable));
+                    .thenReturn(List.of(claimable));
             when(userAchievementRepository.markRewardClaimed(1L)).thenReturn(1);
             when(userAchievementRepository.save(any())).thenReturn(claimable);
 
@@ -1594,7 +1806,8 @@ class AchievementServiceTest {
             achievementService.autoClaimRewards(TEST_USER_ID);
 
             // then
-            verify(userExperienceService, never()).addExperience(any(), anyInt(), any(), any(), any(), any());
+            verify(userExperienceService, never())
+                    .addExperience(any(), anyInt(), any(), any(), any(), any());
             verify(userAchievementRepository).save(claimable);
         }
 
@@ -1604,10 +1817,11 @@ class AchievementServiceTest {
             // given
             Achievement achievement = createTestAchievement(1L, "TITLE_ACH", 1, 0);
             achievement.setRewardTitleId(99L);
-            UserAchievement claimable = createTestUserAchievement(1L, TEST_USER_ID, achievement, 1, true);
+            UserAchievement claimable =
+                    createTestUserAchievement(1L, TEST_USER_ID, achievement, 1, true);
 
             when(userAchievementRepository.findClaimableByUserId(TEST_USER_ID))
-                .thenReturn(List.of(claimable));
+                    .thenReturn(List.of(claimable));
             when(userAchievementRepository.markRewardClaimed(1L)).thenReturn(1);
             when(userAchievementRepository.save(any())).thenReturn(claimable);
 
@@ -1628,9 +1842,10 @@ class AchievementServiceTest {
             UserAchievement claimable2 = createTestUserAchievement(2L, TEST_USER_ID, ach2, 1, true);
 
             when(userAchievementRepository.findClaimableByUserId(TEST_USER_ID))
-                .thenReturn(List.of(claimable1, claimable2));
+                    .thenReturn(List.of(claimable1, claimable2));
             // ach1은 수령 처리 중 예외 발생
-            when(userAchievementRepository.markRewardClaimed(1L)).thenThrow(new RuntimeException("DB 오류"));
+            when(userAchievementRepository.markRewardClaimed(1L))
+                    .thenThrow(new RuntimeException("DB 오류"));
             when(userAchievementRepository.markRewardClaimed(2L)).thenReturn(1);
             when(userAchievementRepository.save(any())).thenReturn(claimable2);
 
@@ -1645,15 +1860,16 @@ class AchievementServiceTest {
         @DisplayName("syncUserAchievements — buildSyncContext 내 예외 발생 시 false를 반환한다")
         void syncUserAchievements_internalException_returnsFalse() {
             // given
-            // buildSyncContext 순서: userStatsRepo → userExperienceRepo → categoryExpRepo → guildFacade → findAllByUserIdForSync
+            // buildSyncContext 순서: userStatsRepo → userExperienceRepo → categoryExpRepo →
+            // guildFacade → findAllByUserIdForSync
             // findAllByUserIdForSync에서 예외 발생 → syncUserAchievements catch → false 반환
             // guildQueryFacade는 Mockito 기본값(빈 List)이므로 별도 stubbing 불필요
             when(userStatsRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.empty());
             when(userExperienceRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.empty());
             when(userCategoryExperienceRepository.findByUserIdOrderByTotalExpDesc(TEST_USER_ID))
-                .thenReturn(List.of());
+                    .thenReturn(List.of());
             when(userAchievementRepository.findAllByUserIdForSync(TEST_USER_ID))
-                .thenThrow(new RuntimeException("DB 연결 실패"));
+                    .thenThrow(new RuntimeException("DB 연결 실패"));
 
             // when
             boolean result = achievementService.syncUserAchievements(TEST_USER_ID);
@@ -1671,27 +1887,34 @@ class AchievementServiceTest {
         @DisplayName("locale=en이면 getAllAchievements 응답의 이름/카테고리명이 영어로 채워진다")
         void getAllAchievements_localeEn_returnsEnglishNameAndCategory() {
             // given
-            Achievement achievement = Achievement.builder()
-                .name("첫 미션 완료")
-                .nameEn("First Mission Complete")
-                .description("첫 미션을 완료하세요")
-                .descriptionEn("Complete your first mission")
-                .categoryCode("MISSION")
-                .missionCategoryId(5L)
-                .requiredCount(1)
-                .rewardExp(50)
-                .isActive(true)
-                .isHidden(false)
-                .checkLogicDataSource("USER_STATS")
-                .checkLogicDataField("totalMissionCompletions")
-                .comparisonOperator("GTE")
-                .build();
+            Achievement achievement =
+                    Achievement.builder()
+                            .name("첫 미션 완료")
+                            .nameEn("First Mission Complete")
+                            .description("첫 미션을 완료하세요")
+                            .descriptionEn("Complete your first mission")
+                            .categoryCode("MISSION")
+                            .missionCategoryId(5L)
+                            .requiredCount(1)
+                            .rewardExp(50)
+                            .isActive(true)
+                            .isHidden(false)
+                            .checkLogicDataSource("USER_STATS")
+                            .checkLogicDataField("totalMissionCompletions")
+                            .comparisonOperator("GTE")
+                            .build();
             setId(achievement, 1L);
 
             when(achievementCacheService.getVisibleAchievements()).thenReturn(List.of(achievement));
-            when(missionCategoryService.getActiveCategories()).thenReturn(List.of(
-                MissionCategoryResponse.builder().id(5L).name("독서").nameEn("Reading").isActive(true).build()
-            ));
+            when(missionCategoryService.getActiveCategories())
+                    .thenReturn(
+                            List.of(
+                                    MissionCategoryResponse.builder()
+                                            .id(5L)
+                                            .name("독서")
+                                            .nameEn("Reading")
+                                            .isActive(true)
+                                            .build()));
 
             // when
             List<AchievementResponse> result = achievementService.getAllAchievements("en");
@@ -1707,27 +1930,34 @@ class AchievementServiceTest {
         @DisplayName("locale=null이면 getAllAchievements 응답이 한국어로 채워진다")
         void getAllAchievements_localeNull_returnsKorean() {
             // given
-            Achievement achievement = Achievement.builder()
-                .name("첫 미션 완료")
-                .nameEn("First Mission Complete")
-                .description("첫 미션을 완료하세요")
-                .descriptionEn("Complete your first mission")
-                .categoryCode("MISSION")
-                .missionCategoryId(5L)
-                .requiredCount(1)
-                .rewardExp(50)
-                .isActive(true)
-                .isHidden(false)
-                .checkLogicDataSource("USER_STATS")
-                .checkLogicDataField("totalMissionCompletions")
-                .comparisonOperator("GTE")
-                .build();
+            Achievement achievement =
+                    Achievement.builder()
+                            .name("첫 미션 완료")
+                            .nameEn("First Mission Complete")
+                            .description("첫 미션을 완료하세요")
+                            .descriptionEn("Complete your first mission")
+                            .categoryCode("MISSION")
+                            .missionCategoryId(5L)
+                            .requiredCount(1)
+                            .rewardExp(50)
+                            .isActive(true)
+                            .isHidden(false)
+                            .checkLogicDataSource("USER_STATS")
+                            .checkLogicDataField("totalMissionCompletions")
+                            .comparisonOperator("GTE")
+                            .build();
             setId(achievement, 1L);
 
             when(achievementCacheService.getVisibleAchievements()).thenReturn(List.of(achievement));
-            when(missionCategoryService.getActiveCategories()).thenReturn(List.of(
-                MissionCategoryResponse.builder().id(5L).name("독서").nameEn("Reading").isActive(true).build()
-            ));
+            when(missionCategoryService.getActiveCategories())
+                    .thenReturn(
+                            List.of(
+                                    MissionCategoryResponse.builder()
+                                            .id(5L)
+                                            .name("독서")
+                                            .nameEn("Reading")
+                                            .isActive(true)
+                                            .build()));
 
             // when
             List<AchievementResponse> result = achievementService.getAllAchievements(null);
@@ -1743,36 +1973,39 @@ class AchievementServiceTest {
         @DisplayName("locale=en이면 getUserAchievements의 rewardTitleName이 영어로 채워진다")
         void getUserAchievements_localeEn_rewardTitleNameEnglish() {
             // given
-            Achievement achievement = Achievement.builder()
-                .name("길드 첫 가입")
-                .description("길드에 최초 가입")
-                .categoryCode("GUILD")
-                .requiredCount(1)
-                .rewardExp(50)
-                .isActive(true)
-                .isHidden(false)
-                .checkLogicDataSource("USER_STATS")
-                .checkLogicDataField("guildJoinCount")
-                .comparisonOperator("GTE")
-                .rewardTitleId(10L)
-                .build();
+            Achievement achievement =
+                    Achievement.builder()
+                            .name("길드 첫 가입")
+                            .description("길드에 최초 가입")
+                            .categoryCode("GUILD")
+                            .requiredCount(1)
+                            .rewardExp(50)
+                            .isActive(true)
+                            .isHidden(false)
+                            .checkLogicDataSource("USER_STATS")
+                            .checkLogicDataField("guildJoinCount")
+                            .comparisonOperator("GTE")
+                            .rewardTitleId(10L)
+                            .build();
             setId(achievement, 1L);
             UserAchievement ua = createTestUserAchievement(1L, TEST_USER_ID, achievement, 1, true);
 
             io.pinkspider.leveluptogethermvp.gamificationservice.domain.entity.Title title =
-                io.pinkspider.leveluptogethermvp.gamificationservice.domain.entity.Title.builder()
-                    .name("최초의")
-                    .nameEn("The First")
-                    .rarity(io.pinkspider.global.enums.TitleRarity.LEGENDARY)
-                    .build();
+                    io.pinkspider.leveluptogethermvp.gamificationservice.domain.entity.Title
+                            .builder()
+                            .name("최초의")
+                            .nameEn("The First")
+                            .rarity(io.pinkspider.global.enums.TitleRarity.LEGENDARY)
+                            .build();
             setId(title, 10L);
 
             when(userAchievementRepository.findByUserIdWithAchievement(TEST_USER_ID))
-                .thenReturn(List.of(ua));
+                    .thenReturn(List.of(ua));
             when(titleRepository.findAllById(java.util.Set.of(10L))).thenReturn(List.of(title));
 
             // when
-            List<UserAchievementResponse> result = achievementService.getUserAchievements(TEST_USER_ID, "en");
+            List<UserAchievementResponse> result =
+                    achievementService.getUserAchievements(TEST_USER_ID, "en");
 
             // then
             assertThat(result).hasSize(1);
@@ -1784,33 +2017,36 @@ class AchievementServiceTest {
     @DisplayName("분기 보강 — 목록 필터·null currentCount·Boolean false·null 컬렉션")
     class BranchCoverageTest {
 
-        private Achievement createCategoryAchievement(Long id, String name, Long missionCategoryId) {
-            Achievement achievement = Achievement.builder()
-                .name(name)
-                .description(name + " 설명")
-                .categoryCode("MISSION")
-                .requiredCount(1000)
-                .rewardExp(100)
-                .isActive(true)
-                .isHidden(false)
-                .checkLogicDataSource("USER_CATEGORY_EXPERIENCE")
-                .checkLogicDataField("categoryExp")
-                .comparisonOperator("GTE")
-                .missionCategoryId(missionCategoryId)
-                .build();
+        private Achievement createCategoryAchievement(
+                Long id, String name, Long missionCategoryId) {
+            Achievement achievement =
+                    Achievement.builder()
+                            .name(name)
+                            .description(name + " 설명")
+                            .categoryCode("MISSION")
+                            .requiredCount(1000)
+                            .rewardExp(100)
+                            .isActive(true)
+                            .isHidden(false)
+                            .checkLogicDataSource("USER_CATEGORY_EXPERIENCE")
+                            .checkLogicDataField("categoryExp")
+                            .comparisonOperator("GTE")
+                            .missionCategoryId(missionCategoryId)
+                            .build();
             setId(achievement, id);
             return achievement;
         }
 
-        private UserAchievement createUserAchievementWithNullCount(Long id, Achievement achievement,
-                                                                    boolean isCompleted) {
-            UserAchievement ua = UserAchievement.builder()
-                .userId(TEST_USER_ID)
-                .achievement(achievement)
-                .currentCount(null)
-                .isCompleted(isCompleted)
-                .isRewardClaimed(false)
-                .build();
+        private UserAchievement createUserAchievementWithNullCount(
+                Long id, Achievement achievement, boolean isCompleted) {
+            UserAchievement ua =
+                    UserAchievement.builder()
+                            .userId(TEST_USER_ID)
+                            .achievement(achievement)
+                            .currentCount(null)
+                            .isCompleted(isCompleted)
+                            .isRewardClaimed(false)
+                            .build();
             setId(ua, id);
             return ua;
         }
@@ -1819,9 +2055,10 @@ class AchievementServiceTest {
             when(userStatsRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.empty());
             when(userExperienceRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.empty());
             when(userCategoryExperienceRepository.findByUserIdOrderByTotalExpDesc(TEST_USER_ID))
-                .thenReturn(List.of());
+                    .thenReturn(List.of());
             when(guildQueryFacade.getUserGuildMemberships(TEST_USER_ID)).thenReturn(List.of());
-            when(userAchievementRepository.findClaimableByUserId(TEST_USER_ID)).thenReturn(List.of());
+            when(userAchievementRepository.findClaimableByUserId(TEST_USER_ID))
+                    .thenReturn(List.of());
         }
 
         @Test
@@ -1831,15 +2068,22 @@ class AchievementServiceTest {
             Achievement nullCategory = createCategoryAchievement(2L, "카테고리 미지정", null);
             Achievement alive = createCategoryAchievement(3L, "운동 마스터", 1L);
 
-            when(missionCategoryService.getActiveCategories()).thenReturn(List.of(
-                MissionCategoryResponse.builder().id(1L).name("운동").isActive(true).build()));
+            when(missionCategoryService.getActiveCategories())
+                    .thenReturn(
+                            List.of(
+                                    MissionCategoryResponse.builder()
+                                            .id(1L)
+                                            .name("운동")
+                                            .isActive(true)
+                                            .build()));
             when(achievementCacheService.getVisibleAchievements())
-                .thenReturn(List.of(orphaned, nullCategory, alive));
+                    .thenReturn(List.of(orphaned, nullCategory, alive));
 
             List<AchievementResponse> result = achievementService.getAllAchievements();
 
-            assertThat(result).extracting(AchievementResponse::getName)
-                .containsExactly("카테고리 미지정", "운동 마스터");
+            assertThat(result)
+                    .extracting(AchievementResponse::getName)
+                    .containsExactly("카테고리 미지정", "운동 마스터");
         }
 
         @Test
@@ -1851,10 +2095,10 @@ class AchievementServiceTest {
             Achievement visible = createTestAchievement(3L, "VISIBLE", 1, 0);
 
             when(achievementCacheService.getAchievementsByCategoryCode("MISSION"))
-                .thenReturn(List.of(hidden, orphaned, visible));
+                    .thenReturn(List.of(hidden, orphaned, visible));
 
             List<AchievementResponse> result =
-                achievementService.getAchievementsByCategoryCode("MISSION");
+                    achievementService.getAchievementsByCategoryCode("MISSION");
 
             assertThat(result).extracting(AchievementResponse::getName).containsExactly("VISIBLE");
         }
@@ -1867,13 +2111,19 @@ class AchievementServiceTest {
             Achievement orphaned = createCategoryAchievement(2L, "사라진 카테고리", 99L);
             Achievement visible = createCategoryAchievement(3L, "운동 마스터", 1L);
 
-            when(missionCategoryService.getActiveCategories()).thenReturn(List.of(
-                MissionCategoryResponse.builder().id(1L).name("운동").isActive(true).build()));
+            when(missionCategoryService.getActiveCategories())
+                    .thenReturn(
+                            List.of(
+                                    MissionCategoryResponse.builder()
+                                            .id(1L)
+                                            .name("운동")
+                                            .isActive(true)
+                                            .build()));
             when(achievementCacheService.getAchievementsByMissionCategoryId(1L))
-                .thenReturn(List.of(hidden, orphaned, visible));
+                    .thenReturn(List.of(hidden, orphaned, visible));
 
             List<AchievementResponse> result =
-                achievementService.getAchievementsByMissionCategoryId(1L);
+                    achievementService.getAchievementsByMissionCategoryId(1L);
 
             assertThat(result).extracting(AchievementResponse::getName).containsExactly("운동 마스터");
         }
@@ -1886,14 +2136,18 @@ class AchievementServiceTest {
             when(userStatsRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.empty());
             when(userExperienceRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.empty());
             when(userCategoryExperienceRepository.findByUserIdOrderByTotalExpDesc(TEST_USER_ID))
-                .thenReturn(null);
+                    .thenReturn(null);
             when(guildQueryFacade.getUserGuildMemberships(TEST_USER_ID)).thenReturn(List.of());
             when(userAchievementRepository.findAllByUserIdForSync(TEST_USER_ID)).thenReturn(null);
-            when(achievementCacheService.getAchievementsWithCheckLogic()).thenReturn(List.of(achievement));
+            when(achievementCacheService.getAchievementsWithCheckLogic())
+                    .thenReturn(List.of(achievement));
             when(strategyRegistry.getStrategy("USER_STATS")).thenReturn(mockStrategy);
-            when(mockStrategy.checkCondition(any(AchievementSyncContext.class), eq(achievement))).thenReturn(false);
-            when(mockStrategy.fetchCurrentValue(any(AchievementSyncContext.class), eq(achievement))).thenReturn("NA");
-            when(userAchievementRepository.findClaimableByUserId(TEST_USER_ID)).thenReturn(List.of());
+            when(mockStrategy.checkCondition(any(AchievementSyncContext.class), eq(achievement)))
+                    .thenReturn(false);
+            when(mockStrategy.fetchCurrentValue(any(AchievementSyncContext.class), eq(achievement)))
+                    .thenReturn("NA");
+            when(userAchievementRepository.findClaimableByUserId(TEST_USER_ID))
+                    .thenReturn(List.of());
 
             assertThat(achievementService.syncUserAchievements(TEST_USER_ID)).isTrue();
             verify(userAchievementRepository, never()).saveAndFlush(any());
@@ -1906,10 +2160,13 @@ class AchievementServiceTest {
             UserAchievement completed = createUserAchievementWithNullCount(1L, achievement, true);
 
             stubSyncContext();
-            when(userAchievementRepository.findAllByUserIdForSync(TEST_USER_ID)).thenReturn(List.of(completed));
-            when(achievementCacheService.getAchievementsWithCheckLogic()).thenReturn(List.of(achievement));
+            when(userAchievementRepository.findAllByUserIdForSync(TEST_USER_ID))
+                    .thenReturn(List.of(completed));
+            when(achievementCacheService.getAchievementsWithCheckLogic())
+                    .thenReturn(List.of(achievement));
             when(strategyRegistry.getStrategy("USER_STATS")).thenReturn(mockStrategy);
-            when(mockStrategy.fetchCurrentValue(any(AchievementSyncContext.class), eq(achievement))).thenReturn(7);
+            when(mockStrategy.fetchCurrentValue(any(AchievementSyncContext.class), eq(achievement)))
+                    .thenReturn(7);
 
             achievementService.syncUserAchievements(TEST_USER_ID);
 
@@ -1922,14 +2179,19 @@ class AchievementServiceTest {
         @DisplayName("ctx 경로 — 조건 충족이지만 fetchCurrentValue 가 Boolean false 면 완료 처리하지 않는다")
         void withCtx_conditionMet_booleanFalse_doesNotComplete() {
             Achievement achievement = createTestAchievement(1L, "BOOL_FALSE", 1, 0);
-            UserAchievement existing = createTestUserAchievement(1L, TEST_USER_ID, achievement, 0, false);
+            UserAchievement existing =
+                    createTestUserAchievement(1L, TEST_USER_ID, achievement, 0, false);
 
             stubSyncContext();
-            when(userAchievementRepository.findAllByUserIdForSync(TEST_USER_ID)).thenReturn(List.of(existing));
-            when(achievementCacheService.getAchievementsWithCheckLogic()).thenReturn(List.of(achievement));
+            when(userAchievementRepository.findAllByUserIdForSync(TEST_USER_ID))
+                    .thenReturn(List.of(existing));
+            when(achievementCacheService.getAchievementsWithCheckLogic())
+                    .thenReturn(List.of(achievement));
             when(strategyRegistry.getStrategy("USER_STATS")).thenReturn(mockStrategy);
-            when(mockStrategy.checkCondition(any(AchievementSyncContext.class), eq(achievement))).thenReturn(true);
-            when(mockStrategy.fetchCurrentValue(any(AchievementSyncContext.class), eq(achievement))).thenReturn(Boolean.FALSE);
+            when(mockStrategy.checkCondition(any(AchievementSyncContext.class), eq(achievement)))
+                    .thenReturn(true);
+            when(mockStrategy.fetchCurrentValue(any(AchievementSyncContext.class), eq(achievement)))
+                    .thenReturn(Boolean.FALSE);
 
             achievementService.syncUserAchievements(TEST_USER_ID);
 
@@ -1945,11 +2207,15 @@ class AchievementServiceTest {
             UserAchievement existing = createUserAchievementWithNullCount(1L, achievement, false);
 
             stubSyncContext();
-            when(userAchievementRepository.findAllByUserIdForSync(TEST_USER_ID)).thenReturn(List.of(existing));
-            when(achievementCacheService.getAchievementsWithCheckLogic()).thenReturn(List.of(achievement));
+            when(userAchievementRepository.findAllByUserIdForSync(TEST_USER_ID))
+                    .thenReturn(List.of(existing));
+            when(achievementCacheService.getAchievementsWithCheckLogic())
+                    .thenReturn(List.of(achievement));
             when(strategyRegistry.getStrategy("USER_STATS")).thenReturn(mockStrategy);
-            when(mockStrategy.checkCondition(any(AchievementSyncContext.class), eq(achievement))).thenReturn(true);
-            when(mockStrategy.fetchCurrentValue(any(AchievementSyncContext.class), eq(achievement))).thenReturn(4);
+            when(mockStrategy.checkCondition(any(AchievementSyncContext.class), eq(achievement)))
+                    .thenReturn(true);
+            when(mockStrategy.fetchCurrentValue(any(AchievementSyncContext.class), eq(achievement)))
+                    .thenReturn(4);
 
             achievementService.syncUserAchievements(TEST_USER_ID);
 
@@ -1963,14 +2229,19 @@ class AchievementServiceTest {
         @DisplayName("ctx 경로 — 조건 충족이지만 count 가 동일하고 목표 미달이면 setCount·완료 모두 없다")
         void withCtx_conditionMet_sameCount_notCompleted_noop() {
             Achievement achievement = createTestAchievement(1L, "MISSION_10", 10, 0);
-            UserAchievement existing = createTestUserAchievement(1L, TEST_USER_ID, achievement, 5, false);
+            UserAchievement existing =
+                    createTestUserAchievement(1L, TEST_USER_ID, achievement, 5, false);
 
             stubSyncContext();
-            when(userAchievementRepository.findAllByUserIdForSync(TEST_USER_ID)).thenReturn(List.of(existing));
-            when(achievementCacheService.getAchievementsWithCheckLogic()).thenReturn(List.of(achievement));
+            when(userAchievementRepository.findAllByUserIdForSync(TEST_USER_ID))
+                    .thenReturn(List.of(existing));
+            when(achievementCacheService.getAchievementsWithCheckLogic())
+                    .thenReturn(List.of(achievement));
             when(strategyRegistry.getStrategy("USER_STATS")).thenReturn(mockStrategy);
-            when(mockStrategy.checkCondition(any(AchievementSyncContext.class), eq(achievement))).thenReturn(true);
-            when(mockStrategy.fetchCurrentValue(any(AchievementSyncContext.class), eq(achievement))).thenReturn(5);
+            when(mockStrategy.checkCondition(any(AchievementSyncContext.class), eq(achievement)))
+                    .thenReturn(true);
+            when(mockStrategy.fetchCurrentValue(any(AchievementSyncContext.class), eq(achievement)))
+                    .thenReturn(5);
 
             achievementService.syncUserAchievements(TEST_USER_ID);
 
@@ -1986,11 +2257,15 @@ class AchievementServiceTest {
             UserAchievement existing = createUserAchievementWithNullCount(1L, achievement, false);
 
             stubSyncContext();
-            when(userAchievementRepository.findAllByUserIdForSync(TEST_USER_ID)).thenReturn(List.of(existing));
-            when(achievementCacheService.getAchievementsWithCheckLogic()).thenReturn(List.of(achievement));
+            when(userAchievementRepository.findAllByUserIdForSync(TEST_USER_ID))
+                    .thenReturn(List.of(existing));
+            when(achievementCacheService.getAchievementsWithCheckLogic())
+                    .thenReturn(List.of(achievement));
             when(strategyRegistry.getStrategy("USER_STATS")).thenReturn(mockStrategy);
-            when(mockStrategy.checkCondition(any(AchievementSyncContext.class), eq(achievement))).thenReturn(false);
-            when(mockStrategy.fetchCurrentValue(any(AchievementSyncContext.class), eq(achievement))).thenReturn(3);
+            when(mockStrategy.checkCondition(any(AchievementSyncContext.class), eq(achievement)))
+                    .thenReturn(false);
+            when(mockStrategy.fetchCurrentValue(any(AchievementSyncContext.class), eq(achievement)))
+                    .thenReturn(3);
 
             achievementService.syncUserAchievements(TEST_USER_ID);
 
@@ -2005,10 +2280,10 @@ class AchievementServiceTest {
             UserAchievement completed = createUserAchievementWithNullCount(1L, achievement, true);
 
             when(achievementCacheService.getAchievementsByDataSource("USER_STATS"))
-                .thenReturn(List.of(achievement));
+                    .thenReturn(List.of(achievement));
             when(strategyRegistry.getStrategy("USER_STATS")).thenReturn(mockStrategy);
             when(userAchievementRepository.findByUserIdAndAchievementId(TEST_USER_ID, 1L))
-                .thenReturn(Optional.of(completed));
+                    .thenReturn(Optional.of(completed));
             when(mockStrategy.fetchCurrentValue(TEST_USER_ID, achievement)).thenReturn(9);
 
             achievementService.checkAchievementsByDataSource(TEST_USER_ID, "USER_STATS");
@@ -2021,15 +2296,17 @@ class AchievementServiceTest {
         @DisplayName("dynamic 경로 — 조건 충족이지만 fetchCurrentValue 가 Boolean false 면 count 변경·완료가 없다")
         void dynamic_conditionMet_booleanFalse_noCompletion() {
             Achievement achievement = createTestAchievement(1L, "BOOL_FALSE", 1, 0);
-            UserAchievement existing = createTestUserAchievement(1L, TEST_USER_ID, achievement, 0, false);
+            UserAchievement existing =
+                    createTestUserAchievement(1L, TEST_USER_ID, achievement, 0, false);
 
             when(achievementCacheService.getAchievementsByDataSource("USER_STATS"))
-                .thenReturn(List.of(achievement));
+                    .thenReturn(List.of(achievement));
             when(strategyRegistry.getStrategy("USER_STATS")).thenReturn(mockStrategy);
             when(userAchievementRepository.findByUserIdAndAchievementId(TEST_USER_ID, 1L))
-                .thenReturn(Optional.of(existing));
+                    .thenReturn(Optional.of(existing));
             when(mockStrategy.checkCondition(TEST_USER_ID, achievement)).thenReturn(true);
-            when(mockStrategy.fetchCurrentValue(TEST_USER_ID, achievement)).thenReturn(Boolean.FALSE);
+            when(mockStrategy.fetchCurrentValue(TEST_USER_ID, achievement))
+                    .thenReturn(Boolean.FALSE);
 
             achievementService.checkAchievementsByDataSource(TEST_USER_ID, "USER_STATS");
 
@@ -2042,13 +2319,14 @@ class AchievementServiceTest {
         @DisplayName("dynamic 경로 — 조건 충족이지만 fetchCurrentValue 가 Number/Boolean 이 아니면 완료하지 않는다")
         void dynamic_conditionMet_unknownType_noCompletion() {
             Achievement achievement = createTestAchievement(1L, "UNKNOWN_TYPE", 1, 0);
-            UserAchievement existing = createTestUserAchievement(1L, TEST_USER_ID, achievement, 0, false);
+            UserAchievement existing =
+                    createTestUserAchievement(1L, TEST_USER_ID, achievement, 0, false);
 
             when(achievementCacheService.getAchievementsByDataSource("USER_STATS"))
-                .thenReturn(List.of(achievement));
+                    .thenReturn(List.of(achievement));
             when(strategyRegistry.getStrategy("USER_STATS")).thenReturn(mockStrategy);
             when(userAchievementRepository.findByUserIdAndAchievementId(TEST_USER_ID, 1L))
-                .thenReturn(Optional.of(existing));
+                    .thenReturn(Optional.of(existing));
             when(mockStrategy.checkCondition(TEST_USER_ID, achievement)).thenReturn(true);
             when(mockStrategy.fetchCurrentValue(TEST_USER_ID, achievement)).thenReturn("TEXT");
 

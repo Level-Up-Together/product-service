@@ -3,15 +3,14 @@ package io.pinkspider.leveluptogethermvp.gamificationservice.season.scheduler;
 import io.pinkspider.leveluptogethermvp.gamificationservice.season.application.SeasonRewardProcessorService;
 import io.pinkspider.leveluptogethermvp.gamificationservice.season.domain.entity.Season;
 import io.pinkspider.leveluptogethermvp.gamificationservice.season.infrastructure.SeasonRepository;
+import java.time.LocalDateTime;
+import java.time.ZoneOffset;
+import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import net.javacrumbs.shedlock.spring.annotation.SchedulerLock;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
-
-import java.time.LocalDateTime;
-import java.time.ZoneOffset;
-import java.util.List;
 
 @Component
 @RequiredArgsConstructor
@@ -21,12 +20,12 @@ public class SeasonRewardScheduler {
     private final SeasonRepository seasonRepository;
     private final SeasonRewardProcessorService rewardProcessorService;
 
-    /**
-     * 매일 새벽 3시에 종료된 시즌 보상 자동 부여
-     * 시즌 종료 후 다음 날 새벽에 처리되도록 설정
-     */
+    /** 매일 새벽 3시에 종료된 시즌 보상 자동 부여 시즌 종료 후 다음 날 새벽에 처리되도록 설정 */
     @Scheduled(cron = "0 0 3 * * *", zone = "Asia/Seoul")
-    @SchedulerLock(name = "SeasonRewardScheduler_processEndedSeasonRewards", lockAtMostFor = "PT30M", lockAtLeastFor = "PT1M")
+    @SchedulerLock(
+            name = "SeasonRewardScheduler_processEndedSeasonRewards",
+            lockAtMostFor = "PT30M",
+            lockAtLeastFor = "PT1M")
     public void processEndedSeasonRewards() {
         log.info("시즌 종료 보상 처리 스케줄러 시작");
 
@@ -42,7 +41,10 @@ public class SeasonRewardScheduler {
 
             for (Season season : endedSeasons) {
                 try {
-                    log.info("시즌 보상 처리 시작: seasonId={}, title={}", season.getId(), season.getTitle());
+                    log.info(
+                            "시즌 보상 처리 시작: seasonId={}, title={}",
+                            season.getId(),
+                            season.getTitle());
                     rewardProcessorService.processSeasonRewards(season.getId());
                     log.info("시즌 보상 처리 완료: seasonId={}", season.getId());
                 } catch (Exception e) {

@@ -11,8 +11,8 @@ import static org.mockito.Mockito.when;
 import io.pinkspider.global.exception.CustomException;
 import io.pinkspider.global.facade.GamificationQueryFacade;
 import io.pinkspider.global.facade.GuildQueryFacade;
-import io.pinkspider.global.util.CryptoUtils;
 import io.pinkspider.global.facade.dto.UserGuildAdminInfo;
+import io.pinkspider.global.util.CryptoUtils;
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.dto.admin.UserAchievementAdminResponse;
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.dto.admin.UserAdminPageResponse;
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.dto.admin.UserAdminResponse;
@@ -32,13 +32,13 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import org.mockito.MockedStatic;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.mockito.MockedStatic;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
@@ -47,33 +47,28 @@ import org.springframework.data.domain.Pageable;
 @ExtendWith(MockitoExtension.class)
 class UserAdminInternalServiceTest {
 
-    @Mock
-    private UserRepository userRepository;
+    @Mock private UserRepository userRepository;
 
-    @Mock
-    private UserBlacklistRepository userBlacklistRepository;
+    @Mock private UserBlacklistRepository userBlacklistRepository;
 
-    @Mock
-    private GamificationQueryFacade gamificationQueryFacadeService;
+    @Mock private GamificationQueryFacade gamificationQueryFacadeService;
 
-    @Mock
-    private GuildQueryFacade guildQueryFacadeService;
+    @Mock private GuildQueryFacade guildQueryFacadeService;
 
     @Mock
     private io.pinkspider.leveluptogethermvp.notificationservice.application.NotificationService
-        notificationService;
+            notificationService;
 
-    @InjectMocks
-    private UserAdminInternalService service;
+    @InjectMocks private UserAdminInternalService service;
 
     private Users createTestUser(String id) {
         return Users.builder()
-            .id(id)
-            .email("test@test.com")
-            .nickname("tester")
-            .provider("google")
-            .status(UserStatus.ACTIVE)
-            .build();
+                .id(id)
+                .email("test@test.com")
+                .nickname("tester")
+                .provider("google")
+                .status(UserStatus.ACTIVE)
+                .build();
     }
 
     @Nested
@@ -87,7 +82,7 @@ class UserAdminInternalServiceTest {
             Users user = createTestUser("user-1");
             Page<Users> page = new PageImpl<>(List.of(user));
             when(userRepository.searchUsersForAdmin(anyString(), any(), any(Pageable.class)))
-                .thenReturn(page);
+                    .thenReturn(page);
 
             // when
             UserAdminPageResponse result = service.searchUsers("test", null, 0, 10, null, null);
@@ -121,7 +116,7 @@ class UserAdminInternalServiceTest {
             when(userRepository.findById("not-found")).thenReturn(Optional.empty());
 
             assertThatThrownBy(() -> service.getUser("not-found"))
-                .isInstanceOf(CustomException.class);
+                    .isInstanceOf(CustomException.class);
         }
     }
 
@@ -135,9 +130,12 @@ class UserAdminInternalServiceTest {
             // given
             Users user = createTestUser("user-1");
             when(userRepository.findById("user-1")).thenReturn(Optional.of(user));
-            when(gamificationQueryFacadeService.getUserTitlesWithTitleInfo("user-1")).thenReturn(List.of());
-            when(gamificationQueryFacadeService.getUserAchievements("user-1")).thenReturn(List.of());
-            when(userBlacklistRepository.findAllByUserIdOrderByCreatedAtDesc("user-1")).thenReturn(List.of());
+            when(gamificationQueryFacadeService.getUserTitlesWithTitleInfo("user-1"))
+                    .thenReturn(List.of());
+            when(gamificationQueryFacadeService.getUserAchievements("user-1"))
+                    .thenReturn(List.of());
+            when(userBlacklistRepository.findAllByUserIdOrderByCreatedAtDesc("user-1"))
+                    .thenReturn(List.of());
 
             // when
             UserDetailAdminResponse result = service.getUserDetail("user-1");
@@ -165,10 +163,9 @@ class UserAdminInternalServiceTest {
         @Test
         @DisplayName("길드 정보를 반환한다")
         void returnsGuildInfo() {
-            UserGuildAdminInfo info = new UserGuildAdminInfo(
-                1L, "Guild", "img.png", 5, "MASTER",
-                LocalDateTime.now(), 10, 50
-            );
+            UserGuildAdminInfo info =
+                    new UserGuildAdminInfo(
+                            1L, "Guild", "img.png", 5, "MASTER", LocalDateTime.now(), 10, 50);
             when(guildQueryFacadeService.getUserGuildInfoForAdmin("user-1")).thenReturn(info);
 
             UserGuildInfoAdminResponse result = service.getUserGuildInfo("user-1");
@@ -186,10 +183,8 @@ class UserAdminInternalServiceTest {
         void getStatistics() {
             when(userRepository.count()).thenReturn(100L);
             when(userRepository.countNewUsersSince(any())).thenReturn(5L);
-            when(userRepository.countUsersByProvider()).thenReturn(List.of(
-                new Object[]{"google", 50L},
-                new Object[]{"kakao", 30L}
-            ));
+            when(userRepository.countUsersByProvider())
+                    .thenReturn(List.of(new Object[] {"google", 50L}, new Object[] {"kakao", 30L}));
             when(userRepository.countDailyNewUsers(any(), any())).thenReturn(List.of());
 
             var result = service.getStatistics();
@@ -225,19 +220,20 @@ class UserAdminInternalServiceTest {
         void addToBlacklist() {
             Users user = createTestUser("user-1");
             when(userRepository.findById("user-1")).thenReturn(Optional.of(user));
-            UserBlacklist blacklist = UserBlacklist.builder()
-                .userId("user-1")
-                .blacklistType(BlacklistType.PERMANENT_BAN)
-                .reason("규정 위반")
-                .adminId(1L)
-                .isActive(true)
-                .startedAt(LocalDateTime.now())
-                .build();
+            UserBlacklist blacklist =
+                    UserBlacklist.builder()
+                            .userId("user-1")
+                            .blacklistType(BlacklistType.PERMANENT_BAN)
+                            .reason("규정 위반")
+                            .adminId(1L)
+                            .isActive(true)
+                            .startedAt(LocalDateTime.now())
+                            .build();
             when(userBlacklistRepository.save(any())).thenReturn(blacklist);
             when(userRepository.save(any())).thenReturn(user);
 
-            UserBlacklistAdminRequest request = new UserBlacklistAdminRequest(
-                "PERMANENT_BAN", "규정 위반", null, 1L);
+            UserBlacklistAdminRequest request =
+                    new UserBlacklistAdminRequest("PERMANENT_BAN", "규정 위반", null, 1L);
 
             UserBlacklistAdminResponse result = service.addToBlacklist("user-1", request);
 
@@ -250,11 +246,11 @@ class UserAdminInternalServiceTest {
             Users user = createTestUser("user-1");
             when(userRepository.findById("user-1")).thenReturn(Optional.of(user));
 
-            UserBlacklistAdminRequest request = new UserBlacklistAdminRequest(
-                "SUSPENSION", "경고", null, 1L);
+            UserBlacklistAdminRequest request =
+                    new UserBlacklistAdminRequest("SUSPENSION", "경고", null, 1L);
 
             assertThatThrownBy(() -> service.addToBlacklist("user-1", request))
-                .isInstanceOf(CustomException.class);
+                    .isInstanceOf(CustomException.class);
         }
     }
 
@@ -283,7 +279,7 @@ class UserAdminInternalServiceTest {
             when(userBlacklistRepository.deactivateAllByUserId("user-1")).thenReturn(0);
 
             assertThatThrownBy(() -> service.removeFromBlacklist("user-1", 1L, "사유"))
-                .isInstanceOf(CustomException.class);
+                    .isInstanceOf(CustomException.class);
         }
     }
 
@@ -298,7 +294,8 @@ class UserAdminInternalServiceTest {
             Users user2 = createTestUser("user-2");
             when(userRepository.findAllByIdIn(any())).thenReturn(List.of(user1, user2));
 
-            Map<String, UserBriefAdminResponse> result = service.getUsersByIds(List.of("user-1", "user-2"));
+            Map<String, UserBriefAdminResponse> result =
+                    service.getUsersByIds(List.of("user-1", "user-2"));
 
             assertThat(result).hasSize(2);
         }
@@ -311,17 +308,19 @@ class UserAdminInternalServiceTest {
         @Test
         @DisplayName("활성 블랙리스트만 조회한다")
         void getActiveBlacklist() {
-            UserBlacklist bl = UserBlacklist.builder()
-                .userId("user-1")
-                .blacklistType(BlacklistType.PERMANENT_BAN)
-                .reason("규정 위반")
-                .adminId(1L)
-                .isActive(true)
-                .startedAt(LocalDateTime.now())
-                .build();
+            UserBlacklist bl =
+                    UserBlacklist.builder()
+                            .userId("user-1")
+                            .blacklistType(BlacklistType.PERMANENT_BAN)
+                            .reason("규정 위반")
+                            .adminId(1L)
+                            .isActive(true)
+                            .startedAt(LocalDateTime.now())
+                            .build();
             Page<UserBlacklist> page = new PageImpl<>(List.of(bl));
-            when(userBlacklistRepository.findAllByIsActiveTrueOrderByCreatedAtDesc(any(Pageable.class)))
-                .thenReturn(page);
+            when(userBlacklistRepository.findAllByIsActiveTrueOrderByCreatedAtDesc(
+                            any(Pageable.class)))
+                    .thenReturn(page);
 
             var result = service.getBlacklistList(null, true, null, null, 0, 10);
 
@@ -333,8 +332,8 @@ class UserAdminInternalServiceTest {
         void getBlacklistByType() {
             Page<UserBlacklist> page = new PageImpl<>(List.of());
             when(userBlacklistRepository.findAllByIsActiveTrueAndBlacklistTypeOrderByCreatedAtDesc(
-                    any(BlacklistType.class), any(Pageable.class)))
-                .thenReturn(page);
+                            any(BlacklistType.class), any(Pageable.class)))
+                    .thenReturn(page);
 
             var result = service.getBlacklistList("PERMANENT_BAN", true, null, null, 0, 10);
 
@@ -346,11 +345,19 @@ class UserAdminInternalServiceTest {
         void getBlacklistByDateRange() {
             Page<UserBlacklist> page = new PageImpl<>(List.of());
             when(userBlacklistRepository.findByStartedAtBetweenAndIsActiveTrue(
-                    any(LocalDateTime.class), any(LocalDateTime.class), any(Pageable.class)))
-                .thenReturn(page);
+                            any(LocalDateTime.class),
+                            any(LocalDateTime.class),
+                            any(Pageable.class)))
+                    .thenReturn(page);
 
-            var result = service.getBlacklistList(null, true,
-                LocalDateTime.now().minusDays(7), LocalDateTime.now(), 0, 10);
+            var result =
+                    service.getBlacklistList(
+                            null,
+                            true,
+                            LocalDateTime.now().minusDays(7),
+                            LocalDateTime.now(),
+                            0,
+                            10);
 
             assertThat(result).isNotNull();
         }
@@ -360,7 +367,7 @@ class UserAdminInternalServiceTest {
         void getAllBlacklist() {
             Page<UserBlacklist> page = new PageImpl<>(List.of());
             when(userBlacklistRepository.findAllByOrderByCreatedAtDesc(any(Pageable.class)))
-                .thenReturn(page);
+                    .thenReturn(page);
 
             var result = service.getBlacklistList(null, false, null, null, 0, 10);
 
@@ -372,11 +379,19 @@ class UserAdminInternalServiceTest {
         void getAllBlacklistWithDateRange() {
             Page<UserBlacklist> page = new PageImpl<>(List.of());
             when(userBlacklistRepository.findByStartedAtBetween(
-                    any(LocalDateTime.class), any(LocalDateTime.class), any(Pageable.class)))
-                .thenReturn(page);
+                            any(LocalDateTime.class),
+                            any(LocalDateTime.class),
+                            any(Pageable.class)))
+                    .thenReturn(page);
 
-            var result = service.getBlacklistList(null, false,
-                LocalDateTime.now().minusDays(7), LocalDateTime.now(), 0, 10);
+            var result =
+                    service.getBlacklistList(
+                            null,
+                            false,
+                            LocalDateTime.now().minusDays(7),
+                            LocalDateTime.now(),
+                            0,
+                            10);
 
             assertThat(result).isNotNull();
         }
@@ -386,11 +401,20 @@ class UserAdminInternalServiceTest {
         void getActiveBlacklistWithDateAndType() {
             Page<UserBlacklist> page = new PageImpl<>(List.of());
             when(userBlacklistRepository.findByStartedAtBetweenAndBlacklistTypeAndIsActiveTrue(
-                    any(LocalDateTime.class), any(LocalDateTime.class), any(BlacklistType.class), any(Pageable.class)))
-                .thenReturn(page);
+                            any(LocalDateTime.class),
+                            any(LocalDateTime.class),
+                            any(BlacklistType.class),
+                            any(Pageable.class)))
+                    .thenReturn(page);
 
-            var result = service.getBlacklistList("PERMANENT_BAN", true,
-                LocalDateTime.now().minusDays(7), LocalDateTime.now(), 0, 10);
+            var result =
+                    service.getBlacklistList(
+                            "PERMANENT_BAN",
+                            true,
+                            LocalDateTime.now().minusDays(7),
+                            LocalDateTime.now(),
+                            0,
+                            10);
 
             assertThat(result).isNotNull();
         }
@@ -405,10 +429,11 @@ class UserAdminInternalServiceTest {
         void getUserByEmail() {
             try (MockedStatic<CryptoUtils> mockedCrypto = mockStatic(CryptoUtils.class)) {
                 Users user = createTestUser("user-1");
-                mockedCrypto.when(() -> CryptoUtils.encryptAes("test@test.com"))
-                    .thenReturn("encrypted");
+                mockedCrypto
+                        .when(() -> CryptoUtils.encryptAes("test@test.com"))
+                        .thenReturn("encrypted");
                 when(userRepository.findByEncryptedEmail("encrypted"))
-                    .thenReturn(Optional.of(user));
+                        .thenReturn(Optional.of(user));
 
                 UserAdminResponse result = service.getUserByEmail("test@test.com");
 
@@ -420,13 +445,13 @@ class UserAdminInternalServiceTest {
         @DisplayName("존재하지 않는 이메일은 예외를 발생시킨다")
         void throwsWhenNotFound() {
             try (MockedStatic<CryptoUtils> mockedCrypto = mockStatic(CryptoUtils.class)) {
-                mockedCrypto.when(() -> CryptoUtils.encryptAes("no@test.com"))
-                    .thenReturn("encrypted");
-                when(userRepository.findByEncryptedEmail("encrypted"))
-                    .thenReturn(Optional.empty());
+                mockedCrypto
+                        .when(() -> CryptoUtils.encryptAes("no@test.com"))
+                        .thenReturn("encrypted");
+                when(userRepository.findByEncryptedEmail("encrypted")).thenReturn(Optional.empty());
 
                 assertThatThrownBy(() -> service.getUserByEmail("no@test.com"))
-                    .isInstanceOf(CustomException.class);
+                        .isInstanceOf(CustomException.class);
             }
         }
     }
@@ -440,7 +465,7 @@ class UserAdminInternalServiceTest {
         void getUserTitles() {
             when(userRepository.existsById("user-1")).thenReturn(true);
             when(gamificationQueryFacadeService.getUserTitlesWithTitleInfo("user-1"))
-                .thenReturn(List.of());
+                    .thenReturn(List.of());
 
             List<UserTitleAdminResponse> result = service.getUserTitles("user-1");
 
@@ -453,7 +478,7 @@ class UserAdminInternalServiceTest {
             when(userRepository.existsById("not-found")).thenReturn(false);
 
             assertThatThrownBy(() -> service.getUserTitles("not-found"))
-                .isInstanceOf(CustomException.class);
+                    .isInstanceOf(CustomException.class);
         }
     }
 
@@ -466,7 +491,7 @@ class UserAdminInternalServiceTest {
         void getUserAchievements() {
             when(userRepository.existsById("user-1")).thenReturn(true);
             when(gamificationQueryFacadeService.getUserAchievements("user-1"))
-                .thenReturn(List.of());
+                    .thenReturn(List.of());
 
             List<UserAchievementAdminResponse> result = service.getUserAchievements("user-1");
 
@@ -479,7 +504,7 @@ class UserAdminInternalServiceTest {
             when(userRepository.existsById("not-found")).thenReturn(false);
 
             assertThatThrownBy(() -> service.getUserAchievements("not-found"))
-                .isInstanceOf(CustomException.class);
+                    .isInstanceOf(CustomException.class);
         }
     }
 
@@ -492,7 +517,7 @@ class UserAdminInternalServiceTest {
         void getHistory() {
             when(userRepository.existsById("user-1")).thenReturn(true);
             when(userBlacklistRepository.findAllByUserIdOrderByCreatedAtDesc("user-1"))
-                .thenReturn(List.of());
+                    .thenReturn(List.of());
 
             List<UserBlacklistAdminResponse> result = service.getBlacklistHistory("user-1");
 
@@ -505,7 +530,7 @@ class UserAdminInternalServiceTest {
             when(userRepository.existsById("not-found")).thenReturn(false);
 
             assertThatThrownBy(() -> service.getBlacklistHistory("not-found"))
-                .isInstanceOf(CustomException.class);
+                    .isInstanceOf(CustomException.class);
         }
     }
 
@@ -517,14 +542,18 @@ class UserAdminInternalServiceTest {
         @DisplayName("정렬 기준과 방향이 주어지면 그대로 Pageable 에 반영한다")
         void explicitSortApplied() {
             Page<Users> page = new PageImpl<>(List.of());
-            org.mockito.ArgumentCaptor<Pageable> captor = org.mockito.ArgumentCaptor.forClass(Pageable.class);
-            when(userRepository.searchUsersForAdmin(anyString(), any(), captor.capture())).thenReturn(page);
+            org.mockito.ArgumentCaptor<Pageable> captor =
+                    org.mockito.ArgumentCaptor.forClass(Pageable.class);
+            when(userRepository.searchUsersForAdmin(anyString(), any(), captor.capture()))
+                    .thenReturn(page);
 
             service.searchUsers("test", "google", 1, 20, "nickname", "ASC");
 
-            org.springframework.data.domain.Sort.Order order = captor.getValue().getSort().getOrderFor("nickname");
+            org.springframework.data.domain.Sort.Order order =
+                    captor.getValue().getSort().getOrderFor("nickname");
             assertThat(order).isNotNull();
-            assertThat(order.getDirection()).isEqualTo(org.springframework.data.domain.Sort.Direction.ASC);
+            assertThat(order.getDirection())
+                    .isEqualTo(org.springframework.data.domain.Sort.Direction.ASC);
         }
     }
 
@@ -535,20 +564,40 @@ class UserAdminInternalServiceTest {
         @Test
         @DisplayName("status 가 null 이면 status 필드를 null 로 내려주고 활성 블랙리스트를 찾는다")
         void nullStatus_andActiveBlacklist() {
-            Users user = Users.builder().id("user-1").email("t@t.com").nickname("tester").provider("google").build();
+            Users user =
+                    Users.builder()
+                            .id("user-1")
+                            .email("t@t.com")
+                            .nickname("tester")
+                            .provider("google")
+                            .build();
             // builder 기본값이 ACTIVE 라 reflection 으로 null 상태를 재현한다
             io.pinkspider.global.test.TestReflectionUtils.setField(user, "status", null);
-            UserBlacklist inactive = UserBlacklist.builder()
-                .userId("user-1").blacklistType(BlacklistType.SUSPENSION).reason("r1").adminId(1L)
-                .isActive(false).startedAt(LocalDateTime.now().minusDays(3)).build();
-            UserBlacklist active = UserBlacklist.builder()
-                .userId("user-1").blacklistType(BlacklistType.PERMANENT_BAN).reason("r2").adminId(1L)
-                .isActive(true).startedAt(LocalDateTime.now()).build();
+            UserBlacklist inactive =
+                    UserBlacklist.builder()
+                            .userId("user-1")
+                            .blacklistType(BlacklistType.SUSPENSION)
+                            .reason("r1")
+                            .adminId(1L)
+                            .isActive(false)
+                            .startedAt(LocalDateTime.now().minusDays(3))
+                            .build();
+            UserBlacklist active =
+                    UserBlacklist.builder()
+                            .userId("user-1")
+                            .blacklistType(BlacklistType.PERMANENT_BAN)
+                            .reason("r2")
+                            .adminId(1L)
+                            .isActive(true)
+                            .startedAt(LocalDateTime.now())
+                            .build();
             when(userRepository.findById("user-1")).thenReturn(Optional.of(user));
-            when(gamificationQueryFacadeService.getUserTitlesWithTitleInfo("user-1")).thenReturn(List.of());
-            when(gamificationQueryFacadeService.getUserAchievements("user-1")).thenReturn(List.of());
+            when(gamificationQueryFacadeService.getUserTitlesWithTitleInfo("user-1"))
+                    .thenReturn(List.of());
+            when(gamificationQueryFacadeService.getUserAchievements("user-1"))
+                    .thenReturn(List.of());
             when(userBlacklistRepository.findAllByUserIdOrderByCreatedAtDesc("user-1"))
-                .thenReturn(List.of(inactive, active));
+                    .thenReturn(List.of(inactive, active));
 
             UserDetailAdminResponse result = service.getUserDetail("user-1");
 
@@ -564,23 +613,41 @@ class UserAdminInternalServiceTest {
     class BuildTitleResponsesTest {
 
         private io.pinkspider.global.facade.dto.UserTitleDto titleDto(
-            io.pinkspider.global.enums.TitleRarity rarity,
-            io.pinkspider.global.enums.TitlePosition positionType,
-            io.pinkspider.global.enums.TitlePosition equippedPosition) {
+                io.pinkspider.global.enums.TitleRarity rarity,
+                io.pinkspider.global.enums.TitlePosition positionType,
+                io.pinkspider.global.enums.TitlePosition equippedPosition) {
             return new io.pinkspider.global.facade.dto.UserTitleDto(
-                1L, "user-1", 10L, "칭호", "Title", null, null, null, null, null, null,
-                rarity, positionType, "#FFFFFF", null, equippedPosition != null, equippedPosition,
-                LocalDateTime.now());
+                    1L,
+                    "user-1",
+                    10L,
+                    "칭호",
+                    "Title",
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    rarity,
+                    positionType,
+                    "#FFFFFF",
+                    null,
+                    equippedPosition != null,
+                    equippedPosition,
+                    LocalDateTime.now());
         }
 
         @Test
         @DisplayName("희귀도/위치/장착위치가 있으면 enum 이름으로 변환한다")
         void enumsPresent_convertedToNames() {
             when(userRepository.existsById("user-1")).thenReturn(true);
-            when(gamificationQueryFacadeService.getUserTitlesWithTitleInfo("user-1")).thenReturn(List.of(
-                titleDto(io.pinkspider.global.enums.TitleRarity.RARE,
-                    io.pinkspider.global.enums.TitlePosition.LEFT,
-                    io.pinkspider.global.enums.TitlePosition.LEFT)));
+            when(gamificationQueryFacadeService.getUserTitlesWithTitleInfo("user-1"))
+                    .thenReturn(
+                            List.of(
+                                    titleDto(
+                                            io.pinkspider.global.enums.TitleRarity.RARE,
+                                            io.pinkspider.global.enums.TitlePosition.LEFT,
+                                            io.pinkspider.global.enums.TitlePosition.LEFT)));
 
             List<UserTitleAdminResponse> result = service.getUserTitles("user-1");
 
@@ -595,7 +662,7 @@ class UserAdminInternalServiceTest {
         void enumsAbsent_null() {
             when(userRepository.existsById("user-1")).thenReturn(true);
             when(gamificationQueryFacadeService.getUserTitlesWithTitleInfo("user-1"))
-                .thenReturn(List.of(titleDto(null, null, null)));
+                    .thenReturn(List.of(titleDto(null, null, null)));
 
             List<UserTitleAdminResponse> result = service.getUserTitles("user-1");
 
@@ -615,9 +682,11 @@ class UserAdminInternalServiceTest {
             when(userRepository.count()).thenReturn(1L);
             when(userRepository.countNewUsersSince(any())).thenReturn(0L);
             when(userRepository.countUsersByProvider()).thenReturn(List.of());
-            when(userRepository.countDailyNewUsers(any(), any())).thenReturn(List.of(
-                new Object[]{java.time.LocalDate.of(2026, 9, 1), 3L},
-                new Object[]{"2026-09-02", 4L}));
+            when(userRepository.countDailyNewUsers(any(), any()))
+                    .thenReturn(
+                            List.of(
+                                    new Object[] {java.time.LocalDate.of(2026, 9, 1), 3L},
+                                    new Object[] {"2026-09-02", 4L}));
 
             var result = service.getStatistics();
 
@@ -638,12 +707,13 @@ class UserAdminInternalServiceTest {
             Users user = createTestUser("user-1");
             when(userRepository.findById("user-1")).thenReturn(Optional.of(user));
 
-            UserBlacklistAdminRequest request = new UserBlacklistAdminRequest(
-                "SUSPENSION", "경고", LocalDateTime.now().minusDays(1), 1L);
+            UserBlacklistAdminRequest request =
+                    new UserBlacklistAdminRequest(
+                            "SUSPENSION", "경고", LocalDateTime.now().minusDays(1), 1L);
 
             assertThatThrownBy(() -> service.addToBlacklist("user-1", request))
-                .isInstanceOf(CustomException.class)
-                .hasMessageContaining("미래");
+                    .isInstanceOf(CustomException.class)
+                    .hasMessageContaining("미래");
             verify(userBlacklistRepository, org.mockito.Mockito.never()).save(any());
         }
 
@@ -655,12 +725,13 @@ class UserAdminInternalServiceTest {
             when(userRepository.save(any())).thenReturn(user);
             LocalDateTime endedAt = LocalDateTime.now().plusDays(7);
 
-            UserBlacklistAdminRequest request = new UserBlacklistAdminRequest(
-                "SUSPENSION", "경고", endedAt, 1L);
+            UserBlacklistAdminRequest request =
+                    new UserBlacklistAdminRequest("SUSPENSION", "경고", endedAt, 1L);
 
             UserBlacklistAdminResponse result = service.addToBlacklist("user-1", request);
 
-            org.mockito.ArgumentCaptor<UserBlacklist> captor = org.mockito.ArgumentCaptor.forClass(UserBlacklist.class);
+            org.mockito.ArgumentCaptor<UserBlacklist> captor =
+                    org.mockito.ArgumentCaptor.forClass(UserBlacklist.class);
             verify(userBlacklistRepository).save(captor.capture());
             assertThat(captor.getValue().getBlacklistType()).isEqualTo(BlacklistType.SUSPENSION);
             assertThat(captor.getValue().getEndedAt()).isEqualTo(endedAt);
@@ -680,20 +751,27 @@ class UserAdminInternalServiceTest {
             when(userRepository.findById("user-1")).thenReturn(Optional.of(user));
             when(userRepository.save(any())).thenReturn(user);
 
-            UserBlacklistAdminResponse result = service.suspendFromReport("user-1",
-                new io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.dto.admin
-                    .UserSuspendFromReportRequest("신고", 1L, 7, 3));
+            UserBlacklistAdminResponse result =
+                    service.suspendFromReport(
+                            "user-1",
+                            new io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.dto
+                                    .admin.UserSuspendFromReportRequest("신고", 1L, 7, 3));
 
-            org.mockito.ArgumentCaptor<UserBlacklist> captor = org.mockito.ArgumentCaptor.forClass(UserBlacklist.class);
+            org.mockito.ArgumentCaptor<UserBlacklist> captor =
+                    org.mockito.ArgumentCaptor.forClass(UserBlacklist.class);
             verify(userBlacklistRepository).save(captor.capture());
             assertThat(captor.getValue().getBlacklistType()).isEqualTo(BlacklistType.SUSPENSION);
             assertThat(captor.getValue().getEndedAt()).isNotNull();
             assertThat(user.getStatus()).isEqualTo(UserStatus.SUSPENDED);
             assertThat(user.getSuspensionCount()).isEqualTo(1);
-            verify(notificationService).sendNotification(
-                org.mockito.ArgumentMatchers.eq("user-1"),
-                org.mockito.ArgumentMatchers.eq(io.pinkspider.global.enums.NotificationType.REPORT_SUSPENDED),
-                any(), any(), org.mockito.ArgumentMatchers.eq(1));
+            verify(notificationService)
+                    .sendNotification(
+                            org.mockito.ArgumentMatchers.eq("user-1"),
+                            org.mockito.ArgumentMatchers.eq(
+                                    io.pinkspider.global.enums.NotificationType.REPORT_SUSPENDED),
+                            any(),
+                            any(),
+                            org.mockito.ArgumentMatchers.eq(1));
             assertThat(result).isNotNull();
         }
 
@@ -704,20 +782,26 @@ class UserAdminInternalServiceTest {
             when(userRepository.findById("user-1")).thenReturn(Optional.of(user));
             when(userRepository.save(any())).thenReturn(user);
 
-            service.suspendFromReport("user-1",
-                new io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.dto.admin
-                    .UserSuspendFromReportRequest("신고", 1L, 7, 1));
+            service.suspendFromReport(
+                    "user-1",
+                    new io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.dto.admin
+                            .UserSuspendFromReportRequest("신고", 1L, 7, 1));
 
-            org.mockito.ArgumentCaptor<UserBlacklist> captor = org.mockito.ArgumentCaptor.forClass(UserBlacklist.class);
+            org.mockito.ArgumentCaptor<UserBlacklist> captor =
+                    org.mockito.ArgumentCaptor.forClass(UserBlacklist.class);
             verify(userBlacklistRepository).save(captor.capture());
             assertThat(captor.getValue().getBlacklistType()).isEqualTo(BlacklistType.PERMANENT_BAN);
             assertThat(captor.getValue().getEndedAt()).isNull();
             assertThat(user.getStatus()).isEqualTo(UserStatus.PERMANENTLY_BANNED);
-            verify(notificationService).sendNotification(
-                org.mockito.ArgumentMatchers.eq("user-1"),
-                org.mockito.ArgumentMatchers.eq(
-                    io.pinkspider.global.enums.NotificationType.REPORT_PERMANENTLY_BANNED),
-                any(), any(), org.mockito.ArgumentMatchers.eq(1));
+            verify(notificationService)
+                    .sendNotification(
+                            org.mockito.ArgumentMatchers.eq("user-1"),
+                            org.mockito.ArgumentMatchers.eq(
+                                    io.pinkspider.global.enums.NotificationType
+                                            .REPORT_PERMANENTLY_BANNED),
+                            any(),
+                            any(),
+                            org.mockito.ArgumentMatchers.eq(1));
         }
 
         @Test
@@ -725,10 +809,14 @@ class UserAdminInternalServiceTest {
         void throwsWhenNotFound() {
             when(userRepository.findById("not-found")).thenReturn(Optional.empty());
 
-            assertThatThrownBy(() -> service.suspendFromReport("not-found",
-                new io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.dto.admin
-                    .UserSuspendFromReportRequest("신고", 1L, 7, 3)))
-                .isInstanceOf(CustomException.class);
+            assertThatThrownBy(
+                            () ->
+                                    service.suspendFromReport(
+                                            "not-found",
+                                            new io.pinkspider.leveluptogethermvp.userservice.unit
+                                                    .user.domain.dto.admin
+                                                    .UserSuspendFromReportRequest("신고", 1L, 7, 3)))
+                    .isInstanceOf(CustomException.class);
         }
     }
 
@@ -743,17 +831,23 @@ class UserAdminInternalServiceTest {
             when(userRepository.findById("user-1")).thenReturn(Optional.of(user));
             when(userRepository.save(any())).thenReturn(user);
 
-            var result = service.warnFromReport("user-1",
-                new io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.dto.admin
-                    .UserWarnFromReportRequest("신고", 1L, 3, 7, 3));
+            var result =
+                    service.warnFromReport(
+                            "user-1",
+                            new io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.dto
+                                    .admin.UserWarnFromReportRequest("신고", 1L, 3, 7, 3));
 
             assertThat(result.escalated()).isFalse();
             assertThat(result.warningCount()).isEqualTo(1);
-            verify(notificationService).sendNotification(
-                org.mockito.ArgumentMatchers.eq("user-1"),
-                org.mockito.ArgumentMatchers.eq(
-                    io.pinkspider.global.enums.NotificationType.REPORT_WARNING_RECEIVED),
-                any(), any(), org.mockito.ArgumentMatchers.eq(1));
+            verify(notificationService)
+                    .sendNotification(
+                            org.mockito.ArgumentMatchers.eq("user-1"),
+                            org.mockito.ArgumentMatchers.eq(
+                                    io.pinkspider.global.enums.NotificationType
+                                            .REPORT_WARNING_RECEIVED),
+                            any(),
+                            any(),
+                            org.mockito.ArgumentMatchers.eq(1));
             verify(userBlacklistRepository, org.mockito.Mockito.never()).save(any());
         }
 
@@ -764,19 +858,25 @@ class UserAdminInternalServiceTest {
             when(userRepository.findById("user-1")).thenReturn(Optional.of(user));
             when(userRepository.save(any())).thenReturn(user);
 
-            var result = service.warnFromReport("user-1",
-                new io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.dto.admin
-                    .UserWarnFromReportRequest("신고", 1L, 1, 7, 3));
+            var result =
+                    service.warnFromReport(
+                            "user-1",
+                            new io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.dto
+                                    .admin.UserWarnFromReportRequest("신고", 1L, 1, 7, 3));
 
             assertThat(result.escalated()).isTrue();
             assertThat(result.blacklist()).isNotNull();
             assertThat(user.getWarningCount()).isZero();
             assertThat(user.getStatus()).isEqualTo(UserStatus.SUSPENDED);
             verify(userBlacklistRepository).save(any(UserBlacklist.class));
-            verify(notificationService).sendNotification(
-                org.mockito.ArgumentMatchers.eq("user-1"),
-                org.mockito.ArgumentMatchers.eq(io.pinkspider.global.enums.NotificationType.REPORT_SUSPENDED),
-                any(), any(), any());
+            verify(notificationService)
+                    .sendNotification(
+                            org.mockito.ArgumentMatchers.eq("user-1"),
+                            org.mockito.ArgumentMatchers.eq(
+                                    io.pinkspider.global.enums.NotificationType.REPORT_SUSPENDED),
+                            any(),
+                            any(),
+                            any());
         }
     }
 
@@ -789,14 +889,15 @@ class UserAdminInternalServiceTest {
         void startDateOnly_noDateFilter() {
             Page<UserBlacklist> page = new PageImpl<>(List.of());
             when(userBlacklistRepository.findAllByOrderByCreatedAtDesc(any(Pageable.class)))
-                .thenReturn(page);
+                    .thenReturn(page);
 
-            var result = service.getBlacklistList(null, false,
-                LocalDateTime.now().minusDays(7), null, 0, 10);
+            var result =
+                    service.getBlacklistList(
+                            null, false, LocalDateTime.now().minusDays(7), null, 0, 10);
 
             assertThat(result).isNotNull();
             verify(userBlacklistRepository, org.mockito.Mockito.never())
-                .findByStartedAtBetween(any(), any(), any());
+                    .findByStartedAtBetween(any(), any(), any());
         }
     }
 }

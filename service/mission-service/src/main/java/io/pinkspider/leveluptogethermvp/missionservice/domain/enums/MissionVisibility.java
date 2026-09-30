@@ -6,7 +6,6 @@ import lombok.RequiredArgsConstructor;
 @Getter
 @RequiredArgsConstructor
 public enum MissionVisibility {
-
     PUBLIC("public", "공개"),
     FRIENDS_ONLY("friends_only", "친구 공개"),
     PRIVATE("private", "비공개"),

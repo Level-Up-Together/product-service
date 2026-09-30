@@ -46,15 +46,15 @@ class GuildInviteLinkServiceTest {
     void setUp() {
         testUserId = "test-user-id";
         testGuild =
-            Guild.builder()
-                .name("테스트 길드")
-                .visibility(GuildVisibility.PRIVATE)
-                .joinType(GuildJoinType.APPROVAL_REQUIRED)
-                .masterId("master-id")
-                .maxMembers(50)
-                .categoryId(1L)
-                .isActive(true)
-                .build();
+                Guild.builder()
+                        .name("테스트 길드")
+                        .visibility(GuildVisibility.PRIVATE)
+                        .joinType(GuildJoinType.APPROVAL_REQUIRED)
+                        .masterId("master-id")
+                        .maxMembers(50)
+                        .categoryId(1L)
+                        .isActive(true)
+                        .build();
         setId(testGuild, 1L);
     }
 
@@ -71,7 +71,8 @@ class GuildInviteLinkServiceTest {
             when(guildMemberRepository.isActiveMember(1L, testUserId)).thenReturn(true);
 
             // when
-            GuildInviteLinkResponse response = inviteLinkService.getOrCreateInviteLink(1L, testUserId);
+            GuildInviteLinkResponse response =
+                    inviteLinkService.getOrCreateInviteLink(1L, testUserId);
 
             // then
             assertThat(response.code()).isEqualTo("EXISTING123");
@@ -89,7 +90,8 @@ class GuildInviteLinkServiceTest {
             when(inviteCodeGenerator.generateUnique()).thenReturn("NEWCODE123");
 
             // when
-            GuildInviteLinkResponse response = inviteLinkService.getOrCreateInviteLink(1L, testUserId);
+            GuildInviteLinkResponse response =
+                    inviteLinkService.getOrCreateInviteLink(1L, testUserId);
 
             // then
             assertThat(response.code()).isEqualTo("NEWCODE123");
@@ -106,8 +108,8 @@ class GuildInviteLinkServiceTest {
 
             // when & then
             assertThatThrownBy(() -> inviteLinkService.getOrCreateInviteLink(1L, testUserId))
-                .isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining("길드원");
+                    .isInstanceOf(IllegalStateException.class)
+                    .hasMessageContaining("길드원");
             verify(inviteCodeGenerator, never()).generateUnique();
         }
     }
@@ -125,7 +127,7 @@ class GuildInviteLinkServiceTest {
             when(guildMemberRepository.countActiveMembers(1L)).thenReturn(10L);
             when(guildMemberRepository.isActiveMember(1L, testUserId)).thenReturn(false);
             when(guildHelper.buildGuildResponseWithCategory(any(Guild.class), anyInt()))
-                .thenReturn(guildResponse);
+                    .thenReturn(guildResponse);
 
             // when
             GuildInvitePreviewResponse preview = inviteLinkService.getPreview("CODE", testUserId);
@@ -162,7 +164,7 @@ class GuildInviteLinkServiceTest {
             when(guildMemberRepository.countActiveMembers(1L)).thenReturn(10L);
             when(guildMemberRepository.isActiveMember(1L, testUserId)).thenReturn(false);
             when(guildHelper.buildGuildResponseWithCategory(any(Guild.class), anyInt()))
-                .thenReturn(GuildResponse.builder().build());
+                    .thenReturn(GuildResponse.builder().build());
 
             // when
             GuildInvitePreviewResponse preview = inviteLinkService.getPreview("CODE", testUserId);
@@ -182,7 +184,7 @@ class GuildInviteLinkServiceTest {
             when(guildMemberRepository.countActiveMembers(1L)).thenReturn(10L);
             when(guildMemberRepository.isActiveMember(1L, testUserId)).thenReturn(true);
             when(guildHelper.buildGuildResponseWithCategory(any(Guild.class), anyInt()))
-                .thenReturn(GuildResponse.builder().build());
+                    .thenReturn(GuildResponse.builder().build());
 
             // when
             GuildInvitePreviewResponse preview = inviteLinkService.getPreview("CODE", testUserId);
@@ -200,7 +202,7 @@ class GuildInviteLinkServiceTest {
             when(guildRepository.findByInviteCode("CODE")).thenReturn(Optional.of(testGuild));
             when(guildMemberRepository.countActiveMembers(1L)).thenReturn(10L);
             when(guildHelper.buildGuildResponseWithCategory(any(Guild.class), anyInt()))
-                .thenReturn(GuildResponse.builder().build());
+                    .thenReturn(GuildResponse.builder().build());
 
             // when
             GuildInvitePreviewResponse preview = inviteLinkService.getPreview("CODE", null);
@@ -238,8 +240,8 @@ class GuildInviteLinkServiceTest {
 
             // when & then
             assertThatThrownBy(() -> inviteLinkService.join("BAD", testUserId))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("유효하지 않은");
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessageContaining("유효하지 않은");
             verify(guildMemberService, never()).addActiveMember(any(), any());
         }
     }

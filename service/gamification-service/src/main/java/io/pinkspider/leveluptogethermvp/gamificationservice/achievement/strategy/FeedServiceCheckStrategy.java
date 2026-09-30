@@ -9,9 +9,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
 /**
- * FEED_SERVICE 데이터 소스에 대한 업적 체크 전략
- * 받은 좋아요 수 등을 체크합니다.
- * - gamification_db의 UserStats 카운터에서 조회 (크로스-서비스 DB 접근 제거)
+ * FEED_SERVICE 데이터 소스에 대한 업적 체크 전략 받은 좋아요 수 등을 체크합니다. - gamification_db의 UserStats 카운터에서 조회
+ * (크로스-서비스 DB 접근 제거)
  */
 @Component
 @RequiredArgsConstructor
@@ -28,8 +27,11 @@ public class FeedServiceCheckStrategy implements AchievementCheckStrategy {
     @Override
     public Object fetchCurrentValue(String userId, String dataField) {
         return switch (dataField) {
-            case "totalLikesReceived" -> userStatsRepository.findByUserId(userId)
-                .map(UserStats::getTotalLikesReceived).orElse(0L);
+            case "totalLikesReceived" ->
+                    userStatsRepository
+                            .findByUserId(userId)
+                            .map(UserStats::getTotalLikesReceived)
+                            .orElse(0L);
             default -> {
                 log.warn("알 수 없는 dataField: {}", dataField);
                 yield 0;
@@ -49,12 +51,20 @@ public class FeedServiceCheckStrategy implements AchievementCheckStrategy {
             return false;
         }
 
-        ComparisonOperator operator = ComparisonOperator.fromCode(achievement.getComparisonOperator());
+        ComparisonOperator operator =
+                ComparisonOperator.fromCode(achievement.getComparisonOperator());
         int requiredCount = achievement.getRequiredCount();
 
         boolean result = operator.compare((Number) currentValue, requiredCount);
-        log.debug("FeedService 조건 체크: userId={}, field={}, current={}, required={}, operator={}, result={}",
-            userId, dataField, currentValue, requiredCount, operator, result);
+        log.debug(
+                "FeedService 조건 체크: userId={}, field={}, current={}, required={}, operator={},"
+                        + " result={}",
+                userId,
+                dataField,
+                currentValue,
+                requiredCount,
+                operator,
+                result);
 
         return result;
     }

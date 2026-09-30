@@ -35,32 +35,30 @@ import org.springframework.data.domain.Pageable;
 @DisplayName("SubscriptionPaymentHistoryAdminService 테스트 (LUT-486/488)")
 class SubscriptionPaymentHistoryAdminServiceTest {
 
-    @Mock
-    private SubscriptionPaymentHistoryRepository repository;
+    @Mock private SubscriptionPaymentHistoryRepository repository;
 
-    @Mock
-    private UserQueryFacade userQueryFacade;
+    @Mock private UserQueryFacade userQueryFacade;
 
-    @InjectMocks
-    private SubscriptionPaymentHistoryAdminService service;
+    @InjectMocks private SubscriptionPaymentHistoryAdminService service;
 
     private static final LocalDateTime NOW = LocalDateTime.of(2026, 9, 14, 12, 0, 0);
 
     private SubscriptionPaymentHistory history(
             Long id, String userId, SubscriptionPaymentEventType eventType) {
-        SubscriptionPaymentHistory row = SubscriptionPaymentHistory.builder()
-            .userId(userId)
-            .platform("ios")
-            .productId("membership_1m")
-            .plan(SubscriptionPlan.MONTHLY)
-            .eventType(eventType)
-            .trial(false)
-            .priceAmount(new BigDecimal("4900.00"))
-            .priceCurrency("KRW")
-            .transactionId("tx-" + id)
-            .expiresAt(NOW.plusMonths(1))
-            .occurredAt(NOW)
-            .build();
+        SubscriptionPaymentHistory row =
+                SubscriptionPaymentHistory.builder()
+                        .userId(userId)
+                        .platform("ios")
+                        .productId("membership_1m")
+                        .plan(SubscriptionPlan.MONTHLY)
+                        .eventType(eventType)
+                        .trial(false)
+                        .priceAmount(new BigDecimal("4900.00"))
+                        .priceCurrency("KRW")
+                        .transactionId("tx-" + id)
+                        .expiresAt(NOW.plusMonths(1))
+                        .occurredAt(NOW)
+                        .build();
         TestReflectionUtils.setField(row, "id", id);
         return row;
     }
@@ -73,25 +71,36 @@ class SubscriptionPaymentHistoryAdminServiceTest {
     @DisplayName("userId 지정 시 해당 유저로 필터링하고 닉네임을 채운다 (LUT-486 유저 상세 탭)")
     void getPaymentHistory_byUserId() {
         when(repository.searchWithUsers(
-                isNull(), isNull(), isNull(), isNull(), isNull(),
-                eq(List.of("user-1")), any(Pageable.class)))
-            .thenReturn(new PageImpl<>(
-                List.of(history(2L, "user-1", SubscriptionPaymentEventType.RENEWAL),
-                    history(1L, "user-1", SubscriptionPaymentEventType.PURCHASE)),
-                PageRequest.of(0, 20), 2));
+                        isNull(),
+                        isNull(),
+                        isNull(),
+                        isNull(),
+                        isNull(),
+                        eq(List.of("user-1")),
+                        any(Pageable.class)))
+                .thenReturn(
+                        new PageImpl<>(
+                                List.of(
+                                        history(2L, "user-1", SubscriptionPaymentEventType.RENEWAL),
+                                        history(
+                                                1L,
+                                                "user-1",
+                                                SubscriptionPaymentEventType.PURCHASE)),
+                                PageRequest.of(0, 20),
+                                2));
         when(userQueryFacade.getUserProfiles(List.of("user-1")))
-            .thenReturn(Map.of("user-1", profile("user-1", "백루미")));
+                .thenReturn(Map.of("user-1", profile("user-1", "백루미")));
 
         SubscriptionPaymentHistoryPageResponse result =
-            service.getPaymentHistory(null, null, null, "user-1", null, null, null, 0, 20);
+                service.getPaymentHistory(null, null, null, "user-1", null, null, null, 0, 20);
 
         assertThat(result.content()).hasSize(2);
         assertThat(result.content().get(0).id()).isEqualTo(2L);
         assertThat(result.content().get(0).eventType())
-            .isEqualTo(SubscriptionPaymentEventType.RENEWAL);
+                .isEqualTo(SubscriptionPaymentEventType.RENEWAL);
         assertThat(result.content().get(0).nickname()).isEqualTo("백루미");
         assertThat(result.content().get(1).eventType())
-            .isEqualTo(SubscriptionPaymentEventType.PURCHASE);
+                .isEqualTo(SubscriptionPaymentEventType.PURCHASE);
         assertThat(result.totalElements()).isEqualTo(2);
         verify(userQueryFacade, never()).findUserIdsByNicknameContaining(any());
     }
@@ -100,22 +109,32 @@ class SubscriptionPaymentHistoryAdminServiceTest {
     @DisplayName("필터만으로 전체 목록을 조회한다 (LUT-488 결제이력 통합 페이지)")
     void getPaymentHistory_listWithFilters() {
         when(repository.search(
-                isNull(), isNull(), eq("ios"), eq(SubscriptionPlan.MONTHLY), isNull(),
-                any(Pageable.class)))
-            .thenReturn(new PageImpl<>(
-                List.of(history(1L, "user-1", SubscriptionPaymentEventType.PURCHASE)),
-                PageRequest.of(0, 20), 1));
+                        isNull(),
+                        isNull(),
+                        eq("ios"),
+                        eq(SubscriptionPlan.MONTHLY),
+                        isNull(),
+                        any(Pageable.class)))
+                .thenReturn(
+                        new PageImpl<>(
+                                List.of(
+                                        history(
+                                                1L,
+                                                "user-1",
+                                                SubscriptionPaymentEventType.PURCHASE)),
+                                PageRequest.of(0, 20),
+                                1));
         when(userQueryFacade.getUserProfiles(List.of("user-1")))
-            .thenReturn(Map.of("user-1", profile("user-1", "백루미")));
+                .thenReturn(Map.of("user-1", profile("user-1", "백루미")));
 
         SubscriptionPaymentHistoryPageResponse result =
-            service.getPaymentHistory(
-                null, null, null, null, "ios", SubscriptionPlan.MONTHLY, null, 0, 20);
+                service.getPaymentHistory(
+                        null, null, null, null, "ios", SubscriptionPlan.MONTHLY, null, 0, 20);
 
         assertThat(result.content()).hasSize(1);
         assertThat(result.content().get(0).nickname()).isEqualTo("백루미");
         assertThat(result.content().get(0).priceAmount())
-            .isEqualByComparingTo(new BigDecimal("4900.00"));
+                .isEqualByComparingTo(new BigDecimal("4900.00"));
     }
 
     @Test
@@ -123,16 +142,27 @@ class SubscriptionPaymentHistoryAdminServiceTest {
     void getPaymentHistory_nicknameMatch() {
         when(userQueryFacade.findUserIdsByNicknameContaining("루미")).thenReturn(List.of("user-1"));
         when(repository.searchWithUsers(
-                isNull(), isNull(), isNull(), isNull(), isNull(),
-                eq(List.of("user-1")), any(Pageable.class)))
-            .thenReturn(new PageImpl<>(
-                List.of(history(1L, "user-1", SubscriptionPaymentEventType.PURCHASE)),
-                PageRequest.of(0, 20), 1));
+                        isNull(),
+                        isNull(),
+                        isNull(),
+                        isNull(),
+                        isNull(),
+                        eq(List.of("user-1")),
+                        any(Pageable.class)))
+                .thenReturn(
+                        new PageImpl<>(
+                                List.of(
+                                        history(
+                                                1L,
+                                                "user-1",
+                                                SubscriptionPaymentEventType.PURCHASE)),
+                                PageRequest.of(0, 20),
+                                1));
         when(userQueryFacade.getUserProfiles(List.of("user-1")))
-            .thenReturn(Map.of("user-1", profile("user-1", "백루미")));
+                .thenReturn(Map.of("user-1", profile("user-1", "백루미")));
 
         SubscriptionPaymentHistoryPageResponse result =
-            service.getPaymentHistory(null, null, "루미", null, null, null, null, 0, 20);
+                service.getPaymentHistory(null, null, "루미", null, null, null, null, 0, 20);
 
         assertThat(result.content()).hasSize(1);
         verify(repository, never()).search(any(), any(), any(), any(), any(), any());
@@ -144,27 +174,33 @@ class SubscriptionPaymentHistoryAdminServiceTest {
         when(userQueryFacade.findUserIdsByNicknameContaining("없는유저")).thenReturn(List.of());
 
         SubscriptionPaymentHistoryPageResponse result =
-            service.getPaymentHistory(null, null, "없는유저", null, null, null, null, 0, 20);
+                service.getPaymentHistory(null, null, "없는유저", null, null, null, null, 0, 20);
 
         assertThat(result.content()).isEmpty();
         assertThat(result.totalElements()).isZero();
         verify(repository, never()).search(any(), any(), any(), any(), any(), any());
         verify(repository, never())
-            .searchWithUsers(any(), any(), any(), any(), any(), anyList(), any());
+                .searchWithUsers(any(), any(), any(), any(), any(), anyList(), any());
     }
 
     @Test
     @DisplayName("프로필이 없는 결제자(탈퇴 등)는 닉네임 null 로 노출한다")
     void getPaymentHistory_missingProfile_nicknameNull() {
-        when(repository.search(isNull(), isNull(), isNull(), isNull(), isNull(),
-                any(Pageable.class)))
-            .thenReturn(new PageImpl<>(
-                List.of(history(1L, "withdrawn-user", SubscriptionPaymentEventType.PURCHASE)),
-                PageRequest.of(0, 20), 1));
+        when(repository.search(
+                        isNull(), isNull(), isNull(), isNull(), isNull(), any(Pageable.class)))
+                .thenReturn(
+                        new PageImpl<>(
+                                List.of(
+                                        history(
+                                                1L,
+                                                "withdrawn-user",
+                                                SubscriptionPaymentEventType.PURCHASE)),
+                                PageRequest.of(0, 20),
+                                1));
         when(userQueryFacade.getUserProfiles(List.of("withdrawn-user"))).thenReturn(Map.of());
 
         SubscriptionPaymentHistoryPageResponse result =
-            service.getPaymentHistory(null, null, null, null, null, null, null, 0, 20);
+                service.getPaymentHistory(null, null, null, null, null, null, null, 0, 20);
 
         assertThat(result.content().get(0).nickname()).isNull();
     }
@@ -173,7 +209,7 @@ class SubscriptionPaymentHistoryAdminServiceTest {
     @DisplayName("결과가 없으면 프로필 벌크 조회를 생략한다")
     void getPaymentHistory_emptyResult_skipsProfileLookup() {
         when(repository.search(any(), any(), any(), any(), any(), any(Pageable.class)))
-            .thenReturn(new PageImpl<>(List.of(), PageRequest.of(0, 20), 0));
+                .thenReturn(new PageImpl<>(List.of(), PageRequest.of(0, 20), 0));
 
         service.getPaymentHistory(null, null, null, null, null, null, null, 0, 20);
 

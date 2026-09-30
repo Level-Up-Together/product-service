@@ -1,12 +1,12 @@
 package io.pinkspider.leveluptogethermvp.missionservice.domain.entity;
 
 import io.pinkspider.global.domain.auditentity.LocalDateTimeBaseEntity;
+import io.pinkspider.global.enums.MissionStatus;
 import io.pinkspider.global.translation.LocaleUtils;
+import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionExecutionMode;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionInterval;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionParticipationType;
-import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionExecutionMode;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionSource;
-import io.pinkspider.global.enums.MissionStatus;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionType;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionVisibility;
 import jakarta.persistence.Column;
@@ -41,11 +41,12 @@ import org.hibernate.annotations.Comment;
 @SuperBuilder
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @AllArgsConstructor
-@Table(name = "mission",
-    indexes = {
-        @Index(name = "idx_mission_category", columnList = "category_id"),
-        @Index(name = "idx_mission_guild", columnList = "guild_id")
-    })
+@Table(
+        name = "mission",
+        indexes = {
+            @Index(name = "idx_mission_category", columnList = "category_id"),
+            @Index(name = "idx_mission_guild", columnList = "guild_id")
+        })
 @Comment("미션")
 public class Mission extends LocalDateTimeBaseEntity {
 
@@ -259,15 +260,15 @@ public class Mission extends LocalDateTimeBaseEntity {
             return List.of();
         }
         return Arrays.stream(reminderDaysOfWeek.split(","))
-            .map(String::trim)
-            .filter(s -> !s.isEmpty())
-            .map(DayOfWeek::valueOf)
-            .toList();
+                .map(String::trim)
+                .filter(s -> !s.isEmpty())
+                .map(DayOfWeek::valueOf)
+                .toList();
     }
 
     /**
-     * LUT-282/295: 리마인더 설정 (요일 리스트 → CSV 저장). null/빈 요일이면 리마인더 해제.
-     * 분은 0/30만 유효 — 30 이외 값은 0으로 정규화한다 (30분 격자 스케줄러와 1:1).
+     * LUT-282/295: 리마인더 설정 (요일 리스트 → CSV 저장). null/빈 요일이면 리마인더 해제. 분은 0/30만 유효 — 30 이외 값은 0으로 정규화한다
+     * (30분 격자 스케줄러와 1:1).
      */
     public void updateReminder(Integer hour, Integer minute, List<DayOfWeek> daysOfWeek) {
         if (hour == null || daysOfWeek == null || daysOfWeek.isEmpty()) {
@@ -278,18 +279,16 @@ public class Mission extends LocalDateTimeBaseEntity {
         }
         this.reminderHour = hour;
         this.reminderMinute = (minute != null && minute == 30) ? 30 : 0;
-        this.reminderDaysOfWeek = daysOfWeek.stream()
-            .distinct()
-            .sorted()
-            .map(DayOfWeek::name)
-            .reduce((a, b) -> a + "," + b)
-            .orElse(null);
+        this.reminderDaysOfWeek =
+                daysOfWeek.stream()
+                        .distinct()
+                        .sorted()
+                        .map(DayOfWeek::name)
+                        .reduce((a, b) -> a + "," + b)
+                        .orElse(null);
     }
 
-    /**
-     * 카테고리 이름 반환 (스냅샷 카테고리 또는 사용자 정의)
-     * Lombok @Getter보다 우선하여 customCategory 폴백 로직 유지
-     */
+    /** 카테고리 이름 반환 (스냅샷 카테고리 또는 사용자 정의) Lombok @Getter보다 우선하여 customCategory 폴백 로직 유지 */
     public String getCategoryName() {
         if (categoryName != null) {
             return categoryName;
@@ -320,8 +319,9 @@ public class Mission extends LocalDateTimeBaseEntity {
     private void transitionTo(MissionStatus target) {
         if (!this.status.canTransitionTo(target)) {
             throw new IllegalStateException(
-                String.format("'%s' 상태에서 '%s' 상태로 변경할 수 없습니다.",
-                    this.status.getDescription(), target.getDescription()));
+                    String.format(
+                            "'%s' 상태에서 '%s' 상태로 변경할 수 없습니다.",
+                            this.status.getDescription(), target.getDescription()));
         }
         this.status = target;
     }
@@ -351,17 +351,14 @@ public class Mission extends LocalDateTimeBaseEntity {
         this.deletedAt = null;
     }
 
-    /**
-     * locale에 따라 미션 제목을 반환합니다.
-     */
+    /** locale에 따라 미션 제목을 반환합니다. */
     public String getLocalizedTitle(String locale) {
         return LocaleUtils.getLocalizedText(title, titleEn, titleAr, titleJa, locale);
     }
 
-    /**
-     * locale에 따라 미션 설명을 반환합니다.
-     */
+    /** locale에 따라 미션 설명을 반환합니다. */
     public String getLocalizedDescription(String locale) {
-        return LocaleUtils.getLocalizedText(description, descriptionEn, descriptionAr, descriptionJa, locale);
+        return LocaleUtils.getLocalizedText(
+                description, descriptionEn, descriptionAr, descriptionJa, locale);
     }
 }

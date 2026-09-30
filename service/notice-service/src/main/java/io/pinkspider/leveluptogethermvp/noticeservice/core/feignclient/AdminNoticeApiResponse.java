@@ -1,11 +1,10 @@
 package io.pinkspider.leveluptogethermvp.noticeservice.core.feignclient;
 
 import io.pinkspider.leveluptogethermvp.noticeservice.api.dto.NoticeResponse;
+import java.util.List;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
-
-import java.util.List;
 
 @Getter
 @NoArgsConstructor

@@ -42,40 +42,40 @@ public class TodayPlayerResponse {
     }
 
     public static TodayPlayerResponse of(
-        String userId,
-        String nickname,
-        String profileImageUrl,
-        Integer level,
-        String title,
-        TitleRarity titleRarity,
-        String titleColorCode,
-        String leftTitle,
-        TitleRarity leftTitleRarity,
-        String leftTitleColorCode,
-        String rightTitle,
-        TitleRarity rightTitleRarity,
-        String rightTitleColorCode,
-        Long earnedExp,
-        Integer rank,
-        List<EquippedItemRarityDto> equippedItemRarities
-    ) {
+            String userId,
+            String nickname,
+            String profileImageUrl,
+            Integer level,
+            String title,
+            TitleRarity titleRarity,
+            String titleColorCode,
+            String leftTitle,
+            TitleRarity leftTitleRarity,
+            String leftTitleColorCode,
+            String rightTitle,
+            TitleRarity rightTitleRarity,
+            String rightTitleColorCode,
+            Long earnedExp,
+            Integer rank,
+            List<EquippedItemRarityDto> equippedItemRarities) {
         return TodayPlayerResponse.builder()
-            .userId(userId)
-            .nickname(nickname)
-            .profileImageUrl(profileImageUrl)
-            .level(level)
-            .title(title)
-            .titleRarity(titleRarity)
-            .titleColorCode(titleColorCode)
-            .leftTitle(leftTitle)
-            .leftTitleRarity(leftTitleRarity)
-            .leftTitleColorCode(leftTitleColorCode)
-            .rightTitle(rightTitle)
-            .rightTitleRarity(rightTitleRarity)
-            .rightTitleColorCode(rightTitleColorCode)
-            .earnedExp(earnedExp)
-            .rank(rank)
-            .equippedItemRarities(equippedItemRarities != null ? equippedItemRarities : List.of())
-            .build();
+                .userId(userId)
+                .nickname(nickname)
+                .profileImageUrl(profileImageUrl)
+                .level(level)
+                .title(title)
+                .titleRarity(titleRarity)
+                .titleColorCode(titleColorCode)
+                .leftTitle(leftTitle)
+                .leftTitleRarity(leftTitleRarity)
+                .leftTitleColorCode(leftTitleColorCode)
+                .rightTitle(rightTitle)
+                .rightTitleRarity(rightTitleRarity)
+                .rightTitleColorCode(rightTitleColorCode)
+                .earnedExp(earnedExp)
+                .rank(rank)
+                .equippedItemRarities(
+                        equippedItemRarities != null ? equippedItemRarities : List.of())
+                .build();
     }
 }

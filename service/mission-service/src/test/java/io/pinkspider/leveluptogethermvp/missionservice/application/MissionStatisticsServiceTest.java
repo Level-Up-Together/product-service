@@ -34,17 +34,13 @@ import org.mockito.junit.jupiter.MockitoExtension;
 @DisplayName("MissionStatisticsService 테스트 (LUT-454)")
 class MissionStatisticsServiceTest {
 
-    @Mock
-    private MissionExecutionRepository executionRepository;
+    @Mock private MissionExecutionRepository executionRepository;
 
-    @Mock
-    private DailyMissionInstanceRepository dailyMissionInstanceRepository;
+    @Mock private DailyMissionInstanceRepository dailyMissionInstanceRepository;
 
-    @Mock
-    private GamificationQueryFacade gamificationQueryFacade;
+    @Mock private GamificationQueryFacade gamificationQueryFacade;
 
-    @InjectMocks
-    private MissionStatisticsService statisticsService;
+    @InjectMocks private MissionStatisticsService statisticsService;
 
     private static final String USER_ID = "user-1";
     // UTC 저장 기준 — Asia/Seoul(+9)로 보면 각각 9/1 19:30(월), 9/2 07:00(화)
@@ -73,28 +69,28 @@ class MissionStatisticsServiceTest {
         @DisplayName("달성률·카테고리·요일·시간대·일자별 분포를 요청 타임존 기준으로 집계한다")
         void aggregatesMonthlyReport() {
             // Mockito 는 when() 진행 중 다른 mock 스터빙을 금지 — 목 리스트를 먼저 만든다
-            List<MissionExecution> executions = List.of(
-                execution(SEP1_1030_UTC, "운동"),
-                execution(SEP1_2200_UTC, "독서"));
+            List<MissionExecution> executions =
+                    List.of(execution(SEP1_1030_UTC, "운동"), execution(SEP1_2200_UTC, "독서"));
             List<DailyMissionInstance> instances = List.of(instance(SEP1_1030_UTC, "운동"));
 
             when(executionRepository.countScheduledInPeriod(anyString(), any(), any()))
-                .thenReturn(8L);
+                    .thenReturn(8L);
             when(dailyMissionInstanceRepository.countScheduledInPeriod(anyString(), any(), any()))
-                .thenReturn(2L);
+                    .thenReturn(2L);
             when(executionRepository.countCompletedInPeriod(anyString(), any(), any()))
-                .thenReturn(2L);
+                    .thenReturn(2L);
             when(dailyMissionInstanceRepository.countCompletedInPeriod(anyString(), any(), any()))
-                .thenReturn(1L);
+                    .thenReturn(1L);
             when(executionRepository.findCompletedByUserIdAndCompletedAtBetween(
-                    anyString(), any(), any()))
-                .thenReturn(executions);
+                            anyString(), any(), any()))
+                    .thenReturn(executions);
             when(dailyMissionInstanceRepository.findCompletedByUserIdAndCompletedAtBetween(
-                    anyString(), any(), any()))
-                .thenReturn(instances);
+                            anyString(), any(), any()))
+                    .thenReturn(instances);
 
-            MonthlyStatisticsResponse response = statisticsService.getMonthlyStatistics(
-                USER_ID, YearMonth.of(2026, 9), "Asia/Seoul");
+            MonthlyStatisticsResponse response =
+                    statisticsService.getMonthlyStatistics(
+                            USER_ID, YearMonth.of(2026, 9), "Asia/Seoul");
 
             assertThat(response.yearMonth()).isEqualTo("2026-09");
             assertThat(response.scheduledCount()).isEqualTo(10);
@@ -105,8 +101,9 @@ class MissionStatisticsServiceTest {
             // KST: 9/1 19:30 ×2, 9/2 07:00 ×1 → 수행일 2일, 연속 2일
             assertThat(response.activeDays()).isEqualTo(2);
             assertThat(response.longestStreak()).isEqualTo(2);
-            assertThat(response.dailyCompletions()).extracting("date")
-                .containsExactly("2026-09-01", "2026-09-02");
+            assertThat(response.dailyCompletions())
+                    .extracting("date")
+                    .containsExactly("2026-09-01", "2026-09-02");
 
             // 카테고리: 운동 2(66.7%), 독서 1(33.3%)
             assertThat(response.categoryDistribution()).hasSize(2);
@@ -114,8 +111,11 @@ class MissionStatisticsServiceTest {
             assertThat(response.categoryDistribution().get(0).ratio()).isEqualTo(66.7);
 
             // 요일: 화요일(9/1)·수요일(9/2)... 2026-09-01은 화요일
-            var tuesday = response.dayOfWeekStats().stream()
-                .filter(s -> s.dayOfWeek().equals("TUESDAY")).findFirst().orElseThrow();
+            var tuesday =
+                    response.dayOfWeekStats().stream()
+                            .filter(s -> s.dayOfWeek().equals("TUESDAY"))
+                            .findFirst()
+                            .orElseThrow();
             assertThat(tuesday.completedCount()).isEqualTo(2);
             assertThat(tuesday.activeDayCount()).isEqualTo(1);
             assertThat(tuesday.occurrenceCount()).isEqualTo(5); // 2026-09 화요일 5회
@@ -130,8 +130,8 @@ class MissionStatisticsServiceTest {
         @Test
         @DisplayName("수행이 없으면 0 값들로 응답한다")
         void emptyMonth() {
-            MonthlyStatisticsResponse response = statisticsService.getMonthlyStatistics(
-                USER_ID, YearMonth.now(), "Asia/Seoul");
+            MonthlyStatisticsResponse response =
+                    statisticsService.getMonthlyStatistics(USER_ID, YearMonth.now(), "Asia/Seoul");
 
             assertThat(response.completedCount()).isZero();
             assertThat(response.achievementRate()).isZero();
@@ -152,10 +152,12 @@ class MissionStatisticsServiceTest {
             when(gamificationQueryFacade.isSubscriptionEntitled(USER_ID)).thenReturn(false);
 
             YearMonth oldMonth = YearMonth.now().minusMonths(3);
-            assertThatThrownBy(() -> statisticsService.getMonthlyStatistics(
-                    USER_ID, oldMonth, "Asia/Seoul"))
-                .isInstanceOf(CustomException.class)
-                .hasFieldOrPropertyWithValue("code", "050301");
+            assertThatThrownBy(
+                            () ->
+                                    statisticsService.getMonthlyStatistics(
+                                            USER_ID, oldMonth, "Asia/Seoul"))
+                    .isInstanceOf(CustomException.class)
+                    .hasFieldOrPropertyWithValue("code", "050301");
         }
 
         @Test
@@ -163,8 +165,9 @@ class MissionStatisticsServiceTest {
         void entitledUserOldMonthAllowed() {
             when(gamificationQueryFacade.isSubscriptionEntitled(USER_ID)).thenReturn(true);
 
-            MonthlyStatisticsResponse response = statisticsService.getMonthlyStatistics(
-                USER_ID, YearMonth.now().minusMonths(3), "Asia/Seoul");
+            MonthlyStatisticsResponse response =
+                    statisticsService.getMonthlyStatistics(
+                            USER_ID, YearMonth.now().minusMonths(3), "Asia/Seoul");
 
             assertThat(response).isNotNull();
         }
@@ -185,12 +188,13 @@ class MissionStatisticsServiceTest {
         @Test
         @DisplayName("최장 연속 수행일 — 흩어진 날짜에서 연속 구간을 찾는다")
         void longestStreakFindsRuns() {
-            Set<LocalDate> dates = Set.of(
-                LocalDate.of(2026, 9, 1),
-                LocalDate.of(2026, 9, 2),
-                LocalDate.of(2026, 9, 3),
-                LocalDate.of(2026, 9, 5),
-                LocalDate.of(2026, 9, 6));
+            Set<LocalDate> dates =
+                    Set.of(
+                            LocalDate.of(2026, 9, 1),
+                            LocalDate.of(2026, 9, 2),
+                            LocalDate.of(2026, 9, 3),
+                            LocalDate.of(2026, 9, 5),
+                            LocalDate.of(2026, 9, 6));
 
             assertThat(MissionStatisticsService.longestStreak(dates)).isEqualTo(3);
             assertThat(MissionStatisticsService.longestStreak(Set.of())).isZero();

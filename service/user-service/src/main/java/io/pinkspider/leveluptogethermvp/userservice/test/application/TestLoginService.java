@@ -1,8 +1,8 @@
 package io.pinkspider.leveluptogethermvp.userservice.test.application;
 
-import io.pinkspider.global.util.CryptoUtils;
 import io.pinkspider.global.event.UserSignedUpEvent;
 import io.pinkspider.global.security.JwtUtil;
+import io.pinkspider.global.util.CryptoUtils;
 import io.pinkspider.leveluptogethermvp.userservice.oauth.application.MultiDeviceTokenService;
 import io.pinkspider.leveluptogethermvp.userservice.oauth.components.DeviceIdentifier;
 import io.pinkspider.leveluptogethermvp.userservice.oauth.domain.dto.jwt.CreateJwtResponseDto;
@@ -13,16 +13,15 @@ import java.util.Optional;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.context.annotation.Profile;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
  * 테스트 전용 로그인 서비스
  *
- * E2E 테스트 및 개발 환경에서 소셜 로그인 없이 JWT 토큰을 발급합니다.
- * 이 서비스는 dev, test, local 프로파일에서만 활성화됩니다.
+ * <p>E2E 테스트 및 개발 환경에서 소셜 로그인 없이 JWT 토큰을 발급합니다. 이 서비스는 dev, test, local 프로파일에서만 활성화됩니다.
  */
 @Service
 @RequiredArgsConstructor
@@ -51,13 +50,12 @@ public class TestLoginService {
      */
     @Transactional(transactionManager = "userTransactionManager")
     public CreateJwtResponseDto loginAsTestUser(
-        HttpServletRequest httpRequest,
-        String testUserId,
-        String email,
-        String nickname,
-        String deviceType,
-        String deviceId
-    ) {
+            HttpServletRequest httpRequest,
+            String testUserId,
+            String email,
+            String nickname,
+            String deviceType,
+            String deviceId) {
         // 테스트 사용자 조회 또는 생성
         Users user = findOrCreateTestUser(testUserId, email, nickname);
 
@@ -74,34 +72,30 @@ public class TestLoginService {
         String accessToken = jwtUtil.generateAccessToken(userId, userEmail, deviceId);
         String refreshToken = jwtUtil.generateRefreshToken(userId, userEmail, deviceId);
 
-        log.info("Test login successful - userId: {}, email: {}, deviceId: {}",
-            userId, userEmail, deviceId);
+        log.info(
+                "Test login successful - userId: {}, email: {}, deviceId: {}",
+                userId,
+                userEmail,
+                deviceId);
 
         // Redis에 토큰 저장
-        tokenService.saveTokensToRedis(
-            userId,
-            deviceType,
-            deviceId,
-            accessToken,
-            refreshToken
-        );
+        tokenService.saveTokensToRedis(userId, deviceType, deviceId, accessToken, refreshToken);
 
         return CreateJwtResponseDto.builder()
-            .accessToken(accessToken)
-            .refreshToken(refreshToken)
-            .tokenType("Bearer")
-            .expiresIn(86400) // 24시간 (초)
-            .userId(userId)
-            .deviceId(deviceId)
-            .build();
+                .accessToken(accessToken)
+                .refreshToken(refreshToken)
+                .tokenType("Bearer")
+                .expiresIn(86400) // 24시간 (초)
+                .userId(userId)
+                .deviceId(deviceId)
+                .build();
     }
 
     /**
      * 테스트 사용자를 조회하거나 새로 생성합니다.
      *
-     * <p>{@code testUserId}가 명시되었지만 DB에 없으면 무시하고 신규 사용자 생성.
-     * (Hibernate가 ID 명시된 entity를 detached로 인식해 INSERT 불가 — {@code save}/{@code persist}
-     * 모두 실패하므로 ID 자동 생성으로 위임)</p>
+     * <p>{@code testUserId}가 명시되었지만 DB에 없으면 무시하고 신규 사용자 생성. (Hibernate가 ID 명시된 entity를 detached로
+     * 인식해 INSERT 불가 — {@code save}/{@code persist} 모두 실패하므로 ID 자동 생성으로 위임)
      */
     private Users findOrCreateTestUser(String testUserId, String email, String nickname) {
         // 1. testUserId 명시 시 ID로 조회 (있으면 그대로 사용)
@@ -115,7 +109,8 @@ public class TestLoginService {
 
         // 2. 이메일로 조회
         String encryptedEmail = CryptoUtils.encryptAes(email);
-        Optional<Users> byEmail = userRepository.findActiveByEncryptedEmailAndProvider(            encryptedEmail, TEST_PROVIDER);
+        Optional<Users> byEmail =
+                userRepository.findActiveByEncryptedEmailAndProvider(encryptedEmail, TEST_PROVIDER);
         if (byEmail.isPresent()) {
             log.info("기존 테스트 사용자 로그인 (이메일): userId={}", byEmail.get().getId());
             return byEmail.get();
@@ -125,9 +120,7 @@ public class TestLoginService {
         return createTestUser(email, nickname);
     }
 
-    /**
-     * 새 테스트 사용자를 생성합니다. ID는 @UuidGenerator로 자동 부여됩니다.
-     */
+    /** 새 테스트 사용자를 생성합니다. ID는 @UuidGenerator로 자동 부여됩니다. */
     private Users createTestUser(String email, String nickname) {
         if (nickname == null || nickname.trim().isEmpty()) {
             nickname = email.split("@")[0];
@@ -139,23 +132,25 @@ public class TestLoginService {
             nickname = generateUniqueNickname(nickname);
         }
 
-        Users newUser = Users.builder()
-            .email(email)
-            .nickname(nickname)
-            .provider(TEST_PROVIDER)
-            .nicknameSet(true)
-            .build();
+        Users newUser =
+                Users.builder()
+                        .email(email)
+                        .nickname(nickname)
+                        .provider(TEST_PROVIDER)
+                        .nicknameSet(true)
+                        .build();
         Users savedUser = userRepository.save(newUser);
 
-        log.info("신규 테스트 사용자 생성: userId={}, email={}, nickname={}",
-            savedUser.getId(), email, nickname);
+        log.info(
+                "신규 테스트 사용자 생성: userId={}, email={}, nickname={}",
+                savedUser.getId(),
+                email,
+                nickname);
         eventPublisher.publishEvent(new UserSignedUpEvent(savedUser.getId()));
         return savedUser;
     }
 
-    /**
-     * 중복되지 않는 유니크한 닉네임 생성
-     */
+    /** 중복되지 않는 유니크한 닉네임 생성 */
     private String generateUniqueNickname(String baseNickname) {
         String prefix = baseNickname.length() > 6 ? baseNickname.substring(0, 6) : baseNickname;
         String uniqueNickname;

@@ -8,23 +8,22 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import io.pinkspider.global.enums.MissionStatus;
 import io.pinkspider.global.test.TestReflectionUtils;
-
+import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MissionExecutionResponse;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MonthlyCalendarResponse;
+import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.DailyMissionInstance;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.Mission;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.MissionExecution;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.MissionParticipant;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.ExecutionStatus;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionInterval;
-import io.pinkspider.global.enums.MissionStatus;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionType;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionVisibility;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.ParticipantStatus;
+import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.DailyMissionInstanceRepository;
 import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.MissionExecutionRepository;
 import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.MissionParticipantRepository;
-import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MissionExecutionResponse;
-import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.DailyMissionInstance;
-import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.DailyMissionInstanceRepository;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
@@ -48,44 +47,46 @@ class MissionExecutionQueryServiceTest {
         return LocalDate.now(KST);
     }
 
-    @Mock
-    private MissionExecutionRepository executionRepository;
+    @Mock private MissionExecutionRepository executionRepository;
+
+    @Mock private MissionParticipantRepository participantRepository;
+
+    @Mock private DailyMissionInstanceRepository dailyMissionInstanceRepository;
 
     @Mock
-    private MissionParticipantRepository participantRepository;
+    private io.pinkspider.leveluptogethermvp.missionservice.infrastructure
+                    .MissionExecutionImageRepository
+            executionImageRepository;
 
     @Mock
-    private DailyMissionInstanceRepository dailyMissionInstanceRepository;
+    private io.pinkspider.leveluptogethermvp.missionservice.infrastructure
+                    .DailyMissionInstanceImageRepository
+            instanceImageRepository;
 
     @Mock
-    private io.pinkspider.leveluptogethermvp.missionservice.infrastructure.MissionExecutionImageRepository executionImageRepository;
+    private io.pinkspider.leveluptogethermvp.missionservice.application.strategy
+                    .MissionExecutionStrategyResolver
+            strategyResolver;
 
     @Mock
-    private io.pinkspider.leveluptogethermvp.missionservice.infrastructure.DailyMissionInstanceImageRepository instanceImageRepository;
+    private io.pinkspider.leveluptogethermvp.feedservice.application.FeedQueryService
+            feedQueryService;
+
+    @Mock private io.pinkspider.global.facade.GamificationQueryFacade gamificationQueryFacade;
 
     @Mock
-    private io.pinkspider.leveluptogethermvp.missionservice.application.strategy.MissionExecutionStrategyResolver strategyResolver;
+    private io.pinkspider.leveluptogethermvp.missionservice.infrastructure.MissionRepository
+            missionRepository;
 
     @Mock
-    private io.pinkspider.leveluptogethermvp.feedservice.application.FeedQueryService feedQueryService;
+    private io.pinkspider.leveluptogethermvp.metaservice.application.MissionCategoryService
+            missionCategoryService;
 
-    @Mock
-    private io.pinkspider.global.facade.GamificationQueryFacade gamificationQueryFacade;
+    @Mock private io.pinkspider.global.facade.UserQueryFacade userQueryFacade;
 
-    @Mock
-    private io.pinkspider.leveluptogethermvp.missionservice.infrastructure.MissionRepository missionRepository;
+    @Mock private io.pinkspider.global.facade.GuildQueryFacade guildQueryFacade;
 
-    @Mock
-    private io.pinkspider.leveluptogethermvp.metaservice.application.MissionCategoryService missionCategoryService;
-
-    @Mock
-    private io.pinkspider.global.facade.UserQueryFacade userQueryFacade;
-
-    @Mock
-    private io.pinkspider.global.facade.GuildQueryFacade guildQueryFacade;
-
-    @InjectMocks
-    private MissionExecutionQueryService executionService;
+    @InjectMocks private MissionExecutionQueryService executionService;
 
     private String testUserId;
     private Mission testMission;
@@ -95,54 +96,71 @@ class MissionExecutionQueryServiceTest {
     void setUp() {
         testUserId = "test-user-123";
 
-        testMission = Mission.builder()
-            .title("30일 운동 챌린지")
-            .description("매일 30분 운동하기")
-            .status(MissionStatus.IN_PROGRESS)
-            .visibility(MissionVisibility.PUBLIC)
-            .type(MissionType.PERSONAL)
-            .creatorId(testUserId)
-            .missionInterval(MissionInterval.DAILY)
-            .expPerCompletion(50)
-            .build();
+        testMission =
+                Mission.builder()
+                        .title("30일 운동 챌린지")
+                        .description("매일 30분 운동하기")
+                        .status(MissionStatus.IN_PROGRESS)
+                        .visibility(MissionVisibility.PUBLIC)
+                        .type(MissionType.PERSONAL)
+                        .creatorId(testUserId)
+                        .missionInterval(MissionInterval.DAILY)
+                        .expPerCompletion(50)
+                        .build();
         setId(testMission, 1L);
 
-        testParticipant = MissionParticipant.builder()
-            .mission(testMission)
-            .userId(testUserId)
-            .status(ParticipantStatus.IN_PROGRESS)
-            .build();
+        testParticipant =
+                MissionParticipant.builder()
+                        .mission(testMission)
+                        .userId(testUserId)
+                        .status(ParticipantStatus.IN_PROGRESS)
+                        .build();
         setId(testParticipant, 1L);
 
         // QA-139: 이미지 enrich 헬퍼는 빈 리스트 기본값
-        org.mockito.Mockito.lenient().when(executionImageRepository.findByExecutionIdInOrderBySortOrder(org.mockito.ArgumentMatchers.anyList()))
-            .thenReturn(java.util.List.of());
-        org.mockito.Mockito.lenient().when(executionImageRepository.findByExecutionIdOrderBySortOrderAsc(org.mockito.ArgumentMatchers.anyLong()))
-            .thenReturn(java.util.List.of());
-        org.mockito.Mockito.lenient().when(instanceImageRepository.findByInstanceIdInOrderBySortOrder(org.mockito.ArgumentMatchers.anyList()))
-            .thenReturn(java.util.List.of());
-        org.mockito.Mockito.lenient().when(instanceImageRepository.findByInstanceIdOrderBySortOrderAsc(org.mockito.ArgumentMatchers.anyLong()))
-            .thenReturn(java.util.List.of());
+        org.mockito.Mockito.lenient()
+                .when(
+                        executionImageRepository.findByExecutionIdInOrderBySortOrder(
+                                org.mockito.ArgumentMatchers.anyList()))
+                .thenReturn(java.util.List.of());
+        org.mockito.Mockito.lenient()
+                .when(
+                        executionImageRepository.findByExecutionIdOrderBySortOrderAsc(
+                                org.mockito.ArgumentMatchers.anyLong()))
+                .thenReturn(java.util.List.of());
+        org.mockito.Mockito.lenient()
+                .when(
+                        instanceImageRepository.findByInstanceIdInOrderBySortOrder(
+                                org.mockito.ArgumentMatchers.anyList()))
+                .thenReturn(java.util.List.of());
+        org.mockito.Mockito.lenient()
+                .when(
+                        instanceImageRepository.findByInstanceIdOrderBySortOrderAsc(
+                                org.mockito.ArgumentMatchers.anyLong()))
+                .thenReturn(java.util.List.of());
 
         // QA-152 안전망: 기본은 빈 Set (피드 없음). 개별 테스트에서 필요시 override.
         // LUT-381: ID 충돌 대비 userId 스코프 시그니처
         org.mockito.Mockito.lenient()
-            .when(feedQueryService.findExecutionIdsWithFeed(
-                org.mockito.ArgumentMatchers.anyCollection(), org.mockito.ArgumentMatchers.anyString()))
-            .thenReturn(java.util.Collections.emptySet());
+                .when(
+                        feedQueryService.findExecutionIdsWithFeed(
+                                org.mockito.ArgumentMatchers.anyCollection(),
+                                org.mockito.ArgumentMatchers.anyString()))
+                .thenReturn(java.util.Collections.emptySet());
     }
 
-
-    private MissionExecution createCompletedExecution(Long id, LocalDate date, int expEarned, int durationMinutes) {
+    private MissionExecution createCompletedExecution(
+            Long id, LocalDate date, int expEarned, int durationMinutes) {
         LocalDateTime startedAt = date.atTime(9, 0);
         LocalDateTime completedAt = startedAt.plusMinutes(durationMinutes);
 
-        MissionExecution execution = MissionExecution.builder()
-            .participant(testParticipant)
-            .executionDate(date)
-            .status(ExecutionStatus.COMPLETED)
-            .expEarned(expEarned)
-            .build();
+        MissionExecution execution =
+                MissionExecution.builder()
+                        .participant(testParticipant)
+                        .executionDate(date)
+                        .status(ExecutionStatus.COMPLETED)
+                        .expEarned(expEarned)
+                        .build();
         setId(execution, id);
 
         // startedAt과 completedAt 설정
@@ -168,27 +186,31 @@ class MissionExecutionQueryServiceTest {
             LocalDate date1 = LocalDate.of(year, month, 15);
             LocalDate date2 = LocalDate.of(year, month, 16);
 
-            List<MissionExecution> completedExecutions = List.of(
-                createCompletedExecution(1L, date1, 50, 60),
-                createCompletedExecution(2L, date2, 30, 45)
-            );
+            List<MissionExecution> completedExecutions =
+                    List.of(
+                            createCompletedExecution(1L, date1, 50, 60),
+                            createCompletedExecution(2L, date2, 30, 45));
 
             when(executionRepository.findCompletedByUserIdAndCompletedAtBetween(
-                eq(testUserId), any(LocalDateTime.class), any(LocalDateTime.class)))
-                .thenReturn(completedExecutions);
+                            eq(testUserId), any(LocalDateTime.class), any(LocalDateTime.class)))
+                    .thenReturn(completedExecutions);
 
             // 고정 미션 관련 mock (없음)
             when(dailyMissionInstanceRepository.findCompletedByUserIdAndCompletedAtBetween(
-                eq(testUserId), any(LocalDateTime.class), any(LocalDateTime.class)))
-                .thenReturn(List.of());
+                            eq(testUserId), any(LocalDateTime.class), any(LocalDateTime.class)))
+                    .thenReturn(List.of());
 
             // QA-217: 경험치 이력 기반 일별 합계
             when(gamificationQueryFacade.getDailyExpSummary(
-                eq(testUserId), any(LocalDateTime.class), any(LocalDateTime.class), any()))
-                .thenReturn(java.util.Map.of(date1, 50L, date2, 30L));
+                            eq(testUserId),
+                            any(LocalDateTime.class),
+                            any(LocalDateTime.class),
+                            any()))
+                    .thenReturn(java.util.Map.of(date1, 50L, date2, 30L));
 
             // when
-            MonthlyCalendarResponse response = executionService.getMonthlyCalendarData(testUserId, year, month, null);
+            MonthlyCalendarResponse response =
+                    executionService.getMonthlyCalendarData(testUserId, year, month, null);
 
             // then
             assertThat(response).isNotNull();
@@ -196,8 +218,8 @@ class MissionExecutionQueryServiceTest {
             assertThat(response.getMonth()).isEqualTo(month);
             assertThat(response.getTotalExp()).isEqualTo(80);
             assertThat(response.getDailyExp())
-                .containsEntry(date1.toString(), 50)
-                .containsEntry(date2.toString(), 30);
+                    .containsEntry(date1.toString(), 50)
+                    .containsEntry(date2.toString(), 30);
             assertThat(response.getDailyMissions()).hasSize(2);
             assertThat(response.getCompletedDates()).hasSize(2);
             assertThat(response.getCompletedDates()).contains(date1.toString(), date2.toString());
@@ -205,11 +227,15 @@ class MissionExecutionQueryServiceTest {
             // 날짜별 미션 검증
             assertThat(response.getDailyMissions().get(date1.toString())).hasSize(1);
             assertThat(response.getDailyMissions().get(date1.toString()).get(0).getMissionTitle())
-                .isEqualTo("30일 운동 챌린지");
+                    .isEqualTo("30일 운동 챌린지");
             assertThat(response.getDailyMissions().get(date1.toString()).get(0).getExpEarned())
-                .isEqualTo(50);
-            assertThat(response.getDailyMissions().get(date1.toString()).get(0).getDurationMinutes())
-                .isEqualTo(60);
+                    .isEqualTo(50);
+            assertThat(
+                            response.getDailyMissions()
+                                    .get(date1.toString())
+                                    .get(0)
+                                    .getDurationMinutes())
+                    .isEqualTo(60);
         }
 
         @Test
@@ -220,55 +246,63 @@ class MissionExecutionQueryServiceTest {
             int month = 12;
             LocalDate date = LocalDate.of(year, month, 15);
 
-            Mission guildMission = Mission.builder()
-                .title("길드 합동 미션")
-                .status(MissionStatus.IN_PROGRESS)
-                .visibility(MissionVisibility.PUBLIC)
-                .type(MissionType.GUILD)
-                .creatorId(testUserId)
-                .missionInterval(MissionInterval.DAILY)
-                .expPerCompletion(50)
-                .build();
+            Mission guildMission =
+                    Mission.builder()
+                            .title("길드 합동 미션")
+                            .status(MissionStatus.IN_PROGRESS)
+                            .visibility(MissionVisibility.PUBLIC)
+                            .type(MissionType.GUILD)
+                            .creatorId(testUserId)
+                            .missionInterval(MissionInterval.DAILY)
+                            .expPerCompletion(50)
+                            .build();
             setId(guildMission, 2L);
 
-            MissionParticipant guildParticipant = MissionParticipant.builder()
-                .mission(guildMission)
-                .userId(testUserId)
-                .status(ParticipantStatus.IN_PROGRESS)
-                .build();
+            MissionParticipant guildParticipant =
+                    MissionParticipant.builder()
+                            .mission(guildMission)
+                            .userId(testUserId)
+                            .status(ParticipantStatus.IN_PROGRESS)
+                            .build();
             setId(guildParticipant, 2L);
 
-            MissionExecution guildExecution = MissionExecution.builder()
-                .participant(guildParticipant)
-                .executionDate(date)
-                .status(ExecutionStatus.COMPLETED)
-                .expEarned(50)
-                .build();
+            MissionExecution guildExecution =
+                    MissionExecution.builder()
+                            .participant(guildParticipant)
+                            .executionDate(date)
+                            .status(ExecutionStatus.COMPLETED)
+                            .expEarned(50)
+                            .build();
             setId(guildExecution, 10L);
             TestReflectionUtils.setField(guildExecution, "startedAt", date.atTime(9, 0));
             TestReflectionUtils.setField(guildExecution, "completedAt", date.atTime(10, 0));
 
             when(executionRepository.findCompletedByUserIdAndCompletedAtBetween(
-                eq(testUserId), any(LocalDateTime.class), any(LocalDateTime.class)))
-                .thenReturn(List.of(guildExecution, createCompletedExecution(1L, date, 30, 45)));
+                            eq(testUserId), any(LocalDateTime.class), any(LocalDateTime.class)))
+                    .thenReturn(
+                            List.of(guildExecution, createCompletedExecution(1L, date, 30, 45)));
             when(dailyMissionInstanceRepository.findCompletedByUserIdAndCompletedAtBetween(
-                eq(testUserId), any(LocalDateTime.class), any(LocalDateTime.class)))
-                .thenReturn(List.of());
+                            eq(testUserId), any(LocalDateTime.class), any(LocalDateTime.class)))
+                    .thenReturn(List.of());
             when(gamificationQueryFacade.getDailyExpSummary(
-                eq(testUserId), any(LocalDateTime.class), any(LocalDateTime.class), any()))
-                .thenReturn(java.util.Map.of(date, 80L));
+                            eq(testUserId),
+                            any(LocalDateTime.class),
+                            any(LocalDateTime.class),
+                            any()))
+                    .thenReturn(java.util.Map.of(date, 80L));
 
             // when
             MonthlyCalendarResponse response =
-                executionService.getMonthlyCalendarData(testUserId, year, month, null);
+                    executionService.getMonthlyCalendarData(testUserId, year, month, null);
 
             // then
             var missions = response.getDailyMissions().get(date.toString());
             assertThat(missions).hasSize(2);
-            assertThat(missions).extracting("missionTitle", "missionType")
-                .containsExactlyInAnyOrder(
-                    org.assertj.core.groups.Tuple.tuple("길드 합동 미션", "GUILD"),
-                    org.assertj.core.groups.Tuple.tuple("30일 운동 챌린지", "PERSONAL"));
+            assertThat(missions)
+                    .extracting("missionTitle", "missionType")
+                    .containsExactlyInAnyOrder(
+                            org.assertj.core.groups.Tuple.tuple("길드 합동 미션", "GUILD"),
+                            org.assertj.core.groups.Tuple.tuple("30일 운동 챌린지", "PERSONAL"));
         }
 
         @Test
@@ -280,29 +314,34 @@ class MissionExecutionQueryServiceTest {
             LocalDate execDate = LocalDate.of(year, month, 15);
             LocalDateTime completedUtc = LocalDateTime.of(year, month, 15, 16, 0);
 
-            MissionExecution execution = MissionExecution.builder()
-                .participant(testParticipant)
-                .executionDate(execDate)
-                .status(ExecutionStatus.COMPLETED)
-                .expEarned(140)
-                .build();
+            MissionExecution execution =
+                    MissionExecution.builder()
+                            .participant(testParticipant)
+                            .executionDate(execDate)
+                            .status(ExecutionStatus.COMPLETED)
+                            .expEarned(140)
+                            .build();
             setId(execution, 1L);
-            TestReflectionUtils.setField(execution, "startedAt", LocalDateTime.of(year, month, 15, 12, 0));
+            TestReflectionUtils.setField(
+                    execution, "startedAt", LocalDateTime.of(year, month, 15, 12, 0));
             TestReflectionUtils.setField(execution, "completedAt", completedUtc);
 
             when(executionRepository.findCompletedByUserIdAndCompletedAtBetween(
-                eq(testUserId), any(LocalDateTime.class), any(LocalDateTime.class)))
-                .thenReturn(List.of(execution));
+                            eq(testUserId), any(LocalDateTime.class), any(LocalDateTime.class)))
+                    .thenReturn(List.of(execution));
             when(dailyMissionInstanceRepository.findCompletedByUserIdAndCompletedAtBetween(
-                eq(testUserId), any(LocalDateTime.class), any(LocalDateTime.class)))
-                .thenReturn(List.of());
+                            eq(testUserId), any(LocalDateTime.class), any(LocalDateTime.class)))
+                    .thenReturn(List.of());
             when(gamificationQueryFacade.getDailyExpSummary(
-                eq(testUserId), any(LocalDateTime.class), any(LocalDateTime.class), any()))
-                .thenReturn(java.util.Map.of());
+                            eq(testUserId),
+                            any(LocalDateTime.class),
+                            any(LocalDateTime.class),
+                            any()))
+                    .thenReturn(java.util.Map.of());
 
             // when
             MonthlyCalendarResponse response =
-                executionService.getMonthlyCalendarData(testUserId, year, month, "Asia/Seoul");
+                    executionService.getMonthlyCalendarData(testUserId, year, month, "Asia/Seoul");
 
             // then: 완료 KST 날짜(12-16)에 그룹, executionDate(12-15)에는 없음
             assertThat(response.getDailyMissions()).containsKey("2024-12-16");
@@ -318,51 +357,58 @@ class MissionExecutionQueryServiceTest {
             LocalDate sameDate = LocalDate.of(year, month, 20);
 
             // 두 번째 미션 생성
-            Mission secondMission = Mission.builder()
-                .title("매일 독서하기")
-                .description("30분 독서")
-                .status(MissionStatus.IN_PROGRESS)
-                .visibility(MissionVisibility.PUBLIC)
-                .type(MissionType.PERSONAL)
-                .creatorId(testUserId)
-                .missionInterval(MissionInterval.DAILY)
-                .expPerCompletion(30)
-                .build();
+            Mission secondMission =
+                    Mission.builder()
+                            .title("매일 독서하기")
+                            .description("30분 독서")
+                            .status(MissionStatus.IN_PROGRESS)
+                            .visibility(MissionVisibility.PUBLIC)
+                            .type(MissionType.PERSONAL)
+                            .creatorId(testUserId)
+                            .missionInterval(MissionInterval.DAILY)
+                            .expPerCompletion(30)
+                            .build();
             setId(secondMission, 2L);
 
-            MissionParticipant secondParticipant = MissionParticipant.builder()
-                .mission(secondMission)
-                .userId(testUserId)
-                .status(ParticipantStatus.IN_PROGRESS)
-                .build();
+            MissionParticipant secondParticipant =
+                    MissionParticipant.builder()
+                            .mission(secondMission)
+                            .userId(testUserId)
+                            .status(ParticipantStatus.IN_PROGRESS)
+                            .build();
             setId(secondParticipant, 2L);
 
             MissionExecution execution1 = createCompletedExecution(1L, sameDate, 50, 60);
-            MissionExecution execution2 = MissionExecution.builder()
-                .participant(secondParticipant)
-                .executionDate(sameDate)
-                .status(ExecutionStatus.COMPLETED)
-                .expEarned(30)
-                .build();
+            MissionExecution execution2 =
+                    MissionExecution.builder()
+                            .participant(secondParticipant)
+                            .executionDate(sameDate)
+                            .status(ExecutionStatus.COMPLETED)
+                            .expEarned(30)
+                            .build();
             setId(execution2, 2L);
 
             List<MissionExecution> completedExecutions = List.of(execution1, execution2);
 
             when(executionRepository.findCompletedByUserIdAndCompletedAtBetween(
-                eq(testUserId), any(LocalDateTime.class), any(LocalDateTime.class)))
-                .thenReturn(completedExecutions);
+                            eq(testUserId), any(LocalDateTime.class), any(LocalDateTime.class)))
+                    .thenReturn(completedExecutions);
 
             // 고정 미션 관련 mock (없음)
             when(dailyMissionInstanceRepository.findCompletedByUserIdAndCompletedAtBetween(
-                eq(testUserId), any(LocalDateTime.class), any(LocalDateTime.class)))
-                .thenReturn(List.of());
+                            eq(testUserId), any(LocalDateTime.class), any(LocalDateTime.class)))
+                    .thenReturn(List.of());
 
             when(gamificationQueryFacade.getDailyExpSummary(
-                eq(testUserId), any(LocalDateTime.class), any(LocalDateTime.class), any()))
-                .thenReturn(java.util.Map.of(sameDate, 80L));
+                            eq(testUserId),
+                            any(LocalDateTime.class),
+                            any(LocalDateTime.class),
+                            any()))
+                    .thenReturn(java.util.Map.of(sameDate, 80L));
 
             // when
-            MonthlyCalendarResponse response = executionService.getMonthlyCalendarData(testUserId, year, month, null);
+            MonthlyCalendarResponse response =
+                    executionService.getMonthlyCalendarData(testUserId, year, month, null);
 
             // then
             assertThat(response).isNotNull();
@@ -380,20 +426,24 @@ class MissionExecutionQueryServiceTest {
             int month = 1;
 
             when(executionRepository.findCompletedByUserIdAndCompletedAtBetween(
-                eq(testUserId), any(LocalDateTime.class), any(LocalDateTime.class)))
-                .thenReturn(List.of());
+                            eq(testUserId), any(LocalDateTime.class), any(LocalDateTime.class)))
+                    .thenReturn(List.of());
 
             // 고정 미션 관련 mock (없음)
             when(dailyMissionInstanceRepository.findCompletedByUserIdAndCompletedAtBetween(
-                eq(testUserId), any(LocalDateTime.class), any(LocalDateTime.class)))
-                .thenReturn(List.of());
+                            eq(testUserId), any(LocalDateTime.class), any(LocalDateTime.class)))
+                    .thenReturn(List.of());
 
             when(gamificationQueryFacade.getDailyExpSummary(
-                eq(testUserId), any(LocalDateTime.class), any(LocalDateTime.class), any()))
-                .thenReturn(java.util.Map.of());
+                            eq(testUserId),
+                            any(LocalDateTime.class),
+                            any(LocalDateTime.class),
+                            any()))
+                    .thenReturn(java.util.Map.of());
 
             // when
-            MonthlyCalendarResponse response = executionService.getMonthlyCalendarData(testUserId, year, month, null);
+            MonthlyCalendarResponse response =
+                    executionService.getMonthlyCalendarData(testUserId, year, month, null);
 
             // then
             assertThat(response).isNotNull();
@@ -412,25 +462,28 @@ class MissionExecutionQueryServiceTest {
             int month = 2;
             LocalDate date = LocalDate.of(year, month, 29); // 윤년 2월 29일
 
-            List<MissionExecution> completedExecutions = List.of(
-                createCompletedExecution(1L, date, 50, 30)
-            );
+            List<MissionExecution> completedExecutions =
+                    List.of(createCompletedExecution(1L, date, 50, 30));
 
             when(executionRepository.findCompletedByUserIdAndCompletedAtBetween(
-                eq(testUserId), any(LocalDateTime.class), any(LocalDateTime.class)))
-                .thenReturn(completedExecutions);
+                            eq(testUserId), any(LocalDateTime.class), any(LocalDateTime.class)))
+                    .thenReturn(completedExecutions);
 
             // 고정 미션 관련 mock (없음)
             when(dailyMissionInstanceRepository.findCompletedByUserIdAndCompletedAtBetween(
-                eq(testUserId), any(LocalDateTime.class), any(LocalDateTime.class)))
-                .thenReturn(List.of());
+                            eq(testUserId), any(LocalDateTime.class), any(LocalDateTime.class)))
+                    .thenReturn(List.of());
 
             when(gamificationQueryFacade.getDailyExpSummary(
-                eq(testUserId), any(LocalDateTime.class), any(LocalDateTime.class), any()))
-                .thenReturn(java.util.Map.of(date, 50L));
+                            eq(testUserId),
+                            any(LocalDateTime.class),
+                            any(LocalDateTime.class),
+                            any()))
+                    .thenReturn(java.util.Map.of(date, 50L));
 
             // when
-            MonthlyCalendarResponse response = executionService.getMonthlyCalendarData(testUserId, year, month, null);
+            MonthlyCalendarResponse response =
+                    executionService.getMonthlyCalendarData(testUserId, year, month, null);
 
             // then
             assertThat(response).isNotNull();
@@ -451,31 +504,35 @@ class MissionExecutionQueryServiceTest {
             LocalDate date2 = LocalDate.of(year, month, 15);
 
             // 순서가 섞여있는 리스트
-            List<MissionExecution> completedExecutions = List.of(
-                createCompletedExecution(3L, date3, 50, 60),
-                createCompletedExecution(1L, date1, 30, 30),
-                createCompletedExecution(2L, date2, 40, 45)
-            );
+            List<MissionExecution> completedExecutions =
+                    List.of(
+                            createCompletedExecution(3L, date3, 50, 60),
+                            createCompletedExecution(1L, date1, 30, 30),
+                            createCompletedExecution(2L, date2, 40, 45));
 
             when(executionRepository.findCompletedByUserIdAndCompletedAtBetween(
-                eq(testUserId), any(LocalDateTime.class), any(LocalDateTime.class)))
-                .thenReturn(completedExecutions);
+                            eq(testUserId), any(LocalDateTime.class), any(LocalDateTime.class)))
+                    .thenReturn(completedExecutions);
 
             // 고정 미션 관련 mock (없음)
             when(dailyMissionInstanceRepository.findCompletedByUserIdAndCompletedAtBetween(
-                eq(testUserId), any(LocalDateTime.class), any(LocalDateTime.class)))
-                .thenReturn(List.of());
+                            eq(testUserId), any(LocalDateTime.class), any(LocalDateTime.class)))
+                    .thenReturn(List.of());
 
             when(gamificationQueryFacade.getDailyExpSummary(
-                eq(testUserId), any(LocalDateTime.class), any(LocalDateTime.class), any()))
-                .thenReturn(java.util.Map.of(date1, 30L, date2, 40L, date3, 50L));
+                            eq(testUserId),
+                            any(LocalDateTime.class),
+                            any(LocalDateTime.class),
+                            any()))
+                    .thenReturn(java.util.Map.of(date1, 30L, date2, 40L, date3, 50L));
 
             // when
-            MonthlyCalendarResponse response = executionService.getMonthlyCalendarData(testUserId, year, month, null);
+            MonthlyCalendarResponse response =
+                    executionService.getMonthlyCalendarData(testUserId, year, month, null);
 
             // then
             assertThat(response.getCompletedDates())
-                .containsExactly(date1.toString(), date2.toString(), date3.toString());
+                    .containsExactly(date1.toString(), date2.toString(), date3.toString());
         }
 
         @Test
@@ -487,18 +544,22 @@ class MissionExecutionQueryServiceTest {
             LocalDate date = LocalDate.of(year, month, 15);
 
             when(executionRepository.findCompletedByUserIdAndCompletedAtBetween(
-                eq(testUserId), any(LocalDateTime.class), any(LocalDateTime.class)))
-                .thenReturn(List.of(createCompletedExecution(1L, date, 50, 30)));
+                            eq(testUserId), any(LocalDateTime.class), any(LocalDateTime.class)))
+                    .thenReturn(List.of(createCompletedExecution(1L, date, 50, 30)));
             when(dailyMissionInstanceRepository.findCompletedByUserIdAndCompletedAtBetween(
-                eq(testUserId), any(LocalDateTime.class), any(LocalDateTime.class)))
-                .thenReturn(List.of());
+                            eq(testUserId), any(LocalDateTime.class), any(LocalDateTime.class)))
+                    .thenReturn(List.of());
 
             when(gamificationQueryFacade.getDailyExpSummary(
-                eq(testUserId), any(LocalDateTime.class), any(LocalDateTime.class), eq("Asia/Seoul")))
-                .thenReturn(java.util.Map.of(date, 60L));
+                            eq(testUserId),
+                            any(LocalDateTime.class),
+                            any(LocalDateTime.class),
+                            eq("Asia/Seoul")))
+                    .thenReturn(java.util.Map.of(date, 60L));
 
             // when
-            MonthlyCalendarResponse response = executionService.getMonthlyCalendarData(testUserId, year, month, null);
+            MonthlyCalendarResponse response =
+                    executionService.getMonthlyCalendarData(testUserId, year, month, null);
 
             // then: 캘린더 합계가 미션 합(50)이 아닌 경험치 이력 합(60)
             assertThat(response.getTotalExp()).isEqualTo(60);
@@ -514,24 +575,28 @@ class MissionExecutionQueryServiceTest {
             LocalDate date = LocalDate.of(year, month, 15);
 
             when(executionRepository.findCompletedByUserIdAndCompletedAtBetween(
-                eq(testUserId), any(LocalDateTime.class), any(LocalDateTime.class)))
-                .thenReturn(List.of(createCompletedExecution(1L, date, 50, 30)));
+                            eq(testUserId), any(LocalDateTime.class), any(LocalDateTime.class)))
+                    .thenReturn(List.of(createCompletedExecution(1L, date, 50, 30)));
             when(executionRepository.sumExpEarnedByUserIdAndDateRange(
-                eq(testUserId), any(LocalDate.class), any(LocalDate.class)))
-                .thenReturn(50);
+                            eq(testUserId), any(LocalDate.class), any(LocalDate.class)))
+                    .thenReturn(50);
             when(dailyMissionInstanceRepository.findCompletedByUserIdAndCompletedAtBetween(
-                eq(testUserId), any(LocalDateTime.class), any(LocalDateTime.class)))
-                .thenReturn(List.of());
+                            eq(testUserId), any(LocalDateTime.class), any(LocalDateTime.class)))
+                    .thenReturn(List.of());
             when(dailyMissionInstanceRepository.sumExpEarnedByUserIdAndDateRange(
-                eq(testUserId), any(LocalDate.class), any(LocalDate.class)))
-                .thenReturn(0);
+                            eq(testUserId), any(LocalDate.class), any(LocalDate.class)))
+                    .thenReturn(0);
 
             when(gamificationQueryFacade.getDailyExpSummary(
-                eq(testUserId), any(LocalDateTime.class), any(LocalDateTime.class), any()))
-                .thenThrow(new RuntimeException("gamification 조회 실패"));
+                            eq(testUserId),
+                            any(LocalDateTime.class),
+                            any(LocalDateTime.class),
+                            any()))
+                    .thenThrow(new RuntimeException("gamification 조회 실패"));
 
             // when
-            MonthlyCalendarResponse response = executionService.getMonthlyCalendarData(testUserId, year, month, null);
+            MonthlyCalendarResponse response =
+                    executionService.getMonthlyCalendarData(testUserId, year, month, null);
 
             // then: 미션 경험치 합으로 fallback, dailyExp 는 비어 있음
             assertThat(response.getTotalExp()).isEqualTo(50);
@@ -545,58 +610,63 @@ class MissionExecutionQueryServiceTest {
 
         private static final String VIEWER_ID = "viewer-456";
 
-        private MissionExecution createExecutionWithVisibility(Long id, LocalDate date,
-                MissionVisibility visibility) {
-            Mission mission = Mission.builder()
-                .title("미션-" + visibility.name())
-                .status(MissionStatus.IN_PROGRESS)
-                .visibility(visibility)
-                .type(MissionType.PERSONAL)
-                .creatorId(testUserId)
-                .missionInterval(MissionInterval.DAILY)
-                .expPerCompletion(50)
-                .categoryName("일상")
-                .build();
+        private MissionExecution createExecutionWithVisibility(
+                Long id, LocalDate date, MissionVisibility visibility) {
+            Mission mission =
+                    Mission.builder()
+                            .title("미션-" + visibility.name())
+                            .status(MissionStatus.IN_PROGRESS)
+                            .visibility(visibility)
+                            .type(MissionType.PERSONAL)
+                            .creatorId(testUserId)
+                            .missionInterval(MissionInterval.DAILY)
+                            .expPerCompletion(50)
+                            .categoryName("일상")
+                            .build();
             setId(mission, id + 100);
 
-            MissionParticipant participant = MissionParticipant.builder()
-                .mission(mission)
-                .userId(testUserId)
-                .status(ParticipantStatus.IN_PROGRESS)
-                .build();
+            MissionParticipant participant =
+                    MissionParticipant.builder()
+                            .mission(mission)
+                            .userId(testUserId)
+                            .status(ParticipantStatus.IN_PROGRESS)
+                            .build();
             setId(participant, id + 100);
 
-            MissionExecution execution = MissionExecution.builder()
-                .participant(participant)
-                .executionDate(date)
-                .status(ExecutionStatus.COMPLETED)
-                .expEarned(50)
-                .build();
+            MissionExecution execution =
+                    MissionExecution.builder()
+                            .participant(participant)
+                            .executionDate(date)
+                            .status(ExecutionStatus.COMPLETED)
+                            .expEarned(50)
+                            .build();
             setId(execution, id);
             TestReflectionUtils.setField(execution, "startedAt", date.atTime(9, 0));
             TestReflectionUtils.setField(execution, "completedAt", date.atTime(10, 0));
             return execution;
         }
 
-        private void mockRepositories(List<MissionExecution> executions,
-                List<DailyMissionInstance> instances) {
+        private void mockRepositories(
+                List<MissionExecution> executions, List<DailyMissionInstance> instances) {
             when(executionRepository.findCompletedByUserIdAndCompletedAtBetween(
-                eq(testUserId), any(LocalDateTime.class), any(LocalDateTime.class)))
-                .thenReturn(executions);
+                            eq(testUserId), any(LocalDateTime.class), any(LocalDateTime.class)))
+                    .thenReturn(executions);
             when(dailyMissionInstanceRepository.findCompletedByUserIdAndCompletedAtBetween(
-                eq(testUserId), any(LocalDateTime.class), any(LocalDateTime.class)))
-                .thenReturn(instances);
+                            eq(testUserId), any(LocalDateTime.class), any(LocalDateTime.class)))
+                    .thenReturn(instances);
         }
 
         @Test
         @DisplayName("본인 조회 시 비공개 미션도 모두 노출된다")
         void getWeeklyCalendarData_owner() {
             LocalDate date = LocalDate.of(2026, 8, 5); // 수요일
-            mockRepositories(List.of(
-                createExecutionWithVisibility(1L, date, MissionVisibility.PRIVATE)), List.of());
+            mockRepositories(
+                    List.of(createExecutionWithVisibility(1L, date, MissionVisibility.PRIVATE)),
+                    List.of());
 
-            var response = executionService.getWeeklyCalendarData(
-                testUserId, testUserId, date, "Asia/Seoul");
+            var response =
+                    executionService.getWeeklyCalendarData(
+                            testUserId, testUserId, date, "Asia/Seoul");
 
             assertThat(response.getStartDate()).isEqualTo("2026-08-03"); // 월요일
             assertThat(response.getEndDate()).isEqualTo("2026-08-09"); // 일요일
@@ -613,23 +683,27 @@ class MissionExecutionQueryServiceTest {
         @DisplayName("비로그인 조회 시 PUBLIC 만 노출되고 나머지는 마스킹된다")
         void getWeeklyCalendarData_anonymous() {
             LocalDate date = LocalDate.of(2026, 8, 5);
-            mockRepositories(List.of(
-                createExecutionWithVisibility(1L, date, MissionVisibility.PUBLIC),
-                createExecutionWithVisibility(2L, date, MissionVisibility.FRIENDS_ONLY),
-                createExecutionWithVisibility(3L, date, MissionVisibility.PRIVATE)), List.of());
+            mockRepositories(
+                    List.of(
+                            createExecutionWithVisibility(1L, date, MissionVisibility.PUBLIC),
+                            createExecutionWithVisibility(2L, date, MissionVisibility.FRIENDS_ONLY),
+                            createExecutionWithVisibility(3L, date, MissionVisibility.PRIVATE)),
+                    List.of());
 
-            var response = executionService.getWeeklyCalendarData(
-                testUserId, null, date, "Asia/Seoul");
+            var response =
+                    executionService.getWeeklyCalendarData(testUserId, null, date, "Asia/Seoul");
 
             var missions = response.getDailyMissions().get("2026-08-05");
             assertThat(missions).hasSize(3);
-            var visible = missions.stream().filter(m -> Boolean.TRUE.equals(m.getIsVisible())).toList();
+            var visible =
+                    missions.stream().filter(m -> Boolean.TRUE.equals(m.getIsVisible())).toList();
             assertThat(visible).hasSize(1);
             assertThat(visible.get(0).getMissionTitle()).isEqualTo("미션-PUBLIC");
             // LUT-434: 노출 미션은 미션 유형 포함
             assertThat(visible.get(0).getMissionType()).isEqualTo("PERSONAL");
 
-            var masked = missions.stream().filter(m -> Boolean.FALSE.equals(m.getIsVisible())).toList();
+            var masked =
+                    missions.stream().filter(m -> Boolean.FALSE.equals(m.getIsVisible())).toList();
             assertThat(masked).hasSize(2);
             for (var m : masked) {
                 assertThat(m.getMissionTitle()).isNull();
@@ -650,60 +724,81 @@ class MissionExecutionQueryServiceTest {
         @DisplayName("친구 조회 시 FRIENDS_ONLY·FRIENDS_AND_GUILD 는 노출되고 GUILD_ONLY 는 마스킹된다")
         void getWeeklyCalendarData_friend() {
             LocalDate date = LocalDate.of(2026, 8, 5);
-            mockRepositories(List.of(
-                createExecutionWithVisibility(1L, date, MissionVisibility.FRIENDS_ONLY),
-                createExecutionWithVisibility(2L, date, MissionVisibility.FRIENDS_AND_GUILD),
-                createExecutionWithVisibility(3L, date, MissionVisibility.GUILD_ONLY)), List.of());
+            mockRepositories(
+                    List.of(
+                            createExecutionWithVisibility(1L, date, MissionVisibility.FRIENDS_ONLY),
+                            createExecutionWithVisibility(
+                                    2L, date, MissionVisibility.FRIENDS_AND_GUILD),
+                            createExecutionWithVisibility(3L, date, MissionVisibility.GUILD_ONLY)),
+                    List.of());
 
             when(userQueryFacade.areFriends(VIEWER_ID, testUserId)).thenReturn(true);
             when(guildQueryFacade.getUserGuildMemberships(any())).thenReturn(List.of());
 
-            var response = executionService.getWeeklyCalendarData(
-                testUserId, VIEWER_ID, date, "Asia/Seoul");
+            var response =
+                    executionService.getWeeklyCalendarData(
+                            testUserId, VIEWER_ID, date, "Asia/Seoul");
 
             var missions = response.getDailyMissions().get("2026-08-05");
-            assertThat(missions.stream()
-                .filter(m -> "FRIENDS_ONLY".equals(m.getVisibility()))
-                .allMatch(m -> m.getIsVisible())).isTrue();
-            assertThat(missions.stream()
-                .filter(m -> "FRIENDS_AND_GUILD".equals(m.getVisibility()))
-                .allMatch(m -> m.getIsVisible())).isTrue();
-            assertThat(missions.stream()
-                .filter(m -> "GUILD_ONLY".equals(m.getVisibility()))
-                .noneMatch(m -> m.getIsVisible())).isTrue();
+            assertThat(
+                            missions.stream()
+                                    .filter(m -> "FRIENDS_ONLY".equals(m.getVisibility()))
+                                    .allMatch(m -> m.getIsVisible()))
+                    .isTrue();
+            assertThat(
+                            missions.stream()
+                                    .filter(m -> "FRIENDS_AND_GUILD".equals(m.getVisibility()))
+                                    .allMatch(m -> m.getIsVisible()))
+                    .isTrue();
+            assertThat(
+                            missions.stream()
+                                    .filter(m -> "GUILD_ONLY".equals(m.getVisibility()))
+                                    .noneMatch(m -> m.getIsVisible()))
+                    .isTrue();
         }
 
         @Test
         @DisplayName("같은 길드원 조회 시 GUILD_ONLY·FRIENDS_AND_GUILD 는 노출되고 FRIENDS_ONLY 는 마스킹된다")
         void getWeeklyCalendarData_guildMate() {
             LocalDate date = LocalDate.of(2026, 8, 5);
-            mockRepositories(List.of(
-                createExecutionWithVisibility(1L, date, MissionVisibility.GUILD_ONLY),
-                createExecutionWithVisibility(2L, date, MissionVisibility.FRIENDS_AND_GUILD),
-                createExecutionWithVisibility(3L, date, MissionVisibility.FRIENDS_ONLY)), List.of());
+            mockRepositories(
+                    List.of(
+                            createExecutionWithVisibility(1L, date, MissionVisibility.GUILD_ONLY),
+                            createExecutionWithVisibility(
+                                    2L, date, MissionVisibility.FRIENDS_AND_GUILD),
+                            createExecutionWithVisibility(
+                                    3L, date, MissionVisibility.FRIENDS_ONLY)),
+                    List.of());
 
             when(userQueryFacade.areFriends(VIEWER_ID, testUserId)).thenReturn(false);
             io.pinkspider.global.facade.dto.GuildMembershipInfo sharedGuild =
-                new io.pinkspider.global.facade.dto.GuildMembershipInfo(
-                    10L, "같은길드", null, 1, false, false);
+                    new io.pinkspider.global.facade.dto.GuildMembershipInfo(
+                            10L, "같은길드", null, 1, false, false);
             when(guildQueryFacade.getUserGuildMemberships(testUserId))
-                .thenReturn(List.of(sharedGuild));
+                    .thenReturn(List.of(sharedGuild));
             when(guildQueryFacade.getUserGuildMemberships(VIEWER_ID))
-                .thenReturn(List.of(sharedGuild));
+                    .thenReturn(List.of(sharedGuild));
 
-            var response = executionService.getWeeklyCalendarData(
-                testUserId, VIEWER_ID, date, "Asia/Seoul");
+            var response =
+                    executionService.getWeeklyCalendarData(
+                            testUserId, VIEWER_ID, date, "Asia/Seoul");
 
             var missions = response.getDailyMissions().get("2026-08-05");
-            assertThat(missions.stream()
-                .filter(m -> "GUILD_ONLY".equals(m.getVisibility()))
-                .allMatch(m -> m.getIsVisible())).isTrue();
-            assertThat(missions.stream()
-                .filter(m -> "FRIENDS_AND_GUILD".equals(m.getVisibility()))
-                .allMatch(m -> m.getIsVisible())).isTrue();
-            assertThat(missions.stream()
-                .filter(m -> "FRIENDS_ONLY".equals(m.getVisibility()))
-                .noneMatch(m -> m.getIsVisible())).isTrue();
+            assertThat(
+                            missions.stream()
+                                    .filter(m -> "GUILD_ONLY".equals(m.getVisibility()))
+                                    .allMatch(m -> m.getIsVisible()))
+                    .isTrue();
+            assertThat(
+                            missions.stream()
+                                    .filter(m -> "FRIENDS_AND_GUILD".equals(m.getVisibility()))
+                                    .allMatch(m -> m.getIsVisible()))
+                    .isTrue();
+            assertThat(
+                            missions.stream()
+                                    .filter(m -> "FRIENDS_ONLY".equals(m.getVisibility()))
+                                    .noneMatch(m -> m.getIsVisible()))
+                    .isTrue();
         }
 
         @Test
@@ -711,29 +806,32 @@ class MissionExecutionQueryServiceTest {
         void getWeeklyCalendarData_includesPinnedInstances() {
             LocalDate date = LocalDate.of(2026, 8, 4);
 
-            Mission privateMission = Mission.builder()
-                .title("고정 비공개 미션")
-                .status(MissionStatus.IN_PROGRESS)
-                .visibility(MissionVisibility.PRIVATE)
-                .type(MissionType.PERSONAL)
-                .creatorId(testUserId)
-                .missionInterval(MissionInterval.DAILY)
-                .expPerCompletion(30)
-                .build();
+            Mission privateMission =
+                    Mission.builder()
+                            .title("고정 비공개 미션")
+                            .status(MissionStatus.IN_PROGRESS)
+                            .visibility(MissionVisibility.PRIVATE)
+                            .type(MissionType.PERSONAL)
+                            .creatorId(testUserId)
+                            .missionInterval(MissionInterval.DAILY)
+                            .expPerCompletion(30)
+                            .build();
             setId(privateMission, 200L);
-            MissionParticipant participant = MissionParticipant.builder()
-                .mission(privateMission)
-                .userId(testUserId)
-                .status(ParticipantStatus.IN_PROGRESS)
-                .build();
+            MissionParticipant participant =
+                    MissionParticipant.builder()
+                            .mission(privateMission)
+                            .userId(testUserId)
+                            .status(ParticipantStatus.IN_PROGRESS)
+                            .build();
             setId(participant, 200L);
 
-            DailyMissionInstance instance = DailyMissionInstance.builder()
-                .participant(participant)
-                .instanceDate(date)
-                .missionTitle("고정 비공개 미션")
-                .categoryName("업무")
-                .build();
+            DailyMissionInstance instance =
+                    DailyMissionInstance.builder()
+                            .participant(participant)
+                            .instanceDate(date)
+                            .missionTitle("고정 비공개 미션")
+                            .categoryName("업무")
+                            .build();
             setId(instance, 1L);
             TestReflectionUtils.setField(instance, "expEarned", 30);
             TestReflectionUtils.setField(instance, "startedAt", date.atTime(13, 0));
@@ -741,8 +839,8 @@ class MissionExecutionQueryServiceTest {
 
             mockRepositories(List.of(), List.of(instance));
 
-            var response = executionService.getWeeklyCalendarData(
-                testUserId, null, date, "Asia/Seoul");
+            var response =
+                    executionService.getWeeklyCalendarData(testUserId, null, date, "Asia/Seoul");
 
             var missions = response.getDailyMissions().get("2026-08-04");
             assertThat(missions).hasSize(1);
@@ -756,14 +854,18 @@ class MissionExecutionQueryServiceTest {
         @DisplayName("관계 판정 실패 시 비노출로 폴백한다")
         void getWeeklyCalendarData_failClosed() {
             LocalDate date = LocalDate.of(2026, 8, 5);
-            mockRepositories(List.of(
-                createExecutionWithVisibility(1L, date, MissionVisibility.FRIENDS_ONLY)), List.of());
+            mockRepositories(
+                    List.of(
+                            createExecutionWithVisibility(
+                                    1L, date, MissionVisibility.FRIENDS_ONLY)),
+                    List.of());
 
             when(userQueryFacade.areFriends(VIEWER_ID, testUserId))
-                .thenThrow(new RuntimeException("user-service 조회 실패"));
+                    .thenThrow(new RuntimeException("user-service 조회 실패"));
 
-            var response = executionService.getWeeklyCalendarData(
-                testUserId, VIEWER_ID, date, "Asia/Seoul");
+            var response =
+                    executionService.getWeeklyCalendarData(
+                            testUserId, VIEWER_ID, date, "Asia/Seoul");
 
             var missions = response.getDailyMissions().get("2026-08-05");
             assertThat(missions.get(0).getIsVisible()).isFalse();
@@ -776,8 +878,8 @@ class MissionExecutionQueryServiceTest {
             LocalDate date = LocalDate.of(2026, 8, 5);
             mockRepositories(List.of(), List.of());
 
-            var response = executionService.getWeeklyCalendarData(
-                testUserId, null, date, "Asia/Seoul");
+            var response =
+                    executionService.getWeeklyCalendarData(testUserId, null, date, "Asia/Seoul");
 
             assertThat(response.getDailyMissions()).isEmpty();
             assertThat(response.getCompletedDates()).isEmpty();
@@ -793,15 +895,16 @@ class MissionExecutionQueryServiceTest {
         @DisplayName("진행 중인 미션이 있으면 반환한다")
         void getInProgressExecution_found() {
             // given
-            MissionExecution execution = MissionExecution.builder()
-                .participant(testParticipant)
-                .executionDate(today())
-                .status(ExecutionStatus.IN_PROGRESS)
-                .build();
+            MissionExecution execution =
+                    MissionExecution.builder()
+                            .participant(testParticipant)
+                            .executionDate(today())
+                            .status(ExecutionStatus.IN_PROGRESS)
+                            .build();
             setId(execution, 1L);
 
             when(executionRepository.findInProgressByUserId(testUserId))
-                .thenReturn(Optional.of(execution));
+                    .thenReturn(Optional.of(execution));
 
             // when
             MissionExecutionResponse response = executionService.getInProgressExecution(testUserId);
@@ -815,7 +918,7 @@ class MissionExecutionQueryServiceTest {
         void getInProgressExecution_notFound() {
             // given
             when(executionRepository.findInProgressByUserId(testUserId))
-                .thenReturn(Optional.empty());
+                    .thenReturn(Optional.empty());
 
             // when
             MissionExecutionResponse response = executionService.getInProgressExecution(testUserId);
@@ -834,26 +937,38 @@ class MissionExecutionQueryServiceTest {
         void getTodayExecutions_success() {
             // given
             MissionExecution execution1 = createCompletedExecution(1L, today(), 50, 30);
-            MissionExecution execution2 = MissionExecution.builder()
-                .participant(testParticipant)
-                .executionDate(today())
-                .status(ExecutionStatus.PENDING)
-                .build();
+            MissionExecution execution2 =
+                    MissionExecution.builder()
+                            .participant(testParticipant)
+                            .executionDate(today())
+                            .status(ExecutionStatus.PENDING)
+                            .build();
             setId(execution2, 2L);
 
             // 고정 미션 조회 mock (없음)
             when(participantRepository.findPinnedMissionParticipants(testUserId))
-                .thenReturn(List.of());
+                    .thenReturn(List.of());
 
-            when(executionRepository.findByUserIdAndTodayOrYesterdayInProgress(eq(testUserId), any(LocalDate.class), any(LocalDate.class), any(LocalDateTime.class), any(LocalDateTime.class)))
-                .thenReturn(List.of(execution1, execution2));
+            when(executionRepository.findByUserIdAndTodayOrYesterdayInProgress(
+                            eq(testUserId),
+                            any(LocalDate.class),
+                            any(LocalDate.class),
+                            any(LocalDateTime.class),
+                            any(LocalDateTime.class)))
+                    .thenReturn(List.of(execution1, execution2));
 
             // DailyMissionInstance 조회 mock (없음)
-            when(dailyMissionInstanceRepository.findByUserIdAndTodayOrYesterdayInProgress(eq(testUserId), any(LocalDate.class), any(LocalDate.class), any(LocalDateTime.class), any(LocalDateTime.class)))
-                .thenReturn(List.of());
+            when(dailyMissionInstanceRepository.findByUserIdAndTodayOrYesterdayInProgress(
+                            eq(testUserId),
+                            any(LocalDate.class),
+                            any(LocalDate.class),
+                            any(LocalDateTime.class),
+                            any(LocalDateTime.class)))
+                    .thenReturn(List.of());
 
             // when
-            List<MissionExecutionResponse> responses = executionService.getTodayExecutions(testUserId);
+            List<MissionExecutionResponse> responses =
+                    executionService.getTodayExecutions(testUserId);
 
             // then
             assertThat(responses).hasSize(2);
@@ -869,27 +984,36 @@ class MissionExecutionQueryServiceTest {
             TestReflectionUtils.setField(execution2, "isSharedToFeed", true);
 
             when(participantRepository.findPinnedMissionParticipants(testUserId))
-                .thenReturn(java.util.List.of());
+                    .thenReturn(java.util.List.of());
             when(executionRepository.findByUserIdAndTodayOrYesterdayInProgress(
-                    eq(testUserId), any(LocalDate.class), any(LocalDate.class),
-                    any(LocalDateTime.class), any(LocalDateTime.class)))
-                .thenReturn(java.util.List.of(execution1, execution2));
+                            eq(testUserId),
+                            any(LocalDate.class),
+                            any(LocalDate.class),
+                            any(LocalDateTime.class),
+                            any(LocalDateTime.class)))
+                    .thenReturn(java.util.List.of(execution1, execution2));
             when(dailyMissionInstanceRepository.findByUserIdAndTodayOrYesterdayInProgress(
-                    eq(testUserId), any(LocalDate.class), any(LocalDate.class),
-                    any(LocalDateTime.class), any(LocalDateTime.class)))
-                .thenReturn(java.util.List.of());
+                            eq(testUserId),
+                            any(LocalDate.class),
+                            any(LocalDate.class),
+                            any(LocalDateTime.class),
+                            any(LocalDateTime.class)))
+                    .thenReturn(java.util.List.of());
             // 피드는 execution 1 만 존재 (LUT-381: 본인 userId 스코프로 조회되는지 함께 검증)
             when(feedQueryService.findExecutionIdsWithFeed(
-                    org.mockito.ArgumentMatchers.anyCollection(), eq(testUserId)))
-                .thenReturn(java.util.Set.of(1L));
+                            org.mockito.ArgumentMatchers.anyCollection(), eq(testUserId)))
+                    .thenReturn(java.util.Set.of(1L));
 
             // when
-            List<MissionExecutionResponse> responses = executionService.getTodayExecutions(testUserId);
+            List<MissionExecutionResponse> responses =
+                    executionService.getTodayExecutions(testUserId);
 
             // then
             assertThat(responses).hasSize(2);
-            MissionExecutionResponse r1 = responses.stream().filter(r -> r.getId() == 1L).findFirst().orElseThrow();
-            MissionExecutionResponse r2 = responses.stream().filter(r -> r.getId() == 2L).findFirst().orElseThrow();
+            MissionExecutionResponse r1 =
+                    responses.stream().filter(r -> r.getId() == 1L).findFirst().orElseThrow();
+            MissionExecutionResponse r2 =
+                    responses.stream().filter(r -> r.getId() == 2L).findFirst().orElseThrow();
             assertThat(r1.getIsSharedToFeed()).isTrue();
             assertThat(r2.getIsSharedToFeed()).isFalse();
         }
@@ -901,29 +1025,41 @@ class MissionExecutionQueryServiceTest {
             //         라는 시나리오를 repository mock 으로 흉내낸다. service 가 LocalDateTime 두 개를
             //         정확히 KST 자정 범위로 전달하는지가 핵심. 여기서는 mock 매처가 LocalDateTime 을
             //         받기만 하면 통과한다.
-            MissionExecution yesterdayCompletedExecution = createCompletedExecution(99L, today().minusDays(1), 30, 30);
+            MissionExecution yesterdayCompletedExecution =
+                    createCompletedExecution(99L, today().minusDays(1), 30, 30);
 
             when(participantRepository.findPinnedMissionParticipants(testUserId))
-                .thenReturn(List.of());
+                    .thenReturn(List.of());
             when(executionRepository.findByUserIdAndTodayOrYesterdayInProgress(
-                    eq(testUserId), any(LocalDate.class), any(LocalDate.class),
-                    any(LocalDateTime.class), any(LocalDateTime.class)))
-                .thenReturn(List.of(yesterdayCompletedExecution));
+                            eq(testUserId),
+                            any(LocalDate.class),
+                            any(LocalDate.class),
+                            any(LocalDateTime.class),
+                            any(LocalDateTime.class)))
+                    .thenReturn(List.of(yesterdayCompletedExecution));
             when(dailyMissionInstanceRepository.findByUserIdAndTodayOrYesterdayInProgress(
-                    eq(testUserId), any(LocalDate.class), any(LocalDate.class),
-                    any(LocalDateTime.class), any(LocalDateTime.class)))
-                .thenReturn(List.of());
+                            eq(testUserId),
+                            any(LocalDate.class),
+                            any(LocalDate.class),
+                            any(LocalDateTime.class),
+                            any(LocalDateTime.class)))
+                    .thenReturn(List.of());
 
             // when
-            List<MissionExecutionResponse> responses = executionService.getTodayExecutions(testUserId);
+            List<MissionExecutionResponse> responses =
+                    executionService.getTodayExecutions(testUserId);
 
             // then: 어제 executionDate 라도 응답에 포함된다 (repository 쿼리가 그 조건을 충족시켰음을 시뮬레이션)
             assertThat(responses).hasSize(1);
             assertThat(responses.get(0).getId()).isEqualTo(99L);
             // service 가 LocalDateTime 파라미터 두 개를 전달하는지 검증
-            verify(executionRepository).findByUserIdAndTodayOrYesterdayInProgress(
-                eq(testUserId), any(LocalDate.class), any(LocalDate.class),
-                any(LocalDateTime.class), any(LocalDateTime.class));
+            verify(executionRepository)
+                    .findByUserIdAndTodayOrYesterdayInProgress(
+                            eq(testUserId),
+                            any(LocalDate.class),
+                            any(LocalDate.class),
+                            any(LocalDateTime.class),
+                            any(LocalDateTime.class));
         }
 
         @Test
@@ -932,17 +1068,28 @@ class MissionExecutionQueryServiceTest {
             // given
             // 고정 미션 조회 mock (없음)
             when(participantRepository.findPinnedMissionParticipants(testUserId))
-                .thenReturn(List.of());
+                    .thenReturn(List.of());
 
-            when(executionRepository.findByUserIdAndTodayOrYesterdayInProgress(eq(testUserId), any(LocalDate.class), any(LocalDate.class), any(LocalDateTime.class), any(LocalDateTime.class)))
-                .thenReturn(List.of());
+            when(executionRepository.findByUserIdAndTodayOrYesterdayInProgress(
+                            eq(testUserId),
+                            any(LocalDate.class),
+                            any(LocalDate.class),
+                            any(LocalDateTime.class),
+                            any(LocalDateTime.class)))
+                    .thenReturn(List.of());
 
             // DailyMissionInstance 조회 mock (없음)
-            when(dailyMissionInstanceRepository.findByUserIdAndTodayOrYesterdayInProgress(eq(testUserId), any(LocalDate.class), any(LocalDate.class), any(LocalDateTime.class), any(LocalDateTime.class)))
-                .thenReturn(List.of());
+            when(dailyMissionInstanceRepository.findByUserIdAndTodayOrYesterdayInProgress(
+                            eq(testUserId),
+                            any(LocalDate.class),
+                            any(LocalDate.class),
+                            any(LocalDateTime.class),
+                            any(LocalDateTime.class)))
+                    .thenReturn(List.of());
 
             // when
-            List<MissionExecutionResponse> responses = executionService.getTodayExecutions(testUserId);
+            List<MissionExecutionResponse> responses =
+                    executionService.getTodayExecutions(testUserId);
 
             // then
             assertThat(responses).isEmpty();
@@ -955,55 +1102,71 @@ class MissionExecutionQueryServiceTest {
             LocalDate today = today();
 
             // 고정 미션 설정
-            Mission pinnedMission = Mission.builder()
-                .title("고정 미션")
-                .description("매일 반복")
-                .status(MissionStatus.IN_PROGRESS)
-                .visibility(MissionVisibility.PRIVATE)
-                .type(MissionType.PERSONAL)
-                .creatorId(testUserId)
-                .missionInterval(MissionInterval.DAILY)
-                .isPinned(true)
-                .expPerCompletion(10)
-                .build();
+            Mission pinnedMission =
+                    Mission.builder()
+                            .title("고정 미션")
+                            .description("매일 반복")
+                            .status(MissionStatus.IN_PROGRESS)
+                            .visibility(MissionVisibility.PRIVATE)
+                            .type(MissionType.PERSONAL)
+                            .creatorId(testUserId)
+                            .missionInterval(MissionInterval.DAILY)
+                            .isPinned(true)
+                            .expPerCompletion(10)
+                            .build();
             setId(pinnedMission, 100L);
 
-            MissionParticipant pinnedParticipant = MissionParticipant.builder()
-                .mission(pinnedMission)
-                .userId(testUserId)
-                .status(ParticipantStatus.ACCEPTED)
-                .build();
+            MissionParticipant pinnedParticipant =
+                    MissionParticipant.builder()
+                            .mission(pinnedMission)
+                            .userId(testUserId)
+                            .status(ParticipantStatus.ACCEPTED)
+                            .build();
             setId(pinnedParticipant, 100L);
 
             // 고정 미션 참여자 반환
             when(participantRepository.findPinnedMissionParticipants(testUserId))
-                .thenReturn(List.of(pinnedParticipant));
+                    .thenReturn(List.of(pinnedParticipant));
 
             // 오늘 날짜의 DailyMissionInstance가 없음
-            when(dailyMissionInstanceRepository.existsByParticipantIdAndInstanceDate(eq(100L), eq(today)))
-                .thenReturn(false);
+            when(dailyMissionInstanceRepository.existsByParticipantIdAndInstanceDate(
+                            eq(100L), eq(today)))
+                    .thenReturn(false);
 
             // DailyMissionInstance 저장 mock (saveAndFlush 사용)
             when(dailyMissionInstanceRepository.saveAndFlush(any(DailyMissionInstance.class)))
-                .thenAnswer(invocation -> {
-                    DailyMissionInstance instance = invocation.getArgument(0);
-                    setId(instance, 200L);
-                    return instance;
-                });
+                    .thenAnswer(
+                            invocation -> {
+                                DailyMissionInstance instance = invocation.getArgument(0);
+                                setId(instance, 200L);
+                                return instance;
+                            });
 
             // 일반 미션 조회 (없음)
-            when(executionRepository.findByUserIdAndTodayOrYesterdayInProgress(eq(testUserId), any(LocalDate.class), any(LocalDate.class), any(LocalDateTime.class), any(LocalDateTime.class)))
-                .thenReturn(List.of());
+            when(executionRepository.findByUserIdAndTodayOrYesterdayInProgress(
+                            eq(testUserId),
+                            any(LocalDate.class),
+                            any(LocalDate.class),
+                            any(LocalDateTime.class),
+                            any(LocalDateTime.class)))
+                    .thenReturn(List.of());
 
             // 저장 후 DailyMissionInstance 조회 시 새로 생성된 것 반환
-            DailyMissionInstance newInstance = DailyMissionInstance.createFrom(pinnedParticipant, today);
+            DailyMissionInstance newInstance =
+                    DailyMissionInstance.createFrom(pinnedParticipant, today);
             setId(newInstance, 200L);
 
-            when(dailyMissionInstanceRepository.findByUserIdAndTodayOrYesterdayInProgress(eq(testUserId), any(LocalDate.class), any(LocalDate.class), any(LocalDateTime.class), any(LocalDateTime.class)))
-                .thenReturn(List.of(newInstance));
+            when(dailyMissionInstanceRepository.findByUserIdAndTodayOrYesterdayInProgress(
+                            eq(testUserId),
+                            any(LocalDate.class),
+                            any(LocalDate.class),
+                            any(LocalDateTime.class),
+                            any(LocalDateTime.class)))
+                    .thenReturn(List.of(newInstance));
 
             // when
-            List<MissionExecutionResponse> responses = executionService.getTodayExecutions(testUserId);
+            List<MissionExecutionResponse> responses =
+                    executionService.getTodayExecutions(testUserId);
 
             // then
             assertThat(responses).hasSize(1);
@@ -1017,52 +1180,68 @@ class MissionExecutionQueryServiceTest {
             LocalDate today = today();
 
             // 고정 미션 설정
-            Mission pinnedMission = Mission.builder()
-                .title("고정 미션")
-                .description("매일 반복")
-                .status(MissionStatus.IN_PROGRESS)
-                .visibility(MissionVisibility.PRIVATE)
-                .type(MissionType.PERSONAL)
-                .creatorId(testUserId)
-                .missionInterval(MissionInterval.DAILY)
-                .isPinned(true)
-                .expPerCompletion(10)
-                .build();
+            Mission pinnedMission =
+                    Mission.builder()
+                            .title("고정 미션")
+                            .description("매일 반복")
+                            .status(MissionStatus.IN_PROGRESS)
+                            .visibility(MissionVisibility.PRIVATE)
+                            .type(MissionType.PERSONAL)
+                            .creatorId(testUserId)
+                            .missionInterval(MissionInterval.DAILY)
+                            .isPinned(true)
+                            .expPerCompletion(10)
+                            .build();
             setId(pinnedMission, 100L);
 
-            MissionParticipant pinnedParticipant = MissionParticipant.builder()
-                .mission(pinnedMission)
-                .userId(testUserId)
-                .status(ParticipantStatus.ACCEPTED)
-                .build();
+            MissionParticipant pinnedParticipant =
+                    MissionParticipant.builder()
+                            .mission(pinnedMission)
+                            .userId(testUserId)
+                            .status(ParticipantStatus.ACCEPTED)
+                            .build();
             setId(pinnedParticipant, 100L);
 
-            DailyMissionInstance existingInstance = DailyMissionInstance.createFrom(pinnedParticipant, today);
+            DailyMissionInstance existingInstance =
+                    DailyMissionInstance.createFrom(pinnedParticipant, today);
             setId(existingInstance, 200L);
 
             // 고정 미션 참여자 반환
             when(participantRepository.findPinnedMissionParticipants(testUserId))
-                .thenReturn(List.of(pinnedParticipant));
+                    .thenReturn(List.of(pinnedParticipant));
 
             // 오늘 날짜의 DailyMissionInstance가 이미 있음
-            when(dailyMissionInstanceRepository.existsByParticipantIdAndInstanceDate(eq(100L), eq(today)))
-                .thenReturn(true);
+            when(dailyMissionInstanceRepository.existsByParticipantIdAndInstanceDate(
+                            eq(100L), eq(today)))
+                    .thenReturn(true);
 
             // 일반 미션 조회 (없음)
-            when(executionRepository.findByUserIdAndTodayOrYesterdayInProgress(eq(testUserId), any(LocalDate.class), any(LocalDate.class), any(LocalDateTime.class), any(LocalDateTime.class)))
-                .thenReturn(List.of());
+            when(executionRepository.findByUserIdAndTodayOrYesterdayInProgress(
+                            eq(testUserId),
+                            any(LocalDate.class),
+                            any(LocalDate.class),
+                            any(LocalDateTime.class),
+                            any(LocalDateTime.class)))
+                    .thenReturn(List.of());
 
             // DailyMissionInstance 조회 (기존 것 반환)
-            when(dailyMissionInstanceRepository.findByUserIdAndTodayOrYesterdayInProgress(eq(testUserId), any(LocalDate.class), any(LocalDate.class), any(LocalDateTime.class), any(LocalDateTime.class)))
-                .thenReturn(List.of(existingInstance));
+            when(dailyMissionInstanceRepository.findByUserIdAndTodayOrYesterdayInProgress(
+                            eq(testUserId),
+                            any(LocalDate.class),
+                            any(LocalDate.class),
+                            any(LocalDateTime.class),
+                            any(LocalDateTime.class)))
+                    .thenReturn(List.of(existingInstance));
 
             // when
-            List<MissionExecutionResponse> responses = executionService.getTodayExecutions(testUserId);
+            List<MissionExecutionResponse> responses =
+                    executionService.getTodayExecutions(testUserId);
 
             // then
             assertThat(responses).hasSize(1);
             // save가 호출되지 않음
-            verify(dailyMissionInstanceRepository, org.mockito.Mockito.never()).save(any(DailyMissionInstance.class));
+            verify(dailyMissionInstanceRepository, org.mockito.Mockito.never())
+                    .save(any(DailyMissionInstance.class));
         }
     }
 
@@ -1074,14 +1253,16 @@ class MissionExecutionQueryServiceTest {
         @DisplayName("참여자의 수행 목록을 정상적으로 조회한다")
         void getExecutionsByParticipant_success() {
             // given
-            MissionExecution execution1 = createCompletedExecution(1L, today().minusDays(1), 50, 30);
+            MissionExecution execution1 =
+                    createCompletedExecution(1L, today().minusDays(1), 50, 30);
             MissionExecution execution2 = createCompletedExecution(2L, today(), 50, 30);
 
             when(executionRepository.findByParticipantId(testParticipant.getId()))
-                .thenReturn(List.of(execution1, execution2));
+                    .thenReturn(List.of(execution1, execution2));
 
             // when
-            List<MissionExecutionResponse> responses = executionService.getExecutionsByParticipant(testParticipant.getId());
+            List<MissionExecutionResponse> responses =
+                    executionService.getExecutionsByParticipant(testParticipant.getId());
 
             // then
             assertThat(responses).hasSize(2);
@@ -1092,10 +1273,11 @@ class MissionExecutionQueryServiceTest {
         void getExecutionsByParticipant_empty() {
             // given
             when(executionRepository.findByParticipantId(testParticipant.getId()))
-                .thenReturn(List.of());
+                    .thenReturn(List.of());
 
             // when
-            List<MissionExecutionResponse> responses = executionService.getExecutionsByParticipant(testParticipant.getId());
+            List<MissionExecutionResponse> responses =
+                    executionService.getExecutionsByParticipant(testParticipant.getId());
 
             // then
             assertThat(responses).isEmpty();
@@ -1111,14 +1293,15 @@ class MissionExecutionQueryServiceTest {
         void getCompletionRate_success() {
             // given
             when(participantRepository.findByMissionIdAndUserId(testMission.getId(), testUserId))
-                .thenReturn(Optional.of(testParticipant));
+                    .thenReturn(Optional.of(testParticipant));
             when(executionRepository.findByParticipantId(testParticipant.getId()))
-                .thenReturn(List.of(
-                    createCompletedExecution(1L, today().minusDays(1), 50, 30),
-                    createCompletedExecution(2L, today(), 50, 30)
-                ));
-            when(executionRepository.countByParticipantIdAndStatus(testParticipant.getId(), ExecutionStatus.COMPLETED))
-                .thenReturn(1L);
+                    .thenReturn(
+                            List.of(
+                                    createCompletedExecution(1L, today().minusDays(1), 50, 30),
+                                    createCompletedExecution(2L, today(), 50, 30)));
+            when(executionRepository.countByParticipantIdAndStatus(
+                            testParticipant.getId(), ExecutionStatus.COMPLETED))
+                    .thenReturn(1L);
 
             // when
             double rate = executionService.getCompletionRate(testMission.getId(), testUserId);
@@ -1132,9 +1315,9 @@ class MissionExecutionQueryServiceTest {
         void getCompletionRate_noExecutions() {
             // given
             when(participantRepository.findByMissionIdAndUserId(testMission.getId(), testUserId))
-                .thenReturn(Optional.of(testParticipant));
+                    .thenReturn(Optional.of(testParticipant));
             when(executionRepository.findByParticipantId(testParticipant.getId()))
-                .thenReturn(List.of());
+                    .thenReturn(List.of());
 
             // when
             double rate = executionService.getCompletionRate(testMission.getId(), testUserId);
@@ -1148,12 +1331,14 @@ class MissionExecutionQueryServiceTest {
         void getCompletionRate_noParticipant_throwsException() {
             // given
             when(participantRepository.findByMissionIdAndUserId(testMission.getId(), testUserId))
-                .thenReturn(Optional.empty());
+                    .thenReturn(Optional.empty());
 
             // when & then
-            org.junit.jupiter.api.Assertions.assertThrows(IllegalArgumentException.class, () -> {
-                executionService.getCompletionRate(testMission.getId(), testUserId);
-            });
+            org.junit.jupiter.api.Assertions.assertThrows(
+                    IllegalArgumentException.class,
+                    () -> {
+                        executionService.getCompletionRate(testMission.getId(), testUserId);
+                    });
         }
     }
 
@@ -1169,16 +1354,22 @@ class MissionExecutionQueryServiceTest {
             MissionExecution execution = createCompletedExecution(1L, executionDate, 50, 30);
             MissionExecutionResponse expectedResponse = MissionExecutionResponse.from(execution);
 
-            io.pinkspider.leveluptogethermvp.missionservice.application.strategy.MissionExecutionStrategy mockStrategy =
-                org.mockito.Mockito.mock(io.pinkspider.leveluptogethermvp.missionservice.application.strategy.MissionExecutionStrategy.class);
+            io.pinkspider.leveluptogethermvp.missionservice.application.strategy
+                            .MissionExecutionStrategy
+                    mockStrategy =
+                            org.mockito.Mockito.mock(
+                                    io.pinkspider.leveluptogethermvp.missionservice.application
+                                            .strategy.MissionExecutionStrategy.class);
 
-            when(strategyResolver.resolve(testMission.getId(), testUserId)).thenReturn(mockStrategy);
+            when(strategyResolver.resolve(testMission.getId(), testUserId))
+                    .thenReturn(mockStrategy);
             when(mockStrategy.getExecutionByDate(testMission.getId(), testUserId, executionDate))
-                .thenReturn(expectedResponse);
+                    .thenReturn(expectedResponse);
 
             // when
-            MissionExecutionResponse response = executionService.getExecutionByDate(
-                testMission.getId(), testUserId, executionDate);
+            MissionExecutionResponse response =
+                    executionService.getExecutionByDate(
+                            testMission.getId(), testUserId, executionDate);
 
             // then
             assertThat(response).isNotNull();
@@ -1197,21 +1388,22 @@ class MissionExecutionQueryServiceTest {
             // given
             LocalDate startDate = today().minusDays(7);
             LocalDate endDate = today();
-            List<MissionExecution> executions = List.of(
-                createCompletedExecution(1L, startDate.plusDays(1), 50, 30),
-                createCompletedExecution(2L, startDate.plusDays(3), 50, 30),
-                createCompletedExecution(3L, endDate, 50, 30)
-            );
+            List<MissionExecution> executions =
+                    List.of(
+                            createCompletedExecution(1L, startDate.plusDays(1), 50, 30),
+                            createCompletedExecution(2L, startDate.plusDays(3), 50, 30),
+                            createCompletedExecution(3L, endDate, 50, 30));
 
             when(participantRepository.findByMissionIdAndUserId(testMission.getId(), testUserId))
-                .thenReturn(Optional.of(testParticipant));
+                    .thenReturn(Optional.of(testParticipant));
             when(executionRepository.findByParticipantIdAndExecutionDateBetween(
-                testParticipant.getId(), startDate, endDate))
-                .thenReturn(executions);
+                            testParticipant.getId(), startDate, endDate))
+                    .thenReturn(executions);
 
             // when
-            List<MissionExecutionResponse> responses = executionService.getExecutionsByDateRange(
-                testMission.getId(), testUserId, startDate, endDate);
+            List<MissionExecutionResponse> responses =
+                    executionService.getExecutionsByDateRange(
+                            testMission.getId(), testUserId, startDate, endDate);
 
             // then
             assertThat(responses).hasSize(3);
@@ -1225,14 +1417,15 @@ class MissionExecutionQueryServiceTest {
             LocalDate endDate = today();
 
             when(participantRepository.findByMissionIdAndUserId(testMission.getId(), testUserId))
-                .thenReturn(Optional.of(testParticipant));
+                    .thenReturn(Optional.of(testParticipant));
             when(executionRepository.findByParticipantIdAndExecutionDateBetween(
-                testParticipant.getId(), startDate, endDate))
-                .thenReturn(List.of());
+                            testParticipant.getId(), startDate, endDate))
+                    .thenReturn(List.of());
 
             // when
-            List<MissionExecutionResponse> responses = executionService.getExecutionsByDateRange(
-                testMission.getId(), testUserId, startDate, endDate);
+            List<MissionExecutionResponse> responses =
+                    executionService.getExecutionsByDateRange(
+                            testMission.getId(), testUserId, startDate, endDate);
 
             // then
             assertThat(responses).isEmpty();
@@ -1247,19 +1440,19 @@ class MissionExecutionQueryServiceTest {
         @DisplayName("미션용 수행 목록을 조회한다")
         void getExecutionsForMission_success() {
             // given
-            List<MissionExecution> executions = List.of(
-                createCompletedExecution(1L, today().minusDays(2), 50, 30),
-                createCompletedExecution(2L, today().minusDays(1), 50, 30)
-            );
+            List<MissionExecution> executions =
+                    List.of(
+                            createCompletedExecution(1L, today().minusDays(2), 50, 30),
+                            createCompletedExecution(2L, today().minusDays(1), 50, 30));
 
             when(participantRepository.findByMissionIdAndUserId(testMission.getId(), testUserId))
-                .thenReturn(Optional.of(testParticipant));
+                    .thenReturn(Optional.of(testParticipant));
             when(executionRepository.findByParticipantId(testParticipant.getId()))
-                .thenReturn(executions);
+                    .thenReturn(executions);
 
             // when
-            List<MissionExecutionResponse> responses = executionService.getExecutionsForMission(
-                testMission.getId(), testUserId);
+            List<MissionExecutionResponse> responses =
+                    executionService.getExecutionsForMission(testMission.getId(), testUserId);
 
             // then
             assertThat(responses).hasSize(2);
@@ -1281,23 +1474,25 @@ class MissionExecutionQueryServiceTest {
             // given
             givenMissionWithCategory();
             when(participantRepository.findByMissionIdAndUserId(testMission.getId(), testUserId))
-                .thenReturn(Optional.of(testParticipant));
+                    .thenReturn(Optional.of(testParticipant));
             when(executionRepository.findByParticipantId(testParticipant.getId()))
-                .thenReturn(List.of(createCompletedExecution(1L, today().minusDays(1), 50, 30)));
+                    .thenReturn(
+                            List.of(createCompletedExecution(1L, today().minusDays(1), 50, 30)));
             when(missionRepository.findAllById(List.of(testMission.getId())))
-                .thenReturn(List.of(testMission));
+                    .thenReturn(List.of(testMission));
             when(missionCategoryService.getCategoriesByIds(List.of(7L)))
-                .thenReturn(List.of(
-                    io.pinkspider.leveluptogethermvp.metaservice.domain.dto.MissionCategoryResponse
-                        .builder()
-                        .id(7L)
-                        .name("기타")
-                        .nameEn("Others")
-                        .build()));
+                    .thenReturn(
+                            List.of(
+                                    io.pinkspider.leveluptogethermvp.metaservice.domain.dto
+                                            .MissionCategoryResponse.builder()
+                                            .id(7L)
+                                            .name("기타")
+                                            .nameEn("Others")
+                                            .build()));
 
             // when
-            List<MissionExecutionResponse> responses = executionService.getExecutionsForMission(
-                testMission.getId(), testUserId, "en");
+            List<MissionExecutionResponse> responses =
+                    executionService.getExecutionsForMission(testMission.getId(), testUserId, "en");
 
             // then
             assertThat(responses).hasSize(1);
@@ -1310,13 +1505,14 @@ class MissionExecutionQueryServiceTest {
             // given
             givenMissionWithCategory();
             when(participantRepository.findByMissionIdAndUserId(testMission.getId(), testUserId))
-                .thenReturn(Optional.of(testParticipant));
+                    .thenReturn(Optional.of(testParticipant));
             when(executionRepository.findByParticipantId(testParticipant.getId()))
-                .thenReturn(List.of(createCompletedExecution(1L, today().minusDays(1), 50, 30)));
+                    .thenReturn(
+                            List.of(createCompletedExecution(1L, today().minusDays(1), 50, 30)));
 
             // when
-            List<MissionExecutionResponse> responses = executionService.getExecutionsForMission(
-                testMission.getId(), testUserId, null);
+            List<MissionExecutionResponse> responses =
+                    executionService.getExecutionsForMission(testMission.getId(), testUserId, null);
 
             // then
             assertThat(responses.get(0).getMissionCategoryName()).isEqualTo("기타");
@@ -1329,15 +1525,16 @@ class MissionExecutionQueryServiceTest {
             // given
             givenMissionWithCategory();
             when(participantRepository.findByMissionIdAndUserId(testMission.getId(), testUserId))
-                .thenReturn(Optional.of(testParticipant));
+                    .thenReturn(Optional.of(testParticipant));
             when(executionRepository.findByParticipantId(testParticipant.getId()))
-                .thenReturn(List.of(createCompletedExecution(1L, today().minusDays(1), 50, 30)));
+                    .thenReturn(
+                            List.of(createCompletedExecution(1L, today().minusDays(1), 50, 30)));
             when(missionRepository.findAllById(List.of(testMission.getId())))
-                .thenThrow(new RuntimeException("meta down"));
+                    .thenThrow(new RuntimeException("meta down"));
 
             // when
-            List<MissionExecutionResponse> responses = executionService.getExecutionsForMission(
-                testMission.getId(), testUserId, "en");
+            List<MissionExecutionResponse> responses =
+                    executionService.getExecutionsForMission(testMission.getId(), testUserId, "en");
 
             // then
             assertThat(responses.get(0).getMissionCategoryName()).isEqualTo("기타");
@@ -1352,19 +1549,19 @@ class MissionExecutionQueryServiceTest {
         @DisplayName("미션과 사용자별 수행 목록을 조회한다")
         void getExecutionsByMissionAndUser_success() {
             // given
-            List<MissionExecution> executions = List.of(
-                createCompletedExecution(1L, today().minusDays(1), 50, 30),
-                createCompletedExecution(2L, today(), 50, 30)
-            );
+            List<MissionExecution> executions =
+                    List.of(
+                            createCompletedExecution(1L, today().minusDays(1), 50, 30),
+                            createCompletedExecution(2L, today(), 50, 30));
 
             when(participantRepository.findByMissionIdAndUserId(testMission.getId(), testUserId))
-                .thenReturn(Optional.of(testParticipant));
+                    .thenReturn(Optional.of(testParticipant));
             when(executionRepository.findByParticipantId(testParticipant.getId()))
-                .thenReturn(executions);
+                    .thenReturn(executions);
 
             // when
-            List<MissionExecutionResponse> responses = executionService.getExecutionsByMissionAndUser(
-                testMission.getId(), testUserId);
+            List<MissionExecutionResponse> responses =
+                    executionService.getExecutionsByMissionAndUser(testMission.getId(), testUserId);
 
             // then
             assertThat(responses).hasSize(2);
@@ -1375,12 +1572,15 @@ class MissionExecutionQueryServiceTest {
         void getExecutionsByMissionAndUser_noParticipant_throwsException() {
             // given
             when(participantRepository.findByMissionIdAndUserId(testMission.getId(), testUserId))
-                .thenReturn(Optional.empty());
+                    .thenReturn(Optional.empty());
 
             // when & then
-            org.junit.jupiter.api.Assertions.assertThrows(IllegalArgumentException.class, () -> {
-                executionService.getExecutionsByMissionAndUser(testMission.getId(), testUserId);
-            });
+            org.junit.jupiter.api.Assertions.assertThrows(
+                    IllegalArgumentException.class,
+                    () -> {
+                        executionService.getExecutionsByMissionAndUser(
+                                testMission.getId(), testUserId);
+                    });
         }
     }
 
@@ -1395,43 +1595,51 @@ class MissionExecutionQueryServiceTest {
             LocalDate today = today();
 
             // 고정 미션 설정
-            Mission pinnedMission = Mission.builder()
-                .title("고정 미션")
-                .description("매일 반복")
-                .status(MissionStatus.IN_PROGRESS)
-                .visibility(MissionVisibility.PRIVATE)
-                .type(MissionType.PERSONAL)
-                .creatorId(testUserId)
-                .missionInterval(MissionInterval.DAILY)
-                .isPinned(true)
-                .expPerCompletion(10)
-                .build();
+            Mission pinnedMission =
+                    Mission.builder()
+                            .title("고정 미션")
+                            .description("매일 반복")
+                            .status(MissionStatus.IN_PROGRESS)
+                            .visibility(MissionVisibility.PRIVATE)
+                            .type(MissionType.PERSONAL)
+                            .creatorId(testUserId)
+                            .missionInterval(MissionInterval.DAILY)
+                            .isPinned(true)
+                            .expPerCompletion(10)
+                            .build();
             setId(pinnedMission, 100L);
 
-            MissionParticipant pinnedParticipant = MissionParticipant.builder()
-                .mission(pinnedMission)
-                .userId(testUserId)
-                .status(ParticipantStatus.ACCEPTED)
-                .build();
+            MissionParticipant pinnedParticipant =
+                    MissionParticipant.builder()
+                            .mission(pinnedMission)
+                            .userId(testUserId)
+                            .status(ParticipantStatus.ACCEPTED)
+                            .build();
             setId(pinnedParticipant, 100L);
 
-            DailyMissionInstance completedInstance1 = DailyMissionInstance.createFrom(pinnedParticipant, today);
+            DailyMissionInstance completedInstance1 =
+                    DailyMissionInstance.createFrom(pinnedParticipant, today);
             setId(completedInstance1, 200L);
             TestReflectionUtils.setField(completedInstance1, "status", ExecutionStatus.COMPLETED);
 
-            DailyMissionInstance completedInstance2 = DailyMissionInstance.createFrom(pinnedParticipant, today);
+            DailyMissionInstance completedInstance2 =
+                    DailyMissionInstance.createFrom(pinnedParticipant, today);
             setId(completedInstance2, 201L);
             TestReflectionUtils.setField(completedInstance2, "status", ExecutionStatus.COMPLETED);
 
-            when(dailyMissionInstanceRepository.findCompletedByUserIdAndCompletedDate(eq(testUserId), any(LocalDateTime.class), any(LocalDateTime.class)))
-                .thenReturn(List.of(completedInstance1, completedInstance2));
+            when(dailyMissionInstanceRepository.findCompletedByUserIdAndCompletedDate(
+                            eq(testUserId), any(LocalDateTime.class), any(LocalDateTime.class)))
+                    .thenReturn(List.of(completedInstance1, completedInstance2));
 
             // when
-            List<MissionExecutionResponse> responses = executionService.getCompletedPinnedInstancesForToday(testUserId);
+            List<MissionExecutionResponse> responses =
+                    executionService.getCompletedPinnedInstancesForToday(testUserId);
 
             // then
             assertThat(responses).hasSize(2);
-            verify(dailyMissionInstanceRepository).findCompletedByUserIdAndCompletedDate(eq(testUserId), any(LocalDateTime.class), any(LocalDateTime.class));
+            verify(dailyMissionInstanceRepository)
+                    .findCompletedByUserIdAndCompletedDate(
+                            eq(testUserId), any(LocalDateTime.class), any(LocalDateTime.class));
         }
 
         @Test
@@ -1440,11 +1648,13 @@ class MissionExecutionQueryServiceTest {
             // given
             LocalDate today = today();
 
-            when(dailyMissionInstanceRepository.findCompletedByUserIdAndCompletedDate(eq(testUserId), any(LocalDateTime.class), any(LocalDateTime.class)))
-                .thenReturn(List.of());
+            when(dailyMissionInstanceRepository.findCompletedByUserIdAndCompletedDate(
+                            eq(testUserId), any(LocalDateTime.class), any(LocalDateTime.class)))
+                    .thenReturn(List.of());
 
             // when
-            List<MissionExecutionResponse> responses = executionService.getCompletedPinnedInstancesForToday(testUserId);
+            List<MissionExecutionResponse> responses =
+                    executionService.getCompletedPinnedInstancesForToday(testUserId);
 
             // then
             assertThat(responses).isEmpty();
@@ -1456,16 +1666,17 @@ class MissionExecutionQueryServiceTest {
     class LocalizeMissionFieldsTest {
 
         private Mission createBookMission(Long id, String title, String titleEn) {
-            Mission mission = Mission.builder()
-                .title(title)
-                .titleEn(titleEn)
-                .status(MissionStatus.IN_PROGRESS)
-                .visibility(MissionVisibility.PUBLIC)
-                .type(MissionType.PERSONAL)
-                .creatorId(testUserId)
-                .missionInterval(MissionInterval.DAILY)
-                .expPerCompletion(50)
-                .build();
+            Mission mission =
+                    Mission.builder()
+                            .title(title)
+                            .titleEn(titleEn)
+                            .status(MissionStatus.IN_PROGRESS)
+                            .visibility(MissionVisibility.PUBLIC)
+                            .type(MissionType.PERSONAL)
+                            .creatorId(testUserId)
+                            .missionInterval(MissionInterval.DAILY)
+                            .expPerCompletion(50)
+                            .build();
             setId(mission, id);
             return mission;
         }
@@ -1476,13 +1687,11 @@ class MissionExecutionQueryServiceTest {
             Mission bookMission = createBookMission(10L, "독서 미션", "Reading Mission");
             when(missionRepository.findAllById(List.of(10L))).thenReturn(List.of(bookMission));
 
-            MissionExecutionResponse response = MissionExecutionResponse.builder()
-                .missionId(10L)
-                .missionTitle("독서 미션")
-                .build();
+            MissionExecutionResponse response =
+                    MissionExecutionResponse.builder().missionId(10L).missionTitle("독서 미션").build();
 
             executionService.localizeMissionFields(
-                new java.util.ArrayList<>(List.of(response)), "en");
+                    new java.util.ArrayList<>(List.of(response)), "en");
 
             assertThat(response.getMissionTitle()).isEqualTo("Reading Mission");
         }
@@ -1493,13 +1702,11 @@ class MissionExecutionQueryServiceTest {
             Mission userMission = createBookMission(11L, "나의 미션", null);
             when(missionRepository.findAllById(List.of(11L))).thenReturn(List.of(userMission));
 
-            MissionExecutionResponse response = MissionExecutionResponse.builder()
-                .missionId(11L)
-                .missionTitle("나의 미션")
-                .build();
+            MissionExecutionResponse response =
+                    MissionExecutionResponse.builder().missionId(11L).missionTitle("나의 미션").build();
 
             executionService.localizeMissionFields(
-                new java.util.ArrayList<>(List.of(response)), "en");
+                    new java.util.ArrayList<>(List.of(response)), "en");
 
             assertThat(response.getMissionTitle()).isEqualTo("나의 미션");
         }
@@ -1510,13 +1717,11 @@ class MissionExecutionQueryServiceTest {
             Mission bookMission = createBookMission(12L, "독서 미션", "Reading Mission");
             when(missionRepository.findAllById(List.of(12L))).thenReturn(List.of(bookMission));
 
-            MissionExecutionResponse response = MissionExecutionResponse.builder()
-                .missionId(12L)
-                .missionTitle("독서 미션")
-                .build();
+            MissionExecutionResponse response =
+                    MissionExecutionResponse.builder().missionId(12L).missionTitle("독서 미션").build();
 
             executionService.localizeMissionFields(
-                new java.util.ArrayList<>(List.of(response)), "ko");
+                    new java.util.ArrayList<>(List.of(response)), "ko");
 
             assertThat(response.getMissionTitle()).isEqualTo("독서 미션");
         }
@@ -1527,13 +1732,11 @@ class MissionExecutionQueryServiceTest {
             Mission bookMission = createBookMission(13L, "독서 미션", "Reading Mission");
             when(missionRepository.findAllById(List.of(13L))).thenReturn(List.of(bookMission));
 
-            MissionExecutionResponse response = MissionExecutionResponse.builder()
-                .missionId(13L)
-                .missionTitle(null)
-                .build();
+            MissionExecutionResponse response =
+                    MissionExecutionResponse.builder().missionId(13L).missionTitle(null).build();
 
             executionService.localizeMissionFields(
-                new java.util.ArrayList<>(List.of(response)), "en");
+                    new java.util.ArrayList<>(List.of(response)), "en");
 
             assertThat(response.getMissionTitle()).isNull();
         }
@@ -1546,52 +1749,58 @@ class MissionExecutionQueryServiceTest {
             LocalDate date = LocalDate.of(year, month, 5);
 
             Mission bookMission = createBookMission(20L, "독서 미션", "Reading Mission");
-            MissionParticipant bookParticipant = MissionParticipant.builder()
-                .mission(bookMission)
-                .userId(testUserId)
-                .status(ParticipantStatus.IN_PROGRESS)
-                .build();
+            MissionParticipant bookParticipant =
+                    MissionParticipant.builder()
+                            .mission(bookMission)
+                            .userId(testUserId)
+                            .status(ParticipantStatus.IN_PROGRESS)
+                            .build();
             setId(bookParticipant, 20L);
 
-            MissionExecution execution = MissionExecution.builder()
-                .participant(bookParticipant)
-                .executionDate(date)
-                .status(ExecutionStatus.COMPLETED)
-                .expEarned(50)
-                .build();
+            MissionExecution execution =
+                    MissionExecution.builder()
+                            .participant(bookParticipant)
+                            .executionDate(date)
+                            .status(ExecutionStatus.COMPLETED)
+                            .expEarned(50)
+                            .build();
             setId(execution, 20L);
             TestReflectionUtils.setField(execution, "startedAt", date.atTime(9, 0));
             TestReflectionUtils.setField(execution, "completedAt", date.atTime(10, 0));
 
-            DailyMissionInstance instance = DailyMissionInstance.builder()
-                .participant(bookParticipant)
-                .instanceDate(date)
-                .missionTitle("독서 미션")
-                .categoryName("자기계발")
-                .build();
+            DailyMissionInstance instance =
+                    DailyMissionInstance.builder()
+                            .participant(bookParticipant)
+                            .instanceDate(date)
+                            .missionTitle("독서 미션")
+                            .categoryName("자기계발")
+                            .build();
             setId(instance, 21L);
             TestReflectionUtils.setField(instance, "expEarned", 30);
             TestReflectionUtils.setField(instance, "startedAt", date.atTime(13, 0));
             TestReflectionUtils.setField(instance, "completedAt", date.atTime(14, 0));
 
             when(executionRepository.findCompletedByUserIdAndCompletedAtBetween(
-                eq(testUserId), any(LocalDateTime.class), any(LocalDateTime.class)))
-                .thenReturn(List.of(execution));
+                            eq(testUserId), any(LocalDateTime.class), any(LocalDateTime.class)))
+                    .thenReturn(List.of(execution));
             when(dailyMissionInstanceRepository.findCompletedByUserIdAndCompletedAtBetween(
-                eq(testUserId), any(LocalDateTime.class), any(LocalDateTime.class)))
-                .thenReturn(List.of(instance));
+                            eq(testUserId), any(LocalDateTime.class), any(LocalDateTime.class)))
+                    .thenReturn(List.of(instance));
             when(gamificationQueryFacade.getDailyExpSummary(
-                eq(testUserId), any(LocalDateTime.class), any(LocalDateTime.class), any()))
-                .thenReturn(java.util.Map.of(date, 80L));
+                            eq(testUserId),
+                            any(LocalDateTime.class),
+                            any(LocalDateTime.class),
+                            any()))
+                    .thenReturn(java.util.Map.of(date, 80L));
 
             MonthlyCalendarResponse response =
-                executionService.getMonthlyCalendarData(testUserId, year, month, null, "en");
+                    executionService.getMonthlyCalendarData(testUserId, year, month, null, "en");
 
             List<MonthlyCalendarResponse.DailyMission> missions =
-                response.getDailyMissions().get(date.toString());
+                    response.getDailyMissions().get(date.toString());
             assertThat(missions).hasSize(2);
-            assertThat(missions).allSatisfy(m ->
-                assertThat(m.getMissionTitle()).isEqualTo("Reading Mission"));
+            assertThat(missions)
+                    .allSatisfy(m -> assertThat(m.getMissionTitle()).isEqualTo("Reading Mission"));
         }
 
         @Test
@@ -1602,39 +1811,44 @@ class MissionExecutionQueryServiceTest {
             LocalDate date = LocalDate.of(year, month, 5);
 
             Mission bookMission = createBookMission(22L, "독서 미션", "Reading Mission");
-            MissionParticipant bookParticipant = MissionParticipant.builder()
-                .mission(bookMission)
-                .userId(testUserId)
-                .status(ParticipantStatus.IN_PROGRESS)
-                .build();
+            MissionParticipant bookParticipant =
+                    MissionParticipant.builder()
+                            .mission(bookMission)
+                            .userId(testUserId)
+                            .status(ParticipantStatus.IN_PROGRESS)
+                            .build();
             setId(bookParticipant, 22L);
 
-            DailyMissionInstance instance = DailyMissionInstance.builder()
-                .participant(bookParticipant)
-                .instanceDate(date)
-                .missionTitle("독서 미션")
-                .categoryName("자기계발")
-                .build();
+            DailyMissionInstance instance =
+                    DailyMissionInstance.builder()
+                            .participant(bookParticipant)
+                            .instanceDate(date)
+                            .missionTitle("독서 미션")
+                            .categoryName("자기계발")
+                            .build();
             setId(instance, 23L);
             TestReflectionUtils.setField(instance, "expEarned", 30);
             TestReflectionUtils.setField(instance, "startedAt", date.atTime(13, 0));
             TestReflectionUtils.setField(instance, "completedAt", date.atTime(14, 0));
 
             when(executionRepository.findCompletedByUserIdAndCompletedAtBetween(
-                eq(testUserId), any(LocalDateTime.class), any(LocalDateTime.class)))
-                .thenReturn(List.of());
+                            eq(testUserId), any(LocalDateTime.class), any(LocalDateTime.class)))
+                    .thenReturn(List.of());
             when(dailyMissionInstanceRepository.findCompletedByUserIdAndCompletedAtBetween(
-                eq(testUserId), any(LocalDateTime.class), any(LocalDateTime.class)))
-                .thenReturn(List.of(instance));
+                            eq(testUserId), any(LocalDateTime.class), any(LocalDateTime.class)))
+                    .thenReturn(List.of(instance));
             when(gamificationQueryFacade.getDailyExpSummary(
-                eq(testUserId), any(LocalDateTime.class), any(LocalDateTime.class), any()))
-                .thenReturn(java.util.Map.of(date, 30L));
+                            eq(testUserId),
+                            any(LocalDateTime.class),
+                            any(LocalDateTime.class),
+                            any()))
+                    .thenReturn(java.util.Map.of(date, 30L));
 
             MonthlyCalendarResponse response =
-                executionService.getMonthlyCalendarData(testUserId, year, month, null);
+                    executionService.getMonthlyCalendarData(testUserId, year, month, null);
 
             List<MonthlyCalendarResponse.DailyMission> missions =
-                response.getDailyMissions().get(date.toString());
+                    response.getDailyMissions().get(date.toString());
             assertThat(missions).hasSize(1);
             assertThat(missions.get(0).getMissionTitle()).isEqualTo("독서 미션");
         }
@@ -1646,40 +1860,51 @@ class MissionExecutionQueryServiceTest {
 
         private static final String VIEWER_ID = "viewer-456";
 
-        private Mission missionWith(Long id, String title, String titleEn,
-                MissionVisibility visibility, MissionType type) {
-            Mission mission = Mission.builder()
-                .title(title)
-                .titleEn(titleEn)
-                .status(MissionStatus.IN_PROGRESS)
-                .visibility(visibility)
-                .type(type)
-                .creatorId(testUserId)
-                .missionInterval(MissionInterval.DAILY)
-                .expPerCompletion(50)
-                .build();
+        private Mission missionWith(
+                Long id,
+                String title,
+                String titleEn,
+                MissionVisibility visibility,
+                MissionType type) {
+            Mission mission =
+                    Mission.builder()
+                            .title(title)
+                            .titleEn(titleEn)
+                            .status(MissionStatus.IN_PROGRESS)
+                            .visibility(visibility)
+                            .type(type)
+                            .creatorId(testUserId)
+                            .missionInterval(MissionInterval.DAILY)
+                            .expPerCompletion(50)
+                            .build();
             setId(mission, id);
             return mission;
         }
 
         private MissionParticipant participantOf(Mission mission) {
-            MissionParticipant participant = MissionParticipant.builder()
-                .mission(mission)
-                .userId(testUserId)
-                .status(ParticipantStatus.IN_PROGRESS)
-                .build();
+            MissionParticipant participant =
+                    MissionParticipant.builder()
+                            .mission(mission)
+                            .userId(testUserId)
+                            .status(ParticipantStatus.IN_PROGRESS)
+                            .build();
             setId(participant, mission.getId());
             return participant;
         }
 
-        private MissionExecution executionOf(Long id, MissionParticipant participant, LocalDate date,
-                LocalDateTime startedAt, LocalDateTime completedAt) {
-            MissionExecution execution = MissionExecution.builder()
-                .participant(participant)
-                .executionDate(date)
-                .status(ExecutionStatus.COMPLETED)
-                .expEarned(10)
-                .build();
+        private MissionExecution executionOf(
+                Long id,
+                MissionParticipant participant,
+                LocalDate date,
+                LocalDateTime startedAt,
+                LocalDateTime completedAt) {
+            MissionExecution execution =
+                    MissionExecution.builder()
+                            .participant(participant)
+                            .executionDate(date)
+                            .status(ExecutionStatus.COMPLETED)
+                            .expEarned(10)
+                            .build();
             if (id != null) {
                 setId(execution, id);
             }
@@ -1688,51 +1913,70 @@ class MissionExecutionQueryServiceTest {
             return execution;
         }
 
-        private DailyMissionInstance instanceOf(Long id, MissionParticipant participant, LocalDate date,
-                LocalDateTime startedAt, LocalDateTime completedAt) {
-            DailyMissionInstance instance = DailyMissionInstance.builder()
-                .participant(participant)
-                .instanceDate(date)
-                .missionTitle(participant.getMission().getTitle())
-                .status(ExecutionStatus.COMPLETED)
-                .startedAt(startedAt)
-                .completedAt(completedAt)
-                .build();
+        private DailyMissionInstance instanceOf(
+                Long id,
+                MissionParticipant participant,
+                LocalDate date,
+                LocalDateTime startedAt,
+                LocalDateTime completedAt) {
+            DailyMissionInstance instance =
+                    DailyMissionInstance.builder()
+                            .participant(participant)
+                            .instanceDate(date)
+                            .missionTitle(participant.getMission().getTitle())
+                            .status(ExecutionStatus.COMPLETED)
+                            .startedAt(startedAt)
+                            .completedAt(completedAt)
+                            .build();
             setId(instance, id);
             return instance;
         }
 
-        private void mockCompleted(List<MissionExecution> executions, List<DailyMissionInstance> instances) {
+        private void mockCompleted(
+                List<MissionExecution> executions, List<DailyMissionInstance> instances) {
             when(executionRepository.findCompletedByUserIdAndCompletedAtBetween(
-                eq(testUserId), any(LocalDateTime.class), any(LocalDateTime.class)))
-                .thenReturn(executions);
+                            eq(testUserId), any(LocalDateTime.class), any(LocalDateTime.class)))
+                    .thenReturn(executions);
             when(dailyMissionInstanceRepository.findCompletedByUserIdAndCompletedAtBetween(
-                eq(testUserId), any(LocalDateTime.class), any(LocalDateTime.class)))
-                .thenReturn(instances);
+                            eq(testUserId), any(LocalDateTime.class), any(LocalDateTime.class)))
+                    .thenReturn(instances);
         }
 
-        private void mockToday(List<MissionExecution> executions, List<DailyMissionInstance> instances) {
-            when(participantRepository.findPinnedMissionParticipants(testUserId)).thenReturn(List.of());
+        private void mockToday(
+                List<MissionExecution> executions, List<DailyMissionInstance> instances) {
+            when(participantRepository.findPinnedMissionParticipants(testUserId))
+                    .thenReturn(List.of());
             when(executionRepository.findByUserIdAndTodayOrYesterdayInProgress(
-                    eq(testUserId), any(LocalDate.class), any(LocalDate.class),
-                    any(LocalDateTime.class), any(LocalDateTime.class)))
-                .thenReturn(executions);
+                            eq(testUserId),
+                            any(LocalDate.class),
+                            any(LocalDate.class),
+                            any(LocalDateTime.class),
+                            any(LocalDateTime.class)))
+                    .thenReturn(executions);
             when(dailyMissionInstanceRepository.findByUserIdAndTodayOrYesterdayInProgress(
-                    eq(testUserId), any(LocalDate.class), any(LocalDate.class),
-                    any(LocalDateTime.class), any(LocalDateTime.class)))
-                .thenReturn(instances);
+                            eq(testUserId),
+                            any(LocalDate.class),
+                            any(LocalDate.class),
+                            any(LocalDateTime.class),
+                            any(LocalDateTime.class)))
+                    .thenReturn(instances);
         }
 
         @Test
         @DisplayName("getExecutionByDate: Strategy가 null을 주면 null을 그대로 반환한다")
         void getExecutionByDate_nullResponse() {
-            var mockStrategy = org.mockito.Mockito.mock(
-                io.pinkspider.leveluptogethermvp.missionservice.application.strategy.MissionExecutionStrategy.class);
-            when(strategyResolver.resolve(testMission.getId(), testUserId)).thenReturn(mockStrategy);
-            when(mockStrategy.getExecutionByDate(testMission.getId(), testUserId, today())).thenReturn(null);
+            var mockStrategy =
+                    org.mockito.Mockito.mock(
+                            io.pinkspider.leveluptogethermvp.missionservice.application.strategy
+                                    .MissionExecutionStrategy.class);
+            when(strategyResolver.resolve(testMission.getId(), testUserId))
+                    .thenReturn(mockStrategy);
+            when(mockStrategy.getExecutionByDate(testMission.getId(), testUserId, today()))
+                    .thenReturn(null);
 
             MissionExecutionResponse response =
-                executionService.getExecutionByDate(testMission.getId(), testUserId, today(), "en");
+                    executionService.getExecutionByDate(
+                            testMission.getId(), testUserId, today(), "en");
 
             assertThat(response).isNull();
             verify(missionRepository, never()).findAllById(any());
@@ -1741,15 +1985,21 @@ class MissionExecutionQueryServiceTest {
         @Test
         @DisplayName("QA-152 보정: id 없는 공유행·비공유행은 건너뛰고 피드 없는 공유행만 false 로 보정한다")
         void reconcileSharedToFeed_skipsNullIdAndUnshared() {
-            MissionExecution sharedNoId = executionOf(null, testParticipant, today(),
-                today().atTime(9, 0), today().atTime(9, 30));
+            MissionExecution sharedNoId =
+                    executionOf(
+                            null,
+                            testParticipant,
+                            today(),
+                            today().atTime(9, 0),
+                            today().atTime(9, 30));
             TestReflectionUtils.setField(sharedNoId, "isSharedToFeed", true);
             MissionExecution unshared = createCompletedExecution(2L, today(), 10, 30);
             MissionExecution sharedNoFeed = createCompletedExecution(3L, today(), 10, 30);
             TestReflectionUtils.setField(sharedNoFeed, "isSharedToFeed", true);
             mockToday(List.of(sharedNoId, unshared, sharedNoFeed), List.of());
 
-            List<MissionExecutionResponse> responses = executionService.getTodayExecutions(testUserId);
+            List<MissionExecutionResponse> responses =
+                    executionService.getTodayExecutions(testUserId);
 
             assertThat(responses).hasSize(3);
             assertThat(responses.get(0).getIsSharedToFeed()).isTrue();
@@ -1760,19 +2010,27 @@ class MissionExecutionQueryServiceTest {
         @Test
         @DisplayName("진행 중 미션 조회 시 이미지가 있으면 imageUrls 에 채운다")
         void getInProgressExecution_withImages() {
-            MissionExecution execution = MissionExecution.builder()
-                .participant(testParticipant)
-                .executionDate(today())
-                .status(ExecutionStatus.IN_PROGRESS)
-                .build();
+            MissionExecution execution =
+                    MissionExecution.builder()
+                            .participant(testParticipant)
+                            .executionDate(today())
+                            .status(ExecutionStatus.IN_PROGRESS)
+                            .build();
             setId(execution, 5L);
-            when(executionRepository.findInProgressByUserId(testUserId)).thenReturn(Optional.of(execution));
+            when(executionRepository.findInProgressByUserId(testUserId))
+                    .thenReturn(Optional.of(execution));
             when(executionImageRepository.findByExecutionIdOrderBySortOrderAsc(5L))
-                .thenReturn(List.of(
-                    io.pinkspider.leveluptogethermvp.missionservice.domain.entity.MissionExecutionImage.builder()
-                        .execution(execution).imageUrl("https://cdn/a.jpg").sortOrder(0).build()));
+                    .thenReturn(
+                            List.of(
+                                    io.pinkspider.leveluptogethermvp.missionservice.domain.entity
+                                            .MissionExecutionImage.builder()
+                                            .execution(execution)
+                                            .imageUrl("https://cdn/a.jpg")
+                                            .sortOrder(0)
+                                            .build()));
 
-            MissionExecutionResponse response = executionService.getInProgressExecution(testUserId, "en");
+            MissionExecutionResponse response =
+                    executionService.getInProgressExecution(testUserId, "en");
 
             assertThat(response.getImageUrls()).containsExactly("https://cdn/a.jpg");
         }
@@ -1781,19 +2039,35 @@ class MissionExecutionQueryServiceTest {
         @DisplayName("일반·고정 목록 조회 시 이미지가 있으면 각 응답의 imageUrls 에 매핑한다")
         void getTodayExecutions_withImages() {
             MissionExecution execution = createCompletedExecution(7L, today(), 10, 30);
-            DailyMissionInstance instance = instanceOf(8L, testParticipant, today(),
-                today().atTime(10, 0), today().atTime(10, 30));
+            DailyMissionInstance instance =
+                    instanceOf(
+                            8L,
+                            testParticipant,
+                            today(),
+                            today().atTime(10, 0),
+                            today().atTime(10, 30));
             mockToday(List.of(execution), List.of(instance));
             when(executionImageRepository.findByExecutionIdInOrderBySortOrder(List.of(7L)))
-                .thenReturn(List.of(
-                    io.pinkspider.leveluptogethermvp.missionservice.domain.entity.MissionExecutionImage.builder()
-                        .execution(execution).imageUrl("https://cdn/e.jpg").sortOrder(0).build()));
+                    .thenReturn(
+                            List.of(
+                                    io.pinkspider.leveluptogethermvp.missionservice.domain.entity
+                                            .MissionExecutionImage.builder()
+                                            .execution(execution)
+                                            .imageUrl("https://cdn/e.jpg")
+                                            .sortOrder(0)
+                                            .build()));
             when(instanceImageRepository.findByInstanceIdInOrderBySortOrder(List.of(8L)))
-                .thenReturn(List.of(
-                    io.pinkspider.leveluptogethermvp.missionservice.domain.entity.DailyMissionInstanceImage.builder()
-                        .instance(instance).imageUrl("https://cdn/i.jpg").sortOrder(0).build()));
+                    .thenReturn(
+                            List.of(
+                                    io.pinkspider.leveluptogethermvp.missionservice.domain.entity
+                                            .DailyMissionInstanceImage.builder()
+                                            .instance(instance)
+                                            .imageUrl("https://cdn/i.jpg")
+                                            .sortOrder(0)
+                                            .build()));
 
-            List<MissionExecutionResponse> responses = executionService.getTodayExecutions(testUserId);
+            List<MissionExecutionResponse> responses =
+                    executionService.getTodayExecutions(testUserId);
 
             assertThat(responses).hasSize(2);
             assertThat(responses.get(0).getImageUrls()).containsExactly("https://cdn/e.jpg");
@@ -1812,62 +2086,94 @@ class MissionExecutionQueryServiceTest {
             DailyMissionInstance instNoEnd = instanceOf(34L, p, date, date.atTime(11, 0), null);
             mockCompleted(List.of(noStart, noEnd), List.of(instNoStart, instNoEnd));
             when(gamificationQueryFacade.getDailyExpSummary(
-                eq(testUserId), any(LocalDateTime.class), any(LocalDateTime.class), any()))
-                .thenReturn(java.util.Map.of());
+                            eq(testUserId),
+                            any(LocalDateTime.class),
+                            any(LocalDateTime.class),
+                            any()))
+                    .thenReturn(java.util.Map.of());
 
             MonthlyCalendarResponse response =
-                executionService.getMonthlyCalendarData(testUserId, 2026, 8, "Asia/Seoul");
+                    executionService.getMonthlyCalendarData(testUserId, 2026, 8, "Asia/Seoul");
 
-            List<MonthlyCalendarResponse.DailyMission> all = response.getDailyMissions().values().stream()
-                .flatMap(List::stream).toList();
+            List<MonthlyCalendarResponse.DailyMission> all =
+                    response.getDailyMissions().values().stream().flatMap(List::stream).toList();
             assertThat(all).hasSize(4);
-            assertThat(all).allSatisfy(m -> {
-                assertThat(m.getDurationMinutes()).isNull();
-                assertThat(m.getMissionType()).isNull();
-            });
+            assertThat(all)
+                    .allSatisfy(
+                            m -> {
+                                assertThat(m.getDurationMinutes()).isNull();
+                                assertThat(m.getMissionType()).isNull();
+                            });
         }
 
         @Test
         @DisplayName("월별 캘린더: 번역이 없거나 제목이 null 이면 스냅샷/원문을 유지한다")
         void getMonthlyCalendarData_localeFallbacks() {
             LocalDate date = LocalDate.of(2026, 8, 5);
-            Mission noTranslation = missionWith(40L, "번역없음", null, MissionVisibility.PUBLIC, MissionType.PERSONAL);
-            Mission nullTitle = missionWith(41L, null, null, MissionVisibility.PUBLIC, MissionType.PERSONAL);
-            MissionExecution e1 = executionOf(42L, participantOf(noTranslation), date,
-                date.atTime(9, 0), date.atTime(10, 0));
-            DailyMissionInstance i1 = instanceOf(43L, participantOf(nullTitle), date,
-                date.atTime(11, 0), date.atTime(12, 0));
+            Mission noTranslation =
+                    missionWith(40L, "번역없음", null, MissionVisibility.PUBLIC, MissionType.PERSONAL);
+            Mission nullTitle =
+                    missionWith(41L, null, null, MissionVisibility.PUBLIC, MissionType.PERSONAL);
+            MissionExecution e1 =
+                    executionOf(
+                            42L,
+                            participantOf(noTranslation),
+                            date,
+                            date.atTime(9, 0),
+                            date.atTime(10, 0));
+            DailyMissionInstance i1 =
+                    instanceOf(
+                            43L,
+                            participantOf(nullTitle),
+                            date,
+                            date.atTime(11, 0),
+                            date.atTime(12, 0));
             TestReflectionUtils.setField(i1, "missionTitle", "스냅샷");
             mockCompleted(List.of(e1), List.of(i1));
             when(gamificationQueryFacade.getDailyExpSummary(
-                eq(testUserId), any(LocalDateTime.class), any(LocalDateTime.class), any()))
-                .thenReturn(java.util.Map.of());
+                            eq(testUserId),
+                            any(LocalDateTime.class),
+                            any(LocalDateTime.class),
+                            any()))
+                    .thenReturn(java.util.Map.of());
 
             MonthlyCalendarResponse response =
-                executionService.getMonthlyCalendarData(testUserId, 2026, 8, null, "en");
+                    executionService.getMonthlyCalendarData(testUserId, 2026, 8, null, "en");
 
-            List<MonthlyCalendarResponse.DailyMission> missions = response.getDailyMissions().get(date.toString());
-            assertThat(missions).extracting(MonthlyCalendarResponse.DailyMission::getMissionTitle)
-                .containsExactlyInAnyOrder("번역없음", "스냅샷");
+            List<MonthlyCalendarResponse.DailyMission> missions =
+                    response.getDailyMissions().get(date.toString());
+            assertThat(missions)
+                    .extracting(MonthlyCalendarResponse.DailyMission::getMissionTitle)
+                    .containsExactlyInAnyOrder("번역없음", "스냅샷");
         }
 
         @Test
         @DisplayName("월별 캘린더: locale 이 공백이면 원문 제목을 그대로 쓴다")
         void getMonthlyCalendarData_blankLocale() {
             LocalDate date = LocalDate.of(2026, 8, 5);
-            Mission translated = missionWith(44L, "독서", "Reading", MissionVisibility.PUBLIC, MissionType.PERSONAL);
-            MissionExecution e1 = executionOf(45L, participantOf(translated), date,
-                date.atTime(9, 0), date.atTime(10, 0));
+            Mission translated =
+                    missionWith(
+                            44L, "독서", "Reading", MissionVisibility.PUBLIC, MissionType.PERSONAL);
+            MissionExecution e1 =
+                    executionOf(
+                            45L,
+                            participantOf(translated),
+                            date,
+                            date.atTime(9, 0),
+                            date.atTime(10, 0));
             mockCompleted(List.of(e1), List.of());
             when(gamificationQueryFacade.getDailyExpSummary(
-                eq(testUserId), any(LocalDateTime.class), any(LocalDateTime.class), any()))
-                .thenReturn(java.util.Map.of());
+                            eq(testUserId),
+                            any(LocalDateTime.class),
+                            any(LocalDateTime.class),
+                            any()))
+                    .thenReturn(java.util.Map.of());
 
             MonthlyCalendarResponse response =
-                executionService.getMonthlyCalendarData(testUserId, 2026, 8, null, "  ");
+                    executionService.getMonthlyCalendarData(testUserId, 2026, 8, null, "  ");
 
             assertThat(response.getDailyMissions().get(date.toString()).get(0).getMissionTitle())
-                .isEqualTo("독서");
+                    .isEqualTo("독서");
         }
 
         @Test
@@ -1888,7 +2194,8 @@ class MissionExecutionQueryServiceTest {
             LocalDate date = LocalDate.of(2026, 8, 5);
             mockCompleted(List.of(), List.of());
 
-            var response = executionService.getWeeklyCalendarData(testUserId, null, date, "Not/AZone");
+            var response =
+                    executionService.getWeeklyCalendarData(testUserId, null, date, "Not/AZone");
 
             assertThat(response.getStartDate()).isEqualTo("2026-08-03");
         }
@@ -1897,15 +2204,31 @@ class MissionExecutionQueryServiceTest {
         @DisplayName("주간 캘린더: FRIENDS_AND_GUILD 만 있으면 친구·길드 판정을 모두 수행한다")
         void getWeeklyCalendarData_onlyFriendsAndGuild() {
             LocalDate date = LocalDate.of(2026, 8, 5);
-            Mission fag = missionWith(50L, "FAG", null, MissionVisibility.FRIENDS_AND_GUILD, MissionType.PERSONAL);
-            mockCompleted(List.of(executionOf(51L, participantOf(fag), date,
-                date.atTime(9, 0), date.atTime(10, 0))), List.of());
+            Mission fag =
+                    missionWith(
+                            50L,
+                            "FAG",
+                            null,
+                            MissionVisibility.FRIENDS_AND_GUILD,
+                            MissionType.PERSONAL);
+            mockCompleted(
+                    List.of(
+                            executionOf(
+                                    51L,
+                                    participantOf(fag),
+                                    date,
+                                    date.atTime(9, 0),
+                                    date.atTime(10, 0))),
+                    List.of());
             when(userQueryFacade.areFriends(VIEWER_ID, testUserId)).thenReturn(false);
             when(guildQueryFacade.getUserGuildMemberships(testUserId)).thenReturn(List.of());
 
-            var response = executionService.getWeeklyCalendarData(testUserId, VIEWER_ID, date, "Asia/Seoul");
+            var response =
+                    executionService.getWeeklyCalendarData(
+                            testUserId, VIEWER_ID, date, "Asia/Seoul");
 
-            assertThat(response.getDailyMissions().get("2026-08-05").get(0).getIsVisible()).isFalse();
+            assertThat(response.getDailyMissions().get("2026-08-05").get(0).getIsVisible())
+                    .isFalse();
             verify(userQueryFacade).areFriends(VIEWER_ID, testUserId);
             verify(guildQueryFacade).getUserGuildMemberships(testUserId);
         }
@@ -1914,17 +2237,30 @@ class MissionExecutionQueryServiceTest {
         @DisplayName("주간 캘린더: GUILD_ONLY 만 있으면 친구 판정은 생략하고 길드 판정만 수행한다")
         void getWeeklyCalendarData_onlyGuildOnly() {
             LocalDate date = LocalDate.of(2026, 8, 5);
-            Mission guildOnly = missionWith(52L, "GO", null, MissionVisibility.GUILD_ONLY, MissionType.PERSONAL);
-            mockCompleted(List.of(executionOf(53L, participantOf(guildOnly), date,
-                date.atTime(9, 0), date.atTime(10, 0))), List.of());
+            Mission guildOnly =
+                    missionWith(
+                            52L, "GO", null, MissionVisibility.GUILD_ONLY, MissionType.PERSONAL);
+            mockCompleted(
+                    List.of(
+                            executionOf(
+                                    53L,
+                                    participantOf(guildOnly),
+                                    date,
+                                    date.atTime(9, 0),
+                                    date.atTime(10, 0))),
+                    List.of());
             io.pinkspider.global.facade.dto.GuildMembershipInfo shared =
-                new io.pinkspider.global.facade.dto.GuildMembershipInfo(10L, "길드", null, 1, false, false);
+                    new io.pinkspider.global.facade.dto.GuildMembershipInfo(
+                            10L, "길드", null, 1, false, false);
             when(guildQueryFacade.getUserGuildMemberships(testUserId)).thenReturn(List.of(shared));
             when(guildQueryFacade.getUserGuildMemberships(VIEWER_ID)).thenReturn(List.of(shared));
 
-            var response = executionService.getWeeklyCalendarData(testUserId, VIEWER_ID, date, "Asia/Seoul");
+            var response =
+                    executionService.getWeeklyCalendarData(
+                            testUserId, VIEWER_ID, date, "Asia/Seoul");
 
-            assertThat(response.getDailyMissions().get("2026-08-05").get(0).getIsVisible()).isTrue();
+            assertThat(response.getDailyMissions().get("2026-08-05").get(0).getIsVisible())
+                    .isTrue();
             verify(userQueryFacade, never()).areFriends(any(), any());
         }
 
@@ -1932,28 +2268,49 @@ class MissionExecutionQueryServiceTest {
         @DisplayName("주간 캘린더: 길드 조회 실패 시 비노출로 폴백한다")
         void getWeeklyCalendarData_guildLookupFails() {
             LocalDate date = LocalDate.of(2026, 8, 5);
-            Mission guildOnly = missionWith(54L, "GO", null, MissionVisibility.GUILD_ONLY, MissionType.PERSONAL);
-            mockCompleted(List.of(executionOf(55L, participantOf(guildOnly), date,
-                date.atTime(9, 0), date.atTime(10, 0))), List.of());
+            Mission guildOnly =
+                    missionWith(
+                            54L, "GO", null, MissionVisibility.GUILD_ONLY, MissionType.PERSONAL);
+            mockCompleted(
+                    List.of(
+                            executionOf(
+                                    55L,
+                                    participantOf(guildOnly),
+                                    date,
+                                    date.atTime(9, 0),
+                                    date.atTime(10, 0))),
+                    List.of());
             when(guildQueryFacade.getUserGuildMemberships(testUserId))
-                .thenThrow(new RuntimeException("guild down"));
+                    .thenThrow(new RuntimeException("guild down"));
 
-            var response = executionService.getWeeklyCalendarData(testUserId, VIEWER_ID, date, "Asia/Seoul");
+            var response =
+                    executionService.getWeeklyCalendarData(
+                            testUserId, VIEWER_ID, date, "Asia/Seoul");
 
-            assertThat(response.getDailyMissions().get("2026-08-05").get(0).getIsVisible()).isFalse();
+            assertThat(response.getDailyMissions().get("2026-08-05").get(0).getIsVisible())
+                    .isFalse();
         }
 
         @Test
         @DisplayName("주간 캘린더: 본인이 보는 고정 미션은 식별 정보·번역 제목·유형이 모두 노출된다")
         void getWeeklyCalendarData_ownerPinnedVisible() {
             LocalDate date = LocalDate.of(2026, 8, 5);
-            Mission translated = missionWith(60L, "독서", "Reading", MissionVisibility.PRIVATE, MissionType.PERSONAL);
-            DailyMissionInstance inst = instanceOf(61L, participantOf(translated), date,
-                date.atTime(9, 0), date.atTime(10, 0));
+            Mission translated =
+                    missionWith(
+                            60L, "독서", "Reading", MissionVisibility.PRIVATE, MissionType.PERSONAL);
+            DailyMissionInstance inst =
+                    instanceOf(
+                            61L,
+                            participantOf(translated),
+                            date,
+                            date.atTime(9, 0),
+                            date.atTime(10, 0));
             TestReflectionUtils.setField(inst, "categoryName", "자기계발");
             mockCompleted(List.of(), List.of(inst));
 
-            var response = executionService.getWeeklyCalendarData(testUserId, testUserId, date, "Asia/Seoul", "en");
+            var response =
+                    executionService.getWeeklyCalendarData(
+                            testUserId, testUserId, date, "Asia/Seoul", "en");
 
             var m = response.getDailyMissions().get("2026-08-05").get(0);
             assertThat(m.getIsVisible()).isTrue();
@@ -1969,29 +2326,36 @@ class MissionExecutionQueryServiceTest {
         void getWeeklyCalendarData_legacyNullVisibilityAndType() {
             LocalDate date = LocalDate.of(2026, 8, 5);
             Mission legacy = missionWith(62L, "레거시", null, null, null);
-            MissionExecution noStart = executionOf(63L, participantOf(legacy), date, null, date.atTime(10, 0));
-            MissionExecution noEnd = executionOf(64L, participantOf(legacy), date, date.atTime(9, 0), null);
+            MissionExecution noStart =
+                    executionOf(63L, participantOf(legacy), date, null, date.atTime(10, 0));
+            MissionExecution noEnd =
+                    executionOf(64L, participantOf(legacy), date, date.atTime(9, 0), null);
             mockCompleted(List.of(noStart, noEnd), List.of());
 
-            var response = executionService.getWeeklyCalendarData(testUserId, testUserId, date, "Asia/Seoul");
+            var response =
+                    executionService.getWeeklyCalendarData(
+                            testUserId, testUserId, date, "Asia/Seoul");
 
             var missions = response.getDailyMissions().get("2026-08-05");
             assertThat(missions).hasSize(2);
-            assertThat(missions).allSatisfy(m -> {
-                assertThat(m.getVisibility()).isEqualTo("PRIVATE");
-                assertThat(m.getIsVisible()).isTrue();
-                assertThat(m.getMissionType()).isNull();
-                assertThat(m.getDurationMinutes()).isNull();
-            });
+            assertThat(missions)
+                    .allSatisfy(
+                            m -> {
+                                assertThat(m.getVisibility()).isEqualTo("PRIVATE");
+                                assertThat(m.getIsVisible()).isTrue();
+                                assertThat(m.getMissionType()).isNull();
+                                assertThat(m.getDurationMinutes()).isNull();
+                            });
         }
 
         @Test
         @DisplayName("localizeMissionFields: locale 공백·빈 목록이면 아무것도 조회하지 않는다")
         void localizeMissionFields_blankLocaleOrEmpty() {
-            MissionExecutionResponse response = MissionExecutionResponse.builder()
-                .missionId(1L).missionTitle("제목").build();
+            MissionExecutionResponse response =
+                    MissionExecutionResponse.builder().missionId(1L).missionTitle("제목").build();
 
-            executionService.localizeMissionFields(new java.util.ArrayList<>(List.of(response)), "  ");
+            executionService.localizeMissionFields(
+                    new java.util.ArrayList<>(List.of(response)), "  ");
             executionService.localizeMissionFields(new java.util.ArrayList<>(), "en");
 
             verify(missionRepository, never()).findAllById(any());
@@ -2001,40 +2365,72 @@ class MissionExecutionQueryServiceTest {
         @Test
         @DisplayName("localizeMissionFields: missionId 가 모두 null 이면 조회를 생략한다")
         void localizeMissionFields_allMissionIdsNull() {
-            MissionExecutionResponse response = MissionExecutionResponse.builder()
-                .missionId(null).missionTitle("마스킹").build();
+            MissionExecutionResponse response =
+                    MissionExecutionResponse.builder().missionId(null).missionTitle("마스킹").build();
 
-            executionService.localizeMissionFields(new java.util.ArrayList<>(List.of(response)), "en");
+            executionService.localizeMissionFields(
+                    new java.util.ArrayList<>(List.of(response)), "en");
 
             verify(missionRepository, never()).findAllById(any());
         }
 
         @Test
-        @DisplayName("localizeMissionFields: 제목 null 미션·id 없는 카테고리·이름 없는 카테고리·missionId 없는 응답을 안전하게 건너뛴다")
+        @DisplayName(
+                "localizeMissionFields: 제목 null 미션·id 없는 카테고리·이름 없는 카테고리·missionId 없는 응답을 안전하게"
+                        + " 건너뛴다")
         void localizeMissionFields_edgeCases() {
-            Mission nullTitle = missionWith(70L, null, null, MissionVisibility.PUBLIC, MissionType.PERSONAL);
+            Mission nullTitle =
+                    missionWith(70L, null, null, MissionVisibility.PUBLIC, MissionType.PERSONAL);
             TestReflectionUtils.setField(nullTitle, "categoryId", 7L);
-            Mission translated = missionWith(71L, "독서", "Reading", MissionVisibility.PUBLIC, MissionType.PERSONAL);
+            Mission translated =
+                    missionWith(
+                            71L, "독서", "Reading", MissionVisibility.PUBLIC, MissionType.PERSONAL);
             TestReflectionUtils.setField(translated, "categoryId", 8L);
-            when(missionRepository.findAllById(List.of(70L, 71L))).thenReturn(List.of(nullTitle, translated));
+            when(missionRepository.findAllById(List.of(70L, 71L)))
+                    .thenReturn(List.of(nullTitle, translated));
             when(missionCategoryService.getCategoriesByIds(any()))
-                .thenReturn(List.of(
-                    io.pinkspider.leveluptogethermvp.metaservice.domain.dto.MissionCategoryResponse.builder()
-                        .id(null).name("무시").nameEn("Ignored").build(),
-                    io.pinkspider.leveluptogethermvp.metaservice.domain.dto.MissionCategoryResponse.builder()
-                        .id(7L).name(null).nameEn(null).build(),
-                    io.pinkspider.leveluptogethermvp.metaservice.domain.dto.MissionCategoryResponse.builder()
-                        .id(8L).name("독서").nameEn("Reading").build()));
+                    .thenReturn(
+                            List.of(
+                                    io.pinkspider.leveluptogethermvp.metaservice.domain.dto
+                                            .MissionCategoryResponse.builder()
+                                            .id(null)
+                                            .name("무시")
+                                            .nameEn("Ignored")
+                                            .build(),
+                                    io.pinkspider.leveluptogethermvp.metaservice.domain.dto
+                                            .MissionCategoryResponse.builder()
+                                            .id(7L)
+                                            .name(null)
+                                            .nameEn(null)
+                                            .build(),
+                                    io.pinkspider.leveluptogethermvp.metaservice.domain.dto
+                                            .MissionCategoryResponse.builder()
+                                            .id(8L)
+                                            .name("독서")
+                                            .nameEn("Reading")
+                                            .build()));
 
-            MissionExecutionResponse r70 = MissionExecutionResponse.builder()
-                .missionId(70L).missionTitle("스냅샷").missionCategoryName("기타").build();
-            MissionExecutionResponse r71 = MissionExecutionResponse.builder()
-                .missionId(71L).missionTitle("독서").missionCategoryName("독서").build();
-            MissionExecutionResponse rNull = MissionExecutionResponse.builder()
-                .missionId(null).missionTitle("마스킹").missionCategoryName("기타").build();
+            MissionExecutionResponse r70 =
+                    MissionExecutionResponse.builder()
+                            .missionId(70L)
+                            .missionTitle("스냅샷")
+                            .missionCategoryName("기타")
+                            .build();
+            MissionExecutionResponse r71 =
+                    MissionExecutionResponse.builder()
+                            .missionId(71L)
+                            .missionTitle("독서")
+                            .missionCategoryName("독서")
+                            .build();
+            MissionExecutionResponse rNull =
+                    MissionExecutionResponse.builder()
+                            .missionId(null)
+                            .missionTitle("마스킹")
+                            .missionCategoryName("기타")
+                            .build();
 
             executionService.localizeMissionFields(
-                new java.util.ArrayList<>(List.of(r70, r71, rNull)), "en");
+                    new java.util.ArrayList<>(List.of(r70, r71, rNull)), "en");
 
             assertThat(r70.getMissionTitle()).isEqualTo("스냅샷");
             assertThat(r70.getMissionCategoryName()).isEqualTo("기타");

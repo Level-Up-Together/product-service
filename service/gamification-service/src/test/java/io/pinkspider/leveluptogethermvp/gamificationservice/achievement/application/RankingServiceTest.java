@@ -10,23 +10,23 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import io.pinkspider.leveluptogethermvp.gamificationservice.domain.entity.Title;
-import io.pinkspider.leveluptogethermvp.gamificationservice.domain.entity.UserExperience;
-import io.pinkspider.leveluptogethermvp.gamificationservice.domain.entity.UserStats;
-import io.pinkspider.leveluptogethermvp.gamificationservice.domain.entity.UserTitle;
 import io.pinkspider.global.enums.TitlePosition;
 import io.pinkspider.global.enums.TitleRarity;
-import io.pinkspider.leveluptogethermvp.gamificationservice.infrastructure.ExperienceHistoryRepository;
-import io.pinkspider.leveluptogethermvp.gamificationservice.infrastructure.UserExperienceRepository;
-import io.pinkspider.leveluptogethermvp.gamificationservice.infrastructure.UserStatsRepository;
-import io.pinkspider.leveluptogethermvp.gamificationservice.infrastructure.UserTitleRepository;
-import io.pinkspider.leveluptogethermvp.gamificationservice.achievement.domain.dto.LevelRankingResponse;
-import io.pinkspider.leveluptogethermvp.gamificationservice.achievement.domain.dto.RankingResponse;
 import io.pinkspider.global.facade.MissionQueryFacade;
 import io.pinkspider.global.facade.UserQueryFacade;
 import io.pinkspider.global.facade.dto.EquippedItemRarityDto;
 import io.pinkspider.global.facade.dto.InProgressMissionDto;
 import io.pinkspider.global.facade.dto.UserProfileInfo;
+import io.pinkspider.leveluptogethermvp.gamificationservice.achievement.domain.dto.LevelRankingResponse;
+import io.pinkspider.leveluptogethermvp.gamificationservice.achievement.domain.dto.RankingResponse;
+import io.pinkspider.leveluptogethermvp.gamificationservice.domain.entity.Title;
+import io.pinkspider.leveluptogethermvp.gamificationservice.domain.entity.UserExperience;
+import io.pinkspider.leveluptogethermvp.gamificationservice.domain.entity.UserStats;
+import io.pinkspider.leveluptogethermvp.gamificationservice.domain.entity.UserTitle;
+import io.pinkspider.leveluptogethermvp.gamificationservice.infrastructure.ExperienceHistoryRepository;
+import io.pinkspider.leveluptogethermvp.gamificationservice.infrastructure.UserExperienceRepository;
+import io.pinkspider.leveluptogethermvp.gamificationservice.infrastructure.UserStatsRepository;
+import io.pinkspider.leveluptogethermvp.gamificationservice.infrastructure.UserTitleRepository;
 import io.pinkspider.leveluptogethermvp.gamificationservice.shop.application.UserItemService;
 import io.pinkspider.leveluptogethermvp.metaservice.application.MissionCategoryService;
 import java.util.Collections;
@@ -48,54 +48,48 @@ import org.springframework.data.domain.Pageable;
 @ExtendWith(MockitoExtension.class)
 class RankingServiceTest {
 
-    @Mock
-    private UserStatsRepository userStatsRepository;
+    @Mock private UserStatsRepository userStatsRepository;
 
-    @Mock
-    private UserTitleRepository userTitleRepository;
+    @Mock private UserTitleRepository userTitleRepository;
 
-    @Mock
-    private UserExperienceRepository userExperienceRepository;
+    @Mock private UserExperienceRepository userExperienceRepository;
 
-    @Mock
-    private UserQueryFacade userQueryFacadeService;
+    @Mock private UserQueryFacade userQueryFacadeService;
 
-    @Mock
-    private ExperienceHistoryRepository experienceHistoryRepository;
+    @Mock private ExperienceHistoryRepository experienceHistoryRepository;
 
-    @Mock
-    private MissionQueryFacade missionQueryFacade;
+    @Mock private MissionQueryFacade missionQueryFacade;
 
-    @Mock
-    private MissionCategoryService missionCategoryService;
+    @Mock private MissionCategoryService missionCategoryService;
 
-    @Mock
-    private UserItemService userItemService;
+    @Mock private UserItemService userItemService;
 
-    @InjectMocks
-    private RankingService rankingService;
+    @InjectMocks private RankingService rankingService;
 
     private static final String TEST_USER_ID = "test-user-123";
 
     private UserStats createTestUserStats(Long id, String userId, long rankingPoints) {
-        UserStats stats = UserStats.builder()
-            .userId(userId)
-            .rankingPoints(rankingPoints)
-            .totalMissionCompletions(10)
-            .maxStreak(5)
-            .totalAchievementsCompleted(3)
-            .build();
+        UserStats stats =
+                UserStats.builder()
+                        .userId(userId)
+                        .rankingPoints(rankingPoints)
+                        .totalMissionCompletions(10)
+                        .maxStreak(5)
+                        .totalAchievementsCompleted(3)
+                        .build();
         setId(stats, id);
         return stats;
     }
 
-    private UserExperience createTestUserExperience(Long id, String userId, int level, int totalExp) {
-        UserExperience exp = UserExperience.builder()
-            .userId(userId)
-            .currentLevel(level)
-            .currentExp(100)
-            .totalExp(totalExp)
-            .build();
+    private UserExperience createTestUserExperience(
+            Long id, String userId, int level, int totalExp) {
+        UserExperience exp =
+                UserExperience.builder()
+                        .userId(userId)
+                        .currentLevel(level)
+                        .currentExp(100)
+                        .totalExp(totalExp)
+                        .build();
         setId(exp, id);
         return exp;
     }
@@ -113,13 +107,16 @@ class RankingServiceTest {
             UserStats stats2 = createTestUserStats(2L, "user2", 800L);
             Page<UserStats> statsPage = new PageImpl<>(List.of(stats1, stats2), pageable, 2);
 
-            when(userStatsRepository.findAllByOrderByRankingPointsDesc(pageable)).thenReturn(statsPage);
-            when(userQueryFacadeService.getActiveUserIds(List.of("user1", "user2"))).thenReturn(List.of("user1", "user2"));
+            when(userStatsRepository.findAllByOrderByRankingPointsDesc(pageable))
+                    .thenReturn(statsPage);
+            when(userQueryFacadeService.getActiveUserIds(List.of("user1", "user2")))
+                    .thenReturn(List.of("user1", "user2"));
             // LUT-426: 레벨·칭호는 페이지 단위 배치 조회
             when(userExperienceRepository.findByUserIdIn(List.of("user1", "user2")))
-                .thenReturn(List.of(
-                    createTestUserExperience(1L, "user1", 10, 1000),
-                    createTestUserExperience(2L, "user2", 8, 800)));
+                    .thenReturn(
+                            List.of(
+                                    createTestUserExperience(1L, "user1", 10, 1000),
+                                    createTestUserExperience(2L, "user2", 8, 800)));
 
             // when
             Page<RankingResponse> result = rankingService.getOverallRanking(pageable);
@@ -143,22 +140,26 @@ class RankingServiceTest {
             UserStats stats = createTestUserStats(1L, "user1", 1000L);
             Page<UserStats> statsPage = new PageImpl<>(List.of(stats), pageable, 1);
 
-            Title leftTitle = Title.builder()
-                .name("강인한")
-                .rarity(TitleRarity.UNCOMMON)
-                .positionType(TitlePosition.LEFT)
-                .build();
-            UserTitle leftUserTitle = UserTitle.builder()
-                .userId("user1")
-                .title(leftTitle)
-                .isEquipped(true)
-                .equippedPosition(TitlePosition.LEFT)
-                .build();
+            Title leftTitle =
+                    Title.builder()
+                            .name("강인한")
+                            .rarity(TitleRarity.UNCOMMON)
+                            .positionType(TitlePosition.LEFT)
+                            .build();
+            UserTitle leftUserTitle =
+                    UserTitle.builder()
+                            .userId("user1")
+                            .title(leftTitle)
+                            .isEquipped(true)
+                            .equippedPosition(TitlePosition.LEFT)
+                            .build();
 
-            when(userStatsRepository.findAllByOrderByRankingPointsDesc(pageable)).thenReturn(statsPage);
-            when(userQueryFacadeService.getActiveUserIds(List.of("user1"))).thenReturn(List.of("user1"));
+            when(userStatsRepository.findAllByOrderByRankingPointsDesc(pageable))
+                    .thenReturn(statsPage);
+            when(userQueryFacadeService.getActiveUserIds(List.of("user1")))
+                    .thenReturn(List.of("user1"));
             when(userTitleRepository.findEquippedTitlesByUserIdIn(List.of("user1")))
-                .thenReturn(List.of(leftUserTitle));
+                    .thenReturn(List.of(leftUserTitle));
 
             // when
             Page<RankingResponse> result = rankingService.getOverallRanking(pageable);
@@ -166,7 +167,8 @@ class RankingServiceTest {
             // then
             assertThat(result.getContent().get(0).getEquippedTitleName()).isEqualTo("강인한");
             assertThat(result.getContent().get(0).getLeftTitleName()).isEqualTo("강인한");
-            assertThat(result.getContent().get(0).getLeftTitleRarity()).isEqualTo(TitleRarity.UNCOMMON);
+            assertThat(result.getContent().get(0).getLeftTitleRarity())
+                    .isEqualTo(TitleRarity.UNCOMMON);
             verify(userTitleRepository, never()).findEquippedTitlesByUserId(anyString());
         }
 
@@ -179,20 +181,25 @@ class RankingServiceTest {
             UserStats stats2 = createTestUserStats(2L, "user2", 800L);
             Page<UserStats> statsPage = new PageImpl<>(List.of(stats1, stats2), pageable, 2);
 
-            when(userStatsRepository.findAllByOrderByRankingPointsDesc(pageable)).thenReturn(statsPage);
-            when(userQueryFacadeService.getActiveUserIds(List.of("user1", "user2"))).thenReturn(List.of("user1", "user2"));
+            when(userStatsRepository.findAllByOrderByRankingPointsDesc(pageable))
+                    .thenReturn(statsPage);
+            when(userQueryFacadeService.getActiveUserIds(List.of("user1", "user2")))
+                    .thenReturn(List.of("user1", "user2"));
             when(userItemService.getEquippedItemRarityMap(List.of("user1", "user2")))
-                .thenReturn(Map.of("user1", List.of(
-                    new EquippedItemRarityDto("HEAD", TitleRarity.EPIC),
-                    new EquippedItemRarityDto("BASIC", TitleRarity.RARE))));
+                    .thenReturn(
+                            Map.of(
+                                    "user1",
+                                    List.of(
+                                            new EquippedItemRarityDto("HEAD", TitleRarity.EPIC),
+                                            new EquippedItemRarityDto("BASIC", TitleRarity.RARE))));
 
             // when
             Page<RankingResponse> result = rankingService.getOverallRanking(pageable);
 
             // then
             assertThat(result.getContent().get(0).getEquippedItemRarities())
-                .extracting(EquippedItemRarityDto::itemType)
-                .containsExactlyInAnyOrder("HEAD", "BASIC");
+                    .extracting(EquippedItemRarityDto::itemType)
+                    .containsExactlyInAnyOrder("HEAD", "BASIC");
             assertThat(result.getContent().get(1).getEquippedItemRarities()).isEmpty();
         }
 
@@ -204,10 +211,12 @@ class RankingServiceTest {
             UserStats stats = createTestUserStats(1L, "user1", 1000L);
             Page<UserStats> statsPage = new PageImpl<>(List.of(stats), pageable, 1);
 
-            when(userStatsRepository.findAllByOrderByRankingPointsDesc(pageable)).thenReturn(statsPage);
-            when(userQueryFacadeService.getActiveUserIds(List.of("user1"))).thenReturn(List.of("user1"));
+            when(userStatsRepository.findAllByOrderByRankingPointsDesc(pageable))
+                    .thenReturn(statsPage);
+            when(userQueryFacadeService.getActiveUserIds(List.of("user1")))
+                    .thenReturn(List.of("user1"));
             when(userItemService.getEquippedItemRarityMap(anyList()))
-                .thenThrow(new RuntimeException("db down"));
+                    .thenThrow(new RuntimeException("db down"));
 
             // when
             Page<RankingResponse> result = rankingService.getOverallRanking(pageable);
@@ -230,8 +239,10 @@ class RankingServiceTest {
             UserStats stats = createTestUserStats(1L, "user1", 1000L);
             Page<UserStats> statsPage = new PageImpl<>(List.of(stats), pageable, 1);
 
-            when(userStatsRepository.findAllByOrderByTotalMissionCompletionsDesc(pageable)).thenReturn(statsPage);
-            when(userQueryFacadeService.getActiveUserIds(List.of("user1"))).thenReturn(List.of("user1"));
+            when(userStatsRepository.findAllByOrderByTotalMissionCompletionsDesc(pageable))
+                    .thenReturn(statsPage);
+            when(userQueryFacadeService.getActiveUserIds(List.of("user1")))
+                    .thenReturn(List.of("user1"));
 
             // when
             Page<RankingResponse> result = rankingService.getMissionCompletionRanking(pageable);
@@ -255,7 +266,8 @@ class RankingServiceTest {
             Page<UserStats> statsPage = new PageImpl<>(List.of(stats), pageable, 1);
 
             when(userStatsRepository.findAllByOrderByMaxStreakDesc(pageable)).thenReturn(statsPage);
-            when(userQueryFacadeService.getActiveUserIds(List.of("user1"))).thenReturn(List.of("user1"));
+            when(userQueryFacadeService.getActiveUserIds(List.of("user1")))
+                    .thenReturn(List.of("user1"));
 
             // when
             Page<RankingResponse> result = rankingService.getStreakRanking(pageable);
@@ -278,8 +290,10 @@ class RankingServiceTest {
             UserStats stats = createTestUserStats(1L, "user1", 1000L);
             Page<UserStats> statsPage = new PageImpl<>(List.of(stats), pageable, 1);
 
-            when(userStatsRepository.findAllByOrderByTotalAchievementsCompletedDesc(pageable)).thenReturn(statsPage);
-            when(userQueryFacadeService.getActiveUserIds(List.of("user1"))).thenReturn(List.of("user1"));
+            when(userStatsRepository.findAllByOrderByTotalAchievementsCompletedDesc(pageable))
+                    .thenReturn(statsPage);
+            when(userQueryFacadeService.getActiveUserIds(List.of("user1")))
+                    .thenReturn(List.of("user1"));
 
             // when
             Page<RankingResponse> result = rankingService.getAchievementRanking(pageable);
@@ -304,7 +318,8 @@ class RankingServiceTest {
             when(userStatsRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.of(stats));
             when(userStatsRepository.findUserRank(TEST_USER_ID)).thenReturn(5L);
             when(userExperienceRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.of(exp));
-            when(userTitleRepository.findEquippedTitlesByUserId(TEST_USER_ID)).thenReturn(Collections.emptyList());
+            when(userTitleRepository.findEquippedTitlesByUserId(TEST_USER_ID))
+                    .thenReturn(Collections.emptyList());
 
             // when
             RankingResponse result = rankingService.getMyRanking(TEST_USER_ID);
@@ -343,7 +358,8 @@ class RankingServiceTest {
             Page<UserStats> statsPage = new PageImpl<>(List.of(stats), PageRequest.of(0, 5), 1);
 
             when(userStatsRepository.findUserRank(TEST_USER_ID)).thenReturn(3L);
-            when(userStatsRepository.findAllByOrderByRankingPointsDesc(any(Pageable.class))).thenReturn(statsPage);
+            when(userStatsRepository.findAllByOrderByRankingPointsDesc(any(Pageable.class)))
+                    .thenReturn(statsPage);
 
             // when
             List<RankingResponse> result = rankingService.getNearbyRanking(TEST_USER_ID, 2);
@@ -392,9 +408,13 @@ class RankingServiceTest {
             when(userExperienceRepository.findAll()).thenReturn(List.of(exp));
             when(userQueryFacadeService.getActiveUserIds(any())).thenReturn(List.of(TEST_USER_ID));
             when(userQueryFacadeService.getUserProfile(TEST_USER_ID))
-                .thenReturn(new UserProfileInfo(TEST_USER_ID, "테스트닉네임", null, 15, null, null, null));
+                    .thenReturn(
+                            new UserProfileInfo(
+                                    TEST_USER_ID, "테스트닉네임", null, 15, null, null, null));
             when(userExperienceRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.of(exp));
-            when(userExperienceRepository.calculateLevelRankAmongActiveUsers(eq(15), eq(5000), any())).thenReturn(10L);
+            when(userExperienceRepository.calculateLevelRankAmongActiveUsers(
+                            eq(15), eq(5000), any()))
+                    .thenReturn(10L);
 
             // when
             LevelRankingResponse result = rankingService.getMyLevelRanking(TEST_USER_ID);
@@ -412,7 +432,8 @@ class RankingServiceTest {
             when(userExperienceRepository.findAll()).thenReturn(List.of());
             when(userQueryFacadeService.getActiveUserIds(any())).thenReturn(List.of());
             when(userQueryFacadeService.getUserProfile(TEST_USER_ID))
-                .thenReturn(new UserProfileInfo(TEST_USER_ID, "사용자", null, 1, null, null, null));
+                    .thenReturn(
+                            new UserProfileInfo(TEST_USER_ID, "사용자", null, 1, null, null, null));
             when(userExperienceRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.empty());
 
             // when
@@ -438,7 +459,8 @@ class RankingServiceTest {
             when(experienceHistoryRepository.countUsersByCategory(category)).thenReturn(0L);
 
             // when
-            Page<LevelRankingResponse> result = rankingService.getLevelRankingByCategory(category, pageable);
+            Page<LevelRankingResponse> result =
+                    rankingService.getLevelRankingByCategory(category, pageable);
 
             // then
             assertThat(result).isEmpty();
@@ -452,18 +474,28 @@ class RankingServiceTest {
             Pageable pageable = PageRequest.of(0, 10);
             UserExperience exp = createTestUserExperience(1L, "user1", 10, 1000);
 
-            Object[] row = new Object[]{"user1", 500L};
+            Object[] row = new Object[] {"user1", 500L};
             List<Object[]> rows = Collections.singletonList(row);
             Page<Object[]> rankingPage = new PageImpl<>(rows, pageable, 1);
 
             when(experienceHistoryRepository.countUsersByCategory(category)).thenReturn(10L);
-            when(experienceHistoryRepository.findUserExpRankingByCategory(eq(category), any(Pageable.class))).thenReturn(rankingPage);
-            when(userQueryFacadeService.getActiveUserIds(List.of("user1"))).thenReturn(List.of("user1"));
-            when(userQueryFacadeService.getUserProfiles(List.of("user1"))).thenReturn(java.util.Map.of("user1", new UserProfileInfo("user1", "테스트유저", null, 10, null, null, null)));
-            when(userExperienceRepository.findByUserIdIn(List.of("user1"))).thenReturn(List.of(exp));
+            when(experienceHistoryRepository.findUserExpRankingByCategory(
+                            eq(category), any(Pageable.class)))
+                    .thenReturn(rankingPage);
+            when(userQueryFacadeService.getActiveUserIds(List.of("user1")))
+                    .thenReturn(List.of("user1"));
+            when(userQueryFacadeService.getUserProfiles(List.of("user1")))
+                    .thenReturn(
+                            java.util.Map.of(
+                                    "user1",
+                                    new UserProfileInfo(
+                                            "user1", "테스트유저", null, 10, null, null, null)));
+            when(userExperienceRepository.findByUserIdIn(List.of("user1")))
+                    .thenReturn(List.of(exp));
 
             // when
-            Page<LevelRankingResponse> result = rankingService.getLevelRankingByCategory(category, pageable);
+            Page<LevelRankingResponse> result =
+                    rankingService.getLevelRankingByCategory(category, pageable);
 
             // then
             assertThat(result).isNotNull();
@@ -477,17 +509,26 @@ class RankingServiceTest {
             // given
             String category = "STUDY";
             Pageable pageable = PageRequest.of(0, 10);
-            Object[] row = new Object[]{"user2", 300L};
+            Object[] row = new Object[] {"user2", 300L};
             List<Object[]> rows = Collections.singletonList(row);
             Page<Object[]> rankingPage = new PageImpl<>(rows, pageable, 1);
 
             when(experienceHistoryRepository.countUsersByCategory(category)).thenReturn(5L);
-            when(experienceHistoryRepository.findUserExpRankingByCategory(eq(category), any(Pageable.class))).thenReturn(rankingPage);
-            when(userQueryFacadeService.getActiveUserIds(List.of("user2"))).thenReturn(List.of("user2"));
-            when(userQueryFacadeService.getUserProfiles(List.of("user2"))).thenReturn(java.util.Map.of("user2", new UserProfileInfo("user2", "테스트유저2", null, 1, null, null, null)));
+            when(experienceHistoryRepository.findUserExpRankingByCategory(
+                            eq(category), any(Pageable.class)))
+                    .thenReturn(rankingPage);
+            when(userQueryFacadeService.getActiveUserIds(List.of("user2")))
+                    .thenReturn(List.of("user2"));
+            when(userQueryFacadeService.getUserProfiles(List.of("user2")))
+                    .thenReturn(
+                            java.util.Map.of(
+                                    "user2",
+                                    new UserProfileInfo(
+                                            "user2", "테스트유저2", null, 1, null, null, null)));
 
             // when
-            Page<LevelRankingResponse> result = rankingService.getLevelRankingByCategory(category, pageable);
+            Page<LevelRankingResponse> result =
+                    rankingService.getLevelRankingByCategory(category, pageable);
 
             // then
             assertThat(result).isNotNull();
@@ -509,9 +550,17 @@ class RankingServiceTest {
             UserExperience exp2 = createTestUserExperience(2L, "user2", 15, 3000);
 
             when(userExperienceRepository.findAllByOrderByCurrentLevelDescTotalExpDesc())
-                .thenReturn(List.of(exp1, exp2));
-            when(userQueryFacadeService.getActiveUserIds(List.of("user1", "user2"))).thenReturn(List.of("user1", "user2"));
-            when(userQueryFacadeService.getUserProfiles(List.of("user1", "user2"))).thenReturn(java.util.Map.of("user1", new UserProfileInfo("user1", "유저1", null, 20, null, null, null), "user2", new UserProfileInfo("user2", "유저2", null, 15, null, null, null)));
+                    .thenReturn(List.of(exp1, exp2));
+            when(userQueryFacadeService.getActiveUserIds(List.of("user1", "user2")))
+                    .thenReturn(List.of("user1", "user2"));
+            when(userQueryFacadeService.getUserProfiles(List.of("user1", "user2")))
+                    .thenReturn(
+                            java.util.Map.of(
+                                    "user1",
+                                    new UserProfileInfo("user1", "유저1", null, 20, null, null, null),
+                                    "user2",
+                                    new UserProfileInfo(
+                                            "user2", "유저2", null, 15, null, null, null)));
 
             // when
             Page<LevelRankingResponse> result = rankingService.getLevelRanking(pageable);
@@ -533,19 +582,37 @@ class RankingServiceTest {
             UserExperience exp2 = createTestUserExperience(2L, "user2", 15, 3000);
 
             when(userExperienceRepository.findAllByOrderByCurrentLevelDescTotalExpDesc())
-                .thenReturn(List.of(exp1, exp2));
-            when(userQueryFacadeService.getActiveUserIds(List.of("user1", "user2"))).thenReturn(List.of("user1", "user2"));
-            when(userQueryFacadeService.getUserProfiles(List.of("user1", "user2"))).thenReturn(java.util.Map.of());
+                    .thenReturn(List.of(exp1, exp2));
+            when(userQueryFacadeService.getActiveUserIds(List.of("user1", "user2")))
+                    .thenReturn(List.of("user1", "user2"));
+            when(userQueryFacadeService.getUserProfiles(List.of("user1", "user2")))
+                    .thenReturn(java.util.Map.of());
             // user1=PUBLIC(노출), user2=PRIVATE(마스킹)
             when(missionQueryFacade.findInProgressMissions(eq(List.of("user1", "user2")), any()))
-                .thenReturn(java.util.Map.of(
-                    "user1", new InProgressMissionDto(11L, 1L, "운동", "달리기", "PUBLIC", null,
-                        java.time.LocalDateTime.now()),
-                    "user2", new InProgressMissionDto(22L, 2L, "독서", "비밀 미션", "PRIVATE", null,
-                        java.time.LocalDateTime.now())));
+                    .thenReturn(
+                            java.util.Map.of(
+                                    "user1",
+                                            new InProgressMissionDto(
+                                                    11L,
+                                                    1L,
+                                                    "운동",
+                                                    "달리기",
+                                                    "PUBLIC",
+                                                    null,
+                                                    java.time.LocalDateTime.now()),
+                                    "user2",
+                                            new InProgressMissionDto(
+                                                    22L,
+                                                    2L,
+                                                    "독서",
+                                                    "비밀 미션",
+                                                    "PRIVATE",
+                                                    null,
+                                                    java.time.LocalDateTime.now())));
 
             // when
-            Page<LevelRankingResponse> result = rankingService.getLevelRanking(pageable, null, null);
+            Page<LevelRankingResponse> result =
+                    rankingService.getLevelRanking(pageable, null, null);
 
             // then
             LevelRankingResponse first = result.getContent().get(0);
@@ -569,16 +636,27 @@ class RankingServiceTest {
             UserExperience exp1 = createTestUserExperience(1L, "user1", 20, 5000);
 
             when(userExperienceRepository.findAllByOrderByCurrentLevelDescTotalExpDesc())
-                .thenReturn(List.of(exp1));
-            when(userQueryFacadeService.getActiveUserIds(List.of("user1"))).thenReturn(List.of("user1"));
-            when(userQueryFacadeService.getUserProfiles(List.of("user1"))).thenReturn(java.util.Map.of());
+                    .thenReturn(List.of(exp1));
+            when(userQueryFacadeService.getActiveUserIds(List.of("user1")))
+                    .thenReturn(List.of("user1"));
+            when(userQueryFacadeService.getUserProfiles(List.of("user1")))
+                    .thenReturn(java.util.Map.of());
             when(missionQueryFacade.findInProgressMissions(eq(List.of("user1")), any()))
-                .thenReturn(java.util.Map.of(
-                    "user1", new InProgressMissionDto(11L, 1L, "운동", "비공개 달리기", "PRIVATE", null,
-                        java.time.LocalDateTime.now())));
+                    .thenReturn(
+                            java.util.Map.of(
+                                    "user1",
+                                    new InProgressMissionDto(
+                                            11L,
+                                            1L,
+                                            "운동",
+                                            "비공개 달리기",
+                                            "PRIVATE",
+                                            null,
+                                            java.time.LocalDateTime.now())));
 
             // viewer == user1 (본인)
-            Page<LevelRankingResponse> result = rankingService.getLevelRanking(pageable, null, "user1");
+            Page<LevelRankingResponse> result =
+                    rankingService.getLevelRanking(pageable, null, "user1");
 
             LevelRankingResponse own = result.getContent().get(0);
             assertThat(own.getInProgressMission().getIsVisible()).isTrue();
@@ -594,9 +672,9 @@ class RankingServiceTest {
             UserExperience c = createTestUserExperience(3L, "u3", 1, 50);
 
             when(userExperienceRepository.findAllByOrderByCurrentLevelDescTotalExpDesc())
-                .thenReturn(List.of(a, b, c));
+                    .thenReturn(List.of(a, b, c));
             when(userQueryFacadeService.getActiveUserIds(List.of("u1", "u2", "u3")))
-                .thenReturn(List.of("u1", "u2", "u3"));
+                    .thenReturn(List.of("u1", "u2", "u3"));
             when(userQueryFacadeService.getUserProfiles(anyList())).thenReturn(java.util.Map.of());
 
             Page<LevelRankingResponse> result = rankingService.getLevelRanking(pageable);
@@ -616,9 +694,10 @@ class RankingServiceTest {
             UserExperience b = createTestUserExperience(3L, "active2", 5, 300);
 
             when(userExperienceRepository.findAllByOrderByCurrentLevelDescTotalExpDesc())
-                .thenReturn(List.of(a, w, b));
-            when(userQueryFacadeService.getActiveUserIds(List.of("active1", "withdrawn1", "active2")))
-                .thenReturn(List.of("active1", "active2")); // 탈퇴자 제외
+                    .thenReturn(List.of(a, w, b));
+            when(userQueryFacadeService.getActiveUserIds(
+                            List.of("active1", "withdrawn1", "active2")))
+                    .thenReturn(List.of("active1", "active2")); // 탈퇴자 제외
             when(userQueryFacadeService.getUserProfiles(anyList())).thenReturn(java.util.Map.of());
 
             Page<LevelRankingResponse> result = rankingService.getLevelRanking(pageable);
@@ -640,22 +719,27 @@ class RankingServiceTest {
         @DisplayName("QA-206: 카테고리 내 내 랭킹을 공동순위로 계산한다")
         void getMyLevelRankingByCategory_success() {
             String category = "HEALTH";
-            Page<Object[]> rankingPage = new PageImpl<>(List.of(
-                new Object[] {"top", 1000L},
-                new Object[] {TEST_USER_ID, 500L},
-                new Object[] {"low", 100L}));
+            Page<Object[]> rankingPage =
+                    new PageImpl<>(
+                            List.of(
+                                    new Object[] {"top", 1000L},
+                                    new Object[] {TEST_USER_ID, 500L},
+                                    new Object[] {"low", 100L}));
 
-            when(experienceHistoryRepository.findUserExpRankingByCategory(eq(category), any(Pageable.class)))
-                .thenReturn(rankingPage);
+            when(experienceHistoryRepository.findUserExpRankingByCategory(
+                            eq(category), any(Pageable.class)))
+                    .thenReturn(rankingPage);
             when(userQueryFacadeService.getActiveUserIds(anyList()))
-                .thenReturn(List.of("top", TEST_USER_ID, "low"));
+                    .thenReturn(List.of("top", TEST_USER_ID, "low"));
             when(userQueryFacadeService.getUserProfile(TEST_USER_ID))
-                .thenReturn(new UserProfileInfo(TEST_USER_ID, "나", null, 3, null, null, null));
-            when(userTitleRepository.findEquippedTitlesByUserId(TEST_USER_ID)).thenReturn(Collections.emptyList());
+                    .thenReturn(new UserProfileInfo(TEST_USER_ID, "나", null, 3, null, null, null));
+            when(userTitleRepository.findEquippedTitlesByUserId(TEST_USER_ID))
+                    .thenReturn(Collections.emptyList());
             when(userExperienceRepository.findByUserId(TEST_USER_ID))
-                .thenReturn(Optional.of(createTestUserExperience(1L, TEST_USER_ID, 3, 500)));
+                    .thenReturn(Optional.of(createTestUserExperience(1L, TEST_USER_ID, 3, 500)));
 
-            LevelRankingResponse result = rankingService.getMyLevelRankingByCategory(TEST_USER_ID, category);
+            LevelRankingResponse result =
+                    rankingService.getMyLevelRankingByCategory(TEST_USER_ID, category);
 
             assertThat(result.getRank()).isEqualTo(2L); // top 1명이 위 → 공동순위 2위
             assertThat(result.getTotalExp()).isEqualTo(500);
@@ -667,17 +751,20 @@ class RankingServiceTest {
         void getMyLevelRankingByCategory_noRecord() {
             String category = "STUDY";
             Page<Object[]> rankingPage =
-                new PageImpl<>(Collections.singletonList(new Object[] {"other", 100L}));
+                    new PageImpl<>(Collections.singletonList(new Object[] {"other", 100L}));
 
-            when(experienceHistoryRepository.findUserExpRankingByCategory(eq(category), any(Pageable.class)))
-                .thenReturn(rankingPage);
+            when(experienceHistoryRepository.findUserExpRankingByCategory(
+                            eq(category), any(Pageable.class)))
+                    .thenReturn(rankingPage);
             when(userQueryFacadeService.getActiveUserIds(anyList())).thenReturn(List.of("other"));
             when(userQueryFacadeService.getUserProfile(TEST_USER_ID))
-                .thenReturn(new UserProfileInfo(TEST_USER_ID, "나", null, 1, null, null, null));
-            when(userTitleRepository.findEquippedTitlesByUserId(TEST_USER_ID)).thenReturn(Collections.emptyList());
+                    .thenReturn(new UserProfileInfo(TEST_USER_ID, "나", null, 1, null, null, null));
+            when(userTitleRepository.findEquippedTitlesByUserId(TEST_USER_ID))
+                    .thenReturn(Collections.emptyList());
             when(userExperienceRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.empty());
 
-            LevelRankingResponse result = rankingService.getMyLevelRankingByCategory(TEST_USER_ID, category);
+            LevelRankingResponse result =
+                    rankingService.getMyLevelRankingByCategory(TEST_USER_ID, category);
 
             assertThat(result.getRank()).isEqualTo(2L); // 활성 1명 + 1 = 최하위 2
             assertThat(result.getTotalExp()).isEqualTo(0);
@@ -691,24 +778,25 @@ class RankingServiceTest {
         @Test
         @DisplayName("주간 내 랭킹을 목록과 동일한 공동순위로 계산한다")
         void getMyWeeklyLevelRanking_success() {
-            List<Object[]> rows = List.of(
-                new Object[] {"top", 1000L},
-                new Object[] {TEST_USER_ID, 500L},
-                new Object[] {"low", 100L});
+            List<Object[]> rows =
+                    List.of(
+                            new Object[] {"top", 1000L},
+                            new Object[] {TEST_USER_ID, 500L},
+                            new Object[] {"low", 100L});
 
             when(experienceHistoryRepository.findUserExpRankingByPeriod(any(), any()))
-                .thenReturn(rows);
+                    .thenReturn(rows);
             when(userQueryFacadeService.getActiveUserIds(anyList()))
-                .thenReturn(List.of("top", TEST_USER_ID, "low"));
+                    .thenReturn(List.of("top", TEST_USER_ID, "low"));
             when(userQueryFacadeService.getUserProfile(TEST_USER_ID))
-                .thenReturn(new UserProfileInfo(TEST_USER_ID, "나", null, 3, null, null, null));
+                    .thenReturn(new UserProfileInfo(TEST_USER_ID, "나", null, 3, null, null, null));
             when(userTitleRepository.findEquippedTitlesByUserId(TEST_USER_ID))
-                .thenReturn(Collections.emptyList());
+                    .thenReturn(Collections.emptyList());
             when(userExperienceRepository.findByUserId(TEST_USER_ID))
-                .thenReturn(Optional.of(createTestUserExperience(1L, TEST_USER_ID, 3, 3500)));
+                    .thenReturn(Optional.of(createTestUserExperience(1L, TEST_USER_ID, 3, 3500)));
 
             LevelRankingResponse result =
-                rankingService.getMyWeeklyLevelRanking(TEST_USER_ID, null, "Asia/Seoul");
+                    rankingService.getMyWeeklyLevelRanking(TEST_USER_ID, null, "Asia/Seoul");
 
             assertThat(result.getRank()).isEqualTo(2L); // top 1명이 위 → 공동순위 2위
             assertThat(result.getPeriodExp()).isEqualTo(500L);
@@ -719,24 +807,25 @@ class RankingServiceTest {
         @Test
         @DisplayName("동점 유저가 있으면 같은 순위로 계산한다")
         void getMyWeeklyLevelRanking_tied() {
-            List<Object[]> rows = List.of(
-                new Object[] {"top", 1000L},
-                new Object[] {"same", 500L},
-                new Object[] {TEST_USER_ID, 500L});
+            List<Object[]> rows =
+                    List.of(
+                            new Object[] {"top", 1000L},
+                            new Object[] {"same", 500L},
+                            new Object[] {TEST_USER_ID, 500L});
 
             when(experienceHistoryRepository.findUserExpRankingByPeriod(any(), any()))
-                .thenReturn(rows);
+                    .thenReturn(rows);
             when(userQueryFacadeService.getActiveUserIds(anyList()))
-                .thenReturn(List.of("top", "same", TEST_USER_ID));
+                    .thenReturn(List.of("top", "same", TEST_USER_ID));
             when(userQueryFacadeService.getUserProfile(TEST_USER_ID))
-                .thenReturn(new UserProfileInfo(TEST_USER_ID, "나", null, 3, null, null, null));
+                    .thenReturn(new UserProfileInfo(TEST_USER_ID, "나", null, 3, null, null, null));
             when(userTitleRepository.findEquippedTitlesByUserId(TEST_USER_ID))
-                .thenReturn(Collections.emptyList());
+                    .thenReturn(Collections.emptyList());
             when(userExperienceRepository.findByUserId(TEST_USER_ID))
-                .thenReturn(Optional.of(createTestUserExperience(1L, TEST_USER_ID, 3, 3500)));
+                    .thenReturn(Optional.of(createTestUserExperience(1L, TEST_USER_ID, 3, 3500)));
 
             LevelRankingResponse result =
-                rankingService.getMyWeeklyLevelRanking(TEST_USER_ID, null, "Asia/Seoul");
+                    rankingService.getMyWeeklyLevelRanking(TEST_USER_ID, null, "Asia/Seoul");
 
             assertThat(result.getRank()).isEqualTo(2L); // 500 동점 → 공동 2위
         }
@@ -744,24 +833,25 @@ class RankingServiceTest {
         @Test
         @DisplayName("탈퇴 유저는 순위 모수에서 제외된다")
         void getMyWeeklyLevelRanking_excludesInactive() {
-            List<Object[]> rows = List.of(
-                new Object[] {"withdrawn", 2000L},
-                new Object[] {"top", 1000L},
-                new Object[] {TEST_USER_ID, 500L});
+            List<Object[]> rows =
+                    List.of(
+                            new Object[] {"withdrawn", 2000L},
+                            new Object[] {"top", 1000L},
+                            new Object[] {TEST_USER_ID, 500L});
 
             when(experienceHistoryRepository.findUserExpRankingByPeriod(any(), any()))
-                .thenReturn(rows);
+                    .thenReturn(rows);
             when(userQueryFacadeService.getActiveUserIds(anyList()))
-                .thenReturn(List.of("top", TEST_USER_ID)); // withdrawn 은 비활성
+                    .thenReturn(List.of("top", TEST_USER_ID)); // withdrawn 은 비활성
             when(userQueryFacadeService.getUserProfile(TEST_USER_ID))
-                .thenReturn(new UserProfileInfo(TEST_USER_ID, "나", null, 3, null, null, null));
+                    .thenReturn(new UserProfileInfo(TEST_USER_ID, "나", null, 3, null, null, null));
             when(userTitleRepository.findEquippedTitlesByUserId(TEST_USER_ID))
-                .thenReturn(Collections.emptyList());
+                    .thenReturn(Collections.emptyList());
             when(userExperienceRepository.findByUserId(TEST_USER_ID))
-                .thenReturn(Optional.of(createTestUserExperience(1L, TEST_USER_ID, 3, 3500)));
+                    .thenReturn(Optional.of(createTestUserExperience(1L, TEST_USER_ID, 3, 3500)));
 
             LevelRankingResponse result =
-                rankingService.getMyWeeklyLevelRanking(TEST_USER_ID, null, "Asia/Seoul");
+                    rankingService.getMyWeeklyLevelRanking(TEST_USER_ID, null, "Asia/Seoul");
 
             assertThat(result.getRank()).isEqualTo(2L); // 탈퇴 유저 제외 → top 만 위
             assertThat(result.getTotalUsers()).isEqualTo(2L);
@@ -773,16 +863,16 @@ class RankingServiceTest {
             List<Object[]> rows = Collections.singletonList(new Object[] {"other", 100L});
 
             when(experienceHistoryRepository.findUserExpRankingByPeriod(any(), any()))
-                .thenReturn(rows);
+                    .thenReturn(rows);
             when(userQueryFacadeService.getActiveUserIds(anyList())).thenReturn(List.of("other"));
             when(userQueryFacadeService.getUserProfile(TEST_USER_ID))
-                .thenReturn(new UserProfileInfo(TEST_USER_ID, "나", null, 1, null, null, null));
+                    .thenReturn(new UserProfileInfo(TEST_USER_ID, "나", null, 1, null, null, null));
             when(userTitleRepository.findEquippedTitlesByUserId(TEST_USER_ID))
-                .thenReturn(Collections.emptyList());
+                    .thenReturn(Collections.emptyList());
             when(userExperienceRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.empty());
 
             LevelRankingResponse result =
-                rankingService.getMyWeeklyLevelRanking(TEST_USER_ID, null, "Asia/Seoul");
+                    rankingService.getMyWeeklyLevelRanking(TEST_USER_ID, null, "Asia/Seoul");
 
             assertThat(result.getRank()).isEqualTo(2L); // 활성 1명 + 1 = 최하위 2
             assertThat(result.getPeriodExp()).isEqualTo(0L);
@@ -792,23 +882,22 @@ class RankingServiceTest {
         @Test
         @DisplayName("월간 내 랭킹도 동일 규칙으로 계산되고, 잘못된 타임존은 기본값으로 폴백한다")
         void getMyMonthlyLevelRanking_success() {
-            List<Object[]> rows = List.of(
-                new Object[] {"top", 3000L},
-                new Object[] {TEST_USER_ID, 1500L});
+            List<Object[]> rows =
+                    List.of(new Object[] {"top", 3000L}, new Object[] {TEST_USER_ID, 1500L});
 
             when(experienceHistoryRepository.findUserExpRankingByPeriod(any(), any()))
-                .thenReturn(rows);
+                    .thenReturn(rows);
             when(userQueryFacadeService.getActiveUserIds(anyList()))
-                .thenReturn(List.of("top", TEST_USER_ID));
+                    .thenReturn(List.of("top", TEST_USER_ID));
             when(userQueryFacadeService.getUserProfile(TEST_USER_ID))
-                .thenReturn(new UserProfileInfo(TEST_USER_ID, "나", null, 3, null, null, null));
+                    .thenReturn(new UserProfileInfo(TEST_USER_ID, "나", null, 3, null, null, null));
             when(userTitleRepository.findEquippedTitlesByUserId(TEST_USER_ID))
-                .thenReturn(Collections.emptyList());
+                    .thenReturn(Collections.emptyList());
             when(userExperienceRepository.findByUserId(TEST_USER_ID))
-                .thenReturn(Optional.of(createTestUserExperience(1L, TEST_USER_ID, 3, 3500)));
+                    .thenReturn(Optional.of(createTestUserExperience(1L, TEST_USER_ID, 3, 3500)));
 
             LevelRankingResponse result =
-                rankingService.getMyMonthlyLevelRanking(TEST_USER_ID, null, "invalid/zone");
+                    rankingService.getMyMonthlyLevelRanking(TEST_USER_ID, null, "invalid/zone");
 
             assertThat(result.getRank()).isEqualTo(2L);
             assertThat(result.getPeriodExp()).isEqualTo(1500L);
@@ -820,22 +909,21 @@ class RankingServiceTest {
     @DisplayName("칭호 조합 테스트")
     class EquippedTitleTest {
 
-        private UserTitle createUserTitle(Long id, String userId, Title title, TitlePosition position) {
-            UserTitle userTitle = UserTitle.builder()
-                .userId(userId)
-                .title(title)
-                .build();
+        private UserTitle createUserTitle(
+                Long id, String userId, Title title, TitlePosition position) {
+            UserTitle userTitle = UserTitle.builder().userId(userId).title(title).build();
             userTitle.equip(position);
             setId(userTitle, id);
             return userTitle;
         }
 
         private Title createTitle(Long id, String name, TitleRarity rarity) {
-            Title title = Title.builder()
-                .name(name)
-                .rarity(rarity)
-                .positionType(TitlePosition.LEFT)
-                .build();
+            Title title =
+                    Title.builder()
+                            .name(name)
+                            .rarity(rarity)
+                            .positionType(TitlePosition.LEFT)
+                            .build();
             setId(title, id);
             return title;
         }
@@ -849,14 +937,16 @@ class RankingServiceTest {
 
             Title leftTitle = createTitle(1L, "용감한", TitleRarity.RARE);
             Title rightTitle = createTitle(2L, "전사", TitleRarity.EPIC);
-            UserTitle leftUserTitle = createUserTitle(1L, TEST_USER_ID, leftTitle, TitlePosition.LEFT);
-            UserTitle rightUserTitle = createUserTitle(2L, TEST_USER_ID, rightTitle, TitlePosition.RIGHT);
+            UserTitle leftUserTitle =
+                    createUserTitle(1L, TEST_USER_ID, leftTitle, TitlePosition.LEFT);
+            UserTitle rightUserTitle =
+                    createUserTitle(2L, TEST_USER_ID, rightTitle, TitlePosition.RIGHT);
 
             when(userStatsRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.of(stats));
             when(userStatsRepository.findUserRank(TEST_USER_ID)).thenReturn(5L);
             when(userExperienceRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.of(exp));
             when(userTitleRepository.findEquippedTitlesByUserId(TEST_USER_ID))
-                .thenReturn(List.of(leftUserTitle, rightUserTitle));
+                    .thenReturn(List.of(leftUserTitle, rightUserTitle));
 
             // when
             RankingResponse result = rankingService.getMyRanking(TEST_USER_ID);
@@ -875,13 +965,14 @@ class RankingServiceTest {
             UserExperience exp = createTestUserExperience(1L, TEST_USER_ID, 10, 1000);
 
             Title leftTitle = createTitle(1L, "강인한", TitleRarity.COMMON);
-            UserTitle leftUserTitle = createUserTitle(1L, TEST_USER_ID, leftTitle, TitlePosition.LEFT);
+            UserTitle leftUserTitle =
+                    createUserTitle(1L, TEST_USER_ID, leftTitle, TitlePosition.LEFT);
 
             when(userStatsRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.of(stats));
             when(userStatsRepository.findUserRank(TEST_USER_ID)).thenReturn(5L);
             when(userExperienceRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.of(exp));
             when(userTitleRepository.findEquippedTitlesByUserId(TEST_USER_ID))
-                .thenReturn(List.of(leftUserTitle));
+                    .thenReturn(List.of(leftUserTitle));
 
             // when
             RankingResponse result = rankingService.getMyRanking(TEST_USER_ID);
@@ -900,13 +991,14 @@ class RankingServiceTest {
             UserExperience exp = createTestUserExperience(1L, TEST_USER_ID, 10, 1000);
 
             Title rightTitle = createTitle(2L, "모험가", TitleRarity.UNCOMMON);
-            UserTitle rightUserTitle = createUserTitle(2L, TEST_USER_ID, rightTitle, TitlePosition.RIGHT);
+            UserTitle rightUserTitle =
+                    createUserTitle(2L, TEST_USER_ID, rightTitle, TitlePosition.RIGHT);
 
             when(userStatsRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.of(stats));
             when(userStatsRepository.findUserRank(TEST_USER_ID)).thenReturn(5L);
             when(userExperienceRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.of(exp));
             when(userTitleRepository.findEquippedTitlesByUserId(TEST_USER_ID))
-                .thenReturn(List.of(rightUserTitle));
+                    .thenReturn(List.of(rightUserTitle));
 
             // when
             RankingResponse result = rankingService.getMyRanking(TEST_USER_ID);
@@ -930,10 +1022,16 @@ class RankingServiceTest {
 
             when(userExperienceRepository.findAll()).thenReturn(List.of(exp));
             when(userQueryFacadeService.getActiveUserIds(any())).thenReturn(List.of(TEST_USER_ID));
-            when(userQueryFacadeService.getUserProfile(TEST_USER_ID)).thenReturn(new UserProfileInfo(TEST_USER_ID, "테스트닉네임", null, 15, null, null, null));
-            when(userTitleRepository.findEquippedTitlesByUserId(TEST_USER_ID)).thenReturn(Collections.emptyList());
+            when(userQueryFacadeService.getUserProfile(TEST_USER_ID))
+                    .thenReturn(
+                            new UserProfileInfo(
+                                    TEST_USER_ID, "테스트닉네임", null, 15, null, null, null));
+            when(userTitleRepository.findEquippedTitlesByUserId(TEST_USER_ID))
+                    .thenReturn(Collections.emptyList());
             when(userExperienceRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.of(exp));
-            when(userExperienceRepository.calculateLevelRankAmongActiveUsers(eq(15), eq(5000), any())).thenReturn(10L);
+            when(userExperienceRepository.calculateLevelRankAmongActiveUsers(
+                            eq(15), eq(5000), any()))
+                    .thenReturn(10L);
 
             // when
             LevelRankingResponse result = rankingService.getMyLevelRanking(TEST_USER_ID);
@@ -952,10 +1050,15 @@ class RankingServiceTest {
 
             when(userExperienceRepository.findAll()).thenReturn(List.of(exp));
             when(userQueryFacadeService.getActiveUserIds(any())).thenReturn(List.of(TEST_USER_ID));
-            when(userQueryFacadeService.getUserProfile(TEST_USER_ID)).thenReturn(new UserProfileInfo(TEST_USER_ID, "사용자", null, 1, null, null, null));
-            when(userTitleRepository.findEquippedTitlesByUserId(TEST_USER_ID)).thenReturn(Collections.emptyList());
+            when(userQueryFacadeService.getUserProfile(TEST_USER_ID))
+                    .thenReturn(
+                            new UserProfileInfo(TEST_USER_ID, "사용자", null, 1, null, null, null));
+            when(userTitleRepository.findEquippedTitlesByUserId(TEST_USER_ID))
+                    .thenReturn(Collections.emptyList());
             when(userExperienceRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.of(exp));
-            when(userExperienceRepository.calculateLevelRankAmongActiveUsers(eq(15), eq(5000), any())).thenReturn(10L);
+            when(userExperienceRepository.calculateLevelRankAmongActiveUsers(
+                            eq(15), eq(5000), any()))
+                    .thenReturn(10L);
 
             // when
             LevelRankingResponse result = rankingService.getMyLevelRanking(TEST_USER_ID);
@@ -971,23 +1074,23 @@ class RankingServiceTest {
     @DisplayName("LUT-255 다국어")
     class LocaleTest {
 
-        private UserTitle createUserTitleWithEn(Long id, String userId, Title title, TitlePosition position) {
-            UserTitle userTitle = UserTitle.builder()
-                .userId(userId)
-                .title(title)
-                .build();
+        private UserTitle createUserTitleWithEn(
+                Long id, String userId, Title title, TitlePosition position) {
+            UserTitle userTitle = UserTitle.builder().userId(userId).title(title).build();
             userTitle.equip(position);
             setId(userTitle, id);
             return userTitle;
         }
 
-        private Title createTitleWithEn(Long id, String name, String nameEn, TitleRarity rarity, TitlePosition position) {
-            Title title = Title.builder()
-                .name(name)
-                .nameEn(nameEn)
-                .rarity(rarity)
-                .positionType(position)
-                .build();
+        private Title createTitleWithEn(
+                Long id, String name, String nameEn, TitleRarity rarity, TitlePosition position) {
+            Title title =
+                    Title.builder()
+                            .name(name)
+                            .nameEn(nameEn)
+                            .rarity(rarity)
+                            .positionType(position)
+                            .build();
             setId(title, id);
             return title;
         }
@@ -999,16 +1102,20 @@ class RankingServiceTest {
             UserStats stats = createTestUserStats(1L, TEST_USER_ID, 1000L);
             UserExperience exp = createTestUserExperience(1L, TEST_USER_ID, 10, 1000);
 
-            Title leftTitle = createTitleWithEn(1L, "용감한", "Brave", TitleRarity.RARE, TitlePosition.LEFT);
-            Title rightTitle = createTitleWithEn(2L, "전사", "Warrior", TitleRarity.EPIC, TitlePosition.RIGHT);
-            UserTitle leftUserTitle = createUserTitleWithEn(1L, TEST_USER_ID, leftTitle, TitlePosition.LEFT);
-            UserTitle rightUserTitle = createUserTitleWithEn(2L, TEST_USER_ID, rightTitle, TitlePosition.RIGHT);
+            Title leftTitle =
+                    createTitleWithEn(1L, "용감한", "Brave", TitleRarity.RARE, TitlePosition.LEFT);
+            Title rightTitle =
+                    createTitleWithEn(2L, "전사", "Warrior", TitleRarity.EPIC, TitlePosition.RIGHT);
+            UserTitle leftUserTitle =
+                    createUserTitleWithEn(1L, TEST_USER_ID, leftTitle, TitlePosition.LEFT);
+            UserTitle rightUserTitle =
+                    createUserTitleWithEn(2L, TEST_USER_ID, rightTitle, TitlePosition.RIGHT);
 
             when(userStatsRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.of(stats));
             when(userStatsRepository.findUserRank(TEST_USER_ID)).thenReturn(5L);
             when(userExperienceRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.of(exp));
             when(userTitleRepository.findEquippedTitlesByUserId(TEST_USER_ID))
-                .thenReturn(List.of(leftUserTitle, rightUserTitle));
+                    .thenReturn(List.of(leftUserTitle, rightUserTitle));
 
             // when
             RankingResponse result = rankingService.getMyRanking(TEST_USER_ID, "en");
@@ -1025,16 +1132,20 @@ class RankingServiceTest {
             UserStats stats = createTestUserStats(1L, TEST_USER_ID, 1000L);
             UserExperience exp = createTestUserExperience(1L, TEST_USER_ID, 10, 1000);
 
-            Title leftTitle = createTitleWithEn(1L, "용감한", "Brave", TitleRarity.RARE, TitlePosition.LEFT);
-            Title rightTitle = createTitleWithEn(2L, "전사", "Warrior", TitleRarity.EPIC, TitlePosition.RIGHT);
-            UserTitle leftUserTitle = createUserTitleWithEn(1L, TEST_USER_ID, leftTitle, TitlePosition.LEFT);
-            UserTitle rightUserTitle = createUserTitleWithEn(2L, TEST_USER_ID, rightTitle, TitlePosition.RIGHT);
+            Title leftTitle =
+                    createTitleWithEn(1L, "용감한", "Brave", TitleRarity.RARE, TitlePosition.LEFT);
+            Title rightTitle =
+                    createTitleWithEn(2L, "전사", "Warrior", TitleRarity.EPIC, TitlePosition.RIGHT);
+            UserTitle leftUserTitle =
+                    createUserTitleWithEn(1L, TEST_USER_ID, leftTitle, TitlePosition.LEFT);
+            UserTitle rightUserTitle =
+                    createUserTitleWithEn(2L, TEST_USER_ID, rightTitle, TitlePosition.RIGHT);
 
             when(userStatsRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.of(stats));
             when(userStatsRepository.findUserRank(TEST_USER_ID)).thenReturn(5L);
             when(userExperienceRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.of(exp));
             when(userTitleRepository.findEquippedTitlesByUserId(TEST_USER_ID))
-                .thenReturn(List.of(leftUserTitle, rightUserTitle));
+                    .thenReturn(List.of(leftUserTitle, rightUserTitle));
 
             // when
             RankingResponse result = rankingService.getMyRanking(TEST_USER_ID, null);
@@ -1054,17 +1165,34 @@ class RankingServiceTest {
             // given
             Pageable pageable = PageRequest.of(0, 10);
             java.time.LocalDateTime now = java.time.LocalDateTime.of(2026, 7, 29, 12, 0);
-            when(missionQueryFacade.findAllInProgressMissions(any())).thenReturn(java.util.Map.of(
-                "user1", new InProgressMissionDto(11L, 1L, "운동", "달리기", "PUBLIC", null,
-                    now.minusHours(1)),
-                "user2", new InProgressMissionDto(22L, 2L, "독서", "비밀 미션", "PRIVATE", null,
-                    now.minusHours(3))));
+            when(missionQueryFacade.findAllInProgressMissions(any()))
+                    .thenReturn(
+                            java.util.Map.of(
+                                    "user1",
+                                            new InProgressMissionDto(
+                                                    11L,
+                                                    1L,
+                                                    "운동",
+                                                    "달리기",
+                                                    "PUBLIC",
+                                                    null,
+                                                    now.minusHours(1)),
+                                    "user2",
+                                            new InProgressMissionDto(
+                                                    22L,
+                                                    2L,
+                                                    "독서",
+                                                    "비밀 미션",
+                                                    "PRIVATE",
+                                                    null,
+                                                    now.minusHours(3))));
             when(userQueryFacadeService.getActiveUserIds(anyList()))
-                .thenReturn(List.of("user1", "user2"));
+                    .thenReturn(List.of("user1", "user2"));
             when(userQueryFacadeService.getUserProfiles(anyList())).thenReturn(java.util.Map.of());
 
             // when
-            Page<LevelRankingResponse> result = rankingService.getRealtimeRanking(pageable, null, null);
+            Page<LevelRankingResponse> result =
+                    rankingService.getRealtimeRanking(pageable, null, null);
 
             // then — 3시간 진행중인 user2가 1위 (started_at 오름차순)
             assertThat(result.getContent()).hasSize(2);
@@ -1074,16 +1202,18 @@ class RankingServiceTest {
             assertThat(result.getContent().get(0).getInProgressMission().getTitle()).isNull();
             assertThat(result.getContent().get(1).getUserId()).isEqualTo("user1");
             assertThat(result.getContent().get(1).getInProgressMission().getIsVisible()).isTrue();
-            assertThat(result.getContent().get(1).getInProgressMission().getTitle()).isEqualTo("달리기");
+            assertThat(result.getContent().get(1).getInProgressMission().getTitle())
+                    .isEqualTo("달리기");
         }
 
         @Test
         @DisplayName("진행중 미션이 없으면 빈 페이지를 반환한다")
         void getRealtimeRanking_empty() {
-            when(missionQueryFacade.findAllInProgressMissions(any())).thenReturn(java.util.Map.of());
+            when(missionQueryFacade.findAllInProgressMissions(any()))
+                    .thenReturn(java.util.Map.of());
 
             Page<LevelRankingResponse> result =
-                rankingService.getRealtimeRanking(PageRequest.of(0, 10), null, null);
+                    rankingService.getRealtimeRanking(PageRequest.of(0, 10), null, null);
 
             assertThat(result).isEmpty();
         }
@@ -1092,16 +1222,32 @@ class RankingServiceTest {
         @DisplayName("탈퇴 유저는 실시간 랭킹에서 제외된다")
         void getRealtimeRanking_excludesWithdrawn() {
             java.time.LocalDateTime now = java.time.LocalDateTime.of(2026, 7, 29, 12, 0);
-            when(missionQueryFacade.findAllInProgressMissions(any())).thenReturn(java.util.Map.of(
-                "active1", new InProgressMissionDto(11L, 1L, "운동", "달리기", "PUBLIC", null,
-                    now.minusHours(1)),
-                "withdrawn1", new InProgressMissionDto(22L, 2L, "독서", "책읽기", "PUBLIC", null,
-                    now.minusHours(2))));
+            when(missionQueryFacade.findAllInProgressMissions(any()))
+                    .thenReturn(
+                            java.util.Map.of(
+                                    "active1",
+                                            new InProgressMissionDto(
+                                                    11L,
+                                                    1L,
+                                                    "운동",
+                                                    "달리기",
+                                                    "PUBLIC",
+                                                    null,
+                                                    now.minusHours(1)),
+                                    "withdrawn1",
+                                            new InProgressMissionDto(
+                                                    22L,
+                                                    2L,
+                                                    "독서",
+                                                    "책읽기",
+                                                    "PUBLIC",
+                                                    null,
+                                                    now.minusHours(2))));
             when(userQueryFacadeService.getActiveUserIds(anyList())).thenReturn(List.of("active1"));
             when(userQueryFacadeService.getUserProfiles(anyList())).thenReturn(java.util.Map.of());
 
             Page<LevelRankingResponse> result =
-                rankingService.getRealtimeRanking(PageRequest.of(0, 10), null, null);
+                    rankingService.getRealtimeRanking(PageRequest.of(0, 10), null, null);
 
             assertThat(result.getContent()).hasSize(1);
             assertThat(result.getContent().get(0).getUserId()).isEqualTo("active1");
@@ -1119,21 +1265,20 @@ class RankingServiceTest {
             // given
             Pageable pageable = PageRequest.of(0, 10);
             UserExperience exp1 = createTestUserExperience(1L, "user1", 20, 5000);
-            List<Object[]> rows = List.of(
-                new Object[]{"user1", 800L},
-                new Object[]{"user2", 300L});
+            List<Object[]> rows =
+                    List.of(new Object[] {"user1", 800L}, new Object[] {"user2", 300L});
 
             when(experienceHistoryRepository.findUserExpRankingByPeriod(any(), any()))
-                .thenReturn(rows);
+                    .thenReturn(rows);
             when(userQueryFacadeService.getActiveUserIds(anyList()))
-                .thenReturn(List.of("user1", "user2"));
+                    .thenReturn(List.of("user1", "user2"));
             when(userQueryFacadeService.getUserProfiles(anyList())).thenReturn(java.util.Map.of());
             when(userExperienceRepository.findByUserIdIn(List.of("user1", "user2")))
-                .thenReturn(List.of(exp1));
+                    .thenReturn(List.of(exp1));
 
             // when
             Page<LevelRankingResponse> result =
-                rankingService.getWeeklyLevelRanking(pageable, null, null, "Asia/Seoul");
+                    rankingService.getWeeklyLevelRanking(pageable, null, null, "Asia/Seoul");
 
             // then
             assertThat(result.getContent()).hasSize(2);
@@ -1149,18 +1294,21 @@ class RankingServiceTest {
         @DisplayName("주간 경계는 타임존 기준 월요일 자정을 UTC로 변환해 조회한다")
         void getWeeklyLevelRanking_usesMondayBoundaryInTimezone() {
             org.mockito.ArgumentCaptor<java.time.LocalDateTime> startCaptor =
-                org.mockito.ArgumentCaptor.forClass(java.time.LocalDateTime.class);
+                    org.mockito.ArgumentCaptor.forClass(java.time.LocalDateTime.class);
             org.mockito.ArgumentCaptor<java.time.LocalDateTime> endCaptor =
-                org.mockito.ArgumentCaptor.forClass(java.time.LocalDateTime.class);
+                    org.mockito.ArgumentCaptor.forClass(java.time.LocalDateTime.class);
             when(experienceHistoryRepository.findUserExpRankingByPeriod(
-                startCaptor.capture(), endCaptor.capture())).thenReturn(List.of());
+                            startCaptor.capture(), endCaptor.capture()))
+                    .thenReturn(List.of());
 
             rankingService.getWeeklyLevelRanking(PageRequest.of(0, 10), null, null, "Asia/Seoul");
 
             // UTC 저장 시각을 KST로 되돌리면 월요일 00:00 이어야 한다
-            java.time.ZonedDateTime startKst = startCaptor.getValue()
-                .atZone(java.time.ZoneId.of("UTC"))
-                .withZoneSameInstant(java.time.ZoneId.of("Asia/Seoul"));
+            java.time.ZonedDateTime startKst =
+                    startCaptor
+                            .getValue()
+                            .atZone(java.time.ZoneId.of("UTC"))
+                            .withZoneSameInstant(java.time.ZoneId.of("Asia/Seoul"));
             assertThat(startKst.getDayOfWeek()).isEqualTo(java.time.DayOfWeek.MONDAY);
             assertThat(startKst.toLocalTime()).isEqualTo(java.time.LocalTime.MIDNIGHT);
             assertThat(endCaptor.getValue()).isEqualTo(startCaptor.getValue().plusDays(7));
@@ -1170,16 +1318,20 @@ class RankingServiceTest {
         @DisplayName("월간 경계는 타임존 기준 1일 자정이며, 잘못된 타임존은 기본값으로 폴백한다")
         void getMonthlyLevelRanking_usesMonthBoundary_invalidTimezoneFallsBack() {
             org.mockito.ArgumentCaptor<java.time.LocalDateTime> startCaptor =
-                org.mockito.ArgumentCaptor.forClass(java.time.LocalDateTime.class);
+                    org.mockito.ArgumentCaptor.forClass(java.time.LocalDateTime.class);
             when(experienceHistoryRepository.findUserExpRankingByPeriod(
-                startCaptor.capture(), any())).thenReturn(List.of());
+                            startCaptor.capture(), any()))
+                    .thenReturn(List.of());
 
-            rankingService.getMonthlyLevelRanking(PageRequest.of(0, 10), null, null, "Invalid/Zone");
+            rankingService.getMonthlyLevelRanking(
+                    PageRequest.of(0, 10), null, null, "Invalid/Zone");
 
             // 폴백 타임존(Asia/Seoul) 기준 이번달 1일 00:00
-            java.time.ZonedDateTime startKst = startCaptor.getValue()
-                .atZone(java.time.ZoneId.of("UTC"))
-                .withZoneSameInstant(java.time.ZoneId.of("Asia/Seoul"));
+            java.time.ZonedDateTime startKst =
+                    startCaptor
+                            .getValue()
+                            .atZone(java.time.ZoneId.of("UTC"))
+                            .withZoneSameInstant(java.time.ZoneId.of("Asia/Seoul"));
             assertThat(startKst.getDayOfMonth()).isEqualTo(1);
             assertThat(startKst.toLocalTime()).isEqualTo(java.time.LocalTime.MIDNIGHT);
         }
@@ -1187,19 +1339,20 @@ class RankingServiceTest {
         @Test
         @DisplayName("기간 내 동점 유저는 공동순위로 매겨진다")
         void getPeriodRanking_ties_useCompetitionRank() {
-            List<Object[]> rows = List.of(
-                new Object[]{"u1", 500L},
-                new Object[]{"u2", 500L},
-                new Object[]{"u3", 100L});
+            List<Object[]> rows =
+                    List.of(
+                            new Object[] {"u1", 500L},
+                            new Object[] {"u2", 500L},
+                            new Object[] {"u3", 100L});
 
             when(experienceHistoryRepository.findUserExpRankingByPeriod(any(), any()))
-                .thenReturn(rows);
+                    .thenReturn(rows);
             when(userQueryFacadeService.getActiveUserIds(anyList()))
-                .thenReturn(List.of("u1", "u2", "u3"));
+                    .thenReturn(List.of("u1", "u2", "u3"));
             when(userQueryFacadeService.getUserProfiles(anyList())).thenReturn(java.util.Map.of());
 
             Page<LevelRankingResponse> result =
-                rankingService.getMonthlyLevelRanking(PageRequest.of(0, 10), null, null, null);
+                    rankingService.getMonthlyLevelRanking(PageRequest.of(0, 10), null, null, null);
 
             assertThat(result.getContent().get(0).getRank()).isEqualTo(1L);
             assertThat(result.getContent().get(1).getRank()).isEqualTo(1L); // 동점 → 공동 1위
@@ -1209,20 +1362,31 @@ class RankingServiceTest {
         @Test
         @DisplayName("기간 랭킹 목록에 프로필이 있으면 닉네임·이미지를 채운다")
         void getPeriodRanking_withProfile() {
-            List<Object[]> rows = Collections.singletonList(new Object[]{"user1", 800L});
+            List<Object[]> rows = Collections.singletonList(new Object[] {"user1", 800L});
 
             when(experienceHistoryRepository.findUserExpRankingByPeriod(any(), any()))
-                .thenReturn(rows);
+                    .thenReturn(rows);
             when(userQueryFacadeService.getActiveUserIds(anyList())).thenReturn(List.of("user1"));
             when(userQueryFacadeService.getUserProfiles(List.of("user1")))
-                .thenReturn(Map.of("user1",
-                    new UserProfileInfo("user1", "주간왕", "https://img/1.png", 20, null, null, null)));
+                    .thenReturn(
+                            Map.of(
+                                    "user1",
+                                    new UserProfileInfo(
+                                            "user1",
+                                            "주간왕",
+                                            "https://img/1.png",
+                                            20,
+                                            null,
+                                            null,
+                                            null)));
 
             Page<LevelRankingResponse> result =
-                rankingService.getWeeklyLevelRanking(PageRequest.of(0, 10), null, null, "Asia/Seoul");
+                    rankingService.getWeeklyLevelRanking(
+                            PageRequest.of(0, 10), null, null, "Asia/Seoul");
 
             assertThat(result.getContent().get(0).getNickname()).isEqualTo("주간왕");
-            assertThat(result.getContent().get(0).getProfileImageUrl()).isEqualTo("https://img/1.png");
+            assertThat(result.getContent().get(0).getProfileImageUrl())
+                    .isEqualTo("https://img/1.png");
         }
     }
 
@@ -1237,16 +1401,19 @@ class RankingServiceTest {
             UserStats stats1 = createTestUserStats(1L, "user1", 1000L);
             UserStats withdrawn = createTestUserStats(2L, "withdrawn", 900L);
             UserStats stats3 = createTestUserStats(3L, "user3", 800L);
-            Page<UserStats> statsPage = new PageImpl<>(List.of(stats1, withdrawn, stats3), pageable, 3);
+            Page<UserStats> statsPage =
+                    new PageImpl<>(List.of(stats1, withdrawn, stats3), pageable, 3);
 
-            when(userStatsRepository.findAllByOrderByRankingPointsDesc(pageable)).thenReturn(statsPage);
+            when(userStatsRepository.findAllByOrderByRankingPointsDesc(pageable))
+                    .thenReturn(statsPage);
             when(userQueryFacadeService.getActiveUserIds(List.of("user1", "withdrawn", "user3")))
-                .thenReturn(List.of("user1", "user3"));
+                    .thenReturn(List.of("user1", "user3"));
 
             Page<RankingResponse> result = rankingService.getOverallRanking(pageable);
 
-            assertThat(result.getContent()).extracting(RankingResponse::getUserId)
-                .containsExactly("user1", "user3");
+            assertThat(result.getContent())
+                    .extracting(RankingResponse::getUserId)
+                    .containsExactly("user1", "user3");
             assertThat(result.getContent().get(1).getRank()).isEqualTo(2L);
         }
 
@@ -1256,7 +1423,8 @@ class RankingServiceTest {
             Pageable pageable = PageRequest.of(0, 10);
             Page<UserStats> statsPage = new PageImpl<>(List.of(), pageable, 0);
 
-            when(userStatsRepository.findAllByOrderByRankingPointsDesc(pageable)).thenReturn(statsPage);
+            when(userStatsRepository.findAllByOrderByRankingPointsDesc(pageable))
+                    .thenReturn(statsPage);
             when(userQueryFacadeService.getActiveUserIds(List.of())).thenReturn(List.of());
 
             Page<RankingResponse> result = rankingService.getOverallRanking(pageable);
@@ -1274,11 +1442,13 @@ class RankingServiceTest {
             UserExperience w = createTestUserExperience(1L, "withdrawn1", 5, 500);
 
             when(userExperienceRepository.findAllByOrderByCurrentLevelDescTotalExpDesc())
-                .thenReturn(List.of(w));
-            when(userQueryFacadeService.getActiveUserIds(List.of("withdrawn1"))).thenReturn(List.of());
+                    .thenReturn(List.of(w));
+            when(userQueryFacadeService.getActiveUserIds(List.of("withdrawn1")))
+                    .thenReturn(List.of());
             when(userQueryFacadeService.getUserProfiles(List.of())).thenReturn(Map.of());
 
-            Page<LevelRankingResponse> result = rankingService.getLevelRanking(pageable, null, null);
+            Page<LevelRankingResponse> result =
+                    rankingService.getLevelRanking(pageable, null, null);
 
             assertThat(result.getContent()).isEmpty();
             assertThat(result.getTotalElements()).isZero();
@@ -1291,27 +1461,40 @@ class RankingServiceTest {
         void getLevelRankingByCategory_ties_andMissingProfile() {
             String category = "HEALTH";
             Pageable pageable = PageRequest.of(0, 10);
-            Page<Object[]> rankingPage = new PageImpl<>(List.of(
-                new Object[]{"u1", 500L},
-                new Object[]{"u2", 500L},
-                new Object[]{"u3", 100L}));
+            Page<Object[]> rankingPage =
+                    new PageImpl<>(
+                            List.of(
+                                    new Object[] {"u1", 500L},
+                                    new Object[] {"u2", 500L},
+                                    new Object[] {"u3", 100L}));
 
             when(experienceHistoryRepository.countUsersByCategory(category)).thenReturn(3L);
-            when(experienceHistoryRepository.findUserExpRankingByCategory(eq(category), any(Pageable.class)))
-                .thenReturn(rankingPage);
+            when(experienceHistoryRepository.findUserExpRankingByCategory(
+                            eq(category), any(Pageable.class)))
+                    .thenReturn(rankingPage);
             when(userQueryFacadeService.getActiveUserIds(List.of("u1", "u2", "u3")))
-                .thenReturn(List.of("u1", "u2", "u3"));
+                    .thenReturn(List.of("u1", "u2", "u3"));
             when(userQueryFacadeService.getUserProfiles(List.of("u1", "u2", "u3")))
-                .thenReturn(Map.of("u1",
-                    new UserProfileInfo("u1", "일등", "https://img/u1.png", 3, null, null, null)));
+                    .thenReturn(
+                            Map.of(
+                                    "u1",
+                                    new UserProfileInfo(
+                                            "u1",
+                                            "일등",
+                                            "https://img/u1.png",
+                                            3,
+                                            null,
+                                            null,
+                                            null)));
 
             Page<LevelRankingResponse> result =
-                rankingService.getLevelRankingByCategory(category, pageable);
+                    rankingService.getLevelRankingByCategory(category, pageable);
 
             assertThat(result.getContent()).hasSize(3);
             assertThat(result.getContent().get(0).getRank()).isEqualTo(1L);
             assertThat(result.getContent().get(0).getNickname()).isEqualTo("일등");
-            assertThat(result.getContent().get(0).getProfileImageUrl()).isEqualTo("https://img/u1.png");
+            assertThat(result.getContent().get(0).getProfileImageUrl())
+                    .isEqualTo("https://img/u1.png");
             assertThat(result.getContent().get(1).getRank()).isEqualTo(1L); // 동점 → 공동 1위
             assertThat(result.getContent().get(1).getNickname()).isNull();
             assertThat(result.getContent().get(1).getProfileImageUrl()).isNull();
@@ -1322,18 +1505,36 @@ class RankingServiceTest {
         @DisplayName("실시간 랭킹에 프로필·경험치가 있으면 닉네임·이미지·레벨·경험치를 채운다")
         void getRealtimeRanking_withProfileAndExp() {
             java.time.LocalDateTime now = java.time.LocalDateTime.of(2026, 7, 29, 12, 0);
-            when(missionQueryFacade.findAllInProgressMissions(any())).thenReturn(Map.of(
-                "user1", new InProgressMissionDto(11L, 1L, "운동", "달리기", "PUBLIC", null,
-                    now.minusHours(1))));
+            when(missionQueryFacade.findAllInProgressMissions(any()))
+                    .thenReturn(
+                            Map.of(
+                                    "user1",
+                                    new InProgressMissionDto(
+                                            11L,
+                                            1L,
+                                            "운동",
+                                            "달리기",
+                                            "PUBLIC",
+                                            null,
+                                            now.minusHours(1))));
             when(userQueryFacadeService.getActiveUserIds(anyList())).thenReturn(List.of("user1"));
             when(userQueryFacadeService.getUserProfiles(List.of("user1")))
-                .thenReturn(Map.of("user1",
-                    new UserProfileInfo("user1", "러너", "https://img/run.png", 12, null, null, null)));
+                    .thenReturn(
+                            Map.of(
+                                    "user1",
+                                    new UserProfileInfo(
+                                            "user1",
+                                            "러너",
+                                            "https://img/run.png",
+                                            12,
+                                            null,
+                                            null,
+                                            null)));
             when(userExperienceRepository.findByUserIdIn(List.of("user1")))
-                .thenReturn(List.of(createTestUserExperience(1L, "user1", 12, 2400)));
+                    .thenReturn(List.of(createTestUserExperience(1L, "user1", 12, 2400)));
 
             Page<LevelRankingResponse> result =
-                rankingService.getRealtimeRanking(PageRequest.of(0, 10), null, null);
+                    rankingService.getRealtimeRanking(PageRequest.of(0, 10), null, null);
 
             LevelRankingResponse row = result.getContent().get(0);
             assertThat(row.getNickname()).isEqualTo("러너");
@@ -1346,17 +1547,19 @@ class RankingServiceTest {
         @Test
         @DisplayName("주간 내 랭킹은 프로필이 없어도(null) 닉네임·이미지 null 로 반환한다")
         void getMyWeeklyLevelRanking_nullProfile() {
-            List<Object[]> rows = Collections.singletonList(new Object[]{TEST_USER_ID, 500L});
+            List<Object[]> rows = Collections.singletonList(new Object[] {TEST_USER_ID, 500L});
 
-            when(experienceHistoryRepository.findUserExpRankingByPeriod(any(), any())).thenReturn(rows);
-            when(userQueryFacadeService.getActiveUserIds(anyList())).thenReturn(List.of(TEST_USER_ID));
+            when(experienceHistoryRepository.findUserExpRankingByPeriod(any(), any()))
+                    .thenReturn(rows);
+            when(userQueryFacadeService.getActiveUserIds(anyList()))
+                    .thenReturn(List.of(TEST_USER_ID));
             when(userQueryFacadeService.getUserProfile(TEST_USER_ID)).thenReturn(null);
             when(userTitleRepository.findEquippedTitlesByUserId(TEST_USER_ID))
-                .thenReturn(Collections.emptyList());
+                    .thenReturn(Collections.emptyList());
             when(userExperienceRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.empty());
 
             LevelRankingResponse result =
-                rankingService.getMyWeeklyLevelRanking(TEST_USER_ID, null, "Asia/Seoul");
+                    rankingService.getMyWeeklyLevelRanking(TEST_USER_ID, null, "Asia/Seoul");
 
             assertThat(result.getRank()).isEqualTo(1L);
             assertThat(result.getNickname()).isNull();
@@ -1369,18 +1572,20 @@ class RankingServiceTest {
         void getMyLevelRankingByCategory_nullProfile() {
             String category = "HEALTH";
             Page<Object[]> rankingPage =
-                new PageImpl<>(Collections.singletonList(new Object[]{TEST_USER_ID, 500L}));
+                    new PageImpl<>(Collections.singletonList(new Object[] {TEST_USER_ID, 500L}));
 
-            when(experienceHistoryRepository.findUserExpRankingByCategory(eq(category), any(Pageable.class)))
-                .thenReturn(rankingPage);
-            when(userQueryFacadeService.getActiveUserIds(anyList())).thenReturn(List.of(TEST_USER_ID));
+            when(experienceHistoryRepository.findUserExpRankingByCategory(
+                            eq(category), any(Pageable.class)))
+                    .thenReturn(rankingPage);
+            when(userQueryFacadeService.getActiveUserIds(anyList()))
+                    .thenReturn(List.of(TEST_USER_ID));
             when(userQueryFacadeService.getUserProfile(TEST_USER_ID)).thenReturn(null);
             when(userTitleRepository.findEquippedTitlesByUserId(TEST_USER_ID))
-                .thenReturn(Collections.emptyList());
+                    .thenReturn(Collections.emptyList());
             when(userExperienceRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.empty());
 
             LevelRankingResponse result =
-                rankingService.getMyLevelRankingByCategory(TEST_USER_ID, category);
+                    rankingService.getMyLevelRankingByCategory(TEST_USER_ID, category);
 
             assertThat(result.getRank()).isEqualTo(1L);
             assertThat(result.getNickname()).isNull();
@@ -1394,16 +1599,25 @@ class RankingServiceTest {
             UserExperience exp1 = createTestUserExperience(1L, "user1", 20, 5000);
 
             when(userExperienceRepository.findAllByOrderByCurrentLevelDescTotalExpDesc())
-                .thenReturn(List.of(exp1));
-            when(userQueryFacadeService.getActiveUserIds(List.of("user1"))).thenReturn(List.of("user1"));
+                    .thenReturn(List.of(exp1));
+            when(userQueryFacadeService.getActiveUserIds(List.of("user1")))
+                    .thenReturn(List.of("user1"));
             when(userQueryFacadeService.getUserProfiles(List.of("user1"))).thenReturn(Map.of());
             when(missionQueryFacade.findInProgressMissions(eq(List.of("user1")), any()))
-                .thenReturn(Map.of("user1",
-                    new InProgressMissionDto(11L, 1L, "운동", "비공개 달리기", "PRIVATE", null,
-                        java.time.LocalDateTime.now())));
+                    .thenReturn(
+                            Map.of(
+                                    "user1",
+                                    new InProgressMissionDto(
+                                            11L,
+                                            1L,
+                                            "운동",
+                                            "비공개 달리기",
+                                            "PRIVATE",
+                                            null,
+                                            java.time.LocalDateTime.now())));
 
             Page<LevelRankingResponse> result =
-                rankingService.getLevelRanking(pageable, null, "someone-else");
+                    rankingService.getLevelRanking(pageable, null, "someone-else");
 
             LevelRankingResponse row = result.getContent().get(0);
             assertThat(row.getInProgressMission().getIsVisible()).isFalse();
@@ -1414,73 +1628,85 @@ class RankingServiceTest {
         private void stubSingleUserLevelRankingWithMission(InProgressMissionDto mission) {
             UserExperience exp1 = createTestUserExperience(1L, "user1", 20, 5000);
             when(userExperienceRepository.findAllByOrderByCurrentLevelDescTotalExpDesc())
-                .thenReturn(List.of(exp1));
-            when(userQueryFacadeService.getActiveUserIds(List.of("user1"))).thenReturn(List.of("user1"));
+                    .thenReturn(List.of(exp1));
+            when(userQueryFacadeService.getActiveUserIds(List.of("user1")))
+                    .thenReturn(List.of("user1"));
             when(userQueryFacadeService.getUserProfiles(List.of("user1"))).thenReturn(Map.of());
             when(missionQueryFacade.findInProgressMissions(eq(List.of("user1")), eq("en")))
-                .thenReturn(Map.of("user1", mission));
+                    .thenReturn(Map.of("user1", mission));
         }
 
         @Test
         @DisplayName("locale 이 있으면 진행중 미션의 카테고리명을 현지화한다")
         void inProgressMission_localizesCategoryName() {
             stubSingleUserLevelRankingWithMission(
-                new InProgressMissionDto(11L, 1L, "운동", "달리기", "PUBLIC", null,
-                    java.time.LocalDateTime.now()));
-            when(missionCategoryService.getCategory(1L)).thenReturn(
-                io.pinkspider.leveluptogethermvp.metaservice.domain.dto.MissionCategoryResponse
-                    .builder().id(1L).name("운동").nameEn("Exercise").build());
+                    new InProgressMissionDto(
+                            11L, 1L, "운동", "달리기", "PUBLIC", null, java.time.LocalDateTime.now()));
+            when(missionCategoryService.getCategory(1L))
+                    .thenReturn(
+                            io.pinkspider.leveluptogethermvp.metaservice.domain.dto
+                                    .MissionCategoryResponse.builder()
+                                    .id(1L)
+                                    .name("운동")
+                                    .nameEn("Exercise")
+                                    .build());
 
             Page<LevelRankingResponse> result =
-                rankingService.getLevelRanking(PageRequest.of(0, 10), "en", null);
+                    rankingService.getLevelRanking(PageRequest.of(0, 10), "en", null);
 
             assertThat(result.getContent().get(0).getInProgressMission().getCategoryName())
-                .isEqualTo("Exercise");
+                    .isEqualTo("Exercise");
         }
 
         @Test
         @DisplayName("카테고리 조회 결과가 null 이면 원문 카테고리명으로 폴백한다")
         void inProgressMission_categoryNull_fallsBack() {
             stubSingleUserLevelRankingWithMission(
-                new InProgressMissionDto(11L, 1L, "운동", "달리기", "PUBLIC", null,
-                    java.time.LocalDateTime.now()));
+                    new InProgressMissionDto(
+                            11L, 1L, "운동", "달리기", "PUBLIC", null, java.time.LocalDateTime.now()));
             when(missionCategoryService.getCategory(1L)).thenReturn(null);
 
             Page<LevelRankingResponse> result =
-                rankingService.getLevelRanking(PageRequest.of(0, 10), "en", null);
+                    rankingService.getLevelRanking(PageRequest.of(0, 10), "en", null);
 
             assertThat(result.getContent().get(0).getInProgressMission().getCategoryName())
-                .isEqualTo("운동");
+                    .isEqualTo("운동");
         }
 
         @Test
         @DisplayName("카테고리 조회가 실패하면 원문 카테고리명으로 폴백한다")
         void inProgressMission_categoryLookupFails_fallsBack() {
             stubSingleUserLevelRankingWithMission(
-                new InProgressMissionDto(11L, 1L, "운동", "달리기", "PUBLIC", null,
-                    java.time.LocalDateTime.now()));
+                    new InProgressMissionDto(
+                            11L, 1L, "운동", "달리기", "PUBLIC", null, java.time.LocalDateTime.now()));
             when(missionCategoryService.getCategory(1L))
-                .thenThrow(new RuntimeException("category db down"));
+                    .thenThrow(new RuntimeException("category db down"));
 
             Page<LevelRankingResponse> result =
-                rankingService.getLevelRanking(PageRequest.of(0, 10), "en", null);
+                    rankingService.getLevelRanking(PageRequest.of(0, 10), "en", null);
 
             assertThat(result.getContent().get(0).getInProgressMission().getCategoryName())
-                .isEqualTo("운동");
+                    .isEqualTo("운동");
         }
 
         @Test
         @DisplayName("카테고리 ID 가 없으면 locale 이 있어도 조회 없이 원문 카테고리명을 쓴다")
         void inProgressMission_nullCategoryId_skipsLookup() {
             stubSingleUserLevelRankingWithMission(
-                new InProgressMissionDto(11L, null, "기타", "자유 미션", "PUBLIC", null,
-                    java.time.LocalDateTime.now()));
+                    new InProgressMissionDto(
+                            11L,
+                            null,
+                            "기타",
+                            "자유 미션",
+                            "PUBLIC",
+                            null,
+                            java.time.LocalDateTime.now()));
 
             Page<LevelRankingResponse> result =
-                rankingService.getLevelRanking(PageRequest.of(0, 10), "en", null);
+                    rankingService.getLevelRanking(PageRequest.of(0, 10), "en", null);
 
             assertThat(result.getContent().get(0).getInProgressMission().getCategoryName())
-                .isEqualTo("기타");
+                    .isEqualTo("기타");
             verify(missionCategoryService, never()).getCategory(any());
         }
 
@@ -1489,10 +1715,20 @@ class RankingServiceTest {
         void getMyRanking_leftRarityHigher_usesLeftColor() {
             UserStats stats = createTestUserStats(1L, TEST_USER_ID, 1000L);
             UserExperience exp = createTestUserExperience(1L, TEST_USER_ID, 10, 1000);
-            Title leftTitle = Title.builder().name("전설의").rarity(TitleRarity.LEGENDARY)
-                .colorCode("#GOLD").positionType(TitlePosition.LEFT).build();
-            Title rightTitle = Title.builder().name("전사").rarity(TitleRarity.RARE)
-                .colorCode("#BLUE").positionType(TitlePosition.RIGHT).build();
+            Title leftTitle =
+                    Title.builder()
+                            .name("전설의")
+                            .rarity(TitleRarity.LEGENDARY)
+                            .colorCode("#GOLD")
+                            .positionType(TitlePosition.LEFT)
+                            .build();
+            Title rightTitle =
+                    Title.builder()
+                            .name("전사")
+                            .rarity(TitleRarity.RARE)
+                            .colorCode("#BLUE")
+                            .positionType(TitlePosition.RIGHT)
+                            .build();
             UserTitle left = UserTitle.builder().userId(TEST_USER_ID).title(leftTitle).build();
             left.equip(TitlePosition.LEFT);
             UserTitle right = UserTitle.builder().userId(TEST_USER_ID).title(rightTitle).build();
@@ -1502,7 +1738,7 @@ class RankingServiceTest {
             when(userStatsRepository.findUserRank(TEST_USER_ID)).thenReturn(5L);
             when(userExperienceRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.of(exp));
             when(userTitleRepository.findEquippedTitlesByUserId(TEST_USER_ID))
-                .thenReturn(List.of(left, right));
+                    .thenReturn(List.of(left, right));
 
             RankingResponse result = rankingService.getMyRanking(TEST_USER_ID);
 
@@ -1516,15 +1752,20 @@ class RankingServiceTest {
         void getMyRanking_equippedWithoutPosition_returnsNullTitleInfo() {
             UserStats stats = createTestUserStats(1L, TEST_USER_ID, 1000L);
             UserExperience exp = createTestUserExperience(1L, TEST_USER_ID, 10, 1000);
-            Title title = Title.builder().name("고아").rarity(TitleRarity.RARE)
-                .colorCode("#BLUE").positionType(TitlePosition.LEFT).build();
+            Title title =
+                    Title.builder()
+                            .name("고아")
+                            .rarity(TitleRarity.RARE)
+                            .colorCode("#BLUE")
+                            .positionType(TitlePosition.LEFT)
+                            .build();
             UserTitle noPosition = UserTitle.builder().userId(TEST_USER_ID).title(title).build();
 
             when(userStatsRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.of(stats));
             when(userStatsRepository.findUserRank(TEST_USER_ID)).thenReturn(5L);
             when(userExperienceRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.of(exp));
             when(userTitleRepository.findEquippedTitlesByUserId(TEST_USER_ID))
-                .thenReturn(List.of(noPosition));
+                    .thenReturn(List.of(noPosition));
 
             RankingResponse result = rankingService.getMyRanking(TEST_USER_ID);
 

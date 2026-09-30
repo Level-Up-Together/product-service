@@ -3,11 +3,9 @@ package io.pinkspider.leveluptogethermvp.guildservice.application;
 import static io.pinkspider.global.test.TestReflectionUtils.setId;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 
 import io.pinkspider.global.test.TestReflectionUtils;
-
 import io.pinkspider.leveluptogethermvp.guildservice.domain.dto.GuildHeadquartersInfoResponse;
 import io.pinkspider.leveluptogethermvp.guildservice.domain.dto.GuildHeadquartersValidationResponse;
 import io.pinkspider.leveluptogethermvp.guildservice.domain.entity.Guild;
@@ -31,17 +29,13 @@ import org.mockito.junit.jupiter.MockitoExtension;
 @ExtendWith(MockitoExtension.class)
 class GuildHeadquartersServiceTest {
 
-    @Mock
-    private GuildRepository guildRepository;
+    @Mock private GuildRepository guildRepository;
 
-    @Mock
-    private GuildHeadquartersConfigRepository configRepository;
+    @Mock private GuildHeadquartersConfigRepository configRepository;
 
-    @Mock
-    private MissionCategoryService missionCategoryService;
+    @Mock private MissionCategoryService missionCategoryService;
 
-    @InjectMocks
-    private GuildHeadquartersService guildHeadquartersService;
+    @InjectMocks private GuildHeadquartersService guildHeadquartersService;
 
     private GuildHeadquartersConfig testConfig;
     private Guild testGuild1;
@@ -50,39 +44,42 @@ class GuildHeadquartersServiceTest {
     @BeforeEach
     void setUp() {
         // 기본 설정: 100m 기본, 레벨 10당 20m 증가
-        testConfig = GuildHeadquartersConfig.builder()
-            .baseRadiusMeters(100)
-            .radiusIncreasePerLevelTier(20)
-            .levelTierSize(10)
-            .isActive(true)
-            .build();
+        testConfig =
+                GuildHeadquartersConfig.builder()
+                        .baseRadiusMeters(100)
+                        .radiusIncreasePerLevelTier(20)
+                        .levelTierSize(10)
+                        .isActive(true)
+                        .build();
         setId(testConfig, 1L);
 
         // 테스트 길드 1: 서울시청 (레벨 1)
-        testGuild1 = Guild.builder()
-            .name("테스트 길드 1")
-            .description("테스트 길드 1 설명")
-            .visibility(GuildVisibility.PUBLIC)
-            .masterId("user-001")
-            .maxMembers(50)
-            .categoryId(1L)
-            .baseLatitude(37.5665)
-            .baseLongitude(126.978)
-            .build();
+        testGuild1 =
+                Guild.builder()
+                        .name("테스트 길드 1")
+                        .description("테스트 길드 1 설명")
+                        .visibility(GuildVisibility.PUBLIC)
+                        .masterId("user-001")
+                        .maxMembers(50)
+                        .categoryId(1L)
+                        .baseLatitude(37.5665)
+                        .baseLongitude(126.978)
+                        .build();
         setId(testGuild1, 1L);
         TestReflectionUtils.setField(testGuild1, "currentLevel", 1);
 
         // 테스트 길드 2: 서울시청 근처 50m (레벨 20)
-        testGuild2 = Guild.builder()
-            .name("테스트 길드 2")
-            .description("테스트 길드 2 설명")
-            .visibility(GuildVisibility.PUBLIC)
-            .masterId("user-002")
-            .maxMembers(50)
-            .categoryId(2L)
-            .baseLatitude(37.5669)  // 약 45m 북쪽
-            .baseLongitude(126.978)
-            .build();
+        testGuild2 =
+                Guild.builder()
+                        .name("테스트 길드 2")
+                        .description("테스트 길드 2 설명")
+                        .visibility(GuildVisibility.PUBLIC)
+                        .masterId("user-002")
+                        .maxMembers(50)
+                        .categoryId(2L)
+                        .baseLatitude(37.5669) // 약 45m 북쪽
+                        .baseLongitude(126.978)
+                        .build();
         setId(testGuild2, 2L);
         TestReflectionUtils.setField(testGuild2, "currentLevel", 20);
     }
@@ -153,7 +150,8 @@ class GuildHeadquartersServiceTest {
         void validateLocation_validWhenFarEnough() {
             // given
             when(configRepository.findActiveConfig()).thenReturn(Optional.of(testConfig));
-            when(guildRepository.findAllWithHeadquartersExcluding(3L)).thenReturn(List.of(testGuild1));
+            when(guildRepository.findAllWithHeadquartersExcluding(3L))
+                    .thenReturn(List.of(testGuild1));
 
             // 서울시청에서 약 200m 떨어진 위치 (남쪽)
             double latitude = 37.5647;
@@ -161,7 +159,7 @@ class GuildHeadquartersServiceTest {
 
             // when
             GuildHeadquartersValidationResponse response =
-                guildHeadquartersService.validateHeadquartersLocation(3L, latitude, longitude);
+                    guildHeadquartersService.validateHeadquartersLocation(3L, latitude, longitude);
 
             // then
             assertThat(response.isValid()).isTrue();
@@ -174,7 +172,8 @@ class GuildHeadquartersServiceTest {
         void validateLocation_invalidWhenTooClose() {
             // given
             when(configRepository.findActiveConfig()).thenReturn(Optional.of(testConfig));
-            when(guildRepository.findAllWithHeadquartersExcluding(3L)).thenReturn(List.of(testGuild1));
+            when(guildRepository.findAllWithHeadquartersExcluding(3L))
+                    .thenReturn(List.of(testGuild1));
 
             // 서울시청에서 약 50m 떨어진 위치 (레벨1 보호반경 100m 내)
             double latitude = 37.5669;
@@ -182,7 +181,7 @@ class GuildHeadquartersServiceTest {
 
             // when
             GuildHeadquartersValidationResponse response =
-                guildHeadquartersService.validateHeadquartersLocation(3L, latitude, longitude);
+                    guildHeadquartersService.validateHeadquartersLocation(3L, latitude, longitude);
 
             // then
             assertThat(response.isValid()).isFalse();
@@ -196,7 +195,8 @@ class GuildHeadquartersServiceTest {
         void validateLocation_respectsHigherLevelRadius() {
             // given
             when(configRepository.findActiveConfig()).thenReturn(Optional.of(testConfig));
-            when(guildRepository.findAllWithHeadquartersExcluding(3L)).thenReturn(List.of(testGuild2));
+            when(guildRepository.findAllWithHeadquartersExcluding(3L))
+                    .thenReturn(List.of(testGuild2));
 
             // 레벨 20 길드: 보호 반경 140m (100 + 2*20)
             // testGuild2에서 약 130m 떨어진 위치 (보호 반경 내)
@@ -205,11 +205,12 @@ class GuildHeadquartersServiceTest {
 
             // when
             GuildHeadquartersValidationResponse response =
-                guildHeadquartersService.validateHeadquartersLocation(3L, latitude, longitude);
+                    guildHeadquartersService.validateHeadquartersLocation(3L, latitude, longitude);
 
             // then
             assertThat(response.isValid()).isFalse();
-            assertThat(response.getNearbyGuilds().get(0).getProtectionRadiusMeters()).isEqualTo(140);
+            assertThat(response.getNearbyGuilds().get(0).getProtectionRadiusMeters())
+                    .isEqualTo(140);
         }
 
         @Test
@@ -225,7 +226,8 @@ class GuildHeadquartersServiceTest {
 
             // when
             GuildHeadquartersValidationResponse response =
-                guildHeadquartersService.validateHeadquartersLocation(null, latitude, longitude);
+                    guildHeadquartersService.validateHeadquartersLocation(
+                            null, latitude, longitude);
 
             // then
             assertThat(response.isValid()).isFalse();
@@ -236,7 +238,8 @@ class GuildHeadquartersServiceTest {
         void validateLocation_usesDefaultConfigWhenNotFound() {
             // given
             when(configRepository.findActiveConfig()).thenReturn(Optional.empty());
-            when(guildRepository.findAllWithHeadquartersExcluding(3L)).thenReturn(List.of(testGuild1));
+            when(guildRepository.findAllWithHeadquartersExcluding(3L))
+                    .thenReturn(List.of(testGuild1));
 
             // 서울시청에서 약 200m 떨어진 위치
             double latitude = 37.5647;
@@ -244,7 +247,7 @@ class GuildHeadquartersServiceTest {
 
             // when
             GuildHeadquartersValidationResponse response =
-                guildHeadquartersService.validateHeadquartersLocation(3L, latitude, longitude);
+                    guildHeadquartersService.validateHeadquartersLocation(3L, latitude, longitude);
 
             // then
             assertThat(response.isValid()).isTrue();
@@ -261,18 +264,20 @@ class GuildHeadquartersServiceTest {
         void getAllHeadquartersInfo_success() {
             // given
             when(configRepository.findActiveConfig()).thenReturn(Optional.of(testConfig));
-            when(guildRepository.findAllWithHeadquarters()).thenReturn(List.of(testGuild1, testGuild2));
+            when(guildRepository.findAllWithHeadquarters())
+                    .thenReturn(List.of(testGuild1, testGuild2));
 
-            MissionCategoryResponse category1 = MissionCategoryResponse.builder()
-                .id(1L).name("운동").icon("💪").build();
-            MissionCategoryResponse category2 = MissionCategoryResponse.builder()
-                .id(2L).name("공부").icon("📚").build();
+            MissionCategoryResponse category1 =
+                    MissionCategoryResponse.builder().id(1L).name("운동").icon("💪").build();
+            MissionCategoryResponse category2 =
+                    MissionCategoryResponse.builder().id(2L).name("공부").icon("📚").build();
 
             when(missionCategoryService.getCategory(1L)).thenReturn(category1);
             when(missionCategoryService.getCategory(2L)).thenReturn(category2);
 
             // when
-            GuildHeadquartersInfoResponse response = guildHeadquartersService.getAllHeadquartersInfo();
+            GuildHeadquartersInfoResponse response =
+                    guildHeadquartersService.getAllHeadquartersInfo();
 
             // then
             assertThat(response.getGuilds()).hasSize(2);
@@ -297,17 +302,20 @@ class GuildHeadquartersServiceTest {
         void validateAndThrowIfInvalid_throwsException() {
             // given
             when(configRepository.findActiveConfig()).thenReturn(Optional.of(testConfig));
-            when(guildRepository.findAllWithHeadquartersExcluding(3L)).thenReturn(List.of(testGuild1));
+            when(guildRepository.findAllWithHeadquartersExcluding(3L))
+                    .thenReturn(List.of(testGuild1));
 
             // 서울시청에서 약 50m 떨어진 위치
             double latitude = 37.5669;
             double longitude = 126.978;
 
             // when & then
-            assertThatThrownBy(() ->
-                guildHeadquartersService.validateAndThrowIfInvalid(3L, latitude, longitude))
-                .isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining("보호 구역 내입니다");
+            assertThatThrownBy(
+                            () ->
+                                    guildHeadquartersService.validateAndThrowIfInvalid(
+                                            3L, latitude, longitude))
+                    .isInstanceOf(IllegalStateException.class)
+                    .hasMessageContaining("보호 구역 내입니다");
         }
 
         @Test
@@ -315,7 +323,8 @@ class GuildHeadquartersServiceTest {
         void validateAndThrowIfInvalid_noException() {
             // given
             when(configRepository.findActiveConfig()).thenReturn(Optional.of(testConfig));
-            when(guildRepository.findAllWithHeadquartersExcluding(3L)).thenReturn(List.of(testGuild1));
+            when(guildRepository.findAllWithHeadquartersExcluding(3L))
+                    .thenReturn(List.of(testGuild1));
 
             // 서울시청에서 약 200m 떨어진 위치
             double latitude = 37.5647;

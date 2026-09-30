@@ -35,19 +35,19 @@ public class HomeBannerResponse {
     public static HomeBannerResponse from(AdminBannerDto dto) {
         BannerType type = BannerType.valueOf(dto.bannerType());
         return HomeBannerResponse.builder()
-            .id(dto.id())
-            .bannerType(type)
-            .bannerTypeDisplayName(type.getDisplayName())
-            .title(dto.title())
-            .description(dto.description())
-            .imageUrl(dto.imageUrl())
-            .linkType(dto.linkType() != null ? LinkType.valueOf(dto.linkType()) : null)
-            .linkUrl(dto.linkUrl())
-            .guildId(dto.guildId())
-            .sortOrder(dto.sortOrder())
-            .startAt(dto.startAt())
-            .endAt(dto.endAt())
-            .createdAt(dto.createdAt())
-            .build();
+                .id(dto.id())
+                .bannerType(type)
+                .bannerTypeDisplayName(type.getDisplayName())
+                .title(dto.title())
+                .description(dto.description())
+                .imageUrl(dto.imageUrl())
+                .linkType(dto.linkType() != null ? LinkType.valueOf(dto.linkType()) : null)
+                .linkUrl(dto.linkUrl())
+                .guildId(dto.guildId())
+                .sortOrder(dto.sortOrder())
+                .startAt(dto.startAt())
+                .endAt(dto.endAt())
+                .createdAt(dto.createdAt())
+                .build();
     }
 }

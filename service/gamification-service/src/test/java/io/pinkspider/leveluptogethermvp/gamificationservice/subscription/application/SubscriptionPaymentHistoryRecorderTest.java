@@ -25,40 +25,44 @@ import org.mockito.junit.jupiter.MockitoExtension;
 @DisplayName("SubscriptionPaymentHistoryRecorder 테스트 (LUT-486)")
 class SubscriptionPaymentHistoryRecorderTest {
 
-    @Mock
-    private SubscriptionPaymentHistoryRepository repository;
+    @Mock private SubscriptionPaymentHistoryRepository repository;
 
-    @InjectMocks
-    private SubscriptionPaymentHistoryRecorder recorder;
+    @InjectMocks private SubscriptionPaymentHistoryRecorder recorder;
 
     private static final LocalDateTime NOW = LocalDateTime.of(2026, 9, 14, 12, 0, 0);
 
     private UserSubscription subscription() {
         return UserSubscription.builder()
-            .userId("user-1")
-            .platform("ios")
-            .productId("membership_1m")
-            .plan(SubscriptionPlan.MONTHLY)
-            .startedAt(NOW.minusMonths(1))
-            .expiresAt(NOW.plusMonths(1))
-            .autoRenew(true)
-            .trialUsed(false)
-            .build();
+                .userId("user-1")
+                .platform("ios")
+                .productId("membership_1m")
+                .plan(SubscriptionPlan.MONTHLY)
+                .startedAt(NOW.minusMonths(1))
+                .expiresAt(NOW.plusMonths(1))
+                .autoRenew(true)
+                .trialUsed(false)
+                .build();
     }
 
     @Test
     @DisplayName("구독 행 스냅샷 + 결제 정보로 이력을 저장한다")
     void recordSavesHistory() {
         when(repository.existsByUserIdAndEventTypeAndExpiresAt(
-            "user-1", SubscriptionPaymentEventType.PURCHASE, NOW.plusMonths(1)))
-            .thenReturn(false);
+                        "user-1", SubscriptionPaymentEventType.PURCHASE, NOW.plusMonths(1)))
+                .thenReturn(false);
 
         recorder.record(
-            subscription(), SubscriptionPaymentEventType.PURCHASE, true,
-            new BigDecimal("4900.00"), "KRW", "tx-1001", NOW.plusMonths(1), NOW);
+                subscription(),
+                SubscriptionPaymentEventType.PURCHASE,
+                true,
+                new BigDecimal("4900.00"),
+                "KRW",
+                "tx-1001",
+                NOW.plusMonths(1),
+                NOW);
 
         ArgumentCaptor<SubscriptionPaymentHistory> captor =
-            ArgumentCaptor.forClass(SubscriptionPaymentHistory.class);
+                ArgumentCaptor.forClass(SubscriptionPaymentHistory.class);
         verify(repository).save(captor.capture());
         SubscriptionPaymentHistory saved = captor.getValue();
         assertThat(saved.getUserId()).isEqualTo("user-1");
@@ -78,12 +82,18 @@ class SubscriptionPaymentHistoryRecorderTest {
     @DisplayName("같은 (유저, 이벤트, 만료) 이력이 이미 있으면 저장하지 않는다 — verify·웹훅 이중 도착 방어")
     void recordSkipsDuplicate() {
         when(repository.existsByUserIdAndEventTypeAndExpiresAt(
-            "user-1", SubscriptionPaymentEventType.RENEWAL, NOW.plusMonths(1)))
-            .thenReturn(true);
+                        "user-1", SubscriptionPaymentEventType.RENEWAL, NOW.plusMonths(1)))
+                .thenReturn(true);
 
         recorder.record(
-            subscription(), SubscriptionPaymentEventType.RENEWAL, false,
-            null, null, null, NOW.plusMonths(1), NOW);
+                subscription(),
+                SubscriptionPaymentEventType.RENEWAL,
+                false,
+                null,
+                null,
+                null,
+                NOW.plusMonths(1),
+                NOW);
 
         verify(repository, never()).save(any());
     }

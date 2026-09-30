@@ -12,10 +12,8 @@ import org.springframework.stereotype.Service;
 /**
  * LUT-409: LUT-400 이전 업로드 이미지의 thumb/medium 변형 백필.
  *
- * DB에 기록된 원본 URL 을 순회하며 저장소(S3/로컬)에 변형이 없으면 생성한다.
- * 멱등 — 변형 존재 여부는 저장소에서 직접 확인하므로 재실행해도 안전하고,
- * 실패 건은 다음 실행에서 다시 시도된다. 트랜잭션 없이 동작한다 (스토리지 I/O 전용,
- * DB 는 URL 목록 읽기만).
+ * <p>DB에 기록된 원본 URL 을 순회하며 저장소(S3/로컬)에 변형이 없으면 생성한다. 멱등 — 변형 존재 여부는 저장소에서 직접 확인하므로 재실행해도 안전하고, 실패
+ * 건은 다음 실행에서 다시 시도된다. 트랜잭션 없이 동작한다 (스토리지 I/O 전용, DB 는 URL 목록 읽기만).
  */
 @Service
 @Slf4j
@@ -56,9 +54,14 @@ public class MissionImageVariantBackfillService {
             }
         }
 
-        log.info("이미지 변형 백필 완료: total={}, scanned={}, created={}, skipped={}, failed={}",
-            urls.size(), scanned, variantsCreated, skipped, failed);
+        log.info(
+                "이미지 변형 백필 완료: total={}, scanned={}, created={}, skipped={}, failed={}",
+                urls.size(),
+                scanned,
+                variantsCreated,
+                skipped,
+                failed);
         return new MissionImageVariantBackfillResultResponse(
-            urls.size(), scanned, variantsCreated, skipped, failed);
+                urls.size(), scanned, variantsCreated, skipped, failed);
     }
 }

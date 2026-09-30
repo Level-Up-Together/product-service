@@ -11,12 +11,12 @@ import org.springframework.stereotype.Service;
 /**
  * LUT-499: 구독 상태 자가 치유 — 스토어 서버 알림(RTDN/ASSN)이 지연·유실됐을 때의 안전망.
  *
- * <p>{@code expires_at} 이 지났는데 {@code auto_renew} 가 켜져 있으면 "스토어는 갱신했는데 우리만 모르는" 상태일
- * 가능성이 높다. 이때 응답 전에 스토어를 재조회해 웹훅과 같은 경로({@link SubscriptionWebhookTxService})로 덮어쓴다.
- * 알림 payload 를 신뢰하지 않는 원칙과 같다 — 진실은 항상 스토어 재조회 결과다.
+ * <p>{@code expires_at} 이 지났는데 {@code auto_renew} 가 켜져 있으면 "스토어는 갱신했는데 우리만 모르는" 상태일 가능성이 높다. 이때 응답
+ * 전에 스토어를 재조회해 웹훅과 같은 경로({@link SubscriptionWebhookTxService})로 덮어쓴다. 알림 payload 를 신뢰하지 않는 원칙과 같다 —
+ * 진실은 항상 스토어 재조회 결과다.
  *
- * <p>재조회 실패는 삼킨다: 자가 치유는 best-effort 이고, 실패해도 DB 값으로 응답해야 화면이 뜬다. 스토어가 실제로
- * 만료·해지를 알려주면 {@code auto_renew=false} 로 수렴해 다음 호출부터는 재조회하지 않는다.
+ * <p>재조회 실패는 삼킨다: 자가 치유는 best-effort 이고, 실패해도 DB 값으로 응답해야 화면이 뜬다. 스토어가 실제로 만료·해지를 알려주면 {@code
+ * auto_renew=false} 로 수렴해 다음 호출부터는 재조회하지 않는다.
  */
 @Service
 @RequiredArgsConstructor
@@ -48,7 +48,8 @@ public class SubscriptionSelfHealService {
                     return false;
                 }
                 GoogleSubscriptionState state =
-                        verificationService.fetchGoogleSubscription(subscription.getPurchaseToken());
+                        verificationService.fetchGoogleSubscription(
+                                subscription.getPurchaseToken());
                 webhookTxService.applyGoogleState(subscription.getPurchaseToken(), state);
             } else {
                 if (subscription.getOriginalTransactionId() == null) {
@@ -57,7 +58,8 @@ public class SubscriptionSelfHealService {
                 AppleSubscriptionSnapshot snapshot =
                         verificationService.fetchAppleLatestSubscription(
                                 subscription.getOriginalTransactionId());
-                webhookTxService.applyAppleSnapshot(subscription.getOriginalTransactionId(), snapshot);
+                webhookTxService.applyAppleSnapshot(
+                        subscription.getOriginalTransactionId(), snapshot);
             }
             log.info(
                     "구독 자가 치유 수행: userId={}, platform={}, 이전만료={}",

@@ -6,8 +6,4 @@ import jakarta.validation.constraints.NotBlank;
 
 @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
 public record FeedAdminDeleteRequest(
-    @NotBlank(message = "삭제 사유는 필수입니다")
-    String reason,
-    String adminInfo
-) {
-}
+        @NotBlank(message = "삭제 사유는 필수입니다") String reason, String adminInfo) {}

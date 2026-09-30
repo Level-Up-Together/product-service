@@ -7,13 +7,12 @@ import java.util.UUID;
  * LUT-507: 스토어 결제에 실어 보내는 앱 계정 식별자(iOS {@code appAccountToken} / Android {@code
  * obfuscatedAccountId}).
  *
- * <p>스토어 구독 권한은 앱 회원이 아니라 스토어 계정(Apple ID·Google 계정) 단위라, 스토어 계정 1개를 앱 계정
- * 여러 개가 쓰면 "누가 결제했는지"를 스토어 키(originalTransactionId·purchaseToken)만으로는 알 수 없다.
- * 결제 시 이 토큰을 실어 두면 검증·웹훅에서 거래의 실제 결제 계정을 판정할 수 있다.
+ * <p>스토어 구독 권한은 앱 회원이 아니라 스토어 계정(Apple ID·Google 계정) 단위라, 스토어 계정 1개를 앱 계정 여러 개가 쓰면 "누가 결제했는지"를 스토어
+ * 키(originalTransactionId·purchaseToken)만으로는 알 수 없다. 결제 시 이 토큰을 실어 두면 검증·웹훅에서 거래의 실제 결제 계정을 판정할 수
+ * 있다.
  *
- * <p>유저 ID 가 이미 UUID(@UuidGenerator)라 그대로 토큰으로 쓴다 — 저장 없이 결정적이고, 웹훅에서 토큰 → 유저로
- * 되돌릴 수 있다(재구독 알림의 주인 교체). UUID 형식이 아닌 ID(테스트·레거시)는 이름 기반 UUID 로 파생하며 이
- * 경우 역변환은 불가(null).
+ * <p>유저 ID 가 이미 UUID(@UuidGenerator)라 그대로 토큰으로 쓴다 — 저장 없이 결정적이고, 웹훅에서 토큰 → 유저로 되돌릴 수 있다(재구독 알림의 주인
+ * 교체). UUID 형식이 아닌 ID(테스트·레거시)는 이름 기반 UUID 로 파생하며 이 경우 역변환은 불가(null).
  */
 public final class SubscriptionAccountToken {
 

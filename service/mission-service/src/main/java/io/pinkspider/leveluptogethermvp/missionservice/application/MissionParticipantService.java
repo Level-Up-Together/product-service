@@ -3,7 +3,6 @@ package io.pinkspider.leveluptogethermvp.missionservice.application;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MissionParticipantResponse;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.Mission;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.MissionParticipant;
-import io.pinkspider.global.enums.MissionStatus;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.ParticipantStatus;
 import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.DailyMissionInstanceRepository;
 import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.MissionExecutionRepository;
@@ -36,30 +35,42 @@ public class MissionParticipantService {
 
         validateMissionJoinable(mission, userId);
 
-        ParticipantStatus initialStatus = mission.isPublic()
-            ? ParticipantStatus.ACCEPTED
-            : ParticipantStatus.PENDING;
+        ParticipantStatus initialStatus =
+                mission.isPublic() ? ParticipantStatus.ACCEPTED : ParticipantStatus.PENDING;
 
         // 기존 참여 기록이 있는지 확인 (탈퇴/실패 상태 포함)
-        MissionParticipant participant = participantRepository.findByMissionIdAndUserId(missionId, userId)
-            .map(existing -> {
-                // 탈퇴/실패 상태인 경우 재참여 처리
-                existing.rejoin(initialStatus);
-                log.info("미션 재참여: missionId={}, userId={}, status={}", missionId, userId, initialStatus);
-                return existing;
-            })
-            .orElseGet(() -> {
-                // 신규 참여
-                MissionParticipant newParticipant = MissionParticipant.builder()
-                    .mission(mission)
-                    .userId(userId)
-                    .status(initialStatus)
-                    .progress(0)
-                    .joinedAt(LocalDateTime.now())
-                    .build();
-                log.info("미션 참여 신청: missionId={}, userId={}, status={}", missionId, userId, initialStatus);
-                return newParticipant;
-            });
+        MissionParticipant participant =
+                participantRepository
+                        .findByMissionIdAndUserId(missionId, userId)
+                        .map(
+                                existing -> {
+                                    // 탈퇴/실패 상태인 경우 재참여 처리
+                                    existing.rejoin(initialStatus);
+                                    log.info(
+                                            "미션 재참여: missionId={}, userId={}, status={}",
+                                            missionId,
+                                            userId,
+                                            initialStatus);
+                                    return existing;
+                                })
+                        .orElseGet(
+                                () -> {
+                                    // 신규 참여
+                                    MissionParticipant newParticipant =
+                                            MissionParticipant.builder()
+                                                    .mission(mission)
+                                                    .userId(userId)
+                                                    .status(initialStatus)
+                                                    .progress(0)
+                                                    .joinedAt(LocalDateTime.now())
+                                                    .build();
+                                    log.info(
+                                            "미션 참여 신청: missionId={}, userId={}, status={}",
+                                            missionId,
+                                            userId,
+                                            initialStatus);
+                                    return newParticipant;
+                                });
 
         MissionParticipant saved = participantRepository.save(participant);
 
@@ -71,18 +82,17 @@ public class MissionParticipantService {
         return MissionParticipantResponse.from(saved);
     }
 
-    /**
-     * 미션 생성자를 자동으로 참여자로 등록 (상태 체크 없이)
-     */
+    /** 미션 생성자를 자동으로 참여자로 등록 (상태 체크 없이) */
     @Transactional(transactionManager = "missionTransactionManager")
     public void addCreatorAsParticipant(Mission mission, String creatorId) {
-        MissionParticipant participant = MissionParticipant.builder()
-            .mission(mission)
-            .userId(creatorId)
-            .status(ParticipantStatus.ACCEPTED)
-            .progress(0)
-            .joinedAt(LocalDateTime.now())
-            .build();
+        MissionParticipant participant =
+                MissionParticipant.builder()
+                        .mission(mission)
+                        .userId(creatorId)
+                        .status(ParticipantStatus.ACCEPTED)
+                        .progress(0)
+                        .joinedAt(LocalDateTime.now())
+                        .build();
 
         MissionParticipant saved = participantRepository.save(participant);
         log.info("미션 생성자 참여 등록: missionId={}, userId={}", mission.getId(), creatorId);
@@ -91,10 +101,7 @@ public class MissionParticipantService {
         missionExecutionService.generateExecutionsForParticipant(saved);
     }
 
-    /**
-     * 길드원을 길드 미션 참여자로 자동 등록
-     * (이미 참여 중인 경우 건너뜀)
-     */
+    /** 길드원을 길드 미션 참여자로 자동 등록 (이미 참여 중인 경우 건너뜀) */
     @Transactional(transactionManager = "missionTransactionManager")
     public void addGuildMemberAsParticipant(Mission mission, String userId) {
         // 이미 참여 중인지 확인
@@ -105,19 +112,23 @@ public class MissionParticipantService {
 
         // LUT-518: 이전에 탈퇴(WITHDRAWN)/실패한 참여가 남아 있으면 재활성화한다.
         // uk_mission_participant (mission_id, user_id) 유니크라 새 행 insert 는 불가 — 재가입 케이스.
-        MissionParticipant participant = participantRepository
-            .findByMissionIdAndUserId(mission.getId(), userId)
-            .map(existing -> {
-                existing.rejoin(ParticipantStatus.ACCEPTED);
-                return existing;
-            })
-            .orElseGet(() -> MissionParticipant.builder()
-                .mission(mission)
-                .userId(userId)
-                .status(ParticipantStatus.ACCEPTED)
-                .progress(0)
-                .joinedAt(LocalDateTime.now())
-                .build());
+        MissionParticipant participant =
+                participantRepository
+                        .findByMissionIdAndUserId(mission.getId(), userId)
+                        .map(
+                                existing -> {
+                                    existing.rejoin(ParticipantStatus.ACCEPTED);
+                                    return existing;
+                                })
+                        .orElseGet(
+                                () ->
+                                        MissionParticipant.builder()
+                                                .mission(mission)
+                                                .userId(userId)
+                                                .status(ParticipantStatus.ACCEPTED)
+                                                .progress(0)
+                                                .joinedAt(LocalDateTime.now())
+                                                .build());
 
         MissionParticipant saved = participantRepository.save(participant);
         log.info("길드원 미션 참여 등록: missionId={}, userId={}", mission.getId(), userId);
@@ -127,7 +138,8 @@ public class MissionParticipantService {
     }
 
     @Transactional(transactionManager = "missionTransactionManager")
-    public MissionParticipantResponse acceptParticipant(Long missionId, Long participantId, String ownerId) {
+    public MissionParticipantResponse acceptParticipant(
+            Long missionId, Long participantId, String ownerId) {
         Mission mission = findMissionById(missionId);
         validateMissionOwner(mission, ownerId);
 
@@ -180,9 +192,10 @@ public class MissionParticipantService {
         // QA-112: 진행 중(IN_PROGRESS) 인스턴스/수행이 남아있으면 철회 차단
         // (MissionService.deleteMission이 호출 전 검사하지만, 직접 호출 경로 보호용)
         if (executionRepository.existsInProgressByMissionIdAndUserId(missionId, userId)
-            || dailyMissionInstanceRepository.existsInProgressByMissionIdAndUserId(missionId, userId)) {
+                || dailyMissionInstanceRepository.existsInProgressByMissionIdAndUserId(
+                        missionId, userId)) {
             throw new io.pinkspider.global.exception.CustomException(
-                "050103", "error.mission.cannot_withdraw_in_progress");
+                    "050103", "error.mission.cannot_withdraw_in_progress");
         }
 
         participant.withdraw();
@@ -193,28 +206,33 @@ public class MissionParticipantService {
 
     public List<MissionParticipantResponse> getMissionParticipants(Long missionId) {
         // QA-176: 탈퇴/실패 상태 참여자는 노출하지 않는다.
-        List<MissionParticipant> participants = participantRepository.findByMissionId(missionId).stream()
-            .filter(p -> p.getStatus() != ParticipantStatus.WITHDRAWN
-                && p.getStatus() != ParticipantStatus.FAILED)
-            .toList();
+        List<MissionParticipant> participants =
+                participantRepository.findByMissionId(missionId).stream()
+                        .filter(
+                                p ->
+                                        p.getStatus() != ParticipantStatus.WITHDRAWN
+                                                && p.getStatus() != ParticipantStatus.FAILED)
+                        .toList();
 
         // LUT-433: 참여자별 수행 통계(일수/횟수/경험치) — 실행 모드(mission_execution)와
         // 고정 미션(daily_mission_instance) 양쪽을 배치 집계해 합산한다 (미션당 한쪽만 행이 있음).
-        Map<Long, long[]> statsByParticipantId = loadParticipantStats(
-            participants.stream().map(MissionParticipant::getId).toList());
+        Map<Long, long[]> statsByParticipantId =
+                loadParticipantStats(participants.stream().map(MissionParticipant::getId).toList());
 
         return participants.stream()
-            .map(p -> {
-                MissionParticipantResponse response = MissionParticipantResponse.from(p);
-                long[] stats = statsByParticipantId.get(p.getId());
-                if (stats != null) {
-                    response.setProgressDays((int) stats[0]);
-                    response.setExecutionCount((int) stats[1]);
-                    response.setEarnedExp((int) stats[2]);
-                }
-                return response;
-            })
-            .toList();
+                .map(
+                        p -> {
+                            MissionParticipantResponse response =
+                                    MissionParticipantResponse.from(p);
+                            long[] stats = statsByParticipantId.get(p.getId());
+                            if (stats != null) {
+                                response.setProgressDays((int) stats[0]);
+                                response.setExecutionCount((int) stats[1]);
+                                response.setEarnedExp((int) stats[2]);
+                            }
+                            return response;
+                        })
+                .toList();
     }
 
     /** LUT-433: participantId → [수행일수, 완료횟수, 획득경험치]. 수행 이력 없는 참여자는 키 없음. */
@@ -224,22 +242,27 @@ public class MissionParticipantService {
         }
         Map<Long, long[]> merged = new HashMap<>();
         java.util.stream.Stream.concat(
-                executionRepository.aggregateCompletedStatsByParticipantIds(participantIds).stream(),
-                dailyMissionInstanceRepository.aggregateCompletedStatsByParticipantIds(participantIds).stream())
-            .forEach(row -> {
-                Long participantId = ((Number) row[0]).longValue();
-                long[] acc = merged.computeIfAbsent(participantId, k -> new long[3]);
-                acc[0] += ((Number) row[1]).longValue();
-                acc[1] += ((Number) row[2]).longValue();
-                acc[2] += ((Number) row[3]).longValue();
-            });
+                        executionRepository
+                                .aggregateCompletedStatsByParticipantIds(participantIds)
+                                .stream(),
+                        dailyMissionInstanceRepository
+                                .aggregateCompletedStatsByParticipantIds(participantIds)
+                                .stream())
+                .forEach(
+                        row -> {
+                            Long participantId = ((Number) row[0]).longValue();
+                            long[] acc = merged.computeIfAbsent(participantId, k -> new long[3]);
+                            acc[0] += ((Number) row[1]).longValue();
+                            acc[1] += ((Number) row[2]).longValue();
+                            acc[2] += ((Number) row[3]).longValue();
+                        });
         return merged;
     }
 
     public List<MissionParticipantResponse> getMyParticipations(String userId) {
         return participantRepository.findByUserIdWithMission(userId).stream()
-            .map(MissionParticipantResponse::from)
-            .toList();
+                .map(MissionParticipantResponse::from)
+                .toList();
     }
 
     public MissionParticipantResponse getMyParticipation(Long missionId, String userId) {
@@ -247,26 +270,28 @@ public class MissionParticipantService {
         return MissionParticipantResponse.from(participant);
     }
 
-    /**
-     * 사용자가 해당 미션에 참여 중인지 확인
-     */
+    /** 사용자가 해당 미션에 참여 중인지 확인 */
     public boolean isParticipating(Long missionId, String userId) {
         return participantRepository.existsActiveParticipation(missionId, userId);
     }
 
     private Mission findMissionById(Long missionId) {
-        return missionRepository.findByIdAndIsDeletedFalse(missionId)
-            .orElseThrow(() -> new IllegalArgumentException("미션을 찾을 수 없습니다: " + missionId));
+        return missionRepository
+                .findByIdAndIsDeletedFalse(missionId)
+                .orElseThrow(() -> new IllegalArgumentException("미션을 찾을 수 없습니다: " + missionId));
     }
 
     private MissionParticipant findParticipantById(Long participantId) {
-        return participantRepository.findById(participantId)
-            .orElseThrow(() -> new IllegalArgumentException("참여자를 찾을 수 없습니다: " + participantId));
+        return participantRepository
+                .findById(participantId)
+                .orElseThrow(
+                        () -> new IllegalArgumentException("참여자를 찾을 수 없습니다: " + participantId));
     }
 
     private MissionParticipant findParticipantByMissionAndUser(Long missionId, String userId) {
-        return participantRepository.findByMissionIdAndUserId(missionId, userId)
-            .orElseThrow(() -> new IllegalArgumentException("미션 참여 정보를 찾을 수 없습니다."));
+        return participantRepository
+                .findByMissionIdAndUserId(missionId, userId)
+                .orElseThrow(() -> new IllegalArgumentException("미션 참여 정보를 찾을 수 없습니다."));
     }
 
     private void validateMissionJoinable(Mission mission, String userId) {
@@ -292,7 +317,8 @@ public class MissionParticipantService {
         }
     }
 
-    private void validateParticipantBelongsToMission(MissionParticipant participant, Long missionId) {
+    private void validateParticipantBelongsToMission(
+            MissionParticipant participant, Long missionId) {
         if (!participant.getMission().getId().equals(missionId)) {
             throw new IllegalArgumentException("해당 미션의 참여자가 아닙니다.");
         }

@@ -27,12 +27,13 @@ import org.hibernate.annotations.Comment;
 @SuperBuilder
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @AllArgsConstructor
-@Table(name = "attendance_record",
-    uniqueConstraints = @UniqueConstraint(columnNames = {"user_id", "attendance_date"}),
-    indexes = {
-        @Index(name = "idx_attendance_user_date", columnList = "user_id, attendance_date"),
-        @Index(name = "idx_attendance_user_month", columnList = "user_id, year_month")
-    })
+@Table(
+        name = "attendance_record",
+        uniqueConstraints = @UniqueConstraint(columnNames = {"user_id", "attendance_date"}),
+        indexes = {
+            @Index(name = "idx_attendance_user_date", columnList = "user_id, attendance_date"),
+            @Index(name = "idx_attendance_user_month", columnList = "user_id, year_month")
+        })
 @Comment("출석 기록")
 public class AttendanceRecord extends LocalDateTimeBaseEntity {
 
@@ -82,12 +83,12 @@ public class AttendanceRecord extends LocalDateTimeBaseEntity {
 
     public static AttendanceRecord create(String userId, LocalDate date, int consecutiveDays) {
         return AttendanceRecord.builder()
-            .userId(userId)
-            .attendanceDate(date)
-            .yearMonth(date.getYear() + "-" + String.format("%02d", date.getMonthValue()))
-            .dayOfMonth(date.getDayOfMonth())
-            .consecutiveDays(consecutiveDays)
-            .build();
+                .userId(userId)
+                .attendanceDate(date)
+                .yearMonth(date.getYear() + "-" + String.format("%02d", date.getMonthValue()))
+                .dayOfMonth(date.getDayOfMonth())
+                .consecutiveDays(consecutiveDays)
+                .build();
     }
 
     public int getTotalRewardExp() {

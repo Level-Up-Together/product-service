@@ -8,10 +8,9 @@ import org.springframework.stereotype.Component;
 /**
  * LUT-401: Apple App Store Server API 연동 설정.
  *
- * <p>기존 iOS 영수증 검증(verifyReceipt, 21007 샌드박스 재시도)은 그대로 유지하고, 검증된
- * 트랜잭션의 실제 결제 가격/통화를 확보하기 위해 App Store Server API({@code getTransactionInfo})를
- * 추가로 호출한다. App Store Connect &gt; Users and Access &gt; Integrations 에서 발급하는
- * In-App Purchase 키(.p8)로 인증한다.
+ * <p>기존 iOS 영수증 검증(verifyReceipt, 21007 샌드박스 재시도)은 그대로 유지하고, 검증된 트랜잭션의 실제 결제 가격/통화를 확보하기 위해 App
+ * Store Server API({@code getTransactionInfo})를 추가로 호출한다. App Store Connect &gt; Users and Access
+ * &gt; Integrations 에서 발급하는 In-App Purchase 키(.p8)로 인증한다.
  */
 @Getter
 @Setter

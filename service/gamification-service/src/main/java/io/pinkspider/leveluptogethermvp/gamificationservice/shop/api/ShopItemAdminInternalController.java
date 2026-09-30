@@ -25,10 +25,7 @@ import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
-/**
- * Admin 내부 API 컨트롤러 - 상점 아이템 (QA-225)
- * 인증 불필요 (SecurityConfig에서 /api/internal/** permitAll)
- */
+/** Admin 내부 API 컨트롤러 - 상점 아이템 (QA-225) 인증 불필요 (SecurityConfig에서 /api/internal/** permitAll) */
 @RestController
 @RequestMapping("/api/internal/shop-items")
 @RequiredArgsConstructor
@@ -45,44 +42,51 @@ public class ShopItemAdminInternalController {
             @RequestParam(required = false, defaultValue = "0") int page,
             @RequestParam(required = false, defaultValue = "20") int size,
             @RequestParam(name = "sort_by", required = false, defaultValue = "id") String sortBy,
-            @RequestParam(name = "sort_direction", required = false, defaultValue = "DESC") String sortDirection) {
-        Sort sort = "ASC".equalsIgnoreCase(sortDirection)
-            ? Sort.by(sortBy).ascending()
-            : Sort.by(sortBy).descending();
+            @RequestParam(name = "sort_direction", required = false, defaultValue = "DESC")
+                    String sortDirection) {
+        Sort sort =
+                "ASC".equalsIgnoreCase(sortDirection)
+                        ? Sort.by(sortBy).ascending()
+                        : Sort.by(sortBy).descending();
         return ApiResult.<ShopItemAdminPageResponse>builder()
-            .value(shopItemAdminService.searchShopItems(
-                keyword, itemType, rarity, isActive, PageRequest.of(page, size, sort)))
-            .build();
+                .value(
+                        shopItemAdminService.searchShopItems(
+                                keyword,
+                                itemType,
+                                rarity,
+                                isActive,
+                                PageRequest.of(page, size, sort)))
+                .build();
     }
 
     @GetMapping("/{id}")
     public ApiResult<ShopItemAdminResponse> getShopItem(@PathVariable Long id) {
         return ApiResult.<ShopItemAdminResponse>builder()
-            .value(shopItemAdminService.getShopItem(id))
-            .build();
+                .value(shopItemAdminService.getShopItem(id))
+                .build();
     }
 
     @PostMapping
-    public ApiResult<ShopItemAdminResponse> createShopItem(@Valid @RequestBody ShopItemAdminRequest request) {
+    public ApiResult<ShopItemAdminResponse> createShopItem(
+            @Valid @RequestBody ShopItemAdminRequest request) {
         return ApiResult.<ShopItemAdminResponse>builder()
-            .value(shopItemAdminService.createShopItem(request))
-            .build();
+                .value(shopItemAdminService.createShopItem(request))
+                .build();
     }
 
     @PutMapping("/{id}")
     public ApiResult<ShopItemAdminResponse> updateShopItem(
-            @PathVariable Long id,
-            @Valid @RequestBody ShopItemAdminRequest request) {
+            @PathVariable Long id, @Valid @RequestBody ShopItemAdminRequest request) {
         return ApiResult.<ShopItemAdminResponse>builder()
-            .value(shopItemAdminService.updateShopItem(id, request))
-            .build();
+                .value(shopItemAdminService.updateShopItem(id, request))
+                .build();
     }
 
     @PatchMapping("/{id}/toggle-active")
     public ApiResult<ShopItemAdminResponse> toggleActiveStatus(@PathVariable Long id) {
         return ApiResult.<ShopItemAdminResponse>builder()
-            .value(shopItemAdminService.toggleActiveStatus(id))
-            .build();
+                .value(shopItemAdminService.toggleActiveStatus(id))
+                .build();
     }
 
     @DeleteMapping("/{id}")
@@ -92,9 +96,10 @@ public class ShopItemAdminInternalController {
     }
 
     @PostMapping("/images")
-    public ApiResult<ShopItemImageUploadResponse> uploadImage(@RequestPart("file") MultipartFile file) {
+    public ApiResult<ShopItemImageUploadResponse> uploadImage(
+            @RequestPart("file") MultipartFile file) {
         return ApiResult.<ShopItemImageUploadResponse>builder()
-            .value(new ShopItemImageUploadResponse(shopItemAdminService.uploadImage(file)))
-            .build();
+                .value(new ShopItemImageUploadResponse(shopItemAdminService.uploadImage(file)))
+                .build();
     }
 }

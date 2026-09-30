@@ -8,16 +8,14 @@ import lombok.Builder;
 @Builder
 @JsonNaming(SnakeCaseStrategy.class)
 public record UserAchievementAdminResponse(
-    Long id,
-    Long achievementId,
-    String achievementName,
-    String achievementCategoryCode,
-    String achievementIconUrl,
-    Integer currentCount,
-    Integer requiredCount,
-    Double progressPercent,
-    Boolean isCompleted,
-    LocalDateTime completedAt,
-    Boolean isRewardClaimed
-) {
-}
+        Long id,
+        Long achievementId,
+        String achievementName,
+        String achievementCategoryCode,
+        String achievementIconUrl,
+        Integer currentCount,
+        Integer requiredCount,
+        Double progressPercent,
+        Boolean isCompleted,
+        LocalDateTime completedAt,
+        Boolean isRewardClaimed) {}

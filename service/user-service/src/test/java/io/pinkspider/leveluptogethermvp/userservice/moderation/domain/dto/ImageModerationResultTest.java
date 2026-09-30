@@ -32,18 +32,19 @@ class ImageModerationResultTest {
     void unsafe_shouldCreateUnsafeResult() {
         // given
         String reason = "부적절한 콘텐츠가 감지되었습니다";
-        List<ModerationLabel> labels = List.of(
-            ModerationLabel.builder()
-                .category("Explicit Nudity")
-                .name("Nudity")
-                .confidence(95.5)
-                .build()
-        );
+        List<ModerationLabel> labels =
+                List.of(
+                        ModerationLabel.builder()
+                                .category("Explicit Nudity")
+                                .name("Nudity")
+                                .confidence(95.5)
+                                .build());
         Map<String, Double> scores = Map.of("Explicit Nudity", 95.5);
         String provider = "aws-rekognition";
 
         // when
-        ImageModerationResult result = ImageModerationResult.unsafe(reason, labels, scores, provider);
+        ImageModerationResult result =
+                ImageModerationResult.unsafe(reason, labels, scores, provider);
 
         // then
         assertThat(result.isSafe()).isFalse();
@@ -58,22 +59,24 @@ class ImageModerationResultTest {
     @DisplayName("빌더로 결과를 생성할 수 있어야 함")
     void builder_shouldCreateResult() {
         // given
-        ModerationLabel label = ModerationLabel.builder()
-            .category("Violence")
-            .name("Graphic Violence")
-            .confidence(80.0)
-            .parentName("Violence")
-            .build();
+        ModerationLabel label =
+                ModerationLabel.builder()
+                        .category("Violence")
+                        .name("Graphic Violence")
+                        .confidence(80.0)
+                        .parentName("Violence")
+                        .build();
 
         // when
-        ImageModerationResult result = ImageModerationResult.builder()
-            .safe(false)
-            .overallConfidence(80.0)
-            .detectedLabels(List.of(label))
-            .categoryScores(Map.of("Violence", 80.0))
-            .rejectionReason("폭력적인 콘텐츠가 감지되었습니다")
-            .provider("aws-rekognition")
-            .build();
+        ImageModerationResult result =
+                ImageModerationResult.builder()
+                        .safe(false)
+                        .overallConfidence(80.0)
+                        .detectedLabels(List.of(label))
+                        .categoryScores(Map.of("Violence", 80.0))
+                        .rejectionReason("폭력적인 콘텐츠가 감지되었습니다")
+                        .provider("aws-rekognition")
+                        .build();
 
         // then
         assertThat(result.isSafe()).isFalse();

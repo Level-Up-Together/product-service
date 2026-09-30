@@ -29,7 +29,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -37,56 +36,55 @@ import org.springframework.data.domain.Pageable;
 @ExtendWith(MockitoExtension.class)
 class GuildPostAdminInternalServiceTest {
 
-    @Mock
-    private GuildRepository guildRepository;
+    @Mock private GuildRepository guildRepository;
 
-    @Mock
-    private GuildPostRepository guildPostRepository;
+    @Mock private GuildPostRepository guildPostRepository;
 
-    @Mock
-    private GuildPostCommentRepository guildPostCommentRepository;
+    @Mock private GuildPostCommentRepository guildPostCommentRepository;
 
-    @InjectMocks
-    private GuildPostAdminInternalService service;
+    @InjectMocks private GuildPostAdminInternalService service;
 
     private Guild createTestGuild(Long id) {
-        Guild guild = Guild.builder()
-            .name("테스트 길드")
-            .description("설명")
-            .visibility(GuildVisibility.PUBLIC)
-            .masterId("master-1")
-            .categoryId(1L)
-            .isActive(true)
-            .build();
+        Guild guild =
+                Guild.builder()
+                        .name("테스트 길드")
+                        .description("설명")
+                        .visibility(GuildVisibility.PUBLIC)
+                        .masterId("master-1")
+                        .categoryId(1L)
+                        .isActive(true)
+                        .build();
         setId(guild, id);
         return guild;
     }
 
     private GuildPost createTestPost(Long id) {
         Guild guild = createTestGuild(1L);
-        GuildPost post = GuildPost.builder()
-            .guild(guild)
-            .authorId("user-1")
-            .authorNickname("작성자")
-            .title("테스트 게시글")
-            .content("내용")
-            .postType(GuildPostType.NORMAL)
-            .isDeleted(false)
-            .commentCount(0)
-            .build();
+        GuildPost post =
+                GuildPost.builder()
+                        .guild(guild)
+                        .authorId("user-1")
+                        .authorNickname("작성자")
+                        .title("테스트 게시글")
+                        .content("내용")
+                        .postType(GuildPostType.NORMAL)
+                        .isDeleted(false)
+                        .commentCount(0)
+                        .build();
         setId(post, id);
         return post;
     }
 
     private GuildPostComment createTestComment(Long id) {
         GuildPost post = createTestPost(1L);
-        GuildPostComment comment = GuildPostComment.builder()
-            .post(post)
-            .authorId("user-1")
-            .authorNickname("작성자")
-            .content("댓글 내용")
-            .isDeleted(false)
-            .build();
+        GuildPostComment comment =
+                GuildPostComment.builder()
+                        .post(post)
+                        .authorId("user-1")
+                        .authorNickname("작성자")
+                        .content("댓글 내용")
+                        .isDeleted(false)
+                        .build();
         setId(comment, id);
         return comment;
     }
@@ -101,7 +99,7 @@ class GuildPostAdminInternalServiceTest {
             Pageable pageable = PageRequest.of(0, 10);
             GuildPost post = createTestPost(1L);
             when(guildPostRepository.findByGuildIdOrderByCreatedAtDesc(1L, pageable))
-                .thenReturn(new PageImpl<>(List.of(post)));
+                    .thenReturn(new PageImpl<>(List.of(post)));
 
             GuildPostAdminPageResponse result = service.getPostsByGuildId(1L, true, pageable);
 
@@ -113,7 +111,7 @@ class GuildPostAdminInternalServiceTest {
         void excludeDeleted() {
             Pageable pageable = PageRequest.of(0, 10);
             when(guildPostRepository.findByGuildIdAndNotDeletedPaged(1L, pageable))
-                .thenReturn(new PageImpl<>(List.of()));
+                    .thenReturn(new PageImpl<>(List.of()));
 
             GuildPostAdminPageResponse result = service.getPostsByGuildId(1L, false, pageable);
 
@@ -155,8 +153,7 @@ class GuildPostAdminInternalServiceTest {
         @DisplayName("게시글을 소프트 삭제한다")
         void softDelete() {
             GuildPost post = createTestPost(1L);
-            when(guildPostRepository.findByIdAndGuildId(1L, 1L))
-                .thenReturn(Optional.of(post));
+            when(guildPostRepository.findByIdAndGuildId(1L, 1L)).thenReturn(Optional.of(post));
 
             service.softDeletePost(1L, 1L);
 
@@ -167,11 +164,10 @@ class GuildPostAdminInternalServiceTest {
         @Test
         @DisplayName("존재하지 않는 게시글은 예외를 발생시킨다")
         void throwsWhenNotFound() {
-            when(guildPostRepository.findByIdAndGuildId(999L, 1L))
-                .thenReturn(Optional.empty());
+            when(guildPostRepository.findByIdAndGuildId(999L, 1L)).thenReturn(Optional.empty());
 
             assertThatThrownBy(() -> service.softDeletePost(1L, 999L))
-                .isInstanceOf(CustomException.class);
+                    .isInstanceOf(CustomException.class);
         }
     }
 
@@ -184,8 +180,7 @@ class GuildPostAdminInternalServiceTest {
         void restore() {
             GuildPost post = createTestPost(1L);
             post.delete();
-            when(guildPostRepository.findByIdAndGuildId(1L, 1L))
-                .thenReturn(Optional.of(post));
+            when(guildPostRepository.findByIdAndGuildId(1L, 1L)).thenReturn(Optional.of(post));
             when(guildPostRepository.save(any(GuildPost.class))).thenReturn(post);
 
             GuildPostAdminResponse result = service.restorePost(1L, 1L);
@@ -197,11 +192,10 @@ class GuildPostAdminInternalServiceTest {
         @DisplayName("삭제되지 않은 게시글 복원 시 예외를 발생시킨다")
         void throwsWhenNotDeleted() {
             GuildPost post = createTestPost(1L);
-            when(guildPostRepository.findByIdAndGuildId(1L, 1L))
-                .thenReturn(Optional.of(post));
+            when(guildPostRepository.findByIdAndGuildId(1L, 1L)).thenReturn(Optional.of(post));
 
             assertThatThrownBy(() -> service.restorePost(1L, 1L))
-                .isInstanceOf(CustomException.class);
+                    .isInstanceOf(CustomException.class);
         }
     }
 
@@ -217,7 +211,7 @@ class GuildPostAdminInternalServiceTest {
             post.setCommentCount(3);
 
             when(guildPostCommentRepository.findByIdAndPostId(1L, 1L))
-                .thenReturn(Optional.of(comment));
+                    .thenReturn(Optional.of(comment));
             when(guildPostRepository.findById(1L)).thenReturn(Optional.of(post));
 
             service.softDeleteComment(1L, 1L);
@@ -242,7 +236,7 @@ class GuildPostAdminInternalServiceTest {
             post.setCommentCount(2);
 
             when(guildPostCommentRepository.findByIdAndPostId(1L, 1L))
-                .thenReturn(Optional.of(comment));
+                    .thenReturn(Optional.of(comment));
             when(guildPostCommentRepository.save(any(GuildPostComment.class))).thenReturn(comment);
             when(guildPostRepository.findById(1L)).thenReturn(Optional.of(post));
 
@@ -257,10 +251,10 @@ class GuildPostAdminInternalServiceTest {
         void throwsWhenNotDeleted() {
             GuildPostComment comment = createTestComment(1L);
             when(guildPostCommentRepository.findByIdAndPostId(1L, 1L))
-                .thenReturn(Optional.of(comment));
+                    .thenReturn(Optional.of(comment));
 
             assertThatThrownBy(() -> service.restoreComment(1L, 1L))
-                .isInstanceOf(CustomException.class);
+                    .isInstanceOf(CustomException.class);
         }
     }
 
@@ -274,9 +268,10 @@ class GuildPostAdminInternalServiceTest {
             Pageable pageable = PageRequest.of(0, 10);
             GuildPostComment comment = createTestComment(1L);
             when(guildPostCommentRepository.findByPostIdOrderByCreatedAtAsc(1L, pageable))
-                .thenReturn(new PageImpl<>(List.of(comment)));
+                    .thenReturn(new PageImpl<>(List.of(comment)));
 
-            GuildPostCommentAdminPageResponse result = service.getCommentsByPostId(1L, true, pageable);
+            GuildPostCommentAdminPageResponse result =
+                    service.getCommentsByPostId(1L, true, pageable);
 
             assertThat(result).isNotNull();
         }

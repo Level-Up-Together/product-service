@@ -19,8 +19,8 @@ import lombok.experimental.SuperBuilder;
 import org.hibernate.annotations.Comment;
 
 /**
- * LUT-516/528: 장착 아이템 푸시 발송 중복방지 원장. (user_id, send_date) 유니크로 유저·로컬날짜당 정확히 1회 발송을 보장한다 —
- * 아이템 단위 슬롯이 1개(item_push_setting)이고 대사 풀에서 랜덤 1개를 골라도 유저·일자 단위로 잠기므로 이중 발송이 없다. 다중 인스턴스/재실행 방어.
+ * LUT-516/528: 장착 아이템 푸시 발송 중복방지 원장. (user_id, send_date) 유니크로 유저·로컬날짜당 정확히 1회 발송을 보장한다 — 아이템 단위
+ * 슬롯이 1개(item_push_setting)이고 대사 풀에서 랜덤 1개를 골라도 유저·일자 단위로 잠기므로 이중 발송이 없다. 다중 인스턴스/재실행 방어.
  * shop_item_id·send_time·item_push_message_id 는 감사/로테이션용으로 유지한다.
  */
 @Entity

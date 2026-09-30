@@ -2,8 +2,8 @@ package io.pinkspider.leveluptogethermvp.notificationservice.domain.dto;
 
 import com.fasterxml.jackson.databind.PropertyNamingStrategies;
 import com.fasterxml.jackson.databind.annotation.JsonNaming;
-import io.pinkspider.leveluptogethermvp.notificationservice.domain.entity.Notification;
 import io.pinkspider.global.enums.NotificationType;
+import io.pinkspider.leveluptogethermvp.notificationservice.domain.entity.Notification;
 import java.time.LocalDateTime;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -31,18 +31,18 @@ public class NotificationResponse {
 
     public static NotificationResponse from(Notification notification) {
         return NotificationResponse.builder()
-            .id(notification.getId())
-            .notificationType(notification.getNotificationType())
-            .category(notification.getCategory())
-            .title(notification.getTitle())
-            .message(notification.getMessage())
-            .referenceType(notification.getReferenceType())
-            .referenceId(notification.getReferenceId())
-            .actionUrl(notification.getActionUrl())
-            .iconUrl(notification.getIconUrl())
-            .isRead(notification.getIsRead())
-            .readAt(notification.getReadAt())
-            .createdAt(notification.getCreatedAt())
-            .build();
+                .id(notification.getId())
+                .notificationType(notification.getNotificationType())
+                .category(notification.getCategory())
+                .title(notification.getTitle())
+                .message(notification.getMessage())
+                .referenceType(notification.getReferenceType())
+                .referenceId(notification.getReferenceId())
+                .actionUrl(notification.getActionUrl())
+                .iconUrl(notification.getIconUrl())
+                .isRead(notification.getIsRead())
+                .readAt(notification.getReadAt())
+                .createdAt(notification.getCreatedAt())
+                .build();
     }
 }

@@ -13,6 +13,7 @@ import jakarta.persistence.Index;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
 import jakarta.validation.constraints.NotNull;
+import java.time.LocalDate;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
@@ -21,24 +22,22 @@ import lombok.Setter;
 import lombok.experimental.SuperBuilder;
 import org.hibernate.annotations.Comment;
 
-import java.time.LocalDate;
-
 @Entity
 @Getter
 @Setter
 @SuperBuilder
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @AllArgsConstructor
-@Table(name = "daily_mvp_history",
-    uniqueConstraints = @UniqueConstraint(
-        name = "uk_daily_mvp_history_date_rank_tz",
-        columnNames = {"mvp_date", "mvp_rank", "timezone"}
-    ),
-    indexes = {
-        @Index(name = "idx_dmh_user_id", columnList = "user_id"),
-        @Index(name = "idx_dmh_mvp_date", columnList = "mvp_date")
-    }
-)
+@Table(
+        name = "daily_mvp_history",
+        uniqueConstraints =
+                @UniqueConstraint(
+                        name = "uk_daily_mvp_history_date_rank_tz",
+                        columnNames = {"mvp_date", "mvp_rank", "timezone"}),
+        indexes = {
+            @Index(name = "idx_dmh_user_id", columnList = "user_id"),
+            @Index(name = "idx_dmh_mvp_date", columnList = "mvp_date")
+        })
 @Comment("일간 MVP 히스토리")
 public class DailyMvpHistory extends LocalDateTimeBaseEntity {
 

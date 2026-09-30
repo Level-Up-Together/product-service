@@ -150,10 +150,11 @@ public class ItemPushDispatchService {
     }
 
     /**
-     * R4 로테이션 대사 선택. 상태 풀(trigger_type 일치) → 없으면 ANY 풀. 각 풀에서 최근 (후보 수-1)건에 보낸 메시지를 제외하고 랜덤 1개.
-     * 두 풀 모두 비면 null(스킵).
+     * R4 로테이션 대사 선택. 상태 풀(trigger_type 일치) → 없으면 ANY 풀. 각 풀에서 최근 (후보 수-1)건에 보낸 메시지를 제외하고 랜덤 1개. 두 풀
+     * 모두 비면 null(스킵).
      */
-    ItemPushMessage pickMessage(String userId, List<ItemPushMessage> messages, ItemPushTriggerType state) {
+    ItemPushMessage pickMessage(
+            String userId, List<ItemPushMessage> messages, ItemPushTriggerType state) {
         List<ItemPushMessage> pool = filterByTrigger(messages, state);
         if (pool.isEmpty() && state != ItemPushTriggerType.ANY) {
             pool = filterByTrigger(messages, ItemPushTriggerType.ANY);
@@ -167,7 +168,8 @@ public class ItemPushDispatchService {
 
         // 최근 (후보 수 - 1)건에 보낸 메시지 제외 → 풀을 한 바퀴 다 돌기 전까진 반복 없음
         List<Long> recent =
-                sendLogRepository.findRecentSentMessageIds(userId, PageRequest.of(0, pool.size() - 1));
+                sendLogRepository.findRecentSentMessageIds(
+                        userId, PageRequest.of(0, pool.size() - 1));
         List<ItemPushMessage> candidates = new ArrayList<>();
         for (ItemPushMessage m : pool) {
             if (!recent.contains(m.getId())) {

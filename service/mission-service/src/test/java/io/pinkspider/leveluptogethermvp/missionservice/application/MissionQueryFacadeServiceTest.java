@@ -2,7 +2,6 @@ package io.pinkspider.leveluptogethermvp.missionservice.application;
 
 import static io.pinkspider.global.test.TestReflectionUtils.setId;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.when;
 
 import io.pinkspider.global.facade.dto.InProgressMissionDto;
@@ -35,58 +34,53 @@ import org.mockito.junit.jupiter.MockitoExtension;
 @DisplayName("MissionQueryFacadeService 테스트 (LUT-257)")
 class MissionQueryFacadeServiceTest {
 
-    @Mock
-    private MissionExecutionRepository missionExecutionRepository;
+    @Mock private MissionExecutionRepository missionExecutionRepository;
 
-    @Mock
-    private DailyMissionInstanceRepository dailyMissionInstanceRepository;
+    @Mock private DailyMissionInstanceRepository dailyMissionInstanceRepository;
 
-    @Mock
-    private MissionTemplateRepository missionTemplateRepository;
+    @Mock private MissionTemplateRepository missionTemplateRepository;
 
-    @InjectMocks
-    private MissionQueryFacadeService facadeService;
+    @InjectMocks private MissionQueryFacadeService facadeService;
 
     private static final String USER_ID = "test-user-123";
 
-    private Mission buildMission(Long missionId, Long categoryId, String categoryName, String title,
-                                   MissionVisibility visibility, String guildId) {
-        Mission mission = Mission.builder()
-            .title(title)
-            .description("설명")
-            .status(io.pinkspider.global.enums.MissionStatus.IN_PROGRESS)
-            .visibility(visibility)
-            .type(guildId != null ? MissionType.GUILD : MissionType.PERSONAL)
-            .creatorId(USER_ID)
-            .guildId(guildId)
-            .categoryId(categoryId)
-            .categoryName(categoryName)
-            .build();
+    private Mission buildMission(
+            Long missionId,
+            Long categoryId,
+            String categoryName,
+            String title,
+            MissionVisibility visibility,
+            String guildId) {
+        Mission mission =
+                Mission.builder()
+                        .title(title)
+                        .description("설명")
+                        .status(io.pinkspider.global.enums.MissionStatus.IN_PROGRESS)
+                        .visibility(visibility)
+                        .type(guildId != null ? MissionType.GUILD : MissionType.PERSONAL)
+                        .creatorId(USER_ID)
+                        .guildId(guildId)
+                        .categoryId(categoryId)
+                        .categoryName(categoryName)
+                        .build();
         setId(mission, missionId);
         return mission;
     }
 
     private MissionExecution buildExecution(Mission mission, LocalDateTime startedAt) {
-        MissionParticipant participant = MissionParticipant.builder()
-            .mission(mission)
-            .userId(USER_ID)
-            .build();
-        return MissionExecution.builder()
-            .participant(participant)
-            .startedAt(startedAt)
-            .build();
+        MissionParticipant participant =
+                MissionParticipant.builder().mission(mission).userId(USER_ID).build();
+        return MissionExecution.builder().participant(participant).startedAt(startedAt).build();
     }
 
     private DailyMissionInstance buildInstance(Mission mission, LocalDateTime startedAt) {
-        MissionParticipant participant = MissionParticipant.builder()
-            .mission(mission)
-            .userId(USER_ID)
-            .build();
+        MissionParticipant participant =
+                MissionParticipant.builder().mission(mission).userId(USER_ID).build();
         return DailyMissionInstance.builder()
-            .participant(participant)
-            .missionTitle(mission.getTitle())
-            .startedAt(startedAt)
-            .build();
+                .participant(participant)
+                .missionTitle(mission.getTitle())
+                .startedAt(startedAt)
+                .build();
     }
 
     @Nested
@@ -96,8 +90,10 @@ class MissionQueryFacadeServiceTest {
         @Test
         @DisplayName("실행중인 execution과 instance가 모두 없으면 empty를 반환한다")
         void returnsEmptyWhenNeitherExists() {
-            when(missionExecutionRepository.findInProgressByUserId(USER_ID)).thenReturn(Optional.empty());
-            when(dailyMissionInstanceRepository.findInProgressByUserId(USER_ID)).thenReturn(Optional.empty());
+            when(missionExecutionRepository.findInProgressByUserId(USER_ID))
+                    .thenReturn(Optional.empty());
+            when(dailyMissionInstanceRepository.findInProgressByUserId(USER_ID))
+                    .thenReturn(Optional.empty());
 
             Optional<InProgressMissionDto> result = facadeService.findInProgressMission(USER_ID);
 
@@ -111,8 +107,10 @@ class MissionQueryFacadeServiceTest {
             LocalDateTime startedAt = LocalDateTime.now();
             MissionExecution execution = buildExecution(mission, startedAt);
 
-            when(missionExecutionRepository.findInProgressByUserId(USER_ID)).thenReturn(Optional.of(execution));
-            when(dailyMissionInstanceRepository.findInProgressByUserId(USER_ID)).thenReturn(Optional.empty());
+            when(missionExecutionRepository.findInProgressByUserId(USER_ID))
+                    .thenReturn(Optional.of(execution));
+            when(dailyMissionInstanceRepository.findInProgressByUserId(USER_ID))
+                    .thenReturn(Optional.empty());
 
             Optional<InProgressMissionDto> result = facadeService.findInProgressMission(USER_ID);
 
@@ -130,22 +128,25 @@ class MissionQueryFacadeServiceTest {
         @Test
         @DisplayName("LUT-377: locale 지정 시 번역 제목을, 번역이 없으면 원문을 반환한다")
         void returnsLocalizedTitleWhenLocaleGiven() {
-            Mission mission = Mission.builder()
-                .title("달리기")
-                .titleEn("Running")
-                .description("설명")
-                .status(io.pinkspider.global.enums.MissionStatus.IN_PROGRESS)
-                .visibility(MissionVisibility.PUBLIC)
-                .type(MissionType.PERSONAL)
-                .creatorId(USER_ID)
-                .categoryId(10L)
-                .categoryName("운동")
-                .build();
+            Mission mission =
+                    Mission.builder()
+                            .title("달리기")
+                            .titleEn("Running")
+                            .description("설명")
+                            .status(io.pinkspider.global.enums.MissionStatus.IN_PROGRESS)
+                            .visibility(MissionVisibility.PUBLIC)
+                            .type(MissionType.PERSONAL)
+                            .creatorId(USER_ID)
+                            .categoryId(10L)
+                            .categoryName("운동")
+                            .build();
             setId(mission, 1L);
             MissionExecution execution = buildExecution(mission, LocalDateTime.now());
 
-            when(missionExecutionRepository.findInProgressByUserId(USER_ID)).thenReturn(Optional.of(execution));
-            when(dailyMissionInstanceRepository.findInProgressByUserId(USER_ID)).thenReturn(Optional.empty());
+            when(missionExecutionRepository.findInProgressByUserId(USER_ID))
+                    .thenReturn(Optional.of(execution));
+            when(dailyMissionInstanceRepository.findInProgressByUserId(USER_ID))
+                    .thenReturn(Optional.empty());
 
             Optional<InProgressMissionDto> en = facadeService.findInProgressMission(USER_ID, "en");
             assertThat(en).isPresent();
@@ -160,12 +161,15 @@ class MissionQueryFacadeServiceTest {
         @Test
         @DisplayName("instance만 존재하면 instance 기반 DTO를 반환한다")
         void returnsInstanceDtoWhenOnlyInstanceExists() {
-            Mission mission = buildMission(2L, 20L, "독서", "고정 미션", MissionVisibility.GUILD_ONLY, "100");
+            Mission mission =
+                    buildMission(2L, 20L, "독서", "고정 미션", MissionVisibility.GUILD_ONLY, "100");
             LocalDateTime startedAt = LocalDateTime.now();
             DailyMissionInstance instance = buildInstance(mission, startedAt);
 
-            when(missionExecutionRepository.findInProgressByUserId(USER_ID)).thenReturn(Optional.empty());
-            when(dailyMissionInstanceRepository.findInProgressByUserId(USER_ID)).thenReturn(Optional.of(instance));
+            when(missionExecutionRepository.findInProgressByUserId(USER_ID))
+                    .thenReturn(Optional.empty());
+            when(dailyMissionInstanceRepository.findInProgressByUserId(USER_ID))
+                    .thenReturn(Optional.of(instance));
 
             Optional<InProgressMissionDto> result = facadeService.findInProgressMission(USER_ID);
 
@@ -180,8 +184,10 @@ class MissionQueryFacadeServiceTest {
         @Test
         @DisplayName("둘 다 존재하면 더 최근에 시작한 execution 쪽을 반환한다")
         void returnsMoreRecentExecutionWhenBothExist() {
-            Mission executionMission = buildMission(1L, 10L, "운동", "달리기", MissionVisibility.PUBLIC, null);
-            Mission instanceMission = buildMission(2L, 20L, "독서", "고정 미션", MissionVisibility.PRIVATE, null);
+            Mission executionMission =
+                    buildMission(1L, 10L, "운동", "달리기", MissionVisibility.PUBLIC, null);
+            Mission instanceMission =
+                    buildMission(2L, 20L, "독서", "고정 미션", MissionVisibility.PRIVATE, null);
 
             LocalDateTime older = LocalDateTime.now().minusHours(1);
             LocalDateTime newer = LocalDateTime.now();
@@ -189,8 +195,10 @@ class MissionQueryFacadeServiceTest {
             MissionExecution execution = buildExecution(executionMission, newer);
             DailyMissionInstance instance = buildInstance(instanceMission, older);
 
-            when(missionExecutionRepository.findInProgressByUserId(USER_ID)).thenReturn(Optional.of(execution));
-            when(dailyMissionInstanceRepository.findInProgressByUserId(USER_ID)).thenReturn(Optional.of(instance));
+            when(missionExecutionRepository.findInProgressByUserId(USER_ID))
+                    .thenReturn(Optional.of(execution));
+            when(dailyMissionInstanceRepository.findInProgressByUserId(USER_ID))
+                    .thenReturn(Optional.of(instance));
 
             Optional<InProgressMissionDto> result = facadeService.findInProgressMission(USER_ID);
 
@@ -201,8 +209,10 @@ class MissionQueryFacadeServiceTest {
         @Test
         @DisplayName("둘 다 존재하면 더 최근에 시작한 instance 쪽을 반환한다")
         void returnsMoreRecentInstanceWhenBothExist() {
-            Mission executionMission = buildMission(1L, 10L, "운동", "달리기", MissionVisibility.PUBLIC, null);
-            Mission instanceMission = buildMission(2L, 20L, "독서", "고정 미션", MissionVisibility.PRIVATE, null);
+            Mission executionMission =
+                    buildMission(1L, 10L, "운동", "달리기", MissionVisibility.PUBLIC, null);
+            Mission instanceMission =
+                    buildMission(2L, 20L, "독서", "고정 미션", MissionVisibility.PRIVATE, null);
 
             LocalDateTime older = LocalDateTime.now().minusHours(1);
             LocalDateTime newer = LocalDateTime.now();
@@ -210,8 +220,10 @@ class MissionQueryFacadeServiceTest {
             MissionExecution execution = buildExecution(executionMission, older);
             DailyMissionInstance instance = buildInstance(instanceMission, newer);
 
-            when(missionExecutionRepository.findInProgressByUserId(USER_ID)).thenReturn(Optional.of(execution));
-            when(dailyMissionInstanceRepository.findInProgressByUserId(USER_ID)).thenReturn(Optional.of(instance));
+            when(missionExecutionRepository.findInProgressByUserId(USER_ID))
+                    .thenReturn(Optional.of(execution));
+            when(dailyMissionInstanceRepository.findInProgressByUserId(USER_ID))
+                    .thenReturn(Optional.of(instance));
 
             Optional<InProgressMissionDto> result = facadeService.findInProgressMission(USER_ID);
 
@@ -222,14 +234,18 @@ class MissionQueryFacadeServiceTest {
         @Test
         @DisplayName("execution의 startedAt이 null이면 instance 쪽을 반환한다")
         void returnsInstanceWhenExecutionStartedAtIsNull() {
-            Mission executionMission = buildMission(1L, 10L, "운동", "달리기", MissionVisibility.PUBLIC, null);
-            Mission instanceMission = buildMission(2L, 20L, "독서", "고정 미션", MissionVisibility.PRIVATE, null);
+            Mission executionMission =
+                    buildMission(1L, 10L, "운동", "달리기", MissionVisibility.PUBLIC, null);
+            Mission instanceMission =
+                    buildMission(2L, 20L, "독서", "고정 미션", MissionVisibility.PRIVATE, null);
 
             MissionExecution execution = buildExecution(executionMission, null);
             DailyMissionInstance instance = buildInstance(instanceMission, LocalDateTime.now());
 
-            when(missionExecutionRepository.findInProgressByUserId(USER_ID)).thenReturn(Optional.of(execution));
-            when(dailyMissionInstanceRepository.findInProgressByUserId(USER_ID)).thenReturn(Optional.of(instance));
+            when(missionExecutionRepository.findInProgressByUserId(USER_ID))
+                    .thenReturn(Optional.of(execution));
+            when(dailyMissionInstanceRepository.findInProgressByUserId(USER_ID))
+                    .thenReturn(Optional.of(instance));
 
             Optional<InProgressMissionDto> result = facadeService.findInProgressMission(USER_ID);
 
@@ -246,9 +262,9 @@ class MissionQueryFacadeServiceTest {
         @DisplayName("execution과 instance의 클리어 템플릿을 합집합으로 카운트한다")
         void countsUnionOfClearedTemplateIds() {
             when(missionExecutionRepository.findAchievedTargetTemplateIdsByUserId(USER_ID))
-                .thenReturn(List.of(1L, 2L));
+                    .thenReturn(List.of(1L, 2L));
             when(dailyMissionInstanceRepository.findAchievedTargetTemplateIdsByUserId(USER_ID))
-                .thenReturn(List.of(2L, 3L));
+                    .thenReturn(List.of(2L, 3L));
 
             int result = facadeService.countClearedMissionBookTemplates(USER_ID);
 
@@ -264,9 +280,9 @@ class MissionQueryFacadeServiceTest {
         @DisplayName("execution과 instance의 클리어 템플릿 ID 집합을 합쳐서 반환한다")
         void returnsUnionOfClearedTemplateIds() {
             when(missionExecutionRepository.findAchievedTargetTemplateIdsByUserId(USER_ID))
-                .thenReturn(List.of(1L));
+                    .thenReturn(List.of(1L));
             when(dailyMissionInstanceRepository.findAchievedTargetTemplateIdsByUserId(USER_ID))
-                .thenReturn(List.of(2L));
+                    .thenReturn(List.of(2L));
 
             Set<Long> result = facadeService.findClearedMissionBookTemplateIds(USER_ID);
 
@@ -281,11 +297,12 @@ class MissionQueryFacadeServiceTest {
         @Test
         @DisplayName("템플릿 ID로 제목 맵을 반환한다")
         void returnsTemplateTitleMap() {
-            MissionTemplate template = MissionTemplate.builder()
-                .title("30분 독서")
-                .visibility(MissionVisibility.PUBLIC)
-                .source(MissionSource.SYSTEM)
-                .build();
+            MissionTemplate template =
+                    MissionTemplate.builder()
+                            .title("30분 독서")
+                            .visibility(MissionVisibility.PUBLIC)
+                            .source(MissionSource.SYSTEM)
+                            .build();
             setId(template, 1L);
 
             when(missionTemplateRepository.findAllById(Set.of(1L))).thenReturn(List.of(template));
@@ -310,27 +327,22 @@ class MissionQueryFacadeServiceTest {
         private static final String USER_A = "user-a";
         private static final String USER_B = "user-b";
 
-        private MissionExecution executionFor(String userId, Mission mission, LocalDateTime startedAt) {
-            MissionParticipant participant = MissionParticipant.builder()
-                .mission(mission)
-                .userId(userId)
-                .build();
-            return MissionExecution.builder()
-                .participant(participant)
-                .startedAt(startedAt)
-                .build();
+        private MissionExecution executionFor(
+                String userId, Mission mission, LocalDateTime startedAt) {
+            MissionParticipant participant =
+                    MissionParticipant.builder().mission(mission).userId(userId).build();
+            return MissionExecution.builder().participant(participant).startedAt(startedAt).build();
         }
 
-        private DailyMissionInstance instanceFor(String userId, Mission mission, LocalDateTime startedAt) {
-            MissionParticipant participant = MissionParticipant.builder()
-                .mission(mission)
-                .userId(userId)
-                .build();
+        private DailyMissionInstance instanceFor(
+                String userId, Mission mission, LocalDateTime startedAt) {
+            MissionParticipant participant =
+                    MissionParticipant.builder().mission(mission).userId(userId).build();
             return DailyMissionInstance.builder()
-                .participant(participant)
-                .missionTitle(mission.getTitle())
-                .startedAt(startedAt)
-                .build();
+                    .participant(participant)
+                    .missionTitle(mission.getTitle())
+                    .startedAt(startedAt)
+                    .build();
         }
 
         @Test
@@ -345,16 +357,19 @@ class MissionQueryFacadeServiceTest {
         void mergesLatestPerUser() {
             LocalDateTime now = LocalDateTime.now();
             Mission missionA = buildMission(1L, 10L, "운동", "달리기", MissionVisibility.PUBLIC, null);
-            Mission missionB1 = buildMission(2L, 20L, "독서", "일반 미션", MissionVisibility.PRIVATE, null);
-            Mission missionB2 = buildMission(3L, 30L, "공부", "고정 미션", MissionVisibility.PUBLIC, null);
+            Mission missionB1 =
+                    buildMission(2L, 20L, "독서", "일반 미션", MissionVisibility.PRIVATE, null);
+            Mission missionB2 =
+                    buildMission(3L, 30L, "공부", "고정 미션", MissionVisibility.PUBLIC, null);
             List<String> userIds = List.of(USER_A, USER_B);
 
             when(missionExecutionRepository.findInProgressByUserIdIn(userIds))
-                .thenReturn(List.of(
-                    executionFor(USER_A, missionA, now.minusMinutes(30)),
-                    executionFor(USER_B, missionB1, now.minusMinutes(20))));
+                    .thenReturn(
+                            List.of(
+                                    executionFor(USER_A, missionA, now.minusMinutes(30)),
+                                    executionFor(USER_B, missionB1, now.minusMinutes(20))));
             when(dailyMissionInstanceRepository.findInProgressByUserIdIn(userIds))
-                .thenReturn(List.of(instanceFor(USER_B, missionB2, now.minusMinutes(5))));
+                    .thenReturn(List.of(instanceFor(USER_B, missionB2, now.minusMinutes(5))));
 
             var result = facadeService.findInProgressMissions(userIds);
 
@@ -373,9 +388,9 @@ class MissionQueryFacadeServiceTest {
             LocalDateTime now = LocalDateTime.now();
 
             when(missionExecutionRepository.findInProgressByUserIdIn(userIds))
-                .thenReturn(List.of(executionFor(USER_A, missionA, now)));
+                    .thenReturn(List.of(executionFor(USER_A, missionA, now)));
             when(dailyMissionInstanceRepository.findInProgressByUserIdIn(userIds))
-                .thenReturn(List.of());
+                    .thenReturn(List.of());
 
             var result = facadeService.findInProgressMissions(userIds);
 
@@ -387,15 +402,18 @@ class MissionQueryFacadeServiceTest {
         void findAllInProgressMissions_mergesLatestPerUser() {
             LocalDateTime now = LocalDateTime.now();
             Mission missionA = buildMission(1L, 10L, "운동", "달리기", MissionVisibility.PUBLIC, null);
-            Mission missionB1 = buildMission(2L, 20L, "독서", "일반 미션", MissionVisibility.PRIVATE, null);
-            Mission missionB2 = buildMission(3L, 30L, "공부", "고정 미션", MissionVisibility.PUBLIC, null);
+            Mission missionB1 =
+                    buildMission(2L, 20L, "독서", "일반 미션", MissionVisibility.PRIVATE, null);
+            Mission missionB2 =
+                    buildMission(3L, 30L, "공부", "고정 미션", MissionVisibility.PUBLIC, null);
 
             when(missionExecutionRepository.findAllInProgress())
-                .thenReturn(List.of(
-                    executionFor(USER_A, missionA, now.minusMinutes(30)),
-                    executionFor(USER_B, missionB1, now.minusMinutes(20))));
+                    .thenReturn(
+                            List.of(
+                                    executionFor(USER_A, missionA, now.minusMinutes(30)),
+                                    executionFor(USER_B, missionB1, now.minusMinutes(20))));
             when(dailyMissionInstanceRepository.findAllInProgress())
-                .thenReturn(List.of(instanceFor(USER_B, missionB2, now.minusMinutes(5))));
+                    .thenReturn(List.of(instanceFor(USER_B, missionB2, now.minusMinutes(5))));
 
             var result = facadeService.findAllInProgressMissions();
 
@@ -427,15 +445,20 @@ class MissionQueryFacadeServiceTest {
         @Test
         @DisplayName("completedAt(UTC)을 유저 타임존 로컬 날짜로 버킷팅하고 두 테이블을 합집합한다")
         void bucketsByTimezoneAndUnions() {
-            // 일반 미션: userA 07-27 00:30 UTC(+9 → 07-27 09:30), userB 07-25 16:00 UTC(+9 → 07-26 01:00)
+            // 일반 미션: userA 07-27 00:30 UTC(+9 → 07-27 09:30), userB 07-25 16:00 UTC(+9 → 07-26
+            // 01:00)
             when(missionExecutionRepository.findCompletedUserAndTimeByUserIdIn(
                             List.of(USER_A, USER_B), START, END))
-                    .thenReturn(List.<Object[]>of(new Object[] {USER_A, LocalDateTime.of(2026, 7, 27, 0, 30)},
+                    .thenReturn(
+                            List.<Object[]>of(
+                                    new Object[] {USER_A, LocalDateTime.of(2026, 7, 27, 0, 30)},
                                     new Object[] {USER_B, LocalDateTime.of(2026, 7, 25, 16, 0)}));
             // 고정 미션: userA 07-27 15:00 UTC(+9 → 07-28 00:00) → userA 는 07-27·07-28 두 날짜
             when(dailyMissionInstanceRepository.findCompletedUserAndTimeByUserIdIn(
                             List.of(USER_A, USER_B), START, END))
-                    .thenReturn(List.<Object[]>of(new Object[] {USER_A, LocalDateTime.of(2026, 7, 27, 15, 0)}));
+                    .thenReturn(
+                            List.<Object[]>of(
+                                    new Object[] {USER_A, LocalDateTime.of(2026, 7, 27, 15, 0)}));
 
             Map<String, Set<LocalDate>> result =
                     facadeService.findMissionCompletedLocalDates(
@@ -452,7 +475,9 @@ class MissionQueryFacadeServiceTest {
         void fallsBackToSeoulOnInvalidTimezone() {
             when(missionExecutionRepository.findCompletedUserAndTimeByUserIdIn(
                             List.of(USER_A), START, END))
-                    .thenReturn(List.<Object[]>of(new Object[] {USER_A, LocalDateTime.of(2026, 7, 27, 0, 30)}));
+                    .thenReturn(
+                            List.<Object[]>of(
+                                    new Object[] {USER_A, LocalDateTime.of(2026, 7, 27, 0, 30)}));
             when(dailyMissionInstanceRepository.findCompletedUserAndTimeByUserIdIn(
                             List.of(USER_A), START, END))
                     .thenReturn(List.of());
@@ -468,7 +493,9 @@ class MissionQueryFacadeServiceTest {
         @Test
         @DisplayName("대상 유저가 비면 조회 없이 빈 맵을 반환한다")
         void emptyUserIds() {
-            assertThat(facadeService.findMissionCompletedLocalDates(List.of(), START, END, "Asia/Seoul"))
+            assertThat(
+                            facadeService.findMissionCompletedLocalDates(
+                                    List.of(), START, END, "Asia/Seoul"))
                     .isEmpty();
         }
     }

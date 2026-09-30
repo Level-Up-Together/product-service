@@ -10,6 +10,7 @@ import jakarta.persistence.Index;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
 import jakarta.validation.constraints.NotNull;
+import java.time.LocalDate;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
@@ -18,25 +19,23 @@ import lombok.Setter;
 import lombok.experimental.SuperBuilder;
 import org.hibernate.annotations.Comment;
 
-import java.time.LocalDate;
-
 @Entity
 @Getter
 @Setter
 @SuperBuilder
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @AllArgsConstructor
-@Table(name = "daily_mvp_category_stats",
-    uniqueConstraints = @UniqueConstraint(
-        name = "uk_dmcs_date_user_category_tz",
-        columnNames = {"stats_date", "user_id", "category_id", "timezone"}
-    ),
-    indexes = {
-        @Index(name = "idx_dmcs_stats_date", columnList = "stats_date"),
-        @Index(name = "idx_dmcs_category_id", columnList = "category_id"),
-        @Index(name = "idx_dmcs_user_id", columnList = "user_id")
-    }
-)
+@Table(
+        name = "daily_mvp_category_stats",
+        uniqueConstraints =
+                @UniqueConstraint(
+                        name = "uk_dmcs_date_user_category_tz",
+                        columnNames = {"stats_date", "user_id", "category_id", "timezone"}),
+        indexes = {
+            @Index(name = "idx_dmcs_stats_date", columnList = "stats_date"),
+            @Index(name = "idx_dmcs_category_id", columnList = "category_id"),
+            @Index(name = "idx_dmcs_user_id", columnList = "user_id")
+        })
 @Comment("일간 MVP 카테고리별 통계")
 public class DailyMvpCategoryStats extends LocalDateTimeBaseEntity {
 

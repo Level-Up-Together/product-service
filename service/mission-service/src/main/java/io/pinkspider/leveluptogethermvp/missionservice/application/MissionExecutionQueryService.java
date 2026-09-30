@@ -1,45 +1,45 @@
 package io.pinkspider.leveluptogethermvp.missionservice.application;
 
+import io.pinkspider.global.facade.GamificationQueryFacade;
+import io.pinkspider.global.facade.GuildQueryFacade;
+import io.pinkspider.global.facade.UserQueryFacade;
+import io.pinkspider.global.facade.dto.GuildMembershipInfo;
+import io.pinkspider.leveluptogethermvp.feedservice.application.FeedQueryService;
+import io.pinkspider.leveluptogethermvp.metaservice.application.MissionCategoryService;
+import io.pinkspider.leveluptogethermvp.metaservice.domain.dto.MissionCategoryResponse;
 import io.pinkspider.leveluptogethermvp.missionservice.application.strategy.MissionExecutionStrategyResolver;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MissionExecutionResponse;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MonthlyCalendarResponse;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MonthlyCalendarResponse.DailyMission;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.WeeklyCalendarResponse;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.WeeklyCalendarResponse.CalendarMission;
-import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionVisibility;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.DailyMissionInstance;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.DailyMissionInstanceImage;
+import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.Mission;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.MissionExecution;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.MissionExecutionImage;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.MissionParticipant;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.ExecutionStatus;
-import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.Mission;
+import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionVisibility;
 import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.DailyMissionInstanceImageRepository;
 import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.DailyMissionInstanceRepository;
 import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.MissionExecutionImageRepository;
 import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.MissionExecutionRepository;
 import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.MissionParticipantRepository;
 import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.MissionRepository;
-import io.pinkspider.leveluptogethermvp.metaservice.application.MissionCategoryService;
-import io.pinkspider.leveluptogethermvp.metaservice.domain.dto.MissionCategoryResponse;
-import io.pinkspider.global.facade.GamificationQueryFacade;
-import io.pinkspider.global.facade.GuildQueryFacade;
-import io.pinkspider.global.facade.UserQueryFacade;
-import io.pinkspider.global.facade.dto.GuildMembershipInfo;
-import io.pinkspider.leveluptogethermvp.feedservice.application.FeedQueryService;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.YearMonth;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
-import java.util.Set;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -70,9 +70,12 @@ public class MissionExecutionQueryService {
         return toResponsesWithImages(executionRepository.findByParticipantId(participantId));
     }
 
-    public List<MissionExecutionResponse> getExecutionsByMissionAndUser(Long missionId, String userId) {
-        MissionParticipant participant = participantRepository.findByMissionIdAndUserId(missionId, userId)
-            .orElseThrow(() -> new IllegalArgumentException("미션 참여 정보를 찾을 수 없습니다."));
+    public List<MissionExecutionResponse> getExecutionsByMissionAndUser(
+            Long missionId, String userId) {
+        MissionParticipant participant =
+                participantRepository
+                        .findByMissionIdAndUserId(missionId, userId)
+                        .orElseThrow(() -> new IllegalArgumentException("미션 참여 정보를 찾을 수 없습니다."));
 
         return toResponsesWithImages(executionRepository.findByParticipantId(participant.getId()));
     }
@@ -89,7 +92,8 @@ public class MissionExecutionQueryService {
         return responses;
     }
 
-    public MissionExecutionResponse getExecutionByDate(Long missionId, String userId, LocalDate date) {
+    public MissionExecutionResponse getExecutionByDate(
+            Long missionId, String userId, LocalDate date) {
         return getExecutionByDate(missionId, userId, date, null);
     }
 
@@ -97,69 +101,73 @@ public class MissionExecutionQueryService {
     public MissionExecutionResponse getExecutionByDate(
             Long missionId, String userId, LocalDate date, String locale) {
         MissionExecutionResponse response =
-            strategyResolver.resolve(missionId, userId).getExecutionByDate(missionId, userId, date);
+                strategyResolver
+                        .resolve(missionId, userId)
+                        .getExecutionByDate(missionId, userId, date);
         if (response != null) {
             localizeMissionFields(List.of(response), locale);
         }
         return response;
     }
 
-    public List<MissionExecutionResponse> getExecutionsByDateRange(Long missionId, String userId,
-                                                                    LocalDate startDate, LocalDate endDate) {
+    public List<MissionExecutionResponse> getExecutionsByDateRange(
+            Long missionId, String userId, LocalDate startDate, LocalDate endDate) {
         return getExecutionsByDateRange(missionId, userId, startDate, endDate, null);
     }
 
     /** LUT-255: locale에 맞는 카테고리명으로 기간별 수행 기록 조회 */
-    public List<MissionExecutionResponse> getExecutionsByDateRange(Long missionId, String userId,
-                                                                    LocalDate startDate, LocalDate endDate,
-                                                                    String locale) {
-        MissionParticipant participant = participantRepository.findByMissionIdAndUserId(missionId, userId)
-            .orElseThrow(() -> new IllegalArgumentException("미션 참여 정보를 찾을 수 없습니다."));
+    public List<MissionExecutionResponse> getExecutionsByDateRange(
+            Long missionId, String userId, LocalDate startDate, LocalDate endDate, String locale) {
+        MissionParticipant participant =
+                participantRepository
+                        .findByMissionIdAndUserId(missionId, userId)
+                        .orElseThrow(() -> new IllegalArgumentException("미션 참여 정보를 찾을 수 없습니다."));
 
-        List<MissionExecutionResponse> responses = toResponsesWithImages(
-            executionRepository.findByParticipantIdAndExecutionDateBetween(
-                participant.getId(), startDate, endDate));
+        List<MissionExecutionResponse> responses =
+                toResponsesWithImages(
+                        executionRepository.findByParticipantIdAndExecutionDateBetween(
+                                participant.getId(), startDate, endDate));
         localizeMissionFields(responses, locale);
         return responses;
     }
 
     public double getCompletionRate(Long missionId, String userId) {
-        MissionParticipant participant = participantRepository.findByMissionIdAndUserId(missionId, userId)
-            .orElseThrow(() -> new IllegalArgumentException("미션 참여 정보를 찾을 수 없습니다."));
+        MissionParticipant participant =
+                participantRepository
+                        .findByMissionIdAndUserId(missionId, userId)
+                        .orElseThrow(() -> new IllegalArgumentException("미션 참여 정보를 찾을 수 없습니다."));
 
         long totalExecutions = executionRepository.findByParticipantId(participant.getId()).size();
         if (totalExecutions == 0) {
             return 0.0;
         }
 
-        long completedExecutions = executionRepository.countByParticipantIdAndStatus(
-            participant.getId(), ExecutionStatus.COMPLETED);
+        long completedExecutions =
+                executionRepository.countByParticipantIdAndStatus(
+                        participant.getId(), ExecutionStatus.COMPLETED);
 
         return (double) completedExecutions / totalExecutions * 100;
     }
 
-    /**
-     * 사용자의 현재 진행 중인 미션 조회
-     */
+    /** 사용자의 현재 진행 중인 미션 조회 */
     public MissionExecutionResponse getInProgressExecution(String userId) {
         return getInProgressExecution(userId, null);
     }
 
     /** LUT-255: locale에 맞는 카테고리명으로 진행 중 미션 조회 */
     public MissionExecutionResponse getInProgressExecution(String userId, String locale) {
-        MissionExecutionResponse response = executionRepository.findInProgressByUserId(userId)
-            .map(this::toResponseWithImages)
-            .orElse(null);
+        MissionExecutionResponse response =
+                executionRepository
+                        .findInProgressByUserId(userId)
+                        .map(this::toResponseWithImages)
+                        .orElse(null);
         if (response != null) {
             localizeMissionFields(List.of(response), locale);
         }
         return response;
     }
 
-    /**
-     * 오늘 실행해야 할 미션 목록 조회
-     * 일반 미션(MissionExecution)과 고정 미션(DailyMissionInstance) 모두 포함
-     */
+    /** 오늘 실행해야 할 미션 목록 조회 일반 미션(MissionExecution)과 고정 미션(DailyMissionInstance) 모두 포함 */
     @Transactional(transactionManager = "missionTransactionManager")
     public List<MissionExecutionResponse> getTodayExecutions(String userId) {
         return getTodayExecutions(userId, null);
@@ -172,8 +180,13 @@ public class MissionExecutionQueryService {
         LocalDate today = LocalDate.now(kst);
         LocalDate yesterday = today.minusDays(1);
         // QA-151: KST 오늘 자정의 UTC LocalDateTime — completedAt(UTC) 와 비교용
-        LocalDateTime todayStartUtc = today.atStartOfDay(kst).withZoneSameInstant(ZoneOffset.UTC).toLocalDateTime();
-        LocalDateTime tomorrowStartUtc = today.plusDays(1).atStartOfDay(kst).withZoneSameInstant(ZoneOffset.UTC).toLocalDateTime();
+        LocalDateTime todayStartUtc =
+                today.atStartOfDay(kst).withZoneSameInstant(ZoneOffset.UTC).toLocalDateTime();
+        LocalDateTime tomorrowStartUtc =
+                today.plusDays(1)
+                        .atStartOfDay(kst)
+                        .withZoneSameInstant(ZoneOffset.UTC)
+                        .toLocalDateTime();
 
         // 고정 미션의 오늘 execution 자동 생성 (일반 MissionExecution용)
         ensurePinnedMissionExecutionsForToday(userId, today);
@@ -181,16 +194,18 @@ public class MissionExecutionQueryService {
         List<MissionExecutionResponse> responses = new ArrayList<>();
 
         // 일반 미션 Execution 조회 (오늘 + 전날 IN_PROGRESS + 전날 시작-오늘 종료된 COMPLETED)
-        List<MissionExecutionResponse> regularExecutions = toResponsesWithImages(
-            executionRepository.findByUserIdAndTodayOrYesterdayInProgress(
-                userId, today, yesterday, todayStartUtc, tomorrowStartUtc));
+        List<MissionExecutionResponse> regularExecutions =
+                toResponsesWithImages(
+                        executionRepository.findByUserIdAndTodayOrYesterdayInProgress(
+                                userId, today, yesterday, todayStartUtc, tomorrowStartUtc));
         responses.addAll(regularExecutions);
 
         // 고정 미션 DailyMissionInstance 조회 (동일 기준)
-        List<DailyMissionInstance> dailyInstances = dailyMissionInstanceRepository
-            .findByUserIdAndTodayOrYesterdayInProgress(
-                userId, today, yesterday, todayStartUtc, tomorrowStartUtc);
-        List<MissionExecutionResponse> instanceResponses = toResponsesFromInstancesWithImages(dailyInstances);
+        List<DailyMissionInstance> dailyInstances =
+                dailyMissionInstanceRepository.findByUserIdAndTodayOrYesterdayInProgress(
+                        userId, today, yesterday, todayStartUtc, tomorrowStartUtc);
+        List<MissionExecutionResponse> instanceResponses =
+                toResponsesFromInstancesWithImages(dailyInstances);
         responses.addAll(instanceResponses);
 
         // QA-152: is_shared_to_feed=true 인데 feed_db 에 매칭 피드가 없는 행은 false 로 보정.
@@ -198,8 +213,11 @@ public class MissionExecutionQueryService {
 
         localizeMissionFields(responses, locale);
 
-        log.info("getTodayExecutions: userId={}, regularCount={}, instanceCount={}",
-            userId, regularExecutions.size(), instanceResponses.size());
+        log.info(
+                "getTodayExecutions: userId={}, regularCount={}, instanceCount={}",
+                userId,
+                regularExecutions.size(),
+                instanceResponses.size());
 
         return responses;
     }
@@ -207,8 +225,7 @@ public class MissionExecutionQueryService {
     /**
      * 오늘 완료된 고정 미션 인스턴스 조회 (오늘 수행 기록용)
      *
-     * 고정 미션은 하루에 여러 번 수행 가능하므로, 완료된 인스턴스를 별도로 반환합니다.
-     * 프론트엔드에서 '오늘 수행 기록' 섹션에 표시하는 데 사용됩니다.
+     * <p>고정 미션은 하루에 여러 번 수행 가능하므로, 완료된 인스턴스를 별도로 반환합니다. 프론트엔드에서 '오늘 수행 기록' 섹션에 표시하는 데 사용됩니다.
      *
      * @param userId 사용자 ID
      * @return 완료된 고정 미션 인스턴스 목록
@@ -223,119 +240,141 @@ public class MissionExecutionQueryService {
         ZoneId kst = ZoneId.of("Asia/Seoul");
         LocalDate today = LocalDate.now(kst);
         // QA-151: completedAt(UTC) 의 KST 날짜가 오늘인 인스턴스를 조회.
-        LocalDateTime todayStartUtc = today.atStartOfDay(kst).withZoneSameInstant(ZoneOffset.UTC).toLocalDateTime();
-        LocalDateTime tomorrowStartUtc = today.plusDays(1).atStartOfDay(kst).withZoneSameInstant(ZoneOffset.UTC).toLocalDateTime();
+        LocalDateTime todayStartUtc =
+                today.atStartOfDay(kst).withZoneSameInstant(ZoneOffset.UTC).toLocalDateTime();
+        LocalDateTime tomorrowStartUtc =
+                today.plusDays(1)
+                        .atStartOfDay(kst)
+                        .withZoneSameInstant(ZoneOffset.UTC)
+                        .toLocalDateTime();
 
-        List<DailyMissionInstance> completedInstances = dailyMissionInstanceRepository
-            .findCompletedByUserIdAndCompletedDate(userId, todayStartUtc, tomorrowStartUtc);
+        List<DailyMissionInstance> completedInstances =
+                dailyMissionInstanceRepository.findCompletedByUserIdAndCompletedDate(
+                        userId, todayStartUtc, tomorrowStartUtc);
 
-        List<MissionExecutionResponse> responses = toResponsesFromInstancesWithImages(completedInstances);
+        List<MissionExecutionResponse> responses =
+                toResponsesFromInstancesWithImages(completedInstances);
 
         // QA-152: 동일 안전망 — feed 가 없는 행은 is_shared_to_feed=false 로 보정.
         reconcileSharedToFeedFlag(responses, userId);
 
         localizeMissionFields(responses, locale);
 
-        log.info("getCompletedPinnedInstancesForToday: userId={}, count={}", userId, responses.size());
+        log.info(
+                "getCompletedPinnedInstancesForToday: userId={}, count={}",
+                userId,
+                responses.size());
 
         return responses;
     }
 
     /**
-     * QA-152 안전망: 응답 빌드 결과 중 is_shared_to_feed=true 로 표시된 행을 모아
-     * feed_db 에 실제 ActivityFeed 가 있는지 한 번에 확인하고, 없는 행은 false 로 보정한다.
-     * <p>
-     * cross-DB 트랜잭션 분리로 인해 mission_execution 측은 공유 상태인데 ActivityFeed 가 누락된
-     * 케이스(QA-152 prod 사례)가 발생할 수 있어 응답 일관성을 보장한다.
-     * LUT-381: execution/instance ID 충돌 시 타인 피드를 근거로 오판하지 않도록 userId 로 좁힌다.
+     * QA-152 안전망: 응답 빌드 결과 중 is_shared_to_feed=true 로 표시된 행을 모아 feed_db 에 실제 ActivityFeed 가 있는지 한
+     * 번에 확인하고, 없는 행은 false 로 보정한다.
+     *
+     * <p>cross-DB 트랜잭션 분리로 인해 mission_execution 측은 공유 상태인데 ActivityFeed 가 누락된 케이스(QA-152 prod 사례)가
+     * 발생할 수 있어 응답 일관성을 보장한다. LUT-381: execution/instance ID 충돌 시 타인 피드를 근거로 오판하지 않도록 userId 로 좁힌다.
      */
-    private void reconcileSharedToFeedFlag(List<MissionExecutionResponse> responses, String userId) {
+    private void reconcileSharedToFeedFlag(
+            List<MissionExecutionResponse> responses, String userId) {
         if (responses == null || responses.isEmpty()) {
             return;
         }
-        java.util.List<Long> sharedIds = responses.stream()
-            .filter(r -> Boolean.TRUE.equals(r.getIsSharedToFeed()) && r.getId() != null)
-            .map(MissionExecutionResponse::getId)
-            .toList();
+        java.util.List<Long> sharedIds =
+                responses.stream()
+                        .filter(
+                                r ->
+                                        Boolean.TRUE.equals(r.getIsSharedToFeed())
+                                                && r.getId() != null)
+                        .map(MissionExecutionResponse::getId)
+                        .toList();
         if (sharedIds.isEmpty()) {
             return;
         }
         Set<Long> withFeed = feedQueryService.findExecutionIdsWithFeed(sharedIds, userId);
         for (MissionExecutionResponse r : responses) {
             if (Boolean.TRUE.equals(r.getIsSharedToFeed())
-                && r.getId() != null
-                && !withFeed.contains(r.getId())) {
+                    && r.getId() != null
+                    && !withFeed.contains(r.getId())) {
                 r.setIsSharedToFeed(false);
-                log.warn("QA-152: is_shared_to_feed=true 인데 ActivityFeed 미존재 → false 로 보정: executionId={}",
-                    r.getId());
+                log.warn(
+                        "QA-152: is_shared_to_feed=true 인데 ActivityFeed 미존재 → false 로 보정:"
+                                + " executionId={}",
+                        r.getId());
             }
         }
     }
 
-    /**
-     * MissionExecution 단건을 응답으로 변환 (이미지 포함, QA-139)
-     */
+    /** MissionExecution 단건을 응답으로 변환 (이미지 포함, QA-139) */
     private MissionExecutionResponse toResponseWithImages(MissionExecution execution) {
         MissionExecutionResponse response = MissionExecutionResponse.from(execution);
         List<String> urls = new ArrayList<>();
-        for (MissionExecutionImage img : executionImageRepository
-                .findByExecutionIdOrderBySortOrderAsc(execution.getId())) {
+        for (MissionExecutionImage img :
+                executionImageRepository.findByExecutionIdOrderBySortOrderAsc(execution.getId())) {
             urls.add(img.getImageUrl());
         }
         response.setImageUrls(urls);
         return response;
     }
 
-    /**
-     * MissionExecution 목록을 응답으로 변환 (다중 이미지 일괄 enrich, N+1 방지, QA-139)
-     */
-    private List<MissionExecutionResponse> toResponsesWithImages(List<MissionExecution> executions) {
+    /** MissionExecution 목록을 응답으로 변환 (다중 이미지 일괄 enrich, N+1 방지, QA-139) */
+    private List<MissionExecutionResponse> toResponsesWithImages(
+            List<MissionExecution> executions) {
         if (executions.isEmpty()) {
             return List.of();
         }
         List<Long> ids = executions.stream().map(MissionExecution::getId).toList();
         Map<Long, List<String>> imagesByExecutionId = new HashMap<>();
-        for (MissionExecutionImage img : executionImageRepository.findByExecutionIdInOrderBySortOrder(ids)) {
-            imagesByExecutionId.computeIfAbsent(img.getExecution().getId(), k -> new ArrayList<>())
-                .add(img.getImageUrl());
+        for (MissionExecutionImage img :
+                executionImageRepository.findByExecutionIdInOrderBySortOrder(ids)) {
+            imagesByExecutionId
+                    .computeIfAbsent(img.getExecution().getId(), k -> new ArrayList<>())
+                    .add(img.getImageUrl());
         }
         return executions.stream()
-            .map(execution -> {
-                MissionExecutionResponse response = MissionExecutionResponse.from(execution);
-                response.setImageUrls(imagesByExecutionId.getOrDefault(execution.getId(), List.of()));
-                return response;
-            })
-            .toList();
+                .map(
+                        execution -> {
+                            MissionExecutionResponse response =
+                                    MissionExecutionResponse.from(execution);
+                            response.setImageUrls(
+                                    imagesByExecutionId.getOrDefault(execution.getId(), List.of()));
+                            return response;
+                        })
+                .toList();
     }
 
-    /**
-     * DailyMissionInstance 목록을 응답으로 변환 (다중 이미지 일괄 enrich, QA-139)
-     */
-    private List<MissionExecutionResponse> toResponsesFromInstancesWithImages(List<DailyMissionInstance> instances) {
+    /** DailyMissionInstance 목록을 응답으로 변환 (다중 이미지 일괄 enrich, QA-139) */
+    private List<MissionExecutionResponse> toResponsesFromInstancesWithImages(
+            List<DailyMissionInstance> instances) {
         if (instances.isEmpty()) {
             return List.of();
         }
         List<Long> ids = instances.stream().map(DailyMissionInstance::getId).toList();
         Map<Long, List<String>> imagesByInstanceId = new HashMap<>();
-        for (DailyMissionInstanceImage img : instanceImageRepository.findByInstanceIdInOrderBySortOrder(ids)) {
-            imagesByInstanceId.computeIfAbsent(img.getInstance().getId(), k -> new ArrayList<>())
-                .add(img.getImageUrl());
+        for (DailyMissionInstanceImage img :
+                instanceImageRepository.findByInstanceIdInOrderBySortOrder(ids)) {
+            imagesByInstanceId
+                    .computeIfAbsent(img.getInstance().getId(), k -> new ArrayList<>())
+                    .add(img.getImageUrl());
         }
         return instances.stream()
-            .map(instance -> {
-                MissionExecutionResponse response = MissionExecutionResponse.fromDailyMissionInstance(instance);
-                response.setImageUrls(imagesByInstanceId.getOrDefault(instance.getId(), List.of()));
-                return response;
-            })
-            .toList();
+                .map(
+                        instance -> {
+                            MissionExecutionResponse response =
+                                    MissionExecutionResponse.fromDailyMissionInstance(instance);
+                            response.setImageUrls(
+                                    imagesByInstanceId.getOrDefault(instance.getId(), List.of()));
+                            return response;
+                        })
+                .toList();
     }
 
     /**
-     * 월별 캘린더 데이터 조회
-     * 해당 월의 완료된 미션 실행 내역과 총 획득 경험치 반환
-     * 일반 미션(MissionExecution)과 고정 미션(DailyMissionInstance) 모두 포함
+     * 월별 캘린더 데이터 조회 해당 월의 완료된 미션 실행 내역과 총 획득 경험치 반환 일반 미션(MissionExecution)과 고정
+     * 미션(DailyMissionInstance) 모두 포함
      */
-    public MonthlyCalendarResponse getMonthlyCalendarData(String userId, int year, int month, String timezone) {
+    public MonthlyCalendarResponse getMonthlyCalendarData(
+            String userId, int year, int month, String timezone) {
         return getMonthlyCalendarData(userId, year, month, timezone, null);
     }
 
@@ -355,18 +394,29 @@ public class MissionExecutionQueryService {
         } catch (Exception e) {
             userZone = ZoneId.of("Asia/Seoul");
         }
-        LocalDateTime startUtc = yearMonth.atDay(1).atStartOfDay(userZone)
-            .withZoneSameInstant(ZoneOffset.UTC).toLocalDateTime();
-        LocalDateTime endUtc = yearMonth.plusMonths(1).atDay(1).atStartOfDay(userZone)
-            .withZoneSameInstant(ZoneOffset.UTC).toLocalDateTime();
+        LocalDateTime startUtc =
+                yearMonth
+                        .atDay(1)
+                        .atStartOfDay(userZone)
+                        .withZoneSameInstant(ZoneOffset.UTC)
+                        .toLocalDateTime();
+        LocalDateTime endUtc =
+                yearMonth
+                        .plusMonths(1)
+                        .atDay(1)
+                        .atStartOfDay(userZone)
+                        .withZoneSameInstant(ZoneOffset.UTC)
+                        .toLocalDateTime();
 
         // 1. 일반 미션 - 완료된 미션 실행 내역 조회 (완료 시각 기준)
-        List<MissionExecution> completedExecutions = executionRepository
-            .findCompletedByUserIdAndCompletedAtBetween(userId, startUtc, endUtc);
+        List<MissionExecution> completedExecutions =
+                executionRepository.findCompletedByUserIdAndCompletedAtBetween(
+                        userId, startUtc, endUtc);
 
         // 2. 고정 미션 - 완료된 인스턴스 조회 (완료 시각 기준)
-        List<DailyMissionInstance> completedInstances = dailyMissionInstanceRepository
-            .findCompletedByUserIdAndCompletedAtBetween(userId, startUtc, endUtc);
+        List<DailyMissionInstance> completedInstances =
+                dailyMissionInstanceRepository.findCompletedByUserIdAndCompletedAtBetween(
+                        userId, startUtc, endUtc);
 
         // 3. 일별/월별 총 획득 경험치 — QA-217: 경험치 이력 기반으로 출석·업적 보상 등
         //    미션 외 경험치까지 포함해 오늘의 MVP 표기와 일치시킨다.
@@ -376,8 +426,12 @@ public class MissionExecutionQueryService {
         if (dailyExp != null) {
             totalExp = dailyExp.values().stream().mapToInt(Integer::intValue).sum();
         } else {
-            int regularMissionExp = executionRepository.sumExpEarnedByUserIdAndDateRange(userId, startDate, endDate);
-            int pinnedMissionExp = dailyMissionInstanceRepository.sumExpEarnedByUserIdAndDateRange(userId, startDate, endDate);
+            int regularMissionExp =
+                    executionRepository.sumExpEarnedByUserIdAndDateRange(
+                            userId, startDate, endDate);
+            int pinnedMissionExp =
+                    dailyMissionInstanceRepository.sumExpEarnedByUserIdAndDateRange(
+                            userId, startDate, endDate);
             totalExp = regularMissionExp + pinnedMissionExp;
         }
 
@@ -386,97 +440,127 @@ public class MissionExecutionQueryService {
 
         // 4-1. 일반 미션 추가 (완료 시각의 사용자 타임존 날짜로 그룹 — daily_exp 와 동일 기준)
         for (MissionExecution execution : completedExecutions) {
-            String dateKey = toUserZoneDateKey(execution.getCompletedAt(), userZone,
-                execution.getExecutionDate());
+            String dateKey =
+                    toUserZoneDateKey(
+                            execution.getCompletedAt(), userZone, execution.getExecutionDate());
 
             Integer durationMinutes = null;
             if (execution.getStartedAt() != null && execution.getCompletedAt() != null) {
-                durationMinutes = (int) java.time.Duration.between(
-                    execution.getStartedAt(), execution.getCompletedAt()).toMinutes();
+                durationMinutes =
+                        (int)
+                                java.time.Duration.between(
+                                                execution.getStartedAt(),
+                                                execution.getCompletedAt())
+                                        .toMinutes();
             }
 
             Mission regularMission = execution.getParticipant().getMission();
-            DailyMission dailyMission = DailyMission.builder()
-                .missionId(regularMission.getId())
-                .missionTitle(localizedTitleOrFallback(regularMission, regularMission.getTitle(), locale))
-                .categoryName(regularMission.getCategoryName())
-                .expEarned(execution.getExpEarned())
-                .durationMinutes(durationMinutes)
-                .startedAt(execution.getStartedAt())
-                .completedAt(execution.getCompletedAt())
-                .missionType(missionTypeOf(regularMission))
-                .build();
+            DailyMission dailyMission =
+                    DailyMission.builder()
+                            .missionId(regularMission.getId())
+                            .missionTitle(
+                                    localizedTitleOrFallback(
+                                            regularMission, regularMission.getTitle(), locale))
+                            .categoryName(regularMission.getCategoryName())
+                            .expEarned(execution.getExpEarned())
+                            .durationMinutes(durationMinutes)
+                            .startedAt(execution.getStartedAt())
+                            .completedAt(execution.getCompletedAt())
+                            .missionType(missionTypeOf(regularMission))
+                            .build();
 
             dailyMissions.computeIfAbsent(dateKey, k -> new ArrayList<>()).add(dailyMission);
         }
 
         // 4-2. 고정 미션 추가 (완료 시각의 사용자 타임존 날짜로 그룹 — daily_exp 와 동일 기준)
         for (DailyMissionInstance instance : completedInstances) {
-            String dateKey = toUserZoneDateKey(instance.getCompletedAt(), userZone,
-                instance.getInstanceDate());
+            String dateKey =
+                    toUserZoneDateKey(
+                            instance.getCompletedAt(), userZone, instance.getInstanceDate());
 
             Integer durationMinutes = null;
             if (instance.getStartedAt() != null && instance.getCompletedAt() != null) {
-                durationMinutes = (int) java.time.Duration.between(
-                    instance.getStartedAt(), instance.getCompletedAt()).toMinutes();
+                durationMinutes =
+                        (int)
+                                java.time.Duration.between(
+                                                instance.getStartedAt(), instance.getCompletedAt())
+                                        .toMinutes();
             }
 
-            DailyMission dailyMission = DailyMission.builder()
-                .missionId(instance.getParticipant().getMission().getId())
-                .missionTitle(localizedTitleOrFallback(
-                    instance.getParticipant().getMission(), instance.getMissionTitle(), locale))
-                .categoryName(instance.getCategoryName())
-                .expEarned(instance.getExpEarned())
-                .durationMinutes(durationMinutes)
-                .startedAt(instance.getStartedAt())
-                .completedAt(instance.getCompletedAt())
-                .missionType(missionTypeOf(instance.getParticipant().getMission()))
-                .build();
+            DailyMission dailyMission =
+                    DailyMission.builder()
+                            .missionId(instance.getParticipant().getMission().getId())
+                            .missionTitle(
+                                    localizedTitleOrFallback(
+                                            instance.getParticipant().getMission(),
+                                            instance.getMissionTitle(),
+                                            locale))
+                            .categoryName(instance.getCategoryName())
+                            .expEarned(instance.getExpEarned())
+                            .durationMinutes(durationMinutes)
+                            .startedAt(instance.getStartedAt())
+                            .completedAt(instance.getCompletedAt())
+                            .missionType(missionTypeOf(instance.getParticipant().getMission()))
+                            .build();
 
             dailyMissions.computeIfAbsent(dateKey, k -> new ArrayList<>()).add(dailyMission);
         }
 
         // 4-3. 날짜별 completedAt 오름차순 정렬 (가장 최근 완료가 맨 아래)
-        dailyMissions.values().forEach(list ->
-            list.sort(java.util.Comparator.comparing(
-                DailyMission::getCompletedAt,
-                java.util.Comparator.nullsFirst(java.util.Comparator.naturalOrder())
-            ))
-        );
+        dailyMissions
+                .values()
+                .forEach(
+                        list ->
+                                list.sort(
+                                        java.util.Comparator.comparing(
+                                                DailyMission::getCompletedAt,
+                                                java.util.Comparator.nullsFirst(
+                                                        java.util.Comparator.naturalOrder()))));
 
         // 5. 완료된 미션이 있는 날짜 목록
         List<String> completedDates = new ArrayList<>(dailyMissions.keySet());
         completedDates.sort(String::compareTo);
 
-        log.info("월별 캘린더 데이터 조회: userId={}, year={}, month={}, totalExp={}, completedDays={}, regularMissions={}, pinnedMissions={}",
-            userId, year, month, totalExp, completedDates.size(), completedExecutions.size(), completedInstances.size());
+        log.info(
+                "월별 캘린더 데이터 조회: userId={}, year={}, month={}, totalExp={}, completedDays={},"
+                        + " regularMissions={}, pinnedMissions={}",
+                userId,
+                year,
+                month,
+                totalExp,
+                completedDates.size(),
+                completedExecutions.size(),
+                completedInstances.size());
 
         return MonthlyCalendarResponse.builder()
-            .year(year)
-            .month(month)
-            .totalExp(totalExp)
-            .dailyExp(dailyExp != null ? dailyExp : Map.of())
-            .dailyMissions(dailyMissions)
-            .completedDates(completedDates)
-            .build();
+                .year(year)
+                .month(month)
+                .totalExp(totalExp)
+                .dailyExp(dailyExp != null ? dailyExp : Map.of())
+                .dailyMissions(dailyMissions)
+                .completedDates(completedDates)
+                .build();
     }
 
     /**
      * LUT-320: 타 유저 프로필 주간 캘린더 조회. 비로그인(viewerUserId=null) 접근 허용.
      *
-     * <p>date 가 속한 주(사용자 타임존 기준 월요일 시작)의 완료 미션을 날짜별로 그룹핑한다.
-     * 날짜 버킷팅은 월별 캘린더(LUT-240)와 동일하게 완료 시각 기준. 미션 공개범위에 따라
-     * 비노출 미션은 식별 정보(미션명/카테고리/ID)를 null 마스킹하고 is_visible=false 로 내린다
-     * (LUT-257 프로필 진행중 미션과 동일 규칙, 판정 실패 시 비노출 폴백).
+     * <p>date 가 속한 주(사용자 타임존 기준 월요일 시작)의 완료 미션을 날짜별로 그룹핑한다. 날짜 버킷팅은 월별 캘린더(LUT-240)와 동일하게 완료 시각 기준.
+     * 미션 공개범위에 따라 비노출 미션은 식별 정보(미션명/카테고리/ID)를 null 마스킹하고 is_visible=false 로 내린다 (LUT-257 프로필 진행중
+     * 미션과 동일 규칙, 판정 실패 시 비노출 폴백).
      */
-    public WeeklyCalendarResponse getWeeklyCalendarData(String targetUserId, String viewerUserId,
-                                                         LocalDate date, String timezone) {
+    public WeeklyCalendarResponse getWeeklyCalendarData(
+            String targetUserId, String viewerUserId, LocalDate date, String timezone) {
         return getWeeklyCalendarData(targetUserId, viewerUserId, date, timezone, null);
     }
 
     /** LUT-370: locale에 맞는 미션명으로 주간 캘린더 조회 */
-    public WeeklyCalendarResponse getWeeklyCalendarData(String targetUserId, String viewerUserId,
-                                                         LocalDate date, String timezone, String locale) {
+    public WeeklyCalendarResponse getWeeklyCalendarData(
+            String targetUserId,
+            String viewerUserId,
+            LocalDate date,
+            String timezone,
+            String locale) {
         ZoneId userZone;
         try {
             userZone = ZoneId.of(timezone != null ? timezone : "Asia/Seoul");
@@ -485,15 +569,24 @@ public class MissionExecutionQueryService {
         }
         LocalDate baseDate = date != null ? date : LocalDate.now(userZone);
         LocalDate weekStart = baseDate.with(DayOfWeek.MONDAY);
-        LocalDateTime startUtc = weekStart.atStartOfDay(userZone)
-            .withZoneSameInstant(ZoneOffset.UTC).toLocalDateTime();
-        LocalDateTime endUtc = weekStart.plusWeeks(1).atStartOfDay(userZone)
-            .withZoneSameInstant(ZoneOffset.UTC).toLocalDateTime();
+        LocalDateTime startUtc =
+                weekStart
+                        .atStartOfDay(userZone)
+                        .withZoneSameInstant(ZoneOffset.UTC)
+                        .toLocalDateTime();
+        LocalDateTime endUtc =
+                weekStart
+                        .plusWeeks(1)
+                        .atStartOfDay(userZone)
+                        .withZoneSameInstant(ZoneOffset.UTC)
+                        .toLocalDateTime();
 
-        List<MissionExecution> completedExecutions = executionRepository
-            .findCompletedByUserIdAndCompletedAtBetween(targetUserId, startUtc, endUtc);
-        List<DailyMissionInstance> completedInstances = dailyMissionInstanceRepository
-            .findCompletedByUserIdAndCompletedAtBetween(targetUserId, startUtc, endUtc);
+        List<MissionExecution> completedExecutions =
+                executionRepository.findCompletedByUserIdAndCompletedAtBetween(
+                        targetUserId, startUtc, endUtc);
+        List<DailyMissionInstance> completedInstances =
+                dailyMissionInstanceRepository.findCompletedByUserIdAndCompletedAtBetween(
+                        targetUserId, startUtc, endUtc);
 
         // 관계 판정은 실제로 해당 공개범위 미션이 있을 때만 수행 (비로그인은 항상 스킵)
         boolean isOwner = viewerUserId != null && viewerUserId.equals(targetUserId);
@@ -501,80 +594,113 @@ public class MissionExecutionQueryService {
         completedExecutions.forEach(e -> visibilities.add(visibilityOf(e.getParticipant())));
         completedInstances.forEach(i -> visibilities.add(visibilityOf(i.getParticipant())));
 
-        boolean needFriend = !isOwner && viewerUserId != null
-            && (visibilities.contains(MissionVisibility.FRIENDS_ONLY)
-                || visibilities.contains(MissionVisibility.FRIENDS_AND_GUILD));
-        boolean needGuild = !isOwner && viewerUserId != null
-            && (visibilities.contains(MissionVisibility.GUILD_ONLY)
-                || visibilities.contains(MissionVisibility.FRIENDS_AND_GUILD));
+        boolean needFriend =
+                !isOwner
+                        && viewerUserId != null
+                        && (visibilities.contains(MissionVisibility.FRIENDS_ONLY)
+                                || visibilities.contains(MissionVisibility.FRIENDS_AND_GUILD));
+        boolean needGuild =
+                !isOwner
+                        && viewerUserId != null
+                        && (visibilities.contains(MissionVisibility.GUILD_ONLY)
+                                || visibilities.contains(MissionVisibility.FRIENDS_AND_GUILD));
         boolean isFriend = needFriend && safeAreFriends(viewerUserId, targetUserId);
         boolean sharesGuild = needGuild && safeSharesGuild(viewerUserId, targetUserId);
 
         Map<String, List<CalendarMission>> dailyMissions = new HashMap<>();
         for (MissionExecution execution : completedExecutions) {
-            String dateKey = toUserZoneDateKey(execution.getCompletedAt(), userZone,
-                execution.getExecutionDate());
+            String dateKey =
+                    toUserZoneDateKey(
+                            execution.getCompletedAt(), userZone, execution.getExecutionDate());
             MissionVisibility visibility = visibilityOf(execution.getParticipant());
-            boolean visible = isMissionVisibleToViewer(visibility, isOwner, viewerUserId,
-                isFriend, sharesGuild);
+            boolean visible =
+                    isMissionVisibleToViewer(
+                            visibility, isOwner, viewerUserId, isFriend, sharesGuild);
             Mission mission = execution.getParticipant().getMission();
 
-            dailyMissions.computeIfAbsent(dateKey, k -> new ArrayList<>()).add(
-                CalendarMission.builder()
-                    .missionId(visible ? mission.getId() : null)
-                    .missionTitle(visible
-                        ? localizedTitleOrFallback(mission, mission.getTitle(), locale) : null)
-                    .categoryName(visible ? mission.getCategoryName() : null)
-                    .expEarned(execution.getExpEarned())
-                    .durationMinutes(toDurationMinutes(execution.getStartedAt(), execution.getCompletedAt()))
-                    .startedAt(execution.getStartedAt())
-                    .completedAt(execution.getCompletedAt())
-                    .visibility(visibility.name())
-                    .isVisible(visible)
-                    .missionType(visible ? missionTypeOf(mission) : null)
-                    .build());
+            dailyMissions
+                    .computeIfAbsent(dateKey, k -> new ArrayList<>())
+                    .add(
+                            CalendarMission.builder()
+                                    .missionId(visible ? mission.getId() : null)
+                                    .missionTitle(
+                                            visible
+                                                    ? localizedTitleOrFallback(
+                                                            mission, mission.getTitle(), locale)
+                                                    : null)
+                                    .categoryName(visible ? mission.getCategoryName() : null)
+                                    .expEarned(execution.getExpEarned())
+                                    .durationMinutes(
+                                            toDurationMinutes(
+                                                    execution.getStartedAt(),
+                                                    execution.getCompletedAt()))
+                                    .startedAt(execution.getStartedAt())
+                                    .completedAt(execution.getCompletedAt())
+                                    .visibility(visibility.name())
+                                    .isVisible(visible)
+                                    .missionType(visible ? missionTypeOf(mission) : null)
+                                    .build());
         }
         for (DailyMissionInstance instance : completedInstances) {
-            String dateKey = toUserZoneDateKey(instance.getCompletedAt(), userZone,
-                instance.getInstanceDate());
+            String dateKey =
+                    toUserZoneDateKey(
+                            instance.getCompletedAt(), userZone, instance.getInstanceDate());
             MissionVisibility visibility = visibilityOf(instance.getParticipant());
-            boolean visible = isMissionVisibleToViewer(visibility, isOwner, viewerUserId,
-                isFriend, sharesGuild);
+            boolean visible =
+                    isMissionVisibleToViewer(
+                            visibility, isOwner, viewerUserId, isFriend, sharesGuild);
 
-            dailyMissions.computeIfAbsent(dateKey, k -> new ArrayList<>()).add(
-                CalendarMission.builder()
-                    .missionId(visible ? instance.getParticipant().getMission().getId() : null)
-                    .missionTitle(visible
-                        ? localizedTitleOrFallback(
-                            instance.getParticipant().getMission(), instance.getMissionTitle(), locale)
-                        : null)
-                    .categoryName(visible ? instance.getCategoryName() : null)
-                    .expEarned(instance.getExpEarned())
-                    .durationMinutes(toDurationMinutes(instance.getStartedAt(), instance.getCompletedAt()))
-                    .startedAt(instance.getStartedAt())
-                    .completedAt(instance.getCompletedAt())
-                    .visibility(visibility.name())
-                    .isVisible(visible)
-                    .missionType(visible
-                        ? missionTypeOf(instance.getParticipant().getMission()) : null)
-                    .build());
+            dailyMissions
+                    .computeIfAbsent(dateKey, k -> new ArrayList<>())
+                    .add(
+                            CalendarMission.builder()
+                                    .missionId(
+                                            visible
+                                                    ? instance.getParticipant().getMission().getId()
+                                                    : null)
+                                    .missionTitle(
+                                            visible
+                                                    ? localizedTitleOrFallback(
+                                                            instance.getParticipant().getMission(),
+                                                            instance.getMissionTitle(),
+                                                            locale)
+                                                    : null)
+                                    .categoryName(visible ? instance.getCategoryName() : null)
+                                    .expEarned(instance.getExpEarned())
+                                    .durationMinutes(
+                                            toDurationMinutes(
+                                                    instance.getStartedAt(),
+                                                    instance.getCompletedAt()))
+                                    .startedAt(instance.getStartedAt())
+                                    .completedAt(instance.getCompletedAt())
+                                    .visibility(visibility.name())
+                                    .isVisible(visible)
+                                    .missionType(
+                                            visible
+                                                    ? missionTypeOf(
+                                                            instance.getParticipant().getMission())
+                                                    : null)
+                                    .build());
         }
 
-        dailyMissions.values().forEach(list ->
-            list.sort(java.util.Comparator.comparing(
-                CalendarMission::getCompletedAt,
-                java.util.Comparator.nullsFirst(java.util.Comparator.naturalOrder())
-            ))
-        );
+        dailyMissions
+                .values()
+                .forEach(
+                        list ->
+                                list.sort(
+                                        java.util.Comparator.comparing(
+                                                CalendarMission::getCompletedAt,
+                                                java.util.Comparator.nullsFirst(
+                                                        java.util.Comparator.naturalOrder()))));
         List<String> completedDates = new ArrayList<>(dailyMissions.keySet());
         completedDates.sort(String::compareTo);
 
         return WeeklyCalendarResponse.builder()
-            .startDate(weekStart.toString())
-            .endDate(weekStart.plusDays(6).toString())
-            .dailyMissions(dailyMissions)
-            .completedDates(completedDates)
-            .build();
+                .startDate(weekStart.toString())
+                .endDate(weekStart.plusDays(6).toString())
+                .dailyMissions(dailyMissions)
+                .completedDates(completedDates)
+                .build();
     }
 
     /** LUT-434: 미션 유형 문자열 — 값이 없으면(레거시) null (프론트는 기존 색상 유지) */
@@ -596,25 +722,30 @@ public class MissionExecutionQueryService {
     }
 
     /**
-     * LUT-257 프로필 진행중 미션과 동일한 공개범위 판정 규칙.
-     * PUBLIC=전원, FRIENDS_ONLY=친구, GUILD_ONLY=같은 길드, FRIENDS_AND_GUILD=친구∪길드, PRIVATE=본인만.
+     * LUT-257 프로필 진행중 미션과 동일한 공개범위 판정 규칙. PUBLIC=전원, FRIENDS_ONLY=친구, GUILD_ONLY=같은 길드,
+     * FRIENDS_AND_GUILD=친구∪길드, PRIVATE=본인만.
      */
-    private static boolean isMissionVisibleToViewer(MissionVisibility visibility, boolean isOwner,
-                                                     String viewerUserId, boolean isFriend,
-                                                     boolean sharesGuild) {
+    private static boolean isMissionVisibleToViewer(
+            MissionVisibility visibility,
+            boolean isOwner,
+            String viewerUserId,
+            boolean isFriend,
+            boolean sharesGuild) {
         if (isOwner || visibility == MissionVisibility.PUBLIC) {
             return true;
         }
         if (viewerUserId == null) {
             return false;
         }
-        boolean friendAllowed = visibility == MissionVisibility.FRIENDS_ONLY
-            || visibility == MissionVisibility.FRIENDS_AND_GUILD;
+        boolean friendAllowed =
+                visibility == MissionVisibility.FRIENDS_ONLY
+                        || visibility == MissionVisibility.FRIENDS_AND_GUILD;
         if (friendAllowed && isFriend) {
             return true;
         }
-        boolean guildAllowed = visibility == MissionVisibility.GUILD_ONLY
-            || visibility == MissionVisibility.FRIENDS_AND_GUILD;
+        boolean guildAllowed =
+                visibility == MissionVisibility.GUILD_ONLY
+                        || visibility == MissionVisibility.FRIENDS_AND_GUILD;
         return guildAllowed && sharesGuild;
     }
 
@@ -631,14 +762,16 @@ public class MissionExecutionQueryService {
     /** viewer 와 target 이 같은 길드에 하나라도 소속돼 있는지 (실패 시 비노출 폴백) */
     private boolean safeSharesGuild(String viewerUserId, String targetUserId) {
         try {
-            Set<Long> targetGuildIds = guildQueryFacade.getUserGuildMemberships(targetUserId)
-                .stream().map(GuildMembershipInfo::guildId).collect(Collectors.toSet());
+            Set<Long> targetGuildIds =
+                    guildQueryFacade.getUserGuildMemberships(targetUserId).stream()
+                            .map(GuildMembershipInfo::guildId)
+                            .collect(Collectors.toSet());
             if (targetGuildIds.isEmpty()) {
                 return false;
             }
             return guildQueryFacade.getUserGuildMemberships(viewerUserId).stream()
-                .map(GuildMembershipInfo::guildId)
-                .anyMatch(targetGuildIds::contains);
+                    .map(GuildMembershipInfo::guildId)
+                    .anyMatch(targetGuildIds::contains);
         } catch (Exception e) {
             log.warn("주간 캘린더 길드 관계 판정 실패 - 비노출 처리: {}", e.getMessage());
             return false;
@@ -651,17 +784,23 @@ public class MissionExecutionQueryService {
      * @return 날짜("yyyy-MM-dd") → 획득 경험치. 조회 실패 시 null (호출부에서 미션 합으로 fallback)
      */
     /**
-     * LUT-240: 완료 시각(UTC 저장)을 사용자 타임존 날짜 키("yyyy-MM-dd")로 변환.
-     * completedAt 이 없으면(비정상) fallback 날짜를 사용한다.
+     * LUT-240: 완료 시각(UTC 저장)을 사용자 타임존 날짜 키("yyyy-MM-dd")로 변환. completedAt 이 없으면(비정상) fallback 날짜를
+     * 사용한다.
      */
-    private String toUserZoneDateKey(LocalDateTime completedAtUtc, ZoneId userZone, LocalDate fallback) {
+    private String toUserZoneDateKey(
+            LocalDateTime completedAtUtc, ZoneId userZone, LocalDate fallback) {
         if (completedAtUtc == null) {
             return fallback.toString();
         }
-        return completedAtUtc.atZone(ZoneOffset.UTC).withZoneSameInstant(userZone).toLocalDate().toString();
+        return completedAtUtc
+                .atZone(ZoneOffset.UTC)
+                .withZoneSameInstant(userZone)
+                .toLocalDate()
+                .toString();
     }
 
-    private Map<String, Integer> fetchDailyExpSummary(String userId, YearMonth yearMonth, String timezone) {
+    private Map<String, Integer> fetchDailyExpSummary(
+            String userId, YearMonth yearMonth, String timezone) {
         try {
             ZoneId userZone;
             try {
@@ -670,14 +809,24 @@ public class MissionExecutionQueryService {
                 userZone = ZoneId.of("Asia/Seoul");
             }
 
-            LocalDateTime startUtc = yearMonth.atDay(1).atStartOfDay(userZone)
-                .withZoneSameInstant(ZoneOffset.UTC).toLocalDateTime();
-            LocalDateTime endUtc = yearMonth.plusMonths(1).atDay(1).atStartOfDay(userZone)
-                .withZoneSameInstant(ZoneOffset.UTC).toLocalDateTime();
+            LocalDateTime startUtc =
+                    yearMonth
+                            .atDay(1)
+                            .atStartOfDay(userZone)
+                            .withZoneSameInstant(ZoneOffset.UTC)
+                            .toLocalDateTime();
+            LocalDateTime endUtc =
+                    yearMonth
+                            .plusMonths(1)
+                            .atDay(1)
+                            .atStartOfDay(userZone)
+                            .withZoneSameInstant(ZoneOffset.UTC)
+                            .toLocalDateTime();
 
             Map<String, Integer> result = new HashMap<>();
-            gamificationQueryFacade.getDailyExpSummary(userId, startUtc, endUtc, userZone.getId())
-                .forEach((date, exp) -> result.put(date.toString(), exp.intValue()));
+            gamificationQueryFacade
+                    .getDailyExpSummary(userId, startUtc, endUtc, userZone.getId())
+                    .forEach((date, exp) -> result.put(date.toString(), exp.intValue()));
             return result;
         } catch (Exception e) {
             log.warn("일별 경험치 이력 조회 실패, 미션 경험치 합으로 대체: userId={}, error={}", userId, e.getMessage());
@@ -686,61 +835,67 @@ public class MissionExecutionQueryService {
     }
 
     /**
-     * 고정 미션(isPinned=true)에 대해 오늘 날짜의 DailyMissionInstance가 없으면 자동 생성
-     * 스케줄러가 매일 자동 생성하지만, 스케줄러 실행 전 접근 시를 대비
+     * 고정 미션(isPinned=true)에 대해 오늘 날짜의 DailyMissionInstance가 없으면 자동 생성 스케줄러가 매일 자동 생성하지만, 스케줄러 실행 전
+     * 접근 시를 대비
      */
     private void ensurePinnedMissionExecutionsForToday(String userId, LocalDate today) {
-        List<MissionParticipant> pinnedParticipants = participantRepository.findPinnedMissionParticipants(userId);
+        List<MissionParticipant> pinnedParticipants =
+                participantRepository.findPinnedMissionParticipants(userId);
 
         for (MissionParticipant participant : pinnedParticipants) {
             // 오늘 날짜의 DailyMissionInstance가 있는지 확인
-            boolean hasInstance = dailyMissionInstanceRepository
-                .existsByParticipantIdAndInstanceDate(participant.getId(), today);
+            boolean hasInstance =
+                    dailyMissionInstanceRepository.existsByParticipantIdAndInstanceDate(
+                            participant.getId(), today);
 
             if (!hasInstance) {
                 // 고정 미션의 오늘 DailyMissionInstance 자동 생성
                 DailyMissionInstance instance = DailyMissionInstance.createFrom(participant, today);
                 dailyMissionInstanceRepository.saveAndFlush(instance);
 
-                log.info("고정 미션 오늘 인스턴스 자동 생성: missionId={}, userId={}, date={}",
-                    participant.getMission().getId(), userId, today);
+                log.info(
+                        "고정 미션 오늘 인스턴스 자동 생성: missionId={}, userId={}, date={}",
+                        participant.getMission().getId(),
+                        userId,
+                        today);
             }
         }
     }
 
     /**
-     * LUT-370: locale 번역이 실제로 있을 때만 미션의 번역 제목을, 없으면 fallback(스냅샷/원문)을
-     * 반환한다. 번역이 없는 미션(유저 작성)과 ko locale 은 기존 값이 유지되어 완료 이력
-     * 스냅샷(LUT-361) 의미가 바뀌지 않는다.
+     * LUT-370: locale 번역이 실제로 있을 때만 미션의 번역 제목을, 없으면 fallback(스냅샷/원문)을 반환한다. 번역이 없는 미션(유저 작성)과 ko
+     * locale 은 기존 값이 유지되어 완료 이력 스냅샷(LUT-361) 의미가 바뀌지 않는다.
      */
     private String localizedTitleOrFallback(Mission mission, String fallbackTitle, String locale) {
         if (mission == null || locale == null || locale.isBlank()) {
             return fallbackTitle;
         }
         String localized = mission.getLocalizedTitle(locale);
-        return localized != null && !localized.equals(mission.getTitle()) ? localized : fallbackTitle;
+        return localized != null && !localized.equals(mission.getTitle())
+                ? localized
+                : fallbackTitle;
     }
 
     /**
-     * LUT-255: 수행 기록 응답의 missionCategoryName을 locale에 맞는 카테고리명으로 덮어쓴다.
-     * 응답에는 categoryId가 없으므로 missionId → 미션의 categoryId → meta 카테고리 순으로 배치 조회한다.
-     * locale이 없으면(한국어) denormalized 스냅샷 이름을 그대로 두고, 조회 실패 시에도 fallback 유지.
+     * LUT-255: 수행 기록 응답의 missionCategoryName을 locale에 맞는 카테고리명으로 덮어쓴다. 응답에는 categoryId가 없으므로
+     * missionId → 미션의 categoryId → meta 카테고리 순으로 배치 조회한다. locale이 없으면(한국어) denormalized 스냅샷 이름을 그대로
+     * 두고, 조회 실패 시에도 fallback 유지.
      *
-     * <p>LUT-370: missionTitle 도 함께 다국어 처리한다. 수행/완료 응답은 스냅샷(한국어 원문)만
-     * 담고 있어 미션북 미션이 목록(locale 적용)과 달리 한국어로 노출됐다. 미션에 해당 locale
-     * 번역이 실제로 있을 때만 덮어쓴다 — 번역이 없으면(유저 작성 미션, ko 등) 스냅샷을 유지해
-     * 완료 이력 보존(LUT-361) 의미를 바꾸지 않는다.
+     * <p>LUT-370: missionTitle 도 함께 다국어 처리한다. 수행/완료 응답은 스냅샷(한국어 원문)만 담고 있어 미션북 미션이 목록(locale 적용)과
+     * 달리 한국어로 노출됐다. 미션에 해당 locale 번역이 실제로 있을 때만 덮어쓴다 — 번역이 없으면(유저 작성 미션, ko 등) 스냅샷을 유지해 완료 이력
+     * 보존(LUT-361) 의미를 바꾸지 않는다.
      */
     void localizeMissionFields(List<MissionExecutionResponse> responses, String locale) {
         if (locale == null || locale.isBlank() || responses.isEmpty()) {
             return;
         }
         try {
-            List<Long> missionIds = responses.stream()
-                .map(MissionExecutionResponse::getMissionId)
-                .filter(Objects::nonNull)
-                .distinct()
-                .toList();
+            List<Long> missionIds =
+                    responses.stream()
+                            .map(MissionExecutionResponse::getMissionId)
+                            .filter(Objects::nonNull)
+                            .distinct()
+                            .toList();
             if (missionIds.isEmpty()) {
                 return;
             }
@@ -754,35 +909,48 @@ public class MissionExecutionQueryService {
                 }
             }
 
-            Map<Long, Long> categoryIdByMissionId = missions.stream()
-                .filter(m -> m.getCategoryId() != null)
-                .collect(Collectors.toMap(Mission::getId, Mission::getCategoryId, (a, b) -> a));
+            Map<Long, Long> categoryIdByMissionId =
+                    missions.stream()
+                            .filter(m -> m.getCategoryId() != null)
+                            .collect(
+                                    Collectors.toMap(
+                                            Mission::getId, Mission::getCategoryId, (a, b) -> a));
             List<Long> categoryIds = categoryIdByMissionId.values().stream().distinct().toList();
-            Map<Long, String> nameByCategoryId = categoryIds.isEmpty()
-                ? Map.of()
-                : missionCategoryService.getCategoriesByIds(categoryIds).stream()
-                    .filter(c -> c.getId() != null && c.getLocalizedName(locale) != null)
-                    .collect(Collectors.toMap(
-                        MissionCategoryResponse::getId,
-                        c -> c.getLocalizedName(locale),
-                        (a, b) -> a));
-            responses.forEach(r -> {
-                String localizedTitle = r.getMissionId() != null
-                    ? titleByMissionId.get(r.getMissionId()) : null;
-                // 마스킹된 응답(missionTitle=null)은 건드리지 않는다
-                if (localizedTitle != null && r.getMissionTitle() != null) {
-                    r.setMissionTitle(localizedTitle);
-                }
-                Long categoryId = r.getMissionId() != null
-                    ? categoryIdByMissionId.get(r.getMissionId()) : null;
-                String localized = categoryId != null ? nameByCategoryId.get(categoryId) : null;
-                if (localized != null) {
-                    r.setMissionCategoryName(localized);
-                }
-            });
+            Map<Long, String> nameByCategoryId =
+                    categoryIds.isEmpty()
+                            ? Map.of()
+                            : missionCategoryService.getCategoriesByIds(categoryIds).stream()
+                                    .filter(
+                                            c ->
+                                                    c.getId() != null
+                                                            && c.getLocalizedName(locale) != null)
+                                    .collect(
+                                            Collectors.toMap(
+                                                    MissionCategoryResponse::getId,
+                                                    c -> c.getLocalizedName(locale),
+                                                    (a, b) -> a));
+            responses.forEach(
+                    r -> {
+                        String localizedTitle =
+                                r.getMissionId() != null
+                                        ? titleByMissionId.get(r.getMissionId())
+                                        : null;
+                        // 마스킹된 응답(missionTitle=null)은 건드리지 않는다
+                        if (localizedTitle != null && r.getMissionTitle() != null) {
+                            r.setMissionTitle(localizedTitle);
+                        }
+                        Long categoryId =
+                                r.getMissionId() != null
+                                        ? categoryIdByMissionId.get(r.getMissionId())
+                                        : null;
+                        String localized =
+                                categoryId != null ? nameByCategoryId.get(categoryId) : null;
+                        if (localized != null) {
+                            r.setMissionCategoryName(localized);
+                        }
+                    });
         } catch (Exception e) {
             log.warn("수행 기록 다국어 조회 실패: locale={}, error={}", locale, e.getMessage());
         }
     }
-
 }

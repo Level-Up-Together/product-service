@@ -63,8 +63,7 @@ class ItemPushSchedulerTest {
 
     @BeforeEach
     void setUp() {
-        headItem =
-                ShopItem.builder().name("시련의 장미").itemType(ShopItemType.HEAD).price(0).build();
+        headItem = ShopItem.builder().name("시련의 장미").itemType(ShopItemType.HEAD).price(0).build();
         setId(headItem, ITEM_ID);
         nineAmMessage =
                 ItemPushMessage.create(
@@ -150,8 +149,7 @@ class ItemPushSchedulerTest {
     @Test
     @DisplayName("잘못된 타임존 문자열이면 Asia/Seoul 로 폴백해 매칭한다")
     void fallsBackToSeoulWhenTimezoneInvalid() {
-        when(userQueryFacade.getPreferredTimezones(any()))
-                .thenReturn(Map.of(USER_ID, "Not/AZone"));
+        when(userQueryFacade.getPreferredTimezones(any())).thenReturn(Map.of(USER_ID, "Not/AZone"));
 
         scheduler.sendEquippedItemPushes(); // clock=UTC 00:00 → Seoul 09:00
 

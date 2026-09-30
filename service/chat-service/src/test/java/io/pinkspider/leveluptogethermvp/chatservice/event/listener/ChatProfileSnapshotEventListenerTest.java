@@ -18,18 +18,14 @@ import org.mockito.junit.jupiter.MockitoExtension;
 @DisplayName("ChatProfileSnapshotEventListener 테스트")
 class ChatProfileSnapshotEventListenerTest {
 
-    @Mock
-    private GuildChatMessageRepository guildChatMessageRepository;
-    @Mock
-    private GuildChatParticipantRepository guildChatParticipantRepository;
-    @Mock
-    private GuildDirectMessageRepository guildDirectMessageRepository;
+    @Mock private GuildChatMessageRepository guildChatMessageRepository;
+    @Mock private GuildChatParticipantRepository guildChatParticipantRepository;
+    @Mock private GuildDirectMessageRepository guildDirectMessageRepository;
 
-    @InjectMocks
-    private ChatProfileSnapshotEventListener listener;
+    @InjectMocks private ChatProfileSnapshotEventListener listener;
 
     private static final UserProfileChangedEvent TEST_EVENT =
-        new UserProfileChangedEvent("user-123", "새닉네임", "https://img.example.com/pic.jpg", 5);
+            new UserProfileChangedEvent("user-123", "새닉네임", "https://img.example.com/pic.jpg", 5);
 
     @Test
     @DisplayName("Chat 스냅샷을 동기화한다")
@@ -45,7 +41,8 @@ class ChatProfileSnapshotEventListenerTest {
     @DisplayName("Chat 동기화 실패해도 예외를 전파하지 않는다")
     void handleUserProfileChanged_chatFailure_doesNotPropagate() {
         doThrow(new RuntimeException("Chat DB 오류"))
-            .when(guildChatMessageRepository).updateSenderNicknameByUserId("user-123", "새닉네임");
+                .when(guildChatMessageRepository)
+                .updateSenderNicknameByUserId("user-123", "새닉네임");
 
         listener.handleUserProfileChanged(TEST_EVENT);
     }

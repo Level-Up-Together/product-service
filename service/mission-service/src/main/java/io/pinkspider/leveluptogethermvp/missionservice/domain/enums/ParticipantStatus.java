@@ -6,7 +6,6 @@ import lombok.RequiredArgsConstructor;
 @Getter
 @RequiredArgsConstructor
 public enum ParticipantStatus {
-
     PENDING("pending", "대기중"),
     ACCEPTED("accepted", "승인됨"),
     IN_PROGRESS("in_progress", "진행중"),

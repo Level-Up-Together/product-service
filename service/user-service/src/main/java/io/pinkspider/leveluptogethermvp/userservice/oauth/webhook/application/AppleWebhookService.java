@@ -27,12 +27,13 @@ import org.springframework.transaction.annotation.Transactional;
 /**
  * Sign in with Apple Server-to-Server Notification 처리 (LUT-476).
  *
- * <p>사용자가 Apple ID 설정에서 앱 연결을 끊거나(consent-revoked) Apple 계정을 삭제하면
- * (account-delete) Apple 이 ASC 에 등록된 엔드포인트로 JWS(payload)를 POST 한다.
- * Apple 공개키(JWKS)로 서명을 검증하고 users.provider_user_id(= apple sub)로 매핑해
- * 해당 계정을 탈퇴 처리한다.
+ * <p>사용자가 Apple ID 설정에서 앱 연결을 끊거나(consent-revoked) Apple 계정을 삭제하면 (account-delete) Apple 이 ASC 에
+ * 등록된 엔드포인트로 JWS(payload)를 POST 한다. Apple 공개키(JWKS)로 서명을 검증하고 users.provider_user_id(= apple sub)로
+ * 매핑해 해당 계정을 탈퇴 처리한다.
  *
- * @see <a href="https://developer.apple.com/documentation/signinwithapple/processing-changes-for-sign-in-with-apple-accounts">Apple docs</a>
+ * @see <a
+ *     href="https://developer.apple.com/documentation/signinwithapple/processing-changes-for-sign-in-with-apple-accounts">Apple
+ *     docs</a>
  */
 @Service
 @RequiredArgsConstructor
@@ -67,18 +68,20 @@ public class AppleWebhookService {
             RSAKey key = resolveKey(kid);
             if (key == null || !jwt.verify(new RSASSAVerifier(key))) {
                 throw new CustomException(
-                    ApiStatus.INVALID_ACCESS.getResultCode(), "error.apple.webhook.invalid_signature");
+                        ApiStatus.INVALID_ACCESS.getResultCode(),
+                        "error.apple.webhook.invalid_signature");
             }
 
             JWTClaimsSet claims = jwt.getJWTClaimsSet();
             if (!APPLE_ISSUER.equals(claims.getIssuer())) {
                 throw new CustomException(
-                    ApiStatus.INVALID_ACCESS.getResultCode(), "error.apple.webhook.invalid_issuer");
+                        ApiStatus.INVALID_ACCESS.getResultCode(),
+                        "error.apple.webhook.invalid_issuer");
             }
             Date exp = claims.getExpirationTime();
             if (exp != null && exp.before(new Date())) {
                 throw new CustomException(
-                    ApiStatus.INVALID_ACCESS.getResultCode(), "error.apple.webhook.expired");
+                        ApiStatus.INVALID_ACCESS.getResultCode(), "error.apple.webhook.expired");
             }
             validateAudience(claims.getAudience());
             return claims;
@@ -87,7 +90,8 @@ public class AppleWebhookService {
         } catch (Exception e) {
             log.warn("Apple 웹훅 페이로드 파싱/검증 실패: {}", e.getMessage());
             throw new CustomException(
-                ApiStatus.INVALID_ACCESS.getResultCode(), "error.apple.webhook.invalid_payload");
+                    ApiStatus.INVALID_ACCESS.getResultCode(),
+                    "error.apple.webhook.invalid_payload");
         }
     }
 
@@ -100,7 +104,8 @@ public class AppleWebhookService {
         if (audiences == null || audiences.stream().noneMatch(allowed::contains)) {
             log.warn("Apple 웹훅 audience 불일치 - aud: {}", audiences);
             throw new CustomException(
-                ApiStatus.INVALID_ACCESS.getResultCode(), "error.apple.webhook.invalid_audience");
+                    ApiStatus.INVALID_ACCESS.getResultCode(),
+                    "error.apple.webhook.invalid_audience");
         }
     }
 
@@ -110,17 +115,19 @@ public class AppleWebhookService {
             return cached;
         }
         JWKSet jwkSet = JWKSet.load(new URL(APPLE_JWKS_URL));
-        jwkSet.getKeys().forEach(jwk -> {
-            if (jwk instanceof RSAKey rsaKey && jwk.getKeyID() != null) {
-                jwksCache.put(jwk.getKeyID(), rsaKey);
-            }
-        });
+        jwkSet.getKeys()
+                .forEach(
+                        jwk -> {
+                            if (jwk instanceof RSAKey rsaKey && jwk.getKeyID() != null) {
+                                jwksCache.put(jwk.getKeyID(), rsaKey);
+                            }
+                        });
         return jwksCache.get(kid);
     }
 
     /**
-     * events 클레임은 이벤트 하나를 담은 <b>JSON 문자열</b>이다.
-     * {@code {"type":"consent-revoked","sub":"...","event_time":...}}
+     * events 클레임은 이벤트 하나를 담은 <b>JSON 문자열</b>이다. {@code
+     * {"type":"consent-revoked","sub":"...","event_time":...}}
      */
     private void processEvents(JWTClaimsSet claims) {
         try {
@@ -135,8 +142,7 @@ public class AppleWebhookService {
             log.info("Apple 웹훅 이벤트 수신 - type: {}, sub: {}", type, sub);
 
             switch (type == null ? "" : type) {
-                case EVENT_CONSENT_REVOKED, EVENT_ACCOUNT_DELETE ->
-                    withdrawByAppleSub(sub, type);
+                case EVENT_CONSENT_REVOKED, EVENT_ACCOUNT_DELETE -> withdrawByAppleSub(sub, type);
                 default -> log.info("별도 처리가 필요하지 않은 Apple 이벤트: {}", type);
             }
         } catch (CustomException e) {
@@ -147,8 +153,8 @@ public class AppleWebhookService {
     }
 
     /**
-     * 연결 해제/계정 삭제 → 내부 계정 탈퇴 처리. 매핑이 없으면(provider_user_id 백필 전 유저
-     * 또는 이미 탈퇴) 로그만 남긴다 — Apple 은 200 응답을 기대하므로 실패로 취급하지 않는다.
+     * 연결 해제/계정 삭제 → 내부 계정 탈퇴 처리. 매핑이 없으면(provider_user_id 백필 전 유저 또는 이미 탈퇴) 로그만 남긴다 — Apple 은 200
+     * 응답을 기대하므로 실패로 취급하지 않는다.
      */
     private void withdrawByAppleSub(String sub, String eventType) {
         if (sub == null || sub.isBlank()) {

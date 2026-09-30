@@ -7,11 +7,11 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import io.pinkspider.global.event.SubscriptionStipendGrantedEvent;
+import io.pinkspider.global.test.TestReflectionUtils;
 import io.pinkspider.leveluptogethermvp.gamificationservice.diamond.application.DiamondService;
 import io.pinkspider.leveluptogethermvp.gamificationservice.subscription.domain.entity.SubscriptionStipend;
 import io.pinkspider.leveluptogethermvp.gamificationservice.subscription.domain.entity.UserSubscription;
 import io.pinkspider.leveluptogethermvp.gamificationservice.subscription.domain.enums.SubscriptionPlan;
-import io.pinkspider.global.test.TestReflectionUtils;
 import io.pinkspider.leveluptogethermvp.gamificationservice.subscription.infrastructure.SubscriptionStipendRepository;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -29,31 +29,28 @@ import org.springframework.dao.DataIntegrityViolationException;
 @DisplayName("SubscriptionStipendTxService 테스트 (LUT-453)")
 class SubscriptionStipendTxServiceTest {
 
-    @Mock
-    private SubscriptionStipendRepository stipendRepository;
+    @Mock private SubscriptionStipendRepository stipendRepository;
 
-    @Mock
-    private DiamondService diamondService;
+    @Mock private DiamondService diamondService;
 
-    @Mock
-    private ApplicationEventPublisher eventPublisher;
+    @Mock private ApplicationEventPublisher eventPublisher;
 
-    @InjectMocks
-    private SubscriptionStipendTxService stipendTxService;
+    @InjectMocks private SubscriptionStipendTxService stipendTxService;
 
     private static final LocalDate STIPEND_DATE = LocalDate.of(2026, 9, 4);
 
     private UserSubscription subscription() {
-        UserSubscription subscription = UserSubscription.builder()
-            .userId("user-1")
-            .platform("ios")
-            .productId("membership_1m")
-            .plan(SubscriptionPlan.MONTHLY)
-            .startedAt(LocalDateTime.now().minusMonths(1))
-            .expiresAt(LocalDateTime.now().plusDays(10))
-            .autoRenew(true)
-            .trialUsed(false)
-            .build();
+        UserSubscription subscription =
+                UserSubscription.builder()
+                        .userId("user-1")
+                        .platform("ios")
+                        .productId("membership_1m")
+                        .plan(SubscriptionPlan.MONTHLY)
+                        .startedAt(LocalDateTime.now().minusMonths(1))
+                        .expiresAt(LocalDateTime.now().plusDays(10))
+                        .autoRenew(true)
+                        .trialUsed(false)
+                        .build();
         TestReflectionUtils.setField(subscription, "id", 77L);
         return subscription;
     }
@@ -62,12 +59,13 @@ class SubscriptionStipendTxServiceTest {
     @DisplayName("지급 기록 insert 후 블루 다이아를 지급한다 — 원장 source=SUBSCRIPTION")
     void grantsStipendWithLedger() {
         when(stipendRepository.saveAndFlush(any(SubscriptionStipend.class)))
-            .thenAnswer(inv -> inv.getArgument(0));
+                .thenAnswer(inv -> inv.getArgument(0));
 
         boolean granted = stipendTxService.grantForSubscription(subscription(), STIPEND_DATE, 1);
 
         assertThat(granted).isTrue();
-        ArgumentCaptor<SubscriptionStipend> captor = ArgumentCaptor.forClass(SubscriptionStipend.class);
+        ArgumentCaptor<SubscriptionStipend> captor =
+                ArgumentCaptor.forClass(SubscriptionStipend.class);
         verify(stipendRepository).saveAndFlush(captor.capture());
         assertThat(captor.getValue().getSubscriptionId()).isEqualTo(77L);
         assertThat(captor.getValue().getStipendDate()).isEqualTo(STIPEND_DATE);
@@ -75,7 +73,7 @@ class SubscriptionStipendTxServiceTest {
         verify(diamondService).awardSubscriptionStipend("user-1", 77L, 1);
         // LUT-489: 지급 성공 시 알림 이벤트 발행 — referenceId 용 epochDay 포함
         ArgumentCaptor<SubscriptionStipendGrantedEvent> eventCaptor =
-            ArgumentCaptor.forClass(SubscriptionStipendGrantedEvent.class);
+                ArgumentCaptor.forClass(SubscriptionStipendGrantedEvent.class);
         verify(eventPublisher).publishEvent(eventCaptor.capture());
         assertThat(eventCaptor.getValue().userId()).isEqualTo("user-1");
         assertThat(eventCaptor.getValue().stipendEpochDay()).isEqualTo(STIPEND_DATE.toEpochDay());
@@ -86,12 +84,13 @@ class SubscriptionStipendTxServiceTest {
     @DisplayName("멱등 — (구독 ID, 지급일) 기지급이면 다이아를 지급하지 않는다")
     void duplicateDateSkipsGrant() {
         when(stipendRepository.saveAndFlush(any(SubscriptionStipend.class)))
-            .thenThrow(new DataIntegrityViolationException("uk_subscription_stipend_daily"));
+                .thenThrow(new DataIntegrityViolationException("uk_subscription_stipend_daily"));
 
         boolean granted = stipendTxService.grantForSubscription(subscription(), STIPEND_DATE, 1);
 
         assertThat(granted).isFalse();
-        verify(diamondService, never()).awardSubscriptionStipend(any(), any(), org.mockito.ArgumentMatchers.anyInt());
+        verify(diamondService, never())
+                .awardSubscriptionStipend(any(), any(), org.mockito.ArgumentMatchers.anyInt());
         // LUT-489: 기지급 스킵 경로에서는 알림 이벤트도 발행하지 않는다
         verify(eventPublisher, never()).publishEvent(any(SubscriptionStipendGrantedEvent.class));
     }

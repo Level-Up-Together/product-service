@@ -2,9 +2,7 @@ package io.pinkspider.leveluptogethermvp.guildservice.application;
 
 import org.springframework.web.multipart.MultipartFile;
 
-/**
- * 길드 이미지 저장 서비스 인터페이스
- */
+/** 길드 이미지 저장 서비스 인터페이스 */
 public interface GuildImageStorageService {
 
     /**

@@ -4,12 +4,12 @@ import static io.pinkspider.global.test.TestReflectionUtils.setId;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.when;
 
+import io.pinkspider.global.enums.MissionStatus;
 import io.pinkspider.global.saga.SagaStepResult;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.Mission;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.MissionExecution;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.MissionParticipant;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.ExecutionStatus;
-import io.pinkspider.global.enums.MissionStatus;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionType;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionVisibility;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.ParticipantStatus;
@@ -30,11 +30,9 @@ import org.mockito.junit.jupiter.MockitoExtension;
 @DisplayName("LoadMissionDataStep 단위 테스트")
 class LoadMissionDataStepTest {
 
-    @Mock
-    private MissionExecutionRepository executionRepository;
+    @Mock private MissionExecutionRepository executionRepository;
 
-    @InjectMocks
-    private LoadMissionDataStep loadMissionDataStep;
+    @InjectMocks private LoadMissionDataStep loadMissionDataStep;
 
     private static final String TEST_USER_ID = "test-user-123";
     private static final Long EXECUTION_ID = 1L;
@@ -45,32 +43,35 @@ class LoadMissionDataStepTest {
 
     @BeforeEach
     void setUp() {
-        mission = Mission.builder()
-            .title("30일 운동 챌린지")
-            .description("매일 운동하기")
-            .creatorId(TEST_USER_ID)
-            .status(MissionStatus.IN_PROGRESS)
-            .visibility(MissionVisibility.PUBLIC)
-            .type(MissionType.PERSONAL)
-            .categoryId(1L)
-            .categoryName("운동")
-            .expPerCompletion(50)
-            .build();
+        mission =
+                Mission.builder()
+                        .title("30일 운동 챌린지")
+                        .description("매일 운동하기")
+                        .creatorId(TEST_USER_ID)
+                        .status(MissionStatus.IN_PROGRESS)
+                        .visibility(MissionVisibility.PUBLIC)
+                        .type(MissionType.PERSONAL)
+                        .categoryId(1L)
+                        .categoryName("운동")
+                        .expPerCompletion(50)
+                        .build();
         setId(mission, 1L);
 
-        participant = MissionParticipant.builder()
-            .mission(mission)
-            .userId(TEST_USER_ID)
-            .status(ParticipantStatus.IN_PROGRESS)
-            .progress(5)
-            .build();
+        participant =
+                MissionParticipant.builder()
+                        .mission(mission)
+                        .userId(TEST_USER_ID)
+                        .status(ParticipantStatus.IN_PROGRESS)
+                        .progress(5)
+                        .build();
         setId(participant, 1L);
 
-        execution = MissionExecution.builder()
-            .participant(participant)
-            .executionDate(LocalDate.now())
-            .status(ExecutionStatus.IN_PROGRESS)
-            .build();
+        execution =
+                MissionExecution.builder()
+                        .participant(participant)
+                        .executionDate(LocalDate.now())
+                        .status(ExecutionStatus.IN_PROGRESS)
+                        .build();
         setId(execution, EXECUTION_ID);
     }
 
@@ -88,9 +89,10 @@ class LoadMissionDataStepTest {
         @DisplayName("정상적으로 미션 데이터를 로드한다")
         void execute_success() {
             // given
-            MissionCompletionContext context = new MissionCompletionContext(EXECUTION_ID, TEST_USER_ID, "완료 메모");
+            MissionCompletionContext context =
+                    new MissionCompletionContext(EXECUTION_ID, TEST_USER_ID, "완료 메모");
             when(executionRepository.findByIdWithParticipantAndMission(EXECUTION_ID))
-                .thenReturn(Optional.of(execution));
+                    .thenReturn(Optional.of(execution));
 
             // when
             SagaStepResult result = loadMissionDataStep.execute(context);
@@ -107,9 +109,10 @@ class LoadMissionDataStepTest {
         @DisplayName("수행 기록이 없으면 실패한다")
         void execute_failsWhenExecutionNotFound() {
             // given
-            MissionCompletionContext context = new MissionCompletionContext(999L, TEST_USER_ID, null);
+            MissionCompletionContext context =
+                    new MissionCompletionContext(999L, TEST_USER_ID, null);
             when(executionRepository.findByIdWithParticipantAndMission(999L))
-                .thenReturn(Optional.empty());
+                    .thenReturn(Optional.empty());
 
             // when
             SagaStepResult result = loadMissionDataStep.execute(context);
@@ -124,9 +127,10 @@ class LoadMissionDataStepTest {
         void execute_failsWhenNotOwner() {
             // given
             String otherUserId = "other-user-456";
-            MissionCompletionContext context = new MissionCompletionContext(EXECUTION_ID, otherUserId, null);
+            MissionCompletionContext context =
+                    new MissionCompletionContext(EXECUTION_ID, otherUserId, null);
             when(executionRepository.findByIdWithParticipantAndMission(EXECUTION_ID))
-                .thenReturn(Optional.of(execution));
+                    .thenReturn(Optional.of(execution));
 
             // when
             SagaStepResult result = loadMissionDataStep.execute(context);
@@ -140,38 +144,41 @@ class LoadMissionDataStepTest {
         @DisplayName("길드 미션인 경우 길드 정보를 설정한다")
         void execute_setsGuildInfoForGuildMission() {
             // given
-            Mission guildMission = Mission.builder()
-                .title("길드 미션")
-                .description("길드 미션 설명")
-                .creatorId(TEST_USER_ID)
-                .status(MissionStatus.IN_PROGRESS)
-                .visibility(MissionVisibility.PUBLIC)
-                .type(MissionType.GUILD)
-                .guildId("123")
-                .categoryId(1L)
-                .categoryName("운동")
-                .expPerCompletion(50)
-                .guildExpPerCompletion(10)
-                .build();
+            Mission guildMission =
+                    Mission.builder()
+                            .title("길드 미션")
+                            .description("길드 미션 설명")
+                            .creatorId(TEST_USER_ID)
+                            .status(MissionStatus.IN_PROGRESS)
+                            .visibility(MissionVisibility.PUBLIC)
+                            .type(MissionType.GUILD)
+                            .guildId("123")
+                            .categoryId(1L)
+                            .categoryName("운동")
+                            .expPerCompletion(50)
+                            .guildExpPerCompletion(10)
+                            .build();
             setId(guildMission, 2L);
 
-            MissionParticipant guildParticipant = MissionParticipant.builder()
-                .mission(guildMission)
-                .userId(TEST_USER_ID)
-                .status(ParticipantStatus.IN_PROGRESS)
-                .build();
+            MissionParticipant guildParticipant =
+                    MissionParticipant.builder()
+                            .mission(guildMission)
+                            .userId(TEST_USER_ID)
+                            .status(ParticipantStatus.IN_PROGRESS)
+                            .build();
             setId(guildParticipant, 2L);
 
-            MissionExecution guildExecution = MissionExecution.builder()
-                .participant(guildParticipant)
-                .executionDate(LocalDate.now())
-                .status(ExecutionStatus.IN_PROGRESS)
-                .build();
+            MissionExecution guildExecution =
+                    MissionExecution.builder()
+                            .participant(guildParticipant)
+                            .executionDate(LocalDate.now())
+                            .status(ExecutionStatus.IN_PROGRESS)
+                            .build();
             setId(guildExecution, 2L);
 
             MissionCompletionContext context = new MissionCompletionContext(2L, TEST_USER_ID, null);
             when(executionRepository.findByIdWithParticipantAndMission(2L))
-                .thenReturn(Optional.of(guildExecution));
+                    .thenReturn(Optional.of(guildExecution));
 
             // when
             SagaStepResult result = loadMissionDataStep.execute(context);
@@ -189,9 +196,10 @@ class LoadMissionDataStepTest {
         void execute_failsWhenAlreadyCompleted() {
             // given
             execution.setStatus(ExecutionStatus.COMPLETED);
-            MissionCompletionContext context = new MissionCompletionContext(EXECUTION_ID, TEST_USER_ID, null);
+            MissionCompletionContext context =
+                    new MissionCompletionContext(EXECUTION_ID, TEST_USER_ID, null);
             when(executionRepository.findByIdWithParticipantAndMission(EXECUTION_ID))
-                .thenReturn(Optional.of(execution));
+                    .thenReturn(Optional.of(execution));
 
             // when
             SagaStepResult result = loadMissionDataStep.execute(context);
@@ -206,9 +214,10 @@ class LoadMissionDataStepTest {
         void execute_failsWhenMissed() {
             // given
             execution.setStatus(ExecutionStatus.MISSED);
-            MissionCompletionContext context = new MissionCompletionContext(EXECUTION_ID, TEST_USER_ID, null);
+            MissionCompletionContext context =
+                    new MissionCompletionContext(EXECUTION_ID, TEST_USER_ID, null);
             when(executionRepository.findByIdWithParticipantAndMission(EXECUTION_ID))
-                .thenReturn(Optional.of(execution));
+                    .thenReturn(Optional.of(execution));
 
             // when
             SagaStepResult result = loadMissionDataStep.execute(context);
@@ -223,9 +232,10 @@ class LoadMissionDataStepTest {
         void execute_failsWhenStatusIsPending() {
             // given
             execution.setStatus(ExecutionStatus.PENDING);
-            MissionCompletionContext context = new MissionCompletionContext(EXECUTION_ID, TEST_USER_ID, null);
+            MissionCompletionContext context =
+                    new MissionCompletionContext(EXECUTION_ID, TEST_USER_ID, null);
             when(executionRepository.findByIdWithParticipantAndMission(EXECUTION_ID))
-                .thenReturn(Optional.of(execution));
+                    .thenReturn(Optional.of(execution));
 
             // when
             SagaStepResult result = loadMissionDataStep.execute(context);
@@ -239,36 +249,40 @@ class LoadMissionDataStepTest {
         @DisplayName("expPerCompletion이 null이면 기본값 10을 사용한다")
         void execute_nullExpPerCompletion_usesDefaultExp() {
             // given
-            Mission missionWithNullExp = Mission.builder()
-                .title("기본 경험치 미션")
-                .creatorId(TEST_USER_ID)
-                .status(MissionStatus.IN_PROGRESS)
-                .visibility(MissionVisibility.PUBLIC)
-                .type(MissionType.PERSONAL)
-                .categoryId(1L)
-                .categoryName("운동")
-                .expPerCompletion(null)
-                .build();
+            Mission missionWithNullExp =
+                    Mission.builder()
+                            .title("기본 경험치 미션")
+                            .creatorId(TEST_USER_ID)
+                            .status(MissionStatus.IN_PROGRESS)
+                            .visibility(MissionVisibility.PUBLIC)
+                            .type(MissionType.PERSONAL)
+                            .categoryId(1L)
+                            .categoryName("운동")
+                            .expPerCompletion(null)
+                            .build();
             setId(missionWithNullExp, 10L);
 
-            MissionParticipant nullExpParticipant = MissionParticipant.builder()
-                .mission(missionWithNullExp)
-                .userId(TEST_USER_ID)
-                .status(ParticipantStatus.IN_PROGRESS)
-                .progress(0)
-                .build();
+            MissionParticipant nullExpParticipant =
+                    MissionParticipant.builder()
+                            .mission(missionWithNullExp)
+                            .userId(TEST_USER_ID)
+                            .status(ParticipantStatus.IN_PROGRESS)
+                            .progress(0)
+                            .build();
             setId(nullExpParticipant, 10L);
 
-            MissionExecution nullExpExecution = MissionExecution.builder()
-                .participant(nullExpParticipant)
-                .executionDate(LocalDate.now())
-                .status(ExecutionStatus.IN_PROGRESS)
-                .build();
+            MissionExecution nullExpExecution =
+                    MissionExecution.builder()
+                            .participant(nullExpParticipant)
+                            .executionDate(LocalDate.now())
+                            .status(ExecutionStatus.IN_PROGRESS)
+                            .build();
             setId(nullExpExecution, 10L);
 
-            MissionCompletionContext context = new MissionCompletionContext(10L, TEST_USER_ID, null);
+            MissionCompletionContext context =
+                    new MissionCompletionContext(10L, TEST_USER_ID, null);
             when(executionRepository.findByIdWithParticipantAndMission(10L))
-                .thenReturn(Optional.of(nullExpExecution));
+                    .thenReturn(Optional.of(nullExpExecution));
 
             // when
             SagaStepResult result = loadMissionDataStep.execute(context);
@@ -282,36 +296,39 @@ class LoadMissionDataStepTest {
         @DisplayName("길드 미션이지만 guildId가 null이면 길드 경험치를 설정하지 않는다")
         void execute_guildMissionWithNullGuildId_doesNotSetGuildExp() {
             // given
-            Mission guildMissionNoId = Mission.builder()
-                .title("길드 미션 (ID없음)")
-                .creatorId(TEST_USER_ID)
-                .status(MissionStatus.IN_PROGRESS)
-                .visibility(MissionVisibility.GUILD_ONLY)
-                .type(MissionType.GUILD)
-                .guildId(null)
-                .categoryId(1L)
-                .categoryName("운동")
-                .expPerCompletion(50)
-                .build();
+            Mission guildMissionNoId =
+                    Mission.builder()
+                            .title("길드 미션 (ID없음)")
+                            .creatorId(TEST_USER_ID)
+                            .status(MissionStatus.IN_PROGRESS)
+                            .visibility(MissionVisibility.GUILD_ONLY)
+                            .type(MissionType.GUILD)
+                            .guildId(null)
+                            .categoryId(1L)
+                            .categoryName("운동")
+                            .expPerCompletion(50)
+                            .build();
             setId(guildMissionNoId, 5L);
 
-            MissionParticipant guildParticipant = MissionParticipant.builder()
-                .mission(guildMissionNoId)
-                .userId(TEST_USER_ID)
-                .status(ParticipantStatus.IN_PROGRESS)
-                .build();
+            MissionParticipant guildParticipant =
+                    MissionParticipant.builder()
+                            .mission(guildMissionNoId)
+                            .userId(TEST_USER_ID)
+                            .status(ParticipantStatus.IN_PROGRESS)
+                            .build();
             setId(guildParticipant, 5L);
 
-            MissionExecution guildExecution = MissionExecution.builder()
-                .participant(guildParticipant)
-                .executionDate(LocalDate.now())
-                .status(ExecutionStatus.IN_PROGRESS)
-                .build();
+            MissionExecution guildExecution =
+                    MissionExecution.builder()
+                            .participant(guildParticipant)
+                            .executionDate(LocalDate.now())
+                            .status(ExecutionStatus.IN_PROGRESS)
+                            .build();
             setId(guildExecution, 5L);
 
             MissionCompletionContext context = new MissionCompletionContext(5L, TEST_USER_ID, null);
             when(executionRepository.findByIdWithParticipantAndMission(5L))
-                .thenReturn(Optional.of(guildExecution));
+                    .thenReturn(Optional.of(guildExecution));
 
             // when
             SagaStepResult result = loadMissionDataStep.execute(context);
@@ -326,8 +343,8 @@ class LoadMissionDataStepTest {
         @DisplayName("shouldExecute는 pinned 미션에서 false를 반환한다")
         void shouldExecute_pinned_returnsFalse() {
             // given
-            MissionCompletionContext pinnedContext = MissionCompletionContext.forPinned(
-                1L, TEST_USER_ID, null, false);
+            MissionCompletionContext pinnedContext =
+                    MissionCompletionContext.forPinned(1L, TEST_USER_ID, null, false);
 
             // when
             boolean result = loadMissionDataStep.shouldExecute().test(pinnedContext);
@@ -340,7 +357,8 @@ class LoadMissionDataStepTest {
         @DisplayName("shouldExecute는 일반 미션에서 true를 반환한다")
         void shouldExecute_regular_returnsTrue() {
             // given
-            MissionCompletionContext regularContext = new MissionCompletionContext(1L, TEST_USER_ID, null);
+            MissionCompletionContext regularContext =
+                    new MissionCompletionContext(1L, TEST_USER_ID, null);
 
             // when
             boolean result = loadMissionDataStep.shouldExecute().test(regularContext);
@@ -353,9 +371,10 @@ class LoadMissionDataStepTest {
         @DisplayName("Repository 예외 발생 시 실패 결과를 반환한다")
         void execute_repositoryException_returnsFailure() {
             // given
-            MissionCompletionContext context = new MissionCompletionContext(EXECUTION_ID, TEST_USER_ID, null);
+            MissionCompletionContext context =
+                    new MissionCompletionContext(EXECUTION_ID, TEST_USER_ID, null);
             when(executionRepository.findByIdWithParticipantAndMission(EXECUTION_ID))
-                .thenThrow(new RuntimeException("DB 연결 오류"));
+                    .thenThrow(new RuntimeException("DB 연결 오류"));
 
             // when
             SagaStepResult result = loadMissionDataStep.execute(context);
@@ -373,7 +392,8 @@ class LoadMissionDataStepTest {
         @DisplayName("데이터 로드는 읽기 전용이므로 보상이 항상 성공한다")
         void compensate_alwaysSucceeds() {
             // given
-            MissionCompletionContext context = new MissionCompletionContext(EXECUTION_ID, TEST_USER_ID, null);
+            MissionCompletionContext context =
+                    new MissionCompletionContext(EXECUTION_ID, TEST_USER_ID, null);
 
             // when
             SagaStepResult result = loadMissionDataStep.compensate(context);

@@ -25,31 +25,29 @@ import org.mockito.junit.jupiter.MockitoExtension;
 @ExtendWith(MockitoExtension.class)
 class UserStatsServiceTest {
 
-    @Mock
-    private UserStatsRepository userStatsRepository;
+    @Mock private UserStatsRepository userStatsRepository;
 
-    @Mock
-    private UserQueryFacade userQueryFacade;
+    @Mock private UserQueryFacade userQueryFacade;
 
-    @Mock
-    private GuildQueryFacade guildQueryFacade;
+    @Mock private GuildQueryFacade guildQueryFacade;
 
-    @InjectMocks
-    private UserStatsService userStatsService;
+    @InjectMocks private UserStatsService userStatsService;
 
     private static final String TEST_USER_ID = "test-user-123";
 
-    private UserStats createTestUserStats(Long id, String userId, int totalMissionCompletions, int currentStreak) {
-        UserStats stats = UserStats.builder()
-            .userId(userId)
-            .totalMissionCompletions(totalMissionCompletions)
-            .totalMissionFullCompletions(5)
-            .totalTitlesAcquired(3)
-            .totalAchievementsCompleted(2)
-            .currentStreak(currentStreak)
-            .maxStreak(currentStreak)
-            .rankingPoints(100L)
-            .build();
+    private UserStats createTestUserStats(
+            Long id, String userId, int totalMissionCompletions, int currentStreak) {
+        UserStats stats =
+                UserStats.builder()
+                        .userId(userId)
+                        .totalMissionCompletions(totalMissionCompletions)
+                        .totalMissionFullCompletions(5)
+                        .totalTitlesAcquired(3)
+                        .totalAchievementsCompleted(2)
+                        .currentStreak(currentStreak)
+                        .maxStreak(currentStreak)
+                        .rankingPoints(100L)
+                        .build();
         setId(stats, id);
         return stats;
     }
@@ -64,7 +62,8 @@ class UserStatsServiceTest {
             // given
             UserStats existingStats = createTestUserStats(1L, TEST_USER_ID, 10, 5);
 
-            when(userStatsRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.of(existingStats));
+            when(userStatsRepository.findByUserId(TEST_USER_ID))
+                    .thenReturn(Optional.of(existingStats));
 
             // when
             UserStats result = userStatsService.getOrCreateUserStats(TEST_USER_ID);
@@ -78,9 +77,7 @@ class UserStatsServiceTest {
         @DisplayName("사용자 통계가 없으면 새로 생성한다")
         void getOrCreateUserStats_creates() {
             // given
-            UserStats newStats = UserStats.builder()
-                .userId(TEST_USER_ID)
-                .build();
+            UserStats newStats = UserStats.builder().userId(TEST_USER_ID).build();
 
             when(userStatsRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.empty());
             when(userStatsRepository.save(any(UserStats.class))).thenReturn(newStats);
@@ -178,13 +175,14 @@ class UserStatsServiceTest {
 
             when(userStatsRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.of(stats));
             when(userQueryFacade.getPreferredTimezone(TEST_USER_ID))
-                .thenThrow(new RuntimeException("user-db unavailable"));
+                    .thenThrow(new RuntimeException("user-db unavailable"));
 
             // when
             userStatsService.recordMissionCompletion(TEST_USER_ID, false);
 
             // then — 폴백 존 기준 오늘 날짜로 기록
-            assertThat(stats.getLastActivityDate()).isEqualTo(LocalDate.now(ZoneId.of("Asia/Seoul")));
+            assertThat(stats.getLastActivityDate())
+                    .isEqualTo(LocalDate.now(ZoneId.of("Asia/Seoul")));
         }
     }
 
@@ -528,11 +526,12 @@ class UserStatsServiceTest {
         @DisplayName("길드 미션 완료 취소 시 전체·길드 미션 카운터를 모두 감소시킨다")
         void undoMissionCompletion_guildMission_decrementsBoth() {
             // given
-            UserStats stats = UserStats.builder()
-                .userId(TEST_USER_ID)
-                .totalMissionCompletions(5)
-                .totalGuildMissionCompletions(2)
-                .build();
+            UserStats stats =
+                    UserStats.builder()
+                            .userId(TEST_USER_ID)
+                            .totalMissionCompletions(5)
+                            .totalGuildMissionCompletions(2)
+                            .build();
             setId(stats, 1L);
             when(userStatsRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.of(stats));
 
@@ -548,11 +547,12 @@ class UserStatsServiceTest {
         @DisplayName("일반 미션 완료 취소 시 길드 미션 카운터는 건드리지 않는다")
         void undoMissionCompletion_regularMission_keepsGuildCount() {
             // given
-            UserStats stats = UserStats.builder()
-                .userId(TEST_USER_ID)
-                .totalMissionCompletions(5)
-                .totalGuildMissionCompletions(2)
-                .build();
+            UserStats stats =
+                    UserStats.builder()
+                            .userId(TEST_USER_ID)
+                            .totalMissionCompletions(5)
+                            .totalGuildMissionCompletions(2)
+                            .build();
             setId(stats, 1L);
             when(userStatsRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.of(stats));
 
@@ -580,7 +580,8 @@ class UserStatsServiceTest {
 
             // then
             assertThat(result).isEqualTo(100.0);
-            verify(userStatsRepository, org.mockito.Mockito.never()).calculateRank(org.mockito.ArgumentMatchers.anyLong());
+            verify(userStatsRepository, org.mockito.Mockito.never())
+                    .calculateRank(org.mockito.ArgumentMatchers.anyLong());
         }
 
         @Test

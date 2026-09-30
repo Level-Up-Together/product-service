@@ -111,13 +111,19 @@ class GuildExperienceServiceTest {
             when(guildRepository.findByIdAndIsActiveTrue(1L)).thenReturn(Optional.of(testGuild));
             when(guildLevelConfigCacheService.getAllLevelConfigs())
                     .thenReturn(List.of(level1Config, level2Config));
-            when(guildLevelConfigCacheService.getLevelConfigByLevel(anyInt())).thenReturn(level1Config);
+            when(guildLevelConfigCacheService.getLevelConfigByLevel(anyInt()))
+                    .thenReturn(level1Config);
             when(historyRepository.save(any(GuildExperienceHistory.class)))
                     .thenAnswer(inv -> inv.getArgument(0));
 
             GuildExperienceResponse response =
                     guildExperienceService.addExperience(
-                            1L, 100, GuildExpSourceType.GUILD_MISSION_EXECUTION, 1L, testUserId, "미션 완료 보상");
+                            1L,
+                            100,
+                            GuildExpSourceType.GUILD_MISSION_EXECUTION,
+                            1L,
+                            testUserId,
+                            "미션 완료 보상");
 
             assertThat(response).isNotNull();
             assertThat(response.getGuildId()).isEqualTo(1L);
@@ -133,7 +139,8 @@ class GuildExperienceServiceTest {
             when(guildRepository.findByIdAndIsActiveTrue(1L)).thenReturn(Optional.of(testGuild));
             when(guildLevelConfigCacheService.getAllLevelConfigs())
                     .thenReturn(List.of(level1Config, level2Config));
-            when(guildLevelConfigCacheService.getLevelConfigByLevel(anyInt())).thenReturn(level1Config);
+            when(guildLevelConfigCacheService.getLevelConfigByLevel(anyInt()))
+                    .thenReturn(level1Config);
             when(historyRepository.save(any(GuildExperienceHistory.class)))
                     .thenAnswer(inv -> inv.getArgument(0));
 
@@ -149,13 +156,19 @@ class GuildExperienceServiceTest {
             when(guildRepository.findByIdAndIsActiveTrue(1L)).thenReturn(Optional.of(testGuild));
             when(guildLevelConfigCacheService.getAllLevelConfigs())
                     .thenReturn(List.of(level1Config, level2Config));
-            when(guildLevelConfigCacheService.getLevelConfigByLevel(anyInt())).thenReturn(level1Config);
+            when(guildLevelConfigCacheService.getLevelConfigByLevel(anyInt()))
+                    .thenReturn(level1Config);
             when(historyRepository.save(any(GuildExperienceHistory.class)))
                     .thenAnswer(inv -> inv.getArgument(0));
             // 포인트 미적립 (accruePoints 목이 아무것도 안 함)
 
             guildExperienceService.addExperience(
-                    1L, 6020, GuildExpSourceType.GUILD_MISSION_EXECUTION, 1L, testUserId, "미션 완료 보상");
+                    1L,
+                    6020,
+                    GuildExpSourceType.GUILD_MISSION_EXECUTION,
+                    1L,
+                    testUserId,
+                    "미션 완료 보상");
 
             assertThat(testGuild.getCurrentLevel()).isEqualTo(1);
             assertThat(testGuild.getTotalExp()).isEqualTo(6020);
@@ -172,11 +185,12 @@ class GuildExperienceServiceTest {
                     .thenAnswer(inv -> inv.getArgument(0));
             // 포인트 적립 목: 30점 도달 시뮬레이션
             when(guildPointService.accruePoints(any(Guild.class), any(), anyInt()))
-                    .thenAnswer(inv -> {
-                        Guild g = inv.getArgument(0);
-                        g.addPoint(30);
-                        return 30;
-                    });
+                    .thenAnswer(
+                            inv -> {
+                                Guild g = inv.getArgument(0);
+                                g.addPoint(30);
+                                return 30;
+                            });
 
             guildExperienceService.addExperience(
                     1L, 60, GuildExpSourceType.GUILD_MISSION_EXECUTION, 1L, testUserId, "미션 완료 보상");
@@ -191,13 +205,20 @@ class GuildExperienceServiceTest {
         void addExperience_noHigherConfigStaysLevel1() {
             when(guildRepository.findByIdAndIsActiveTrue(1L)).thenReturn(Optional.of(testGuild));
             // L1 설정만 존재
-            when(guildLevelConfigCacheService.getAllLevelConfigs()).thenReturn(List.of(level1Config));
-            when(guildLevelConfigCacheService.getLevelConfigByLevel(anyInt())).thenReturn(level1Config);
+            when(guildLevelConfigCacheService.getAllLevelConfigs())
+                    .thenReturn(List.of(level1Config));
+            when(guildLevelConfigCacheService.getLevelConfigByLevel(anyInt()))
+                    .thenReturn(level1Config);
             when(historyRepository.save(any(GuildExperienceHistory.class)))
                     .thenAnswer(inv -> inv.getArgument(0));
 
             guildExperienceService.addExperience(
-                    1L, 999999, GuildExpSourceType.GUILD_MISSION_EXECUTION, 1L, testUserId, "미션 완료 보상");
+                    1L,
+                    999999,
+                    GuildExpSourceType.GUILD_MISSION_EXECUTION,
+                    1L,
+                    testUserId,
+                    "미션 완료 보상");
 
             assertThat(testGuild.getCurrentLevel()).isEqualTo(1);
             assertThat(testGuild.getMaxMembers()).isEqualTo(10); // LUT-526: 레벨 1 정원 = 10
@@ -266,7 +287,8 @@ class GuildExperienceServiceTest {
                             .expAmount(100)
                             .description("테스트")
                             .build();
-            Page<GuildExperienceHistory> historyPage = new PageImpl<>(List.of(history), pageable, 1);
+            Page<GuildExperienceHistory> historyPage =
+                    new PageImpl<>(List.of(history), pageable, 1);
 
             when(historyRepository.findByGuildIdOrderByCreatedAtDesc(1L, pageable))
                     .thenReturn(historyPage);
@@ -295,7 +317,12 @@ class GuildExperienceServiceTest {
 
             GuildExperienceResponse response =
                     guildExperienceService.subtractExperience(
-                            1L, 200, GuildExpSourceType.GUILD_MISSION_EXECUTION, 1L, testUserId, "보상 트랜잭션 취소");
+                            1L,
+                            200,
+                            GuildExpSourceType.GUILD_MISSION_EXECUTION,
+                            1L,
+                            testUserId,
+                            "보상 트랜잭션 취소");
 
             assertThat(response).isNotNull();
             assertThat(testGuild.getCurrentExp()).isEqualTo(300);
@@ -312,7 +339,12 @@ class GuildExperienceServiceTest {
 
             GuildExperienceResponse response =
                     guildExperienceService.subtractExperience(
-                            1L, 200, GuildExpSourceType.GUILD_MISSION_EXECUTION, 1L, testUserId, "보상 취소");
+                            1L,
+                            200,
+                            GuildExpSourceType.GUILD_MISSION_EXECUTION,
+                            1L,
+                            testUserId,
+                            "보상 취소");
 
             assertThat(response).isNotNull();
             assertThat(testGuild.getCurrentLevel()).isEqualTo(1);
@@ -334,7 +366,12 @@ class GuildExperienceServiceTest {
 
             GuildExperienceResponse response =
                     guildExperienceService.subtractExperience(
-                            1L, 200, GuildExpSourceType.GUILD_MISSION_EXECUTION, 1L, testUserId, "보상 취소");
+                            1L,
+                            200,
+                            GuildExpSourceType.GUILD_MISSION_EXECUTION,
+                            1L,
+                            testUserId,
+                            "보상 취소");
 
             // LUT-483: 레벨은 포인트 기준 — EXP 차감으로 레벨이 떨어지지 않는다
             assertThat(response).isNotNull();
@@ -368,7 +405,8 @@ class GuildExperienceServiceTest {
         @Test
         @DisplayName("모든 레벨 설정을 조회한다")
         void getAllLevelConfigs_success() {
-            when(guildLevelConfigCacheService.getAllLevelConfigs()).thenReturn(List.of(level1Config));
+            when(guildLevelConfigCacheService.getAllLevelConfigs())
+                    .thenReturn(List.of(level1Config));
 
             List<GuildLevelConfig> configs = guildExperienceService.getAllLevelConfigs();
 

@@ -1,6 +1,7 @@
 package io.pinkspider.leveluptogethermvp.feedservice.application;
 
 import io.pinkspider.global.api.ApiStatus;
+import io.pinkspider.global.enums.TitleRarity;
 import io.pinkspider.global.event.FeedCommentDeletedEvent;
 import io.pinkspider.global.event.FeedCommentEvent;
 import io.pinkspider.global.event.FeedCommentLikedEvent;
@@ -8,7 +9,14 @@ import io.pinkspider.global.event.FeedCommentReplyEvent;
 import io.pinkspider.global.event.FeedLikedEvent;
 import io.pinkspider.global.event.FeedUnlikedEvent;
 import io.pinkspider.global.exception.CustomException;
-import io.pinkspider.global.enums.TitleRarity;
+import io.pinkspider.global.facade.GamificationQueryFacade;
+import io.pinkspider.global.facade.UserQueryFacade;
+import io.pinkspider.global.facade.dto.DetailedTitleInfoDto;
+import io.pinkspider.global.facade.dto.TitleInfoDto;
+import io.pinkspider.global.facade.dto.UserProfileInfo;
+import io.pinkspider.global.facade.dto.UserTitleDto;
+import io.pinkspider.global.translation.TitleNameUtils;
+import io.pinkspider.global.translation.enums.SupportedLocale;
 import io.pinkspider.leveluptogethermvp.feedservice.api.dto.ActivityFeedResponse;
 import io.pinkspider.leveluptogethermvp.feedservice.api.dto.CreateFeedRequest;
 import io.pinkspider.leveluptogethermvp.feedservice.api.dto.FeedCommentLikeResponse;
@@ -16,12 +24,6 @@ import io.pinkspider.leveluptogethermvp.feedservice.api.dto.FeedCommentRequest;
 import io.pinkspider.leveluptogethermvp.feedservice.api.dto.FeedCommentResponse;
 import io.pinkspider.leveluptogethermvp.feedservice.api.dto.FeedCommentUpdateRequest;
 import io.pinkspider.leveluptogethermvp.feedservice.api.dto.FeedLikeResponse;
-import io.pinkspider.global.facade.dto.DetailedTitleInfoDto;
-import io.pinkspider.global.facade.dto.EquippedItemRarityDto;
-import io.pinkspider.global.facade.dto.TitleInfoDto;
-import io.pinkspider.global.facade.dto.UserTitleDto;
-import io.pinkspider.global.translation.TitleNameUtils;
-import io.pinkspider.global.translation.enums.SupportedLocale;
 import io.pinkspider.leveluptogethermvp.feedservice.domain.entity.ActivityFeed;
 import io.pinkspider.leveluptogethermvp.feedservice.domain.entity.ActivityFeedImage;
 import io.pinkspider.leveluptogethermvp.feedservice.domain.entity.FeedComment;
@@ -34,9 +36,6 @@ import io.pinkspider.leveluptogethermvp.feedservice.infrastructure.ActivityFeedR
 import io.pinkspider.leveluptogethermvp.feedservice.infrastructure.FeedCommentLikeRepository;
 import io.pinkspider.leveluptogethermvp.feedservice.infrastructure.FeedCommentRepository;
 import io.pinkspider.leveluptogethermvp.feedservice.infrastructure.FeedLikeRepository;
-import io.pinkspider.global.facade.GamificationQueryFacade;
-import io.pinkspider.global.facade.UserQueryFacade;
-import io.pinkspider.global.facade.dto.UserProfileInfo;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -60,209 +59,248 @@ public class FeedCommandService {
     private final GamificationQueryFacade gamificationQueryFacadeService;
     private final FeedAccessChecker feedAccessChecker;
 
-    /**
-     * 시스템에서 자동 생성되는 활동 피드
-     */
+    /** 시스템에서 자동 생성되는 활동 피드 */
     @Transactional(transactionManager = "feedTransactionManager")
-    public ActivityFeed createActivityFeed(String userId, String userNickname, String userProfileImageUrl,
-                                           Integer userLevel, String userTitle, TitleRarity userTitleRarity,
-                                           String userTitleColorCode,
-                                           ActivityType activityType, String title, String description,
-                                           String referenceType, Long referenceId, String referenceName,
-                                           FeedVisibility visibility, Long guildId,
-                                           String imageUrl, String iconUrl) {
+    public ActivityFeed createActivityFeed(
+            String userId,
+            String userNickname,
+            String userProfileImageUrl,
+            Integer userLevel,
+            String userTitle,
+            TitleRarity userTitleRarity,
+            String userTitleColorCode,
+            ActivityType activityType,
+            String title,
+            String description,
+            String referenceType,
+            Long referenceId,
+            String referenceName,
+            FeedVisibility visibility,
+            Long guildId,
+            String imageUrl,
+            String iconUrl) {
         // 좌/우 칭호 상세 정보 조회
         DetailedTitleInfoDto detailedTitle = getDetailedTitleInfoSafe(userId);
 
-        ActivityFeed feed = ActivityFeed.builder()
-            .userId(userId)
-            .userNickname(userNickname)
-            .userProfileImageUrl(userProfileImageUrl)
-            .userLevel(userLevel != null ? userLevel : 1)
-            .userTitle(userTitle)
-            .userTitleRarity(userTitleRarity)
-            .userTitleColorCode(userTitleColorCode)
-            .userLeftTitle(detailedTitle.leftTitle())
-            .userLeftTitleRarity(detailedTitle.leftRarity())
-            .userRightTitle(detailedTitle.rightTitle())
-            .userRightTitleRarity(detailedTitle.rightRarity())
-            .activityType(activityType)
-            .title(title)
-            .description(description)
-            .referenceType(referenceType)
-            .referenceId(referenceId)
-            .referenceName(referenceName)
-            .visibility(visibility)
-            .guildId(guildId)
-            .imageUrl(imageUrl)
-            .iconUrl(iconUrl)
-            .likeCount(0)
-            .commentCount(0)
-            .build();
+        ActivityFeed feed =
+                ActivityFeed.builder()
+                        .userId(userId)
+                        .userNickname(userNickname)
+                        .userProfileImageUrl(userProfileImageUrl)
+                        .userLevel(userLevel != null ? userLevel : 1)
+                        .userTitle(userTitle)
+                        .userTitleRarity(userTitleRarity)
+                        .userTitleColorCode(userTitleColorCode)
+                        .userLeftTitle(detailedTitle.leftTitle())
+                        .userLeftTitleRarity(detailedTitle.leftRarity())
+                        .userRightTitle(detailedTitle.rightTitle())
+                        .userRightTitleRarity(detailedTitle.rightRarity())
+                        .activityType(activityType)
+                        .title(title)
+                        .description(description)
+                        .referenceType(referenceType)
+                        .referenceId(referenceId)
+                        .referenceName(referenceName)
+                        .visibility(visibility)
+                        .guildId(guildId)
+                        .imageUrl(imageUrl)
+                        .iconUrl(iconUrl)
+                        .likeCount(0)
+                        .commentCount(0)
+                        .build();
 
         ActivityFeed saved = activityFeedRepository.save(feed);
-        log.info("Activity feed created: userId={}, type={}, feedId={}", userId, activityType, saved.getId());
+        log.info(
+                "Activity feed created: userId={}, type={}, feedId={}",
+                userId,
+                activityType,
+                saved.getId());
         return saved;
     }
 
-    /**
-     * 사용자가 직접 생성하는 피드
-     */
+    /** 사용자가 직접 생성하는 피드 */
     @Transactional(transactionManager = "feedTransactionManager")
     public ActivityFeedResponse createFeed(String userId, CreateFeedRequest request) {
         // 사용자 존재 확인
         if (!userQueryFacadeService.userExistsById(userId)) {
-            throw new CustomException(ApiStatus.CLIENT_ERROR.getResultCode(), "error.user.not_found");
+            throw new CustomException(
+                    ApiStatus.CLIENT_ERROR.getResultCode(), "error.user.not_found");
         }
 
         // 사용자 프로필 조회 (캐시)
         UserProfileInfo userProfile = userQueryFacadeService.getUserProfile(userId);
 
         // 사용자 장착 칭호 정보 조회
-        TitleInfoDto titleInfo = gamificationQueryFacadeService.getCombinedEquippedTitleInfo(userId);
+        TitleInfoDto titleInfo =
+                gamificationQueryFacadeService.getCombinedEquippedTitleInfo(userId);
         DetailedTitleInfoDto detailedTitle = getDetailedTitleInfoSafe(userId);
 
-        ActivityFeed feed = ActivityFeed.builder()
-            .userId(userId)
-            .userNickname(userProfile.nickname())
-            .userProfileImageUrl(userProfile.picture())
-            .userTitle(titleInfo.name())
-            .userTitleRarity(titleInfo.rarity())
-            .userTitleColorCode(titleInfo.colorCode())
-            .userLeftTitle(detailedTitle.leftTitle())
-            .userLeftTitleRarity(detailedTitle.leftRarity())
-            .userRightTitle(detailedTitle.rightTitle())
-            .userRightTitleRarity(detailedTitle.rightRarity())
-            .activityType(request.getActivityType())
-            .title(request.getTitle())
-            .description(request.getDescription())
-            .referenceType(request.getReferenceType())
-            .referenceId(request.getReferenceId())
-            .referenceName(request.getReferenceName())
-            .visibility(request.getVisibility() != null ? request.getVisibility() : FeedVisibility.PUBLIC)
-            .guildId(request.getGuildId())
-            .imageUrl(request.getImageUrl())
-            .iconUrl(request.getIconUrl())
-            .likeCount(0)
-            .commentCount(0)
-            .build();
+        ActivityFeed feed =
+                ActivityFeed.builder()
+                        .userId(userId)
+                        .userNickname(userProfile.nickname())
+                        .userProfileImageUrl(userProfile.picture())
+                        .userTitle(titleInfo.name())
+                        .userTitleRarity(titleInfo.rarity())
+                        .userTitleColorCode(titleInfo.colorCode())
+                        .userLeftTitle(detailedTitle.leftTitle())
+                        .userLeftTitleRarity(detailedTitle.leftRarity())
+                        .userRightTitle(detailedTitle.rightTitle())
+                        .userRightTitleRarity(detailedTitle.rightRarity())
+                        .activityType(request.getActivityType())
+                        .title(request.getTitle())
+                        .description(request.getDescription())
+                        .referenceType(request.getReferenceType())
+                        .referenceId(request.getReferenceId())
+                        .referenceName(request.getReferenceName())
+                        .visibility(
+                                request.getVisibility() != null
+                                        ? request.getVisibility()
+                                        : FeedVisibility.PUBLIC)
+                        .guildId(request.getGuildId())
+                        .imageUrl(request.getImageUrl())
+                        .iconUrl(request.getIconUrl())
+                        .likeCount(0)
+                        .commentCount(0)
+                        .build();
 
         ActivityFeed saved = activityFeedRepository.save(feed);
         return ActivityFeedResponse.from(saved);
     }
 
-    /**
-     * 좋아요 토글
-     */
+    /** 좋아요 토글 */
     @Transactional(transactionManager = "feedTransactionManager")
     public FeedLikeResponse toggleLike(Long feedId, String userId) {
-        ActivityFeed feed = activityFeedRepository.findById(feedId)
-            .orElseThrow(() -> new CustomException(ApiStatus.CLIENT_ERROR.getResultCode(), "error.feed.not_found"));
+        ActivityFeed feed =
+                activityFeedRepository
+                        .findById(feedId)
+                        .orElseThrow(
+                                () ->
+                                        new CustomException(
+                                                ApiStatus.CLIENT_ERROR.getResultCode(),
+                                                "error.feed.not_found"));
 
         feedAccessChecker.assertAccessible(feed, userId);
 
         // 작성자는 자신의 피드에 좋아요를 할 수 없음
         if (feed.getUserId().equals(userId)) {
-            throw new CustomException(ApiStatus.INVALID_INPUT.getResultCode(), "error.feed.self_like");
+            throw new CustomException(
+                    ApiStatus.INVALID_INPUT.getResultCode(), "error.feed.self_like");
         }
 
-        boolean isLiked = feedLikeRepository.findByFeedIdAndUserId(feedId, userId)
-            .map(like -> {
-                // 이미 좋아요 상태 -> 취소
-                feedLikeRepository.delete(like);
-                feed.decrementLikeCount();
-                activityFeedRepository.save(feed);
-                eventPublisher.publishEvent(new FeedUnlikedEvent(userId, feed.getUserId(), feedId));
-                log.info("Feed unliked: feedId={}, userId={}", feedId, userId);
-                return false;
-            })
-            .orElseGet(() -> {
-                // 좋아요 추가
-                FeedLike like = FeedLike.builder()
-                    .feed(feed)
-                    .userId(userId)
-                    .build();
-                feedLikeRepository.save(like);
-                feed.incrementLikeCount();
-                activityFeedRepository.save(feed);
-                eventPublisher.publishEvent(new FeedLikedEvent(userId, feed.getUserId(), feedId));
-                log.info("Feed liked: feedId={}, userId={}", feedId, userId);
-                return true;
-            });
+        boolean isLiked =
+                feedLikeRepository
+                        .findByFeedIdAndUserId(feedId, userId)
+                        .map(
+                                like -> {
+                                    // 이미 좋아요 상태 -> 취소
+                                    feedLikeRepository.delete(like);
+                                    feed.decrementLikeCount();
+                                    activityFeedRepository.save(feed);
+                                    eventPublisher.publishEvent(
+                                            new FeedUnlikedEvent(userId, feed.getUserId(), feedId));
+                                    log.info("Feed unliked: feedId={}, userId={}", feedId, userId);
+                                    return false;
+                                })
+                        .orElseGet(
+                                () -> {
+                                    // 좋아요 추가
+                                    FeedLike like =
+                                            FeedLike.builder().feed(feed).userId(userId).build();
+                                    feedLikeRepository.save(like);
+                                    feed.incrementLikeCount();
+                                    activityFeedRepository.save(feed);
+                                    eventPublisher.publishEvent(
+                                            new FeedLikedEvent(userId, feed.getUserId(), feedId));
+                                    log.info("Feed liked: feedId={}, userId={}", feedId, userId);
+                                    return true;
+                                });
 
         return new FeedLikeResponse(isLiked, feed.getLikeCount());
     }
 
-    /**
-     * 댓글/대댓글 작성. parentId가 있으면 대댓글로 등록되며 1-depth 제한이 강제된다.
-     */
+    /** 댓글/대댓글 작성. parentId가 있으면 대댓글로 등록되며 1-depth 제한이 강제된다. */
     @Transactional(transactionManager = "feedTransactionManager")
     public FeedCommentResponse addComment(Long feedId, String userId, FeedCommentRequest request) {
         return addComment(feedId, userId, request, null);
     }
 
     /**
-     * 댓글/대댓글 작성 (다국어). LUT-428: 작성 직후 응답에도 목록 조회와 동일하게
-     * 작성자 칭호·장착 아이템 희귀도·is_editable을 채워 프론트 재조회가 필요 없게 한다.
+     * 댓글/대댓글 작성 (다국어). LUT-428: 작성 직후 응답에도 목록 조회와 동일하게 작성자 칭호·장착 아이템 희귀도·is_editable을 채워 프론트 재조회가
+     * 필요 없게 한다.
      */
     @Transactional(transactionManager = "feedTransactionManager")
-    public FeedCommentResponse addComment(Long feedId, String userId, FeedCommentRequest request,
-                                          String acceptLanguage) {
-        ActivityFeed feed = activityFeedRepository.findById(feedId)
-            .orElseThrow(() -> new CustomException(ApiStatus.CLIENT_ERROR.getResultCode(), "error.feed.not_found"));
+    public FeedCommentResponse addComment(
+            Long feedId, String userId, FeedCommentRequest request, String acceptLanguage) {
+        ActivityFeed feed =
+                activityFeedRepository
+                        .findById(feedId)
+                        .orElseThrow(
+                                () ->
+                                        new CustomException(
+                                                ApiStatus.CLIENT_ERROR.getResultCode(),
+                                                "error.feed.not_found"));
 
         feedAccessChecker.assertAccessible(feed, userId);
 
         // 대댓글이면 부모 검증 (1-depth 제한)
         FeedComment parent = null;
         if (request.getParentId() != null) {
-            parent = feedCommentRepository.findById(request.getParentId())
-                .orElseThrow(() -> new CustomException(ApiStatus.CLIENT_ERROR.getResultCode(),
-                    "error.feed.comment.parent_not_found"));
+            parent =
+                    feedCommentRepository
+                            .findById(request.getParentId())
+                            .orElseThrow(
+                                    () ->
+                                            new CustomException(
+                                                    ApiStatus.CLIENT_ERROR.getResultCode(),
+                                                    "error.feed.comment.parent_not_found"));
 
             if (!parent.getFeed().getId().equals(feedId)) {
-                throw new CustomException(ApiStatus.INVALID_INPUT.getResultCode(),
-                    "error.feed.comment.wrong_feed");
+                throw new CustomException(
+                        ApiStatus.INVALID_INPUT.getResultCode(), "error.feed.comment.wrong_feed");
             }
             if (parent.isReply()) {
-                throw new CustomException(ApiStatus.INVALID_INPUT.getResultCode(),
-                    "error.feed.comment.reply_depth_exceeded");
+                throw new CustomException(
+                        ApiStatus.INVALID_INPUT.getResultCode(),
+                        "error.feed.comment.reply_depth_exceeded");
             }
         }
 
         // 사용자 프로필 정보 조회 (캐시)
         UserProfileInfo userProfile = userQueryFacadeService.getUserProfile(userId);
 
-        FeedComment comment = FeedComment.builder()
-            .feed(feed)
-            .userId(userId)
-            .userNickname(userProfile.nickname())
-            .userProfileImageUrl(userProfile.picture())
-            .userLevel(userProfile.level())
-            .content(request.getContent())
-            .parent(parent)
-            .isDeleted(false)
-            .isEdited(false)
-            .build();
+        FeedComment comment =
+                FeedComment.builder()
+                        .feed(feed)
+                        .userId(userId)
+                        .userNickname(userProfile.nickname())
+                        .userProfileImageUrl(userProfile.picture())
+                        .userLevel(userProfile.level())
+                        .content(request.getContent())
+                        .parent(parent)
+                        .isDeleted(false)
+                        .isEdited(false)
+                        .build();
 
         FeedComment saved = feedCommentRepository.save(comment);
         feed.incrementCommentCount();
         activityFeedRepository.save(feed);
 
-        log.info("Comment added: feedId={}, commentId={}, parentId={}, userId={}",
-            feedId, saved.getId(), parent != null ? parent.getId() : null, userId);
+        log.info(
+                "Comment added: feedId={}, commentId={}, parentId={}, userId={}",
+                feedId,
+                saved.getId(),
+                parent != null ? parent.getId() : null,
+                userId);
 
         if (parent != null) {
             publishReplyNotification(parent, saved, userId, userProfile.nickname(), feedId);
         } else {
             // 최상위 댓글 — 피드 작성자에게 알림 (자기 자신 제외)
             if (!userId.equals(feed.getUserId())) {
-                eventPublisher.publishEvent(new FeedCommentEvent(
-                    userId,
-                    feed.getUserId(),
-                    userProfile.nickname(),
-                    feedId
-                ));
+                eventPublisher.publishEvent(
+                        new FeedCommentEvent(
+                                userId, feed.getUserId(), userProfile.nickname(), feedId));
             }
         }
 
@@ -273,38 +311,48 @@ public class FeedCommandService {
         return response;
     }
 
-    /**
-     * 댓글 수정. 본인 댓글만, 대댓글이 달린 댓글은 수정 불가. 수정 시 isEdited=true.
-     */
+    /** 댓글 수정. 본인 댓글만, 대댓글이 달린 댓글은 수정 불가. 수정 시 isEdited=true. */
     @Transactional(transactionManager = "feedTransactionManager")
-    public FeedCommentResponse updateComment(Long feedId, Long commentId, String userId,
-                                             FeedCommentUpdateRequest request) {
+    public FeedCommentResponse updateComment(
+            Long feedId, Long commentId, String userId, FeedCommentUpdateRequest request) {
         return updateComment(feedId, commentId, userId, request, null);
     }
 
-    /**
-     * 댓글 수정 (다국어). LUT-428: 수정 응답에도 작성자 칭호·장착 아이템 희귀도·is_editable을 채운다.
-     */
+    /** 댓글 수정 (다국어). LUT-428: 수정 응답에도 작성자 칭호·장착 아이템 희귀도·is_editable을 채운다. */
     @Transactional(transactionManager = "feedTransactionManager")
-    public FeedCommentResponse updateComment(Long feedId, Long commentId, String userId,
-                                             FeedCommentUpdateRequest request, String acceptLanguage) {
-        FeedComment comment = feedCommentRepository.findById(commentId)
-            .orElseThrow(() -> new CustomException(ApiStatus.CLIENT_ERROR.getResultCode(),
-                "error.feed.comment.not_found"));
+    public FeedCommentResponse updateComment(
+            Long feedId,
+            Long commentId,
+            String userId,
+            FeedCommentUpdateRequest request,
+            String acceptLanguage) {
+        FeedComment comment =
+                feedCommentRepository
+                        .findById(commentId)
+                        .orElseThrow(
+                                () ->
+                                        new CustomException(
+                                                ApiStatus.CLIENT_ERROR.getResultCode(),
+                                                "error.feed.comment.not_found"));
 
         if (!comment.getFeed().getId().equals(feedId)) {
-            throw new CustomException(ApiStatus.INVALID_INPUT.getResultCode(), "error.feed.comment.wrong_feed");
+            throw new CustomException(
+                    ApiStatus.INVALID_INPUT.getResultCode(), "error.feed.comment.wrong_feed");
         }
         if (comment.getIsDeleted()) {
-            throw new CustomException(ApiStatus.INVALID_INPUT.getResultCode(), "error.feed.comment.deleted");
+            throw new CustomException(
+                    ApiStatus.INVALID_INPUT.getResultCode(), "error.feed.comment.deleted");
         }
         if (!comment.isAuthor(userId)) {
-            throw new CustomException(ApiStatus.INVALID_ACCESS.getResultCode(), "error.feed.comment.not_owner");
+            throw new CustomException(
+                    ApiStatus.INVALID_ACCESS.getResultCode(), "error.feed.comment.not_owner");
         }
         // 대댓글이 달린 댓글은 수정 불가 (QA-73 정책)
-        if (!comment.isReply() && feedCommentRepository.countActiveRepliesByParentId(commentId) > 0) {
-            throw new CustomException(ApiStatus.INVALID_INPUT.getResultCode(),
-                "error.feed.comment.has_replies_uneditable");
+        if (!comment.isReply()
+                && feedCommentRepository.countActiveRepliesByParentId(commentId) > 0) {
+            throw new CustomException(
+                    ApiStatus.INVALID_INPUT.getResultCode(),
+                    "error.feed.comment.has_replies_uneditable");
         }
 
         comment.update(request.getContent());
@@ -319,19 +367,18 @@ public class FeedCommandService {
     }
 
     /**
-     * LUT-428: 작성/수정 응답에 작성자 표시 정보(좌/우 칭호 + 장착 아이템 희귀도)를 목록 조회
-     * (FeedQueryService.getComments)와 동일한 값으로 채운다. 표시 부가 정보라 조회 실패 시에도
-     * 댓글 저장 결과 응답은 유지한다 (칭호 미표시 / 빈 배열).
+     * LUT-428: 작성/수정 응답에 작성자 표시 정보(좌/우 칭호 + 장착 아이템 희귀도)를 목록 조회 (FeedQueryService.getComments)와 동일한
+     * 값으로 채운다. 표시 부가 정보라 조회 실패 시에도 댓글 저장 결과 응답은 유지한다 (칭호 미표시 / 빈 배열).
      */
-    private void enrichCommentAuthorInfo(FeedCommentResponse response, String userId,
-                                         String acceptLanguage) {
+    private void enrichCommentAuthorInfo(
+            FeedCommentResponse response, String userId, String acceptLanguage) {
         String targetLocale = SupportedLocale.extractLanguageCode(acceptLanguage);
         try {
             List<UserTitleDto> equipped =
-                gamificationQueryFacadeService.getEquippedTitlesByUserId(userId);
+                    gamificationQueryFacadeService.getEquippedTitlesByUserId(userId);
             if (equipped != null && !equipped.isEmpty()) {
                 DetailedTitleInfoDto titleInfo =
-                    TitleNameUtils.buildDetailedTitleInfo(equipped, targetLocale);
+                        TitleNameUtils.buildDetailedTitleInfo(equipped, targetLocale);
                 response.setUserLeftTitle(titleInfo.leftTitle());
                 response.setUserLeftTitleRarity(titleInfo.leftRarity());
                 response.setUserRightTitle(titleInfo.rightTitle());
@@ -342,76 +389,93 @@ public class FeedCommandService {
         }
         try {
             response.setEquippedItemRarities(
-                gamificationQueryFacadeService.getEquippedItemRaritiesByUserIds(List.of(userId))
-                    .getOrDefault(userId, List.of()));
+                    gamificationQueryFacadeService
+                            .getEquippedItemRaritiesByUserIds(List.of(userId))
+                            .getOrDefault(userId, List.of()));
         } catch (Exception e) {
             log.warn("댓글 응답 장착 아이템 희귀도 조회 실패 - 빈 배열 유지: {}", e.getMessage());
         }
     }
 
-    /**
-     * 댓글 좋아요 토글. 좋아요가 새로 추가될 때만 알림 발행 (취소 시 알림 없음, 본인 자기 좋아요 금지).
-     */
+    /** 댓글 좋아요 토글. 좋아요가 새로 추가될 때만 알림 발행 (취소 시 알림 없음, 본인 자기 좋아요 금지). */
     @Transactional(transactionManager = "feedTransactionManager")
     public FeedCommentLikeResponse toggleCommentLike(Long feedId, Long commentId, String userId) {
-        FeedComment comment = feedCommentRepository.findById(commentId)
-            .orElseThrow(() -> new CustomException(ApiStatus.CLIENT_ERROR.getResultCode(),
-                "error.feed.comment.not_found"));
+        FeedComment comment =
+                feedCommentRepository
+                        .findById(commentId)
+                        .orElseThrow(
+                                () ->
+                                        new CustomException(
+                                                ApiStatus.CLIENT_ERROR.getResultCode(),
+                                                "error.feed.comment.not_found"));
 
         if (!comment.getFeed().getId().equals(feedId)) {
-            throw new CustomException(ApiStatus.INVALID_INPUT.getResultCode(), "error.feed.comment.wrong_feed");
+            throw new CustomException(
+                    ApiStatus.INVALID_INPUT.getResultCode(), "error.feed.comment.wrong_feed");
         }
         if (comment.getIsDeleted()) {
-            throw new CustomException(ApiStatus.INVALID_INPUT.getResultCode(), "error.feed.comment.deleted");
+            throw new CustomException(
+                    ApiStatus.INVALID_INPUT.getResultCode(), "error.feed.comment.deleted");
         }
 
         feedAccessChecker.assertAccessible(comment.getFeed(), userId);
 
-        boolean isLiked = feedCommentLikeRepository.findByCommentIdAndUserId(commentId, userId)
-            .map(like -> {
-                feedCommentLikeRepository.delete(like);
-                log.info("Comment unliked: commentId={}, userId={}", commentId, userId);
-                return false;
-            })
-            .orElseGet(() -> {
-                FeedCommentLike like = FeedCommentLike.builder()
-                    .comment(comment)
-                    .userId(userId)
-                    .build();
-                feedCommentLikeRepository.save(like);
-                log.info("Comment liked: commentId={}, userId={}", commentId, userId);
+        boolean isLiked =
+                feedCommentLikeRepository
+                        .findByCommentIdAndUserId(commentId, userId)
+                        .map(
+                                like -> {
+                                    feedCommentLikeRepository.delete(like);
+                                    log.info(
+                                            "Comment unliked: commentId={}, userId={}",
+                                            commentId,
+                                            userId);
+                                    return false;
+                                })
+                        .orElseGet(
+                                () -> {
+                                    FeedCommentLike like =
+                                            FeedCommentLike.builder()
+                                                    .comment(comment)
+                                                    .userId(userId)
+                                                    .build();
+                                    feedCommentLikeRepository.save(like);
+                                    log.info(
+                                            "Comment liked: commentId={}, userId={}",
+                                            commentId,
+                                            userId);
 
-                // 자기 자신 댓글에 좋아요는 알림 발행하지 않음
-                if (!comment.isAuthor(userId)) {
-                    UserProfileInfo likerProfile = userQueryFacadeService.getUserProfile(userId);
-                    eventPublisher.publishEvent(new FeedCommentLikedEvent(
-                        userId,
-                        likerProfile.nickname(),
-                        comment.getUserId(),
-                        feedId,
-                        commentId
-                    ));
-                }
-                return true;
-            });
+                                    // 자기 자신 댓글에 좋아요는 알림 발행하지 않음
+                                    if (!comment.isAuthor(userId)) {
+                                        UserProfileInfo likerProfile =
+                                                userQueryFacadeService.getUserProfile(userId);
+                                        eventPublisher.publishEvent(
+                                                new FeedCommentLikedEvent(
+                                                        userId,
+                                                        likerProfile.nickname(),
+                                                        comment.getUserId(),
+                                                        feedId,
+                                                        commentId));
+                                    }
+                                    return true;
+                                });
 
         int likeCount = feedCommentLikeRepository.countByCommentId(commentId);
         return new FeedCommentLikeResponse(isLiked, likeCount);
     }
 
-    /**
-     * 대댓글 작성 시 알림 발행.
-     * - 부모 댓글 작성자
-     * - 같은 부모에 대댓글을 단 다른 유저들 (중복 제거)
-     * - replier 본인은 항상 제외
-     */
-    private void publishReplyNotification(FeedComment parent, FeedComment reply, String replierId,
-                                          String replierNickname, Long feedId) {
-        List<String> threadAuthors = feedCommentRepository.findReplyAuthorsByParentId(parent.getId())
-            .stream()
-            .filter(authorId -> !authorId.equals(replierId))
-            .filter(authorId -> !authorId.equals(parent.getUserId())) // 부모 작성자는 별도 필드
-            .toList();
+    /** 대댓글 작성 시 알림 발행. - 부모 댓글 작성자 - 같은 부모에 대댓글을 단 다른 유저들 (중복 제거) - replier 본인은 항상 제외 */
+    private void publishReplyNotification(
+            FeedComment parent,
+            FeedComment reply,
+            String replierId,
+            String replierNickname,
+            Long feedId) {
+        List<String> threadAuthors =
+                feedCommentRepository.findReplyAuthorsByParentId(parent.getId()).stream()
+                        .filter(authorId -> !authorId.equals(replierId))
+                        .filter(authorId -> !authorId.equals(parent.getUserId())) // 부모 작성자는 별도 필드
+                        .toList();
 
         String parentAuthorId = parent.isAuthor(replierId) ? null : parent.getUserId();
 
@@ -420,25 +484,28 @@ public class FeedCommandService {
             return;
         }
 
-        eventPublisher.publishEvent(new FeedCommentReplyEvent(
-            replierId,
-            replierNickname,
-            parentAuthorId,
-            threadAuthors,
-            feedId,
-            parent.getId(),
-            reply.getId()
-        ));
+        eventPublisher.publishEvent(
+                new FeedCommentReplyEvent(
+                        replierId,
+                        replierNickname,
+                        parentAuthorId,
+                        threadAuthors,
+                        feedId,
+                        parent.getId(),
+                        reply.getId()));
     }
 
-    /**
-     * 어드민 댓글 강제 삭제 (신고 처리용).
-     * 본인 검증 없이 삭제. feedId 검증도 생략 (commentId만으로 식별).
-     */
+    /** 어드민 댓글 강제 삭제 (신고 처리용). 본인 검증 없이 삭제. feedId 검증도 생략 (commentId만으로 식별). */
     @Transactional(transactionManager = "feedTransactionManager")
     public void deleteCommentByAdmin(Long commentId, String reason) {
-        FeedComment comment = feedCommentRepository.findById(commentId)
-            .orElseThrow(() -> new CustomException(ApiStatus.CLIENT_ERROR.getResultCode(), "error.feed.comment.not_found"));
+        FeedComment comment =
+                feedCommentRepository
+                        .findById(commentId)
+                        .orElseThrow(
+                                () ->
+                                        new CustomException(
+                                                ApiStatus.CLIENT_ERROR.getResultCode(),
+                                                "error.feed.comment.not_found"));
 
         boolean firstDeletion = !comment.getIsDeleted();
         comment.delete();
@@ -452,20 +519,26 @@ public class FeedCommandService {
         log.info("Feed comment admin deleted: commentId={}, reason={}", commentId, reason);
     }
 
-    /**
-     * 댓글 삭제
-     */
+    /** 댓글 삭제 */
     @Transactional(transactionManager = "feedTransactionManager")
     public void deleteComment(Long feedId, Long commentId, String userId) {
-        FeedComment comment = feedCommentRepository.findById(commentId)
-            .orElseThrow(() -> new CustomException(ApiStatus.CLIENT_ERROR.getResultCode(), "error.feed.comment.not_found"));
+        FeedComment comment =
+                feedCommentRepository
+                        .findById(commentId)
+                        .orElseThrow(
+                                () ->
+                                        new CustomException(
+                                                ApiStatus.CLIENT_ERROR.getResultCode(),
+                                                "error.feed.comment.not_found"));
 
         if (!comment.getFeed().getId().equals(feedId)) {
-            throw new CustomException(ApiStatus.INVALID_INPUT.getResultCode(), "error.feed.comment.wrong_feed");
+            throw new CustomException(
+                    ApiStatus.INVALID_INPUT.getResultCode(), "error.feed.comment.wrong_feed");
         }
 
         if (!comment.getUserId().equals(userId)) {
-            throw new CustomException(ApiStatus.INVALID_ACCESS.getResultCode(), "error.feed.comment.not_owner");
+            throw new CustomException(
+                    ApiStatus.INVALID_ACCESS.getResultCode(), "error.feed.comment.not_owner");
         }
 
         boolean firstDeletion = !comment.getIsDeleted();
@@ -481,52 +554,64 @@ public class FeedCommandService {
     }
 
     /**
-     * LUT-418: 받은 댓글 카운터 감소 이벤트 발행.
-     * 작성 시 FeedCommentEvent 발행 조건(최상위 댓글 && 작성자 != 피드 주인)과 정확히 대칭이어야
+     * LUT-418: 받은 댓글 카운터 감소 이벤트 발행. 작성 시 FeedCommentEvent 발행 조건(최상위 댓글 && 작성자 != 피드 주인)과 정확히 대칭이어야
      * 카운터가 음수 방향으로 드리프트하지 않는다 (대댓글·본인 댓글은 작성 시에도 카운트되지 않음).
      */
     private void publishCommentDeletedEvent(FeedComment comment) {
         String feedOwnerId = comment.getFeed().getUserId();
         if (!comment.isReply() && !comment.getUserId().equals(feedOwnerId)) {
-            eventPublisher.publishEvent(new FeedCommentDeletedEvent(
-                comment.getUserId(),
-                feedOwnerId,
-                comment.getFeed().getId()
-            ));
+            eventPublisher.publishEvent(
+                    new FeedCommentDeletedEvent(
+                            comment.getUserId(), feedOwnerId, comment.getFeed().getId()));
         }
     }
 
-    /**
-     * 피드 삭제
-     */
+    /** 피드 삭제 */
     @Transactional(transactionManager = "feedTransactionManager")
     public void deleteFeed(Long feedId, String userId) {
-        ActivityFeed feed = activityFeedRepository.findById(feedId)
-            .orElseThrow(() -> new CustomException(ApiStatus.CLIENT_ERROR.getResultCode(), "error.feed.not_found"));
+        ActivityFeed feed =
+                activityFeedRepository
+                        .findById(feedId)
+                        .orElseThrow(
+                                () ->
+                                        new CustomException(
+                                                ApiStatus.CLIENT_ERROR.getResultCode(),
+                                                "error.feed.not_found"));
 
         if (!feed.getUserId().equals(userId)) {
-            throw new CustomException(ApiStatus.INVALID_ACCESS.getResultCode(), "error.feed.not_owner");
+            throw new CustomException(
+                    ApiStatus.INVALID_ACCESS.getResultCode(), "error.feed.not_owner");
         }
 
         activityFeedRepository.delete(feed);
         log.info("Feed deleted: feedId={}, userId={}", feedId, userId);
     }
 
-    /**
-     * 피드 공개범위 변경
-     */
+    /** 피드 공개범위 변경 */
     @Transactional(transactionManager = "feedTransactionManager")
-    public ActivityFeedResponse updateFeedVisibility(Long feedId, String userId, FeedVisibility visibility) {
-        ActivityFeed feed = activityFeedRepository.findById(feedId)
-            .orElseThrow(() -> new CustomException(ApiStatus.CLIENT_ERROR.getResultCode(), "error.feed.not_found"));
+    public ActivityFeedResponse updateFeedVisibility(
+            Long feedId, String userId, FeedVisibility visibility) {
+        ActivityFeed feed =
+                activityFeedRepository
+                        .findById(feedId)
+                        .orElseThrow(
+                                () ->
+                                        new CustomException(
+                                                ApiStatus.CLIENT_ERROR.getResultCode(),
+                                                "error.feed.not_found"));
 
         if (!feed.getUserId().equals(userId)) {
-            throw new CustomException(ApiStatus.INVALID_ACCESS.getResultCode(), "error.feed.not_owner");
+            throw new CustomException(
+                    ApiStatus.INVALID_ACCESS.getResultCode(), "error.feed.not_owner");
         }
 
         feed.setVisibility(visibility);
         activityFeedRepository.save(feed);
-        log.info("Feed visibility updated: feedId={}, userId={}, visibility={}", feedId, userId, visibility);
+        log.info(
+                "Feed visibility updated: feedId={}, userId={}, visibility={}",
+                feedId,
+                userId,
+                visibility);
 
         return ActivityFeedResponse.from(feed, false, true, null);
     }
@@ -534,256 +619,363 @@ public class FeedCommandService {
     // ========== 사용자 공유 피드 생성 ==========
 
     /**
-     * 사용자가 미션 완료 시 피드에 공유하는 경우 호출
-     * - 미션 실행 정보(note, imageUrl, duration, expEarned) 포함
-     * - 공개 피드로 생성
+     * 사용자가 미션 완료 시 피드에 공유하는 경우 호출 - 미션 실행 정보(note, imageUrl, duration, expEarned) 포함 - 공개 피드로 생성
      */
     @Transactional(transactionManager = "feedTransactionManager")
-    public ActivityFeed createMissionSharedFeed(String userId, String userNickname, String userProfileImageUrl,
-                                                Integer userLevel, String userTitle, TitleRarity userTitleRarity,
-                                                String userTitleColorCode,
-                                                Long executionId, Long missionId, String missionTitle,
-                                                String missionDescription, Long categoryId,
-                                                String note, String imageUrl,
-                                                Integer durationMinutes, Integer expEarned) {
-        return createMissionSharedFeed(userId, userNickname, userProfileImageUrl, userLevel, userTitle,
-            userTitleRarity, userTitleColorCode, executionId, missionId, missionTitle, missionDescription,
-            categoryId, note, imageUrl, durationMinutes, expEarned, FeedVisibility.PUBLIC, null, null);
+    public ActivityFeed createMissionSharedFeed(
+            String userId,
+            String userNickname,
+            String userProfileImageUrl,
+            Integer userLevel,
+            String userTitle,
+            TitleRarity userTitleRarity,
+            String userTitleColorCode,
+            Long executionId,
+            Long missionId,
+            String missionTitle,
+            String missionDescription,
+            Long categoryId,
+            String note,
+            String imageUrl,
+            Integer durationMinutes,
+            Integer expEarned) {
+        return createMissionSharedFeed(
+                userId,
+                userNickname,
+                userProfileImageUrl,
+                userLevel,
+                userTitle,
+                userTitleRarity,
+                userTitleColorCode,
+                executionId,
+                missionId,
+                missionTitle,
+                missionDescription,
+                categoryId,
+                note,
+                imageUrl,
+                durationMinutes,
+                expEarned,
+                FeedVisibility.PUBLIC,
+                null,
+                null);
     }
 
     @Transactional(transactionManager = "feedTransactionManager")
-    public ActivityFeed createMissionSharedFeed(String userId, String userNickname, String userProfileImageUrl,
-                                                Integer userLevel, String userTitle, TitleRarity userTitleRarity,
-                                                String userTitleColorCode,
-                                                Long executionId, Long missionId, String missionTitle,
-                                                String missionDescription, Long categoryId,
-                                                String note, String imageUrl,
-                                                Integer durationMinutes, Integer expEarned,
-                                                FeedVisibility visibility) {
-        return createMissionSharedFeed(userId, userNickname, userProfileImageUrl, userLevel, userTitle,
-            userTitleRarity, userTitleColorCode, executionId, missionId, missionTitle, missionDescription,
-            categoryId, note, imageUrl, durationMinutes, expEarned, visibility, null, null);
+    public ActivityFeed createMissionSharedFeed(
+            String userId,
+            String userNickname,
+            String userProfileImageUrl,
+            Integer userLevel,
+            String userTitle,
+            TitleRarity userTitleRarity,
+            String userTitleColorCode,
+            Long executionId,
+            Long missionId,
+            String missionTitle,
+            String missionDescription,
+            Long categoryId,
+            String note,
+            String imageUrl,
+            Integer durationMinutes,
+            Integer expEarned,
+            FeedVisibility visibility) {
+        return createMissionSharedFeed(
+                userId,
+                userNickname,
+                userProfileImageUrl,
+                userLevel,
+                userTitle,
+                userTitleRarity,
+                userTitleColorCode,
+                executionId,
+                missionId,
+                missionTitle,
+                missionDescription,
+                categoryId,
+                note,
+                imageUrl,
+                durationMinutes,
+                expEarned,
+                visibility,
+                null,
+                null);
     }
 
     /**
-     * QA-168: visibility=GUILD 일 때 guildId/guildName 을 함께 저장하여 길드원 조회 쿼리에 매치되도록 한다.
-     * 그 외 visibility 는 호출 측에서 null 전달하면 됨.
+     * QA-168: visibility=GUILD 일 때 guildId/guildName 을 함께 저장하여 길드원 조회 쿼리에 매치되도록 한다. 그 외 visibility
+     * 는 호출 측에서 null 전달하면 됨.
      */
     @Transactional(transactionManager = "feedTransactionManager")
-    public ActivityFeed createMissionSharedFeed(String userId, String userNickname, String userProfileImageUrl,
-                                                Integer userLevel, String userTitle, TitleRarity userTitleRarity,
-                                                String userTitleColorCode,
-                                                Long executionId, Long missionId, String missionTitle,
-                                                String missionDescription, Long categoryId,
-                                                String note, String imageUrl,
-                                                Integer durationMinutes, Integer expEarned,
-                                                FeedVisibility visibility,
-                                                Long guildId, String guildName) {
+    public ActivityFeed createMissionSharedFeed(
+            String userId,
+            String userNickname,
+            String userProfileImageUrl,
+            Integer userLevel,
+            String userTitle,
+            TitleRarity userTitleRarity,
+            String userTitleColorCode,
+            Long executionId,
+            Long missionId,
+            String missionTitle,
+            String missionDescription,
+            Long categoryId,
+            String note,
+            String imageUrl,
+            Integer durationMinutes,
+            Integer expEarned,
+            FeedVisibility visibility,
+            Long guildId,
+            String guildName) {
         String title = missionTitle;
 
         // 좌/우 칭호 상세 정보 조회
         DetailedTitleInfoDto detailedTitle = getDetailedTitleInfoSafe(userId);
 
-        ActivityFeed feed = ActivityFeed.builder()
-            .userId(userId)
-            .userNickname(userNickname)
-            .userProfileImageUrl(userProfileImageUrl)
-            .userLevel(userLevel != null ? userLevel : 1)
-            .userTitle(userTitle)
-            .userTitleRarity(userTitleRarity)
-            .userTitleColorCode(userTitleColorCode)
-            .userLeftTitle(detailedTitle.leftTitle())
-            .userLeftTitleRarity(detailedTitle.leftRarity())
-            .userRightTitle(detailedTitle.rightTitle())
-            .userRightTitleRarity(detailedTitle.rightRarity())
-            .activityType(ActivityType.MISSION_SHARED)
-            .title(title)
-            .description(note)
-            .referenceType("MISSION_EXECUTION")
-            .referenceId(executionId)
-            .referenceName(missionTitle)
-            .visibility(visibility)
-            .guildId(guildId)
-            .guildName(guildName)
-            .categoryId(categoryId)
-            .imageUrl(imageUrl)
-            .missionId(missionId)
-            .executionId(executionId)
-            .durationMinutes(durationMinutes)
-            .expEarned(expEarned)
-            .likeCount(0)
-            .commentCount(0)
-            .build();
+        ActivityFeed feed =
+                ActivityFeed.builder()
+                        .userId(userId)
+                        .userNickname(userNickname)
+                        .userProfileImageUrl(userProfileImageUrl)
+                        .userLevel(userLevel != null ? userLevel : 1)
+                        .userTitle(userTitle)
+                        .userTitleRarity(userTitleRarity)
+                        .userTitleColorCode(userTitleColorCode)
+                        .userLeftTitle(detailedTitle.leftTitle())
+                        .userLeftTitleRarity(detailedTitle.leftRarity())
+                        .userRightTitle(detailedTitle.rightTitle())
+                        .userRightTitleRarity(detailedTitle.rightRarity())
+                        .activityType(ActivityType.MISSION_SHARED)
+                        .title(title)
+                        .description(note)
+                        .referenceType("MISSION_EXECUTION")
+                        .referenceId(executionId)
+                        .referenceName(missionTitle)
+                        .visibility(visibility)
+                        .guildId(guildId)
+                        .guildName(guildName)
+                        .categoryId(categoryId)
+                        .imageUrl(imageUrl)
+                        .missionId(missionId)
+                        .executionId(executionId)
+                        .durationMinutes(durationMinutes)
+                        .expEarned(expEarned)
+                        .likeCount(0)
+                        .commentCount(0)
+                        .build();
 
         ActivityFeed saved = activityFeedRepository.save(feed);
-        log.info("Mission shared feed created: userId={}, missionId={}, executionId={}, feedId={}, visibility={}, guildId={}",
-            userId, missionId, executionId, saved.getId(), visibility, guildId);
+        log.info(
+                "Mission shared feed created: userId={}, missionId={}, executionId={}, feedId={},"
+                        + " visibility={}, guildId={}",
+                userId,
+                missionId,
+                executionId,
+                saved.getId(),
+                visibility,
+                guildId);
         return saved;
     }
 
-    /**
-     * 피드 삭제 (ID로 직접 삭제 - 보상 처리용)
-     */
+    /** 피드 삭제 (ID로 직접 삭제 - 보상 처리용) */
     @Transactional(transactionManager = "feedTransactionManager")
     public void deleteFeedById(Long feedId) {
         activityFeedRepository.deleteById(feedId);
         log.info("Feed deleted by id: feedId={}", feedId);
     }
 
-    /**
-     * referenceId와 referenceType으로 피드 삭제 (미션 삭제 시 관련 피드 삭제용)
-     */
+    /** referenceId와 referenceType으로 피드 삭제 (미션 삭제 시 관련 피드 삭제용) */
     @Transactional(transactionManager = "feedTransactionManager")
     public int deleteFeedsByReferenceId(Long referenceId, String referenceType) {
-        int deletedCount = activityFeedRepository.deleteByReferenceIdAndReferenceType(referenceId, referenceType);
-        log.info("Feeds deleted by referenceId: referenceId={}, referenceType={}, deletedCount={}",
-            referenceId, referenceType, deletedCount);
+        int deletedCount =
+                activityFeedRepository.deleteByReferenceIdAndReferenceType(
+                        referenceId, referenceType);
+        log.info(
+                "Feeds deleted by referenceId: referenceId={}, referenceType={}, deletedCount={}",
+                referenceId,
+                referenceType,
+                deletedCount);
         return deletedCount;
     }
 
-    /**
-     * missionId로 피드 삭제 (미션 삭제 시 관련 피드 삭제용)
-     */
+    /** missionId로 피드 삭제 (미션 삭제 시 관련 피드 삭제용) */
     @Transactional(transactionManager = "feedTransactionManager")
     public int deleteFeedsByMissionId(Long missionId) {
         int deletedCount = activityFeedRepository.deleteByMissionId(missionId);
-        log.info("Feeds deleted by missionId: missionId={}, deletedCount={}", missionId, deletedCount);
+        log.info(
+                "Feeds deleted by missionId: missionId={}, deletedCount={}",
+                missionId,
+                deletedCount);
         return deletedCount;
     }
 
-    /**
-     * 피드 이미지 URL 업데이트 (미션 실행 이미지 업로드/삭제 시 연동)
-     */
+    /** 피드 이미지 URL 업데이트 (미션 실행 이미지 업로드/삭제 시 연동) */
     @Transactional(transactionManager = "feedTransactionManager")
     public void updateFeedImageUrl(Long feedId, String imageUrl) {
-        activityFeedRepository.findById(feedId).ifPresent(feed -> {
-            feed.setImageUrl(imageUrl);
-            activityFeedRepository.save(feed);
-            log.info("Feed image updated: feedId={}, imageUrl={}", feedId, imageUrl);
-        });
+        activityFeedRepository
+                .findById(feedId)
+                .ifPresent(
+                        feed -> {
+                            feed.setImageUrl(imageUrl);
+                            activityFeedRepository.save(feed);
+                            log.info(
+                                    "Feed image updated: feedId={}, imageUrl={}", feedId, imageUrl);
+                        });
     }
 
     /**
-     * executionId로 피드 삭제 (feedId 역참조 제거 후 unshare용).
-     * LUT-380: execution/instance ID 시퀀스 충돌 대비 — userId 로 범위를 좁혀 조회한다.
+     * executionId로 피드 삭제 (feedId 역참조 제거 후 unshare용). LUT-380: execution/instance ID 시퀀스 충돌 대비 —
+     * userId 로 범위를 좁혀 조회한다.
      */
     @Transactional(transactionManager = "feedTransactionManager")
     public void deleteFeedByExecutionId(Long executionId, String userId) {
-        activityFeedRepository.findFirstByExecutionIdAndUserIdOrderByCreatedAtDesc(executionId, userId)
-            .ifPresent(feed -> {
-                activityFeedRepository.delete(feed);
-                log.info("Feed deleted by executionId: executionId={}, feedId={}", executionId, feed.getId());
-            });
+        activityFeedRepository
+                .findFirstByExecutionIdAndUserIdOrderByCreatedAtDesc(executionId, userId)
+                .ifPresent(
+                        feed -> {
+                            activityFeedRepository.delete(feed);
+                            log.info(
+                                    "Feed deleted by executionId: executionId={}, feedId={}",
+                                    executionId,
+                                    feed.getId());
+                        });
     }
 
     /**
      * executionId로 피드 이미지 URL 업데이트 (단일 이미지 호환).
+     *
      * @deprecated QA-53 다중 이미지로 전환. {@link #updateFeedImagesByExecutionId(Long, String, List)} 사용.
      */
     @Deprecated
     @Transactional(transactionManager = "feedTransactionManager")
     public void updateFeedImageUrlByExecutionId(Long executionId, String userId, String imageUrl) {
-        updateFeedImagesByExecutionId(executionId, userId, imageUrl != null ? List.of(imageUrl) : List.of());
+        updateFeedImagesByExecutionId(
+                executionId, userId, imageUrl != null ? List.of(imageUrl) : List.of());
     }
 
     /**
-     * executionId로 피드 다중 이미지 동기화 (QA-53).
-     * - activity_feed_image 전체 교체 (간단하고 안전)
-     * - activity_feed.image_url 은 첫 장(또는 null)과 동기화 (응답 호환)
+     * executionId로 피드 다중 이미지 동기화 (QA-53). - activity_feed_image 전체 교체 (간단하고 안전) -
+     * activity_feed.image_url 은 첫 장(또는 null)과 동기화 (응답 호환)
      *
-     * <p>LUT-380: 일반 미션(MissionExecution.id)과 고정 미션(DailyMissionInstance.id)은 별도
-     * 시퀀스라 execution_id 값이 충돌할 수 있다. executionId 단독 조회는 충돌 시 나중에 생성된
-     * 남의 피드를 갱신하고 정작 내 피드는 미갱신되므로(홈 피드 이미지 미반영), userId 로 좁힌다.
+     * <p>LUT-380: 일반 미션(MissionExecution.id)과 고정 미션(DailyMissionInstance.id)은 별도 시퀀스라 execution_id
+     * 값이 충돌할 수 있다. executionId 단독 조회는 충돌 시 나중에 생성된 남의 피드를 갱신하고 정작 내 피드는 미갱신되므로(홈 피드 이미지 미반영),
+     * userId 로 좁힌다.
      */
     @Transactional(transactionManager = "feedTransactionManager")
-    public void updateFeedImagesByExecutionId(Long executionId, String userId, List<String> imageUrls) {
-        activityFeedRepository.findFirstByExecutionIdAndUserIdOrderByCreatedAtDesc(executionId, userId)
-            .ifPresent(feed -> {
-            List<String> normalized = imageUrls != null ? imageUrls : List.of();
+    public void updateFeedImagesByExecutionId(
+            Long executionId, String userId, List<String> imageUrls) {
+        activityFeedRepository
+                .findFirstByExecutionIdAndUserIdOrderByCreatedAtDesc(executionId, userId)
+                .ifPresent(
+                        feed -> {
+                            List<String> normalized = imageUrls != null ? imageUrls : List.of();
 
-            // 기존 이미지 일괄 삭제 후 신규 등록 (단순/안전)
-            activityFeedImageRepository.deleteByFeedId(feed.getId());
-            for (int i = 0; i < normalized.size(); i++) {
-                ActivityFeedImage img = ActivityFeedImage.builder()
-                    .feed(feed)
-                    .imageUrl(normalized.get(i))
-                    .sortOrder(i)
-                    .build();
-                activityFeedImageRepository.save(img);
-            }
+                            // 기존 이미지 일괄 삭제 후 신규 등록 (단순/안전)
+                            activityFeedImageRepository.deleteByFeedId(feed.getId());
+                            for (int i = 0; i < normalized.size(); i++) {
+                                ActivityFeedImage img =
+                                        ActivityFeedImage.builder()
+                                                .feed(feed)
+                                                .imageUrl(normalized.get(i))
+                                                .sortOrder(i)
+                                                .build();
+                                activityFeedImageRepository.save(img);
+                            }
 
-            // 첫 장과 단일 컬럼 동기화
-            feed.setImageUrl(normalized.isEmpty() ? null : normalized.get(0));
-            activityFeedRepository.save(feed);
+                            // 첫 장과 단일 컬럼 동기화
+                            feed.setImageUrl(normalized.isEmpty() ? null : normalized.get(0));
+                            activityFeedRepository.save(feed);
 
-            log.info("Feed images updated by executionId: executionId={}, count={}", executionId, normalized.size());
-        });
+                            log.info(
+                                    "Feed images updated by executionId: executionId={}, count={}",
+                                    executionId,
+                                    normalized.size());
+                        });
     }
 
     /**
-     * executionId로 피드 description(노트) 업데이트.
-     * LUT-380: execution/instance ID 시퀀스 충돌 대비 — userId 로 범위를 좁혀 조회한다.
+     * executionId로 피드 description(노트) 업데이트. LUT-380: execution/instance ID 시퀀스 충돌 대비 — userId 로 범위를
+     * 좁혀 조회한다.
      */
     @Transactional(transactionManager = "feedTransactionManager")
-    public void updateFeedDescriptionByExecutionId(Long executionId, String userId, String description) {
-        activityFeedRepository.findFirstByExecutionIdAndUserIdOrderByCreatedAtDesc(executionId, userId)
-            .ifPresent(feed -> {
-                feed.setDescription(description);
-                activityFeedRepository.save(feed);
-                log.info("Feed description updated by executionId: executionId={}, descLength={}", executionId,
-                    description != null ? description.length() : 0);
-            });
+    public void updateFeedDescriptionByExecutionId(
+            Long executionId, String userId, String description) {
+        activityFeedRepository
+                .findFirstByExecutionIdAndUserIdOrderByCreatedAtDesc(executionId, userId)
+                .ifPresent(
+                        feed -> {
+                            feed.setDescription(description);
+                            activityFeedRepository.save(feed);
+                            log.info(
+                                    "Feed description updated by executionId: executionId={},"
+                                            + " descLength={}",
+                                    executionId,
+                                    description != null ? description.length() : 0);
+                        });
     }
 
     /**
-     * executionId로 피드 visibility/description/imageUrl 업데이트
-     * Saga가 생성한 기존 피드를 record 페이지에서 갱신할 때 사용
+     * executionId로 피드 visibility/description/imageUrl 업데이트 Saga가 생성한 기존 피드를 record 페이지에서 갱신할 때 사용
      *
      * @return 업데이트된 피드, 없으면 null
      */
     /**
-     * QA-168 후속: visibility 변경 시 guild_id/guild_name 도 정합성에 맞춰 갱신한다.
-     * - GUILD 로 변경: 미션의 guildId/guildName 으로 set (NULL 안 됨)
-     * - 그 외 visibility: null 로 reset (의도하지 않은 길드 노출 방지)
+     * QA-168 후속: visibility 변경 시 guild_id/guild_name 도 정합성에 맞춰 갱신한다. - GUILD 로 변경: 미션의
+     * guildId/guildName 으로 set (NULL 안 됨) - 그 외 visibility: null 로 reset (의도하지 않은 길드 노출 방지)
      */
     @Transactional(transactionManager = "feedTransactionManager")
-    public ActivityFeed updateFeedContentByExecutionId(Long executionId, String userId, String description,
-                                                        String imageUrl,
-                                                        FeedVisibility visibility, Long guildId, String guildName) {
-        return activityFeedRepository.findFirstByExecutionIdAndUserIdOrderByCreatedAtDesc(executionId, userId)
-            .map(feed -> {
-            feed.setDescription(description);
-            feed.setImageUrl(imageUrl);
-            feed.setVisibility(visibility);
-            if (visibility == FeedVisibility.GUILD) {
-                feed.setGuildId(guildId);
-                feed.setGuildName(guildName);
-            } else {
-                feed.setGuildId(null);
-                feed.setGuildName(null);
-            }
-            activityFeedRepository.save(feed);
-            log.info("Feed content updated by executionId: executionId={}, visibility={}, guildId={}",
-                executionId, visibility, feed.getGuildId());
-            return feed;
-        }).orElse(null);
+    public ActivityFeed updateFeedContentByExecutionId(
+            Long executionId,
+            String userId,
+            String description,
+            String imageUrl,
+            FeedVisibility visibility,
+            Long guildId,
+            String guildName) {
+        return activityFeedRepository
+                .findFirstByExecutionIdAndUserIdOrderByCreatedAtDesc(executionId, userId)
+                .map(
+                        feed -> {
+                            feed.setDescription(description);
+                            feed.setImageUrl(imageUrl);
+                            feed.setVisibility(visibility);
+                            if (visibility == FeedVisibility.GUILD) {
+                                feed.setGuildId(guildId);
+                                feed.setGuildName(guildName);
+                            } else {
+                                feed.setGuildId(null);
+                                feed.setGuildName(null);
+                            }
+                            activityFeedRepository.save(feed);
+                            log.info(
+                                    "Feed content updated by executionId: executionId={},"
+                                            + " visibility={}, guildId={}",
+                                    executionId,
+                                    visibility,
+                                    feed.getGuildId());
+                            return feed;
+                        })
+                .orElse(null);
     }
 
-    /**
-     * 사용자의 모든 피드의 칭호 정보 업데이트 (칭호 장착/해제 시 호출)
-     */
+    /** 사용자의 모든 피드의 칭호 정보 업데이트 (칭호 장착/해제 시 호출) */
     @Transactional(transactionManager = "feedTransactionManager")
-    public int updateFeedTitles(String userId, String titleName, TitleRarity titleRarity, String titleColorCode) {
+    public int updateFeedTitles(
+            String userId, String titleName, TitleRarity titleRarity, String titleColorCode) {
         // 좌/우 칭호 상세 정보 조회
         DetailedTitleInfoDto detailedTitle = getDetailedTitleInfoSafe(userId);
-        return activityFeedRepository.updateUserTitleByUserId(userId, titleName, titleRarity, titleColorCode,
-            detailedTitle.leftTitle(), detailedTitle.leftRarity(),
-            detailedTitle.rightTitle(), detailedTitle.rightRarity());
+        return activityFeedRepository.updateUserTitleByUserId(
+                userId,
+                titleName,
+                titleRarity,
+                titleColorCode,
+                detailedTitle.leftTitle(),
+                detailedTitle.leftRarity(),
+                detailedTitle.rightTitle(),
+                detailedTitle.rightRarity());
     }
 
-    /**
-     * 좌/우 칭호 상세 정보를 안전하게 조회 (실패 시 빈 정보 반환)
-     */
+    /** 좌/우 칭호 상세 정보를 안전하게 조회 (실패 시 빈 정보 반환) */
     private DetailedTitleInfoDto getDetailedTitleInfoSafe(String userId) {
         try {
             return gamificationQueryFacadeService.getDetailedEquippedTitleInfo(userId);
@@ -793,13 +985,17 @@ public class FeedCommandService {
         }
     }
 
-    /**
-     * Admin에 의한 피드 삭제 (내부 API)
-     */
+    /** Admin에 의한 피드 삭제 (내부 API) */
     @Transactional(transactionManager = "feedTransactionManager")
     public void deleteFeedByAdmin(Long id, String reason, String adminInfo) {
-        ActivityFeed feed = activityFeedRepository.findById(id)
-            .orElseThrow(() -> new CustomException(ApiStatus.CLIENT_ERROR.getResultCode(), "error.feed.not_found"));
+        ActivityFeed feed =
+                activityFeedRepository
+                        .findById(id)
+                        .orElseThrow(
+                                () ->
+                                        new CustomException(
+                                                ApiStatus.CLIENT_ERROR.getResultCode(),
+                                                "error.feed.not_found"));
 
         log.info("Admin 피드 삭제: feedId={}, adminInfo={}, reason={}", id, adminInfo, reason);
         activityFeedRepository.delete(feed);

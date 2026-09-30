@@ -38,8 +38,10 @@ public class TitleGrantAdminService {
         Long titleId = request.getTitleId();
 
         // 칭호 존재 확인
-        Title title = titleRepository.findById(titleId)
-            .orElseThrow(() -> new CustomException("404", "칭호를 찾을 수 없습니다: " + titleId));
+        Title title =
+                titleRepository
+                        .findById(titleId)
+                        .orElseThrow(() -> new CustomException("404", "칭호를 찾을 수 없습니다: " + titleId));
 
         // 이미 보유 여부 확인
         if (userTitleRepository.existsByUserIdAndTitleId(userId, titleId)) {
@@ -47,13 +49,14 @@ public class TitleGrantAdminService {
         }
 
         // 칭호 부여
-        UserTitle userTitle = UserTitle.builder()
-            .userId(userId)
-            .title(title)
-            .acquiredAt(LocalDateTime.now())
-            .grantedBy(adminId)
-            .grantReason(request.getReason())
-            .build();
+        UserTitle userTitle =
+                UserTitle.builder()
+                        .userId(userId)
+                        .title(title)
+                        .acquiredAt(LocalDateTime.now())
+                        .grantedBy(adminId)
+                        .grantReason(request.getReason())
+                        .build();
 
         UserTitle saved = userTitleRepository.save(userTitle);
         log.info("관리자 칭호 부여: userId={}, titleId={}, adminId={}", userId, titleId, adminId);
@@ -64,37 +67,43 @@ public class TitleGrantAdminService {
 
     @Transactional(transactionManager = "gamificationTransactionManager")
     public void revokeTitle(Long userTitleId, Long adminId) {
-        UserTitle userTitle = userTitleRepository.findById(userTitleId)
-            .orElseThrow(() -> new CustomException("404", "부여된 칭호를 찾을 수 없습니다: " + userTitleId));
+        UserTitle userTitle =
+                userTitleRepository
+                        .findById(userTitleId)
+                        .orElseThrow(
+                                () ->
+                                        new CustomException(
+                                                "404", "부여된 칭호를 찾을 수 없습니다: " + userTitleId));
 
-        log.info("관리자 칭호 회수: userTitleId={}, userId={}, titleName={}, adminId={}",
-            userTitleId, userTitle.getUserId(), userTitle.getTitle().getName(), adminId);
+        log.info(
+                "관리자 칭호 회수: userTitleId={}, userId={}, titleName={}, adminId={}",
+                userTitleId,
+                userTitle.getUserId(),
+                userTitle.getTitle().getName(),
+                adminId);
 
         userTitleRepository.delete(userTitle);
     }
 
     public TitleGrantAdminPageResponse getGrantHistory(String keyword, int page, int size) {
-        PageRequest pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "acquiredAt"));
+        PageRequest pageable =
+                PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "acquiredAt"));
         Page<UserTitle> grantPage = userTitleRepository.findGrantHistory(keyword, pageable);
 
         // 사용자 닉네임 배치 조회
-        List<String> userIds = grantPage.getContent().stream()
-            .map(UserTitle::getUserId)
-            .distinct()
-            .toList();
+        List<String> userIds =
+                grantPage.getContent().stream().map(UserTitle::getUserId).distinct().toList();
         Map<String, String> nicknameMap = getUserNicknameMap(userIds);
 
-        Page<TitleGrantAdminResponse> responsePage = grantPage.map(
-            ut -> TitleGrantAdminResponse.from(ut, nicknameMap.get(ut.getUserId()))
-        );
+        Page<TitleGrantAdminResponse> responsePage =
+                grantPage.map(
+                        ut -> TitleGrantAdminResponse.from(ut, nicknameMap.get(ut.getUserId())));
 
         return TitleGrantAdminPageResponse.from(responsePage);
     }
 
     private String getUserNickname(String userId) {
-        return userRepository.findById(userId)
-            .map(Users::getNickname)
-            .orElse(null);
+        return userRepository.findById(userId).map(Users::getNickname).orElse(null);
     }
 
     private Map<String, String> getUserNicknameMap(List<String> userIds) {
@@ -102,6 +111,6 @@ public class TitleGrantAdminService {
             return Map.of();
         }
         return userRepository.findAllByIdIn(userIds).stream()
-            .collect(Collectors.toMap(Users::getId, Users::getNickname, (a, b) -> a));
+                .collect(Collectors.toMap(Users::getId, Users::getNickname, (a, b) -> a));
     }
 }

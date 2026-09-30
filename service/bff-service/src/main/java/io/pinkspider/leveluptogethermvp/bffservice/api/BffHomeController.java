@@ -1,5 +1,6 @@
 package io.pinkspider.leveluptogethermvp.bffservice.api;
 
+import io.pinkspider.global.annotation.CurrentUser;
 import io.pinkspider.global.api.ApiResult;
 import io.pinkspider.leveluptogethermvp.bffservice.api.dto.GuildDetailDataResponse;
 import io.pinkspider.leveluptogethermvp.bffservice.api.dto.GuildListDataResponse;
@@ -9,10 +10,9 @@ import io.pinkspider.leveluptogethermvp.bffservice.api.dto.MissionTodayDataRespo
 import io.pinkspider.leveluptogethermvp.bffservice.api.dto.UnifiedSearchResponse;
 import io.pinkspider.leveluptogethermvp.bffservice.application.BffGuildService;
 import io.pinkspider.leveluptogethermvp.bffservice.application.BffHomeService;
-import io.pinkspider.leveluptogethermvp.feedservice.domain.enums.FeedSearchType;
 import io.pinkspider.leveluptogethermvp.bffservice.application.BffMissionService;
 import io.pinkspider.leveluptogethermvp.bffservice.application.BffSearchService;
-import io.pinkspider.global.annotation.CurrentUser;
+import io.pinkspider.leveluptogethermvp.feedservice.domain.enums.FeedSearchType;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
@@ -23,10 +23,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-/**
- * BFF (Backend for Frontend) 컨트롤러
- * 여러 화면에 필요한 데이터를 한 번의 API 호출로 제공합니다.
- */
+/** BFF (Backend for Frontend) 컨트롤러 여러 화면에 필요한 데이터를 한 번의 API 호출로 제공합니다. */
 @RestController
 @RequestMapping("/api/v1/bff")
 @RequiredArgsConstructor
@@ -39,15 +36,11 @@ public class BffHomeController {
 
     /**
      * 홈 화면 데이터 조회 (BFF)
-     * <p>
-     * 다음 데이터를 한 번에 조회합니다:
-     * - 피드 목록 (페이징, 카테고리 필터)
-     * - 미션 카테고리 목록
-     * - 내 길드 목록
-     * - 공개 길드 목록 (카테고리 필터)
-     * - 활성 공지사항 목록
-     * <p>
-     * MVP 랭킹 데이터는 {@code GET /api/v1/bff/home/mvp}로 분리되었습니다. (QA-222)
+     *
+     * <p>다음 데이터를 한 번에 조회합니다: - 피드 목록 (페이징, 카테고리 필터) - 미션 카테고리 목록 - 내 길드 목록 - 공개 길드 목록 (카테고리 필터) -
+     * 활성 공지사항 목록
+     *
+     * <p>MVP 랭킹 데이터는 {@code GET /api/v1/bff/home/mvp}로 분리되었습니다. (QA-222)
      *
      * @param userId 인증된 사용자 ID
      * @param categoryId 카테고리 ID (선택적, null이면 전체)
@@ -60,26 +53,33 @@ public class BffHomeController {
      */
     @GetMapping("/home")
     public ResponseEntity<ApiResult<HomeDataResponse>> getHomeData(
-        @CurrentUser(required = false) String userId,
-        @RequestParam(required = false) Long categoryId,
-        @RequestParam(required = false) FeedSearchType feedSearchType,
-        @RequestParam(defaultValue = "0") int feedPage,
-        @RequestParam(defaultValue = "20") int feedSize,
-        @RequestParam(defaultValue = "5") int publicGuildSize,
-        @RequestHeader(value = HttpHeaders.ACCEPT_LANGUAGE, required = false) String acceptLanguage,
-        @RequestHeader(value = "X-Timezone", required = false) String timezone
-    ) {
-        HomeDataResponse response = bffHomeService.getHomeData(userId, categoryId, feedSearchType, feedPage, feedSize, publicGuildSize, acceptLanguage, timezone);
+            @CurrentUser(required = false) String userId,
+            @RequestParam(required = false) Long categoryId,
+            @RequestParam(required = false) FeedSearchType feedSearchType,
+            @RequestParam(defaultValue = "0") int feedPage,
+            @RequestParam(defaultValue = "20") int feedSize,
+            @RequestParam(defaultValue = "5") int publicGuildSize,
+            @RequestHeader(value = HttpHeaders.ACCEPT_LANGUAGE, required = false)
+                    String acceptLanguage,
+            @RequestHeader(value = "X-Timezone", required = false) String timezone) {
+        HomeDataResponse response =
+                bffHomeService.getHomeData(
+                        userId,
+                        categoryId,
+                        feedSearchType,
+                        feedPage,
+                        feedSize,
+                        publicGuildSize,
+                        acceptLanguage,
+                        timezone);
         return ResponseEntity.ok(ApiResult.<HomeDataResponse>builder().value(response).build());
     }
 
     /**
      * 홈 화면 MVP 섹션 데이터 조회 (BFF)
-     * <p>
-     * 홈 피드와 독립적으로 MVP 데이터만 조회합니다. (QA-222: 피드 탭 전환 시 MVP 재조회 방지)
-     * - 오늘의 플레이어 랭킹 (카테고리 필터)
-     * - MVP 길드 랭킹
-     * - 현재 시즌 정보 및 시즌 MVP 랭킹
+     *
+     * <p>홈 피드와 독립적으로 MVP 데이터만 조회합니다. (QA-222: 피드 탭 전환 시 MVP 재조회 방지) - 오늘의 플레이어 랭킹 (카테고리 필터) - MVP
+     * 길드 랭킹 - 현재 시즌 정보 및 시즌 MVP 랭킹
      *
      * @param categoryId 카테고리 ID (선택적, null이면 전체)
      * @param acceptLanguage Accept-Language 헤더 (다국어 지원)
@@ -88,22 +88,19 @@ public class BffHomeController {
      */
     @GetMapping("/home/mvp")
     public ResponseEntity<ApiResult<HomeMvpDataResponse>> getHomeMvpData(
-        @RequestParam(required = false) Long categoryId,
-        @RequestHeader(value = HttpHeaders.ACCEPT_LANGUAGE, required = false) String acceptLanguage,
-        @RequestHeader(value = "X-Timezone", required = false) String timezone
-    ) {
-        HomeMvpDataResponse response = bffHomeService.getHomeMvpData(categoryId, acceptLanguage, timezone);
+            @RequestParam(required = false) Long categoryId,
+            @RequestHeader(value = HttpHeaders.ACCEPT_LANGUAGE, required = false)
+                    String acceptLanguage,
+            @RequestHeader(value = "X-Timezone", required = false) String timezone) {
+        HomeMvpDataResponse response =
+                bffHomeService.getHomeMvpData(categoryId, acceptLanguage, timezone);
         return ResponseEntity.ok(ApiResult.<HomeMvpDataResponse>builder().value(response).build());
     }
 
     /**
      * 길드 상세 화면 데이터 조회 (BFF)
-     * <p>
-     * 다음 데이터를 한 번에 조회합니다:
-     * - 길드 상세 정보
-     * - 길드 멤버 목록
-     * - 길드 게시글 목록 (페이징)
-     * - 멤버 여부 및 역할
+     *
+     * <p>다음 데이터를 한 번에 조회합니다: - 길드 상세 정보 - 길드 멤버 목록 - 길드 게시글 목록 (페이징) - 멤버 여부 및 역할
      *
      * @param userId 인증된 사용자 ID
      * @param guildId 길드 ID
@@ -113,23 +110,21 @@ public class BffHomeController {
      */
     @GetMapping("/guild/{guildId}")
     public ResponseEntity<ApiResult<GuildDetailDataResponse>> getGuildDetail(
-        @CurrentUser(required = false) String userId,
-        @PathVariable Long guildId,
-        @RequestParam(defaultValue = "0") int postPage,
-        @RequestParam(defaultValue = "20") int postSize
-    ) {
-        GuildDetailDataResponse response = bffGuildService.getGuildDetail(guildId, userId, postPage, postSize);
-        return ResponseEntity.ok(ApiResult.<GuildDetailDataResponse>builder().value(response).build());
+            @CurrentUser(required = false) String userId,
+            @PathVariable Long guildId,
+            @RequestParam(defaultValue = "0") int postPage,
+            @RequestParam(defaultValue = "20") int postSize) {
+        GuildDetailDataResponse response =
+                bffGuildService.getGuildDetail(guildId, userId, postPage, postSize);
+        return ResponseEntity.ok(
+                ApiResult.<GuildDetailDataResponse>builder().value(response).build());
     }
 
     /**
      * 길드 목록 화면 데이터 조회 (BFF)
-     * <p>
-     * 다음 데이터를 한 번에 조회합니다:
-     * - 내 길드 목록
-     * - 추천 공개 길드 목록
-     * - 내 첫 번째 길드의 공지사항 (길드 가입 시)
-     * - 내 첫 번째 길드의 활동 피드 (길드 가입 시)
+     *
+     * <p>다음 데이터를 한 번에 조회합니다: - 내 길드 목록 - 추천 공개 길드 목록 - 내 첫 번째 길드의 공지사항 (길드 가입 시) - 내 첫 번째 길드의 활동 피드
+     * (길드 가입 시)
      *
      * @param userId 인증된 사용자 ID
      * @param recommendedGuildSize 추천 길드 조회 개수 (기본: 10)
@@ -138,44 +133,41 @@ public class BffHomeController {
      */
     @GetMapping("/guild/list")
     public ResponseEntity<ApiResult<GuildListDataResponse>> getGuildList(
-        @CurrentUser(required = false) String userId,
-        @RequestParam(defaultValue = "10") int recommendedGuildSize,
-        @RequestParam(defaultValue = "10") int activityFeedSize,
-        @RequestHeader(value = HttpHeaders.ACCEPT_LANGUAGE, required = false) String acceptLanguage
-    ) {
+            @CurrentUser(required = false) String userId,
+            @RequestParam(defaultValue = "10") int recommendedGuildSize,
+            @RequestParam(defaultValue = "10") int activityFeedSize,
+            @RequestHeader(value = HttpHeaders.ACCEPT_LANGUAGE, required = false)
+                    String acceptLanguage) {
         GuildListDataResponse response =
-            bffGuildService.getGuildList(userId, recommendedGuildSize, activityFeedSize, acceptLanguage);
-        return ResponseEntity.ok(ApiResult.<GuildListDataResponse>builder().value(response).build());
+                bffGuildService.getGuildList(
+                        userId, recommendedGuildSize, activityFeedSize, acceptLanguage);
+        return ResponseEntity.ok(
+                ApiResult.<GuildListDataResponse>builder().value(response).build());
     }
 
     /**
      * 오늘의 미션 화면 데이터 조회 (BFF)
-     * <p>
-     * 다음 데이터를 한 번에 조회합니다:
-     * - 내 미션 목록
-     * - 오늘의 미션 실행 현황
-     * - 완료/진행중/미완료 통계
+     *
+     * <p>다음 데이터를 한 번에 조회합니다: - 내 미션 목록 - 오늘의 미션 실행 현황 - 완료/진행중/미완료 통계
      *
      * @param userId 인증된 사용자 ID
      * @return MissionTodayDataResponse
      */
     @GetMapping("/mission/today")
     public ResponseEntity<ApiResult<MissionTodayDataResponse>> getTodayMissions(
-        @CurrentUser String userId,
-        @RequestHeader(value = HttpHeaders.ACCEPT_LANGUAGE, required = false) String acceptLanguage
-    ) {
-        MissionTodayDataResponse response = bffMissionService.getTodayMissions(userId, acceptLanguage);
-        return ResponseEntity.ok(ApiResult.<MissionTodayDataResponse>builder().value(response).build());
+            @CurrentUser String userId,
+            @RequestHeader(value = HttpHeaders.ACCEPT_LANGUAGE, required = false)
+                    String acceptLanguage) {
+        MissionTodayDataResponse response =
+                bffMissionService.getTodayMissions(userId, acceptLanguage);
+        return ResponseEntity.ok(
+                ApiResult.<MissionTodayDataResponse>builder().value(response).build());
     }
 
     /**
      * 통합 검색 (BFF)
-     * <p>
-     * 다음 항목들을 한 번에 검색합니다:
-     * - 피드 (제목 기준)
-     * - 미션 (제목, 설명 기준)
-     * - 사용자 (닉네임 기준)
-     * - 길드 (이름, 설명 기준)
+     *
+     * <p>다음 항목들을 한 번에 검색합니다: - 피드 (제목 기준) - 미션 (제목, 설명 기준) - 사용자 (닉네임 기준) - 길드 (이름, 설명 기준)
      *
      * @param keyword 검색 키워드 (2자 이상)
      * @param limit 각 타입별 최대 결과 수 (기본: 5)
@@ -183,10 +175,9 @@ public class BffHomeController {
      */
     @GetMapping("/search")
     public ResponseEntity<ApiResult<UnifiedSearchResponse>> search(
-        @RequestParam String keyword,
-        @RequestParam(defaultValue = "5") int limit
-    ) {
+            @RequestParam String keyword, @RequestParam(defaultValue = "5") int limit) {
         UnifiedSearchResponse response = bffSearchService.search(keyword, limit);
-        return ResponseEntity.ok(ApiResult.<UnifiedSearchResponse>builder().value(response).build());
+        return ResponseEntity.ok(
+                ApiResult.<UnifiedSearchResponse>builder().value(response).build());
     }
 }

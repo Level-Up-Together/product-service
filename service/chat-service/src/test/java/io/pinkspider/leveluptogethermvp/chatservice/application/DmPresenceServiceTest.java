@@ -21,11 +21,9 @@ import org.springframework.data.redis.core.ValueOperations;
 @ExtendWith(MockitoExtension.class)
 class DmPresenceServiceTest {
 
-    @Mock
-    private StringRedisTemplate stringRedisTemplate;
+    @Mock private StringRedisTemplate stringRedisTemplate;
 
-    @Mock
-    private ValueOperations<String, String> valueOperations;
+    @Mock private ValueOperations<String, String> valueOperations;
 
     private DmPresenceService presenceService;
 
@@ -110,8 +108,8 @@ class DmPresenceServiceTest {
     @DisplayName("markViewing은 Redis 장애 시 예외를 던지지 않는다")
     void markViewing_redisError_noThrow() {
         org.mockito.Mockito.doThrow(new RuntimeException("redis down"))
-            .when(valueOperations)
-            .set(anyString(), anyString(), any(Duration.class));
+                .when(valueOperations)
+                .set(anyString(), anyString(), any(Duration.class));
 
         presenceService.markViewing(USER_ID, 10L);
     }

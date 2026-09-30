@@ -1,12 +1,14 @@
 package io.pinkspider.leveluptogethermvp.userservice.unit.user.application;
 
+import io.pinkspider.global.enums.NotificationType;
 import io.pinkspider.global.exception.CustomException;
-import io.pinkspider.global.util.CryptoUtils;
 import io.pinkspider.global.facade.GamificationQueryFacade;
-import io.pinkspider.global.facade.dto.UserAchievementDto;
-import io.pinkspider.global.facade.dto.UserTitleDto;
 import io.pinkspider.global.facade.GuildQueryFacade;
+import io.pinkspider.global.facade.dto.UserAchievementDto;
 import io.pinkspider.global.facade.dto.UserGuildAdminInfo;
+import io.pinkspider.global.facade.dto.UserTitleDto;
+import io.pinkspider.global.util.CryptoUtils;
+import io.pinkspider.leveluptogethermvp.notificationservice.application.NotificationService;
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.dto.admin.BlacklistListItemAdminResponse;
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.dto.admin.UserAchievementAdminResponse;
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.dto.admin.UserAdminPageResponse;
@@ -14,17 +16,15 @@ import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.dto.admin.U
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.dto.admin.UserBlacklistAdminRequest;
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.dto.admin.UserBlacklistAdminResponse;
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.dto.admin.UserBlacklistPageAdminResponse;
-import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.dto.admin.UserSuspendFromReportRequest;
-import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.dto.admin.UserWarnFromReportRequest;
-import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.dto.admin.UserWarnFromReportResponse;
-import io.pinkspider.leveluptogethermvp.notificationservice.application.NotificationService;
-import io.pinkspider.global.enums.NotificationType;
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.dto.admin.UserBriefAdminResponse;
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.dto.admin.UserDetailAdminResponse;
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.dto.admin.UserGuildInfoAdminResponse;
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.dto.admin.UserStatisticsAdminResponse;
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.dto.admin.UserStatisticsAdminResponse.DailyCountDto;
+import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.dto.admin.UserSuspendFromReportRequest;
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.dto.admin.UserTitleAdminResponse;
+import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.dto.admin.UserWarnFromReportRequest;
+import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.dto.admin.UserWarnFromReportResponse;
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.entity.UserBlacklist;
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.entity.Users;
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.enums.BlacklistType;
@@ -41,7 +41,6 @@ import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
@@ -62,12 +61,17 @@ public class UserAdminInternalService {
     // ========== 유저 검색/조회 ==========
 
     @Transactional(readOnly = true, transactionManager = "userTransactionManager")
-    public UserAdminPageResponse searchUsers(String keyword, String provider,
-                                              int page, int size, String sortBy, String sortDirection) {
-        Sort sort = Sort.by(
-            Sort.Direction.fromString(sortDirection != null ? sortDirection : "DESC"),
-            sortBy != null ? sortBy : "createdAt"
-        );
+    public UserAdminPageResponse searchUsers(
+            String keyword,
+            String provider,
+            int page,
+            int size,
+            String sortBy,
+            String sortDirection) {
+        Sort sort =
+                Sort.by(
+                        Sort.Direction.fromString(sortDirection != null ? sortDirection : "DESC"),
+                        sortBy != null ? sortBy : "createdAt");
         Pageable pageable = PageRequest.of(page, size, sort);
 
         Page<Users> userPage = userRepository.searchUsersForAdmin(keyword, provider, pageable);
@@ -77,16 +81,20 @@ public class UserAdminInternalService {
 
     @Transactional(readOnly = true, transactionManager = "userTransactionManager")
     public UserAdminResponse getUser(String userId) {
-        Users user = userRepository.findById(userId)
-            .orElseThrow(() -> new CustomException("404", "error.user.not_found"));
+        Users user =
+                userRepository
+                        .findById(userId)
+                        .orElseThrow(() -> new CustomException("404", "error.user.not_found"));
         return UserAdminResponse.from(user);
     }
 
     @Transactional(readOnly = true, transactionManager = "userTransactionManager")
     public UserAdminResponse getUserByEmail(String email) {
         String encryptedEmail = CryptoUtils.encryptAes(email);
-        Users user = userRepository.findByEncryptedEmail(encryptedEmail)
-            .orElseThrow(() -> new CustomException("404", "error.user.not_found"));
+        Users user =
+                userRepository
+                        .findByEncryptedEmail(encryptedEmail)
+                        .orElseThrow(() -> new CustomException("404", "error.user.not_found"));
         return UserAdminResponse.from(user);
     }
 
@@ -94,57 +102,65 @@ public class UserAdminInternalService {
 
     @Transactional(readOnly = true, transactionManager = "userTransactionManager")
     public UserDetailAdminResponse getUserDetail(String userId) {
-        Users user = userRepository.findById(userId)
-            .orElseThrow(() -> new CustomException("404", "error.user.not_found"));
+        Users user =
+                userRepository
+                        .findById(userId)
+                        .orElseThrow(() -> new CustomException("404", "error.user.not_found"));
 
         // QA-113 / QA-116: 업적 동기화는 호출 비용이 크므로(전체 Strategy 평가 + autoClaim) 비동기로 트리거.
         // 어드민 화면은 첫 로딩 시 stale 데이터를 보여줄 수 있으나, 잠시 후 새로고침하면 갱신된 값을 본다.
         // achievement_sync_succeeded=false 는 "이번 요청은 stale 가능성이 있고 백그라운드에서 sync가
         // 진행됨"을 의미한다. 동기 호출은 admin-service Feign read-timeout(5s) 를 초과해 500을 유발.
         LocalDateTime achievementSyncedAt = LocalDateTime.now();
-        java.util.concurrent.CompletableFuture.runAsync(() -> {
-            try {
-                gamificationQueryFacadeService.syncUserAchievements(userId);
-            } catch (Exception e) {
-                log.warn("어드민 상세 조회 비동기 sync 실패: userId={}, error={}", userId, e.getMessage(), e);
-            }
-        });
+        java.util.concurrent.CompletableFuture.runAsync(
+                () -> {
+                    try {
+                        gamificationQueryFacadeService.syncUserAchievements(userId);
+                    } catch (Exception e) {
+                        log.warn(
+                                "어드민 상세 조회 비동기 sync 실패: userId={}, error={}",
+                                userId,
+                                e.getMessage(),
+                                e);
+                    }
+                });
         boolean achievementSyncSucceeded = false;
 
         List<UserTitleAdminResponse> titles = buildTitleResponses(userId);
         List<UserAchievementAdminResponse> achievements = buildAchievementResponses(userId);
-        List<UserBlacklistAdminResponse> blacklistHistory = userBlacklistRepository
-            .findAllByUserIdOrderByCreatedAtDesc(userId).stream()
-            .map(UserBlacklistAdminResponse::from)
-            .toList();
+        List<UserBlacklistAdminResponse> blacklistHistory =
+                userBlacklistRepository.findAllByUserIdOrderByCreatedAtDesc(userId).stream()
+                        .map(UserBlacklistAdminResponse::from)
+                        .toList();
 
-        UserBlacklistAdminResponse activeBlacklist = blacklistHistory.stream()
-            .filter(b -> Boolean.TRUE.equals(b.isActive()))
-            .findFirst()
-            .orElse(null);
+        UserBlacklistAdminResponse activeBlacklist =
+                blacklistHistory.stream()
+                        .filter(b -> Boolean.TRUE.equals(b.isActive()))
+                        .findFirst()
+                        .orElse(null);
 
         return UserDetailAdminResponse.builder()
-            .id(user.getId())
-            .nickname(user.getNickname())
-            .email(user.getEmail())
-            .picture(user.getPicture())
-            .provider(user.getProvider())
-            .status(user.getStatus() != null ? user.getStatus().name() : null)
-            .lastLoginIp(user.getLastLoginIp())
-            .lastLoginCountry(user.getLastLoginCountry())
-            .lastLoginCountryCode(user.getLastLoginCountryCode())
-            .lastLoginAt(user.getLastLoginAt())
-            .warningCount(user.getWarningCount())
-            .suspensionCount(user.getSuspensionCount())
-            .createdAt(user.getCreatedAt())
-            .modifiedAt(user.getModifiedAt())
-            .titles(titles)
-            .achievements(achievements)
-            .achievementSyncedAt(achievementSyncedAt)
-            .achievementSyncSucceeded(achievementSyncSucceeded)
-            .blacklistHistory(blacklistHistory)
-            .activeBlacklist(activeBlacklist)
-            .build();
+                .id(user.getId())
+                .nickname(user.getNickname())
+                .email(user.getEmail())
+                .picture(user.getPicture())
+                .provider(user.getProvider())
+                .status(user.getStatus() != null ? user.getStatus().name() : null)
+                .lastLoginIp(user.getLastLoginIp())
+                .lastLoginCountry(user.getLastLoginCountry())
+                .lastLoginCountryCode(user.getLastLoginCountryCode())
+                .lastLoginAt(user.getLastLoginAt())
+                .warningCount(user.getWarningCount())
+                .suspensionCount(user.getSuspensionCount())
+                .createdAt(user.getCreatedAt())
+                .modifiedAt(user.getModifiedAt())
+                .titles(titles)
+                .achievements(achievements)
+                .achievementSyncedAt(achievementSyncedAt)
+                .achievementSyncSucceeded(achievementSyncSucceeded)
+                .blacklistHistory(blacklistHistory)
+                .activeBlacklist(activeBlacklist)
+                .build();
     }
 
     // ========== 칭호/업적/길드 개별 조회 ==========
@@ -161,13 +177,18 @@ public class UserAdminInternalService {
             throw new CustomException("404", "error.user.not_found");
         }
         // QA-113 / QA-116: sync 는 비동기로 트리거하고 즉시 현재 값 반환 (호출 비용 큼).
-        java.util.concurrent.CompletableFuture.runAsync(() -> {
-            try {
-                gamificationQueryFacadeService.syncUserAchievements(userId);
-            } catch (Exception e) {
-                log.warn("어드민 업적 조회 비동기 sync 실패: userId={}, error={}", userId, e.getMessage(), e);
-            }
-        });
+        java.util.concurrent.CompletableFuture.runAsync(
+                () -> {
+                    try {
+                        gamificationQueryFacadeService.syncUserAchievements(userId);
+                    } catch (Exception e) {
+                        log.warn(
+                                "어드민 업적 조회 비동기 sync 실패: userId={}, error={}",
+                                userId,
+                                e.getMessage(),
+                                e);
+                    }
+                });
         return buildAchievementResponses(userId);
     }
 
@@ -177,15 +198,15 @@ public class UserAdminInternalService {
             return null;
         }
         return UserGuildInfoAdminResponse.builder()
-            .guildId(info.guildId())
-            .guildName(info.guildName())
-            .guildImageUrl(info.guildImageUrl())
-            .guildLevel(info.guildLevel())
-            .role(info.role())
-            .joinedAt(info.joinedAt())
-            .memberCount(info.memberCount())
-            .maxMembers(info.maxMembers())
-            .build();
+                .guildId(info.guildId())
+                .guildName(info.guildName())
+                .guildImageUrl(info.guildImageUrl())
+                .guildLevel(info.guildLevel())
+                .role(info.role())
+                .joinedAt(info.joinedAt())
+                .memberCount(info.memberCount())
+                .maxMembers(info.maxMembers())
+                .build();
     }
 
     // ========== 통계 ==========
@@ -208,136 +229,168 @@ public class UserAdminInternalService {
         }
 
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd");
-        List<DailyCountDto> dailyNewUsers = userRepository.countDailyNewUsers(startOfMonth, now).stream()
-            .map(row -> DailyCountDto.builder()
-                .date(row[0] instanceof LocalDate ? ((LocalDate) row[0]).format(formatter) : row[0].toString())
-                .count((Long) row[1])
-                .build())
-            .toList();
+        List<DailyCountDto> dailyNewUsers =
+                userRepository.countDailyNewUsers(startOfMonth, now).stream()
+                        .map(
+                                row ->
+                                        DailyCountDto.builder()
+                                                .date(
+                                                        row[0] instanceof LocalDate
+                                                                ? ((LocalDate) row[0])
+                                                                        .format(formatter)
+                                                                : row[0].toString())
+                                                .count((Long) row[1])
+                                                .build())
+                        .toList();
 
         return UserStatisticsAdminResponse.builder()
-            .totalUsers(totalUsers)
-            .newUsersToday(newUsersToday)
-            .newUsersThisWeek(newUsersThisWeek)
-            .newUsersThisMonth(newUsersThisMonth)
-            .usersByProvider(usersByProvider)
-            .dailyNewUsers(dailyNewUsers)
-            .build();
+                .totalUsers(totalUsers)
+                .newUsersToday(newUsersToday)
+                .newUsersThisWeek(newUsersThisWeek)
+                .newUsersThisMonth(newUsersThisMonth)
+                .usersByProvider(usersByProvider)
+                .dailyNewUsers(dailyNewUsers)
+                .build();
     }
 
     // ========== 프로필 초기화 ==========
 
     @Transactional(transactionManager = "userTransactionManager")
     public UserAdminResponse resetProfileImage(String userId, String reason) {
-        Users user = userRepository.findById(userId)
-            .orElseThrow(() -> new CustomException("404", "error.user.not_found"));
+        Users user =
+                userRepository
+                        .findById(userId)
+                        .orElseThrow(() -> new CustomException("404", "error.user.not_found"));
 
         String previousPicture = user.getPicture();
         user.updatePicture(null);
         userRepository.save(user);
 
-        log.info("프로필 이미지 초기화 - userId: {}, previousPicture: {}, reason: {}",
-            userId, previousPicture, reason);
+        log.info(
+                "프로필 이미지 초기화 - userId: {}, previousPicture: {}, reason: {}",
+                userId,
+                previousPicture,
+                reason);
         return UserAdminResponse.from(user);
     }
 
     // ========== 블랙리스트 ==========
 
     @Transactional(transactionManager = "userTransactionManager")
-    public UserBlacklistAdminResponse addToBlacklist(String userId, UserBlacklistAdminRequest request) {
-        Users user = userRepository.findById(userId)
-            .orElseThrow(() -> new CustomException("404", "error.user.not_found"));
+    public UserBlacklistAdminResponse addToBlacklist(
+            String userId, UserBlacklistAdminRequest request) {
+        Users user =
+                userRepository
+                        .findById(userId)
+                        .orElseThrow(() -> new CustomException("404", "error.user.not_found"));
 
         BlacklistType type = BlacklistType.valueOf(request.blacklistType());
 
         if (type == BlacklistType.SUSPENSION && request.endedAt() == null) {
             throw new CustomException("400", "기간 정지의 경우 종료 일시가 필요합니다.");
         }
-        if (type == BlacklistType.SUSPENSION && request.endedAt() != null
-            && request.endedAt().isBefore(LocalDateTime.now())) {
+        if (type == BlacklistType.SUSPENSION
+                && request.endedAt() != null
+                && request.endedAt().isBefore(LocalDateTime.now())) {
             throw new CustomException("400", "종료 일시는 현재보다 미래여야 합니다.");
         }
 
         userBlacklistRepository.deactivateAllByUserId(userId);
 
-        UserBlacklist blacklist = UserBlacklist.builder()
-            .userId(userId)
-            .blacklistType(type)
-            .reason(request.reason())
-            .adminId(request.adminId())
-            .startedAt(LocalDateTime.now())
-            .endedAt(type == BlacklistType.SUSPENSION ? request.endedAt() : null)
-            .isActive(true)
-            .build();
+        UserBlacklist blacklist =
+                UserBlacklist.builder()
+                        .userId(userId)
+                        .blacklistType(type)
+                        .reason(request.reason())
+                        .adminId(request.adminId())
+                        .startedAt(LocalDateTime.now())
+                        .endedAt(type == BlacklistType.SUSPENSION ? request.endedAt() : null)
+                        .isActive(true)
+                        .build();
         userBlacklistRepository.save(blacklist);
 
-        user.updateStatus(type == BlacklistType.PERMANENT_BAN
-            ? UserStatus.PERMANENTLY_BANNED
-            : UserStatus.SUSPENDED);
+        user.updateStatus(
+                type == BlacklistType.PERMANENT_BAN
+                        ? UserStatus.PERMANENTLY_BANNED
+                        : UserStatus.SUSPENDED);
         userRepository.save(user);
 
-        log.info("사용자 블랙리스트 추가 - userId: {}, type: {}, reason: {}, adminId: {}",
-            userId, type, request.reason(), request.adminId());
+        log.info(
+                "사용자 블랙리스트 추가 - userId: {}, type: {}, reason: {}, adminId: {}",
+                userId,
+                type,
+                request.reason(),
+                request.adminId());
         return UserBlacklistAdminResponse.from(blacklist);
     }
 
     /**
-     * 신고 처리(USER_SUSPENDED 액션)로 사용자를 정지시킨다.
-     * - suspension_count 증가
-     * - 누적이 permanentBanThreshold 이상이면 PERMANENT_BAN, 아니면 SUSPENSION(durationDays일)
+     * 신고 처리(USER_SUSPENDED 액션)로 사용자를 정지시킨다. - suspension_count 증가 - 누적이 permanentBanThreshold 이상이면
+     * PERMANENT_BAN, 아니면 SUSPENSION(durationDays일)
      */
     @Transactional(transactionManager = "userTransactionManager")
-    public UserBlacklistAdminResponse suspendFromReport(String userId, UserSuspendFromReportRequest request) {
-        Users user = userRepository.findById(userId)
-            .orElseThrow(() -> new CustomException("404", "error.user.not_found"));
+    public UserBlacklistAdminResponse suspendFromReport(
+            String userId, UserSuspendFromReportRequest request) {
+        Users user =
+                userRepository
+                        .findById(userId)
+                        .orElseThrow(() -> new CustomException("404", "error.user.not_found"));
 
         int newCount = user.incrementSuspensionCount();
         userRepository.save(user);
 
         boolean isPermanent = newCount >= request.permanentBanThreshold();
         BlacklistType type = isPermanent ? BlacklistType.PERMANENT_BAN : BlacklistType.SUSPENSION;
-        LocalDateTime endedAt = isPermanent
-            ? null
-            : LocalDateTime.now().plusDays(request.durationDays());
+        LocalDateTime endedAt =
+                isPermanent ? null : LocalDateTime.now().plusDays(request.durationDays());
 
         userBlacklistRepository.deactivateAllByUserId(userId);
-        UserBlacklist blacklist = UserBlacklist.builder()
-            .userId(userId)
-            .blacklistType(type)
-            .reason(request.reason())
-            .adminId(request.adminId())
-            .startedAt(LocalDateTime.now())
-            .endedAt(endedAt)
-            .isActive(true)
-            .build();
+        UserBlacklist blacklist =
+                UserBlacklist.builder()
+                        .userId(userId)
+                        .blacklistType(type)
+                        .reason(request.reason())
+                        .adminId(request.adminId())
+                        .startedAt(LocalDateTime.now())
+                        .endedAt(endedAt)
+                        .isActive(true)
+                        .build();
         userBlacklistRepository.save(blacklist);
 
         user.updateStatus(isPermanent ? UserStatus.PERMANENTLY_BANNED : UserStatus.SUSPENDED);
         userRepository.save(user);
 
-        log.info("신고 처리: 사용자 정지 - userId={}, type={}, suspensionCount={}, adminId={}",
-            userId, type, newCount, request.adminId());
+        log.info(
+                "신고 처리: 사용자 정지 - userId={}, type={}, suspensionCount={}, adminId={}",
+                userId,
+                type,
+                newCount,
+                request.adminId());
 
         // 사용자 알림 발송 (영구강퇴/일시정지 분기)
         notificationService.sendNotification(
-            userId,
-            isPermanent ? NotificationType.REPORT_PERMANENTLY_BANNED : NotificationType.REPORT_SUSPENDED,
-            null, null, newCount
-        );
+                userId,
+                isPermanent
+                        ? NotificationType.REPORT_PERMANENTLY_BANNED
+                        : NotificationType.REPORT_SUSPENDED,
+                null,
+                null,
+                newCount);
 
         return UserBlacklistAdminResponse.from(blacklist);
     }
 
     /**
-     * 신고 처리(WARNING 액션)로 사용자에게 경고를 부여한다.
-     * - warning_count 증가
-     * - 누적이 suspensionThreshold 이상이면 자동으로 USER_SUSPENDED로 전환 (warning_count 리셋)
-     * - 외 경우는 경고 알림만 발송
+     * 신고 처리(WARNING 액션)로 사용자에게 경고를 부여한다. - warning_count 증가 - 누적이 suspensionThreshold 이상이면 자동으로
+     * USER_SUSPENDED로 전환 (warning_count 리셋) - 외 경우는 경고 알림만 발송
      */
     @Transactional(transactionManager = "userTransactionManager")
-    public UserWarnFromReportResponse warnFromReport(String userId, UserWarnFromReportRequest request) {
-        Users user = userRepository.findById(userId)
-            .orElseThrow(() -> new CustomException("404", "error.user.not_found"));
+    public UserWarnFromReportResponse warnFromReport(
+            String userId, UserWarnFromReportRequest request) {
+        Users user =
+                userRepository
+                        .findById(userId)
+                        .orElseThrow(() -> new CustomException("404", "error.user.not_found"));
 
         int newWarningCount = user.incrementWarningCount();
 
@@ -346,14 +399,14 @@ public class UserAdminInternalService {
             user.resetWarningCount();
             userRepository.save(user);
 
-            UserBlacklistAdminResponse blacklist = suspendFromReport(userId,
-                new UserSuspendFromReportRequest(
-                    request.reason(),
-                    request.adminId(),
-                    request.suspensionDays(),
-                    request.permanentBanThreshold()
-                )
-            );
+            UserBlacklistAdminResponse blacklist =
+                    suspendFromReport(
+                            userId,
+                            new UserSuspendFromReportRequest(
+                                    request.reason(),
+                                    request.adminId(),
+                                    request.suspensionDays(),
+                                    request.permanentBanThreshold()));
             log.info("신고 처리: 경고 누적 → 자동 정지 전환 - userId={}, adminId={}", userId, request.adminId());
             return UserWarnFromReportResponse.escalated(blacklist);
         }
@@ -361,20 +414,22 @@ public class UserAdminInternalService {
         userRepository.save(user);
 
         notificationService.sendNotification(
-            userId,
-            NotificationType.REPORT_WARNING_RECEIVED,
-            null, null, newWarningCount
-        );
+                userId, NotificationType.REPORT_WARNING_RECEIVED, null, null, newWarningCount);
 
-        log.info("신고 처리: 사용자 경고 - userId={}, warningCount={}, adminId={}",
-            userId, newWarningCount, request.adminId());
+        log.info(
+                "신고 처리: 사용자 경고 - userId={}, warningCount={}, adminId={}",
+                userId,
+                newWarningCount,
+                request.adminId());
         return UserWarnFromReportResponse.warningOnly(newWarningCount);
     }
 
     @Transactional(transactionManager = "userTransactionManager")
     public void removeFromBlacklist(String userId, Long adminId, String reason) {
-        Users user = userRepository.findById(userId)
-            .orElseThrow(() -> new CustomException("404", "error.user.not_found"));
+        Users user =
+                userRepository
+                        .findById(userId)
+                        .orElseThrow(() -> new CustomException("404", "error.user.not_found"));
 
         int deactivated = userBlacklistRepository.deactivateAllByUserId(userId);
         if (deactivated == 0) {
@@ -393,15 +448,18 @@ public class UserAdminInternalService {
             throw new CustomException("404", "error.user.not_found");
         }
         return userBlacklistRepository.findAllByUserIdOrderByCreatedAtDesc(userId).stream()
-            .map(UserBlacklistAdminResponse::from)
-            .toList();
+                .map(UserBlacklistAdminResponse::from)
+                .toList();
     }
 
     @Transactional(readOnly = true, transactionManager = "userTransactionManager")
     public UserBlacklistPageAdminResponse getBlacklistList(
-            String blacklistType, Boolean activeOnly,
-            LocalDateTime startDate, LocalDateTime endDate,
-            int page, int size) {
+            String blacklistType,
+            Boolean activeOnly,
+            LocalDateTime startDate,
+            LocalDateTime endDate,
+            int page,
+            int size) {
 
         Pageable pageable = PageRequest.of(page, size);
         BlacklistType type = blacklistType != null ? BlacklistType.valueOf(blacklistType) : null;
@@ -411,38 +469,56 @@ public class UserAdminInternalService {
 
         if (Boolean.TRUE.equals(activeOnly)) {
             if (hasDateFilter) {
-                blacklistPage = type != null
-                    ? userBlacklistRepository.findByStartedAtBetweenAndBlacklistTypeAndIsActiveTrue(startDate, endDate, type, pageable)
-                    : userBlacklistRepository.findByStartedAtBetweenAndIsActiveTrue(startDate, endDate, pageable);
+                blacklistPage =
+                        type != null
+                                ? userBlacklistRepository
+                                        .findByStartedAtBetweenAndBlacklistTypeAndIsActiveTrue(
+                                                startDate, endDate, type, pageable)
+                                : userBlacklistRepository.findByStartedAtBetweenAndIsActiveTrue(
+                                        startDate, endDate, pageable);
             } else {
-                blacklistPage = type != null
-                    ? userBlacklistRepository.findAllByIsActiveTrueAndBlacklistTypeOrderByCreatedAtDesc(type, pageable)
-                    : userBlacklistRepository.findAllByIsActiveTrueOrderByCreatedAtDesc(pageable);
+                blacklistPage =
+                        type != null
+                                ? userBlacklistRepository
+                                        .findAllByIsActiveTrueAndBlacklistTypeOrderByCreatedAtDesc(
+                                                type, pageable)
+                                : userBlacklistRepository.findAllByIsActiveTrueOrderByCreatedAtDesc(
+                                        pageable);
             }
         } else {
-            blacklistPage = hasDateFilter
-                ? userBlacklistRepository.findByStartedAtBetween(startDate, endDate, pageable)
-                : userBlacklistRepository.findAllByOrderByCreatedAtDesc(pageable);
+            blacklistPage =
+                    hasDateFilter
+                            ? userBlacklistRepository.findByStartedAtBetween(
+                                    startDate, endDate, pageable)
+                            : userBlacklistRepository.findAllByOrderByCreatedAtDesc(pageable);
         }
 
-        List<String> userIds = blacklistPage.getContent().stream()
-            .map(UserBlacklist::getUserId).distinct().toList();
-        Map<String, Users> userMap = userRepository.findAllByIdIn(userIds).stream()
-            .collect(Collectors.toMap(Users::getId, u -> u));
+        List<String> userIds =
+                blacklistPage.getContent().stream()
+                        .map(UserBlacklist::getUserId)
+                        .distinct()
+                        .toList();
+        Map<String, Users> userMap =
+                userRepository.findAllByIdIn(userIds).stream()
+                        .collect(Collectors.toMap(Users::getId, u -> u));
 
-        List<BlacklistListItemAdminResponse> content = blacklistPage.getContent().stream()
-            .map(b -> BlacklistListItemAdminResponse.from(b, userMap.get(b.getUserId())))
-            .toList();
+        List<BlacklistListItemAdminResponse> content =
+                blacklistPage.getContent().stream()
+                        .map(
+                                b ->
+                                        BlacklistListItemAdminResponse.from(
+                                                b, userMap.get(b.getUserId())))
+                        .toList();
 
         return UserBlacklistPageAdminResponse.builder()
-            .content(content)
-            .page(blacklistPage.getNumber())
-            .size(blacklistPage.getSize())
-            .totalElements(blacklistPage.getTotalElements())
-            .totalPages(blacklistPage.getTotalPages())
-            .first(blacklistPage.isFirst())
-            .last(blacklistPage.isLast())
-            .build();
+                .content(content)
+                .page(blacklistPage.getNumber())
+                .size(blacklistPage.getSize())
+                .totalElements(blacklistPage.getTotalElements())
+                .totalPages(blacklistPage.getTotalPages())
+                .first(blacklistPage.isFirst())
+                .last(blacklistPage.isLast())
+                .build();
     }
 
     // ========== 배치 유저 정보 ==========
@@ -450,45 +526,59 @@ public class UserAdminInternalService {
     @Transactional(readOnly = true, transactionManager = "userTransactionManager")
     public Map<String, UserBriefAdminResponse> getUsersByIds(List<String> userIds) {
         return userRepository.findAllByIdIn(userIds).stream()
-            .collect(Collectors.toMap(Users::getId, UserBriefAdminResponse::from));
+                .collect(Collectors.toMap(Users::getId, UserBriefAdminResponse::from));
     }
 
     // ========== private helpers ==========
 
     private List<UserTitleAdminResponse> buildTitleResponses(String userId) {
-        List<UserTitleDto> titles = gamificationQueryFacadeService.getUserTitlesWithTitleInfo(userId);
+        List<UserTitleDto> titles =
+                gamificationQueryFacadeService.getUserTitlesWithTitleInfo(userId);
         return titles.stream()
-            .map(ut -> UserTitleAdminResponse.builder()
-                .id(ut.id())
-                .titleId(ut.titleId())
-                .titleName(ut.titleName())
-                .titleRarity(ut.titleRarity() != null ? ut.titleRarity().name() : null)
-                .titlePositionType(ut.titlePositionType() != null ? ut.titlePositionType().name() : null)
-                .titleColorCode(ut.titleColorCode())
-                .acquiredAt(ut.acquiredAt())
-                .isEquipped(ut.isEquipped())
-                .equippedPosition(ut.equippedPosition() != null
-                    ? ut.equippedPosition().name() : null)
-                .build())
-            .toList();
+                .map(
+                        ut ->
+                                UserTitleAdminResponse.builder()
+                                        .id(ut.id())
+                                        .titleId(ut.titleId())
+                                        .titleName(ut.titleName())
+                                        .titleRarity(
+                                                ut.titleRarity() != null
+                                                        ? ut.titleRarity().name()
+                                                        : null)
+                                        .titlePositionType(
+                                                ut.titlePositionType() != null
+                                                        ? ut.titlePositionType().name()
+                                                        : null)
+                                        .titleColorCode(ut.titleColorCode())
+                                        .acquiredAt(ut.acquiredAt())
+                                        .isEquipped(ut.isEquipped())
+                                        .equippedPosition(
+                                                ut.equippedPosition() != null
+                                                        ? ut.equippedPosition().name()
+                                                        : null)
+                                        .build())
+                .toList();
     }
 
     private List<UserAchievementAdminResponse> buildAchievementResponses(String userId) {
-        List<UserAchievementDto> achievements = gamificationQueryFacadeService.getUserAchievements(userId);
+        List<UserAchievementDto> achievements =
+                gamificationQueryFacadeService.getUserAchievements(userId);
         return achievements.stream()
-            .map(ua -> UserAchievementAdminResponse.builder()
-                .id(ua.id())
-                .achievementId(ua.achievementId())
-                .achievementName(ua.name())
-                .achievementCategoryCode(ua.categoryCode())
-                .achievementIconUrl(ua.iconUrl())
-                .currentCount(ua.currentCount())
-                .requiredCount(ua.requiredCount())
-                .progressPercent(ua.progressPercent())
-                .isCompleted(ua.isCompleted())
-                .completedAt(ua.completedAt())
-                .isRewardClaimed(ua.isRewardClaimed())
-                .build())
-            .toList();
+                .map(
+                        ua ->
+                                UserAchievementAdminResponse.builder()
+                                        .id(ua.id())
+                                        .achievementId(ua.achievementId())
+                                        .achievementName(ua.name())
+                                        .achievementCategoryCode(ua.categoryCode())
+                                        .achievementIconUrl(ua.iconUrl())
+                                        .currentCount(ua.currentCount())
+                                        .requiredCount(ua.requiredCount())
+                                        .progressPercent(ua.progressPercent())
+                                        .isCompleted(ua.isCompleted())
+                                        .completedAt(ua.completedAt())
+                                        .isRewardClaimed(ua.isRewardClaimed())
+                                        .build())
+                .toList();
     }
 }

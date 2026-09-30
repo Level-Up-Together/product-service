@@ -40,11 +40,9 @@ class AppleWebhookServiceTest {
     private static final String KID = "test-kid";
     private static final String APPLE_SUB = "001234.abcdef";
 
-    @Mock
-    private UserRepository userRepository;
+    @Mock private UserRepository userRepository;
 
-    @Mock
-    private MyPageService myPageService;
+    @Mock private MyPageService myPageService;
 
     private OAuth2Properties oAuth2Properties;
     private AppleWebhookService appleWebhookService;
@@ -53,8 +51,9 @@ class AppleWebhookServiceTest {
     @BeforeEach
     void setUp() throws Exception {
         oAuth2Properties = new OAuth2Properties();
-        appleWebhookService = new AppleWebhookService(
-            oAuth2Properties, userRepository, myPageService, new ObjectMapper());
+        appleWebhookService =
+                new AppleWebhookService(
+                        oAuth2Properties, userRepository, myPageService, new ObjectMapper());
 
         // 실제 Apple JWKS 원격 조회 대신 테스트 키를 캐시에 주입 (서명 검증 경로는 그대로 탄다)
         rsaKey = new RSAKeyGenerator(2048).keyID(KID).generate();
@@ -69,38 +68,49 @@ class AppleWebhookServiceTest {
     }
 
     private String signedPayload(String issuer, String eventType, String sub) throws Exception {
-        String events = new ObjectMapper().writeValueAsString(Map.of(
-            "type", eventType,
-            "sub", sub,
-            "event_time", System.currentTimeMillis()));
-        JWTClaimsSet claims = new JWTClaimsSet.Builder()
-            .issuer(issuer)
-            .audience("com.level-up-together.dev")
-            .issueTime(new Date())
-            .claim("events", events)
-            .build();
-        SignedJWT jwt = new SignedJWT(
-            new JWSHeader.Builder(JWSAlgorithm.RS256).keyID(KID).type(JOSEObjectType.JWT).build(),
-            claims);
+        String events =
+                new ObjectMapper()
+                        .writeValueAsString(
+                                Map.of(
+                                        "type", eventType,
+                                        "sub", sub,
+                                        "event_time", System.currentTimeMillis()));
+        JWTClaimsSet claims =
+                new JWTClaimsSet.Builder()
+                        .issuer(issuer)
+                        .audience("com.level-up-together.dev")
+                        .issueTime(new Date())
+                        .claim("events", events)
+                        .build();
+        SignedJWT jwt =
+                new SignedJWT(
+                        new JWSHeader.Builder(JWSAlgorithm.RS256)
+                                .keyID(KID)
+                                .type(JOSEObjectType.JWT)
+                                .build(),
+                        claims);
         jwt.sign(new RSASSASigner(rsaKey));
         return jwt.serialize();
     }
 
     private Users appleUser() {
         return Users.builder()
-            .id("user-1").email("e").nickname("n")
-            .provider("apple").providerUserId(APPLE_SUB)
-            .build();
+                .id("user-1")
+                .email("e")
+                .nickname("n")
+                .provider("apple")
+                .providerUserId(APPLE_SUB)
+                .build();
     }
 
     @Test
     @DisplayName("consent-revoked 이벤트 수신 시 매핑된 계정을 탈퇴 처리한다")
     void consentRevoked_withdrawsMappedUser() throws Exception {
         when(userRepository.findActiveByProviderAndProviderUserId("apple", APPLE_SUB))
-            .thenReturn(Optional.of(appleUser()));
+                .thenReturn(Optional.of(appleUser()));
 
         appleWebhookService.handleNotification(
-            signedPayload(AppleWebhookService.APPLE_ISSUER, "consent-revoked", APPLE_SUB));
+                signedPayload(AppleWebhookService.APPLE_ISSUER, "consent-revoked", APPLE_SUB));
 
         verify(myPageService).withdrawUser("user-1");
     }
@@ -109,10 +119,10 @@ class AppleWebhookServiceTest {
     @DisplayName("account-delete 이벤트 수신 시 매핑된 계정을 탈퇴 처리한다")
     void accountDelete_withdrawsMappedUser() throws Exception {
         when(userRepository.findActiveByProviderAndProviderUserId("apple", APPLE_SUB))
-            .thenReturn(Optional.of(appleUser()));
+                .thenReturn(Optional.of(appleUser()));
 
         appleWebhookService.handleNotification(
-            signedPayload(AppleWebhookService.APPLE_ISSUER, "account-delete", APPLE_SUB));
+                signedPayload(AppleWebhookService.APPLE_ISSUER, "account-delete", APPLE_SUB));
 
         verify(myPageService).withdrawUser("user-1");
     }
@@ -121,7 +131,7 @@ class AppleWebhookServiceTest {
     @DisplayName("email-disabled 등 그 외 이벤트는 탈퇴 처리하지 않는다")
     void otherEvents_doNotWithdraw() throws Exception {
         appleWebhookService.handleNotification(
-            signedPayload(AppleWebhookService.APPLE_ISSUER, "email-disabled", APPLE_SUB));
+                signedPayload(AppleWebhookService.APPLE_ISSUER, "email-disabled", APPLE_SUB));
 
         verify(myPageService, never()).withdrawUser(anyString());
     }
@@ -130,11 +140,16 @@ class AppleWebhookServiceTest {
     @DisplayName("매핑되는 활성 사용자가 없으면(백필 전/기탈퇴) 예외 없이 지나간다")
     void unmappedSub_isNoOp() throws Exception {
         when(userRepository.findActiveByProviderAndProviderUserId("apple", APPLE_SUB))
-            .thenReturn(Optional.empty());
+                .thenReturn(Optional.empty());
 
-        assertThatCode(() -> appleWebhookService.handleNotification(
-            signedPayload(AppleWebhookService.APPLE_ISSUER, "consent-revoked", APPLE_SUB)))
-            .doesNotThrowAnyException();
+        assertThatCode(
+                        () ->
+                                appleWebhookService.handleNotification(
+                                        signedPayload(
+                                                AppleWebhookService.APPLE_ISSUER,
+                                                "consent-revoked",
+                                                APPLE_SUB)))
+                .doesNotThrowAnyException();
         verify(myPageService, never()).withdrawUser(anyString());
     }
 
@@ -144,8 +159,8 @@ class AppleWebhookServiceTest {
         String payload = signedPayload("https://evil.example.com", "consent-revoked", APPLE_SUB);
 
         assertThatThrownBy(() -> appleWebhookService.handleNotification(payload))
-            .isInstanceOf(CustomException.class)
-            .hasMessageContaining("error.apple.webhook.invalid_issuer");
+                .isInstanceOf(CustomException.class)
+                .hasMessageContaining("error.apple.webhook.invalid_issuer");
     }
 
     @Test
@@ -155,12 +170,13 @@ class AppleWebhookServiceTest {
         RSAKey otherKey = new RSAKeyGenerator(2048).keyID(KID).generate();
         RSAKey original = rsaKey;
         rsaKey = otherKey;
-        String payload = signedPayload(AppleWebhookService.APPLE_ISSUER, "consent-revoked", APPLE_SUB);
+        String payload =
+                signedPayload(AppleWebhookService.APPLE_ISSUER, "consent-revoked", APPLE_SUB);
         rsaKey = original;
 
         assertThatThrownBy(() -> appleWebhookService.handleNotification(payload))
-            .isInstanceOf(CustomException.class)
-            .hasMessageContaining("error.apple.webhook.invalid_signature");
+                .isInstanceOf(CustomException.class)
+                .hasMessageContaining("error.apple.webhook.invalid_signature");
     }
 
     @Test
@@ -168,21 +184,27 @@ class AppleWebhookServiceTest {
     void audienceMismatch_isRejectedWhenConfigured() throws Exception {
         oAuth2Properties.getAppleWebhook().setAudiences(List.of("com.level-up-together.prod"));
 
-        String payload = signedPayload(AppleWebhookService.APPLE_ISSUER, "consent-revoked", APPLE_SUB);
+        String payload =
+                signedPayload(AppleWebhookService.APPLE_ISSUER, "consent-revoked", APPLE_SUB);
 
         assertThatThrownBy(() -> appleWebhookService.handleNotification(payload))
-            .isInstanceOf(CustomException.class)
-            .hasMessageContaining("error.apple.webhook.invalid_audience");
+                .isInstanceOf(CustomException.class)
+                .hasMessageContaining("error.apple.webhook.invalid_audience");
     }
 
     @Test
     @DisplayName("audience 허용 목록이 비어 있으면 검증을 생략한다 (kakao appId 관례)")
     void emptyAudienceConfig_skipsCheck() throws Exception {
         when(userRepository.findActiveByProviderAndProviderUserId("apple", APPLE_SUB))
-            .thenReturn(Optional.of(appleUser()));
+                .thenReturn(Optional.of(appleUser()));
 
-        assertThatCode(() -> appleWebhookService.handleNotification(
-            signedPayload(AppleWebhookService.APPLE_ISSUER, "consent-revoked", APPLE_SUB)))
-            .doesNotThrowAnyException();
+        assertThatCode(
+                        () ->
+                                appleWebhookService.handleNotification(
+                                        signedPayload(
+                                                AppleWebhookService.APPLE_ISSUER,
+                                                "consent-revoked",
+                                                APPLE_SUB)))
+                .doesNotThrowAnyException();
     }
 }

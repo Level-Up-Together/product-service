@@ -1,7 +1,7 @@
 package io.pinkspider.leveluptogethermvp.guildservice.api;
 
-import io.pinkspider.global.api.ApiResult;
 import io.pinkspider.global.annotation.CurrentUser;
+import io.pinkspider.global.api.ApiResult;
 import io.pinkspider.leveluptogethermvp.guildservice.application.GuildPostService;
 import io.pinkspider.leveluptogethermvp.guildservice.domain.dto.GuildPostCommentCreateRequest;
 import io.pinkspider.leveluptogethermvp.guildservice.domain.dto.GuildPostCommentResponse;
@@ -42,127 +42,120 @@ public class GuildPostController {
     // 게시글 API
     // =====================================================
 
-    /**
-     * 게시글 작성
-     * - 공지글은 길드 마스터만 작성 가능
-     */
+    /** 게시글 작성 - 공지글은 길드 마스터만 작성 가능 */
     @PostMapping
     public ResponseEntity<ApiResult<GuildPostResponse>> createPost(
-        @PathVariable Long guildId,
-        @CurrentUser String userId,
-        @RequestHeader(value = "X-User-Nickname", required = false) String userNickname,
-        @Valid @RequestBody GuildPostCreateRequest request) {
+            @PathVariable Long guildId,
+            @CurrentUser String userId,
+            @RequestHeader(value = "X-User-Nickname", required = false) String userNickname,
+            @Valid @RequestBody GuildPostCreateRequest request) {
 
-        GuildPostResponse response = guildPostService.createPost(guildId, userId, userNickname, request);
+        GuildPostResponse response =
+                guildPostService.createPost(guildId, userId, userNickname, request);
         return ResponseEntity.ok(ApiResult.<GuildPostResponse>builder().value(response).build());
     }
 
-    /**
-     * 게시글 목록 조회 (상단 고정 우선, 최신순). 공개 길드는 비로그인도 조회 가능 (QA-172).
-     */
+    /** 게시글 목록 조회 (상단 고정 우선, 최신순). 공개 길드는 비로그인도 조회 가능 (QA-172). */
     @GetMapping
     public ResponseEntity<ApiResult<Page<GuildPostListResponse>>> getPosts(
-        @PathVariable Long guildId,
-        @CurrentUser(required = false) String userId,
-        @PageableDefault(size = 20) Pageable pageable,
-        @RequestHeader(value = HttpHeaders.ACCEPT_LANGUAGE, required = false) String acceptLanguage) {
+            @PathVariable Long guildId,
+            @CurrentUser(required = false) String userId,
+            @PageableDefault(size = 20) Pageable pageable,
+            @RequestHeader(value = HttpHeaders.ACCEPT_LANGUAGE, required = false)
+                    String acceptLanguage) {
 
-        Page<GuildPostListResponse> responses = guildPostService.getPosts(guildId, userId, pageable, acceptLanguage);
-        return ResponseEntity.ok(ApiResult.<Page<GuildPostListResponse>>builder().value(responses).build());
+        Page<GuildPostListResponse> responses =
+                guildPostService.getPosts(guildId, userId, pageable, acceptLanguage);
+        return ResponseEntity.ok(
+                ApiResult.<Page<GuildPostListResponse>>builder().value(responses).build());
     }
 
-    /**
-     * 게시글 유형별 조회 (NOTICE, NORMAL)
-     */
+    /** 게시글 유형별 조회 (NOTICE, NORMAL) */
     @GetMapping("/type/{postType}")
     public ResponseEntity<ApiResult<Page<GuildPostListResponse>>> getPostsByType(
-        @PathVariable Long guildId,
-        @PathVariable GuildPostType postType,
-        @CurrentUser(required = false) String userId,
-        @PageableDefault(size = 20) Pageable pageable,
-        @RequestHeader(value = HttpHeaders.ACCEPT_LANGUAGE, required = false) String acceptLanguage) {
+            @PathVariable Long guildId,
+            @PathVariable GuildPostType postType,
+            @CurrentUser(required = false) String userId,
+            @PageableDefault(size = 20) Pageable pageable,
+            @RequestHeader(value = HttpHeaders.ACCEPT_LANGUAGE, required = false)
+                    String acceptLanguage) {
 
-        Page<GuildPostListResponse> responses = guildPostService.getPostsByType(guildId, userId, postType, pageable, acceptLanguage);
-        return ResponseEntity.ok(ApiResult.<Page<GuildPostListResponse>>builder().value(responses).build());
+        Page<GuildPostListResponse> responses =
+                guildPostService.getPostsByType(
+                        guildId, userId, postType, pageable, acceptLanguage);
+        return ResponseEntity.ok(
+                ApiResult.<Page<GuildPostListResponse>>builder().value(responses).build());
     }
 
-    /**
-     * 공지글 목록 조회
-     */
+    /** 공지글 목록 조회 */
     @GetMapping("/notices")
     public ResponseEntity<ApiResult<List<GuildPostListResponse>>> getNotices(
-        @PathVariable Long guildId,
-        @CurrentUser(required = false) String userId,
-        @RequestHeader(value = HttpHeaders.ACCEPT_LANGUAGE, required = false) String acceptLanguage) {
+            @PathVariable Long guildId,
+            @CurrentUser(required = false) String userId,
+            @RequestHeader(value = HttpHeaders.ACCEPT_LANGUAGE, required = false)
+                    String acceptLanguage) {
 
-        List<GuildPostListResponse> responses = guildPostService.getNotices(guildId, userId, acceptLanguage);
-        return ResponseEntity.ok(ApiResult.<List<GuildPostListResponse>>builder().value(responses).build());
+        List<GuildPostListResponse> responses =
+                guildPostService.getNotices(guildId, userId, acceptLanguage);
+        return ResponseEntity.ok(
+                ApiResult.<List<GuildPostListResponse>>builder().value(responses).build());
     }
 
-    /**
-     * 게시글 검색
-     */
+    /** 게시글 검색 */
     @GetMapping("/search")
     public ResponseEntity<ApiResult<Page<GuildPostListResponse>>> searchPosts(
-        @PathVariable Long guildId,
-        @RequestParam String keyword,
-        @CurrentUser(required = false) String userId,
-        @PageableDefault(size = 20) Pageable pageable,
-        @RequestHeader(value = HttpHeaders.ACCEPT_LANGUAGE, required = false) String acceptLanguage) {
+            @PathVariable Long guildId,
+            @RequestParam String keyword,
+            @CurrentUser(required = false) String userId,
+            @PageableDefault(size = 20) Pageable pageable,
+            @RequestHeader(value = HttpHeaders.ACCEPT_LANGUAGE, required = false)
+                    String acceptLanguage) {
 
-        Page<GuildPostListResponse> responses = guildPostService.searchPosts(guildId, userId, keyword, pageable, acceptLanguage);
-        return ResponseEntity.ok(ApiResult.<Page<GuildPostListResponse>>builder().value(responses).build());
+        Page<GuildPostListResponse> responses =
+                guildPostService.searchPosts(guildId, userId, keyword, pageable, acceptLanguage);
+        return ResponseEntity.ok(
+                ApiResult.<Page<GuildPostListResponse>>builder().value(responses).build());
     }
 
-    /**
-     * 게시글 상세 조회
-     */
+    /** 게시글 상세 조회 */
     @GetMapping("/{postId}")
     public ResponseEntity<ApiResult<GuildPostResponse>> getPost(
-        @PathVariable Long guildId,
-        @PathVariable Long postId,
-        @CurrentUser(required = false) String userId,
-        @RequestHeader(value = HttpHeaders.ACCEPT_LANGUAGE, required = false) String acceptLanguage) {
+            @PathVariable Long guildId,
+            @PathVariable Long postId,
+            @CurrentUser(required = false) String userId,
+            @RequestHeader(value = HttpHeaders.ACCEPT_LANGUAGE, required = false)
+                    String acceptLanguage) {
 
-        GuildPostResponse response = guildPostService.getPost(guildId, postId, userId, acceptLanguage);
+        GuildPostResponse response =
+                guildPostService.getPost(guildId, postId, userId, acceptLanguage);
         return ResponseEntity.ok(ApiResult.<GuildPostResponse>builder().value(response).build());
     }
 
-    /**
-     * 게시글 수정 (작성자만 가능)
-     */
+    /** 게시글 수정 (작성자만 가능) */
     @PutMapping("/{postId}")
     public ResponseEntity<ApiResult<GuildPostResponse>> updatePost(
-        @PathVariable Long guildId,
-        @PathVariable Long postId,
-        @CurrentUser String userId,
-        @Valid @RequestBody GuildPostUpdateRequest request) {
+            @PathVariable Long guildId,
+            @PathVariable Long postId,
+            @CurrentUser String userId,
+            @Valid @RequestBody GuildPostUpdateRequest request) {
 
         GuildPostResponse response = guildPostService.updatePost(guildId, postId, userId, request);
         return ResponseEntity.ok(ApiResult.<GuildPostResponse>builder().value(response).build());
     }
 
-    /**
-     * 게시글 삭제 (작성자 또는 마스터 가능)
-     */
+    /** 게시글 삭제 (작성자 또는 마스터 가능) */
     @DeleteMapping("/{postId}")
     public ResponseEntity<ApiResult<Void>> deletePost(
-        @PathVariable Long guildId,
-        @PathVariable Long postId,
-        @CurrentUser String userId) {
+            @PathVariable Long guildId, @PathVariable Long postId, @CurrentUser String userId) {
 
         guildPostService.deletePost(guildId, postId, userId);
         return ResponseEntity.ok(ApiResult.getBase());
     }
 
-    /**
-     * 게시글 상단 고정/해제 토글 (마스터만 가능)
-     */
+    /** 게시글 상단 고정/해제 토글 (마스터만 가능) */
     @PatchMapping("/{postId}/pin")
     public ResponseEntity<ApiResult<GuildPostResponse>> togglePin(
-        @PathVariable Long guildId,
-        @PathVariable Long postId,
-        @CurrentUser String userId) {
+            @PathVariable Long guildId, @PathVariable Long postId, @CurrentUser String userId) {
 
         GuildPostResponse response = guildPostService.togglePin(guildId, postId, userId);
         return ResponseEntity.ok(ApiResult.<GuildPostResponse>builder().value(response).build());
@@ -172,59 +165,58 @@ public class GuildPostController {
     // 댓글 API
     // =====================================================
 
-    /**
-     * 댓글 작성 (길드원만 가능)
-     */
+    /** 댓글 작성 (길드원만 가능) */
     @PostMapping("/{postId}/comments")
     public ResponseEntity<ApiResult<GuildPostCommentResponse>> createComment(
-        @PathVariable Long guildId,
-        @PathVariable Long postId,
-        @CurrentUser String userId,
-        @RequestHeader(value = "X-User-Nickname", required = false) String userNickname,
-        @Valid @RequestBody GuildPostCommentCreateRequest request) {
+            @PathVariable Long guildId,
+            @PathVariable Long postId,
+            @CurrentUser String userId,
+            @RequestHeader(value = "X-User-Nickname", required = false) String userNickname,
+            @Valid @RequestBody GuildPostCommentCreateRequest request) {
 
-        GuildPostCommentResponse response = guildPostService.createComment(guildId, postId, userId, userNickname, request);
-        return ResponseEntity.ok(ApiResult.<GuildPostCommentResponse>builder().value(response).build());
+        GuildPostCommentResponse response =
+                guildPostService.createComment(guildId, postId, userId, userNickname, request);
+        return ResponseEntity.ok(
+                ApiResult.<GuildPostCommentResponse>builder().value(response).build());
     }
 
-    /**
-     * 댓글 목록 조회 (대댓글 포함)
-     */
+    /** 댓글 목록 조회 (대댓글 포함) */
     @GetMapping("/{postId}/comments")
     public ResponseEntity<ApiResult<List<GuildPostCommentResponse>>> getComments(
-        @PathVariable Long guildId,
-        @PathVariable Long postId,
-        @CurrentUser(required = false) String userId,
-        @RequestHeader(value = HttpHeaders.ACCEPT_LANGUAGE, required = false) String acceptLanguage) {
+            @PathVariable Long guildId,
+            @PathVariable Long postId,
+            @CurrentUser(required = false) String userId,
+            @RequestHeader(value = HttpHeaders.ACCEPT_LANGUAGE, required = false)
+                    String acceptLanguage) {
 
-        List<GuildPostCommentResponse> responses = guildPostService.getComments(guildId, postId, userId, acceptLanguage);
-        return ResponseEntity.ok(ApiResult.<List<GuildPostCommentResponse>>builder().value(responses).build());
+        List<GuildPostCommentResponse> responses =
+                guildPostService.getComments(guildId, postId, userId, acceptLanguage);
+        return ResponseEntity.ok(
+                ApiResult.<List<GuildPostCommentResponse>>builder().value(responses).build());
     }
 
-    /**
-     * 댓글 수정 (작성자만 가능)
-     */
+    /** 댓글 수정 (작성자만 가능) */
     @PutMapping("/{postId}/comments/{commentId}")
     public ResponseEntity<ApiResult<GuildPostCommentResponse>> updateComment(
-        @PathVariable Long guildId,
-        @PathVariable Long postId,
-        @PathVariable Long commentId,
-        @CurrentUser String userId,
-        @Valid @RequestBody GuildPostCommentUpdateRequest request) {
+            @PathVariable Long guildId,
+            @PathVariable Long postId,
+            @PathVariable Long commentId,
+            @CurrentUser String userId,
+            @Valid @RequestBody GuildPostCommentUpdateRequest request) {
 
-        GuildPostCommentResponse response = guildPostService.updateComment(guildId, postId, commentId, userId, request);
-        return ResponseEntity.ok(ApiResult.<GuildPostCommentResponse>builder().value(response).build());
+        GuildPostCommentResponse response =
+                guildPostService.updateComment(guildId, postId, commentId, userId, request);
+        return ResponseEntity.ok(
+                ApiResult.<GuildPostCommentResponse>builder().value(response).build());
     }
 
-    /**
-     * 댓글 삭제 (작성자 또는 마스터 가능)
-     */
+    /** 댓글 삭제 (작성자 또는 마스터 가능) */
     @DeleteMapping("/{postId}/comments/{commentId}")
     public ResponseEntity<ApiResult<Void>> deleteComment(
-        @PathVariable Long guildId,
-        @PathVariable Long postId,
-        @PathVariable Long commentId,
-        @CurrentUser String userId) {
+            @PathVariable Long guildId,
+            @PathVariable Long postId,
+            @PathVariable Long commentId,
+            @CurrentUser String userId) {
 
         guildPostService.deleteComment(guildId, postId, commentId, userId);
         return ResponseEntity.ok(ApiResult.getBase());

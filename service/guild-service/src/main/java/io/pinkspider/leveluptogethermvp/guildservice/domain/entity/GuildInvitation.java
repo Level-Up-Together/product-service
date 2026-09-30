@@ -24,10 +24,7 @@ import lombok.Setter;
 import lombok.experimental.SuperBuilder;
 import org.hibernate.annotations.Comment;
 
-/**
- * 길드 초대 엔티티
- * 비공개 길드에서 마스터가 다른 유저를 초대할 때 사용
- */
+/** 길드 초대 엔티티 비공개 길드에서 마스터가 다른 유저를 초대할 때 사용 */
 @Entity
 @Getter
 @Setter
@@ -82,62 +79,49 @@ public class GuildInvitation extends LocalDateTimeBaseEntity {
     @Comment("처리 시간 (수락/거절/취소)")
     private LocalDateTime processedAt;
 
-    /**
-     * 초대 생성
-     */
-    public static GuildInvitation create(Guild guild, String inviterId, String inviteeId, String message) {
+    /** 초대 생성 */
+    public static GuildInvitation create(
+            Guild guild, String inviterId, String inviteeId, String message) {
         return GuildInvitation.builder()
-            .guild(guild)
-            .inviterId(inviterId)
-            .inviteeId(inviteeId)
-            .message(message)
-            .status(GuildInvitationStatus.PENDING)
-            .expiresAt(LocalDateTime.now().plusDays(DEFAULT_EXPIRATION_DAYS))
-            .build();
+                .guild(guild)
+                .inviterId(inviterId)
+                .inviteeId(inviteeId)
+                .message(message)
+                .status(GuildInvitationStatus.PENDING)
+                .expiresAt(LocalDateTime.now().plusDays(DEFAULT_EXPIRATION_DAYS))
+                .build();
     }
 
-    /**
-     * 초대 수락
-     */
+    /** 초대 수락 */
     public void accept() {
         this.status = GuildInvitationStatus.ACCEPTED;
         this.processedAt = LocalDateTime.now();
     }
 
-    /**
-     * 초대 거절
-     */
+    /** 초대 거절 */
     public void reject() {
         this.status = GuildInvitationStatus.REJECTED;
         this.processedAt = LocalDateTime.now();
     }
 
-    /**
-     * 초대 취소 (마스터가 취소)
-     */
+    /** 초대 취소 (마스터가 취소) */
     public void cancel() {
         this.status = GuildInvitationStatus.CANCELLED;
         this.processedAt = LocalDateTime.now();
     }
 
-    /**
-     * 초대 만료 처리
-     */
+    /** 초대 만료 처리 */
     public void expire() {
         this.status = GuildInvitationStatus.EXPIRED;
         this.processedAt = LocalDateTime.now();
     }
 
-    /**
-     * 대기 중인지 확인
-     */
+    /** 대기 중인지 확인 */
     public boolean isPending() {
         return this.status == GuildInvitationStatus.PENDING;
     }
 
-    /**
-     * 만료되었는지 확인
-     */
+    /** 만료되었는지 확인 */
     public boolean isExpired() {
         return this.expiresAt.isBefore(LocalDateTime.now());
     }

@@ -6,39 +6,37 @@ import io.pinkspider.leveluptogethermvp.gamificationservice.season.domain.entity
 
 @JsonNaming(SnakeCaseStrategy.class)
 public record SeasonRankRewardResponse(
-    Long id,
-    Long seasonId,
-    Integer rankStart,
-    Integer rankEnd,
-    String rankRangeDisplay,
-    Long categoryId,
-    String categoryName,
-    String rankingTypeDisplay,
-    Long titleId,
-    String titleName,
-    String titleRarity,
-    Long itemId,
-    String itemName,
-    Integer sortOrder,
-    Boolean isActive
-) {
+        Long id,
+        Long seasonId,
+        Integer rankStart,
+        Integer rankEnd,
+        String rankRangeDisplay,
+        Long categoryId,
+        String categoryName,
+        String rankingTypeDisplay,
+        Long titleId,
+        String titleName,
+        String titleRarity,
+        Long itemId,
+        String itemName,
+        Integer sortOrder,
+        Boolean isActive) {
     public static SeasonRankRewardResponse from(SeasonRankReward reward) {
         return new SeasonRankRewardResponse(
-            reward.getId(),
-            reward.getSeason().getId(),
-            reward.getRankStart(),
-            reward.getRankEnd(),
-            reward.getRankRangeDisplay(),
-            reward.getCategoryId(),
-            reward.getCategoryName(),
-            reward.getRankingTypeDisplay(),
-            reward.getTitleId(),
-            reward.getTitleName(),
-            reward.getTitleRarity(),
-            reward.getItemId(),
-            reward.getItemName(),
-            reward.getSortOrder(),
-            reward.getIsActive()
-        );
+                reward.getId(),
+                reward.getSeason().getId(),
+                reward.getRankStart(),
+                reward.getRankEnd(),
+                reward.getRankRangeDisplay(),
+                reward.getCategoryId(),
+                reward.getCategoryName(),
+                reward.getRankingTypeDisplay(),
+                reward.getTitleId(),
+                reward.getTitleName(),
+                reward.getTitleRarity(),
+                reward.getItemId(),
+                reward.getItemName(),
+                reward.getSortOrder(),
+                reward.getIsActive());
     }
 }

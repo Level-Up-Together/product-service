@@ -32,42 +32,49 @@ public class SeasonAdminService {
     @Transactional(readOnly = true, transactionManager = "gamificationTransactionManager")
     public List<SeasonAdminResponse> getAllSeasons() {
         return seasonRepository.findAllByOrderBySortOrderAscStartAtDesc().stream()
-            .map(SeasonAdminResponse::from)
-            .collect(Collectors.toList());
+                .map(SeasonAdminResponse::from)
+                .collect(Collectors.toList());
     }
 
     @Transactional(readOnly = true, transactionManager = "gamificationTransactionManager")
     public SeasonAdminPageResponse searchSeasons(String keyword, Pageable pageable) {
         Page<SeasonAdminResponse> page;
         if (keyword != null && !keyword.isBlank()) {
-            page = seasonRepository.searchByKeyword(keyword, pageable)
-                .map(SeasonAdminResponse::from);
+            page =
+                    seasonRepository
+                            .searchByKeyword(keyword, pageable)
+                            .map(SeasonAdminResponse::from);
         } else {
-            page = seasonRepository.findAllByOrderBySortOrderAscStartAtDesc(pageable)
-                .map(SeasonAdminResponse::from);
+            page =
+                    seasonRepository
+                            .findAllByOrderBySortOrderAscStartAtDesc(pageable)
+                            .map(SeasonAdminResponse::from);
         }
         return SeasonAdminPageResponse.from(page);
     }
 
     @Transactional(readOnly = true, transactionManager = "gamificationTransactionManager")
     public SeasonAdminResponse getSeason(Long id) {
-        Season season = seasonRepository.findById(id)
-            .orElseThrow(() -> new CustomException("120001", "error.season.not_found"));
+        Season season =
+                seasonRepository
+                        .findById(id)
+                        .orElseThrow(() -> new CustomException("120001", "error.season.not_found"));
         return SeasonAdminResponse.from(season);
     }
 
     @Transactional(readOnly = true, transactionManager = "gamificationTransactionManager")
     public SeasonAdminResponse getCurrentSeason() {
-        return seasonRepository.findCurrentSeason(LocalDateTime.now())
-            .map(SeasonAdminResponse::from)
-            .orElse(null);
+        return seasonRepository
+                .findCurrentSeason(LocalDateTime.now())
+                .map(SeasonAdminResponse::from)
+                .orElse(null);
     }
 
     @Transactional(readOnly = true, transactionManager = "gamificationTransactionManager")
     public List<SeasonAdminResponse> getUpcomingSeasons() {
         return seasonRepository.findUpcomingSeasons(LocalDateTime.now()).stream()
-            .map(SeasonAdminResponse::from)
-            .collect(Collectors.toList());
+                .map(SeasonAdminResponse::from)
+                .collect(Collectors.toList());
     }
 
     public SeasonAdminResponse createSeason(SeasonAdminRequest request) {
@@ -78,18 +85,19 @@ public class SeasonAdminService {
             validateNoOverlappingActiveSeason(request.startAt(), request.endAt(), null);
         }
 
-        Season season = Season.builder()
-            .title(request.title())
-            .description(request.description())
-            .startAt(request.startAt())
-            .endAt(request.endAt())
-            .isActive(isActive)
-            .rewardTitleId(request.rewardTitleId())
-            .rewardTitleName(request.rewardTitleName())
-            .sortOrder(request.sortOrder() != null ? request.sortOrder() : 0)
-            .createdBy(request.createdBy())
-            .modifiedBy(request.createdBy())
-            .build();
+        Season season =
+                Season.builder()
+                        .title(request.title())
+                        .description(request.description())
+                        .startAt(request.startAt())
+                        .endAt(request.endAt())
+                        .isActive(isActive)
+                        .rewardTitleId(request.rewardTitleId())
+                        .rewardTitleName(request.rewardTitleName())
+                        .sortOrder(request.sortOrder() != null ? request.sortOrder() : 0)
+                        .createdBy(request.createdBy())
+                        .modifiedBy(request.createdBy())
+                        .build();
 
         Season saved = seasonRepository.save(season);
         log.info("시즌 생성: {} (ID: {}) by {}", request.title(), saved.getId(), request.createdBy());
@@ -100,8 +108,10 @@ public class SeasonAdminService {
     }
 
     public SeasonAdminResponse updateSeason(Long id, SeasonAdminRequest request) {
-        Season season = seasonRepository.findById(id)
-            .orElseThrow(() -> new CustomException("120001", "error.season.not_found"));
+        Season season =
+                seasonRepository
+                        .findById(id)
+                        .orElseThrow(() -> new CustomException("120001", "error.season.not_found"));
 
         validateSeasonDates(request.startAt(), request.endAt());
 
@@ -132,8 +142,10 @@ public class SeasonAdminService {
     }
 
     public void deleteSeason(Long id) {
-        Season season = seasonRepository.findById(id)
-            .orElseThrow(() -> new CustomException("120001", "error.season.not_found"));
+        Season season =
+                seasonRepository
+                        .findById(id)
+                        .orElseThrow(() -> new CustomException("120001", "error.season.not_found"));
 
         log.info("시즌 삭제: {} (ID: {})", season.getTitle(), id);
         seasonRepository.delete(season);
@@ -143,8 +155,10 @@ public class SeasonAdminService {
     }
 
     public SeasonAdminResponse toggleActive(Long id) {
-        Season season = seasonRepository.findById(id)
-            .orElseThrow(() -> new CustomException("120001", "error.season.not_found"));
+        Season season =
+                seasonRepository
+                        .findById(id)
+                        .orElseThrow(() -> new CustomException("120001", "error.season.not_found"));
 
         if (!season.getIsActive()) {
             validateNoOverlappingActiveSeason(season.getStartAt(), season.getEndAt(), id);
@@ -170,7 +184,8 @@ public class SeasonAdminService {
         }
     }
 
-    private void validateNoOverlappingActiveSeason(LocalDateTime startAt, LocalDateTime endAt, Long excludeId) {
+    private void validateNoOverlappingActiveSeason(
+            LocalDateTime startAt, LocalDateTime endAt, Long excludeId) {
         boolean hasOverlap;
         if (excludeId != null) {
             hasOverlap = seasonRepository.existsOverlappingActiveSeason(startAt, endAt, excludeId);

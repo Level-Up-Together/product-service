@@ -1,5 +1,7 @@
 package io.pinkspider.leveluptogethermvp.gamificationservice.achievement.application;
 
+import io.pinkspider.global.enums.TitlePosition;
+import io.pinkspider.global.enums.TitleRarity;
 import io.pinkspider.global.event.TitleAcquiredEvent;
 import io.pinkspider.global.event.TitleEquippedEvent;
 import io.pinkspider.leveluptogethermvp.gamificationservice.achievement.domain.dto.TitleResponse;
@@ -7,8 +9,6 @@ import io.pinkspider.leveluptogethermvp.gamificationservice.achievement.domain.d
 import io.pinkspider.leveluptogethermvp.gamificationservice.domain.entity.Title;
 import io.pinkspider.leveluptogethermvp.gamificationservice.domain.entity.UserTitle;
 import io.pinkspider.leveluptogethermvp.gamificationservice.domain.enums.TitleAcquisitionType;
-import io.pinkspider.global.enums.TitlePosition;
-import io.pinkspider.global.enums.TitleRarity;
 import io.pinkspider.leveluptogethermvp.gamificationservice.infrastructure.TitleRepository;
 import io.pinkspider.leveluptogethermvp.gamificationservice.infrastructure.UserTitleRepository;
 import java.time.LocalDateTime;
@@ -42,8 +42,8 @@ public class TitleService {
     /** LUT-255: locale에 맞는 칭호명으로 응답 */
     public List<TitleResponse> getAllTitles(String locale) {
         return titleRepository.findByIsActiveTrue().stream()
-            .map(t -> TitleResponse.from(t, locale))
-            .toList();
+                .map(t -> TitleResponse.from(t, locale))
+                .toList();
     }
 
     // 포지션별 칭호 목록 (LEFT 또는 RIGHT)
@@ -53,14 +53,14 @@ public class TitleService {
 
     public List<TitleResponse> getTitlesByPosition(TitlePosition position, String locale) {
         return titleRepository.findByPositionTypeAndIsActiveTrue(position).stream()
-            .map(t -> TitleResponse.from(t, locale))
-            .toList();
+                .map(t -> TitleResponse.from(t, locale))
+                .toList();
     }
 
     public List<TitleResponse> getTitlesByRarity(TitleRarity rarity) {
         return titleRepository.findByRarityAndIsActiveTrue(rarity).stream()
-            .map(TitleResponse::from)
-            .toList();
+                .map(TitleResponse::from)
+                .toList();
     }
 
     // 유저의 칭호 목록
@@ -70,8 +70,8 @@ public class TitleService {
 
     public List<UserTitleResponse> getUserTitles(String userId, String locale) {
         return userTitleRepository.findByUserIdWithTitle(userId).stream()
-            .map(ut -> UserTitleResponse.from(ut, locale))
-            .toList();
+                .map(ut -> UserTitleResponse.from(ut, locale))
+                .toList();
     }
 
     // 유저의 포지션별 칭호 목록
@@ -79,12 +79,12 @@ public class TitleService {
         return getUserTitlesByPosition(userId, position, null);
     }
 
-    public List<UserTitleResponse> getUserTitlesByPosition(String userId, TitlePosition position,
-                                                            String locale) {
+    public List<UserTitleResponse> getUserTitlesByPosition(
+            String userId, TitlePosition position, String locale) {
         return userTitleRepository.findByUserIdWithTitle(userId).stream()
-            .filter(ut -> position.equals(ut.getTitle().getPositionType()))
-            .map(ut -> UserTitleResponse.from(ut, locale))
-            .toList();
+                .filter(ut -> position.equals(ut.getTitle().getPositionType()))
+                .map(ut -> UserTitleResponse.from(ut, locale))
+                .toList();
     }
 
     // 장착된 칭호 목록 조회 (LEFT와 RIGHT 모두)
@@ -94,8 +94,8 @@ public class TitleService {
 
     public List<UserTitleResponse> getEquippedTitles(String userId, String locale) {
         return userTitleRepository.findEquippedTitlesByUserId(userId).stream()
-            .map(ut -> UserTitleResponse.from(ut, locale))
-            .toList();
+                .map(ut -> UserTitleResponse.from(ut, locale))
+                .toList();
     }
 
     // 장착된 칭호의 조합된 이름 반환 (예: "신입 모험가")
@@ -103,9 +103,7 @@ public class TitleService {
         return getCombinedEquippedTitleInfo(userId).name();
     }
 
-    /**
-     * 장착된 칭호의 조합된 정보 반환 (이름, 가장 높은 등급, 색상 코드)
-     */
+    /** 장착된 칭호의 조합된 정보 반환 (이름, 가장 높은 등급, 색상 코드) */
     @Cacheable(value = "userTitleInfo", key = "#userId")
     public TitleInfo getCombinedEquippedTitleInfo(String userId) {
         List<UserTitle> equippedTitles = userTitleRepository.findEquippedTitlesByUserId(userId);
@@ -113,22 +111,27 @@ public class TitleService {
             return new TitleInfo(null, null, null);
         }
 
-        UserTitle leftUserTitle = equippedTitles.stream()
-            .filter(ut -> ut.getEquippedPosition() == TitlePosition.LEFT)
-            .findFirst()
-            .orElse(null);
+        UserTitle leftUserTitle =
+                equippedTitles.stream()
+                        .filter(ut -> ut.getEquippedPosition() == TitlePosition.LEFT)
+                        .findFirst()
+                        .orElse(null);
 
-        UserTitle rightUserTitle = equippedTitles.stream()
-            .filter(ut -> ut.getEquippedPosition() == TitlePosition.RIGHT)
-            .findFirst()
-            .orElse(null);
+        UserTitle rightUserTitle =
+                equippedTitles.stream()
+                        .filter(ut -> ut.getEquippedPosition() == TitlePosition.RIGHT)
+                        .findFirst()
+                        .orElse(null);
 
         String leftTitle = leftUserTitle != null ? leftUserTitle.getTitle().getDisplayName() : null;
-        String rightTitle = rightUserTitle != null ? rightUserTitle.getTitle().getDisplayName() : null;
+        String rightTitle =
+                rightUserTitle != null ? rightUserTitle.getTitle().getDisplayName() : null;
 
         // 가장 높은 등급과 색상 코드 선택
-        TitleRarity leftRarity = leftUserTitle != null ? leftUserTitle.getTitle().getRarity() : null;
-        TitleRarity rightRarity = rightUserTitle != null ? rightUserTitle.getTitle().getRarity() : null;
+        TitleRarity leftRarity =
+                leftUserTitle != null ? leftUserTitle.getTitle().getRarity() : null;
+        TitleRarity rightRarity =
+                rightUserTitle != null ? rightUserTitle.getTitle().getRarity() : null;
         TitleRarity highestRarity = getHighestRarity(leftRarity, rightRarity);
 
         // 가장 높은 등급의 색상 코드 선택
@@ -153,9 +156,7 @@ public class TitleService {
         return new TitleInfo(combinedTitle, highestRarity, colorCode);
     }
 
-    /**
-     * 장착된 칭호의 상세 정보 반환 (개별 좌/우 칭호 정보 포함)
-     */
+    /** 장착된 칭호의 상세 정보 반환 (개별 좌/우 칭호 정보 포함) */
     @Cacheable(value = "userDetailedTitleInfo", key = "#userId")
     public DetailedTitleInfo getDetailedEquippedTitleInfo(String userId) {
         List<UserTitle> equippedTitles = userTitleRepository.findEquippedTitlesByUserId(userId);
@@ -163,20 +164,25 @@ public class TitleService {
             return new DetailedTitleInfo(null, null, null, null, null, null);
         }
 
-        UserTitle leftUserTitle = equippedTitles.stream()
-            .filter(ut -> ut.getEquippedPosition() == TitlePosition.LEFT)
-            .findFirst()
-            .orElse(null);
+        UserTitle leftUserTitle =
+                equippedTitles.stream()
+                        .filter(ut -> ut.getEquippedPosition() == TitlePosition.LEFT)
+                        .findFirst()
+                        .orElse(null);
 
-        UserTitle rightUserTitle = equippedTitles.stream()
-            .filter(ut -> ut.getEquippedPosition() == TitlePosition.RIGHT)
-            .findFirst()
-            .orElse(null);
+        UserTitle rightUserTitle =
+                equippedTitles.stream()
+                        .filter(ut -> ut.getEquippedPosition() == TitlePosition.RIGHT)
+                        .findFirst()
+                        .orElse(null);
 
         String leftTitle = leftUserTitle != null ? leftUserTitle.getTitle().getDisplayName() : null;
-        TitleRarity leftRarity = leftUserTitle != null ? leftUserTitle.getTitle().getRarity() : null;
-        String rightTitle = rightUserTitle != null ? rightUserTitle.getTitle().getDisplayName() : null;
-        TitleRarity rightRarity = rightUserTitle != null ? rightUserTitle.getTitle().getRarity() : null;
+        TitleRarity leftRarity =
+                leftUserTitle != null ? leftUserTitle.getTitle().getRarity() : null;
+        String rightTitle =
+                rightUserTitle != null ? rightUserTitle.getTitle().getDisplayName() : null;
+        TitleRarity rightRarity =
+                rightUserTitle != null ? rightUserTitle.getTitle().getRarity() : null;
 
         // 가장 높은 등급 선택
         TitleRarity highestRarity = getHighestRarity(leftRarity, rightRarity);
@@ -190,22 +196,24 @@ public class TitleService {
             combinedTitle = rightTitle;
         }
 
-        return new DetailedTitleInfo(combinedTitle, highestRarity, leftTitle, leftRarity, rightTitle, rightRarity);
+        return new DetailedTitleInfo(
+                combinedTitle, highestRarity, leftTitle, leftRarity, rightTitle, rightRarity);
     }
 
     // ========== 배치 조회 메서드 (P5: userservice → gamification Repository 접근 제거) ==========
 
-    /**
-     * 여러 사용자의 장착된 LEFT 칭호 이름 배치 조회
-     */
+    /** 여러 사용자의 장착된 LEFT 칭호 이름 배치 조회 */
     public Map<String, String> getEquippedLeftTitleNameMap(List<String> userIds) {
         if (userIds == null || userIds.isEmpty()) {
             return Map.of();
         }
         return userTitleRepository.findEquippedTitlesByUserIdIn(userIds).stream()
-            .filter(ut -> ut.getEquippedPosition() == TitlePosition.LEFT)
-            .collect(Collectors.toMap(UserTitle::getUserId,
-                ut -> ut.getTitle().getDisplayName(), (a, b) -> a));
+                .filter(ut -> ut.getEquippedPosition() == TitlePosition.LEFT)
+                .collect(
+                        Collectors.toMap(
+                                UserTitle::getUserId,
+                                ut -> ut.getTitle().getDisplayName(),
+                                (a, b) -> a));
     }
 
     /** LUT-420: 칭호 ID 배치 조회 — 시즌 보상 칭호명 로케일 변형 매핑용 (파사드 getSeasonRankRewards) */
@@ -214,78 +222,86 @@ public class TitleService {
             return Map.of();
         }
         return titleRepository.findAllById(titleIds).stream()
-            .collect(Collectors.toMap(Title::getId, t -> t));
+                .collect(Collectors.toMap(Title::getId, t -> t));
     }
 
-    /**
-     * 여러 사용자의 장착된 칭호 엔티티 배치 조회
-     */
+    /** 여러 사용자의 장착된 칭호 엔티티 배치 조회 */
     public Map<String, List<UserTitle>> getEquippedTitleEntitiesByUserIds(List<String> userIds) {
         if (userIds == null || userIds.isEmpty()) {
             return Map.of();
         }
         return userTitleRepository.findEquippedTitlesByUserIdIn(userIds).stream()
-            .collect(Collectors.groupingBy(UserTitle::getUserId));
+                .collect(Collectors.groupingBy(UserTitle::getUserId));
     }
 
-    /**
-     * 사용자의 장착된 칭호 엔티티 조회
-     */
+    /** 사용자의 장착된 칭호 엔티티 조회 */
     public List<UserTitle> getEquippedTitleEntitiesByUserId(String userId) {
         return userTitleRepository.findEquippedTitlesByUserId(userId);
     }
 
-    /**
-     * 사용자의 모든 칭호 엔티티 조회 (Title JOIN FETCH)
-     */
+    /** 사용자의 모든 칭호 엔티티 조회 (Title JOIN FETCH) */
     public List<UserTitle> getUserTitleEntitiesWithTitle(String userId) {
         return userTitleRepository.findByUserIdWithTitle(userId);
     }
 
-    /**
-     * 사용자 보유 칭호 수 조회
-     */
+    /** 사용자 보유 칭호 수 조회 */
     public long countUserTitles(String userId) {
         return userTitleRepository.countByUserId(userId);
     }
 
-    /**
-     * 칭호 변경 (좌측/우측 동시 변경)
-     */
+    /** 칭호 변경 (좌측/우측 동시 변경) */
     public record TitleChangeResult(UserTitle leftTitle, UserTitle rightTitle) {}
 
     @Transactional(transactionManager = "gamificationTransactionManager")
-    @CacheEvict(value = {"userTitleInfo", "userDetailedTitleInfo"}, key = "#userId")
-    public TitleChangeResult changeTitles(String userId, Long leftUserTitleId, Long rightUserTitleId) {
+    @CacheEvict(
+            value = {"userTitleInfo", "userDetailedTitleInfo"},
+            key = "#userId")
+    public TitleChangeResult changeTitles(
+            String userId, Long leftUserTitleId, Long rightUserTitleId) {
         // 좌측/우측 칭호가 같으면 에러
         if (leftUserTitleId.equals(rightUserTitleId)) {
-            throw new io.pinkspider.global.exception.CustomException("TITLE_001", "좌측과 우측에 같은 칭호를 설정할 수 없습니다.");
+            throw new io.pinkspider.global.exception.CustomException(
+                    "TITLE_001", "좌측과 우측에 같은 칭호를 설정할 수 없습니다.");
         }
 
         // 칭호 존재 여부 사전 검증
         if (!userTitleRepository.existsById(leftUserTitleId)) {
-            throw new io.pinkspider.global.exception.CustomException("TITLE_002", "좌측 칭호를 찾을 수 없습니다.");
+            throw new io.pinkspider.global.exception.CustomException(
+                    "TITLE_002", "좌측 칭호를 찾을 수 없습니다.");
         }
         if (!userTitleRepository.existsById(rightUserTitleId)) {
-            throw new io.pinkspider.global.exception.CustomException("TITLE_002", "우측 칭호를 찾을 수 없습니다.");
+            throw new io.pinkspider.global.exception.CustomException(
+                    "TITLE_002", "우측 칭호를 찾을 수 없습니다.");
         }
 
         // 기존 장착 해제 (clearAutomatically=true로 영속성 컨텍스트 클리어됨)
         userTitleRepository.unequipAllByUserId(userId);
 
         // 영속성 컨텍스트가 클리어되었으므로 엔티티 다시 조회
-        UserTitle leftUserTitle = userTitleRepository.findById(leftUserTitleId)
-            .orElseThrow(() -> new io.pinkspider.global.exception.CustomException("TITLE_002", "좌측 칭호를 찾을 수 없습니다."));
+        UserTitle leftUserTitle =
+                userTitleRepository
+                        .findById(leftUserTitleId)
+                        .orElseThrow(
+                                () ->
+                                        new io.pinkspider.global.exception.CustomException(
+                                                "TITLE_002", "좌측 칭호를 찾을 수 없습니다."));
 
         if (!leftUserTitle.getUserId().equals(userId)) {
-            throw new io.pinkspider.global.exception.CustomException("TITLE_003", "본인의 칭호만 장착할 수 있습니다.");
+            throw new io.pinkspider.global.exception.CustomException(
+                    "TITLE_003", "본인의 칭호만 장착할 수 있습니다.");
         }
 
-        UserTitle rightUserTitle = userTitleRepository.findById(rightUserTitleId)
-            .orElseThrow(() -> new io.pinkspider.global.exception.CustomException("TITLE_002", "우측 칭호를 찾을 수 없습니다."));
+        UserTitle rightUserTitle =
+                userTitleRepository
+                        .findById(rightUserTitleId)
+                        .orElseThrow(
+                                () ->
+                                        new io.pinkspider.global.exception.CustomException(
+                                                "TITLE_002", "우측 칭호를 찾을 수 없습니다."));
 
         if (!rightUserTitle.getUserId().equals(userId)) {
-            throw new io.pinkspider.global.exception.CustomException("TITLE_003", "본인의 칭호만 장착할 수 있습니다.");
+            throw new io.pinkspider.global.exception.CustomException(
+                    "TITLE_003", "본인의 칭호만 장착할 수 있습니다.");
         }
 
         // 새로운 칭호 장착
@@ -298,47 +314,45 @@ public class TitleService {
         // TitleEquippedEvent 발행 → FeedProjectionEventListener가 피드 칭호 업데이트
         publishTitleEquippedEvent(userId);
 
-        log.info("칭호 변경: userId={}, leftTitleId={}, rightTitleId={}",
-            userId, leftUserTitle.getTitle().getId(), rightUserTitle.getTitle().getId());
+        log.info(
+                "칭호 변경: userId={}, leftTitleId={}, rightTitleId={}",
+                userId,
+                leftUserTitle.getTitle().getId(),
+                rightUserTitle.getTitle().getId());
 
         return new TitleChangeResult(leftUserTitle, rightUserTitle);
     }
 
-    /**
-     * 두 등급 중 더 높은 등급 반환
-     */
+    /** 두 등급 중 더 높은 등급 반환 */
     private TitleRarity getHighestRarity(TitleRarity r1, TitleRarity r2) {
         if (r1 == null) return r2;
         if (r2 == null) return r1;
         return r1.ordinal() > r2.ordinal() ? r1 : r2;
     }
 
-    /**
-     * 칭호 정보 (이름, 등급, 색상 코드)
-     */
+    /** 칭호 정보 (이름, 등급, 색상 코드) */
     public record TitleInfo(String name, TitleRarity rarity, String colorCode) {}
 
-    /**
-     * 상세 칭호 정보 (조합된 이름 + 개별 좌/우 정보 포함)
-     */
+    /** 상세 칭호 정보 (조합된 이름 + 개별 좌/우 정보 포함) */
     public record DetailedTitleInfo(
-        String combinedName,
-        TitleRarity highestRarity,
-        String leftTitle,
-        TitleRarity leftRarity,
-        String rightTitle,
-        TitleRarity rightRarity
-    ) {}
+            String combinedName,
+            TitleRarity highestRarity,
+            String leftTitle,
+            TitleRarity leftRarity,
+            String rightTitle,
+            TitleRarity rightRarity) {}
 
     // 포지션별 장착된 칭호 조회
-    public Optional<UserTitleResponse> getEquippedTitleByPosition(String userId, TitlePosition position) {
+    public Optional<UserTitleResponse> getEquippedTitleByPosition(
+            String userId, TitlePosition position) {
         return getEquippedTitleByPosition(userId, position, null);
     }
 
-    public Optional<UserTitleResponse> getEquippedTitleByPosition(String userId, TitlePosition position,
-                                                                   String locale) {
-        return userTitleRepository.findEquippedByUserIdAndPosition(userId, position)
-            .map(ut -> UserTitleResponse.from(ut, locale));
+    public Optional<UserTitleResponse> getEquippedTitleByPosition(
+            String userId, TitlePosition position, String locale) {
+        return userTitleRepository
+                .findEquippedByUserIdAndPosition(userId, position)
+                .map(ut -> UserTitleResponse.from(ut, locale));
     }
 
     // 칭호 부여
@@ -352,31 +366,40 @@ public class TitleService {
     public UserTitleResponse grantTitle(String userId, Long titleId, boolean notify) {
         if (userTitleRepository.existsByUserIdAndTitleId(userId, titleId)) {
             log.debug("이미 보유한 칭호: userId={}, titleId={}", userId, titleId);
-            return userTitleRepository.findByUserIdAndTitleId(userId, titleId)
-                .map(UserTitleResponse::from)
-                .orElse(null);
+            return userTitleRepository
+                    .findByUserIdAndTitleId(userId, titleId)
+                    .map(UserTitleResponse::from)
+                    .orElse(null);
         }
 
-        Title title = titleRepository.findById(titleId)
-            .orElseThrow(() -> new IllegalArgumentException("칭호를 찾을 수 없습니다: " + titleId));
+        Title title =
+                titleRepository
+                        .findById(titleId)
+                        .orElseThrow(
+                                () -> new IllegalArgumentException("칭호를 찾을 수 없습니다: " + titleId));
 
-        UserTitle userTitle = UserTitle.builder()
-            .userId(userId)
-            .title(title)
-            .acquiredAt(LocalDateTime.now())
-            .build();
+        UserTitle userTitle =
+                UserTitle.builder()
+                        .userId(userId)
+                        .title(title)
+                        .acquiredAt(LocalDateTime.now())
+                        .build();
 
         UserTitle saved = userTitleRepository.save(userTitle);
-        log.info("칭호 획득: userId={}, title={}, position={}", userId, title.getName(), title.getPositionType());
+        log.info(
+                "칭호 획득: userId={}, title={}, position={}",
+                userId,
+                title.getName(),
+                title.getPositionType());
 
         // 이벤트 발행 (신규 획득 시에만) - 트랜잭션 커밋 후 비동기로 알림 생성
         if (notify) {
-            eventPublisher.publishEvent(new TitleAcquiredEvent(
-                userId,
-                title.getId(),
-                title.getDisplayName(),
-                title.getRarity().name()
-            ));
+            eventPublisher.publishEvent(
+                    new TitleAcquiredEvent(
+                            userId,
+                            title.getId(),
+                            title.getDisplayName(),
+                            title.getRarity().name()));
         }
 
         return UserTitleResponse.from(saved);
@@ -384,10 +407,14 @@ public class TitleService {
 
     // 칭호 장착 (포지션별로 장착)
     @Transactional(transactionManager = "gamificationTransactionManager")
-    @CacheEvict(value = {"userTitleInfo", "userDetailedTitleInfo"}, key = "#userId")
+    @CacheEvict(
+            value = {"userTitleInfo", "userDetailedTitleInfo"},
+            key = "#userId")
     public UserTitleResponse equipTitle(String userId, Long titleId) {
-        UserTitle userTitle = userTitleRepository.findByUserIdAndTitleId(userId, titleId)
-            .orElseThrow(() -> new IllegalArgumentException("보유하지 않은 칭호입니다."));
+        UserTitle userTitle =
+                userTitleRepository
+                        .findByUserIdAndTitleId(userId, titleId)
+                        .orElseThrow(() -> new IllegalArgumentException("보유하지 않은 칭호입니다."));
 
         TitlePosition position = userTitle.getTitle().getPositionType();
 
@@ -396,11 +423,17 @@ public class TitleService {
 
         // LUT-322: 벌크 해제가 영속성 컨텍스트를 비워 위 엔티티가 준영속 상태가 되므로
         // 재조회 후 장착해야 변경이 저장된다 (changeTitles와 동일 패턴 — 누락 시 장착 유실)
-        userTitle = userTitleRepository.findByUserIdAndTitleId(userId, titleId)
-            .orElseThrow(() -> new IllegalArgumentException("보유하지 않은 칭호입니다."));
+        userTitle =
+                userTitleRepository
+                        .findByUserIdAndTitleId(userId, titleId)
+                        .orElseThrow(() -> new IllegalArgumentException("보유하지 않은 칭호입니다."));
         userTitle.equip(position);
         userTitleRepository.save(userTitle);
-        log.info("칭호 장착: userId={}, title={}, position={}", userId, userTitle.getTitle().getName(), position);
+        log.info(
+                "칭호 장착: userId={}, title={}, position={}",
+                userId,
+                userTitle.getTitle().getName(),
+                position);
 
         // 피드의 칭호도 업데이트 (이벤트 기반)
         publishTitleEquippedEvent(userId);
@@ -410,7 +443,9 @@ public class TitleService {
 
     // 특정 포지션 칭호 해제
     @Transactional(transactionManager = "gamificationTransactionManager")
-    @CacheEvict(value = {"userTitleInfo", "userDetailedTitleInfo"}, key = "#userId")
+    @CacheEvict(
+            value = {"userTitleInfo", "userDetailedTitleInfo"},
+            key = "#userId")
     public void unequipTitle(String userId, TitlePosition position) {
         userTitleRepository.unequipByUserIdAndPosition(userId, position);
         log.info("칭호 해제: userId={}, position={}", userId, position);
@@ -421,7 +456,9 @@ public class TitleService {
 
     // 모든 칭호 해제
     @Transactional(transactionManager = "gamificationTransactionManager")
-    @CacheEvict(value = {"userTitleInfo", "userDetailedTitleInfo"}, key = "#userId")
+    @CacheEvict(
+            value = {"userTitleInfo", "userDetailedTitleInfo"},
+            key = "#userId")
     public void unequipAllTitles(String userId) {
         userTitleRepository.unequipAllByUserId(userId);
         log.info("모든 칭호 해제: userId={}", userId);
@@ -433,24 +470,32 @@ public class TitleService {
     // 칭호 장착/해제 시 피드 업데이트 이벤트 발행
     private void publishTitleEquippedEvent(String userId) {
         TitleInfo titleInfo = getCombinedEquippedTitleInfo(userId);
-        eventPublisher.publishEvent(new TitleEquippedEvent(userId, titleInfo.name(), titleInfo.rarity(), titleInfo.colorCode()));
+        eventPublisher.publishEvent(
+                new TitleEquippedEvent(
+                        userId, titleInfo.name(), titleInfo.rarity(), titleInfo.colorCode()));
     }
 
     // 칭호 생성 (관리자용)
     @Transactional(transactionManager = "gamificationTransactionManager")
-    public TitleResponse createTitle(String name, String description, TitleRarity rarity,
-                                      TitlePosition positionType, TitleAcquisitionType acquisitionType,
-                                      String acquisitionCondition, String iconUrl) {
-        Title title = Title.builder()
-            .name(name)
-            .description(description)
-            .rarity(rarity)
-            .positionType(positionType)
-            .acquisitionType(acquisitionType)
-            .acquisitionCondition(acquisitionCondition)
-            .colorCode(rarity.getColorCode())
-            .iconUrl(iconUrl)
-            .build();
+    public TitleResponse createTitle(
+            String name,
+            String description,
+            TitleRarity rarity,
+            TitlePosition positionType,
+            TitleAcquisitionType acquisitionType,
+            String acquisitionCondition,
+            String iconUrl) {
+        Title title =
+                Title.builder()
+                        .name(name)
+                        .description(description)
+                        .rarity(rarity)
+                        .positionType(positionType)
+                        .acquisitionType(acquisitionType)
+                        .acquisitionCondition(acquisitionCondition)
+                        .colorCode(rarity.getColorCode())
+                        .iconUrl(iconUrl)
+                        .build();
 
         Title saved = titleRepository.save(title);
         log.info("칭호 생성: name={}, rarity={}, position={}", name, rarity, positionType);
@@ -458,14 +503,11 @@ public class TitleService {
         return TitleResponse.from(saved);
     }
 
-    /**
-     * 신규 사용자에게 기본 칭호 부여 및 장착
-     * LEFT: 신입 (id: 77), RIGHT: 수련생 (id: 78)
-     */
+    /** 신규 사용자에게 기본 칭호 부여 및 장착 LEFT: 신입 (id: 77), RIGHT: 수련생 (id: 78) */
     @Transactional(transactionManager = "gamificationTransactionManager")
     public void grantAndEquipDefaultTitles(String userId) {
         // 기본 칭호 ID (DML에서 정의된 값)
-        final Long DEFAULT_LEFT_TITLE_ID = 77L;  // 신입 (COMMON, LEFT)
+        final Long DEFAULT_LEFT_TITLE_ID = 77L; // 신입 (COMMON, LEFT)
         final Long DEFAULT_RIGHT_TITLE_ID = 78L; // 수련생 (COMMON, RIGHT)
 
         // 기본 칭호 존재 확인
@@ -473,8 +515,11 @@ public class TitleService {
         boolean rightExists = titleRepository.existsById(DEFAULT_RIGHT_TITLE_ID);
 
         if (!leftExists || !rightExists) {
-            log.error("기본 칭호가 title 테이블에 없습니다. leftExists={}, rightExists={}. " +
-                "gamification_db의 title 테이블 초기화가 필요합니다.", leftExists, rightExists);
+            log.error(
+                    "기본 칭호가 title 테이블에 없습니다. leftExists={}, rightExists={}. "
+                            + "gamification_db의 title 테이블 초기화가 필요합니다.",
+                    leftExists,
+                    rightExists);
             throw new IllegalStateException("기본 칭호가 초기화되지 않았습니다. title 테이블을 확인하세요.");
         }
 
@@ -497,30 +542,96 @@ public class TitleService {
         }
 
         // LEFT 칭호 (형용사/부사형)
-        createTitle("신입", "이제 막 시작한", TitleRarity.COMMON, TitlePosition.LEFT,
-            TitleAcquisitionType.LEVEL, "레벨 1 달성", null);
-        createTitle("성실한", "꾸준히 노력하는", TitleRarity.COMMON, TitlePosition.LEFT,
-            TitleAcquisitionType.ACHIEVEMENT, "7일 연속 출석", null);
-        createTitle("노력하는", "끊임없이 노력하는", TitleRarity.UNCOMMON, TitlePosition.LEFT,
-            TitleAcquisitionType.LEVEL, "레벨 10 달성", null);
-        createTitle("숙련된", "기술을 연마한", TitleRarity.RARE, TitlePosition.LEFT,
-            TitleAcquisitionType.LEVEL, "레벨 30 달성", null);
-        createTitle("전설적인", "전설로 기록될", TitleRarity.EPIC, TitlePosition.LEFT,
-            TitleAcquisitionType.LEVEL, "레벨 50 달성", null);
-        createTitle("궁극의", "최고 경지에 도달한", TitleRarity.LEGENDARY, TitlePosition.LEFT,
-            TitleAcquisitionType.LEVEL, "레벨 100 달성", null);
+        createTitle(
+                "신입",
+                "이제 막 시작한",
+                TitleRarity.COMMON,
+                TitlePosition.LEFT,
+                TitleAcquisitionType.LEVEL,
+                "레벨 1 달성",
+                null);
+        createTitle(
+                "성실한",
+                "꾸준히 노력하는",
+                TitleRarity.COMMON,
+                TitlePosition.LEFT,
+                TitleAcquisitionType.ACHIEVEMENT,
+                "7일 연속 출석",
+                null);
+        createTitle(
+                "노력하는",
+                "끊임없이 노력하는",
+                TitleRarity.UNCOMMON,
+                TitlePosition.LEFT,
+                TitleAcquisitionType.LEVEL,
+                "레벨 10 달성",
+                null);
+        createTitle(
+                "숙련된",
+                "기술을 연마한",
+                TitleRarity.RARE,
+                TitlePosition.LEFT,
+                TitleAcquisitionType.LEVEL,
+                "레벨 30 달성",
+                null);
+        createTitle(
+                "전설적인",
+                "전설로 기록될",
+                TitleRarity.EPIC,
+                TitlePosition.LEFT,
+                TitleAcquisitionType.LEVEL,
+                "레벨 50 달성",
+                null);
+        createTitle(
+                "궁극의",
+                "최고 경지에 도달한",
+                TitleRarity.LEGENDARY,
+                TitlePosition.LEFT,
+                TitleAcquisitionType.LEVEL,
+                "레벨 100 달성",
+                null);
 
         // RIGHT 칭호 (명사형)
-        createTitle("모험가", "모험을 시작한 자", TitleRarity.COMMON, TitlePosition.RIGHT,
-            TitleAcquisitionType.LEVEL, "레벨 1 달성", null);
-        createTitle("전사", "강인한 의지의 전사", TitleRarity.UNCOMMON, TitlePosition.RIGHT,
-            TitleAcquisitionType.LEVEL, "레벨 15 달성", null);
-        createTitle("영웅", "영웅의 자격을 가진 자", TitleRarity.RARE, TitlePosition.RIGHT,
-            TitleAcquisitionType.LEVEL, "레벨 40 달성", null);
-        createTitle("현자", "지혜로운 자", TitleRarity.EPIC, TitlePosition.RIGHT,
-            TitleAcquisitionType.LEVEL, "레벨 70 달성", null);
-        createTitle("레전드", "전설이 된 자", TitleRarity.LEGENDARY, TitlePosition.RIGHT,
-            TitleAcquisitionType.ACHIEVEMENT, "미션 500회 완료", null);
+        createTitle(
+                "모험가",
+                "모험을 시작한 자",
+                TitleRarity.COMMON,
+                TitlePosition.RIGHT,
+                TitleAcquisitionType.LEVEL,
+                "레벨 1 달성",
+                null);
+        createTitle(
+                "전사",
+                "강인한 의지의 전사",
+                TitleRarity.UNCOMMON,
+                TitlePosition.RIGHT,
+                TitleAcquisitionType.LEVEL,
+                "레벨 15 달성",
+                null);
+        createTitle(
+                "영웅",
+                "영웅의 자격을 가진 자",
+                TitleRarity.RARE,
+                TitlePosition.RIGHT,
+                TitleAcquisitionType.LEVEL,
+                "레벨 40 달성",
+                null);
+        createTitle(
+                "현자",
+                "지혜로운 자",
+                TitleRarity.EPIC,
+                TitlePosition.RIGHT,
+                TitleAcquisitionType.LEVEL,
+                "레벨 70 달성",
+                null);
+        createTitle(
+                "레전드",
+                "전설이 된 자",
+                TitleRarity.LEGENDARY,
+                TitlePosition.RIGHT,
+                TitleAcquisitionType.ACHIEVEMENT,
+                "미션 500회 완료",
+                null);
 
         log.info("기본 칭호 초기화 완료");
     }

@@ -1,6 +1,10 @@
 package io.pinkspider.leveluptogethermvp.gamificationservice.season.application;
 
 import io.pinkspider.global.exception.CustomException;
+import io.pinkspider.leveluptogethermvp.gamificationservice.achievement.domain.dto.TitleResponse;
+import io.pinkspider.leveluptogethermvp.gamificationservice.domain.entity.Title;
+import io.pinkspider.leveluptogethermvp.gamificationservice.domain.enums.TitleAcquisitionType;
+import io.pinkspider.leveluptogethermvp.gamificationservice.infrastructure.TitleRepository;
 import io.pinkspider.leveluptogethermvp.gamificationservice.season.api.dto.CreateSeasonRankRewardRequest;
 import io.pinkspider.leveluptogethermvp.gamificationservice.season.api.dto.CreateSeasonTitleRequest;
 import io.pinkspider.leveluptogethermvp.gamificationservice.season.api.dto.SeasonRankRewardResponse;
@@ -9,16 +13,11 @@ import io.pinkspider.leveluptogethermvp.gamificationservice.season.domain.entity
 import io.pinkspider.leveluptogethermvp.gamificationservice.season.domain.entity.SeasonRankReward;
 import io.pinkspider.leveluptogethermvp.gamificationservice.season.infrastructure.SeasonRankRewardRepository;
 import io.pinkspider.leveluptogethermvp.gamificationservice.season.infrastructure.SeasonRepository;
-import io.pinkspider.leveluptogethermvp.gamificationservice.domain.entity.Title;
-import io.pinkspider.leveluptogethermvp.gamificationservice.domain.enums.TitleAcquisitionType;
-import io.pinkspider.leveluptogethermvp.gamificationservice.infrastructure.TitleRepository;
-import io.pinkspider.leveluptogethermvp.gamificationservice.achievement.domain.dto.TitleResponse;
+import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
-import java.util.List;
 
 @Service
 @Slf4j
@@ -29,24 +28,28 @@ public class SeasonRankRewardService {
     private final SeasonRepository seasonRepository;
     private final SeasonRankRewardRepository rankRewardRepository;
     private final TitleRepository titleRepository;
-    private final io.pinkspider.leveluptogethermvp.gamificationservice.shop.infrastructure.ShopItemRepository shopItemRepository;
+    private final io.pinkspider.leveluptogethermvp.gamificationservice.shop.infrastructure
+                    .ShopItemRepository
+            shopItemRepository;
 
-    /**
-     * 시즌의 순위별 보상 목록 조회
-     */
+    /** 시즌의 순위별 보상 목록 조회 */
     @Transactional(readOnly = true)
     public List<SeasonRankRewardResponse> getSeasonRankRewards(Long seasonId) {
         return rankRewardRepository.findBySeasonIdOrderBySortOrder(seasonId).stream()
-            .map(SeasonRankRewardResponse::from)
-            .toList();
+                .map(SeasonRankRewardResponse::from)
+                .toList();
     }
 
-    /**
-     * 순위별 보상 생성
-     */
-    public SeasonRankRewardResponse createRankReward(Long seasonId, CreateSeasonRankRewardRequest request) {
-        Season season = seasonRepository.findById(seasonId)
-            .orElseThrow(() -> new CustomException("SEASON_NOT_FOUND", "error.season.not_found"));
+    /** 순위별 보상 생성 */
+    public SeasonRankRewardResponse createRankReward(
+            Long seasonId, CreateSeasonRankRewardRequest request) {
+        Season season =
+                seasonRepository
+                        .findById(seasonId)
+                        .orElseThrow(
+                                () ->
+                                        new CustomException(
+                                                "SEASON_NOT_FOUND", "error.season.not_found"));
 
         // 순위 유효성 검증
         if (request.rankStart() > request.rankEnd()) {
@@ -54,40 +57,57 @@ public class SeasonRankRewardService {
         }
 
         // 순위 구간 중복 검사
-        if (rankRewardRepository.existsOverlappingRangeWithNullCategory(seasonId, request.rankStart(), request.rankEnd(), 0L)) {
+        if (rankRewardRepository.existsOverlappingRangeWithNullCategory(
+                seasonId, request.rankStart(), request.rankEnd(), 0L)) {
             throw new CustomException("RANK_RANGE_OVERLAP", "error.season.rank.overlap");
         }
 
         // 칭호 존재 확인
-        Title title = titleRepository.findById(request.titleId())
-            .orElseThrow(() -> new CustomException("TITLE_NOT_FOUND", "error.title.not_found"));
+        Title title =
+                titleRepository
+                        .findById(request.titleId())
+                        .orElseThrow(
+                                () ->
+                                        new CustomException(
+                                                "TITLE_NOT_FOUND", "error.title.not_found"));
 
-        SeasonRankReward reward = SeasonRankReward.builder()
-            .season(season)
-            .rankStart(request.rankStart())
-            .rankEnd(request.rankEnd())
-            .titleId(request.titleId())
-            .titleName(title.getName())
-            .titleRarity(title.getRarity() != null ? title.getRarity().name() : null)
-            .itemId(request.itemId())
-            .itemName(resolveRewardItemName(request.itemId()))
-            .sortOrder(request.sortOrder())
-            .isActive(true)
-            .build();
+        SeasonRankReward reward =
+                SeasonRankReward.builder()
+                        .season(season)
+                        .rankStart(request.rankStart())
+                        .rankEnd(request.rankEnd())
+                        .titleId(request.titleId())
+                        .titleName(title.getName())
+                        .titleRarity(title.getRarity() != null ? title.getRarity().name() : null)
+                        .itemId(request.itemId())
+                        .itemName(resolveRewardItemName(request.itemId()))
+                        .sortOrder(request.sortOrder())
+                        .isActive(true)
+                        .build();
 
         SeasonRankReward saved = rankRewardRepository.save(reward);
-        log.info("시즌 순위 보상 생성: seasonId={}, rankRange={}-{}, titleId={}, titleRarity={}",
-            seasonId, request.rankStart(), request.rankEnd(), request.titleId(), title.getRarity());
+        log.info(
+                "시즌 순위 보상 생성: seasonId={}, rankRange={}-{}, titleId={}, titleRarity={}",
+                seasonId,
+                request.rankStart(),
+                request.rankEnd(),
+                request.titleId(),
+                title.getRarity());
 
         return SeasonRankRewardResponse.from(saved);
     }
 
-    /**
-     * 순위별 보상 수정
-     */
-    public SeasonRankRewardResponse updateRankReward(Long rewardId, UpdateSeasonRankRewardRequest request) {
-        SeasonRankReward reward = rankRewardRepository.findById(rewardId)
-            .orElseThrow(() -> new CustomException("REWARD_NOT_FOUND", "error.season.reward.not_found"));
+    /** 순위별 보상 수정 */
+    public SeasonRankRewardResponse updateRankReward(
+            Long rewardId, UpdateSeasonRankRewardRequest request) {
+        SeasonRankReward reward =
+                rankRewardRepository
+                        .findById(rewardId)
+                        .orElseThrow(
+                                () ->
+                                        new CustomException(
+                                                "REWARD_NOT_FOUND",
+                                                "error.season.reward.not_found"));
 
         // 순위 유효성 검증
         if (request.rankStart() > request.rankEnd()) {
@@ -101,8 +121,13 @@ public class SeasonRankRewardService {
         }
 
         // 칭호 존재 확인
-        Title title = titleRepository.findById(request.titleId())
-            .orElseThrow(() -> new CustomException("TITLE_NOT_FOUND", "error.title.not_found"));
+        Title title =
+                titleRepository
+                        .findById(request.titleId())
+                        .orElseThrow(
+                                () ->
+                                        new CustomException(
+                                                "TITLE_NOT_FOUND", "error.title.not_found"));
 
         reward.setRankStart(request.rankStart());
         reward.setRankEnd(request.rankEnd());
@@ -115,18 +140,27 @@ public class SeasonRankRewardService {
             reward.setSortOrder(request.sortOrder());
         }
 
-        log.info("시즌 순위 보상 수정: rewardId={}, rankRange={}-{}, titleId={}, titleRarity={}",
-            rewardId, request.rankStart(), request.rankEnd(), request.titleId(), title.getRarity());
+        log.info(
+                "시즌 순위 보상 수정: rewardId={}, rankRange={}-{}, titleId={}, titleRarity={}",
+                rewardId,
+                request.rankStart(),
+                request.rankEnd(),
+                request.titleId(),
+                title.getRarity());
 
         return SeasonRankRewardResponse.from(reward);
     }
 
-    /**
-     * 순위별 보상 삭제 (비활성화)
-     */
+    /** 순위별 보상 삭제 (비활성화) */
     public void deleteRankReward(Long rewardId) {
-        SeasonRankReward reward = rankRewardRepository.findById(rewardId)
-            .orElseThrow(() -> new CustomException("REWARD_NOT_FOUND", "error.season.reward.not_found"));
+        SeasonRankReward reward =
+                rankRewardRepository
+                        .findById(rewardId)
+                        .orElseThrow(
+                                () ->
+                                        new CustomException(
+                                                "REWARD_NOT_FOUND",
+                                                "error.season.reward.not_found"));
 
         reward.setIsActive(false);
         log.info("시즌 순위 보상 삭제: rewardId={}", rewardId);
@@ -137,34 +171,39 @@ public class SeasonRankRewardService {
         if (itemId == null) {
             return null;
         }
-        var item = shopItemRepository.findById(itemId)
-            .orElseThrow(() -> new CustomException("120602", "error.useritem.item_not_found"));
+        var item =
+                shopItemRepository
+                        .findById(itemId)
+                        .orElseThrow(
+                                () ->
+                                        new CustomException(
+                                                "120602", "error.useritem.item_not_found"));
         return item.getName();
     }
 
-    /**
-     * 시즌 전용 칭호 생성 (어드민용)
-     */
+    /** 시즌 전용 칭호 생성 (어드민용) */
     @Transactional(transactionManager = "gamificationTransactionManager")
     public TitleResponse createSeasonTitle(CreateSeasonTitleRequest request) {
-        String acquisitionCondition = request.seasonName() != null && request.rankRange() != null
-            ? request.seasonName() + " 시즌 " + request.rankRange() + " 달성"
-            : "시즌 랭킹 보상";
+        String acquisitionCondition =
+                request.seasonName() != null && request.rankRange() != null
+                        ? request.seasonName() + " 시즌 " + request.rankRange() + " 달성"
+                        : "시즌 랭킹 보상";
 
-        Title title = Title.builder()
-            .name(request.name())
-            .nameEn(request.nameEn())
-            .nameAr(request.nameAr())
-            .nameJa(request.nameJa())
-            .description(request.description())
-            .rarity(request.rarity())
-            .positionType(request.positionType())
-            .acquisitionType(TitleAcquisitionType.SEASON)
-            .acquisitionCondition(acquisitionCondition)
-            .iconUrl(request.iconUrl())
-            .colorCode(request.rarity().getColorCode())
-            .isActive(true)
-            .build();
+        Title title =
+                Title.builder()
+                        .name(request.name())
+                        .nameEn(request.nameEn())
+                        .nameAr(request.nameAr())
+                        .nameJa(request.nameJa())
+                        .description(request.description())
+                        .rarity(request.rarity())
+                        .positionType(request.positionType())
+                        .acquisitionType(TitleAcquisitionType.SEASON)
+                        .acquisitionCondition(acquisitionCondition)
+                        .iconUrl(request.iconUrl())
+                        .colorCode(request.rarity().getColorCode())
+                        .isActive(true)
+                        .build();
 
         Title saved = titleRepository.save(title);
         log.info("시즌 전용 칭호 생성: name={}, rarity={}", request.name(), request.rarity());

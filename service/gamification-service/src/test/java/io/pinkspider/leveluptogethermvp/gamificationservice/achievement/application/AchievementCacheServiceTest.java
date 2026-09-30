@@ -21,40 +21,40 @@ import org.mockito.junit.jupiter.MockitoExtension;
 @ExtendWith(MockitoExtension.class)
 class AchievementCacheServiceTest {
 
-    @Mock
-    private AchievementRepository achievementRepository;
+    @Mock private AchievementRepository achievementRepository;
 
-    @Mock
-    private AchievementCategoryRepository achievementCategoryRepository;
+    @Mock private AchievementCategoryRepository achievementCategoryRepository;
 
-    @InjectMocks
-    private AchievementCacheService achievementCacheService;
+    @InjectMocks private AchievementCacheService achievementCacheService;
 
-    private Achievement createTestAchievement(Long id, String name, String categoryCode, String dataSource) {
-        Achievement achievement = Achievement.builder()
-            .name(name)
-            .description(name + " 설명")
-            .categoryCode(categoryCode)
-            .requiredCount(10)
-            .rewardExp(100)
-            .isActive(true)
-            .isHidden(false)
-            .checkLogicDataSource(dataSource)
-            .checkLogicDataField("totalMissionCompletions")
-            .comparisonOperator("GTE")
-            .build();
+    private Achievement createTestAchievement(
+            Long id, String name, String categoryCode, String dataSource) {
+        Achievement achievement =
+                Achievement.builder()
+                        .name(name)
+                        .description(name + " 설명")
+                        .categoryCode(categoryCode)
+                        .requiredCount(10)
+                        .rewardExp(100)
+                        .isActive(true)
+                        .isHidden(false)
+                        .checkLogicDataSource(dataSource)
+                        .checkLogicDataField("totalMissionCompletions")
+                        .comparisonOperator("GTE")
+                        .build();
         setId(achievement, id);
         return achievement;
     }
 
     private AchievementCategory createTestCategory(Long id, String code, String name) {
-        AchievementCategory category = AchievementCategory.builder()
-            .code(code)
-            .name(name)
-            .description(name + " 설명")
-            .sortOrder(1)
-            .isActive(true)
-            .build();
+        AchievementCategory category =
+                AchievementCategory.builder()
+                        .code(code)
+                        .name(name)
+                        .description(name + " 설명")
+                        .sortOrder(1)
+                        .isActive(true)
+                        .build();
         setId(category, id);
         return category;
     }
@@ -70,7 +70,8 @@ class AchievementCacheServiceTest {
             Achievement achievement1 = createTestAchievement(1L, "미션 완료", "MISSION", "USER_STATS");
             Achievement achievement2 = createTestAchievement(2L, "길드 가입", "GUILD", "GUILD_SERVICE");
 
-            when(achievementRepository.findByIsActiveTrue()).thenReturn(List.of(achievement1, achievement2));
+            when(achievementRepository.findByIsActiveTrue())
+                    .thenReturn(List.of(achievement1, achievement2));
 
             // when
             List<Achievement> result = achievementCacheService.getActiveAchievements();
@@ -128,10 +129,11 @@ class AchievementCacheServiceTest {
             Achievement achievement = createTestAchievement(1L, "미션 완료", "MISSION", "USER_STATS");
 
             when(achievementRepository.findByCategoryCodeAndIsActiveTrue("MISSION"))
-                .thenReturn(List.of(achievement));
+                    .thenReturn(List.of(achievement));
 
             // when
-            List<Achievement> result = achievementCacheService.getAchievementsByCategoryCode("MISSION");
+            List<Achievement> result =
+                    achievementCacheService.getAchievementsByCategoryCode("MISSION");
 
             // then
             assertThat(result).hasSize(1);
@@ -144,10 +146,11 @@ class AchievementCacheServiceTest {
         void getAchievementsByCategoryCode_empty() {
             // given
             when(achievementRepository.findByCategoryCodeAndIsActiveTrue("NONEXISTENT"))
-                .thenReturn(List.of());
+                    .thenReturn(List.of());
 
             // when
-            List<Achievement> result = achievementCacheService.getAchievementsByCategoryCode("NONEXISTENT");
+            List<Achievement> result =
+                    achievementCacheService.getAchievementsByCategoryCode("NONEXISTENT");
 
             // then
             assertThat(result).isEmpty();
@@ -162,13 +165,15 @@ class AchievementCacheServiceTest {
         @DisplayName("미션 카테고리 ID로 활성 업적을 조회한다")
         void getAchievementsByMissionCategoryId_success() {
             // given
-            Achievement achievement = createTestAchievement(1L, "미션 카테고리 달성", "MISSION", "USER_STATS");
+            Achievement achievement =
+                    createTestAchievement(1L, "미션 카테고리 달성", "MISSION", "USER_STATS");
 
             when(achievementRepository.findByMissionCategoryIdAndIsActiveTrue(1L))
-                .thenReturn(List.of(achievement));
+                    .thenReturn(List.of(achievement));
 
             // when
-            List<Achievement> result = achievementCacheService.getAchievementsByMissionCategoryId(1L);
+            List<Achievement> result =
+                    achievementCacheService.getAchievementsByMissionCategoryId(1L);
 
             // then
             assertThat(result).hasSize(1);
@@ -180,10 +185,11 @@ class AchievementCacheServiceTest {
         void getAchievementsByMissionCategoryId_empty() {
             // given
             when(achievementRepository.findByMissionCategoryIdAndIsActiveTrue(999L))
-                .thenReturn(List.of());
+                    .thenReturn(List.of());
 
             // when
-            List<Achievement> result = achievementCacheService.getAchievementsByMissionCategoryId(999L);
+            List<Achievement> result =
+                    achievementCacheService.getAchievementsByMissionCategoryId(999L);
 
             // then
             assertThat(result).isEmpty();
@@ -202,10 +208,11 @@ class AchievementCacheServiceTest {
             Achievement achievement2 = createTestAchievement(2L, "업적 달성", "SOCIAL", "USER_STATS");
 
             when(achievementRepository.findByCheckLogicDataSourceAndIsActiveTrue("USER_STATS"))
-                .thenReturn(List.of(achievement1, achievement2));
+                    .thenReturn(List.of(achievement1, achievement2));
 
             // when
-            List<Achievement> result = achievementCacheService.getAchievementsByDataSource("USER_STATS");
+            List<Achievement> result =
+                    achievementCacheService.getAchievementsByDataSource("USER_STATS");
 
             // then
             assertThat(result).hasSize(2);
@@ -226,7 +233,7 @@ class AchievementCacheServiceTest {
             Achievement achievement2 = createTestAchievement(2L, "길드 가입", "GUILD", "GUILD_SERVICE");
 
             when(achievementRepository.findAllWithCheckLogicAndIsActiveTrue())
-                .thenReturn(List.of(achievement1, achievement2));
+                    .thenReturn(List.of(achievement1, achievement2));
 
             // when
             List<Achievement> result = achievementCacheService.getAchievementsWithCheckLogic();
@@ -249,7 +256,7 @@ class AchievementCacheServiceTest {
             AchievementCategory category2 = createTestCategory(2L, "GUILD", "길드");
 
             when(achievementCategoryRepository.findByIsActiveTrueOrderBySortOrderAsc())
-                .thenReturn(List.of(category1, category2));
+                    .thenReturn(List.of(category1, category2));
 
             // when
             List<AchievementCategory> result = achievementCacheService.getActiveCategories();
@@ -265,7 +272,7 @@ class AchievementCacheServiceTest {
         void getActiveCategories_empty() {
             // given
             when(achievementCategoryRepository.findByIsActiveTrueOrderBySortOrderAsc())
-                .thenReturn(List.of());
+                    .thenReturn(List.of());
 
             // when
             List<AchievementCategory> result = achievementCacheService.getActiveCategories();
@@ -284,16 +291,17 @@ class AchievementCacheServiceTest {
         void getAllCategories_success() {
             // given
             AchievementCategory activeCategory = createTestCategory(1L, "MISSION", "미션");
-            AchievementCategory inactiveCategory = AchievementCategory.builder()
-                .code("INACTIVE")
-                .name("비활성 카테고리")
-                .sortOrder(99)
-                .isActive(false)
-                .build();
+            AchievementCategory inactiveCategory =
+                    AchievementCategory.builder()
+                            .code("INACTIVE")
+                            .name("비활성 카테고리")
+                            .sortOrder(99)
+                            .isActive(false)
+                            .build();
             setId(inactiveCategory, 2L);
 
             when(achievementCategoryRepository.findAllByOrderBySortOrderAsc())
-                .thenReturn(List.of(activeCategory, inactiveCategory));
+                    .thenReturn(List.of(activeCategory, inactiveCategory));
 
             // when
             List<AchievementCategory> result = achievementCacheService.getAllCategories();

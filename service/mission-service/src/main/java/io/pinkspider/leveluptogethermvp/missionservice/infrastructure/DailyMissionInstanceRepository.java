@@ -13,541 +13,470 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
-/**
- * 고정 미션 일일 인스턴스 Repository
- */
+/** 고정 미션 일일 인스턴스 Repository */
 @Repository
 public interface DailyMissionInstanceRepository extends JpaRepository<DailyMissionInstance, Long> {
 
-    /**
-     * 참여자의 모든 인스턴스 조회
-     */
+    /** 참여자의 모든 인스턴스 조회 */
     List<DailyMissionInstance> findByParticipantId(Long participantId);
 
     /**
      * LUT-529: 여러 유저의 완료(status=COMPLETED) 고정 미션 완료 시각 배치 조회. 아이템 푸시 상태 판정·백오프용. (userId,
      * completedAt) 쌍을 돌려주며 호출부에서 유저 타임존 로컬 날짜로 버킷팅한다.
      */
-    @Query("SELECT mp.userId, dmi.completedAt FROM DailyMissionInstance dmi JOIN dmi.participant mp "
-        + "WHERE mp.userId IN :userIds AND dmi.status = 'COMPLETED' "
-        + "AND dmi.completedAt >= :startUtc AND dmi.completedAt < :endUtc")
+    @Query(
+            "SELECT mp.userId, dmi.completedAt FROM DailyMissionInstance dmi JOIN dmi.participant"
+                + " mp WHERE mp.userId IN :userIds AND dmi.status = 'COMPLETED' AND dmi.completedAt"
+                + " >= :startUtc AND dmi.completedAt < :endUtc")
     List<Object[]> findCompletedUserAndTimeByUserIdIn(
-        @Param("userIds") java.util.Collection<String> userIds,
-        @Param("startUtc") LocalDateTime startUtc,
-        @Param("endUtc") LocalDateTime endUtc);
+            @Param("userIds") java.util.Collection<String> userIds,
+            @Param("startUtc") LocalDateTime startUtc,
+            @Param("endUtc") LocalDateTime endUtc);
 
-    /**
-     * 참여자의 특정 상태 인스턴스 조회
-     */
-    List<DailyMissionInstance> findByParticipantIdAndStatus(Long participantId, ExecutionStatus status);
+    /** 참여자의 특정 상태 인스턴스 조회 */
+    List<DailyMissionInstance> findByParticipantIdAndStatus(
+            Long participantId, ExecutionStatus status);
 
-    /**
-     * 사용자의 특정 날짜 모든 인스턴스 조회
-     */
-    @Query("SELECT dmi FROM DailyMissionInstance dmi " +
-           "JOIN dmi.participant p " +
-           "WHERE p.userId = :userId AND dmi.instanceDate = :date")
+    /** 사용자의 특정 날짜 모든 인스턴스 조회 */
+    @Query(
+            "SELECT dmi FROM DailyMissionInstance dmi "
+                    + "JOIN dmi.participant p "
+                    + "WHERE p.userId = :userId AND dmi.instanceDate = :date")
     List<DailyMissionInstance> findByUserIdAndInstanceDate(
-        @Param("userId") String userId,
-        @Param("date") LocalDate date
-    );
+            @Param("userId") String userId, @Param("date") LocalDate date);
 
     /**
      * 사용자의 오늘 인스턴스 조회 (참여자, 미션 정보 함께 로드)
      *
-     * PENDING 인스턴스가 마지막에 오도록 정렬하여
-     * 프론트엔드에서 mission_id를 key로 Map에 저장할 때 PENDING이 유지됩니다.
-     * 따라서 고정 미션은 항상 '해야할 미션' 섹션에 표시됩니다.
-     * 완료된 고정 미션은 별도 필드(completedPinnedInstances)로 반환됩니다.
+     * <p>PENDING 인스턴스가 마지막에 오도록 정렬하여 프론트엔드에서 mission_id를 key로 Map에 저장할 때 PENDING이 유지됩니다. 따라서 고정 미션은
+     * 항상 '해야할 미션' 섹션에 표시됩니다. 완료된 고정 미션은 별도 필드(completedPinnedInstances)로 반환됩니다.
      */
-    @Query("SELECT dmi FROM DailyMissionInstance dmi " +
-           "JOIN FETCH dmi.participant p " +
-           "JOIN FETCH p.mission m " +
-           "WHERE p.userId = :userId AND dmi.instanceDate = :date " +
-           "ORDER BY dmi.id DESC")
+    @Query(
+            "SELECT dmi FROM DailyMissionInstance dmi "
+                    + "JOIN FETCH dmi.participant p "
+                    + "JOIN FETCH p.mission m "
+                    + "WHERE p.userId = :userId AND dmi.instanceDate = :date "
+                    + "ORDER BY dmi.id DESC")
     List<DailyMissionInstance> findByUserIdAndInstanceDateWithMission(
-        @Param("userId") String userId,
-        @Param("date") LocalDate date
-    );
+            @Param("userId") String userId, @Param("date") LocalDate date);
 
     /**
      * 오늘 보여야 할 고정 미션 인스턴스 조회.
-     * <p>
-     * 포함 조건:
+     *
+     * <p>포함 조건:
+     *
      * <ul>
-     *   <li>instanceDate = today (예정/시작/완료 모두)</li>
-     *   <li>instanceDate = yesterday AND status = IN_PROGRESS (자정 전환 진행 인스턴스)</li>
-     *   <li>QA-151: instanceDate = yesterday AND status = COMPLETED AND completedAt 이 KST 오늘 범위
-     *     — 어제 시작했지만 자정 넘겨 오늘 종료한 인스턴스도 "오늘 완료한 미션" 영역에 노출.</li>
+     *   <li>instanceDate = today (예정/시작/완료 모두)
+     *   <li>instanceDate = yesterday AND status = IN_PROGRESS (자정 전환 진행 인스턴스)
+     *   <li>QA-151: instanceDate = yesterday AND status = COMPLETED AND completedAt 이 KST 오늘 범위 —
+     *       어제 시작했지만 자정 넘겨 오늘 종료한 인스턴스도 "오늘 완료한 미션" 영역에 노출.
      * </ul>
      */
-    @Query("SELECT dmi FROM DailyMissionInstance dmi " +
-           "JOIN FETCH dmi.participant p " +
-           "JOIN FETCH p.mission m " +
-           "WHERE p.userId = :userId " +
-           "AND (dmi.instanceDate = :today " +
-           "  OR (dmi.instanceDate = :yesterday AND dmi.status = 'IN_PROGRESS') " +
-           "  OR (dmi.instanceDate = :yesterday AND dmi.status = 'COMPLETED' " +
-           "      AND dmi.completedAt >= :todayStartUtc AND dmi.completedAt < :tomorrowStartUtc)) " +
-           "ORDER BY dmi.id DESC")
+    @Query(
+            "SELECT dmi FROM DailyMissionInstance dmi JOIN FETCH dmi.participant p JOIN FETCH"
+                    + " p.mission m WHERE p.userId = :userId AND (dmi.instanceDate = :today   OR"
+                    + " (dmi.instanceDate = :yesterday AND dmi.status = 'IN_PROGRESS')   OR"
+                    + " (dmi.instanceDate = :yesterday AND dmi.status = 'COMPLETED'       AND"
+                    + " dmi.completedAt >= :todayStartUtc AND dmi.completedAt < :tomorrowStartUtc))"
+                    + " ORDER BY dmi.id DESC")
     List<DailyMissionInstance> findByUserIdAndTodayOrYesterdayInProgress(
-        @Param("userId") String userId,
-        @Param("today") LocalDate today,
-        @Param("yesterday") LocalDate yesterday,
-        @Param("todayStartUtc") java.time.LocalDateTime todayStartUtc,
-        @Param("tomorrowStartUtc") java.time.LocalDateTime tomorrowStartUtc
-    );
+            @Param("userId") String userId,
+            @Param("today") LocalDate today,
+            @Param("yesterday") LocalDate yesterday,
+            @Param("todayStartUtc") java.time.LocalDateTime todayStartUtc,
+            @Param("tomorrowStartUtc") java.time.LocalDateTime tomorrowStartUtc);
 
     /**
      * 사용자의 오늘 완료된 인스턴스 조회 ("오늘 완료한 미션" 섹션용).
-     * <p>
-     * QA-151: 시작일(instanceDate) 이 아닌 종료일(completedAt) 의 KST 날짜가 오늘인 인스턴스를 반환한다.
-     * 어제 시작했어도 오늘 종료했다면 이 목록에 포함된다.
+     *
+     * <p>QA-151: 시작일(instanceDate) 이 아닌 종료일(completedAt) 의 KST 날짜가 오늘인 인스턴스를 반환한다. 어제 시작했어도 오늘
+     * 종료했다면 이 목록에 포함된다.
      */
-    @Query("SELECT dmi FROM DailyMissionInstance dmi " +
-           "JOIN FETCH dmi.participant p " +
-           "JOIN FETCH p.mission m " +
-           "WHERE p.userId = :userId " +
-           "AND dmi.status = 'COMPLETED' " +
-           "AND dmi.completedAt >= :todayStartUtc AND dmi.completedAt < :tomorrowStartUtc " +
-           "ORDER BY dmi.completedAt DESC")
+    @Query(
+            "SELECT dmi FROM DailyMissionInstance dmi JOIN FETCH dmi.participant p JOIN FETCH"
+                + " p.mission m WHERE p.userId = :userId AND dmi.status = 'COMPLETED' AND"
+                + " dmi.completedAt >= :todayStartUtc AND dmi.completedAt < :tomorrowStartUtc ORDER"
+                + " BY dmi.completedAt DESC")
     List<DailyMissionInstance> findCompletedByUserIdAndCompletedDate(
-        @Param("userId") String userId,
-        @Param("todayStartUtc") java.time.LocalDateTime todayStartUtc,
-        @Param("tomorrowStartUtc") java.time.LocalDateTime tomorrowStartUtc
-    );
+            @Param("userId") String userId,
+            @Param("todayStartUtc") java.time.LocalDateTime todayStartUtc,
+            @Param("tomorrowStartUtc") java.time.LocalDateTime tomorrowStartUtc);
 
-    /**
-     * 인스턴스 상세 조회 (참여자, 미션 정보 함께 로드)
-     */
-    @Query("SELECT dmi FROM DailyMissionInstance dmi " +
-           "JOIN FETCH dmi.participant p " +
-           "JOIN FETCH p.mission m " +
-           "WHERE dmi.id = :id")
+    /** 인스턴스 상세 조회 (참여자, 미션 정보 함께 로드) */
+    @Query(
+            "SELECT dmi FROM DailyMissionInstance dmi "
+                    + "JOIN FETCH dmi.participant p "
+                    + "JOIN FETCH p.mission m "
+                    + "WHERE dmi.id = :id")
     Optional<DailyMissionInstance> findByIdWithParticipantAndMission(@Param("id") Long id);
 
-    /**
-     * 사용자의 진행 중인 인스턴스 조회
-     */
-    @Query("SELECT dmi FROM DailyMissionInstance dmi " +
-           "JOIN dmi.participant p " +
-           "WHERE p.userId = :userId AND dmi.status = 'IN_PROGRESS'")
+    /** 사용자의 진행 중인 인스턴스 조회 */
+    @Query(
+            "SELECT dmi FROM DailyMissionInstance dmi "
+                    + "JOIN dmi.participant p "
+                    + "WHERE p.userId = :userId AND dmi.status = 'IN_PROGRESS'")
     Optional<DailyMissionInstance> findInProgressByUserId(@Param("userId") String userId);
 
-    /**
-     * LUT-275: 여러 사용자의 진행 중인 인스턴스 배치 조회 (랭킹 목록용)
-     */
-    @Query("SELECT dmi FROM DailyMissionInstance dmi " +
-           "JOIN FETCH dmi.participant p " +
-           "JOIN FETCH p.mission " +
-           "WHERE p.userId IN :userIds AND dmi.status = 'IN_PROGRESS'")
-    List<DailyMissionInstance> findInProgressByUserIdIn(@Param("userIds") java.util.Collection<String> userIds);
+    /** LUT-275: 여러 사용자의 진행 중인 인스턴스 배치 조회 (랭킹 목록용) */
+    @Query(
+            "SELECT dmi FROM DailyMissionInstance dmi "
+                    + "JOIN FETCH dmi.participant p "
+                    + "JOIN FETCH p.mission "
+                    + "WHERE p.userId IN :userIds AND dmi.status = 'IN_PROGRESS'")
+    List<DailyMissionInstance> findInProgressByUserIdIn(
+            @Param("userIds") java.util.Collection<String> userIds);
 
-    /**
-     * LUT-297: 전체 사용자의 진행 중인 인스턴스 조회 (실시간 랭킹용)
-     */
-    @Query("SELECT dmi FROM DailyMissionInstance dmi " +
-           "JOIN FETCH dmi.participant p " +
-           "JOIN FETCH p.mission " +
-           "WHERE dmi.status = 'IN_PROGRESS'")
+    /** LUT-297: 전체 사용자의 진행 중인 인스턴스 조회 (실시간 랭킹용) */
+    @Query(
+            "SELECT dmi FROM DailyMissionInstance dmi "
+                    + "JOIN FETCH dmi.participant p "
+                    + "JOIN FETCH p.mission "
+                    + "WHERE dmi.status = 'IN_PROGRESS'")
     List<DailyMissionInstance> findAllInProgress();
 
-    /**
-     * 미션의 IN_PROGRESS 인스턴스 존재 여부 (전체 참여자 대상, 삭제 차단 검사용)
-     */
-    @Query("SELECT COUNT(dmi) > 0 FROM DailyMissionInstance dmi " +
-           "JOIN dmi.participant p " +
-           "WHERE p.mission.id = :missionId AND dmi.status = 'IN_PROGRESS'")
+    /** 미션의 IN_PROGRESS 인스턴스 존재 여부 (전체 참여자 대상, 삭제 차단 검사용) */
+    @Query(
+            "SELECT COUNT(dmi) > 0 FROM DailyMissionInstance dmi "
+                    + "JOIN dmi.participant p "
+                    + "WHERE p.mission.id = :missionId AND dmi.status = 'IN_PROGRESS'")
     boolean existsInProgressByMissionId(@Param("missionId") Long missionId);
 
-    /**
-     * 특정 사용자의 미션 IN_PROGRESS 인스턴스 존재 여부 (참여 철회 차단 검사용)
-     */
-    @Query("SELECT COUNT(dmi) > 0 FROM DailyMissionInstance dmi " +
-           "JOIN dmi.participant p " +
-           "WHERE p.mission.id = :missionId AND p.userId = :userId AND dmi.status = 'IN_PROGRESS'")
+    /** 특정 사용자의 미션 IN_PROGRESS 인스턴스 존재 여부 (참여 철회 차단 검사용) */
+    @Query(
+            "SELECT COUNT(dmi) > 0 FROM DailyMissionInstance dmi JOIN dmi.participant p WHERE"
+                    + " p.mission.id = :missionId AND p.userId = :userId AND dmi.status ="
+                    + " 'IN_PROGRESS'")
     boolean existsInProgressByMissionIdAndUserId(
-        @Param("missionId") Long missionId,
-        @Param("userId") String userId
-    );
+            @Param("missionId") Long missionId, @Param("userId") String userId);
 
-    /**
-     * 사용자의 특정 기간 인스턴스 조회
-     */
-    @Query("SELECT dmi FROM DailyMissionInstance dmi " +
-           "JOIN dmi.participant p " +
-           "WHERE p.userId = :userId " +
-           "AND dmi.instanceDate BETWEEN :startDate AND :endDate " +
-           "ORDER BY dmi.instanceDate")
+    /** 사용자의 특정 기간 인스턴스 조회 */
+    @Query(
+            "SELECT dmi FROM DailyMissionInstance dmi "
+                    + "JOIN dmi.participant p "
+                    + "WHERE p.userId = :userId "
+                    + "AND dmi.instanceDate BETWEEN :startDate AND :endDate "
+                    + "ORDER BY dmi.instanceDate")
     List<DailyMissionInstance> findByUserIdAndDateRange(
-        @Param("userId") String userId,
-        @Param("startDate") LocalDate startDate,
-        @Param("endDate") LocalDate endDate
-    );
+            @Param("userId") String userId,
+            @Param("startDate") LocalDate startDate,
+            @Param("endDate") LocalDate endDate);
 
-    /**
-     * 사용자의 특정 기간 완료된 인스턴스 조회 (캘린더용)
-     */
-    @Query("SELECT dmi FROM DailyMissionInstance dmi " +
-           "JOIN FETCH dmi.participant p " +
-           "JOIN FETCH p.mission m " +
-           "WHERE p.userId = :userId " +
-           "AND dmi.instanceDate BETWEEN :startDate AND :endDate " +
-           "AND dmi.status = 'COMPLETED' " +
-           "ORDER BY dmi.instanceDate")
+    /** 사용자의 특정 기간 완료된 인스턴스 조회 (캘린더용) */
+    @Query(
+            "SELECT dmi FROM DailyMissionInstance dmi "
+                    + "JOIN FETCH dmi.participant p "
+                    + "JOIN FETCH p.mission m "
+                    + "WHERE p.userId = :userId "
+                    + "AND dmi.instanceDate BETWEEN :startDate AND :endDate "
+                    + "AND dmi.status = 'COMPLETED' "
+                    + "ORDER BY dmi.instanceDate")
     List<DailyMissionInstance> findCompletedByUserIdAndDateRange(
-        @Param("userId") String userId,
-        @Param("startDate") LocalDate startDate,
-        @Param("endDate") LocalDate endDate
-    );
+            @Param("userId") String userId,
+            @Param("startDate") LocalDate startDate,
+            @Param("endDate") LocalDate endDate);
 
     /**
-     * LUT-240: 완료 시각(completedAt) 기준 캘린더 조회.
-     * daily_exp(경험치 이력, 완료 시각 KST 날짜 버킷)와 날짜 기준을 일치시켜
+     * LUT-240: 완료 시각(completedAt) 기준 캘린더 조회. daily_exp(경험치 이력, 완료 시각 KST 날짜 버킷)와 날짜 기준을 일치시켜
      * instanceDate 와 완료일이 다를 때(자정 넘겨 완료 등) "기타 보상"이 부풀려지는 문제를 막는다.
      */
-    @Query("SELECT dmi FROM DailyMissionInstance dmi " +
-           "JOIN FETCH dmi.participant p " +
-           "JOIN FETCH p.mission m " +
-           "WHERE p.userId = :userId " +
-           "AND dmi.completedAt >= :startUtc AND dmi.completedAt < :endUtc " +
-           "AND dmi.status = 'COMPLETED'")
+    @Query(
+            "SELECT dmi FROM DailyMissionInstance dmi "
+                    + "JOIN FETCH dmi.participant p "
+                    + "JOIN FETCH p.mission m "
+                    + "WHERE p.userId = :userId "
+                    + "AND dmi.completedAt >= :startUtc AND dmi.completedAt < :endUtc "
+                    + "AND dmi.status = 'COMPLETED'")
     List<DailyMissionInstance> findCompletedByUserIdAndCompletedAtBetween(
-        @Param("userId") String userId,
-        @Param("startUtc") java.time.LocalDateTime startUtc,
-        @Param("endUtc") java.time.LocalDateTime endUtc
-    );
+            @Param("userId") String userId,
+            @Param("startUtc") java.time.LocalDateTime startUtc,
+            @Param("endUtc") java.time.LocalDateTime endUtc);
 
-    /**
-     * 지난 날짜의 미완료 인스턴스 일괄 MISSED 처리
-     */
+    /** 지난 날짜의 미완료 인스턴스 일괄 MISSED 처리 */
     @Modifying
-    @Query("UPDATE DailyMissionInstance dmi SET dmi.status = 'MISSED' " +
-           "WHERE dmi.status = 'PENDING' AND dmi.instanceDate < :date")
+    @Query(
+            "UPDATE DailyMissionInstance dmi SET dmi.status = 'MISSED' "
+                    + "WHERE dmi.status = 'PENDING' AND dmi.instanceDate < :date")
     int markMissedInstances(@Param("date") LocalDate date);
 
     /**
-     * LUT-361: 미션 수정 시 미완료(PENDING/IN_PROGRESS) 인스턴스의 스냅샷을 원본 미션과 동기화.
-     * 스냅샷은 완료 시점에 확정되는 값이므로 아직 수행하지 않은 인스턴스는 최신 미션 정의를 따라야 한다.
-     * 완료/누락(COMPLETED/MISSED) 인스턴스는 수행 당시의 기록이라 건드리지 않는다.
+     * LUT-361: 미션 수정 시 미완료(PENDING/IN_PROGRESS) 인스턴스의 스냅샷을 원본 미션과 동기화. 스냅샷은 완료 시점에 확정되는 값이므로 아직
+     * 수행하지 않은 인스턴스는 최신 미션 정의를 따라야 한다. 완료/누락(COMPLETED/MISSED) 인스턴스는 수행 당시의 기록이라 건드리지 않는다.
      */
     @Modifying
-    @Query("UPDATE DailyMissionInstance dmi " +
-           "SET dmi.missionTitle = :title, " +
-           "    dmi.missionDescription = :description, " +
-           "    dmi.categoryName = :categoryName, " +
-           "    dmi.categoryId = :categoryId, " +
-           "    dmi.expPerCompletion = :expPerCompletion, " +
-           "    dmi.targetDurationMinutes = :targetDurationMinutes, " +
-           "    dmi.bonusExpOnFullCompletion = :bonusExpOnFullCompletion " +
-           "WHERE dmi.status IN ('PENDING', 'IN_PROGRESS') " +
-           "AND dmi.participant.id IN (" +
-           "    SELECT p.id FROM MissionParticipant p WHERE p.mission.id = :missionId)")
+    @Query(
+            "UPDATE DailyMissionInstance dmi "
+                    + "SET dmi.missionTitle = :title, "
+                    + "    dmi.missionDescription = :description, "
+                    + "    dmi.categoryName = :categoryName, "
+                    + "    dmi.categoryId = :categoryId, "
+                    + "    dmi.expPerCompletion = :expPerCompletion, "
+                    + "    dmi.targetDurationMinutes = :targetDurationMinutes, "
+                    + "    dmi.bonusExpOnFullCompletion = :bonusExpOnFullCompletion "
+                    + "WHERE dmi.status IN ('PENDING', 'IN_PROGRESS') "
+                    + "AND dmi.participant.id IN ("
+                    + "    SELECT p.id FROM MissionParticipant p WHERE p.mission.id = :missionId)")
     int syncSnapshotsForIncompleteInstances(
-        @Param("missionId") Long missionId,
-        @Param("title") String title,
-        @Param("description") String description,
-        @Param("categoryName") String categoryName,
-        @Param("categoryId") Long categoryId,
-        @Param("expPerCompletion") Integer expPerCompletion,
-        @Param("targetDurationMinutes") Integer targetDurationMinutes,
-        @Param("bonusExpOnFullCompletion") Integer bonusExpOnFullCompletion);
+            @Param("missionId") Long missionId,
+            @Param("title") String title,
+            @Param("description") String description,
+            @Param("categoryName") String categoryName,
+            @Param("categoryId") Long categoryId,
+            @Param("expPerCompletion") Integer expPerCompletion,
+            @Param("targetDurationMinutes") Integer targetDurationMinutes,
+            @Param("bonusExpOnFullCompletion") Integer bonusExpOnFullCompletion);
 
-    /**
-     * LUT-361: 미션 엔티티의 현재 값으로 미완료 인스턴스 스냅샷 동기화.
-     * getCategoryName()은 커스텀 카테고리 폴백을 포함한다.
-     */
+    /** LUT-361: 미션 엔티티의 현재 값으로 미완료 인스턴스 스냅샷 동기화. getCategoryName()은 커스텀 카테고리 폴백을 포함한다. */
     default int syncSnapshotsFrom(Mission mission) {
         return syncSnapshotsForIncompleteInstances(
-            mission.getId(),
-            mission.getTitle(),
-            mission.getDescription(),
-            mission.getCategoryName(),
-            mission.getCategoryId(),
-            mission.getExpPerCompletion(),
-            mission.getTargetDurationMinutes(),
-            mission.getBonusExpOnFullCompletion());
+                mission.getId(),
+                mission.getTitle(),
+                mission.getDescription(),
+                mission.getCategoryName(),
+                mission.getCategoryId(),
+                mission.getExpPerCompletion(),
+                mission.getTargetDurationMinutes(),
+                mission.getBonusExpOnFullCompletion());
     }
 
-    /**
-     * 특정 참여자의 특정 날짜 인스턴스 존재 여부 확인
-     */
+    /** 특정 참여자의 특정 날짜 인스턴스 존재 여부 확인 */
     boolean existsByParticipantIdAndInstanceDate(Long participantId, LocalDate instanceDate);
 
-    /**
-     * 사용자의 특정 기간 획득 경험치 합계
-     */
-    @Query("SELECT COALESCE(SUM(dmi.expEarned), 0) FROM DailyMissionInstance dmi " +
-           "JOIN dmi.participant p " +
-           "WHERE p.userId = :userId " +
-           "AND dmi.instanceDate BETWEEN :startDate AND :endDate " +
-           "AND dmi.status = 'COMPLETED'")
+    /** 사용자의 특정 기간 획득 경험치 합계 */
+    @Query(
+            "SELECT COALESCE(SUM(dmi.expEarned), 0) FROM DailyMissionInstance dmi "
+                    + "JOIN dmi.participant p "
+                    + "WHERE p.userId = :userId "
+                    + "AND dmi.instanceDate BETWEEN :startDate AND :endDate "
+                    + "AND dmi.status = 'COMPLETED'")
     Integer sumExpEarnedByUserIdAndDateRange(
-        @Param("userId") String userId,
-        @Param("startDate") LocalDate startDate,
-        @Param("endDate") LocalDate endDate
-    );
+            @Param("userId") String userId,
+            @Param("startDate") LocalDate startDate,
+            @Param("endDate") LocalDate endDate);
 
-    /**
-     * QA-194: 미션(고정 미션 포함) 단위 누적 EXP 합계.
-     * 모든 참여자의 완료된 인스턴스 expEarned 를 합산한다.
-     */
-    @Query("SELECT COALESCE(SUM(dmi.expEarned), 0) FROM DailyMissionInstance dmi " +
-           "JOIN dmi.participant p " +
-           "WHERE p.mission.id = :missionId AND dmi.status = 'COMPLETED'")
+    /** QA-194: 미션(고정 미션 포함) 단위 누적 EXP 합계. 모든 참여자의 완료된 인스턴스 expEarned 를 합산한다. */
+    @Query(
+            "SELECT COALESCE(SUM(dmi.expEarned), 0) FROM DailyMissionInstance dmi "
+                    + "JOIN dmi.participant p "
+                    + "WHERE p.mission.id = :missionId AND dmi.status = 'COMPLETED'")
     Integer sumExpEarnedByMissionId(@Param("missionId") Long missionId);
 
-    /**
-     * 참여자의 완료 횟수 조회
-     */
-    @Query("SELECT COUNT(dmi) FROM DailyMissionInstance dmi " +
-           "WHERE dmi.participant.id = :participantId AND dmi.status = :status")
+    /** 참여자의 완료 횟수 조회 */
+    @Query(
+            "SELECT COUNT(dmi) FROM DailyMissionInstance dmi "
+                    + "WHERE dmi.participant.id = :participantId AND dmi.status = :status")
     long countByParticipantIdAndStatus(
-        @Param("participantId") Long participantId,
-        @Param("status") ExecutionStatus status
-    );
+            @Param("participantId") Long participantId, @Param("status") ExecutionStatus status);
 
-    /**
-     * 참여자의 특정 날짜 마지막 sequence_number 조회
-     */
-    @Query("SELECT COALESCE(MAX(dmi.sequenceNumber), 0) FROM DailyMissionInstance dmi " +
-           "WHERE dmi.participant.id = :participantId AND dmi.instanceDate = :date")
-    int findMaxSequenceNumber(@Param("participantId") Long participantId, @Param("date") LocalDate date);
+    /** 참여자의 특정 날짜 마지막 sequence_number 조회 */
+    @Query(
+            "SELECT COALESCE(MAX(dmi.sequenceNumber), 0) FROM DailyMissionInstance dmi "
+                    + "WHERE dmi.participant.id = :participantId AND dmi.instanceDate = :date")
+    int findMaxSequenceNumber(
+            @Param("participantId") Long participantId, @Param("date") LocalDate date);
 
-    /**
-     * 참여자의 특정 날짜 PENDING 상태 인스턴스 조회 (있으면 재사용)
-     */
-    @Query("SELECT dmi FROM DailyMissionInstance dmi " +
-           "WHERE dmi.participant.id = :participantId " +
-           "AND dmi.instanceDate = :date " +
-           "AND dmi.status = 'PENDING' " +
-           "ORDER BY dmi.sequenceNumber DESC")
+    /** 참여자의 특정 날짜 PENDING 상태 인스턴스 조회 (있으면 재사용) */
+    @Query(
+            "SELECT dmi FROM DailyMissionInstance dmi "
+                    + "WHERE dmi.participant.id = :participantId "
+                    + "AND dmi.instanceDate = :date "
+                    + "AND dmi.status = 'PENDING' "
+                    + "ORDER BY dmi.sequenceNumber DESC")
     List<DailyMissionInstance> findPendingByParticipantIdAndDate(
-        @Param("participantId") Long participantId,
-        @Param("date") LocalDate date
-    );
+            @Param("participantId") Long participantId, @Param("date") LocalDate date);
 
-    /**
-     * 참여자의 특정 날짜 IN_PROGRESS 상태 인스턴스 조회
-     * 이미 수행중인 인스턴스가 있으면 재사용하기 위함
-     */
-    @Query("SELECT dmi FROM DailyMissionInstance dmi " +
-           "JOIN FETCH dmi.participant p " +
-           "JOIN FETCH p.mission m " +
-           "WHERE dmi.participant.id = :participantId " +
-           "AND dmi.instanceDate = :date " +
-           "AND dmi.status = 'IN_PROGRESS'")
+    /** 참여자의 특정 날짜 IN_PROGRESS 상태 인스턴스 조회 이미 수행중인 인스턴스가 있으면 재사용하기 위함 */
+    @Query(
+            "SELECT dmi FROM DailyMissionInstance dmi "
+                    + "JOIN FETCH dmi.participant p "
+                    + "JOIN FETCH p.mission m "
+                    + "WHERE dmi.participant.id = :participantId "
+                    + "AND dmi.instanceDate = :date "
+                    + "AND dmi.status = 'IN_PROGRESS'")
     Optional<DailyMissionInstance> findInProgressByParticipantIdAndDate(
-        @Param("participantId") Long participantId,
-        @Param("date") LocalDate date
-    );
+            @Param("participantId") Long participantId, @Param("date") LocalDate date);
 
     /**
-     * 참여자의 특정 날짜 인스턴스 조회 (시퀀스 역순 정렬)
-     * 같은 날짜에 여러 인스턴스가 존재할 수 있으므로 List 반환
-     * (완료 후 CreateNextPinnedInstanceStep이 다음 시퀀스 인스턴스를 생성하기 때문)
+     * 참여자의 특정 날짜 인스턴스 조회 (시퀀스 역순 정렬) 같은 날짜에 여러 인스턴스가 존재할 수 있으므로 List 반환 (완료 후
+     * CreateNextPinnedInstanceStep이 다음 시퀀스 인스턴스를 생성하기 때문)
      */
-    @Query("SELECT dmi FROM DailyMissionInstance dmi " +
-           "JOIN FETCH dmi.participant p " +
-           "JOIN FETCH p.mission m " +
-           "WHERE dmi.participant.id = :participantId " +
-           "AND dmi.instanceDate = :date " +
-           "ORDER BY dmi.sequenceNumber DESC")
+    @Query(
+            "SELECT dmi FROM DailyMissionInstance dmi "
+                    + "JOIN FETCH dmi.participant p "
+                    + "JOIN FETCH p.mission m "
+                    + "WHERE dmi.participant.id = :participantId "
+                    + "AND dmi.instanceDate = :date "
+                    + "ORDER BY dmi.sequenceNumber DESC")
     List<DailyMissionInstance> findByParticipantIdAndInstanceDateOrderBySequenceDesc(
-        @Param("participantId") Long participantId,
-        @Param("date") LocalDate date
-    );
+            @Param("participantId") Long participantId, @Param("date") LocalDate date);
 
-    /**
-     * 특정 참여자의 특정 날짜 완료된 인스턴스 조회 (시간 수정용)
-     */
-    @Query("SELECT dmi FROM DailyMissionInstance dmi " +
-           "WHERE dmi.participant.id = :participantId " +
-           "AND dmi.instanceDate = :date " +
-           "AND dmi.status = 'COMPLETED' " +
-           "ORDER BY dmi.sequenceNumber ASC")
+    /** 특정 참여자의 특정 날짜 완료된 인스턴스 조회 (시간 수정용) */
+    @Query(
+            "SELECT dmi FROM DailyMissionInstance dmi "
+                    + "WHERE dmi.participant.id = :participantId "
+                    + "AND dmi.instanceDate = :date "
+                    + "AND dmi.status = 'COMPLETED' "
+                    + "ORDER BY dmi.sequenceNumber ASC")
     List<DailyMissionInstance> findCompletedByParticipantIdAndDate(
-        @Param("participantId") Long participantId,
-        @Param("date") LocalDate date
-    );
+            @Param("participantId") Long participantId, @Param("date") LocalDate date);
 
-    /**
-     * 배치용: 특정 날짜에 인스턴스가 없는 활성 참여자 ID 목록 조회
-     */
-    @Query("SELECT p.id FROM MissionParticipant p " +
-           "JOIN p.mission m " +
-           "WHERE m.isPinned = true " +
-           "AND m.isDeleted = false " +
-           "AND p.status = 'ACTIVE' " +
-           "AND NOT EXISTS (" +
-           "  SELECT 1 FROM DailyMissionInstance dmi " +
-           "  WHERE dmi.participant.id = p.id AND dmi.instanceDate = :date" +
-           ")")
+    /** 배치용: 특정 날짜에 인스턴스가 없는 활성 참여자 ID 목록 조회 */
+    @Query(
+            "SELECT p.id FROM MissionParticipant p "
+                    + "JOIN p.mission m "
+                    + "WHERE m.isPinned = true "
+                    + "AND m.isDeleted = false "
+                    + "AND p.status = 'ACTIVE' "
+                    + "AND NOT EXISTS ("
+                    + "  SELECT 1 FROM DailyMissionInstance dmi "
+                    + "  WHERE dmi.participant.id = p.id AND dmi.instanceDate = :date"
+                    + ")")
     List<Long> findParticipantIdsWithoutInstanceForDate(@Param("date") LocalDate date);
 
-    /**
-     * 2시간 초과 진행 중인 인스턴스 조회 (자동 종료 대상)
-     */
-    @Query("SELECT dmi FROM DailyMissionInstance dmi " +
-           "WHERE dmi.status = 'IN_PROGRESS' " +
-           "AND dmi.startedAt < :expireThreshold")
+    /** 2시간 초과 진행 중인 인스턴스 조회 (자동 종료 대상) */
+    @Query(
+            "SELECT dmi FROM DailyMissionInstance dmi "
+                    + "WHERE dmi.status = 'IN_PROGRESS' "
+                    + "AND dmi.startedAt < :expireThreshold")
     List<DailyMissionInstance> findExpiredInProgressInstances(
-        @Param("expireThreshold") LocalDateTime expireThreshold
-    );
+            @Param("expireThreshold") LocalDateTime expireThreshold);
 
-    /**
-     * 목표시간 설정된 IN_PROGRESS 인스턴스 조회 (목표시간 도달 자동 종료용)
-     */
-    @Query("SELECT dmi FROM DailyMissionInstance dmi " +
-           "JOIN FETCH dmi.participant p " +
-           "JOIN FETCH p.mission m " +
-           "WHERE dmi.status = 'IN_PROGRESS' " +
-           "AND dmi.targetDurationMinutes IS NOT NULL " +
-           "AND dmi.startedAt IS NOT NULL")
+    /** 목표시간 설정된 IN_PROGRESS 인스턴스 조회 (목표시간 도달 자동 종료용) */
+    @Query(
+            "SELECT dmi FROM DailyMissionInstance dmi "
+                    + "JOIN FETCH dmi.participant p "
+                    + "JOIN FETCH p.mission m "
+                    + "WHERE dmi.status = 'IN_PROGRESS' "
+                    + "AND dmi.targetDurationMinutes IS NOT NULL "
+                    + "AND dmi.startedAt IS NOT NULL")
     List<DailyMissionInstance> findInProgressWithTargetDuration();
 
-    /**
-     * 지난 날짜의 IN_PROGRESS 인스턴스 조회 (자정 자동 완료용)
-     * 날짜가 바뀌었는데 완료되지 않은 미션을 자동 완료 처리하기 위함
-     */
-    @Query("SELECT dmi FROM DailyMissionInstance dmi " +
-           "JOIN FETCH dmi.participant p " +
-           "JOIN FETCH p.mission m " +
-           "WHERE dmi.status = 'IN_PROGRESS' AND dmi.instanceDate < :date")
+    /** 지난 날짜의 IN_PROGRESS 인스턴스 조회 (자정 자동 완료용) 날짜가 바뀌었는데 완료되지 않은 미션을 자동 완료 처리하기 위함 */
+    @Query(
+            "SELECT dmi FROM DailyMissionInstance dmi "
+                    + "JOIN FETCH dmi.participant p "
+                    + "JOIN FETCH p.mission m "
+                    + "WHERE dmi.status = 'IN_PROGRESS' AND dmi.instanceDate < :date")
     List<DailyMissionInstance> findInProgressBeforeDate(@Param("date") LocalDate date);
 
-    /**
-     * 자동종료 임박 경고 대상 조회 (warningStart~warningEnd 사이에 시작된 IN_PROGRESS 인스턴스)
-     */
-    @Query("SELECT dmi FROM DailyMissionInstance dmi " +
-           "JOIN FETCH dmi.participant p " +
-           "JOIN FETCH p.mission m " +
-           "WHERE dmi.status = 'IN_PROGRESS' " +
-           "AND dmi.startedAt > :warningStart " +
-           "AND dmi.startedAt <= :warningEnd")
+    /** 자동종료 임박 경고 대상 조회 (warningStart~warningEnd 사이에 시작된 IN_PROGRESS 인스턴스) */
+    @Query(
+            "SELECT dmi FROM DailyMissionInstance dmi "
+                    + "JOIN FETCH dmi.participant p "
+                    + "JOIN FETCH p.mission m "
+                    + "WHERE dmi.status = 'IN_PROGRESS' "
+                    + "AND dmi.startedAt > :warningStart "
+                    + "AND dmi.startedAt <= :warningEnd")
     List<DailyMissionInstance> findInProgressWarningInstances(
-        @Param("warningStart") LocalDateTime warningStart,
-        @Param("warningEnd") LocalDateTime warningEnd
-    );
+            @Param("warningStart") LocalDateTime warningStart,
+            @Param("warningEnd") LocalDateTime warningEnd);
 
-    /**
-     * 당일 완료 횟수 조회 (일일 수행 제한용)
-     */
-    @Query("SELECT COUNT(dmi) FROM DailyMissionInstance dmi " +
-           "WHERE dmi.participant.id = :participantId " +
-           "AND dmi.instanceDate = :date " +
-           "AND dmi.status = 'COMPLETED'")
+    /** 당일 완료 횟수 조회 (일일 수행 제한용) */
+    @Query(
+            "SELECT COUNT(dmi) FROM DailyMissionInstance dmi "
+                    + "WHERE dmi.participant.id = :participantId "
+                    + "AND dmi.instanceDate = :date "
+                    + "AND dmi.status = 'COMPLETED'")
     long countCompletedByParticipantIdAndDate(
-        @Param("participantId") Long participantId,
-        @Param("date") LocalDate date
-    );
+            @Param("participantId") Long participantId, @Param("date") LocalDate date);
 
     /**
-     * 동일 템플릿(baseMissionId) 에서 파생된 모든 미션의 당일 완료 횟수 (QA-120 일일 제한 우회 방지)
-     * 미션북에서 미션 삭제 후 재추가 시 새 mission_id 가 생성되더라도 합산해 일일 제한을 적용한다.
+     * 동일 템플릿(baseMissionId) 에서 파생된 모든 미션의 당일 완료 횟수 (QA-120 일일 제한 우회 방지) 미션북에서 미션 삭제 후 재추가 시 새
+     * mission_id 가 생성되더라도 합산해 일일 제한을 적용한다.
      */
-    @Query("SELECT COUNT(dmi) FROM DailyMissionInstance dmi " +
-           "JOIN dmi.participant p " +
-           "JOIN p.mission m " +
-           "WHERE p.userId = :userId " +
-           "AND m.baseMissionId = :baseMissionId " +
-           "AND dmi.instanceDate = :date " +
-           "AND dmi.status = 'COMPLETED'")
+    @Query(
+            "SELECT COUNT(dmi) FROM DailyMissionInstance dmi "
+                    + "JOIN dmi.participant p "
+                    + "JOIN p.mission m "
+                    + "WHERE p.userId = :userId "
+                    + "AND m.baseMissionId = :baseMissionId "
+                    + "AND dmi.instanceDate = :date "
+                    + "AND dmi.status = 'COMPLETED'")
     long countCompletedByUserIdAndBaseMissionIdAndDate(
-        @Param("userId") String userId,
-        @Param("baseMissionId") Long baseMissionId,
-        @Param("date") LocalDate date
-    );
+            @Param("userId") String userId,
+            @Param("baseMissionId") Long baseMissionId,
+            @Param("date") LocalDate date);
 
     // SIMPLE 모드 고정 미션의 오늘 완료 횟수
-    @Query("SELECT COUNT(dmi) FROM DailyMissionInstance dmi JOIN dmi.participant p JOIN p.mission m " +
-           "WHERE p.userId = :userId AND dmi.instanceDate = :date AND dmi.status = 'COMPLETED' " +
-           "AND m.executionMode = 'SIMPLE'")
+    @Query(
+            "SELECT COUNT(dmi) FROM DailyMissionInstance dmi JOIN dmi.participant p JOIN p.mission"
+                    + " m WHERE p.userId = :userId AND dmi.instanceDate = :date AND dmi.status ="
+                    + " 'COMPLETED' AND m.executionMode = 'SIMPLE'")
     long countSimpleCompletedByUserIdAndDate(
-        @Param("userId") String userId,
-        @Param("date") LocalDate date
-    );
+            @Param("userId") String userId, @Param("date") LocalDate date);
 
     /**
-     * 유저가 목표시간 이상 완료한 고정 미션의 baseMissionId(templateId) 목록 조회
-     * expEarned >= targetDurationMinutes: 목표시간 달성 시 expEarned = targetDurationMinutes + bonus
+     * 유저가 목표시간 이상 완료한 고정 미션의 baseMissionId(templateId) 목록 조회 expEarned >= targetDurationMinutes:
+     * 목표시간 달성 시 expEarned = targetDurationMinutes + bonus
      */
-    @Query("SELECT DISTINCT m.baseMissionId FROM DailyMissionInstance dmi " +
-           "JOIN dmi.participant p " +
-           "JOIN p.mission m " +
-           "WHERE p.userId = :userId " +
-           "AND m.baseMissionId IN :templateIds " +
-           "AND dmi.status = 'COMPLETED' " +
-           "AND dmi.targetDurationMinutes IS NOT NULL " +
-           "AND dmi.expEarned >= dmi.targetDurationMinutes")
+    @Query(
+            "SELECT DISTINCT m.baseMissionId FROM DailyMissionInstance dmi "
+                    + "JOIN dmi.participant p "
+                    + "JOIN p.mission m "
+                    + "WHERE p.userId = :userId "
+                    + "AND m.baseMissionId IN :templateIds "
+                    + "AND dmi.status = 'COMPLETED' "
+                    + "AND dmi.targetDurationMinutes IS NOT NULL "
+                    + "AND dmi.expEarned >= dmi.targetDurationMinutes")
     List<Long> findAchievedTargetTemplateIds(
-        @Param("userId") String userId,
-        @Param("templateIds") List<Long> templateIds
-    );
+            @Param("userId") String userId, @Param("templateIds") List<Long> templateIds);
 
     /**
-     * QA-158: 유저가 목표 도달한 모든 미션북 템플릿 ID (페이지 필터 없이 전체).
-     * is_deleted 조건은 의도적으로 적용하지 않음 (clear 이력은 유효).
+     * QA-158: 유저가 목표 도달한 모든 미션북 템플릿 ID (페이지 필터 없이 전체). is_deleted 조건은 의도적으로 적용하지 않음 (clear 이력은 유효).
      */
-    @Query("SELECT DISTINCT m.baseMissionId FROM DailyMissionInstance dmi " +
-           "JOIN dmi.participant p " +
-           "JOIN p.mission m " +
-           "WHERE p.userId = :userId " +
-           "AND m.baseMissionId IS NOT NULL " +
-           "AND m.source = io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionSource.SYSTEM " +
-           "AND dmi.status = 'COMPLETED' " +
-           "AND dmi.targetDurationMinutes IS NOT NULL " +
-           "AND dmi.expEarned >= dmi.targetDurationMinutes")
+    @Query(
+            "SELECT DISTINCT m.baseMissionId FROM DailyMissionInstance dmi JOIN dmi.participant p"
+                + " JOIN p.mission m WHERE p.userId = :userId AND m.baseMissionId IS NOT NULL AND"
+                + " m.source ="
+                + " io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionSource.SYSTEM"
+                + " AND dmi.status = 'COMPLETED' AND dmi.targetDurationMinutes IS NOT NULL AND"
+                + " dmi.expEarned >= dmi.targetDurationMinutes")
     List<Long> findAchievedTargetTemplateIdsByUserId(@Param("userId") String userId);
 
     /**
-     * LUT-236: 자동종료됐지만 길드 경험치가 아직 지급되지 않은 고정 길드 미션 인스턴스 조회 (소급용).
-     * saga/수동 완료 경로는 isAutoCompleted=false 라 제외되고, 이미 지급된 건은 guildExpGranted=true 라 제외된다.
-     * keyset(id) 페이징 — 지급 실패 건에서 무한 루프를 피하고 재실행 안전.
+     * LUT-236: 자동종료됐지만 길드 경험치가 아직 지급되지 않은 고정 길드 미션 인스턴스 조회 (소급용). saga/수동 완료 경로는
+     * isAutoCompleted=false 라 제외되고, 이미 지급된 건은 guildExpGranted=true 라 제외된다. keyset(id) 페이징 — 지급 실패
+     * 건에서 무한 루프를 피하고 재실행 안전.
      */
-    @Query("SELECT dmi FROM DailyMissionInstance dmi " +
-           "JOIN dmi.participant p " +
-           "JOIN p.mission m " +
-           "WHERE dmi.id > :lastId " +
-           "AND dmi.status = 'COMPLETED' " +
-           "AND dmi.isAutoCompleted = true " +
-           "AND dmi.guildExpGranted = false " +
-           "AND m.type = io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionType.GUILD " +
-           "AND m.guildId IS NOT NULL " +
-           "ORDER BY dmi.id ASC")
+    @Query(
+            "SELECT dmi FROM DailyMissionInstance dmi JOIN dmi.participant p JOIN p.mission m WHERE"
+                + " dmi.id > :lastId AND dmi.status = 'COMPLETED' AND dmi.isAutoCompleted = true"
+                + " AND dmi.guildExpGranted = false AND m.type ="
+                + " io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionType.GUILD"
+                + " AND m.guildId IS NOT NULL ORDER BY dmi.id ASC")
     List<DailyMissionInstance> findAutoCompletedGuildInstancesNeedingGuildExp(
-        @Param("lastId") Long lastId,
-        org.springframework.data.domain.Pageable pageable);
+            @Param("lastId") Long lastId, org.springframework.data.domain.Pageable pageable);
 
     /**
-     * LUT-433: 참여자별 수행 통계 배치 집계 — [participantId, 수행일수(distinct 날짜), 완료 횟수, 획득 경험치 합].
-     * 고정(pinned) 미션의 일일 인스턴스 기준. 길드 미션 상세 참여자 목록 표시용.
+     * LUT-433: 참여자별 수행 통계 배치 집계 — [participantId, 수행일수(distinct 날짜), 완료 횟수, 획득 경험치 합]. 고정(pinned)
+     * 미션의 일일 인스턴스 기준. 길드 미션 상세 참여자 목록 표시용.
      */
     @org.springframework.data.jpa.repository.Query(
-        "SELECT dmi.participant.id, COUNT(DISTINCT dmi.instanceDate), COUNT(dmi), "
-            + "COALESCE(SUM(dmi.expEarned), 0) "
-            + "FROM DailyMissionInstance dmi "
-            + "WHERE dmi.participant.id IN :participantIds AND dmi.status = 'COMPLETED' "
-            + "GROUP BY dmi.participant.id")
+            "SELECT dmi.participant.id, COUNT(DISTINCT dmi.instanceDate), COUNT(dmi), "
+                    + "COALESCE(SUM(dmi.expEarned), 0) "
+                    + "FROM DailyMissionInstance dmi "
+                    + "WHERE dmi.participant.id IN :participantIds AND dmi.status = 'COMPLETED' "
+                    + "GROUP BY dmi.participant.id")
     List<Object[]> aggregateCompletedStatsByParticipantIds(
-        @Param("participantIds") List<Long> participantIds);
+            @Param("participantIds") List<Long> participantIds);
 
     /** LUT-454: 월간 통계 — 기간 내 예정(전 상태) 인스턴스 수 (instanceDate 기준) */
-    @Query("SELECT COUNT(dmi) FROM DailyMissionInstance dmi "
-        + "WHERE dmi.participant.userId = :userId "
-        + "AND dmi.instanceDate >= :startDate AND dmi.instanceDate <= :endDate")
+    @Query(
+            "SELECT COUNT(dmi) FROM DailyMissionInstance dmi "
+                    + "WHERE dmi.participant.userId = :userId "
+                    + "AND dmi.instanceDate >= :startDate AND dmi.instanceDate <= :endDate")
     long countScheduledInPeriod(
-        @Param("userId") String userId,
-        @Param("startDate") LocalDate startDate,
-        @Param("endDate") LocalDate endDate);
+            @Param("userId") String userId,
+            @Param("startDate") LocalDate startDate,
+            @Param("endDate") LocalDate endDate);
 
     /** LUT-454: 월간 통계 — 기간 내 완료 인스턴스 수 (instanceDate 기준) */
-    @Query("SELECT COUNT(dmi) FROM DailyMissionInstance dmi "
-        + "WHERE dmi.participant.userId = :userId "
-        + "AND dmi.instanceDate >= :startDate AND dmi.instanceDate <= :endDate "
-        + "AND dmi.status = 'COMPLETED'")
+    @Query(
+            "SELECT COUNT(dmi) FROM DailyMissionInstance dmi "
+                    + "WHERE dmi.participant.userId = :userId "
+                    + "AND dmi.instanceDate >= :startDate AND dmi.instanceDate <= :endDate "
+                    + "AND dmi.status = 'COMPLETED'")
     long countCompletedInPeriod(
-        @Param("userId") String userId,
-        @Param("startDate") LocalDate startDate,
-        @Param("endDate") LocalDate endDate);
+            @Param("userId") String userId,
+            @Param("startDate") LocalDate startDate,
+            @Param("endDate") LocalDate endDate);
 }

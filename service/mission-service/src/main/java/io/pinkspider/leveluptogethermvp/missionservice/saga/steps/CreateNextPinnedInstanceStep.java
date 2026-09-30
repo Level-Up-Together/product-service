@@ -7,6 +7,7 @@ import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.Mission;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.MissionParticipant;
 import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.DailyMissionInstanceRepository;
 import io.pinkspider.leveluptogethermvp.missionservice.saga.MissionCompletionContext;
+import java.time.LocalDate;
 import java.util.function.Predicate;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -15,11 +16,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDate;
-
-/**
- * Step 6: 다음 수행을 위한 새 인스턴스 생성
- */
+/** Step 6: 다음 수행을 위한 새 인스턴스 생성 */
 @Slf4j
 @Component
 @RequiredArgsConstructor
@@ -38,26 +35,37 @@ public class CreateNextPinnedInstanceStep implements SagaStep<MissionCompletionC
     }
 
     @Override
-    @Transactional(propagation = Propagation.REQUIRES_NEW, transactionManager = "missionTransactionManager")
+    @Transactional(
+            propagation = Propagation.REQUIRES_NEW,
+            transactionManager = "missionTransactionManager")
     public SagaStepResult execute(MissionCompletionContext context) {
         MissionParticipant participant = context.getParticipant();
         LocalDate instanceDate = context.getInstanceDate();
 
-        log.debug("Creating next pinned instance: participantId={}, date={}",
-            participant.getId(), instanceDate);
+        log.debug(
+                "Creating next pinned instance: participantId={}, date={}",
+                participant.getId(),
+                instanceDate);
 
         try {
             // 일일 수행 제한 체크
             // QA-120: 동일 템플릿(baseMissionId) 합산으로 미션 삭제 후 재추가 우회 방지
             Mission mission = participant.getMission();
             if (mission.getDailyExecutionLimit() != null) {
-                long todayCompleted = mission.getBaseMissionId() != null
-                    ? instanceRepository.countCompletedByUserIdAndBaseMissionIdAndDate(
-                        participant.getUserId(), mission.getBaseMissionId(), instanceDate)
-                    : instanceRepository.countCompletedByParticipantIdAndDate(participant.getId(), instanceDate);
+                long todayCompleted =
+                        mission.getBaseMissionId() != null
+                                ? instanceRepository.countCompletedByUserIdAndBaseMissionIdAndDate(
+                                        participant.getUserId(),
+                                        mission.getBaseMissionId(),
+                                        instanceDate)
+                                : instanceRepository.countCompletedByParticipantIdAndDate(
+                                        participant.getId(), instanceDate);
                 if (todayCompleted >= mission.getDailyExecutionLimit()) {
-                    log.info("Daily limit reached, skipping next instance creation: participantId={}, limit={}",
-                        participant.getId(), mission.getDailyExecutionLimit());
+                    log.info(
+                            "Daily limit reached, skipping next instance creation:"
+                                    + " participantId={}, limit={}",
+                            participant.getId(),
+                            mission.getDailyExecutionLimit());
                     return SagaStepResult.success("일일 제한 도달 - 인스턴스 생성 스킵");
                 }
             }
@@ -67,8 +75,12 @@ public class CreateNextPinnedInstanceStep implements SagaStep<MissionCompletionC
 
             context.setNextInstanceId(newInstance.getId());
 
-            log.info("Next pinned instance created: instanceId={}, participantId={}, sequenceNumber={}",
-                newInstance.getId(), participant.getId(), newInstance.getSequenceNumber());
+            log.info(
+                    "Next pinned instance created: instanceId={}, participantId={},"
+                            + " sequenceNumber={}",
+                    newInstance.getId(),
+                    participant.getId(),
+                    newInstance.getSequenceNumber());
 
             return SagaStepResult.success("다음 인스턴스 생성 완료", newInstance.getId());
 
@@ -79,7 +91,9 @@ public class CreateNextPinnedInstanceStep implements SagaStep<MissionCompletionC
     }
 
     @Override
-    @Transactional(propagation = Propagation.REQUIRES_NEW, transactionManager = "missionTransactionManager")
+    @Transactional(
+            propagation = Propagation.REQUIRES_NEW,
+            transactionManager = "missionTransactionManager")
     public SagaStepResult compensate(MissionCompletionContext context) {
         Long nextInstanceId = context.getNextInstanceId();
         if (nextInstanceId == null) {
@@ -93,25 +107,32 @@ public class CreateNextPinnedInstanceStep implements SagaStep<MissionCompletionC
             log.info("Next pinned instance deleted: instanceId={}", nextInstanceId);
             return SagaStepResult.success("다음 인스턴스 삭제 완료");
         } catch (Exception e) {
-            log.warn("Failed to delete next pinned instance: instanceId={}, error={}",
-                nextInstanceId, e.getMessage());
+            log.warn(
+                    "Failed to delete next pinned instance: instanceId={}, error={}",
+                    nextInstanceId,
+                    e.getMessage());
             return SagaStepResult.failure("다음 인스턴스 삭제 실패", e);
         }
     }
 
-    /**
-     * 동시 요청으로 sequence 충돌(DataIntegrityViolationException) 시 재조회 후 재시도
-     */
-    private DailyMissionInstance saveWithRetry(MissionParticipant participant, LocalDate instanceDate) {
+    /** 동시 요청으로 sequence 충돌(DataIntegrityViolationException) 시 재조회 후 재시도 */
+    private DailyMissionInstance saveWithRetry(
+            MissionParticipant participant, LocalDate instanceDate) {
         int maxRetries = 3;
         for (int attempt = 1; attempt <= maxRetries; attempt++) {
-            int nextSequence = instanceRepository.findMaxSequenceNumber(participant.getId(), instanceDate) + 1;
-            DailyMissionInstance newInstance = DailyMissionInstance.createFrom(participant, instanceDate, nextSequence);
+            int nextSequence =
+                    instanceRepository.findMaxSequenceNumber(participant.getId(), instanceDate) + 1;
+            DailyMissionInstance newInstance =
+                    DailyMissionInstance.createFrom(participant, instanceDate, nextSequence);
             try {
                 return instanceRepository.saveAndFlush(newInstance);
             } catch (DataIntegrityViolationException e) {
-                log.warn("Sequence collision on attempt {}/{}: participantId={}, seq={}",
-                    attempt, maxRetries, participant.getId(), nextSequence);
+                log.warn(
+                        "Sequence collision on attempt {}/{}: participantId={}, seq={}",
+                        attempt,
+                        maxRetries,
+                        participant.getId(),
+                        nextSequence);
                 if (attempt == maxRetries) {
                     throw e;
                 }

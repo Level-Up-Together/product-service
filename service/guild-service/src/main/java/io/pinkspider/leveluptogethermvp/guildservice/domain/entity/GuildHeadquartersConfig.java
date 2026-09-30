@@ -17,9 +17,7 @@ import lombok.Setter;
 import lombok.experimental.SuperBuilder;
 import org.hibernate.annotations.Comment;
 
-/**
- * 길드 거점 설정 (반경 등)
- */
+/** 길드 거점 설정 (반경 등) */
 @Entity
 @Getter
 @Setter
@@ -61,9 +59,8 @@ public class GuildHeadquartersConfig extends LocalDateTimeBaseEntity {
     private Boolean isActive = true;
 
     /**
-     * 길드 레벨에 따른 보호 반경 계산
-     * 공식: 기본 반경 + (레벨 / 레벨구간크기) * 구간당 증가량
-     * 예: 레벨 25 -> 100 + (25 / 10) * 20 = 100 + 2 * 20 = 140m
+     * 길드 레벨에 따른 보호 반경 계산 공식: 기본 반경 + (레벨 / 레벨구간크기) * 구간당 증가량 예: 레벨 25 -> 100 + (25 / 10) * 20 = 100
+     * + 2 * 20 = 140m
      */
     public int calculateProtectionRadius(int guildLevel) {
         int levelTier = guildLevel / levelTierSize;

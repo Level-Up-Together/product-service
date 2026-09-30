@@ -24,12 +24,14 @@ class MissionImageWebConfigTest {
     void addResourceHandlers_setsImmutableCacheControl() {
         MissionImageWebConfig config = new MissionImageWebConfig(new MissionImageProperties());
         ResourceHandlerRegistry registry =
-                new ResourceHandlerRegistry(new StaticWebApplicationContext(), new MockServletContext());
+                new ResourceHandlerRegistry(
+                        new StaticWebApplicationContext(), new MockServletContext());
 
         config.addResourceHandlers(registry);
 
         List<ResourceHandlerRegistration> registrations =
-                (List<ResourceHandlerRegistration>) ReflectionTestUtils.getField(registry, "registrations");
+                (List<ResourceHandlerRegistration>)
+                        ReflectionTestUtils.getField(registry, "registrations");
         assertThat(registrations).hasSize(1);
 
         CacheControl cacheControl =

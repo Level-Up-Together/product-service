@@ -23,10 +23,9 @@ import org.springframework.transaction.event.TransactionalEventListener;
 /**
  * LUT-508: 관리자 푸시 캠페인 비동기 발송기.
  *
- * <p>캠페인 이력 커밋 후 유저별로 {@link NotificationService#createNotification} 을 호출한다 — 기존 알림
- * 파이프라인(카테고리 토글 → DB 저장 → 실시간 → 방해금지 판정 → Redis Stream → FCM)을 그대로 타므로 유저의
- * 시스템 알림 설정이 존중된다. 유저 한 명의 실패가 나머지를 막지 않도록 개별 try/catch 로 세고, 각 호출은
- * 자기 트랜잭션(REQUIRED, 여기는 비트랜잭션)으로 커밋된다. 결과 건수·상태는 캠페인 행에 남긴다.
+ * <p>캠페인 이력 커밋 후 유저별로 {@link NotificationService#createNotification} 을 호출한다 — 기존 알림 파이프라인(카테고리 토글 →
+ * DB 저장 → 실시간 → 방해금지 판정 → Redis Stream → FCM)을 그대로 타므로 유저의 시스템 알림 설정이 존중된다. 유저 한 명의 실패가 나머지를 막지 않도록
+ * 개별 try/catch 로 세고, 각 호출은 자기 트랜잭션(REQUIRED, 여기는 비트랜잭션)으로 커밋된다. 결과 건수·상태는 캠페인 행에 남긴다.
  */
 @Component
 @RequiredArgsConstructor
@@ -55,8 +54,10 @@ public class AdminPushCampaignDispatcher {
             return;
         }
         if (!campaign.isPending()) {
-            log.info("관리자 푸시 캠페인 상태가 PENDING 아님 — 발송 스킵: id={}, status={}",
-                    campaignId, campaign.getStatus());
+            log.info(
+                    "관리자 푸시 캠페인 상태가 PENDING 아님 — 발송 스킵: id={}, status={}",
+                    campaignId,
+                    campaign.getStatus());
             return;
         }
         campaign.markSending(LocalDateTime.now());
@@ -67,8 +68,11 @@ public class AdminPushCampaignDispatcher {
         int failed = 0;
         try {
             List<String> targets = resolveTargets(campaign);
-            log.info("관리자 푸시 발송 시작: id={}, targetType={}, targets={}",
-                    campaignId, campaign.getTargetType(), targets.size());
+            log.info(
+                    "관리자 푸시 발송 시작: id={}, targetType={}, targets={}",
+                    campaignId,
+                    campaign.getTargetType(),
+                    targets.size());
             for (String userId : targets) {
                 try {
                     NotificationResponse created =
@@ -88,14 +92,21 @@ public class AdminPushCampaignDispatcher {
                     }
                 } catch (Exception e) {
                     failed++;
-                    log.warn("관리자 푸시 개별 발송 실패: campaignId={}, userId={}, error={}",
-                            campaignId, userId, e.getMessage());
+                    log.warn(
+                            "관리자 푸시 개별 발송 실패: campaignId={}, userId={}, error={}",
+                            campaignId,
+                            userId,
+                            e.getMessage());
                 }
             }
             campaign.complete(sent, skipped, failed, LocalDateTime.now());
             campaignRepository.save(campaign);
-            log.info("관리자 푸시 발송 완료: id={}, sent={}, skipped={}, failed={}",
-                    campaignId, sent, skipped, failed);
+            log.info(
+                    "관리자 푸시 발송 완료: id={}, sent={}, skipped={}, failed={}",
+                    campaignId,
+                    sent,
+                    skipped,
+                    failed);
         } catch (Exception e) {
             log.error("관리자 푸시 발송 실패: id={}", campaignId, e);
             campaign.fail(sent, skipped, failed, e.getMessage(), LocalDateTime.now());

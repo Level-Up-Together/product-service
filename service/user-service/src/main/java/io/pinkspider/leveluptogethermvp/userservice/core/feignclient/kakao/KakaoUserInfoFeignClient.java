@@ -12,4 +12,3 @@ public interface KakaoUserInfoFeignClient {
     @GetMapping(value = "/v2/user/me", consumes = MediaType.APPLICATION_JSON_VALUE)
     Map<String, Object> getUserInfo(@RequestHeader("Authorization") String accessToken);
 }
-

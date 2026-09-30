@@ -32,8 +32,7 @@ import org.hibernate.annotations.Comment;
 /**
  * 고정 미션(pinned mission)의 일일 인스턴스
  *
- * 고정 미션은 매일 새로운 인스턴스가 생성되어 독립적으로 관리됩니다.
- * 미션 정보는 스냅샷으로 저장되어 원본 미션 변경에 영향받지 않습니다.
+ * <p>고정 미션은 매일 새로운 인스턴스가 생성되어 독립적으로 관리됩니다. 미션 정보는 스냅샷으로 저장되어 원본 미션 변경에 영향받지 않습니다.
  */
 @Entity
 @Getter
@@ -41,18 +40,19 @@ import org.hibernate.annotations.Comment;
 @SuperBuilder
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @AllArgsConstructor
-@Table(name = "daily_mission_instance",
-    uniqueConstraints = @UniqueConstraint(
-        name = "uk_instance_participant_date_seq",
-        columnNames = {"participant_id", "instance_date", "sequence_number"}
-    ),
-    indexes = {
-        @Index(name = "idx_instance_user_date", columnList = "participant_id, instance_date"),
-        @Index(name = "idx_instance_status", columnList = "status")
-    }
-)
+@Table(
+        name = "daily_mission_instance",
+        uniqueConstraints =
+                @UniqueConstraint(
+                        name = "uk_instance_participant_date_seq",
+                        columnNames = {"participant_id", "instance_date", "sequence_number"}),
+        indexes = {
+            @Index(name = "idx_instance_user_date", columnList = "participant_id, instance_date"),
+            @Index(name = "idx_instance_status", columnList = "status")
+        })
 @Comment("고정 미션 일일 인스턴스")
-public class DailyMissionInstance extends LocalDateTimeBaseEntity implements MissionExecutionLifecycle {
+public class DailyMissionInstance extends LocalDateTimeBaseEntity
+        implements MissionExecutionLifecycle {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -106,8 +106,8 @@ public class DailyMissionInstance extends LocalDateTimeBaseEntity implements Mis
     private Integer targetDurationMinutes;
 
     /**
-     * QA-153: 목표 수행 시간 도달 시 부여되는 추가 보상 EXP (스냅샷).
-     * 기존에는 expPerCompletion 을 잘못 가산하던 버그가 있어 별도 컬럼으로 분리한다.
+     * QA-153: 목표 수행 시간 도달 시 부여되는 추가 보상 EXP (스냅샷). 기존에는 expPerCompletion 을 잘못 가산하던 버그가 있어 별도 컬럼으로
+     * 분리한다.
      */
     @Column(name = "bonus_exp_on_full_completion")
     @Comment("목표 도달 시 추가 보상 EXP (스냅샷)")
@@ -184,39 +184,42 @@ public class DailyMissionInstance extends LocalDateTimeBaseEntity implements Mis
 
     // === MissionExecutionLifecycle 훅 구현 ===
 
-    /**
-     * 완료 후처리: completionCount, totalExpEarned 갱신
-     */
+    /** 완료 후처리: completionCount, totalExpEarned 갱신 */
     @Override
     public void onComplete() {
         this.completionCount = (this.completionCount == null ? 0 : this.completionCount) + 1;
-        this.totalExpEarned = (this.totalExpEarned == null ? 0 : this.totalExpEarned) + this.expEarned;
+        this.totalExpEarned =
+                (this.totalExpEarned == null ? 0 : this.totalExpEarned) + this.expEarned;
     }
 
-    /**
-     * 자동 완료 후처리: completionCount, totalExpEarned 갱신
-     */
+    /** 자동 완료 후처리: completionCount, totalExpEarned 갱신 */
     @Override
     public void onAutoComplete() {
         this.completionCount = (this.completionCount == null ? 0 : this.completionCount) + 1;
-        this.totalExpEarned = (this.totalExpEarned == null ? 0 : this.totalExpEarned) + this.expEarned;
+        this.totalExpEarned =
+                (this.totalExpEarned == null ? 0 : this.totalExpEarned) + this.expEarned;
     }
 
-    /**
-     * 자동 완료 가능 여부: 목표시간 설정 미션은 스케줄러가 Saga를 통해 별도 처리
-     */
+    /** 자동 완료 가능 여부: 목표시간 설정 미션은 스케줄러가 Saga를 통해 별도 처리 */
     @Override
-    public io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionExecutionMode getExecutionMode() {
+    public io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionExecutionMode
+            getExecutionMode() {
         if (this.participant != null && this.participant.getMission() != null) {
             var mode = this.participant.getMission().getExecutionMode();
-            return mode != null ? mode : io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionExecutionMode.TIMED;
+            return mode != null
+                    ? mode
+                    : io.pinkspider.leveluptogethermvp.missionservice.domain.enums
+                            .MissionExecutionMode.TIMED;
         }
-        return io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionExecutionMode.TIMED;
+        return io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionExecutionMode
+                .TIMED;
     }
 
     @Override
     public boolean shouldAutoComplete() {
-        if (getExecutionMode() == io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionExecutionMode.SIMPLE) {
+        if (getExecutionMode()
+                == io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionExecutionMode
+                        .SIMPLE) {
             return false;
         }
         return this.targetDurationMinutes == null || this.targetDurationMinutes <= 0;
@@ -225,12 +228,10 @@ public class DailyMissionInstance extends LocalDateTimeBaseEntity implements Mis
     /**
      * 경험치 계산: 목표시간 기반 보너스 포함
      *
-     * 목표시간(targetDurationMinutes) 설정 시:
-     * - 목표시간 달성: targetDurationMinutes + bonusExpOnFullCompletion (추가 보상)
-     * - 목표시간 미달: 실제 수행 분 (1분=1XP)
+     * <p>목표시간(targetDurationMinutes) 설정 시: - 목표시간 달성: targetDurationMinutes +
+     * bonusExpOnFullCompletion (추가 보상) - 목표시간 미달: 실제 수행 분 (1분=1XP)
      *
-     * 목표시간 미설정 시: 분당 1 EXP, 최대 480
-     * QA-153: 이전에는 bonus 자리에 expPerCompletion 을 잘못 사용해 추가 보상이 누락됐다.
+     * <p>목표시간 미설정 시: 분당 1 EXP, 최대 480 QA-153: 이전에는 bonus 자리에 expPerCompletion 을 잘못 사용해 추가 보상이 누락됐다.
      */
     @Override
     public int calculateExpByDuration() {
@@ -241,7 +242,8 @@ public class DailyMissionInstance extends LocalDateTimeBaseEntity implements Mis
 
         if (this.targetDurationMinutes != null && this.targetDurationMinutes > 0) {
             if (elapsed >= this.targetDurationMinutes) {
-                int bonus = this.bonusExpOnFullCompletion != null ? this.bonusExpOnFullCompletion : 0;
+                int bonus =
+                        this.bonusExpOnFullCompletion != null ? this.bonusExpOnFullCompletion : 0;
                 return this.targetDurationMinutes + bonus;
             }
             return (int) Math.max(1, elapsed);
@@ -256,11 +258,9 @@ public class DailyMissionInstance extends LocalDateTimeBaseEntity implements Mis
     // === 고정 미션 전용 메서드 ===
 
     /**
-     * 완료된 인스턴스를 PENDING 상태로 리셋 (고정 미션의 재시작용)
-     * completionCount, totalExpEarned는 유지하여 오늘 수행 내역 기록
+     * 완료된 인스턴스를 PENDING 상태로 리셋 (고정 미션의 재시작용) completionCount, totalExpEarned는 유지하여 오늘 수행 내역 기록
      *
-     * NOTE: 이 메서드는 Saga Step에서만 호출되며,
-     * MissionExecutionLifecycle의 상태 전이 규칙을 우회합니다.
+     * <p>NOTE: 이 메서드는 Saga Step에서만 호출되며, MissionExecutionLifecycle의 상태 전이 규칙을 우회합니다.
      */
     public void resetToPending() {
         if (this.status != ExecutionStatus.COMPLETED) {
@@ -274,9 +274,7 @@ public class DailyMissionInstance extends LocalDateTimeBaseEntity implements Mis
         this.imageUrl = null;
     }
 
-    /**
-     * 수행 시간 (분) 계산
-     */
+    /** 수행 시간 (분) 계산 */
     public Integer getDurationMinutes() {
         if (this.startedAt == null || this.completedAt == null) {
             return null;
@@ -290,27 +288,28 @@ public class DailyMissionInstance extends LocalDateTimeBaseEntity implements Mis
         return createFrom(participant, date, 1);
     }
 
-    public static DailyMissionInstance createFrom(MissionParticipant participant, LocalDate date, int sequenceNumber) {
+    public static DailyMissionInstance createFrom(
+            MissionParticipant participant, LocalDate date, int sequenceNumber) {
         Mission mission = participant.getMission();
         String categoryName = mission.getCategoryName();
         Long categoryId = mission.getCategoryId();
 
         return DailyMissionInstance.builder()
-            .participant(participant)
-            .instanceDate(date)
-            .sequenceNumber(sequenceNumber)
-            .missionTitle(mission.getTitle())
-            .missionDescription(mission.getDescription())
-            .categoryName(categoryName)
-            .categoryId(categoryId)
-            .expPerCompletion(mission.getExpPerCompletion())
-            .targetDurationMinutes(mission.getTargetDurationMinutes())
-            .bonusExpOnFullCompletion(mission.getBonusExpOnFullCompletion())
-            .status(ExecutionStatus.PENDING)
-            .expEarned(0)
-            .completionCount(0)
-            .totalExpEarned(0)
-            .isSharedToFeed(false)
-            .build();
+                .participant(participant)
+                .instanceDate(date)
+                .sequenceNumber(sequenceNumber)
+                .missionTitle(mission.getTitle())
+                .missionDescription(mission.getDescription())
+                .categoryName(categoryName)
+                .categoryId(categoryId)
+                .expPerCompletion(mission.getExpPerCompletion())
+                .targetDurationMinutes(mission.getTargetDurationMinutes())
+                .bonusExpOnFullCompletion(mission.getBonusExpOnFullCompletion())
+                .status(ExecutionStatus.PENDING)
+                .expEarned(0)
+                .completionCount(0)
+                .totalExpEarned(0)
+                .isSharedToFeed(false)
+                .build();
     }
 }

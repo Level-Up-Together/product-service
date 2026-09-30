@@ -2,7 +2,6 @@ package io.pinkspider.leveluptogethermvp.userservice.home.event.listener;
 
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.doThrow;
-import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -21,14 +20,11 @@ import org.springframework.cache.CacheManager;
 @ExtendWith(MockitoExtension.class)
 class HomeCacheEvictListenerTest {
 
-    @Mock
-    private CacheManager redisCacheManager;
+    @Mock private CacheManager redisCacheManager;
 
-    @Mock
-    private Cache cache;
+    @Mock private Cache cache;
 
-    @InjectMocks
-    private HomeCacheEvictListener listener;
+    @InjectMocks private HomeCacheEvictListener listener;
 
     @Test
     @DisplayName("아이템 장착 이벤트 수신 시 todayPlayers·todayPlayersByCategory·seasonMvpData를 비운다 (LUT-427)")

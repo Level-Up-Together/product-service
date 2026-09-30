@@ -20,12 +20,12 @@ import com.epages.restdocs.apispec.ResourceSnippetParameters;
 import com.epages.restdocs.apispec.SimpleType;
 import com.fasterxml.jackson.core.type.TypeReference;
 import io.pinkspider.global.component.LmObjectMapper;
-import io.pinkspider.leveluptogethermvp.config.ControllerTestConfig;
+import io.pinkspider.leveluptogethermvp.chatservice.application.GuildChatService;
 import io.pinkspider.leveluptogethermvp.chatservice.domain.dto.ChatMessageRequest;
 import io.pinkspider.leveluptogethermvp.chatservice.domain.dto.ChatMessageResponse;
 import io.pinkspider.leveluptogethermvp.chatservice.domain.dto.ChatParticipantResponse;
 import io.pinkspider.leveluptogethermvp.chatservice.domain.dto.ChatRoomInfoResponse;
-import io.pinkspider.leveluptogethermvp.chatservice.application.GuildChatService;
+import io.pinkspider.leveluptogethermvp.config.ControllerTestConfig;
 import io.pinkspider.util.MockUtil;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -52,29 +52,26 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers;
 
-@WebMvcTest(controllers = GuildChatController.class,
-    excludeAutoConfiguration = {
-        DataSourceAutoConfiguration.class,
-        HibernateJpaAutoConfiguration.class,
-        DataSourceTransactionManagerAutoConfiguration.class
-    }
-)
+@WebMvcTest(
+        controllers = GuildChatController.class,
+        excludeAutoConfiguration = {
+            DataSourceAutoConfiguration.class,
+            HibernateJpaAutoConfiguration.class,
+            DataSourceTransactionManagerAutoConfiguration.class
+        })
 @Import(ControllerTestConfig.class)
 @AutoConfigureRestDocs
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
 class GuildChatControllerTest {
 
-    @Autowired
-    protected MockMvc mockMvc;
+    @Autowired protected MockMvc mockMvc;
 
     private final LmObjectMapper objectMapper = new LmObjectMapper();
 
-    @MockitoBean
-    private GuildChatService guildChatService;
+    @MockitoBean private GuildChatService guildChatService;
 
-    @MockitoBean
-    private SimpMessagingTemplate messagingTemplate;
+    @MockitoBean private SimpMessagingTemplate messagingTemplate;
 
     private static final String X_USER_NICKNAME = "X-User-Nickname";
     private static final String MOCK_USER_ID = "test-user-123";
@@ -86,55 +83,103 @@ class GuildChatControllerTest {
         // given
         Long guildId = 1L;
 
-        ChatMessageResponse response = MockUtil.readJsonFileToClass(
-            "fixture/guildchat/chatMessageResponse.json", ChatMessageResponse.class);
+        ChatMessageResponse response =
+                MockUtil.readJsonFileToClass(
+                        "fixture/guildchat/chatMessageResponse.json", ChatMessageResponse.class);
 
-        when(guildChatService.sendMessage(anyLong(), anyString(), anyString(), any(ChatMessageRequest.class)))
-            .thenReturn(response);
+        when(guildChatService.sendMessage(
+                        anyLong(), anyString(), anyString(), any(ChatMessageRequest.class)))
+                .thenReturn(response);
 
         // when
-        ResultActions resultActions = mockMvc.perform(
-            RestDocumentationRequestBuilders.post("/api/v1/guilds/{guildId}/chat", guildId)
-                .with(user(MOCK_USER_ID))
-                .header(X_USER_NICKNAME, MOCK_NICKNAME)
-                .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"content\":\"안녕하세요!\",\"message_type\":\"TEXT\"}")
-        ).andDo(
-            MockMvcRestDocumentationWrapper.document("길드채팅-01. 채팅 메시지 전송",
-                preprocessRequest(prettyPrint()),
-                preprocessResponse(prettyPrint()),
-                resource(
-                    ResourceSnippetParameters.builder()
-                        .tag("Guild Chat")
-                        .description("길드 채팅 메시지 전송 (JWT 토큰 인증 필요)")
-                        .pathParameters(
-                            parameterWithName("guildId").type(SimpleType.NUMBER).description("길드 ID")
-                        )
-                        .requestFields(
-                            fieldWithPath("content").type(JsonFieldType.STRING).description("메시지 내용"),
-                            fieldWithPath("message_type").type(JsonFieldType.STRING).description("메시지 타입 (TEXT, IMAGE)").optional()
-                        )
-                        .responseFields(
-                            fieldWithPath("code").type(JsonFieldType.STRING).description("응답 코드"),
-                            fieldWithPath("message").type(JsonFieldType.STRING).description("응답 메시지"),
-                            fieldWithPath("value").type(JsonFieldType.OBJECT).description("채팅 메시지 정보"),
-                            fieldWithPath("value.id").type(JsonFieldType.NUMBER).description("메시지 ID"),
-                            fieldWithPath("value.guild_id").type(JsonFieldType.NUMBER).description("길드 ID"),
-                            fieldWithPath("value.sender_id").type(JsonFieldType.STRING).description("발신자 ID").optional(),
-                            fieldWithPath("value.sender_nickname").type(JsonFieldType.STRING).description("발신자 닉네임").optional(),
-                            fieldWithPath("value.message_type").type(JsonFieldType.STRING).description("메시지 타입"),
-                            fieldWithPath("value.content").type(JsonFieldType.STRING).description("메시지 내용"),
-                            fieldWithPath("value.image_url").type(JsonFieldType.STRING).description("이미지 URL").optional(),
-                            fieldWithPath("value.reference_type").type(JsonFieldType.STRING).description("참조 타입").optional(),
-                            fieldWithPath("value.reference_id").type(JsonFieldType.NUMBER).description("참조 ID").optional(),
-                            fieldWithPath("value.is_system_message").type(JsonFieldType.BOOLEAN).description("시스템 메시지 여부"),
-                            fieldWithPath("value.created_at").type(JsonFieldType.STRING).description("생성 일시"),
-                            fieldWithPath("value.unread_count").type(JsonFieldType.NUMBER).description("읽지 않은 메시지 수").optional()
-                        )
-                        .build()
-                )
-            )
-        );
+        ResultActions resultActions =
+                mockMvc.perform(
+                                RestDocumentationRequestBuilders.post(
+                                                "/api/v1/guilds/{guildId}/chat", guildId)
+                                        .with(user(MOCK_USER_ID))
+                                        .header(X_USER_NICKNAME, MOCK_NICKNAME)
+                                        .contentType(MediaType.APPLICATION_JSON)
+                                        .content(
+                                                "{\"content\":\"안녕하세요!\",\"message_type\":\"TEXT\"}"))
+                        .andDo(
+                                MockMvcRestDocumentationWrapper.document(
+                                        "길드채팅-01. 채팅 메시지 전송",
+                                        preprocessRequest(prettyPrint()),
+                                        preprocessResponse(prettyPrint()),
+                                        resource(
+                                                ResourceSnippetParameters.builder()
+                                                        .tag("Guild Chat")
+                                                        .description("길드 채팅 메시지 전송 (JWT 토큰 인증 필요)")
+                                                        .pathParameters(
+                                                                parameterWithName("guildId")
+                                                                        .type(SimpleType.NUMBER)
+                                                                        .description("길드 ID"))
+                                                        .requestFields(
+                                                                fieldWithPath("content")
+                                                                        .type(JsonFieldType.STRING)
+                                                                        .description("메시지 내용"),
+                                                                fieldWithPath("message_type")
+                                                                        .type(JsonFieldType.STRING)
+                                                                        .description(
+                                                                                "메시지 타입 (TEXT,"
+                                                                                        + " IMAGE)")
+                                                                        .optional())
+                                                        .responseFields(
+                                                                fieldWithPath("code")
+                                                                        .type(JsonFieldType.STRING)
+                                                                        .description("응답 코드"),
+                                                                fieldWithPath("message")
+                                                                        .type(JsonFieldType.STRING)
+                                                                        .description("응답 메시지"),
+                                                                fieldWithPath("value")
+                                                                        .type(JsonFieldType.OBJECT)
+                                                                        .description("채팅 메시지 정보"),
+                                                                fieldWithPath("value.id")
+                                                                        .type(JsonFieldType.NUMBER)
+                                                                        .description("메시지 ID"),
+                                                                fieldWithPath("value.guild_id")
+                                                                        .type(JsonFieldType.NUMBER)
+                                                                        .description("길드 ID"),
+                                                                fieldWithPath("value.sender_id")
+                                                                        .type(JsonFieldType.STRING)
+                                                                        .description("발신자 ID")
+                                                                        .optional(),
+                                                                fieldWithPath(
+                                                                                "value.sender_nickname")
+                                                                        .type(JsonFieldType.STRING)
+                                                                        .description("발신자 닉네임")
+                                                                        .optional(),
+                                                                fieldWithPath("value.message_type")
+                                                                        .type(JsonFieldType.STRING)
+                                                                        .description("메시지 타입"),
+                                                                fieldWithPath("value.content")
+                                                                        .type(JsonFieldType.STRING)
+                                                                        .description("메시지 내용"),
+                                                                fieldWithPath("value.image_url")
+                                                                        .type(JsonFieldType.STRING)
+                                                                        .description("이미지 URL")
+                                                                        .optional(),
+                                                                fieldWithPath(
+                                                                                "value.reference_type")
+                                                                        .type(JsonFieldType.STRING)
+                                                                        .description("참조 타입")
+                                                                        .optional(),
+                                                                fieldWithPath("value.reference_id")
+                                                                        .type(JsonFieldType.NUMBER)
+                                                                        .description("참조 ID")
+                                                                        .optional(),
+                                                                fieldWithPath(
+                                                                                "value.is_system_message")
+                                                                        .type(JsonFieldType.BOOLEAN)
+                                                                        .description("시스템 메시지 여부"),
+                                                                fieldWithPath("value.created_at")
+                                                                        .type(JsonFieldType.STRING)
+                                                                        .description("생성 일시"),
+                                                                fieldWithPath("value.unread_count")
+                                                                        .type(JsonFieldType.NUMBER)
+                                                                        .description("읽지 않은 메시지 수")
+                                                                        .optional())
+                                                        .build())));
 
         // then
         resultActions.andExpect(MockMvcResultMatchers.status().isOk());
@@ -145,81 +190,218 @@ class GuildChatControllerTest {
     void getMessagesTest() throws Exception {
         // given
         Long guildId = 1L;
-        List<ChatMessageResponse> responses = MockUtil.readJsonFileToClassList(
-            "fixture/guildchat/chatMessageResponseList.json",
-            new TypeReference<List<ChatMessageResponse>>() {});
+        List<ChatMessageResponse> responses =
+                MockUtil.readJsonFileToClassList(
+                        "fixture/guildchat/chatMessageResponseList.json",
+                        new TypeReference<List<ChatMessageResponse>>() {});
 
-        Page<ChatMessageResponse> page = new PageImpl<>(responses, org.springframework.data.domain.PageRequest.of(0, 50), responses.size());
+        Page<ChatMessageResponse> page =
+                new PageImpl<>(
+                        responses,
+                        org.springframework.data.domain.PageRequest.of(0, 50),
+                        responses.size());
 
         when(guildChatService.getMessages(anyLong(), anyString(), any(Pageable.class)))
-            .thenReturn(page);
+                .thenReturn(page);
 
         // when
-        ResultActions resultActions = mockMvc.perform(
-            RestDocumentationRequestBuilders.get("/api/v1/guilds/{guildId}/chat", guildId)
-                .with(user(MOCK_USER_ID))
-                .param("page", "0")
-                .param("size", "50")
-                .contentType(MediaType.APPLICATION_JSON)
-        ).andDo(
-            MockMvcRestDocumentationWrapper.document("길드채팅-02. 채팅 메시지 조회",
-                preprocessRequest(prettyPrint()),
-                preprocessResponse(prettyPrint()),
-                resource(
-                    ResourceSnippetParameters.builder()
-                        .tag("Guild Chat")
-                        .description("길드 채팅 메시지 조회 (JWT 토큰 인증 필요)")
-                        .pathParameters(
-                            parameterWithName("guildId").type(SimpleType.NUMBER).description("길드 ID")
-                        )
-                        .queryParameters(
-                            parameterWithName("page").type(SimpleType.NUMBER).description("페이지 번호 (기본값: 0)").optional(),
-                            parameterWithName("size").type(SimpleType.NUMBER).description("페이지 크기 (기본값: 50)").optional()
-                        )
-                        .responseFields(
-                            fieldWithPath("code").type(JsonFieldType.STRING).description("응답 코드"),
-                            fieldWithPath("message").type(JsonFieldType.STRING).description("응답 메시지"),
-                            fieldWithPath("value").type(JsonFieldType.OBJECT).description("페이지 정보"),
-                            fieldWithPath("value.content[]").type(JsonFieldType.ARRAY).description("채팅 메시지 목록"),
-                            fieldWithPath("value.content[].id").type(JsonFieldType.NUMBER).description("메시지 ID"),
-                            fieldWithPath("value.content[].guild_id").type(JsonFieldType.NUMBER).description("길드 ID"),
-                            fieldWithPath("value.content[].sender_id").type(JsonFieldType.STRING).description("발신자 ID").optional(),
-                            fieldWithPath("value.content[].sender_nickname").type(JsonFieldType.STRING).description("발신자 닉네임").optional(),
-                            fieldWithPath("value.content[].message_type").type(JsonFieldType.STRING).description("메시지 타입"),
-                            fieldWithPath("value.content[].content").type(JsonFieldType.STRING).description("메시지 내용"),
-                            fieldWithPath("value.content[].image_url").type(JsonFieldType.STRING).description("이미지 URL").optional(),
-                            fieldWithPath("value.content[].reference_type").type(JsonFieldType.STRING).description("참조 타입").optional(),
-                            fieldWithPath("value.content[].reference_id").type(JsonFieldType.NUMBER).description("참조 ID").optional(),
-                            fieldWithPath("value.content[].is_system_message").type(JsonFieldType.BOOLEAN).description("시스템 메시지 여부"),
-                            fieldWithPath("value.content[].created_at").type(JsonFieldType.STRING).description("생성 일시"),
-                            fieldWithPath("value.content[].unread_count").type(JsonFieldType.NUMBER).description("읽지 않은 메시지 수").optional(),
-                            fieldWithPath("value.pageable").type(JsonFieldType.OBJECT).description("페이지 정보").optional(),
-                            fieldWithPath("value.pageable.sort").type(JsonFieldType.OBJECT).description("정렬 정보").optional(),
-                            fieldWithPath("value.pageable.sort.empty").type(JsonFieldType.BOOLEAN).description("정렬 비어있음 여부").optional(),
-                            fieldWithPath("value.pageable.sort.sorted").type(JsonFieldType.BOOLEAN).description("정렬됨 여부").optional(),
-                            fieldWithPath("value.pageable.sort.unsorted").type(JsonFieldType.BOOLEAN).description("정렬되지 않음 여부").optional(),
-                            fieldWithPath("value.pageable.offset").type(JsonFieldType.NUMBER).description("오프셋").optional(),
-                            fieldWithPath("value.pageable.page_number").type(JsonFieldType.NUMBER).description("페이지 번호").optional(),
-                            fieldWithPath("value.pageable.page_size").type(JsonFieldType.NUMBER).description("페이지 크기").optional(),
-                            fieldWithPath("value.pageable.paged").type(JsonFieldType.BOOLEAN).description("페이징됨 여부").optional(),
-                            fieldWithPath("value.pageable.unpaged").type(JsonFieldType.BOOLEAN).description("페이징되지 않음 여부").optional(),
-                            fieldWithPath("value.last").type(JsonFieldType.BOOLEAN).description("마지막 페이지 여부").optional(),
-                            fieldWithPath("value.total_elements").type(JsonFieldType.NUMBER).description("전체 요소 수").optional(),
-                            fieldWithPath("value.total_pages").type(JsonFieldType.NUMBER).description("전체 페이지 수").optional(),
-                            fieldWithPath("value.first").type(JsonFieldType.BOOLEAN).description("첫 페이지 여부").optional(),
-                            fieldWithPath("value.size").type(JsonFieldType.NUMBER).description("페이지 크기").optional(),
-                            fieldWithPath("value.number").type(JsonFieldType.NUMBER).description("현재 페이지 번호").optional(),
-                            fieldWithPath("value.sort").type(JsonFieldType.OBJECT).description("정렬 정보").optional(),
-                            fieldWithPath("value.sort.empty").type(JsonFieldType.BOOLEAN).description("정렬 비어있음 여부").optional(),
-                            fieldWithPath("value.sort.sorted").type(JsonFieldType.BOOLEAN).description("정렬됨 여부").optional(),
-                            fieldWithPath("value.sort.unsorted").type(JsonFieldType.BOOLEAN).description("정렬되지 않음 여부").optional(),
-                            fieldWithPath("value.number_of_elements").type(JsonFieldType.NUMBER).description("현재 페이지 요소 수").optional(),
-                            fieldWithPath("value.empty").type(JsonFieldType.BOOLEAN).description("비어있음 여부").optional()
-                        )
-                        .build()
-                )
-            )
-        );
+        ResultActions resultActions =
+                mockMvc.perform(
+                                RestDocumentationRequestBuilders.get(
+                                                "/api/v1/guilds/{guildId}/chat", guildId)
+                                        .with(user(MOCK_USER_ID))
+                                        .param("page", "0")
+                                        .param("size", "50")
+                                        .contentType(MediaType.APPLICATION_JSON))
+                        .andDo(
+                                MockMvcRestDocumentationWrapper.document(
+                                        "길드채팅-02. 채팅 메시지 조회",
+                                        preprocessRequest(prettyPrint()),
+                                        preprocessResponse(prettyPrint()),
+                                        resource(
+                                                ResourceSnippetParameters.builder()
+                                                        .tag("Guild Chat")
+                                                        .description("길드 채팅 메시지 조회 (JWT 토큰 인증 필요)")
+                                                        .pathParameters(
+                                                                parameterWithName("guildId")
+                                                                        .type(SimpleType.NUMBER)
+                                                                        .description("길드 ID"))
+                                                        .queryParameters(
+                                                                parameterWithName("page")
+                                                                        .type(SimpleType.NUMBER)
+                                                                        .description(
+                                                                                "페이지 번호 (기본값: 0)")
+                                                                        .optional(),
+                                                                parameterWithName("size")
+                                                                        .type(SimpleType.NUMBER)
+                                                                        .description(
+                                                                                "페이지 크기 (기본값: 50)")
+                                                                        .optional())
+                                                        .responseFields(
+                                                                fieldWithPath("code")
+                                                                        .type(JsonFieldType.STRING)
+                                                                        .description("응답 코드"),
+                                                                fieldWithPath("message")
+                                                                        .type(JsonFieldType.STRING)
+                                                                        .description("응답 메시지"),
+                                                                fieldWithPath("value")
+                                                                        .type(JsonFieldType.OBJECT)
+                                                                        .description("페이지 정보"),
+                                                                fieldWithPath("value.content[]")
+                                                                        .type(JsonFieldType.ARRAY)
+                                                                        .description("채팅 메시지 목록"),
+                                                                fieldWithPath("value.content[].id")
+                                                                        .type(JsonFieldType.NUMBER)
+                                                                        .description("메시지 ID"),
+                                                                fieldWithPath(
+                                                                                "value.content[].guild_id")
+                                                                        .type(JsonFieldType.NUMBER)
+                                                                        .description("길드 ID"),
+                                                                fieldWithPath(
+                                                                                "value.content[].sender_id")
+                                                                        .type(JsonFieldType.STRING)
+                                                                        .description("발신자 ID")
+                                                                        .optional(),
+                                                                fieldWithPath(
+                                                                                "value.content[].sender_nickname")
+                                                                        .type(JsonFieldType.STRING)
+                                                                        .description("발신자 닉네임")
+                                                                        .optional(),
+                                                                fieldWithPath(
+                                                                                "value.content[].message_type")
+                                                                        .type(JsonFieldType.STRING)
+                                                                        .description("메시지 타입"),
+                                                                fieldWithPath(
+                                                                                "value.content[].content")
+                                                                        .type(JsonFieldType.STRING)
+                                                                        .description("메시지 내용"),
+                                                                fieldWithPath(
+                                                                                "value.content[].image_url")
+                                                                        .type(JsonFieldType.STRING)
+                                                                        .description("이미지 URL")
+                                                                        .optional(),
+                                                                fieldWithPath(
+                                                                                "value.content[].reference_type")
+                                                                        .type(JsonFieldType.STRING)
+                                                                        .description("참조 타입")
+                                                                        .optional(),
+                                                                fieldWithPath(
+                                                                                "value.content[].reference_id")
+                                                                        .type(JsonFieldType.NUMBER)
+                                                                        .description("참조 ID")
+                                                                        .optional(),
+                                                                fieldWithPath(
+                                                                                "value.content[].is_system_message")
+                                                                        .type(JsonFieldType.BOOLEAN)
+                                                                        .description("시스템 메시지 여부"),
+                                                                fieldWithPath(
+                                                                                "value.content[].created_at")
+                                                                        .type(JsonFieldType.STRING)
+                                                                        .description("생성 일시"),
+                                                                fieldWithPath(
+                                                                                "value.content[].unread_count")
+                                                                        .type(JsonFieldType.NUMBER)
+                                                                        .description("읽지 않은 메시지 수")
+                                                                        .optional(),
+                                                                fieldWithPath("value.pageable")
+                                                                        .type(JsonFieldType.OBJECT)
+                                                                        .description("페이지 정보")
+                                                                        .optional(),
+                                                                fieldWithPath("value.pageable.sort")
+                                                                        .type(JsonFieldType.OBJECT)
+                                                                        .description("정렬 정보")
+                                                                        .optional(),
+                                                                fieldWithPath(
+                                                                                "value.pageable.sort.empty")
+                                                                        .type(JsonFieldType.BOOLEAN)
+                                                                        .description("정렬 비어있음 여부")
+                                                                        .optional(),
+                                                                fieldWithPath(
+                                                                                "value.pageable.sort.sorted")
+                                                                        .type(JsonFieldType.BOOLEAN)
+                                                                        .description("정렬됨 여부")
+                                                                        .optional(),
+                                                                fieldWithPath(
+                                                                                "value.pageable.sort.unsorted")
+                                                                        .type(JsonFieldType.BOOLEAN)
+                                                                        .description("정렬되지 않음 여부")
+                                                                        .optional(),
+                                                                fieldWithPath(
+                                                                                "value.pageable.offset")
+                                                                        .type(JsonFieldType.NUMBER)
+                                                                        .description("오프셋")
+                                                                        .optional(),
+                                                                fieldWithPath(
+                                                                                "value.pageable.page_number")
+                                                                        .type(JsonFieldType.NUMBER)
+                                                                        .description("페이지 번호")
+                                                                        .optional(),
+                                                                fieldWithPath(
+                                                                                "value.pageable.page_size")
+                                                                        .type(JsonFieldType.NUMBER)
+                                                                        .description("페이지 크기")
+                                                                        .optional(),
+                                                                fieldWithPath(
+                                                                                "value.pageable.paged")
+                                                                        .type(JsonFieldType.BOOLEAN)
+                                                                        .description("페이징됨 여부")
+                                                                        .optional(),
+                                                                fieldWithPath(
+                                                                                "value.pageable.unpaged")
+                                                                        .type(JsonFieldType.BOOLEAN)
+                                                                        .description("페이징되지 않음 여부")
+                                                                        .optional(),
+                                                                fieldWithPath("value.last")
+                                                                        .type(JsonFieldType.BOOLEAN)
+                                                                        .description("마지막 페이지 여부")
+                                                                        .optional(),
+                                                                fieldWithPath(
+                                                                                "value.total_elements")
+                                                                        .type(JsonFieldType.NUMBER)
+                                                                        .description("전체 요소 수")
+                                                                        .optional(),
+                                                                fieldWithPath("value.total_pages")
+                                                                        .type(JsonFieldType.NUMBER)
+                                                                        .description("전체 페이지 수")
+                                                                        .optional(),
+                                                                fieldWithPath("value.first")
+                                                                        .type(JsonFieldType.BOOLEAN)
+                                                                        .description("첫 페이지 여부")
+                                                                        .optional(),
+                                                                fieldWithPath("value.size")
+                                                                        .type(JsonFieldType.NUMBER)
+                                                                        .description("페이지 크기")
+                                                                        .optional(),
+                                                                fieldWithPath("value.number")
+                                                                        .type(JsonFieldType.NUMBER)
+                                                                        .description("현재 페이지 번호")
+                                                                        .optional(),
+                                                                fieldWithPath("value.sort")
+                                                                        .type(JsonFieldType.OBJECT)
+                                                                        .description("정렬 정보")
+                                                                        .optional(),
+                                                                fieldWithPath("value.sort.empty")
+                                                                        .type(JsonFieldType.BOOLEAN)
+                                                                        .description("정렬 비어있음 여부")
+                                                                        .optional(),
+                                                                fieldWithPath("value.sort.sorted")
+                                                                        .type(JsonFieldType.BOOLEAN)
+                                                                        .description("정렬됨 여부")
+                                                                        .optional(),
+                                                                fieldWithPath("value.sort.unsorted")
+                                                                        .type(JsonFieldType.BOOLEAN)
+                                                                        .description("정렬되지 않음 여부")
+                                                                        .optional(),
+                                                                fieldWithPath(
+                                                                                "value.number_of_elements")
+                                                                        .type(JsonFieldType.NUMBER)
+                                                                        .description("현재 페이지 요소 수")
+                                                                        .optional(),
+                                                                fieldWithPath("value.empty")
+                                                                        .type(JsonFieldType.BOOLEAN)
+                                                                        .description("비어있음 여부")
+                                                                        .optional())
+                                                        .build())));
 
         // then
         resultActions.andExpect(MockMvcResultMatchers.status().isOk());
@@ -230,54 +412,102 @@ class GuildChatControllerTest {
     void getNewMessagesTest() throws Exception {
         // given
         Long guildId = 1L;
-        List<ChatMessageResponse> responses = MockUtil.readJsonFileToClassList(
-            "fixture/guildchat/chatMessageResponseList.json",
-            new TypeReference<List<ChatMessageResponse>>() {});
+        List<ChatMessageResponse> responses =
+                MockUtil.readJsonFileToClassList(
+                        "fixture/guildchat/chatMessageResponseList.json",
+                        new TypeReference<List<ChatMessageResponse>>() {});
 
         when(guildChatService.getNewMessages(anyLong(), anyString(), any(LocalDateTime.class)))
-            .thenReturn(responses);
+                .thenReturn(responses);
 
         // when
-        ResultActions resultActions = mockMvc.perform(
-            RestDocumentationRequestBuilders.get("/api/v1/guilds/{guildId}/chat/new", guildId)
-                .with(user(MOCK_USER_ID))
-                .param("since", "2025-01-15T10:00:00")
-                .contentType(MediaType.APPLICATION_JSON)
-        ).andDo(
-            MockMvcRestDocumentationWrapper.document("길드채팅-03. 새 메시지 조회 (폴링)",
-                preprocessRequest(prettyPrint()),
-                preprocessResponse(prettyPrint()),
-                resource(
-                    ResourceSnippetParameters.builder()
-                        .tag("Guild Chat")
-                        .description("특정 시간 이후의 새 메시지 조회 (폴링용) (JWT 토큰 인증 필요)")
-                        .pathParameters(
-                            parameterWithName("guildId").type(SimpleType.NUMBER).description("길드 ID")
-                        )
-                        .queryParameters(
-                            parameterWithName("since").type(SimpleType.STRING).description("기준 시간 (ISO 8601 형식)")
-                        )
-                        .responseFields(
-                            fieldWithPath("code").type(JsonFieldType.STRING).description("응답 코드"),
-                            fieldWithPath("message").type(JsonFieldType.STRING).description("응답 메시지"),
-                            fieldWithPath("value[]").type(JsonFieldType.ARRAY).description("새 채팅 메시지 목록"),
-                            fieldWithPath("value[].id").type(JsonFieldType.NUMBER).description("메시지 ID"),
-                            fieldWithPath("value[].guild_id").type(JsonFieldType.NUMBER).description("길드 ID"),
-                            fieldWithPath("value[].sender_id").type(JsonFieldType.STRING).description("발신자 ID").optional(),
-                            fieldWithPath("value[].sender_nickname").type(JsonFieldType.STRING).description("발신자 닉네임").optional(),
-                            fieldWithPath("value[].message_type").type(JsonFieldType.STRING).description("메시지 타입"),
-                            fieldWithPath("value[].content").type(JsonFieldType.STRING).description("메시지 내용"),
-                            fieldWithPath("value[].image_url").type(JsonFieldType.STRING).description("이미지 URL").optional(),
-                            fieldWithPath("value[].reference_type").type(JsonFieldType.STRING).description("참조 타입").optional(),
-                            fieldWithPath("value[].reference_id").type(JsonFieldType.NUMBER).description("참조 ID").optional(),
-                            fieldWithPath("value[].is_system_message").type(JsonFieldType.BOOLEAN).description("시스템 메시지 여부"),
-                            fieldWithPath("value[].created_at").type(JsonFieldType.STRING).description("생성 일시"),
-                            fieldWithPath("value[].unread_count").type(JsonFieldType.NUMBER).description("읽지 않은 메시지 수").optional()
-                        )
-                        .build()
-                )
-            )
-        );
+        ResultActions resultActions =
+                mockMvc.perform(
+                                RestDocumentationRequestBuilders.get(
+                                                "/api/v1/guilds/{guildId}/chat/new", guildId)
+                                        .with(user(MOCK_USER_ID))
+                                        .param("since", "2025-01-15T10:00:00")
+                                        .contentType(MediaType.APPLICATION_JSON))
+                        .andDo(
+                                MockMvcRestDocumentationWrapper.document(
+                                        "길드채팅-03. 새 메시지 조회 (폴링)",
+                                        preprocessRequest(prettyPrint()),
+                                        preprocessResponse(prettyPrint()),
+                                        resource(
+                                                ResourceSnippetParameters.builder()
+                                                        .tag("Guild Chat")
+                                                        .description(
+                                                                "특정 시간 이후의 새 메시지 조회 (폴링용) (JWT 토큰"
+                                                                        + " 인증 필요)")
+                                                        .pathParameters(
+                                                                parameterWithName("guildId")
+                                                                        .type(SimpleType.NUMBER)
+                                                                        .description("길드 ID"))
+                                                        .queryParameters(
+                                                                parameterWithName("since")
+                                                                        .type(SimpleType.STRING)
+                                                                        .description(
+                                                                                "기준 시간 (ISO 8601"
+                                                                                        + " 형식)"))
+                                                        .responseFields(
+                                                                fieldWithPath("code")
+                                                                        .type(JsonFieldType.STRING)
+                                                                        .description("응답 코드"),
+                                                                fieldWithPath("message")
+                                                                        .type(JsonFieldType.STRING)
+                                                                        .description("응답 메시지"),
+                                                                fieldWithPath("value[]")
+                                                                        .type(JsonFieldType.ARRAY)
+                                                                        .description("새 채팅 메시지 목록"),
+                                                                fieldWithPath("value[].id")
+                                                                        .type(JsonFieldType.NUMBER)
+                                                                        .description("메시지 ID"),
+                                                                fieldWithPath("value[].guild_id")
+                                                                        .type(JsonFieldType.NUMBER)
+                                                                        .description("길드 ID"),
+                                                                fieldWithPath("value[].sender_id")
+                                                                        .type(JsonFieldType.STRING)
+                                                                        .description("발신자 ID")
+                                                                        .optional(),
+                                                                fieldWithPath(
+                                                                                "value[].sender_nickname")
+                                                                        .type(JsonFieldType.STRING)
+                                                                        .description("발신자 닉네임")
+                                                                        .optional(),
+                                                                fieldWithPath(
+                                                                                "value[].message_type")
+                                                                        .type(JsonFieldType.STRING)
+                                                                        .description("메시지 타입"),
+                                                                fieldWithPath("value[].content")
+                                                                        .type(JsonFieldType.STRING)
+                                                                        .description("메시지 내용"),
+                                                                fieldWithPath("value[].image_url")
+                                                                        .type(JsonFieldType.STRING)
+                                                                        .description("이미지 URL")
+                                                                        .optional(),
+                                                                fieldWithPath(
+                                                                                "value[].reference_type")
+                                                                        .type(JsonFieldType.STRING)
+                                                                        .description("참조 타입")
+                                                                        .optional(),
+                                                                fieldWithPath(
+                                                                                "value[].reference_id")
+                                                                        .type(JsonFieldType.NUMBER)
+                                                                        .description("참조 ID")
+                                                                        .optional(),
+                                                                fieldWithPath(
+                                                                                "value[].is_system_message")
+                                                                        .type(JsonFieldType.BOOLEAN)
+                                                                        .description("시스템 메시지 여부"),
+                                                                fieldWithPath("value[].created_at")
+                                                                        .type(JsonFieldType.STRING)
+                                                                        .description("생성 일시"),
+                                                                fieldWithPath(
+                                                                                "value[].unread_count")
+                                                                        .type(JsonFieldType.NUMBER)
+                                                                        .description("읽지 않은 메시지 수")
+                                                                        .optional())
+                                                        .build())));
 
         // then
         resultActions.andExpect(MockMvcResultMatchers.status().isOk());
@@ -289,51 +519,100 @@ class GuildChatControllerTest {
         // given
         Long guildId = 1L;
         Long lastMessageId = 10L;
-        List<ChatMessageResponse> responses = MockUtil.readJsonFileToClassList(
-            "fixture/guildchat/chatMessageResponseList.json",
-            new TypeReference<List<ChatMessageResponse>>() {});
+        List<ChatMessageResponse> responses =
+                MockUtil.readJsonFileToClassList(
+                        "fixture/guildchat/chatMessageResponseList.json",
+                        new TypeReference<List<ChatMessageResponse>>() {});
 
         when(guildChatService.getMessagesAfterId(anyLong(), anyString(), anyLong()))
-            .thenReturn(responses);
+                .thenReturn(responses);
 
         // when
-        ResultActions resultActions = mockMvc.perform(
-            RestDocumentationRequestBuilders.get("/api/v1/guilds/{guildId}/chat/after/{lastMessageId}", guildId, lastMessageId)
-                .with(user(MOCK_USER_ID))
-                .contentType(MediaType.APPLICATION_JSON)
-        ).andDo(
-            MockMvcRestDocumentationWrapper.document("길드채팅-04. 특정 메시지 이후 조회",
-                preprocessRequest(prettyPrint()),
-                preprocessResponse(prettyPrint()),
-                resource(
-                    ResourceSnippetParameters.builder()
-                        .tag("Guild Chat")
-                        .description("특정 메시지 ID 이후의 메시지 조회 (JWT 토큰 인증 필요)")
-                        .pathParameters(
-                            parameterWithName("guildId").type(SimpleType.NUMBER).description("길드 ID"),
-                            parameterWithName("lastMessageId").type(SimpleType.NUMBER).description("기준 메시지 ID")
-                        )
-                        .responseFields(
-                            fieldWithPath("code").type(JsonFieldType.STRING).description("응답 코드"),
-                            fieldWithPath("message").type(JsonFieldType.STRING).description("응답 메시지"),
-                            fieldWithPath("value[]").type(JsonFieldType.ARRAY).description("채팅 메시지 목록"),
-                            fieldWithPath("value[].id").type(JsonFieldType.NUMBER).description("메시지 ID"),
-                            fieldWithPath("value[].guild_id").type(JsonFieldType.NUMBER).description("길드 ID"),
-                            fieldWithPath("value[].sender_id").type(JsonFieldType.STRING).description("발신자 ID").optional(),
-                            fieldWithPath("value[].sender_nickname").type(JsonFieldType.STRING).description("발신자 닉네임").optional(),
-                            fieldWithPath("value[].message_type").type(JsonFieldType.STRING).description("메시지 타입"),
-                            fieldWithPath("value[].content").type(JsonFieldType.STRING).description("메시지 내용"),
-                            fieldWithPath("value[].image_url").type(JsonFieldType.STRING).description("이미지 URL").optional(),
-                            fieldWithPath("value[].reference_type").type(JsonFieldType.STRING).description("참조 타입").optional(),
-                            fieldWithPath("value[].reference_id").type(JsonFieldType.NUMBER).description("참조 ID").optional(),
-                            fieldWithPath("value[].is_system_message").type(JsonFieldType.BOOLEAN).description("시스템 메시지 여부"),
-                            fieldWithPath("value[].created_at").type(JsonFieldType.STRING).description("생성 일시"),
-                            fieldWithPath("value[].unread_count").type(JsonFieldType.NUMBER).description("읽지 않은 메시지 수").optional()
-                        )
-                        .build()
-                )
-            )
-        );
+        ResultActions resultActions =
+                mockMvc.perform(
+                                RestDocumentationRequestBuilders.get(
+                                                "/api/v1/guilds/{guildId}/chat/after/{lastMessageId}",
+                                                guildId,
+                                                lastMessageId)
+                                        .with(user(MOCK_USER_ID))
+                                        .contentType(MediaType.APPLICATION_JSON))
+                        .andDo(
+                                MockMvcRestDocumentationWrapper.document(
+                                        "길드채팅-04. 특정 메시지 이후 조회",
+                                        preprocessRequest(prettyPrint()),
+                                        preprocessResponse(prettyPrint()),
+                                        resource(
+                                                ResourceSnippetParameters.builder()
+                                                        .tag("Guild Chat")
+                                                        .description(
+                                                                "특정 메시지 ID 이후의 메시지 조회 (JWT 토큰 인증"
+                                                                        + " 필요)")
+                                                        .pathParameters(
+                                                                parameterWithName("guildId")
+                                                                        .type(SimpleType.NUMBER)
+                                                                        .description("길드 ID"),
+                                                                parameterWithName("lastMessageId")
+                                                                        .type(SimpleType.NUMBER)
+                                                                        .description("기준 메시지 ID"))
+                                                        .responseFields(
+                                                                fieldWithPath("code")
+                                                                        .type(JsonFieldType.STRING)
+                                                                        .description("응답 코드"),
+                                                                fieldWithPath("message")
+                                                                        .type(JsonFieldType.STRING)
+                                                                        .description("응답 메시지"),
+                                                                fieldWithPath("value[]")
+                                                                        .type(JsonFieldType.ARRAY)
+                                                                        .description("채팅 메시지 목록"),
+                                                                fieldWithPath("value[].id")
+                                                                        .type(JsonFieldType.NUMBER)
+                                                                        .description("메시지 ID"),
+                                                                fieldWithPath("value[].guild_id")
+                                                                        .type(JsonFieldType.NUMBER)
+                                                                        .description("길드 ID"),
+                                                                fieldWithPath("value[].sender_id")
+                                                                        .type(JsonFieldType.STRING)
+                                                                        .description("발신자 ID")
+                                                                        .optional(),
+                                                                fieldWithPath(
+                                                                                "value[].sender_nickname")
+                                                                        .type(JsonFieldType.STRING)
+                                                                        .description("발신자 닉네임")
+                                                                        .optional(),
+                                                                fieldWithPath(
+                                                                                "value[].message_type")
+                                                                        .type(JsonFieldType.STRING)
+                                                                        .description("메시지 타입"),
+                                                                fieldWithPath("value[].content")
+                                                                        .type(JsonFieldType.STRING)
+                                                                        .description("메시지 내용"),
+                                                                fieldWithPath("value[].image_url")
+                                                                        .type(JsonFieldType.STRING)
+                                                                        .description("이미지 URL")
+                                                                        .optional(),
+                                                                fieldWithPath(
+                                                                                "value[].reference_type")
+                                                                        .type(JsonFieldType.STRING)
+                                                                        .description("참조 타입")
+                                                                        .optional(),
+                                                                fieldWithPath(
+                                                                                "value[].reference_id")
+                                                                        .type(JsonFieldType.NUMBER)
+                                                                        .description("참조 ID")
+                                                                        .optional(),
+                                                                fieldWithPath(
+                                                                                "value[].is_system_message")
+                                                                        .type(JsonFieldType.BOOLEAN)
+                                                                        .description("시스템 메시지 여부"),
+                                                                fieldWithPath("value[].created_at")
+                                                                        .type(JsonFieldType.STRING)
+                                                                        .description("생성 일시"),
+                                                                fieldWithPath(
+                                                                                "value[].unread_count")
+                                                                        .type(JsonFieldType.NUMBER)
+                                                                        .description("읽지 않은 메시지 수")
+                                                                        .optional())
+                                                        .build())));
 
         // then
         resultActions.andExpect(MockMvcResultMatchers.status().isOk());
@@ -345,86 +624,230 @@ class GuildChatControllerTest {
         // given
         Long guildId = 1L;
         Long beforeId = 10L;
-        List<ChatMessageResponse> responses = MockUtil.readJsonFileToClassList(
-            "fixture/guildchat/chatMessageResponseList.json",
-            new TypeReference<List<ChatMessageResponse>>() {});
+        List<ChatMessageResponse> responses =
+                MockUtil.readJsonFileToClassList(
+                        "fixture/guildchat/chatMessageResponseList.json",
+                        new TypeReference<List<ChatMessageResponse>>() {});
 
         if (responses == null) {
             responses = createMockChatMessages();
         }
 
-        Page<ChatMessageResponse> page = new PageImpl<>(responses, org.springframework.data.domain.PageRequest.of(0, 50), responses.size());
+        Page<ChatMessageResponse> page =
+                new PageImpl<>(
+                        responses,
+                        org.springframework.data.domain.PageRequest.of(0, 50),
+                        responses.size());
 
-        when(guildChatService.getMessagesBeforeId(anyLong(), anyString(), anyLong(), any(Pageable.class)))
-            .thenReturn(page);
+        when(guildChatService.getMessagesBeforeId(
+                        anyLong(), anyString(), anyLong(), any(Pageable.class)))
+                .thenReturn(page);
 
         // when
-        ResultActions resultActions = mockMvc.perform(
-            RestDocumentationRequestBuilders.get("/api/v1/guilds/{guildId}/chat/before/{beforeId}", guildId, beforeId)
-                .with(user(MOCK_USER_ID))
-                .param("page", "0")
-                .param("size", "50")
-                .contentType(MediaType.APPLICATION_JSON)
-        ).andDo(
-            MockMvcRestDocumentationWrapper.document("길드채팅-05. 특정 메시지 이전 조회 (무한스크롤)",
-                preprocessRequest(prettyPrint()),
-                preprocessResponse(prettyPrint()),
-                resource(
-                    ResourceSnippetParameters.builder()
-                        .tag("Guild Chat")
-                        .description("특정 메시지 ID 이전의 메시지 조회 (무한스크롤 용) (JWT 토큰 인증 필요)")
-                        .pathParameters(
-                            parameterWithName("guildId").type(SimpleType.NUMBER).description("길드 ID"),
-                            parameterWithName("beforeId").type(SimpleType.NUMBER).description("기준 메시지 ID")
-                        )
-                        .queryParameters(
-                            parameterWithName("page").type(SimpleType.NUMBER).description("페이지 번호 (기본값: 0)").optional(),
-                            parameterWithName("size").type(SimpleType.NUMBER).description("페이지 크기 (기본값: 50)").optional()
-                        )
-                        .responseFields(
-                            fieldWithPath("code").type(JsonFieldType.STRING).description("응답 코드"),
-                            fieldWithPath("message").type(JsonFieldType.STRING).description("응답 메시지"),
-                            fieldWithPath("value").type(JsonFieldType.OBJECT).description("페이지 정보"),
-                            fieldWithPath("value.content[]").type(JsonFieldType.ARRAY).description("채팅 메시지 목록"),
-                            fieldWithPath("value.content[].id").type(JsonFieldType.NUMBER).description("메시지 ID"),
-                            fieldWithPath("value.content[].guild_id").type(JsonFieldType.NUMBER).description("길드 ID"),
-                            fieldWithPath("value.content[].sender_id").type(JsonFieldType.STRING).description("발신자 ID").optional(),
-                            fieldWithPath("value.content[].sender_nickname").type(JsonFieldType.STRING).description("발신자 닉네임").optional(),
-                            fieldWithPath("value.content[].message_type").type(JsonFieldType.STRING).description("메시지 타입"),
-                            fieldWithPath("value.content[].content").type(JsonFieldType.STRING).description("메시지 내용"),
-                            fieldWithPath("value.content[].image_url").type(JsonFieldType.STRING).description("이미지 URL").optional(),
-                            fieldWithPath("value.content[].reference_type").type(JsonFieldType.STRING).description("참조 타입").optional(),
-                            fieldWithPath("value.content[].reference_id").type(JsonFieldType.NUMBER).description("참조 ID").optional(),
-                            fieldWithPath("value.content[].is_system_message").type(JsonFieldType.BOOLEAN).description("시스템 메시지 여부"),
-                            fieldWithPath("value.content[].created_at").type(JsonFieldType.STRING).description("생성 일시"),
-                            fieldWithPath("value.content[].unread_count").type(JsonFieldType.NUMBER).description("읽지 않은 메시지 수").optional(),
-                            fieldWithPath("value.pageable").type(JsonFieldType.OBJECT).description("페이지 정보").optional(),
-                            fieldWithPath("value.pageable.sort").type(JsonFieldType.OBJECT).description("정렬 정보").optional(),
-                            fieldWithPath("value.pageable.sort.empty").type(JsonFieldType.BOOLEAN).description("정렬 비어있음 여부").optional(),
-                            fieldWithPath("value.pageable.sort.sorted").type(JsonFieldType.BOOLEAN).description("정렬됨 여부").optional(),
-                            fieldWithPath("value.pageable.sort.unsorted").type(JsonFieldType.BOOLEAN).description("정렬되지 않음 여부").optional(),
-                            fieldWithPath("value.pageable.offset").type(JsonFieldType.NUMBER).description("오프셋").optional(),
-                            fieldWithPath("value.pageable.page_number").type(JsonFieldType.NUMBER).description("페이지 번호").optional(),
-                            fieldWithPath("value.pageable.page_size").type(JsonFieldType.NUMBER).description("페이지 크기").optional(),
-                            fieldWithPath("value.pageable.paged").type(JsonFieldType.BOOLEAN).description("페이징됨 여부").optional(),
-                            fieldWithPath("value.pageable.unpaged").type(JsonFieldType.BOOLEAN).description("페이징되지 않음 여부").optional(),
-                            fieldWithPath("value.last").type(JsonFieldType.BOOLEAN).description("마지막 페이지 여부").optional(),
-                            fieldWithPath("value.total_elements").type(JsonFieldType.NUMBER).description("전체 요소 수").optional(),
-                            fieldWithPath("value.total_pages").type(JsonFieldType.NUMBER).description("전체 페이지 수").optional(),
-                            fieldWithPath("value.first").type(JsonFieldType.BOOLEAN).description("첫 페이지 여부").optional(),
-                            fieldWithPath("value.size").type(JsonFieldType.NUMBER).description("페이지 크기").optional(),
-                            fieldWithPath("value.number").type(JsonFieldType.NUMBER).description("현재 페이지 번호").optional(),
-                            fieldWithPath("value.sort").type(JsonFieldType.OBJECT).description("정렬 정보").optional(),
-                            fieldWithPath("value.sort.empty").type(JsonFieldType.BOOLEAN).description("정렬 비어있음 여부").optional(),
-                            fieldWithPath("value.sort.sorted").type(JsonFieldType.BOOLEAN).description("정렬됨 여부").optional(),
-                            fieldWithPath("value.sort.unsorted").type(JsonFieldType.BOOLEAN).description("정렬되지 않음 여부").optional(),
-                            fieldWithPath("value.number_of_elements").type(JsonFieldType.NUMBER).description("현재 페이지 요소 수").optional(),
-                            fieldWithPath("value.empty").type(JsonFieldType.BOOLEAN).description("비어있음 여부").optional()
-                        )
-                        .build()
-                )
-            )
-        );
+        ResultActions resultActions =
+                mockMvc.perform(
+                                RestDocumentationRequestBuilders.get(
+                                                "/api/v1/guilds/{guildId}/chat/before/{beforeId}",
+                                                guildId,
+                                                beforeId)
+                                        .with(user(MOCK_USER_ID))
+                                        .param("page", "0")
+                                        .param("size", "50")
+                                        .contentType(MediaType.APPLICATION_JSON))
+                        .andDo(
+                                MockMvcRestDocumentationWrapper.document(
+                                        "길드채팅-05. 특정 메시지 이전 조회 (무한스크롤)",
+                                        preprocessRequest(prettyPrint()),
+                                        preprocessResponse(prettyPrint()),
+                                        resource(
+                                                ResourceSnippetParameters.builder()
+                                                        .tag("Guild Chat")
+                                                        .description(
+                                                                "특정 메시지 ID 이전의 메시지 조회 (무한스크롤 용)"
+                                                                        + " (JWT 토큰 인증 필요)")
+                                                        .pathParameters(
+                                                                parameterWithName("guildId")
+                                                                        .type(SimpleType.NUMBER)
+                                                                        .description("길드 ID"),
+                                                                parameterWithName("beforeId")
+                                                                        .type(SimpleType.NUMBER)
+                                                                        .description("기준 메시지 ID"))
+                                                        .queryParameters(
+                                                                parameterWithName("page")
+                                                                        .type(SimpleType.NUMBER)
+                                                                        .description(
+                                                                                "페이지 번호 (기본값: 0)")
+                                                                        .optional(),
+                                                                parameterWithName("size")
+                                                                        .type(SimpleType.NUMBER)
+                                                                        .description(
+                                                                                "페이지 크기 (기본값: 50)")
+                                                                        .optional())
+                                                        .responseFields(
+                                                                fieldWithPath("code")
+                                                                        .type(JsonFieldType.STRING)
+                                                                        .description("응답 코드"),
+                                                                fieldWithPath("message")
+                                                                        .type(JsonFieldType.STRING)
+                                                                        .description("응답 메시지"),
+                                                                fieldWithPath("value")
+                                                                        .type(JsonFieldType.OBJECT)
+                                                                        .description("페이지 정보"),
+                                                                fieldWithPath("value.content[]")
+                                                                        .type(JsonFieldType.ARRAY)
+                                                                        .description("채팅 메시지 목록"),
+                                                                fieldWithPath("value.content[].id")
+                                                                        .type(JsonFieldType.NUMBER)
+                                                                        .description("메시지 ID"),
+                                                                fieldWithPath(
+                                                                                "value.content[].guild_id")
+                                                                        .type(JsonFieldType.NUMBER)
+                                                                        .description("길드 ID"),
+                                                                fieldWithPath(
+                                                                                "value.content[].sender_id")
+                                                                        .type(JsonFieldType.STRING)
+                                                                        .description("발신자 ID")
+                                                                        .optional(),
+                                                                fieldWithPath(
+                                                                                "value.content[].sender_nickname")
+                                                                        .type(JsonFieldType.STRING)
+                                                                        .description("발신자 닉네임")
+                                                                        .optional(),
+                                                                fieldWithPath(
+                                                                                "value.content[].message_type")
+                                                                        .type(JsonFieldType.STRING)
+                                                                        .description("메시지 타입"),
+                                                                fieldWithPath(
+                                                                                "value.content[].content")
+                                                                        .type(JsonFieldType.STRING)
+                                                                        .description("메시지 내용"),
+                                                                fieldWithPath(
+                                                                                "value.content[].image_url")
+                                                                        .type(JsonFieldType.STRING)
+                                                                        .description("이미지 URL")
+                                                                        .optional(),
+                                                                fieldWithPath(
+                                                                                "value.content[].reference_type")
+                                                                        .type(JsonFieldType.STRING)
+                                                                        .description("참조 타입")
+                                                                        .optional(),
+                                                                fieldWithPath(
+                                                                                "value.content[].reference_id")
+                                                                        .type(JsonFieldType.NUMBER)
+                                                                        .description("참조 ID")
+                                                                        .optional(),
+                                                                fieldWithPath(
+                                                                                "value.content[].is_system_message")
+                                                                        .type(JsonFieldType.BOOLEAN)
+                                                                        .description("시스템 메시지 여부"),
+                                                                fieldWithPath(
+                                                                                "value.content[].created_at")
+                                                                        .type(JsonFieldType.STRING)
+                                                                        .description("생성 일시"),
+                                                                fieldWithPath(
+                                                                                "value.content[].unread_count")
+                                                                        .type(JsonFieldType.NUMBER)
+                                                                        .description("읽지 않은 메시지 수")
+                                                                        .optional(),
+                                                                fieldWithPath("value.pageable")
+                                                                        .type(JsonFieldType.OBJECT)
+                                                                        .description("페이지 정보")
+                                                                        .optional(),
+                                                                fieldWithPath("value.pageable.sort")
+                                                                        .type(JsonFieldType.OBJECT)
+                                                                        .description("정렬 정보")
+                                                                        .optional(),
+                                                                fieldWithPath(
+                                                                                "value.pageable.sort.empty")
+                                                                        .type(JsonFieldType.BOOLEAN)
+                                                                        .description("정렬 비어있음 여부")
+                                                                        .optional(),
+                                                                fieldWithPath(
+                                                                                "value.pageable.sort.sorted")
+                                                                        .type(JsonFieldType.BOOLEAN)
+                                                                        .description("정렬됨 여부")
+                                                                        .optional(),
+                                                                fieldWithPath(
+                                                                                "value.pageable.sort.unsorted")
+                                                                        .type(JsonFieldType.BOOLEAN)
+                                                                        .description("정렬되지 않음 여부")
+                                                                        .optional(),
+                                                                fieldWithPath(
+                                                                                "value.pageable.offset")
+                                                                        .type(JsonFieldType.NUMBER)
+                                                                        .description("오프셋")
+                                                                        .optional(),
+                                                                fieldWithPath(
+                                                                                "value.pageable.page_number")
+                                                                        .type(JsonFieldType.NUMBER)
+                                                                        .description("페이지 번호")
+                                                                        .optional(),
+                                                                fieldWithPath(
+                                                                                "value.pageable.page_size")
+                                                                        .type(JsonFieldType.NUMBER)
+                                                                        .description("페이지 크기")
+                                                                        .optional(),
+                                                                fieldWithPath(
+                                                                                "value.pageable.paged")
+                                                                        .type(JsonFieldType.BOOLEAN)
+                                                                        .description("페이징됨 여부")
+                                                                        .optional(),
+                                                                fieldWithPath(
+                                                                                "value.pageable.unpaged")
+                                                                        .type(JsonFieldType.BOOLEAN)
+                                                                        .description("페이징되지 않음 여부")
+                                                                        .optional(),
+                                                                fieldWithPath("value.last")
+                                                                        .type(JsonFieldType.BOOLEAN)
+                                                                        .description("마지막 페이지 여부")
+                                                                        .optional(),
+                                                                fieldWithPath(
+                                                                                "value.total_elements")
+                                                                        .type(JsonFieldType.NUMBER)
+                                                                        .description("전체 요소 수")
+                                                                        .optional(),
+                                                                fieldWithPath("value.total_pages")
+                                                                        .type(JsonFieldType.NUMBER)
+                                                                        .description("전체 페이지 수")
+                                                                        .optional(),
+                                                                fieldWithPath("value.first")
+                                                                        .type(JsonFieldType.BOOLEAN)
+                                                                        .description("첫 페이지 여부")
+                                                                        .optional(),
+                                                                fieldWithPath("value.size")
+                                                                        .type(JsonFieldType.NUMBER)
+                                                                        .description("페이지 크기")
+                                                                        .optional(),
+                                                                fieldWithPath("value.number")
+                                                                        .type(JsonFieldType.NUMBER)
+                                                                        .description("현재 페이지 번호")
+                                                                        .optional(),
+                                                                fieldWithPath("value.sort")
+                                                                        .type(JsonFieldType.OBJECT)
+                                                                        .description("정렬 정보")
+                                                                        .optional(),
+                                                                fieldWithPath("value.sort.empty")
+                                                                        .type(JsonFieldType.BOOLEAN)
+                                                                        .description("정렬 비어있음 여부")
+                                                                        .optional(),
+                                                                fieldWithPath("value.sort.sorted")
+                                                                        .type(JsonFieldType.BOOLEAN)
+                                                                        .description("정렬됨 여부")
+                                                                        .optional(),
+                                                                fieldWithPath("value.sort.unsorted")
+                                                                        .type(JsonFieldType.BOOLEAN)
+                                                                        .description("정렬되지 않음 여부")
+                                                                        .optional(),
+                                                                fieldWithPath(
+                                                                                "value.number_of_elements")
+                                                                        .type(JsonFieldType.NUMBER)
+                                                                        .description("현재 페이지 요소 수")
+                                                                        .optional(),
+                                                                fieldWithPath("value.empty")
+                                                                        .type(JsonFieldType.BOOLEAN)
+                                                                        .description("비어있음 여부")
+                                                                        .optional())
+                                                        .build())));
 
         // then
         resultActions.andExpect(MockMvcResultMatchers.status().isOk());
@@ -435,87 +858,229 @@ class GuildChatControllerTest {
     void searchMessagesTest() throws Exception {
         // given
         Long guildId = 1L;
-        List<ChatMessageResponse> responses = MockUtil.readJsonFileToClassList(
-            "fixture/guildchat/chatMessageResponseList.json",
-            new TypeReference<List<ChatMessageResponse>>() {});
+        List<ChatMessageResponse> responses =
+                MockUtil.readJsonFileToClassList(
+                        "fixture/guildchat/chatMessageResponseList.json",
+                        new TypeReference<List<ChatMessageResponse>>() {});
 
         if (responses == null) {
             responses = createMockChatMessages();
         }
 
-        Page<ChatMessageResponse> page = new PageImpl<>(responses, org.springframework.data.domain.PageRequest.of(0, 20), responses.size());
+        Page<ChatMessageResponse> page =
+                new PageImpl<>(
+                        responses,
+                        org.springframework.data.domain.PageRequest.of(0, 20),
+                        responses.size());
 
-        when(guildChatService.searchMessages(anyLong(), anyString(), anyString(), any(Pageable.class)))
-            .thenReturn(page);
+        when(guildChatService.searchMessages(
+                        anyLong(), anyString(), anyString(), any(Pageable.class)))
+                .thenReturn(page);
 
         // when
-        ResultActions resultActions = mockMvc.perform(
-            RestDocumentationRequestBuilders.get("/api/v1/guilds/{guildId}/chat/search", guildId)
-                .with(user(MOCK_USER_ID))
-                .param("keyword", "안녕")
-                .param("page", "0")
-                .param("size", "20")
-                .contentType(MediaType.APPLICATION_JSON)
-        ).andDo(
-            MockMvcRestDocumentationWrapper.document("길드채팅-06. 채팅 메시지 검색",
-                preprocessRequest(prettyPrint()),
-                preprocessResponse(prettyPrint()),
-                resource(
-                    ResourceSnippetParameters.builder()
-                        .tag("Guild Chat")
-                        .description("키워드로 채팅 메시지 검색 (JWT 토큰 인증 필요)")
-                        .pathParameters(
-                            parameterWithName("guildId").type(SimpleType.NUMBER).description("길드 ID")
-                        )
-                        .queryParameters(
-                            parameterWithName("keyword").type(SimpleType.STRING).description("검색 키워드"),
-                            parameterWithName("page").type(SimpleType.NUMBER).description("페이지 번호 (기본값: 0)").optional(),
-                            parameterWithName("size").type(SimpleType.NUMBER).description("페이지 크기 (기본값: 20)").optional()
-                        )
-                        .responseFields(
-                            fieldWithPath("code").type(JsonFieldType.STRING).description("응답 코드"),
-                            fieldWithPath("message").type(JsonFieldType.STRING).description("응답 메시지"),
-                            fieldWithPath("value").type(JsonFieldType.OBJECT).description("페이지 정보"),
-                            fieldWithPath("value.content[]").type(JsonFieldType.ARRAY).description("검색된 채팅 메시지 목록"),
-                            fieldWithPath("value.content[].id").type(JsonFieldType.NUMBER).description("메시지 ID"),
-                            fieldWithPath("value.content[].guild_id").type(JsonFieldType.NUMBER).description("길드 ID"),
-                            fieldWithPath("value.content[].sender_id").type(JsonFieldType.STRING).description("발신자 ID").optional(),
-                            fieldWithPath("value.content[].sender_nickname").type(JsonFieldType.STRING).description("발신자 닉네임").optional(),
-                            fieldWithPath("value.content[].message_type").type(JsonFieldType.STRING).description("메시지 타입"),
-                            fieldWithPath("value.content[].content").type(JsonFieldType.STRING).description("메시지 내용"),
-                            fieldWithPath("value.content[].image_url").type(JsonFieldType.STRING).description("이미지 URL").optional(),
-                            fieldWithPath("value.content[].reference_type").type(JsonFieldType.STRING).description("참조 타입").optional(),
-                            fieldWithPath("value.content[].reference_id").type(JsonFieldType.NUMBER).description("참조 ID").optional(),
-                            fieldWithPath("value.content[].is_system_message").type(JsonFieldType.BOOLEAN).description("시스템 메시지 여부"),
-                            fieldWithPath("value.content[].created_at").type(JsonFieldType.STRING).description("생성 일시"),
-                            fieldWithPath("value.content[].unread_count").type(JsonFieldType.NUMBER).description("읽지 않은 메시지 수").optional(),
-                            fieldWithPath("value.pageable").type(JsonFieldType.OBJECT).description("페이지 정보").optional(),
-                            fieldWithPath("value.pageable.sort").type(JsonFieldType.OBJECT).description("정렬 정보").optional(),
-                            fieldWithPath("value.pageable.sort.empty").type(JsonFieldType.BOOLEAN).description("정렬 비어있음 여부").optional(),
-                            fieldWithPath("value.pageable.sort.sorted").type(JsonFieldType.BOOLEAN).description("정렬됨 여부").optional(),
-                            fieldWithPath("value.pageable.sort.unsorted").type(JsonFieldType.BOOLEAN).description("정렬되지 않음 여부").optional(),
-                            fieldWithPath("value.pageable.offset").type(JsonFieldType.NUMBER).description("오프셋").optional(),
-                            fieldWithPath("value.pageable.page_number").type(JsonFieldType.NUMBER).description("페이지 번호").optional(),
-                            fieldWithPath("value.pageable.page_size").type(JsonFieldType.NUMBER).description("페이지 크기").optional(),
-                            fieldWithPath("value.pageable.paged").type(JsonFieldType.BOOLEAN).description("페이징됨 여부").optional(),
-                            fieldWithPath("value.pageable.unpaged").type(JsonFieldType.BOOLEAN).description("페이징되지 않음 여부").optional(),
-                            fieldWithPath("value.last").type(JsonFieldType.BOOLEAN).description("마지막 페이지 여부").optional(),
-                            fieldWithPath("value.total_elements").type(JsonFieldType.NUMBER).description("전체 요소 수").optional(),
-                            fieldWithPath("value.total_pages").type(JsonFieldType.NUMBER).description("전체 페이지 수").optional(),
-                            fieldWithPath("value.first").type(JsonFieldType.BOOLEAN).description("첫 페이지 여부").optional(),
-                            fieldWithPath("value.size").type(JsonFieldType.NUMBER).description("페이지 크기").optional(),
-                            fieldWithPath("value.number").type(JsonFieldType.NUMBER).description("현재 페이지 번호").optional(),
-                            fieldWithPath("value.sort").type(JsonFieldType.OBJECT).description("정렬 정보").optional(),
-                            fieldWithPath("value.sort.empty").type(JsonFieldType.BOOLEAN).description("정렬 비어있음 여부").optional(),
-                            fieldWithPath("value.sort.sorted").type(JsonFieldType.BOOLEAN).description("정렬됨 여부").optional(),
-                            fieldWithPath("value.sort.unsorted").type(JsonFieldType.BOOLEAN).description("정렬되지 않음 여부").optional(),
-                            fieldWithPath("value.number_of_elements").type(JsonFieldType.NUMBER).description("현재 페이지 요소 수").optional(),
-                            fieldWithPath("value.empty").type(JsonFieldType.BOOLEAN).description("비어있음 여부").optional()
-                        )
-                        .build()
-                )
-            )
-        );
+        ResultActions resultActions =
+                mockMvc.perform(
+                                RestDocumentationRequestBuilders.get(
+                                                "/api/v1/guilds/{guildId}/chat/search", guildId)
+                                        .with(user(MOCK_USER_ID))
+                                        .param("keyword", "안녕")
+                                        .param("page", "0")
+                                        .param("size", "20")
+                                        .contentType(MediaType.APPLICATION_JSON))
+                        .andDo(
+                                MockMvcRestDocumentationWrapper.document(
+                                        "길드채팅-06. 채팅 메시지 검색",
+                                        preprocessRequest(prettyPrint()),
+                                        preprocessResponse(prettyPrint()),
+                                        resource(
+                                                ResourceSnippetParameters.builder()
+                                                        .tag("Guild Chat")
+                                                        .description(
+                                                                "키워드로 채팅 메시지 검색 (JWT 토큰 인증 필요)")
+                                                        .pathParameters(
+                                                                parameterWithName("guildId")
+                                                                        .type(SimpleType.NUMBER)
+                                                                        .description("길드 ID"))
+                                                        .queryParameters(
+                                                                parameterWithName("keyword")
+                                                                        .type(SimpleType.STRING)
+                                                                        .description("검색 키워드"),
+                                                                parameterWithName("page")
+                                                                        .type(SimpleType.NUMBER)
+                                                                        .description(
+                                                                                "페이지 번호 (기본값: 0)")
+                                                                        .optional(),
+                                                                parameterWithName("size")
+                                                                        .type(SimpleType.NUMBER)
+                                                                        .description(
+                                                                                "페이지 크기 (기본값: 20)")
+                                                                        .optional())
+                                                        .responseFields(
+                                                                fieldWithPath("code")
+                                                                        .type(JsonFieldType.STRING)
+                                                                        .description("응답 코드"),
+                                                                fieldWithPath("message")
+                                                                        .type(JsonFieldType.STRING)
+                                                                        .description("응답 메시지"),
+                                                                fieldWithPath("value")
+                                                                        .type(JsonFieldType.OBJECT)
+                                                                        .description("페이지 정보"),
+                                                                fieldWithPath("value.content[]")
+                                                                        .type(JsonFieldType.ARRAY)
+                                                                        .description(
+                                                                                "검색된 채팅 메시지 목록"),
+                                                                fieldWithPath("value.content[].id")
+                                                                        .type(JsonFieldType.NUMBER)
+                                                                        .description("메시지 ID"),
+                                                                fieldWithPath(
+                                                                                "value.content[].guild_id")
+                                                                        .type(JsonFieldType.NUMBER)
+                                                                        .description("길드 ID"),
+                                                                fieldWithPath(
+                                                                                "value.content[].sender_id")
+                                                                        .type(JsonFieldType.STRING)
+                                                                        .description("발신자 ID")
+                                                                        .optional(),
+                                                                fieldWithPath(
+                                                                                "value.content[].sender_nickname")
+                                                                        .type(JsonFieldType.STRING)
+                                                                        .description("발신자 닉네임")
+                                                                        .optional(),
+                                                                fieldWithPath(
+                                                                                "value.content[].message_type")
+                                                                        .type(JsonFieldType.STRING)
+                                                                        .description("메시지 타입"),
+                                                                fieldWithPath(
+                                                                                "value.content[].content")
+                                                                        .type(JsonFieldType.STRING)
+                                                                        .description("메시지 내용"),
+                                                                fieldWithPath(
+                                                                                "value.content[].image_url")
+                                                                        .type(JsonFieldType.STRING)
+                                                                        .description("이미지 URL")
+                                                                        .optional(),
+                                                                fieldWithPath(
+                                                                                "value.content[].reference_type")
+                                                                        .type(JsonFieldType.STRING)
+                                                                        .description("참조 타입")
+                                                                        .optional(),
+                                                                fieldWithPath(
+                                                                                "value.content[].reference_id")
+                                                                        .type(JsonFieldType.NUMBER)
+                                                                        .description("참조 ID")
+                                                                        .optional(),
+                                                                fieldWithPath(
+                                                                                "value.content[].is_system_message")
+                                                                        .type(JsonFieldType.BOOLEAN)
+                                                                        .description("시스템 메시지 여부"),
+                                                                fieldWithPath(
+                                                                                "value.content[].created_at")
+                                                                        .type(JsonFieldType.STRING)
+                                                                        .description("생성 일시"),
+                                                                fieldWithPath(
+                                                                                "value.content[].unread_count")
+                                                                        .type(JsonFieldType.NUMBER)
+                                                                        .description("읽지 않은 메시지 수")
+                                                                        .optional(),
+                                                                fieldWithPath("value.pageable")
+                                                                        .type(JsonFieldType.OBJECT)
+                                                                        .description("페이지 정보")
+                                                                        .optional(),
+                                                                fieldWithPath("value.pageable.sort")
+                                                                        .type(JsonFieldType.OBJECT)
+                                                                        .description("정렬 정보")
+                                                                        .optional(),
+                                                                fieldWithPath(
+                                                                                "value.pageable.sort.empty")
+                                                                        .type(JsonFieldType.BOOLEAN)
+                                                                        .description("정렬 비어있음 여부")
+                                                                        .optional(),
+                                                                fieldWithPath(
+                                                                                "value.pageable.sort.sorted")
+                                                                        .type(JsonFieldType.BOOLEAN)
+                                                                        .description("정렬됨 여부")
+                                                                        .optional(),
+                                                                fieldWithPath(
+                                                                                "value.pageable.sort.unsorted")
+                                                                        .type(JsonFieldType.BOOLEAN)
+                                                                        .description("정렬되지 않음 여부")
+                                                                        .optional(),
+                                                                fieldWithPath(
+                                                                                "value.pageable.offset")
+                                                                        .type(JsonFieldType.NUMBER)
+                                                                        .description("오프셋")
+                                                                        .optional(),
+                                                                fieldWithPath(
+                                                                                "value.pageable.page_number")
+                                                                        .type(JsonFieldType.NUMBER)
+                                                                        .description("페이지 번호")
+                                                                        .optional(),
+                                                                fieldWithPath(
+                                                                                "value.pageable.page_size")
+                                                                        .type(JsonFieldType.NUMBER)
+                                                                        .description("페이지 크기")
+                                                                        .optional(),
+                                                                fieldWithPath(
+                                                                                "value.pageable.paged")
+                                                                        .type(JsonFieldType.BOOLEAN)
+                                                                        .description("페이징됨 여부")
+                                                                        .optional(),
+                                                                fieldWithPath(
+                                                                                "value.pageable.unpaged")
+                                                                        .type(JsonFieldType.BOOLEAN)
+                                                                        .description("페이징되지 않음 여부")
+                                                                        .optional(),
+                                                                fieldWithPath("value.last")
+                                                                        .type(JsonFieldType.BOOLEAN)
+                                                                        .description("마지막 페이지 여부")
+                                                                        .optional(),
+                                                                fieldWithPath(
+                                                                                "value.total_elements")
+                                                                        .type(JsonFieldType.NUMBER)
+                                                                        .description("전체 요소 수")
+                                                                        .optional(),
+                                                                fieldWithPath("value.total_pages")
+                                                                        .type(JsonFieldType.NUMBER)
+                                                                        .description("전체 페이지 수")
+                                                                        .optional(),
+                                                                fieldWithPath("value.first")
+                                                                        .type(JsonFieldType.BOOLEAN)
+                                                                        .description("첫 페이지 여부")
+                                                                        .optional(),
+                                                                fieldWithPath("value.size")
+                                                                        .type(JsonFieldType.NUMBER)
+                                                                        .description("페이지 크기")
+                                                                        .optional(),
+                                                                fieldWithPath("value.number")
+                                                                        .type(JsonFieldType.NUMBER)
+                                                                        .description("현재 페이지 번호")
+                                                                        .optional(),
+                                                                fieldWithPath("value.sort")
+                                                                        .type(JsonFieldType.OBJECT)
+                                                                        .description("정렬 정보")
+                                                                        .optional(),
+                                                                fieldWithPath("value.sort.empty")
+                                                                        .type(JsonFieldType.BOOLEAN)
+                                                                        .description("정렬 비어있음 여부")
+                                                                        .optional(),
+                                                                fieldWithPath("value.sort.sorted")
+                                                                        .type(JsonFieldType.BOOLEAN)
+                                                                        .description("정렬됨 여부")
+                                                                        .optional(),
+                                                                fieldWithPath("value.sort.unsorted")
+                                                                        .type(JsonFieldType.BOOLEAN)
+                                                                        .description("정렬되지 않음 여부")
+                                                                        .optional(),
+                                                                fieldWithPath(
+                                                                                "value.number_of_elements")
+                                                                        .type(JsonFieldType.NUMBER)
+                                                                        .description("현재 페이지 요소 수")
+                                                                        .optional(),
+                                                                fieldWithPath("value.empty")
+                                                                        .type(JsonFieldType.BOOLEAN)
+                                                                        .description("비어있음 여부")
+                                                                        .optional())
+                                                        .build())));
 
         // then
         resultActions.andExpect(MockMvcResultMatchers.status().isOk());
@@ -531,30 +1096,39 @@ class GuildChatControllerTest {
         doNothing().when(guildChatService).deleteMessage(anyLong(), anyLong(), anyString());
 
         // when
-        ResultActions resultActions = mockMvc.perform(
-            RestDocumentationRequestBuilders.delete("/api/v1/guilds/{guildId}/chat/{messageId}", guildId, messageId)
-                .with(user(MOCK_USER_ID))
-                .contentType(MediaType.APPLICATION_JSON)
-        ).andDo(
-            MockMvcRestDocumentationWrapper.document("길드채팅-07. 채팅 메시지 삭제",
-                preprocessRequest(prettyPrint()),
-                preprocessResponse(prettyPrint()),
-                resource(
-                    ResourceSnippetParameters.builder()
-                        .tag("Guild Chat")
-                        .description("자신이 보낸 채팅 메시지 삭제 (JWT 토큰 인증 필요)")
-                        .pathParameters(
-                            parameterWithName("guildId").type(SimpleType.NUMBER).description("길드 ID"),
-                            parameterWithName("messageId").type(SimpleType.NUMBER).description("메시지 ID")
-                        )
-                        .responseFields(
-                            fieldWithPath("code").type(JsonFieldType.STRING).description("응답 코드"),
-                            fieldWithPath("message").type(JsonFieldType.STRING).description("응답 메시지")
-                        )
-                        .build()
-                )
-            )
-        );
+        ResultActions resultActions =
+                mockMvc.perform(
+                                RestDocumentationRequestBuilders.delete(
+                                                "/api/v1/guilds/{guildId}/chat/{messageId}",
+                                                guildId,
+                                                messageId)
+                                        .with(user(MOCK_USER_ID))
+                                        .contentType(MediaType.APPLICATION_JSON))
+                        .andDo(
+                                MockMvcRestDocumentationWrapper.document(
+                                        "길드채팅-07. 채팅 메시지 삭제",
+                                        preprocessRequest(prettyPrint()),
+                                        preprocessResponse(prettyPrint()),
+                                        resource(
+                                                ResourceSnippetParameters.builder()
+                                                        .tag("Guild Chat")
+                                                        .description(
+                                                                "자신이 보낸 채팅 메시지 삭제 (JWT 토큰 인증 필요)")
+                                                        .pathParameters(
+                                                                parameterWithName("guildId")
+                                                                        .type(SimpleType.NUMBER)
+                                                                        .description("길드 ID"),
+                                                                parameterWithName("messageId")
+                                                                        .type(SimpleType.NUMBER)
+                                                                        .description("메시지 ID"))
+                                                        .responseFields(
+                                                                fieldWithPath("code")
+                                                                        .type(JsonFieldType.STRING)
+                                                                        .description("응답 코드"),
+                                                                fieldWithPath("message")
+                                                                        .type(JsonFieldType.STRING)
+                                                                        .description("응답 메시지"))
+                                                        .build())));
 
         // then
         resultActions.andExpect(MockMvcResultMatchers.status().isOk());
@@ -566,43 +1140,72 @@ class GuildChatControllerTest {
         // given
         Long guildId = 1L;
 
-        ChatRoomInfoResponse response = ChatRoomInfoResponse.of(
-            guildId, "테스트길드", null, 10, 5, 3, 100L);
+        ChatRoomInfoResponse response =
+                ChatRoomInfoResponse.of(guildId, "테스트길드", null, 10, 5, 3, 100L);
 
         when(guildChatService.getChatRoomInfo(anyLong(), anyString())).thenReturn(response);
 
         // when
-        ResultActions resultActions = mockMvc.perform(
-            RestDocumentationRequestBuilders.get("/api/v1/guilds/{guildId}/chat/info", guildId)
-                .with(user(MOCK_USER_ID))
-                .contentType(MediaType.APPLICATION_JSON)
-        ).andDo(
-            MockMvcRestDocumentationWrapper.document("길드채팅-08. 채팅방 정보 조회",
-                preprocessRequest(prettyPrint()),
-                preprocessResponse(prettyPrint()),
-                resource(
-                    ResourceSnippetParameters.builder()
-                        .tag("Guild Chat")
-                        .description("채팅방 정보 조회 (참여자 수, 안읽은 메시지 수 포함) (JWT 토큰 인증 필요)")
-                        .pathParameters(
-                            parameterWithName("guildId").type(SimpleType.NUMBER).description("길드 ID")
-                        )
-                        .responseFields(
-                            fieldWithPath("code").type(JsonFieldType.STRING).description("응답 코드"),
-                            fieldWithPath("message").type(JsonFieldType.STRING).description("응답 메시지"),
-                            fieldWithPath("value").type(JsonFieldType.OBJECT).description("채팅방 정보"),
-                            fieldWithPath("value.guild_id").type(JsonFieldType.NUMBER).description("길드 ID"),
-                            fieldWithPath("value.guild_name").type(JsonFieldType.STRING).description("길드 이름"),
-                            fieldWithPath("value.guild_image_url").type(JsonFieldType.STRING).description("길드 이미지 URL").optional(),
-                            fieldWithPath("value.member_count").type(JsonFieldType.NUMBER).description("길드 멤버 수"),
-                            fieldWithPath("value.participant_count").type(JsonFieldType.NUMBER).description("채팅 참여자 수"),
-                            fieldWithPath("value.unread_message_count").type(JsonFieldType.NUMBER).description("안읽은 메시지 수"),
-                            fieldWithPath("value.last_read_message_id").type(JsonFieldType.NUMBER).description("마지막으로 읽은 메시지 ID").optional()
-                        )
-                        .build()
-                )
-            )
-        );
+        ResultActions resultActions =
+                mockMvc.perform(
+                                RestDocumentationRequestBuilders.get(
+                                                "/api/v1/guilds/{guildId}/chat/info", guildId)
+                                        .with(user(MOCK_USER_ID))
+                                        .contentType(MediaType.APPLICATION_JSON))
+                        .andDo(
+                                MockMvcRestDocumentationWrapper.document(
+                                        "길드채팅-08. 채팅방 정보 조회",
+                                        preprocessRequest(prettyPrint()),
+                                        preprocessResponse(prettyPrint()),
+                                        resource(
+                                                ResourceSnippetParameters.builder()
+                                                        .tag("Guild Chat")
+                                                        .description(
+                                                                "채팅방 정보 조회 (참여자 수, 안읽은 메시지 수 포함)"
+                                                                        + " (JWT 토큰 인증 필요)")
+                                                        .pathParameters(
+                                                                parameterWithName("guildId")
+                                                                        .type(SimpleType.NUMBER)
+                                                                        .description("길드 ID"))
+                                                        .responseFields(
+                                                                fieldWithPath("code")
+                                                                        .type(JsonFieldType.STRING)
+                                                                        .description("응답 코드"),
+                                                                fieldWithPath("message")
+                                                                        .type(JsonFieldType.STRING)
+                                                                        .description("응답 메시지"),
+                                                                fieldWithPath("value")
+                                                                        .type(JsonFieldType.OBJECT)
+                                                                        .description("채팅방 정보"),
+                                                                fieldWithPath("value.guild_id")
+                                                                        .type(JsonFieldType.NUMBER)
+                                                                        .description("길드 ID"),
+                                                                fieldWithPath("value.guild_name")
+                                                                        .type(JsonFieldType.STRING)
+                                                                        .description("길드 이름"),
+                                                                fieldWithPath(
+                                                                                "value.guild_image_url")
+                                                                        .type(JsonFieldType.STRING)
+                                                                        .description("길드 이미지 URL")
+                                                                        .optional(),
+                                                                fieldWithPath("value.member_count")
+                                                                        .type(JsonFieldType.NUMBER)
+                                                                        .description("길드 멤버 수"),
+                                                                fieldWithPath(
+                                                                                "value.participant_count")
+                                                                        .type(JsonFieldType.NUMBER)
+                                                                        .description("채팅 참여자 수"),
+                                                                fieldWithPath(
+                                                                                "value.unread_message_count")
+                                                                        .type(JsonFieldType.NUMBER)
+                                                                        .description("안읽은 메시지 수"),
+                                                                fieldWithPath(
+                                                                                "value.last_read_message_id")
+                                                                        .type(JsonFieldType.NUMBER)
+                                                                        .description(
+                                                                                "마지막으로 읽은 메시지 ID")
+                                                                        .optional())
+                                                        .build())));
 
         // then
         resultActions.andExpect(MockMvcResultMatchers.status().isOk());
@@ -614,37 +1217,55 @@ class GuildChatControllerTest {
         // given
         Long guildId = 1L;
         List<ChatMessageResponse> messages = createMockChatMessages();
-        Page<ChatMessageResponse> page = new PageImpl<>(messages, org.springframework.data.domain.PageRequest.of(0, 50), messages.size());
+        Page<ChatMessageResponse> page =
+                new PageImpl<>(
+                        messages,
+                        org.springframework.data.domain.PageRequest.of(0, 50),
+                        messages.size());
 
-        when(guildChatService.getMessagesWithUnreadCount(anyLong(), anyString(), any(org.springframework.data.domain.Pageable.class)))
-            .thenReturn(page);
+        when(guildChatService.getMessagesWithUnreadCount(
+                        anyLong(),
+                        anyString(),
+                        any(org.springframework.data.domain.Pageable.class)))
+                .thenReturn(page);
 
         // when
-        ResultActions resultActions = mockMvc.perform(
-            RestDocumentationRequestBuilders.get("/api/v1/guilds/{guildId}/chat/with-unread", guildId)
-                .with(user(MOCK_USER_ID))
-                .param("page", "0")
-                .param("size", "50")
-                .contentType(MediaType.APPLICATION_JSON)
-        ).andDo(
-            MockMvcRestDocumentationWrapper.document("길드채팅-09. 안읽은 수 포함 메시지 조회",
-                preprocessRequest(prettyPrint()),
-                preprocessResponse(prettyPrint()),
-                resource(
-                    ResourceSnippetParameters.builder()
-                        .tag("Guild Chat")
-                        .description("안읽은 메시지 수 포함 채팅 메시지 조회 (JWT 토큰 인증 필요)")
-                        .pathParameters(
-                            parameterWithName("guildId").type(SimpleType.NUMBER).description("길드 ID")
-                        )
-                        .queryParameters(
-                            parameterWithName("page").type(SimpleType.NUMBER).description("페이지 번호 (기본값: 0)").optional(),
-                            parameterWithName("size").type(SimpleType.NUMBER).description("페이지 크기 (기본값: 50)").optional()
-                        )
-                        .build()
-                )
-            )
-        );
+        ResultActions resultActions =
+                mockMvc.perform(
+                                RestDocumentationRequestBuilders.get(
+                                                "/api/v1/guilds/{guildId}/chat/with-unread",
+                                                guildId)
+                                        .with(user(MOCK_USER_ID))
+                                        .param("page", "0")
+                                        .param("size", "50")
+                                        .contentType(MediaType.APPLICATION_JSON))
+                        .andDo(
+                                MockMvcRestDocumentationWrapper.document(
+                                        "길드채팅-09. 안읽은 수 포함 메시지 조회",
+                                        preprocessRequest(prettyPrint()),
+                                        preprocessResponse(prettyPrint()),
+                                        resource(
+                                                ResourceSnippetParameters.builder()
+                                                        .tag("Guild Chat")
+                                                        .description(
+                                                                "안읽은 메시지 수 포함 채팅 메시지 조회 (JWT 토큰 인증"
+                                                                        + " 필요)")
+                                                        .pathParameters(
+                                                                parameterWithName("guildId")
+                                                                        .type(SimpleType.NUMBER)
+                                                                        .description("길드 ID"))
+                                                        .queryParameters(
+                                                                parameterWithName("page")
+                                                                        .type(SimpleType.NUMBER)
+                                                                        .description(
+                                                                                "페이지 번호 (기본값: 0)")
+                                                                        .optional(),
+                                                                parameterWithName("size")
+                                                                        .type(SimpleType.NUMBER)
+                                                                        .description(
+                                                                                "페이지 크기 (기본값: 50)")
+                                                                        .optional())
+                                                        .build())));
 
         // then
         resultActions.andExpect(MockMvcResultMatchers.status().isOk());
@@ -661,35 +1282,48 @@ class GuildChatControllerTest {
         when(guildChatService.getUnreadCount(anyLong(), anyLong())).thenReturn(2);
 
         // when
-        ResultActions resultActions = mockMvc.perform(
-            RestDocumentationRequestBuilders.post("/api/v1/guilds/{guildId}/chat/read/{messageId}", guildId, messageId)
-                .with(user(MOCK_USER_ID))
-                .contentType(MediaType.APPLICATION_JSON)
-        ).andDo(
-            MockMvcRestDocumentationWrapper.document("길드채팅-10. 메시지 읽음 처리",
-                preprocessRequest(prettyPrint()),
-                preprocessResponse(prettyPrint()),
-                resource(
-                    ResourceSnippetParameters.builder()
-                        .tag("Guild Chat")
-                        .description("채팅 메시지 읽음 처리 (JWT 토큰 인증 필요)")
-                        .pathParameters(
-                            parameterWithName("guildId").type(SimpleType.NUMBER).description("길드 ID"),
-                            parameterWithName("messageId").type(SimpleType.NUMBER).description("읽음 처리할 메시지 ID")
-                        )
-                        .responseFields(
-                            fieldWithPath("code").type(JsonFieldType.STRING).description("응답 코드"),
-                            fieldWithPath("message").type(JsonFieldType.STRING).description("응답 메시지")
-                        )
-                        .build()
-                )
-            )
-        );
+        ResultActions resultActions =
+                mockMvc.perform(
+                                RestDocumentationRequestBuilders.post(
+                                                "/api/v1/guilds/{guildId}/chat/read/{messageId}",
+                                                guildId,
+                                                messageId)
+                                        .with(user(MOCK_USER_ID))
+                                        .contentType(MediaType.APPLICATION_JSON))
+                        .andDo(
+                                MockMvcRestDocumentationWrapper.document(
+                                        "길드채팅-10. 메시지 읽음 처리",
+                                        preprocessRequest(prettyPrint()),
+                                        preprocessResponse(prettyPrint()),
+                                        resource(
+                                                ResourceSnippetParameters.builder()
+                                                        .tag("Guild Chat")
+                                                        .description("채팅 메시지 읽음 처리 (JWT 토큰 인증 필요)")
+                                                        .pathParameters(
+                                                                parameterWithName("guildId")
+                                                                        .type(SimpleType.NUMBER)
+                                                                        .description("길드 ID"),
+                                                                parameterWithName("messageId")
+                                                                        .type(SimpleType.NUMBER)
+                                                                        .description(
+                                                                                "읽음 처리할 메시지 ID"))
+                                                        .responseFields(
+                                                                fieldWithPath("code")
+                                                                        .type(JsonFieldType.STRING)
+                                                                        .description("응답 코드"),
+                                                                fieldWithPath("message")
+                                                                        .type(JsonFieldType.STRING)
+                                                                        .description("응답 메시지"))
+                                                        .build())));
 
         // then
         resultActions.andExpect(MockMvcResultMatchers.status().isOk());
-        verify(messagingTemplate).convertAndSend(
-            eq("/topic/guild/" + guildId + "/read"), any(io.pinkspider.leveluptogethermvp.chatservice.domain.dto.ReadStatusUpdate.class));
+        verify(messagingTemplate)
+                .convertAndSend(
+                        eq("/topic/guild/" + guildId + "/read"),
+                        any(
+                                io.pinkspider.leveluptogethermvp.chatservice.domain.dto
+                                        .ReadStatusUpdate.class));
     }
 
     @Test
@@ -698,45 +1332,60 @@ class GuildChatControllerTest {
         // given
         Long guildId = 1L;
 
-        ChatParticipantResponse response = ChatParticipantResponse.builder()
-            .userId(MOCK_USER_ID)
-            .userNickname(MOCK_NICKNAME)
-            .joinedAt(java.time.LocalDateTime.of(2025, 1, 15, 10, 0))
-            .isActive(true)
-            .build();
+        ChatParticipantResponse response =
+                ChatParticipantResponse.builder()
+                        .userId(MOCK_USER_ID)
+                        .userNickname(MOCK_NICKNAME)
+                        .joinedAt(java.time.LocalDateTime.of(2025, 1, 15, 10, 0))
+                        .isActive(true)
+                        .build();
 
         when(guildChatService.joinChat(anyLong(), anyString(), anyString())).thenReturn(response);
 
         // when
-        ResultActions resultActions = mockMvc.perform(
-            RestDocumentationRequestBuilders.post("/api/v1/guilds/{guildId}/chat/join", guildId)
-                .with(user(MOCK_USER_ID))
-                .header(X_USER_NICKNAME, MOCK_NICKNAME)
-                .contentType(MediaType.APPLICATION_JSON)
-        ).andDo(
-            MockMvcRestDocumentationWrapper.document("길드채팅-11. 채팅방 입장",
-                preprocessRequest(prettyPrint()),
-                preprocessResponse(prettyPrint()),
-                resource(
-                    ResourceSnippetParameters.builder()
-                        .tag("Guild Chat")
-                        .description("채팅방 입장 처리 (JWT 토큰 인증 필요)")
-                        .pathParameters(
-                            parameterWithName("guildId").type(SimpleType.NUMBER).description("길드 ID")
-                        )
-                        .responseFields(
-                            fieldWithPath("code").type(JsonFieldType.STRING).description("응답 코드"),
-                            fieldWithPath("message").type(JsonFieldType.STRING).description("응답 메시지"),
-                            fieldWithPath("value").type(JsonFieldType.OBJECT).description("참여자 정보"),
-                            fieldWithPath("value.user_id").type(JsonFieldType.STRING).description("사용자 ID"),
-                            fieldWithPath("value.user_nickname").type(JsonFieldType.STRING).description("사용자 닉네임"),
-                            fieldWithPath("value.joined_at").type(JsonFieldType.STRING).description("참여 시간"),
-                            fieldWithPath("value.is_active").type(JsonFieldType.BOOLEAN).description("활성 여부")
-                        )
-                        .build()
-                )
-            )
-        );
+        ResultActions resultActions =
+                mockMvc.perform(
+                                RestDocumentationRequestBuilders.post(
+                                                "/api/v1/guilds/{guildId}/chat/join", guildId)
+                                        .with(user(MOCK_USER_ID))
+                                        .header(X_USER_NICKNAME, MOCK_NICKNAME)
+                                        .contentType(MediaType.APPLICATION_JSON))
+                        .andDo(
+                                MockMvcRestDocumentationWrapper.document(
+                                        "길드채팅-11. 채팅방 입장",
+                                        preprocessRequest(prettyPrint()),
+                                        preprocessResponse(prettyPrint()),
+                                        resource(
+                                                ResourceSnippetParameters.builder()
+                                                        .tag("Guild Chat")
+                                                        .description("채팅방 입장 처리 (JWT 토큰 인증 필요)")
+                                                        .pathParameters(
+                                                                parameterWithName("guildId")
+                                                                        .type(SimpleType.NUMBER)
+                                                                        .description("길드 ID"))
+                                                        .responseFields(
+                                                                fieldWithPath("code")
+                                                                        .type(JsonFieldType.STRING)
+                                                                        .description("응답 코드"),
+                                                                fieldWithPath("message")
+                                                                        .type(JsonFieldType.STRING)
+                                                                        .description("응답 메시지"),
+                                                                fieldWithPath("value")
+                                                                        .type(JsonFieldType.OBJECT)
+                                                                        .description("참여자 정보"),
+                                                                fieldWithPath("value.user_id")
+                                                                        .type(JsonFieldType.STRING)
+                                                                        .description("사용자 ID"),
+                                                                fieldWithPath("value.user_nickname")
+                                                                        .type(JsonFieldType.STRING)
+                                                                        .description("사용자 닉네임"),
+                                                                fieldWithPath("value.joined_at")
+                                                                        .type(JsonFieldType.STRING)
+                                                                        .description("참여 시간"),
+                                                                fieldWithPath("value.is_active")
+                                                                        .type(JsonFieldType.BOOLEAN)
+                                                                        .description("활성 여부"))
+                                                        .build())));
 
         // then
         resultActions.andExpect(MockMvcResultMatchers.status().isOk());
@@ -751,30 +1400,34 @@ class GuildChatControllerTest {
         doNothing().when(guildChatService).leaveChat(anyLong(), anyString(), anyString());
 
         // when
-        ResultActions resultActions = mockMvc.perform(
-            RestDocumentationRequestBuilders.post("/api/v1/guilds/{guildId}/chat/leave", guildId)
-                .with(user(MOCK_USER_ID))
-                .header(X_USER_NICKNAME, MOCK_NICKNAME)
-                .contentType(MediaType.APPLICATION_JSON)
-        ).andDo(
-            MockMvcRestDocumentationWrapper.document("길드채팅-12. 채팅방 퇴장",
-                preprocessRequest(prettyPrint()),
-                preprocessResponse(prettyPrint()),
-                resource(
-                    ResourceSnippetParameters.builder()
-                        .tag("Guild Chat")
-                        .description("채팅방 퇴장 처리 (JWT 토큰 인증 필요)")
-                        .pathParameters(
-                            parameterWithName("guildId").type(SimpleType.NUMBER).description("길드 ID")
-                        )
-                        .responseFields(
-                            fieldWithPath("code").type(JsonFieldType.STRING).description("응답 코드"),
-                            fieldWithPath("message").type(JsonFieldType.STRING).description("응답 메시지")
-                        )
-                        .build()
-                )
-            )
-        );
+        ResultActions resultActions =
+                mockMvc.perform(
+                                RestDocumentationRequestBuilders.post(
+                                                "/api/v1/guilds/{guildId}/chat/leave", guildId)
+                                        .with(user(MOCK_USER_ID))
+                                        .header(X_USER_NICKNAME, MOCK_NICKNAME)
+                                        .contentType(MediaType.APPLICATION_JSON))
+                        .andDo(
+                                MockMvcRestDocumentationWrapper.document(
+                                        "길드채팅-12. 채팅방 퇴장",
+                                        preprocessRequest(prettyPrint()),
+                                        preprocessResponse(prettyPrint()),
+                                        resource(
+                                                ResourceSnippetParameters.builder()
+                                                        .tag("Guild Chat")
+                                                        .description("채팅방 퇴장 처리 (JWT 토큰 인증 필요)")
+                                                        .pathParameters(
+                                                                parameterWithName("guildId")
+                                                                        .type(SimpleType.NUMBER)
+                                                                        .description("길드 ID"))
+                                                        .responseFields(
+                                                                fieldWithPath("code")
+                                                                        .type(JsonFieldType.STRING)
+                                                                        .description("응답 코드"),
+                                                                fieldWithPath("message")
+                                                                        .type(JsonFieldType.STRING)
+                                                                        .description("응답 메시지"))
+                                                        .build())));
 
         // then
         resultActions.andExpect(MockMvcResultMatchers.status().isOk());
@@ -789,30 +1442,37 @@ class GuildChatControllerTest {
         when(guildChatService.isParticipating(anyLong(), anyString())).thenReturn(true);
 
         // when
-        ResultActions resultActions = mockMvc.perform(
-            RestDocumentationRequestBuilders.get("/api/v1/guilds/{guildId}/chat/participation-status", guildId)
-                .with(user(MOCK_USER_ID))
-                .contentType(MediaType.APPLICATION_JSON)
-        ).andDo(
-            MockMvcRestDocumentationWrapper.document("길드채팅-13. 채팅방 참여 상태 확인",
-                preprocessRequest(prettyPrint()),
-                preprocessResponse(prettyPrint()),
-                resource(
-                    ResourceSnippetParameters.builder()
-                        .tag("Guild Chat")
-                        .description("채팅방 참여 상태 확인 (JWT 토큰 인증 필요)")
-                        .pathParameters(
-                            parameterWithName("guildId").type(SimpleType.NUMBER).description("길드 ID")
-                        )
-                        .responseFields(
-                            fieldWithPath("code").type(JsonFieldType.STRING).description("응답 코드"),
-                            fieldWithPath("message").type(JsonFieldType.STRING).description("응답 메시지"),
-                            fieldWithPath("value").type(JsonFieldType.BOOLEAN).description("채팅방 참여 여부")
-                        )
-                        .build()
-                )
-            )
-        );
+        ResultActions resultActions =
+                mockMvc.perform(
+                                RestDocumentationRequestBuilders.get(
+                                                "/api/v1/guilds/{guildId}/chat/participation-status",
+                                                guildId)
+                                        .with(user(MOCK_USER_ID))
+                                        .contentType(MediaType.APPLICATION_JSON))
+                        .andDo(
+                                MockMvcRestDocumentationWrapper.document(
+                                        "길드채팅-13. 채팅방 참여 상태 확인",
+                                        preprocessRequest(prettyPrint()),
+                                        preprocessResponse(prettyPrint()),
+                                        resource(
+                                                ResourceSnippetParameters.builder()
+                                                        .tag("Guild Chat")
+                                                        .description("채팅방 참여 상태 확인 (JWT 토큰 인증 필요)")
+                                                        .pathParameters(
+                                                                parameterWithName("guildId")
+                                                                        .type(SimpleType.NUMBER)
+                                                                        .description("길드 ID"))
+                                                        .responseFields(
+                                                                fieldWithPath("code")
+                                                                        .type(JsonFieldType.STRING)
+                                                                        .description("응답 코드"),
+                                                                fieldWithPath("message")
+                                                                        .type(JsonFieldType.STRING)
+                                                                        .description("응답 메시지"),
+                                                                fieldWithPath("value")
+                                                                        .type(JsonFieldType.BOOLEAN)
+                                                                        .description("채팅방 참여 여부"))
+                                                        .build())));
 
         // then
         resultActions.andExpect(MockMvcResultMatchers.status().isOk());
@@ -824,46 +1484,65 @@ class GuildChatControllerTest {
         // given
         Long guildId = 1L;
 
-        List<ChatParticipantResponse> participants = List.of(
-            ChatParticipantResponse.builder()
-                .userId(MOCK_USER_ID)
-                .userNickname(MOCK_NICKNAME)
-                .joinedAt(java.time.LocalDateTime.of(2025, 1, 15, 10, 0))
-                .isActive(true)
-                .build()
-        );
+        List<ChatParticipantResponse> participants =
+                List.of(
+                        ChatParticipantResponse.builder()
+                                .userId(MOCK_USER_ID)
+                                .userNickname(MOCK_NICKNAME)
+                                .joinedAt(java.time.LocalDateTime.of(2025, 1, 15, 10, 0))
+                                .isActive(true)
+                                .build());
 
-        when(guildChatService.getActiveParticipants(anyLong(), anyString())).thenReturn(participants);
+        when(guildChatService.getActiveParticipants(anyLong(), anyString()))
+                .thenReturn(participants);
 
         // when
-        ResultActions resultActions = mockMvc.perform(
-            RestDocumentationRequestBuilders.get("/api/v1/guilds/{guildId}/chat/participants", guildId)
-                .with(user(MOCK_USER_ID))
-                .contentType(MediaType.APPLICATION_JSON)
-        ).andDo(
-            MockMvcRestDocumentationWrapper.document("길드채팅-14. 채팅방 참여자 목록 조회",
-                preprocessRequest(prettyPrint()),
-                preprocessResponse(prettyPrint()),
-                resource(
-                    ResourceSnippetParameters.builder()
-                        .tag("Guild Chat")
-                        .description("현재 채팅방 활성 참여자 목록 조회 (JWT 토큰 인증 필요)")
-                        .pathParameters(
-                            parameterWithName("guildId").type(SimpleType.NUMBER).description("길드 ID")
-                        )
-                        .responseFields(
-                            fieldWithPath("code").type(JsonFieldType.STRING).description("응답 코드"),
-                            fieldWithPath("message").type(JsonFieldType.STRING).description("응답 메시지"),
-                            fieldWithPath("value[]").type(JsonFieldType.ARRAY).description("참여자 목록"),
-                            fieldWithPath("value[].user_id").type(JsonFieldType.STRING).description("사용자 ID"),
-                            fieldWithPath("value[].user_nickname").type(JsonFieldType.STRING).description("사용자 닉네임"),
-                            fieldWithPath("value[].joined_at").type(JsonFieldType.STRING).description("참여 시간"),
-                            fieldWithPath("value[].is_active").type(JsonFieldType.BOOLEAN).description("활성 여부")
-                        )
-                        .build()
-                )
-            )
-        );
+        ResultActions resultActions =
+                mockMvc.perform(
+                                RestDocumentationRequestBuilders.get(
+                                                "/api/v1/guilds/{guildId}/chat/participants",
+                                                guildId)
+                                        .with(user(MOCK_USER_ID))
+                                        .contentType(MediaType.APPLICATION_JSON))
+                        .andDo(
+                                MockMvcRestDocumentationWrapper.document(
+                                        "길드채팅-14. 채팅방 참여자 목록 조회",
+                                        preprocessRequest(prettyPrint()),
+                                        preprocessResponse(prettyPrint()),
+                                        resource(
+                                                ResourceSnippetParameters.builder()
+                                                        .tag("Guild Chat")
+                                                        .description(
+                                                                "현재 채팅방 활성 참여자 목록 조회 (JWT 토큰 인증"
+                                                                        + " 필요)")
+                                                        .pathParameters(
+                                                                parameterWithName("guildId")
+                                                                        .type(SimpleType.NUMBER)
+                                                                        .description("길드 ID"))
+                                                        .responseFields(
+                                                                fieldWithPath("code")
+                                                                        .type(JsonFieldType.STRING)
+                                                                        .description("응답 코드"),
+                                                                fieldWithPath("message")
+                                                                        .type(JsonFieldType.STRING)
+                                                                        .description("응답 메시지"),
+                                                                fieldWithPath("value[]")
+                                                                        .type(JsonFieldType.ARRAY)
+                                                                        .description("참여자 목록"),
+                                                                fieldWithPath("value[].user_id")
+                                                                        .type(JsonFieldType.STRING)
+                                                                        .description("사용자 ID"),
+                                                                fieldWithPath(
+                                                                                "value[].user_nickname")
+                                                                        .type(JsonFieldType.STRING)
+                                                                        .description("사용자 닉네임"),
+                                                                fieldWithPath("value[].joined_at")
+                                                                        .type(JsonFieldType.STRING)
+                                                                        .description("참여 시간"),
+                                                                fieldWithPath("value[].is_active")
+                                                                        .type(JsonFieldType.BOOLEAN)
+                                                                        .description("활성 여부"))
+                                                        .build())));
 
         // then
         resultActions.andExpect(MockMvcResultMatchers.status().isOk());
@@ -871,26 +1550,29 @@ class GuildChatControllerTest {
 
     private List<ChatMessageResponse> createMockChatMessages() {
         return List.of(
-            ChatMessageResponse.builder()
-                .id(1L)
-                .guildId(1L)
-                .senderId("user-123")
-                .senderNickname("사용자1")
-                .messageType(io.pinkspider.leveluptogethermvp.chatservice.domain.enums.ChatMessageType.TEXT)
-                .content("안녕하세요!")
-                .isSystemMessage(false)
-                .createdAt(java.time.LocalDateTime.of(2025, 1, 15, 10, 30))
-                .build(),
-            ChatMessageResponse.builder()
-                .id(2L)
-                .guildId(1L)
-                .senderId("user-456")
-                .senderNickname("사용자2")
-                .messageType(io.pinkspider.leveluptogethermvp.chatservice.domain.enums.ChatMessageType.TEXT)
-                .content("반갑습니다!")
-                .isSystemMessage(false)
-                .createdAt(java.time.LocalDateTime.of(2025, 1, 15, 10, 31))
-                .build()
-        );
+                ChatMessageResponse.builder()
+                        .id(1L)
+                        .guildId(1L)
+                        .senderId("user-123")
+                        .senderNickname("사용자1")
+                        .messageType(
+                                io.pinkspider.leveluptogethermvp.chatservice.domain.enums
+                                        .ChatMessageType.TEXT)
+                        .content("안녕하세요!")
+                        .isSystemMessage(false)
+                        .createdAt(java.time.LocalDateTime.of(2025, 1, 15, 10, 30))
+                        .build(),
+                ChatMessageResponse.builder()
+                        .id(2L)
+                        .guildId(1L)
+                        .senderId("user-456")
+                        .senderNickname("사용자2")
+                        .messageType(
+                                io.pinkspider.leveluptogethermvp.chatservice.domain.enums
+                                        .ChatMessageType.TEXT)
+                        .content("반갑습니다!")
+                        .isSystemMessage(false)
+                        .createdAt(java.time.LocalDateTime.of(2025, 1, 15, 10, 31))
+                        .build());
     }
 }

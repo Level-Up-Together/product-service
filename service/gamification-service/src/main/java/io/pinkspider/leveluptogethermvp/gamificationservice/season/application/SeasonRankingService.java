@@ -1,41 +1,33 @@
 package io.pinkspider.leveluptogethermvp.gamificationservice.season.application;
 
-import io.pinkspider.leveluptogethermvp.gamificationservice.season.api.dto.SeasonMvpData;
-import io.pinkspider.leveluptogethermvp.gamificationservice.season.api.dto.SeasonMvpGuildResponse;
-import io.pinkspider.leveluptogethermvp.gamificationservice.season.api.dto.SeasonMvpPlayerResponse;
-import io.pinkspider.leveluptogethermvp.gamificationservice.season.api.dto.SeasonResponse;
-import io.pinkspider.leveluptogethermvp.gamificationservice.season.domain.entity.Season;
-import io.pinkspider.leveluptogethermvp.gamificationservice.season.infrastructure.SeasonRepository;
-import io.pinkspider.leveluptogethermvp.gamificationservice.season.domain.dto.SeasonMyRankingResponse;
-import io.pinkspider.global.facade.GuildQueryFacade;
-import io.pinkspider.global.facade.dto.GuildMembershipInfo;
-import io.pinkspider.global.facade.dto.GuildWithMemberCount;
-import io.pinkspider.leveluptogethermvp.metaservice.application.MissionCategoryService;
-import io.pinkspider.leveluptogethermvp.gamificationservice.domain.entity.Title;
-import io.pinkspider.leveluptogethermvp.gamificationservice.domain.entity.UserExperience;
-import io.pinkspider.leveluptogethermvp.gamificationservice.domain.entity.UserTitle;
 import io.pinkspider.global.enums.TitlePosition;
 import io.pinkspider.global.enums.TitleRarity;
-import io.pinkspider.global.facade.dto.EquippedItemRarityDto;
-import io.pinkspider.leveluptogethermvp.gamificationservice.infrastructure.ExperienceHistoryRepository;
-import io.pinkspider.leveluptogethermvp.gamificationservice.infrastructure.UserExperienceRepository;
-import io.pinkspider.leveluptogethermvp.gamificationservice.infrastructure.UserTitleRepository;
-import io.pinkspider.leveluptogethermvp.gamificationservice.shop.application.UserItemService;
+import io.pinkspider.global.facade.GuildQueryFacade;
 import io.pinkspider.global.facade.UserQueryFacade;
-import io.pinkspider.global.facade.dto.UserProfileInfo;
-import io.pinkspider.global.translation.LocaleUtils;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.cache.annotation.Cacheable;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.redis.core.RedisTemplate;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
+import io.pinkspider.global.facade.dto.EquippedItemRarityDto;
+import io.pinkspider.global.facade.dto.GuildMembershipInfo;
+import io.pinkspider.global.facade.dto.GuildWithMemberCount;
 import io.pinkspider.global.facade.dto.SeasonDto;
 import io.pinkspider.global.facade.dto.SeasonMvpDataDto;
 import io.pinkspider.global.facade.dto.SeasonMvpGuildDto;
 import io.pinkspider.global.facade.dto.SeasonMvpPlayerDto;
+import io.pinkspider.global.facade.dto.UserProfileInfo;
+import io.pinkspider.global.translation.LocaleUtils;
+import io.pinkspider.leveluptogethermvp.gamificationservice.domain.entity.Title;
+import io.pinkspider.leveluptogethermvp.gamificationservice.domain.entity.UserExperience;
+import io.pinkspider.leveluptogethermvp.gamificationservice.domain.entity.UserTitle;
+import io.pinkspider.leveluptogethermvp.gamificationservice.infrastructure.ExperienceHistoryRepository;
+import io.pinkspider.leveluptogethermvp.gamificationservice.infrastructure.UserExperienceRepository;
+import io.pinkspider.leveluptogethermvp.gamificationservice.infrastructure.UserTitleRepository;
+import io.pinkspider.leveluptogethermvp.gamificationservice.season.api.dto.SeasonMvpData;
+import io.pinkspider.leveluptogethermvp.gamificationservice.season.api.dto.SeasonMvpGuildResponse;
+import io.pinkspider.leveluptogethermvp.gamificationservice.season.api.dto.SeasonMvpPlayerResponse;
+import io.pinkspider.leveluptogethermvp.gamificationservice.season.api.dto.SeasonResponse;
+import io.pinkspider.leveluptogethermvp.gamificationservice.season.domain.dto.SeasonMyRankingResponse;
+import io.pinkspider.leveluptogethermvp.gamificationservice.season.domain.entity.Season;
+import io.pinkspider.leveluptogethermvp.gamificationservice.season.infrastructure.SeasonRepository;
+import io.pinkspider.leveluptogethermvp.gamificationservice.shop.application.UserItemService;
+import io.pinkspider.leveluptogethermvp.metaservice.application.MissionCategoryService;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -44,6 +36,13 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @Slf4j
@@ -61,74 +60,93 @@ public class SeasonRankingService {
     private final MissionCategoryService missionCategoryService;
     private final RedisTemplate<String, Object> redisTemplate;
 
-    /**
-     * 현재 활성 시즌 조회
-     * 캐시는 Optional을 피하고 null을 반환하도록 하여 직렬화 문제 방지
-     */
+    /** 현재 활성 시즌 조회 캐시는 Optional을 피하고 null을 반환하도록 하여 직렬화 문제 방지 */
     public Optional<SeasonResponse> getCurrentSeason() {
         SeasonResponse cached = getCurrentSeasonCached();
         return Optional.ofNullable(cached);
     }
 
-    /**
-     * 현재 활성 시즌 캐시 조회 (내부용 - null 허용)
-     */
-    @Cacheable(value = "currentSeason", cacheManager = "redisCacheManager", unless = "#result == null")
+    /** 현재 활성 시즌 캐시 조회 (내부용 - null 허용) */
+    @Cacheable(
+            value = "currentSeason",
+            cacheManager = "redisCacheManager",
+            unless = "#result == null")
     public SeasonResponse getCurrentSeasonCached() {
-        return seasonRepository.findCurrentSeason(LocalDateTime.now())
-            .map(SeasonResponse::from)
-            .orElse(null);
+        return seasonRepository
+                .findCurrentSeason(LocalDateTime.now())
+                .map(SeasonResponse::from)
+                .orElse(null);
     }
 
-    /**
-     * 시즌 MVP 데이터 조회 (시즌 정보 + 플레이어 랭킹 + 길드 랭킹)
-     */
+    /** 시즌 MVP 데이터 조회 (시즌 정보 + 플레이어 랭킹 + 길드 랭킹) */
     public Optional<SeasonMvpData> getSeasonMvpData() {
         return getSeasonMvpData(null);
     }
 
-    /**
-     * 시즌 MVP 데이터 조회 (다국어 지원)
-     * 캐시는 Optional을 피하고 null을 반환하도록 하여 직렬화 문제 방지
-     */
+    /** 시즌 MVP 데이터 조회 (다국어 지원) 캐시는 Optional을 피하고 null을 반환하도록 하여 직렬화 문제 방지 */
     public Optional<SeasonMvpData> getSeasonMvpData(String locale) {
         SeasonMvpData cached = getSeasonMvpDataCached(locale);
         return Optional.ofNullable(cached);
     }
 
-    /**
-     * 시즌 MVP 데이터를 DTO로 변환하여 반환 (cross-service 용)
-     */
+    /** 시즌 MVP 데이터를 DTO로 변환하여 반환 (cross-service 용) */
     public Optional<SeasonMvpDataDto> getSeasonMvpDataDto(String locale) {
-        return getSeasonMvpData(locale).map(data -> new SeasonMvpDataDto(
-            new SeasonDto(
-                data.currentSeason().id(),
-                data.currentSeason().title(),
-                data.currentSeason().description(),
-                data.currentSeason().startAt(),
-                data.currentSeason().endAt(),
-                data.currentSeason().rewardTitleId(),
-                data.currentSeason().rewardTitleName(),
-                data.currentSeason().status().name(),
-                data.currentSeason().statusName()
-            ),
-            data.seasonMvpPlayers().stream().map(p -> new SeasonMvpPlayerDto(
-                p.userId(), p.nickname(), p.profileImageUrl(), p.level(),
-                p.title(), p.titleRarity(), p.leftTitle(), p.leftTitleRarity(),
-                p.rightTitle(), p.rightTitleRarity(), p.seasonExp(), p.rank(),
-                p.equippedItemRarities() != null ? p.equippedItemRarities() : List.of()
-            )).toList(),
-            data.seasonMvpGuilds().stream().map(g -> new SeasonMvpGuildDto(
-                g.guildId(), g.name(), g.imageUrl(), g.level(),
-                g.memberCount(), g.seasonExp(), g.rank()
-            )).toList()
-        ));
+        return getSeasonMvpData(locale)
+                .map(
+                        data ->
+                                new SeasonMvpDataDto(
+                                        new SeasonDto(
+                                                data.currentSeason().id(),
+                                                data.currentSeason().title(),
+                                                data.currentSeason().description(),
+                                                data.currentSeason().startAt(),
+                                                data.currentSeason().endAt(),
+                                                data.currentSeason().rewardTitleId(),
+                                                data.currentSeason().rewardTitleName(),
+                                                data.currentSeason().status().name(),
+                                                data.currentSeason().statusName()),
+                                        data.seasonMvpPlayers().stream()
+                                                .map(
+                                                        p ->
+                                                                new SeasonMvpPlayerDto(
+                                                                        p.userId(),
+                                                                        p.nickname(),
+                                                                        p.profileImageUrl(),
+                                                                        p.level(),
+                                                                        p.title(),
+                                                                        p.titleRarity(),
+                                                                        p.leftTitle(),
+                                                                        p.leftTitleRarity(),
+                                                                        p.rightTitle(),
+                                                                        p.rightTitleRarity(),
+                                                                        p.seasonExp(),
+                                                                        p.rank(),
+                                                                        p.equippedItemRarities()
+                                                                                        != null
+                                                                                ? p
+                                                                                        .equippedItemRarities()
+                                                                                : List.of()))
+                                                .toList(),
+                                        data.seasonMvpGuilds().stream()
+                                                .map(
+                                                        g ->
+                                                                new SeasonMvpGuildDto(
+                                                                        g.guildId(),
+                                                                        g.name(),
+                                                                        g.imageUrl(),
+                                                                        g.level(),
+                                                                        g.memberCount(),
+                                                                        g.seasonExp(),
+                                                                        g.rank()))
+                                                .toList()));
     }
 
-    /**
-     * 시즌 MVP 데이터 캐시 조회 (내부용 - null 허용)
-     */
-    @Cacheable(value = "seasonMvpData", key = "#locale ?: 'ko'", cacheManager = "redisCacheManager", unless = "#result == null")
+    /** 시즌 MVP 데이터 캐시 조회 (내부용 - null 허용) */
+    @Cacheable(
+            value = "seasonMvpData",
+            key = "#locale ?: 'ko'",
+            cacheManager = "redisCacheManager",
+            unless = "#result == null")
     public SeasonMvpData getSeasonMvpDataCached(String locale) {
         Optional<Season> currentSeasonOpt = seasonRepository.findCurrentSeason(LocalDateTime.now());
 
@@ -145,21 +163,20 @@ public class SeasonRankingService {
         return SeasonMvpData.of(seasonResponse, players, guilds);
     }
 
-    /**
-     * 시즌 MVP 플레이어 조회 (시즌 기간 동안 가장 많은 경험치를 획득한 플레이어)
-     */
-    private List<SeasonMvpPlayerResponse> getSeasonMvpPlayers(Season season, int limit, String locale) {
-        List<Object[]> topGainers = experienceHistoryRepository.findTopExpGainersByPeriod(
-            season.getStartAt(), season.getEndAt(), PageRequest.of(0, limit));
+    /** 시즌 MVP 플레이어 조회 (시즌 기간 동안 가장 많은 경험치를 획득한 플레이어) */
+    private List<SeasonMvpPlayerResponse> getSeasonMvpPlayers(
+            Season season, int limit, String locale) {
+        List<Object[]> topGainers =
+                experienceHistoryRepository.findTopExpGainersByPeriod(
+                        season.getStartAt(), season.getEndAt(), PageRequest.of(0, limit));
 
         if (topGainers.isEmpty()) {
             return List.of();
         }
 
         // 1. 모든 사용자 ID 추출
-        List<String> userIds = topGainers.stream()
-            .map(row -> (String) row[0])
-            .collect(Collectors.toList());
+        List<String> userIds =
+                topGainers.stream().map(row -> (String) row[0]).collect(Collectors.toList());
 
         // 탈퇴 사용자 필터링
         Set<String> activeUserIds = new HashSet<>(userQueryFacadeService.getActiveUserIds(userIds));
@@ -168,12 +185,17 @@ public class SeasonRankingService {
         Map<String, UserProfileInfo> profileMap = userQueryFacadeService.getUserProfiles(userIds);
 
         // 3. 배치 조회: 레벨 정보
-        Map<String, Integer> levelMap = userExperienceRepository.findByUserIdIn(userIds).stream()
-            .collect(Collectors.toMap(UserExperience::getUserId, UserExperience::getCurrentLevel));
+        Map<String, Integer> levelMap =
+                userExperienceRepository.findByUserIdIn(userIds).stream()
+                        .collect(
+                                Collectors.toMap(
+                                        UserExperience::getUserId,
+                                        UserExperience::getCurrentLevel));
 
         // 4. 배치 조회: 장착된 칭호
-        Map<String, List<UserTitle>> titleMap = userTitleRepository.findEquippedTitlesByUserIdIn(userIds).stream()
-            .collect(Collectors.groupingBy(UserTitle::getUserId));
+        Map<String, List<UserTitle>> titleMap =
+                userTitleRepository.findEquippedTitlesByUserIdIn(userIds).stream()
+                        .collect(Collectors.groupingBy(UserTitle::getUserId));
 
         // 4-1. 배치 조회: 장착 아이템 희귀도 (LUT-424)
         Map<String, List<EquippedItemRarityDto>> itemRarityMap = loadEquippedItemRarities(userIds);
@@ -195,28 +217,29 @@ public class SeasonRankingService {
             Integer level = levelMap.getOrDefault(odayUserId, 1);
             TitleInfo titleInfo = buildTitleInfoFromList(titleMap.get(odayUserId), locale);
 
-            result.add(SeasonMvpPlayerResponse.of(
-                odayUserId,
-                profile != null ? profile.nickname() : null,
-                profile != null ? profile.picture() : null,
-                level,
-                titleInfo.name(),
-                titleInfo.rarity(),
-                titleInfo.leftTitle(),
-                titleInfo.leftRarity(),
-                titleInfo.rightTitle(),
-                titleInfo.rightRarity(),
-                earnedExp,
-                rank++,
-                itemRarityMap.getOrDefault(odayUserId, List.of())
-            ));
+            result.add(
+                    SeasonMvpPlayerResponse.of(
+                            odayUserId,
+                            profile != null ? profile.nickname() : null,
+                            profile != null ? profile.picture() : null,
+                            level,
+                            titleInfo.name(),
+                            titleInfo.rarity(),
+                            titleInfo.leftTitle(),
+                            titleInfo.leftRarity(),
+                            titleInfo.rightTitle(),
+                            titleInfo.rightRarity(),
+                            earnedExp,
+                            rank++,
+                            itemRarityMap.getOrDefault(odayUserId, List.of())));
         }
 
         return result;
     }
 
     /** LUT-424: 장착 아이템 희귀도 배치 조회 — 표식 데코 데이터라 실패해도 랭킹 응답은 유지한다. */
-    private Map<String, List<EquippedItemRarityDto>> loadEquippedItemRarities(List<String> userIds) {
+    private Map<String, List<EquippedItemRarityDto>> loadEquippedItemRarities(
+            List<String> userIds) {
         try {
             return userItemService.getEquippedItemRarityMap(userIds);
         } catch (Exception e) {
@@ -225,25 +248,26 @@ public class SeasonRankingService {
         }
     }
 
-    /**
-     * 시즌 MVP 길드 조회 (시즌 기간 동안 가장 많은 경험치를 획득한 길드)
-     */
+    /** 시즌 MVP 길드 조회 (시즌 기간 동안 가장 많은 경험치를 획득한 길드) */
     private List<SeasonMvpGuildResponse> getSeasonMvpGuilds(Season season, int limit) {
-        List<Object[]> topGuilds = guildQueryFacadeService.getTopExpGuildsByPeriod(
-            season.getStartAt(), season.getEndAt(), PageRequest.of(0, limit));
+        List<Object[]> topGuilds =
+                guildQueryFacadeService.getTopExpGuildsByPeriod(
+                        season.getStartAt(), season.getEndAt(), PageRequest.of(0, limit));
 
         if (topGuilds.isEmpty()) {
             return List.of();
         }
 
         // 1. 모든 길드 ID 추출
-        List<Long> guildIds = topGuilds.stream()
-            .map(row -> ((Number) row[0]).longValue())
-            .collect(Collectors.toList());
+        List<Long> guildIds =
+                topGuilds.stream()
+                        .map(row -> ((Number) row[0]).longValue())
+                        .collect(Collectors.toList());
 
         // 2. 배치 조회: 길드 정보 + 멤버 수
-        Map<Long, GuildWithMemberCount> guildMap = guildQueryFacadeService.getGuildsWithMemberCounts(guildIds).stream()
-            .collect(Collectors.toMap(GuildWithMemberCount::id, g -> g));
+        Map<Long, GuildWithMemberCount> guildMap =
+                guildQueryFacadeService.getGuildsWithMemberCounts(guildIds).stream()
+                        .collect(Collectors.toMap(GuildWithMemberCount::id, g -> g));
 
         // 3. 결과 조합
         List<SeasonMvpGuildResponse> result = new ArrayList<>();
@@ -258,46 +282,52 @@ public class SeasonRankingService {
                 continue;
             }
 
-            result.add(SeasonMvpGuildResponse.of(
-                guildId,
-                guild.name(),
-                guild.imageUrl(),
-                guild.currentLevel(),
-                guild.memberCount(),
-                earnedExp,
-                rank++
-            ));
+            result.add(
+                    SeasonMvpGuildResponse.of(
+                            guildId,
+                            guild.name(),
+                            guild.imageUrl(),
+                            guild.currentLevel(),
+                            guild.memberCount(),
+                            earnedExp,
+                            rank++));
         }
 
         return result;
     }
 
-    /**
-     * 배치 조회된 칭호 리스트에서 TitleInfo 생성 (N+1 방지용)
-     */
+    /** 배치 조회된 칭호 리스트에서 TitleInfo 생성 (N+1 방지용) */
     private TitleInfo buildTitleInfoFromList(List<UserTitle> equippedTitles, String locale) {
         if (equippedTitles == null || equippedTitles.isEmpty()) {
             return new TitleInfo(null, null, null, null, null, null);
         }
 
-        UserTitle leftUserTitle = equippedTitles.stream()
-            .filter(ut -> ut.getEquippedPosition() == TitlePosition.LEFT)
-            .findFirst()
-            .orElse(null);
+        UserTitle leftUserTitle =
+                equippedTitles.stream()
+                        .filter(ut -> ut.getEquippedPosition() == TitlePosition.LEFT)
+                        .findFirst()
+                        .orElse(null);
 
-        UserTitle rightUserTitle = equippedTitles.stream()
-            .filter(ut -> ut.getEquippedPosition() == TitlePosition.RIGHT)
-            .findFirst()
-            .orElse(null);
+        UserTitle rightUserTitle =
+                equippedTitles.stream()
+                        .filter(ut -> ut.getEquippedPosition() == TitlePosition.RIGHT)
+                        .findFirst()
+                        .orElse(null);
 
-        String leftTitle = leftUserTitle != null ?
-            getLocalizedTitleName(leftUserTitle.getTitle(), locale) : null;
-        String rightTitle = rightUserTitle != null ?
-            getLocalizedTitleName(rightUserTitle.getTitle(), locale) : null;
+        String leftTitle =
+                leftUserTitle != null
+                        ? getLocalizedTitleName(leftUserTitle.getTitle(), locale)
+                        : null;
+        String rightTitle =
+                rightUserTitle != null
+                        ? getLocalizedTitleName(rightUserTitle.getTitle(), locale)
+                        : null;
 
         // 개별 등급 추출
-        TitleRarity leftRarity = leftUserTitle != null ? leftUserTitle.getTitle().getRarity() : null;
-        TitleRarity rightRarity = rightUserTitle != null ? rightUserTitle.getTitle().getRarity() : null;
+        TitleRarity leftRarity =
+                leftUserTitle != null ? leftUserTitle.getTitle().getRarity() : null;
+        TitleRarity rightRarity =
+                rightUserTitle != null ? rightUserTitle.getTitle().getRarity() : null;
 
         // 가장 높은 등급 선택 - 기존 호환성 유지
         TitleRarity highestRarity = getHighestRarity(leftRarity, rightRarity);
@@ -313,15 +343,16 @@ public class SeasonRankingService {
             combinedTitle = leftTitle + " " + rightTitle;
         }
 
-        return new TitleInfo(combinedTitle, highestRarity, leftTitle, leftRarity, rightTitle, rightRarity);
+        return new TitleInfo(
+                combinedTitle, highestRarity, leftTitle, leftRarity, rightTitle, rightRarity);
     }
 
     private String getLocalizedTitleName(Title title, String locale) {
         if (title == null) {
             return null;
         }
-        return LocaleUtils.getLocalizedText(title.getName(), title.getNameEn(), title.getNameAr(),
-                title.getNameJa(), locale);
+        return LocaleUtils.getLocalizedText(
+                title.getName(), title.getNameEn(), title.getNameAr(), title.getNameJa(), locale);
     }
 
     private TitleRarity getHighestRarity(TitleRarity r1, TitleRarity r2) {
@@ -331,44 +362,35 @@ public class SeasonRankingService {
     }
 
     private record TitleInfo(
-        String name,
-        TitleRarity rarity,
-        String leftTitle,
-        TitleRarity leftRarity,
-        String rightTitle,
-        TitleRarity rightRarity
-    ) {}
+            String name,
+            TitleRarity rarity,
+            String leftTitle,
+            TitleRarity leftRarity,
+            String rightTitle,
+            TitleRarity rightRarity) {}
 
     // ===== 캐시 관리 메서드들 =====
 
-    /**
-     * 모든 시즌 관련 캐시 삭제 (RedisTemplate 직접 사용)
-     */
+    /** 모든 시즌 관련 캐시 삭제 (RedisTemplate 직접 사용) */
     public void evictAllSeasonCaches() {
         evictCurrentSeasonCache();
         evictSeasonMvpDataCache();
         log.info("모든 시즌 캐시 삭제 완료");
     }
 
-    /**
-     * 현재 시즌 캐시만 삭제
-     */
+    /** 현재 시즌 캐시만 삭제 */
     public void evictCurrentSeasonCache() {
         deleteKeysByPattern("currentSeason::*");
         log.info("currentSeason 캐시 삭제 완료");
     }
 
-    /**
-     * 시즌 MVP 데이터 캐시만 삭제
-     */
+    /** 시즌 MVP 데이터 캐시만 삭제 */
     public void evictSeasonMvpDataCache() {
         deleteKeysByPattern("seasonMvpData::*");
         log.info("seasonMvpData 캐시 삭제 완료");
     }
 
-    /**
-     * Redis 키 패턴으로 삭제
-     */
+    /** Redis 키 패턴으로 삭제 */
     private void deleteKeysByPattern(String pattern) {
         Set<String> keys = redisTemplate.keys(pattern);
         if (keys != null && !keys.isEmpty()) {
@@ -381,31 +403,34 @@ public class SeasonRankingService {
 
     // ===== 시즌 상세 페이지용 메서드들 =====
 
-    /**
-     * 시즌 ID로 시즌 조회
-     */
+    /** 시즌 ID로 시즌 조회 */
     public Optional<Season> getSeasonById(Long seasonId) {
-        return seasonRepository.findById(seasonId)
-            .filter(Season::getIsActive);
+        return seasonRepository.findById(seasonId).filter(Season::getIsActive);
     }
 
     /**
      * 시즌 플레이어 랭킹 조회 (1-10위)
+     *
      * @param season 시즌 엔티티
      * @param categoryName 카테고리명 (null이면 전체)
      * @param limit 조회 개수
      * @param locale 다국어 지원
      */
     public List<SeasonMvpPlayerResponse> getSeasonPlayerRankings(
-        Season season, String categoryName, int limit, String locale) {
+            Season season, String categoryName, int limit, String locale) {
 
         List<Object[]> topGainers;
         if (categoryName == null) {
-            topGainers = experienceHistoryRepository.findTopExpGainersByPeriod(
-                season.getStartAt(), season.getEndAt(), PageRequest.of(0, limit));
+            topGainers =
+                    experienceHistoryRepository.findTopExpGainersByPeriod(
+                            season.getStartAt(), season.getEndAt(), PageRequest.of(0, limit));
         } else {
-            topGainers = experienceHistoryRepository.findTopExpGainersByCategoryAndPeriod(
-                categoryName, season.getStartAt(), season.getEndAt(), PageRequest.of(0, limit));
+            topGainers =
+                    experienceHistoryRepository.findTopExpGainersByCategoryAndPeriod(
+                            categoryName,
+                            season.getStartAt(),
+                            season.getEndAt(),
+                            PageRequest.of(0, limit));
         }
 
         if (topGainers.isEmpty()) {
@@ -415,25 +440,23 @@ public class SeasonRankingService {
         return buildPlayerResponses(topGainers, locale);
     }
 
-    /**
-     * 시즌 길드 랭킹 조회 (1-10위)
-     */
+    /** 시즌 길드 랭킹 조회 (1-10위) */
     public List<SeasonMvpGuildResponse> getSeasonGuildRankings(Season season, int limit) {
         return getSeasonMvpGuilds(season, limit);
     }
 
-    /**
-     * 내 시즌 랭킹 조회
-     */
+    /** 내 시즌 랭킹 조회 */
     public SeasonMyRankingResponse getMySeasonRanking(Season season, String userId) {
         // 1. 내 플레이어 경험치 및 순위 조회
-        Long myPlayerExp = experienceHistoryRepository.sumExpByUserIdAndPeriod(
-            userId, season.getStartAt(), season.getEndAt());
+        Long myPlayerExp =
+                experienceHistoryRepository.sumExpByUserIdAndPeriod(
+                        userId, season.getStartAt(), season.getEndAt());
 
         Integer playerRank = null;
         if (myPlayerExp != null && myPlayerExp > 0) {
-            Long usersAboveMe = experienceHistoryRepository.countUsersWithMoreExpByPeriod(
-                season.getStartAt(), season.getEndAt(), myPlayerExp);
+            Long usersAboveMe =
+                    experienceHistoryRepository.countUsersWithMoreExpByPeriod(
+                            season.getStartAt(), season.getEndAt(), myPlayerExp);
             playerRank = usersAboveMe.intValue() + 1;
         }
 
@@ -443,7 +466,8 @@ public class SeasonRankingService {
         Integer guildRank = null;
         Long guildSeasonExp = null;
 
-        List<GuildMembershipInfo> myGuildMemberships = guildQueryFacadeService.getUserGuildMemberships(userId);
+        List<GuildMembershipInfo> myGuildMemberships =
+                guildQueryFacadeService.getUserGuildMemberships(userId);
         if (!myGuildMemberships.isEmpty()) {
             // 첫 번째 활성 길드를 주요 길드로 사용
             GuildMembershipInfo primaryGuild = myGuildMemberships.get(0);
@@ -451,44 +475,48 @@ public class SeasonRankingService {
             guildName = primaryGuild.guildName();
 
             // 길드 경험치 및 순위 조회
-            guildSeasonExp = guildQueryFacadeService.sumGuildExpByPeriod(
-                guildId, season.getStartAt(), season.getEndAt());
+            guildSeasonExp =
+                    guildQueryFacadeService.sumGuildExpByPeriod(
+                            guildId, season.getStartAt(), season.getEndAt());
 
             if (guildSeasonExp != null && guildSeasonExp > 0) {
-                Long guildsAboveMe = guildQueryFacadeService.countGuildsWithMoreExp(
-                    season.getStartAt(), season.getEndAt(), guildSeasonExp);
+                Long guildsAboveMe =
+                        guildQueryFacadeService.countGuildsWithMoreExp(
+                                season.getStartAt(), season.getEndAt(), guildSeasonExp);
                 guildRank = guildsAboveMe.intValue() + 1;
             }
         }
 
         return SeasonMyRankingResponse.of(
-            playerRank,
-            myPlayerExp != null ? myPlayerExp : 0L,
-            guildRank,
-            guildSeasonExp,
-            guildId,
-            guildName
-        );
+                playerRank,
+                myPlayerExp != null ? myPlayerExp : 0L,
+                guildRank,
+                guildSeasonExp,
+                guildId,
+                guildName);
     }
 
-    /**
-     * 플레이어 응답 빌드 (내부 헬퍼 메서드)
-     */
-    private List<SeasonMvpPlayerResponse> buildPlayerResponses(List<Object[]> topGainers, String locale) {
-        List<String> userIds = topGainers.stream()
-            .map(row -> (String) row[0])
-            .collect(Collectors.toList());
+    /** 플레이어 응답 빌드 (내부 헬퍼 메서드) */
+    private List<SeasonMvpPlayerResponse> buildPlayerResponses(
+            List<Object[]> topGainers, String locale) {
+        List<String> userIds =
+                topGainers.stream().map(row -> (String) row[0]).collect(Collectors.toList());
 
         // 탈퇴 사용자 필터링
         Set<String> activeUserIds = new HashSet<>(userQueryFacadeService.getActiveUserIds(userIds));
 
         Map<String, UserProfileInfo> profileMap = userQueryFacadeService.getUserProfiles(userIds);
 
-        Map<String, Integer> levelMap = userExperienceRepository.findByUserIdIn(userIds).stream()
-            .collect(Collectors.toMap(UserExperience::getUserId, UserExperience::getCurrentLevel));
+        Map<String, Integer> levelMap =
+                userExperienceRepository.findByUserIdIn(userIds).stream()
+                        .collect(
+                                Collectors.toMap(
+                                        UserExperience::getUserId,
+                                        UserExperience::getCurrentLevel));
 
-        Map<String, List<UserTitle>> titleMap = userTitleRepository.findEquippedTitlesByUserIdIn(userIds).stream()
-            .collect(Collectors.groupingBy(UserTitle::getUserId));
+        Map<String, List<UserTitle>> titleMap =
+                userTitleRepository.findEquippedTitlesByUserIdIn(userIds).stream()
+                        .collect(Collectors.groupingBy(UserTitle::getUserId));
 
         Map<String, List<EquippedItemRarityDto>> itemRarityMap = loadEquippedItemRarities(userIds);
 
@@ -508,21 +536,21 @@ public class SeasonRankingService {
             Integer level = levelMap.getOrDefault(odayUserId, 1);
             TitleInfo titleInfo = buildTitleInfoFromList(titleMap.get(odayUserId), locale);
 
-            result.add(SeasonMvpPlayerResponse.of(
-                odayUserId,
-                profile != null ? profile.nickname() : null,
-                profile != null ? profile.picture() : null,
-                level,
-                titleInfo.name(),
-                titleInfo.rarity(),
-                titleInfo.leftTitle(),
-                titleInfo.leftRarity(),
-                titleInfo.rightTitle(),
-                titleInfo.rightRarity(),
-                earnedExp,
-                rank++,
-                itemRarityMap.getOrDefault(odayUserId, List.of())
-            ));
+            result.add(
+                    SeasonMvpPlayerResponse.of(
+                            odayUserId,
+                            profile != null ? profile.nickname() : null,
+                            profile != null ? profile.picture() : null,
+                            level,
+                            titleInfo.name(),
+                            titleInfo.rarity(),
+                            titleInfo.leftTitle(),
+                            titleInfo.leftRarity(),
+                            titleInfo.rightTitle(),
+                            titleInfo.rightRarity(),
+                            earnedExp,
+                            rank++,
+                            itemRarityMap.getOrDefault(odayUserId, List.of())));
         }
 
         return result;

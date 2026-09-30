@@ -1,11 +1,11 @@
 package io.pinkspider.leveluptogethermvp.missionservice.api;
 
+import io.pinkspider.global.annotation.CurrentUser;
 import io.pinkspider.global.api.ApiResult;
 import io.pinkspider.global.ratelimit.PerUserRateLimit;
-import io.pinkspider.global.annotation.CurrentUser;
+import io.pinkspider.leveluptogethermvp.feedservice.domain.enums.FeedVisibility;
 import io.pinkspider.leveluptogethermvp.missionservice.application.MissionExecutionQueryService;
 import io.pinkspider.leveluptogethermvp.missionservice.application.MissionExecutionService;
-import io.pinkspider.leveluptogethermvp.feedservice.domain.enums.FeedVisibility;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.ExecutionTimeUpdateRequest;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MissionExecutionResponse;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MonthlyCalendarResponse;
@@ -24,9 +24,9 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
+import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.RestController;
@@ -41,190 +41,187 @@ public class MissionExecutionController {
     private final MissionExecutionService executionService;
     private final MissionExecutionQueryService executionQueryService;
 
-    /**
-     * 미션 수행 시작 (특정 날짜)
-     */
+    /** 미션 수행 시작 (특정 날짜) */
     @PatchMapping("/{missionId}/executions/{executionDate}/start")
     public ResponseEntity<ApiResult<MissionExecutionResponse>> startExecution(
-        @PathVariable Long missionId,
-        @PathVariable @DateTimeFormat(pattern = "yyyy-MM-dd") LocalDate executionDate,
-        @CurrentUser String userId) {
+            @PathVariable Long missionId,
+            @PathVariable @DateTimeFormat(pattern = "yyyy-MM-dd") LocalDate executionDate,
+            @CurrentUser String userId) {
 
-        MissionExecutionResponse response = executionService.startExecution(
-            missionId, userId, executionDate);
-        return ResponseEntity.ok(ApiResult.<MissionExecutionResponse>builder().value(response).build());
+        MissionExecutionResponse response =
+                executionService.startExecution(missionId, userId, executionDate);
+        return ResponseEntity.ok(
+                ApiResult.<MissionExecutionResponse>builder().value(response).build());
     }
 
-    /**
-     * 미션 수행 시작 (오늘)
-     */
+    /** 미션 수행 시작 (오늘) */
     @PatchMapping("/{missionId}/executions/start")
     public ResponseEntity<ApiResult<MissionExecutionResponse>> startExecutionToday(
-        @PathVariable Long missionId,
-        @CurrentUser String userId) {
+            @PathVariable Long missionId, @CurrentUser String userId) {
 
         MissionExecutionResponse response = executionService.startExecutionToday(missionId, userId);
-        return ResponseEntity.ok(ApiResult.<MissionExecutionResponse>builder().value(response).build());
+        return ResponseEntity.ok(
+                ApiResult.<MissionExecutionResponse>builder().value(response).build());
     }
 
     /**
      * 미션의 특정 날짜 실행 완료 처리
      *
-     * @param feedVisibility 피드 공개범위 (PUBLIC, FRIENDS, GUILD, PRIVATE). 미지정 시 PRIVATE — 피드를 생성하지 않는다 (LUT-318).
-     *     피드는 미션 상세 등록(기록 공유)에서 유저가 공개범위를 직접 선택할 때만 생성된다.
+     * @param feedVisibility 피드 공개범위 (PUBLIC, FRIENDS, GUILD, PRIVATE). 미지정 시 PRIVATE — 피드를 생성하지 않는다
+     *     (LUT-318). 피드는 미션 상세 등록(기록 공유)에서 유저가 공개범위를 직접 선택할 때만 생성된다.
      */
     @PatchMapping("/{missionId}/executions/{executionDate}/complete")
     @PerUserRateLimit(name = "missionCompletion", limit = 10, windowSeconds = 60)
     public ResponseEntity<ApiResult<MissionExecutionResponse>> completeExecution(
-        @PathVariable Long missionId,
-        @PathVariable @DateTimeFormat(pattern = "yyyy-MM-dd") LocalDate executionDate,
-        @CurrentUser String userId,
-        @RequestParam(required = false) String note,
-        @RequestParam(required = false) FeedVisibility feedVisibility) {
+            @PathVariable Long missionId,
+            @PathVariable @DateTimeFormat(pattern = "yyyy-MM-dd") LocalDate executionDate,
+            @CurrentUser String userId,
+            @RequestParam(required = false) String note,
+            @RequestParam(required = false) FeedVisibility feedVisibility) {
 
-        MissionExecutionResponse response = executionService.completeExecution(
-            missionId, userId, executionDate, note, feedVisibility);
-        return ResponseEntity.ok(ApiResult.<MissionExecutionResponse>builder().value(response).build());
+        MissionExecutionResponse response =
+                executionService.completeExecution(
+                        missionId, userId, executionDate, note, feedVisibility);
+        return ResponseEntity.ok(
+                ApiResult.<MissionExecutionResponse>builder().value(response).build());
     }
 
-    /**
-     * 미션의 모든 실행 기록 조회
-     */
+    /** 미션의 모든 실행 기록 조회 */
     @GetMapping("/{missionId}/executions")
     public ResponseEntity<ApiResult<List<MissionExecutionResponse>>> getExecutions(
-        @PathVariable Long missionId,
-        @CurrentUser String userId,
-        @RequestHeader(value = HttpHeaders.ACCEPT_LANGUAGE, required = false) String acceptLanguage) {
+            @PathVariable Long missionId,
+            @CurrentUser String userId,
+            @RequestHeader(value = HttpHeaders.ACCEPT_LANGUAGE, required = false)
+                    String acceptLanguage) {
 
         List<MissionExecutionResponse> responses =
-            executionQueryService.getExecutionsForMission(missionId, userId, acceptLanguage);
-        return ResponseEntity.ok(ApiResult.<List<MissionExecutionResponse>>builder().value(responses).build());
+                executionQueryService.getExecutionsForMission(missionId, userId, acceptLanguage);
+        return ResponseEntity.ok(
+                ApiResult.<List<MissionExecutionResponse>>builder().value(responses).build());
     }
 
-    /**
-     * 특정 기간의 실행 기록 조회
-     */
+    /** 특정 기간의 실행 기록 조회 */
     @GetMapping("/{missionId}/executions/range")
     public ResponseEntity<ApiResult<List<MissionExecutionResponse>>> getExecutionsByDateRange(
-        @PathVariable Long missionId,
-        @CurrentUser String userId,
-        @RequestParam @DateTimeFormat(pattern = "yyyy-MM-dd") LocalDate startDate,
-        @RequestParam @DateTimeFormat(pattern = "yyyy-MM-dd") LocalDate endDate,
-        @RequestHeader(value = HttpHeaders.ACCEPT_LANGUAGE, required = false) String acceptLanguage) {
-
-        List<MissionExecutionResponse> responses = executionQueryService.getExecutionsByDateRange(
-            missionId, userId, startDate, endDate, acceptLanguage);
-        return ResponseEntity.ok(ApiResult.<List<MissionExecutionResponse>>builder().value(responses).build());
-    }
-
-    /**
-     * 사용자의 오늘 실행해야 할 미션 목록 조회
-     */
-    @GetMapping("/executions/today")
-    public ResponseEntity<ApiResult<List<MissionExecutionResponse>>> getTodayExecutions(
-        @CurrentUser String userId,
-        @RequestHeader(value = HttpHeaders.ACCEPT_LANGUAGE, required = false) String acceptLanguage) {
+            @PathVariable Long missionId,
+            @CurrentUser String userId,
+            @RequestParam @DateTimeFormat(pattern = "yyyy-MM-dd") LocalDate startDate,
+            @RequestParam @DateTimeFormat(pattern = "yyyy-MM-dd") LocalDate endDate,
+            @RequestHeader(value = HttpHeaders.ACCEPT_LANGUAGE, required = false)
+                    String acceptLanguage) {
 
         List<MissionExecutionResponse> responses =
-            executionQueryService.getTodayExecutions(userId, acceptLanguage);
-        return ResponseEntity.ok(ApiResult.<List<MissionExecutionResponse>>builder().value(responses).build());
+                executionQueryService.getExecutionsByDateRange(
+                        missionId, userId, startDate, endDate, acceptLanguage);
+        return ResponseEntity.ok(
+                ApiResult.<List<MissionExecutionResponse>>builder().value(responses).build());
     }
 
-    /**
-     * 미션 완료율 조회
-     */
+    /** 사용자의 오늘 실행해야 할 미션 목록 조회 */
+    @GetMapping("/executions/today")
+    public ResponseEntity<ApiResult<List<MissionExecutionResponse>>> getTodayExecutions(
+            @CurrentUser String userId,
+            @RequestHeader(value = HttpHeaders.ACCEPT_LANGUAGE, required = false)
+                    String acceptLanguage) {
+
+        List<MissionExecutionResponse> responses =
+                executionQueryService.getTodayExecutions(userId, acceptLanguage);
+        return ResponseEntity.ok(
+                ApiResult.<List<MissionExecutionResponse>>builder().value(responses).build());
+    }
+
+    /** 미션 완료율 조회 */
     @GetMapping("/{missionId}/executions/completion-rate")
     public ResponseEntity<ApiResult<Double>> getCompletionRate(
-        @PathVariable Long missionId,
-        @CurrentUser String userId) {
+            @PathVariable Long missionId, @CurrentUser String userId) {
 
         double rate = executionQueryService.getCompletionRate(missionId, userId);
         return ResponseEntity.ok(ApiResult.<Double>builder().value(rate).build());
     }
 
-    /**
-     * 미션 수행 취소 (오늘)
-     */
+    /** 미션 수행 취소 (오늘) */
     @PatchMapping("/{missionId}/executions/skip")
     public ResponseEntity<ApiResult<MissionExecutionResponse>> skipExecutionToday(
-        @PathVariable Long missionId,
-        @CurrentUser String userId) {
+            @PathVariable Long missionId, @CurrentUser String userId) {
 
         MissionExecutionResponse response = executionService.skipExecutionToday(missionId, userId);
-        return ResponseEntity.ok(ApiResult.<MissionExecutionResponse>builder().value(response).build());
+        return ResponseEntity.ok(
+                ApiResult.<MissionExecutionResponse>builder().value(response).build());
     }
 
-    /**
-     * 미션 수행 취소 (특정 날짜)
-     */
+    /** 미션 수행 취소 (특정 날짜) */
     @PatchMapping("/{missionId}/executions/{executionDate}/skip")
     public ResponseEntity<ApiResult<MissionExecutionResponse>> skipExecution(
-        @PathVariable Long missionId,
-        @PathVariable @DateTimeFormat(pattern = "yyyy-MM-dd") LocalDate executionDate,
-        @CurrentUser String userId) {
-
-        MissionExecutionResponse response = executionService.skipExecution(
-            missionId, userId, executionDate);
-        return ResponseEntity.ok(ApiResult.<MissionExecutionResponse>builder().value(response).build());
-    }
-
-    /**
-     * 사용자의 현재 진행 중인 미션 조회
-     */
-    @GetMapping("/executions/in-progress")
-    public ResponseEntity<ApiResult<MissionExecutionResponse>> getInProgressExecution(
-        @CurrentUser String userId,
-        @RequestHeader(value = HttpHeaders.ACCEPT_LANGUAGE, required = false) String acceptLanguage) {
+            @PathVariable Long missionId,
+            @PathVariable @DateTimeFormat(pattern = "yyyy-MM-dd") LocalDate executionDate,
+            @CurrentUser String userId) {
 
         MissionExecutionResponse response =
-            executionQueryService.getInProgressExecution(userId, acceptLanguage);
-        return ResponseEntity.ok(ApiResult.<MissionExecutionResponse>builder().value(response).build());
+                executionService.skipExecution(missionId, userId, executionDate);
+        return ResponseEntity.ok(
+                ApiResult.<MissionExecutionResponse>builder().value(response).build());
     }
 
-    /**
-     * 사용자의 월별 캘린더 데이터 조회
-     */
+    /** 사용자의 현재 진행 중인 미션 조회 */
+    @GetMapping("/executions/in-progress")
+    public ResponseEntity<ApiResult<MissionExecutionResponse>> getInProgressExecution(
+            @CurrentUser String userId,
+            @RequestHeader(value = HttpHeaders.ACCEPT_LANGUAGE, required = false)
+                    String acceptLanguage) {
+
+        MissionExecutionResponse response =
+                executionQueryService.getInProgressExecution(userId, acceptLanguage);
+        return ResponseEntity.ok(
+                ApiResult.<MissionExecutionResponse>builder().value(response).build());
+    }
+
+    /** 사용자의 월별 캘린더 데이터 조회 */
     @GetMapping("/executions/monthly")
     public ResponseEntity<ApiResult<MonthlyCalendarResponse>> getMonthlyCalendarData(
-        @CurrentUser String userId,
-        @RequestParam int year,
-        @RequestParam int month,
-        @RequestHeader(value = "X-Timezone", required = false) String timezone,
-        @RequestHeader(value = HttpHeaders.ACCEPT_LANGUAGE, required = false) String acceptLanguage) {
+            @CurrentUser String userId,
+            @RequestParam int year,
+            @RequestParam int month,
+            @RequestHeader(value = "X-Timezone", required = false) String timezone,
+            @RequestHeader(value = HttpHeaders.ACCEPT_LANGUAGE, required = false)
+                    String acceptLanguage) {
 
         MonthlyCalendarResponse response =
-            executionQueryService.getMonthlyCalendarData(userId, year, month, timezone, acceptLanguage);
-        return ResponseEntity.ok(ApiResult.<MonthlyCalendarResponse>builder().value(response).build());
+                executionQueryService.getMonthlyCalendarData(
+                        userId, year, month, timezone, acceptLanguage);
+        return ResponseEntity.ok(
+                ApiResult.<MonthlyCalendarResponse>builder().value(response).build());
     }
 
     /**
-     * LUT-320: 타 유저 프로필 주간 캘린더 조회 — 비로그인 접근 허용 (공개범위별 마스킹).
-     * date 가 속한 주(X-Timezone 기준 월요일 시작)의 완료 미션을 날짜별로 반환한다.
+     * LUT-320: 타 유저 프로필 주간 캘린더 조회 — 비로그인 접근 허용 (공개범위별 마스킹). date 가 속한 주(X-Timezone 기준 월요일 시작)의 완료
+     * 미션을 날짜별로 반환한다.
      */
     @GetMapping("/executions/weekly/{userId}")
     public ResponseEntity<ApiResult<WeeklyCalendarResponse>> getWeeklyCalendarData(
-        @PathVariable("userId") String targetUserId,
-        @RequestParam(required = false) @DateTimeFormat(pattern = "yyyy-MM-dd") LocalDate date,
-        @CurrentUser(required = false) String viewerUserId,
-        @RequestHeader(value = "X-Timezone", required = false) String timezone,
-        @RequestHeader(value = HttpHeaders.ACCEPT_LANGUAGE, required = false) String acceptLanguage) {
+            @PathVariable("userId") String targetUserId,
+            @RequestParam(required = false) @DateTimeFormat(pattern = "yyyy-MM-dd") LocalDate date,
+            @CurrentUser(required = false) String viewerUserId,
+            @RequestHeader(value = "X-Timezone", required = false) String timezone,
+            @RequestHeader(value = HttpHeaders.ACCEPT_LANGUAGE, required = false)
+                    String acceptLanguage) {
 
-        WeeklyCalendarResponse response = executionQueryService.getWeeklyCalendarData(
-            targetUserId, viewerUserId, date, timezone, acceptLanguage);
-        return ResponseEntity.ok(ApiResult.<WeeklyCalendarResponse>builder().value(response).build());
+        WeeklyCalendarResponse response =
+                executionQueryService.getWeeklyCalendarData(
+                        targetUserId, viewerUserId, date, timezone, acceptLanguage);
+        return ResponseEntity.ok(
+                ApiResult.<WeeklyCalendarResponse>builder().value(response).build());
     }
 
-    /**
-     * 완료된 미션 수행 기록의 시작/종료 시간 수정 (경험치 유지)
-     */
+    /** 완료된 미션 수행 기록의 시작/종료 시간 수정 (경험치 유지) */
     @PatchMapping("/{missionId}/executions/{executionDate}/time")
     public ResponseEntity<ApiResult<Void>> updateExecutionTime(
-        @PathVariable Long missionId,
-        @PathVariable @DateTimeFormat(pattern = "yyyy-MM-dd") LocalDate executionDate,
-        @Valid @RequestBody ExecutionTimeUpdateRequest request,
-        @CurrentUser String userId) {
+            @PathVariable Long missionId,
+            @PathVariable @DateTimeFormat(pattern = "yyyy-MM-dd") LocalDate executionDate,
+            @Valid @RequestBody ExecutionTimeUpdateRequest request,
+            @CurrentUser String userId) {
 
-        executionService.updateExecutionTime(missionId, userId, executionDate, request.startedAt(), request.completedAt());
+        executionService.updateExecutionTime(
+                missionId, userId, executionDate, request.startedAt(), request.completedAt());
         return ResponseEntity.ok(ApiResult.<Void>builder().build());
     }
 
@@ -235,15 +232,18 @@ public class MissionExecutionController {
      */
     @GetMapping("/{missionId}/executions/{executionDate}")
     public ResponseEntity<ApiResult<MissionExecutionResponse>> getExecution(
-        @PathVariable Long missionId,
-        @PathVariable @DateTimeFormat(pattern = "yyyy-MM-dd") LocalDate executionDate,
-        @CurrentUser String userId,
-        @RequestParam(required = false) Long instanceId,
-        @RequestHeader(value = HttpHeaders.ACCEPT_LANGUAGE, required = false) String acceptLanguage) {
+            @PathVariable Long missionId,
+            @PathVariable @DateTimeFormat(pattern = "yyyy-MM-dd") LocalDate executionDate,
+            @CurrentUser String userId,
+            @RequestParam(required = false) Long instanceId,
+            @RequestHeader(value = HttpHeaders.ACCEPT_LANGUAGE, required = false)
+                    String acceptLanguage) {
 
-        MissionExecutionResponse response = executionService.getExecutionByDate(
-            missionId, userId, executionDate, instanceId, acceptLanguage);
-        return ResponseEntity.ok(ApiResult.<MissionExecutionResponse>builder().value(response).build());
+        MissionExecutionResponse response =
+                executionService.getExecutionByDate(
+                        missionId, userId, executionDate, instanceId, acceptLanguage);
+        return ResponseEntity.ok(
+                ApiResult.<MissionExecutionResponse>builder().value(response).build());
     }
 
     /**
@@ -253,14 +253,17 @@ public class MissionExecutionController {
      */
     @PatchMapping("/{missionId}/executions/{executionDate}/note")
     public ResponseEntity<ApiResult<MissionExecutionResponse>> updateExecutionNote(
-        @PathVariable Long missionId,
-        @PathVariable @DateTimeFormat(pattern = "yyyy-MM-dd") LocalDate executionDate,
-        @CurrentUser String userId,
-        @RequestParam(required = false) String note,
-        @RequestParam(required = false) Long instanceId) {
+            @PathVariable Long missionId,
+            @PathVariable @DateTimeFormat(pattern = "yyyy-MM-dd") LocalDate executionDate,
+            @CurrentUser String userId,
+            @RequestParam(required = false) String note,
+            @RequestParam(required = false) Long instanceId) {
 
-        MissionExecutionResponse response = executionService.updateExecutionNote(missionId, userId, executionDate, note, instanceId);
-        return ResponseEntity.ok(ApiResult.<MissionExecutionResponse>builder().value(response).build());
+        MissionExecutionResponse response =
+                executionService.updateExecutionNote(
+                        missionId, userId, executionDate, note, instanceId);
+        return ResponseEntity.ok(
+                ApiResult.<MissionExecutionResponse>builder().value(response).build());
     }
 
     /**
@@ -268,16 +271,21 @@ public class MissionExecutionController {
      *
      * @param instanceId 고정 미션의 특정 인스턴스 ID (optional)
      */
-    @PostMapping(value = "/{missionId}/executions/{executionDate}/images", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PostMapping(
+            value = "/{missionId}/executions/{executionDate}/images",
+            consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<ApiResult<MissionExecutionResponse>> uploadExecutionImages(
-        @PathVariable Long missionId,
-        @PathVariable @DateTimeFormat(pattern = "yyyy-MM-dd") LocalDate executionDate,
-        @CurrentUser String userId,
-        @RequestPart("images") List<MultipartFile> images,
-        @RequestParam(required = false) Long instanceId) {
+            @PathVariable Long missionId,
+            @PathVariable @DateTimeFormat(pattern = "yyyy-MM-dd") LocalDate executionDate,
+            @CurrentUser String userId,
+            @RequestPart("images") List<MultipartFile> images,
+            @RequestParam(required = false) Long instanceId) {
 
-        MissionExecutionResponse response = executionService.uploadExecutionImages(missionId, userId, executionDate, images, instanceId);
-        return ResponseEntity.ok(ApiResult.<MissionExecutionResponse>builder().value(response).build());
+        MissionExecutionResponse response =
+                executionService.uploadExecutionImages(
+                        missionId, userId, executionDate, images, instanceId);
+        return ResponseEntity.ok(
+                ApiResult.<MissionExecutionResponse>builder().value(response).build());
     }
 
     /**
@@ -288,15 +296,17 @@ public class MissionExecutionController {
      */
     @DeleteMapping("/{missionId}/executions/{executionDate}/images")
     public ResponseEntity<ApiResult<MissionExecutionResponse>> deleteExecutionImage(
-        @PathVariable Long missionId,
-        @PathVariable @DateTimeFormat(pattern = "yyyy-MM-dd") LocalDate executionDate,
-        @CurrentUser String userId,
-        @RequestParam("image_url") String imageUrl,
-        @RequestParam(required = false) Long instanceId) {
+            @PathVariable Long missionId,
+            @PathVariable @DateTimeFormat(pattern = "yyyy-MM-dd") LocalDate executionDate,
+            @CurrentUser String userId,
+            @RequestParam("image_url") String imageUrl,
+            @RequestParam(required = false) Long instanceId) {
 
-        MissionExecutionResponse response = executionService.deleteExecutionImageByUrl(
-            missionId, userId, executionDate, imageUrl, instanceId);
-        return ResponseEntity.ok(ApiResult.<MissionExecutionResponse>builder().value(response).build());
+        MissionExecutionResponse response =
+                executionService.deleteExecutionImageByUrl(
+                        missionId, userId, executionDate, imageUrl, instanceId);
+        return ResponseEntity.ok(
+                ApiResult.<MissionExecutionResponse>builder().value(response).build());
     }
 
     /**
@@ -307,14 +317,18 @@ public class MissionExecutionController {
      */
     @PostMapping("/{missionId}/executions/{executionDate}/share")
     public ResponseEntity<ApiResult<MissionExecutionResponse>> shareExecutionToFeed(
-        @PathVariable Long missionId,
-        @PathVariable @DateTimeFormat(pattern = "yyyy-MM-dd") LocalDate executionDate,
-        @CurrentUser String userId,
-        @RequestParam(required = false) Long instanceId,
-        @RequestParam(required = false, defaultValue = "PUBLIC") FeedVisibility feedVisibility) {
+            @PathVariable Long missionId,
+            @PathVariable @DateTimeFormat(pattern = "yyyy-MM-dd") LocalDate executionDate,
+            @CurrentUser String userId,
+            @RequestParam(required = false) Long instanceId,
+            @RequestParam(required = false, defaultValue = "PUBLIC")
+                    FeedVisibility feedVisibility) {
 
-        MissionExecutionResponse response = executionService.shareExecutionToFeed(missionId, userId, executionDate, instanceId, feedVisibility);
-        return ResponseEntity.ok(ApiResult.<MissionExecutionResponse>builder().value(response).build());
+        MissionExecutionResponse response =
+                executionService.shareExecutionToFeed(
+                        missionId, userId, executionDate, instanceId, feedVisibility);
+        return ResponseEntity.ok(
+                ApiResult.<MissionExecutionResponse>builder().value(response).build());
     }
 
     /**
@@ -324,12 +338,15 @@ public class MissionExecutionController {
      */
     @DeleteMapping("/{missionId}/executions/{executionDate}/share")
     public ResponseEntity<ApiResult<MissionExecutionResponse>> unshareExecutionFromFeed(
-        @PathVariable Long missionId,
-        @PathVariable @DateTimeFormat(pattern = "yyyy-MM-dd") LocalDate executionDate,
-        @CurrentUser String userId,
-        @RequestParam(required = false) Long instanceId) {
+            @PathVariable Long missionId,
+            @PathVariable @DateTimeFormat(pattern = "yyyy-MM-dd") LocalDate executionDate,
+            @CurrentUser String userId,
+            @RequestParam(required = false) Long instanceId) {
 
-        MissionExecutionResponse response = executionService.unshareExecutionFromFeed(missionId, userId, executionDate, instanceId);
-        return ResponseEntity.ok(ApiResult.<MissionExecutionResponse>builder().value(response).build());
+        MissionExecutionResponse response =
+                executionService.unshareExecutionFromFeed(
+                        missionId, userId, executionDate, instanceId);
+        return ResponseEntity.ok(
+                ApiResult.<MissionExecutionResponse>builder().value(response).build());
     }
 }

@@ -7,21 +7,19 @@ import lombok.*;
 import lombok.experimental.SuperBuilder;
 import org.hibernate.annotations.Comment;
 
-/**
- * FCM 디바이스 토큰 엔티티
- * 사용자별 푸시 알림을 위한 디바이스 토큰 관리
- */
+/** FCM 디바이스 토큰 엔티티 사용자별 푸시 알림을 위한 디바이스 토큰 관리 */
 @Entity
 @Getter
 @Setter
 @SuperBuilder
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @AllArgsConstructor
-@Table(name = "device_token",
-    indexes = {
-        @Index(name = "idx_device_token_user", columnList = "user_id"),
-        @Index(name = "idx_device_token_token", columnList = "fcm_token", unique = true)
-    })
+@Table(
+        name = "device_token",
+        indexes = {
+            @Index(name = "idx_device_token_user", columnList = "user_id"),
+            @Index(name = "idx_device_token_token", columnList = "fcm_token", unique = true)
+        })
 @Comment("FCM 디바이스 토큰")
 public class DeviceToken extends LocalDateTimeBaseEntity {
 
@@ -67,45 +65,33 @@ public class DeviceToken extends LocalDateTimeBaseEntity {
     @Comment("배지 카운트")
     private Integer badgeCount = 0;
 
-    /**
-     * 디바이스 타입 Enum
-     */
+    /** 디바이스 타입 Enum */
     public enum DeviceType {
         IOS,
         ANDROID
     }
 
-    /**
-     * 토큰 비활성화
-     */
+    /** 토큰 비활성화 */
     public void deactivate() {
         this.isActive = false;
     }
 
-    /**
-     * 토큰 활성화
-     */
+    /** 토큰 활성화 */
     public void activate() {
         this.isActive = true;
     }
 
-    /**
-     * 배지 카운트 증가
-     */
+    /** 배지 카운트 증가 */
     public void incrementBadgeCount() {
         this.badgeCount++;
     }
 
-    /**
-     * 배지 카운트 초기화
-     */
+    /** 배지 카운트 초기화 */
     public void resetBadgeCount() {
         this.badgeCount = 0;
     }
 
-    /**
-     * 토큰 업데이트
-     */
+    /** 토큰 업데이트 */
     public void updateToken(String newToken) {
         this.fcmToken = newToken;
         this.isActive = true;

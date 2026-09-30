@@ -11,9 +11,12 @@ import org.springframework.stereotype.Repository;
 @Repository
 public interface ItemGrantRepository extends JpaRepository<ItemGrant, Long> {
 
-    @Query(value = "SELECT ig FROM ItemGrant ig JOIN FETCH ig.shopItem " +
-        "WHERE (:keyword IS NULL OR ig.shopItem.name LIKE %:keyword% OR ig.reason LIKE %:keyword%)",
-        countQuery = "SELECT COUNT(ig) FROM ItemGrant ig " +
-            "WHERE (:keyword IS NULL OR ig.shopItem.name LIKE %:keyword% OR ig.reason LIKE %:keyword%)")
+    @Query(
+            value =
+                    "SELECT ig FROM ItemGrant ig JOIN FETCH ig.shopItem WHERE (:keyword IS NULL OR"
+                            + " ig.shopItem.name LIKE %:keyword% OR ig.reason LIKE %:keyword%)",
+            countQuery =
+                    "SELECT COUNT(ig) FROM ItemGrant ig WHERE (:keyword IS NULL OR ig.shopItem.name"
+                            + " LIKE %:keyword% OR ig.reason LIKE %:keyword%)")
     Page<ItemGrant> findGrantHistory(@Param("keyword") String keyword, Pageable pageable);
 }

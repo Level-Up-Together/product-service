@@ -2,7 +2,6 @@ package io.pinkspider.leveluptogethermvp.guildservice.application;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -43,53 +42,47 @@ import org.springframework.data.domain.Pageable;
 @DisplayName("GuildQueryFacadeService 테스트")
 class GuildQueryFacadeServiceTest {
 
-    @Mock
-    private GuildRepository guildRepository;
+    @Mock private GuildRepository guildRepository;
 
-    @Mock
-    private GuildMemberRepository guildMemberRepository;
+    @Mock private GuildMemberRepository guildMemberRepository;
 
-    @Mock
-    private GuildExperienceHistoryRepository guildExpHistoryRepository;
+    @Mock private GuildExperienceHistoryRepository guildExpHistoryRepository;
 
-    @Mock
-    private GuildPostRepository guildPostRepository;
+    @Mock private GuildPostRepository guildPostRepository;
 
-    @InjectMocks
-    private GuildQueryFacadeService facadeService;
+    @InjectMocks private GuildQueryFacadeService facadeService;
 
     // ========== 테스트 헬퍼 ==========
 
     private Guild createGuild(Long id, String name, String masterId) {
-        Guild guild = Guild.builder()
-            .name(name)
-            .masterId(masterId)
-            .visibility(GuildVisibility.PUBLIC)
-            .imageUrl("https://img.test.com/guild/" + id + ".png")
-            .currentLevel(3)
-            .isActive(true)
-            .categoryId(1L)
-            .build();
+        Guild guild =
+                Guild.builder()
+                        .name(name)
+                        .masterId(masterId)
+                        .visibility(GuildVisibility.PUBLIC)
+                        .imageUrl("https://img.test.com/guild/" + id + ".png")
+                        .currentLevel(3)
+                        .isActive(true)
+                        .categoryId(1L)
+                        .build();
         setEntityId(guild, id, Guild.class);
         return guild;
     }
 
     private GuildMember createMember(Long id, Guild guild, String userId, GuildMemberRole role) {
-        GuildMember member = GuildMember.builder()
-            .guild(guild)
-            .userId(userId)
-            .role(role)
-            .status(GuildMemberStatus.ACTIVE)
-            .build();
+        GuildMember member =
+                GuildMember.builder()
+                        .guild(guild)
+                        .userId(userId)
+                        .role(role)
+                        .status(GuildMemberStatus.ACTIVE)
+                        .build();
         setEntityId(member, id, GuildMember.class);
         return member;
     }
 
     private GuildPost createPost(Long id, Guild guild) {
-        GuildPost post = GuildPost.builder()
-            .guild(guild)
-            .authorId("author-1")
-            .build();
+        GuildPost post = GuildPost.builder().guild(guild).authorId("author-1").build();
         setEntityId(post, id, GuildPost.class);
         return post;
     }
@@ -218,12 +211,13 @@ class GuildQueryFacadeServiceTest {
         @Test
         @DisplayName("LUT-257: 비공개(PRIVATE) 길드이면 false 반환")
         void shouldReturnFalseWhenGuildIsPrivate() {
-            Guild guild = Guild.builder()
-                .name("비공개 길드")
-                .masterId("master-1")
-                .visibility(GuildVisibility.PRIVATE)
-                .isActive(true)
-                .build();
+            Guild guild =
+                    Guild.builder()
+                            .name("비공개 길드")
+                            .masterId("master-1")
+                            .visibility(GuildVisibility.PRIVATE)
+                            .isActive(true)
+                            .build();
             setEntityId(guild, 2L, Guild.class);
             when(guildRepository.findById(2L)).thenReturn(Optional.of(guild));
 
@@ -281,9 +275,10 @@ class GuildQueryFacadeServiceTest {
             Guild guild2 = createGuild(2L, "길드2", "master-2");
 
             when(guildRepository.findByIdInAndIsActiveTrue(guildIds))
-                .thenReturn(List.of(guild1, guild2));
+                    .thenReturn(List.of(guild1, guild2));
             when(guildMemberRepository.countActiveMembersByGuildIds(guildIds))
-                .thenReturn(Arrays.<Object[]>asList(new Object[]{1L, 5L}, new Object[]{2L, 3L}));
+                    .thenReturn(
+                            Arrays.<Object[]>asList(new Object[] {1L, 5L}, new Object[] {2L, 3L}));
 
             List<GuildWithMemberCount> result = facadeService.getGuildsWithMemberCounts(guildIds);
 
@@ -301,9 +296,9 @@ class GuildQueryFacadeServiceTest {
             Guild guild1 = createGuild(1L, "길드1", "master-1");
 
             when(guildRepository.findByIdInAndIsActiveTrue(guildIds))
-                .thenReturn(List.of(guild1)); // guild2는 비활성
+                    .thenReturn(List.of(guild1)); // guild2는 비활성
             when(guildMemberRepository.countActiveMembersByGuildIds(guildIds))
-                .thenReturn(Arrays.<Object[]>asList(new Object[]{1L, 5L}));
+                    .thenReturn(Arrays.<Object[]>asList(new Object[] {1L, 5L}));
 
             List<GuildWithMemberCount> result = facadeService.getGuildsWithMemberCounts(guildIds);
 
@@ -325,10 +320,9 @@ class GuildQueryFacadeServiceTest {
             List<Long> guildIds = List.of(1L);
             Guild guild1 = createGuild(1L, "길드1", "master-1");
 
-            when(guildRepository.findByIdInAndIsActiveTrue(guildIds))
-                .thenReturn(List.of(guild1));
+            when(guildRepository.findByIdInAndIsActiveTrue(guildIds)).thenReturn(List.of(guild1));
             when(guildMemberRepository.countActiveMembersByGuildIds(guildIds))
-                .thenReturn(List.of()); // 멤버 수 데이터 없음
+                    .thenReturn(List.of()); // 멤버 수 데이터 없음
 
             List<GuildWithMemberCount> result = facadeService.getGuildsWithMemberCounts(guildIds);
 
@@ -372,8 +366,7 @@ class GuildQueryFacadeServiceTest {
             GuildMember m2 = createMember(2L, guild, "user-2", GuildMemberRole.MEMBER);
             GuildMember m3 = createMember(3L, guild, "user-3", GuildMemberRole.MEMBER);
 
-            when(guildMemberRepository.findActiveMembers(1L))
-                .thenReturn(List.of(m1, m2, m3));
+            when(guildMemberRepository.findActiveMembers(1L)).thenReturn(List.of(m1, m2, m3));
 
             List<String> result = facadeService.getActiveMemberUserIds(1L);
 
@@ -413,7 +406,7 @@ class GuildQueryFacadeServiceTest {
             GuildMember master = createMember(1L, guild, "master-1", GuildMemberRole.MASTER);
 
             when(guildMemberRepository.findByGuildIdAndUserId(1L, "master-1"))
-                .thenReturn(Optional.of(master));
+                    .thenReturn(Optional.of(master));
 
             GuildPermissionCheck result = facadeService.checkPermissions(1L, "master-1");
 
@@ -427,10 +420,11 @@ class GuildQueryFacadeServiceTest {
         @DisplayName("부마스터 권한 체크")
         void shouldReturnSubMasterPermissions() {
             Guild guild = createGuild(1L, "길드", "master-1");
-            GuildMember subMaster = createMember(2L, guild, "sub-master-1", GuildMemberRole.SUB_MASTER);
+            GuildMember subMaster =
+                    createMember(2L, guild, "sub-master-1", GuildMemberRole.SUB_MASTER);
 
             when(guildMemberRepository.findByGuildIdAndUserId(1L, "sub-master-1"))
-                .thenReturn(Optional.of(subMaster));
+                    .thenReturn(Optional.of(subMaster));
 
             GuildPermissionCheck result = facadeService.checkPermissions(1L, "sub-master-1");
 
@@ -447,7 +441,7 @@ class GuildQueryFacadeServiceTest {
             GuildMember member = createMember(3L, guild, "user-1", GuildMemberRole.MEMBER);
 
             when(guildMemberRepository.findByGuildIdAndUserId(1L, "user-1"))
-                .thenReturn(Optional.of(member));
+                    .thenReturn(Optional.of(member));
 
             GuildPermissionCheck result = facadeService.checkPermissions(1L, "user-1");
 
@@ -461,7 +455,7 @@ class GuildQueryFacadeServiceTest {
         @DisplayName("멤버가 아닌 경우 모두 false 반환")
         void shouldReturnAllFalseWhenNotMember() {
             when(guildMemberRepository.findByGuildIdAndUserId(1L, "unknown"))
-                .thenReturn(Optional.empty());
+                    .thenReturn(Optional.empty());
 
             GuildPermissionCheck result = facadeService.checkPermissions(1L, "unknown");
 
@@ -484,7 +478,7 @@ class GuildQueryFacadeServiceTest {
             GuildMember m2 = createMember(2L, guild2, "user-1", GuildMemberRole.MEMBER);
 
             when(guildMemberRepository.findAllActiveGuildMemberships("user-1"))
-                .thenReturn(List.of(m1, m2));
+                    .thenReturn(List.of(m1, m2));
 
             List<GuildMembershipInfo> result = facadeService.getUserGuildMemberships("user-1");
 
@@ -504,7 +498,7 @@ class GuildQueryFacadeServiceTest {
         @DisplayName("멤버십이 없으면 빈 목록 반환")
         void shouldReturnEmptyListWhenNoMemberships() {
             when(guildMemberRepository.findAllActiveGuildMemberships("user-1"))
-                .thenReturn(List.of());
+                    .thenReturn(List.of());
 
             assertThat(facadeService.getUserGuildMemberships("user-1")).isEmpty();
         }
@@ -515,7 +509,7 @@ class GuildQueryFacadeServiceTest {
             Guild guild = createGuild(1L, "길드1", "other-master");
             GuildMember m = createMember(1L, guild, "user-1", GuildMemberRole.SUB_MASTER);
             when(guildMemberRepository.findAllActiveGuildMemberships("user-1"))
-                .thenReturn(List.of(m));
+                    .thenReturn(List.of(m));
 
             List<GuildMembershipInfo> result = facadeService.getUserGuildMemberships("user-1");
 
@@ -533,7 +527,7 @@ class GuildQueryFacadeServiceTest {
         @DisplayName("멤버십이 없으면 null 반환")
         void shouldReturnNullWhenNoMemberships() {
             when(guildMemberRepository.findAllActiveGuildMemberships("user-1"))
-                .thenReturn(List.of());
+                    .thenReturn(List.of());
 
             assertThat(facadeService.getUserGuildInfoForAdmin("user-1")).isNull();
         }
@@ -544,7 +538,7 @@ class GuildQueryFacadeServiceTest {
             Guild guild = createGuild(1L, "길드1", "user-1");
             GuildMember m = createMember(1L, guild, "user-1", GuildMemberRole.MASTER);
             when(guildMemberRepository.findAllActiveGuildMemberships("user-1"))
-                .thenReturn(List.of(m));
+                    .thenReturn(List.of(m));
             when(guildMemberRepository.countActiveMembers(1L)).thenReturn(4L);
 
             UserGuildAdminInfo result = facadeService.getUserGuildInfoForAdmin("user-1");
@@ -562,7 +556,7 @@ class GuildQueryFacadeServiceTest {
             Guild guild = createGuild(1L, "길드1", "user-1");
             GuildMember m = createMember(1L, guild, "user-1", null);
             when(guildMemberRepository.findAllActiveGuildMemberships("user-1"))
-                .thenReturn(List.of(m));
+                    .thenReturn(List.of(m));
             when(guildMemberRepository.countActiveMembers(1L)).thenReturn(1L);
 
             UserGuildAdminInfo result = facadeService.getUserGuildInfoForAdmin("user-1");
@@ -601,7 +595,8 @@ class GuildQueryFacadeServiceTest {
         void shouldReturnMemberCountMap() {
             List<Long> guildIds = List.of(1L, 2L);
             when(guildMemberRepository.countActiveMembersByGuildIds(guildIds))
-                .thenReturn(Arrays.<Object[]>asList(new Object[]{1L, 5L}, new Object[]{2L, 3L}));
+                    .thenReturn(
+                            Arrays.<Object[]>asList(new Object[] {1L, 5L}, new Object[] {2L, 3L}));
 
             Map<Long, Integer> result = facadeService.countActiveMembersByGuildIds(guildIds);
 
@@ -632,12 +627,10 @@ class GuildQueryFacadeServiceTest {
             LocalDateTime end = LocalDateTime.of(2025, 1, 2, 0, 0);
             Pageable pageable = PageRequest.of(0, 3);
 
-            List<Object[]> expected = Arrays.<Object[]>asList(
-                new Object[]{1L, 1000L},
-                new Object[]{2L, 800L}
-            );
+            List<Object[]> expected =
+                    Arrays.<Object[]>asList(new Object[] {1L, 1000L}, new Object[] {2L, 800L});
             when(guildExpHistoryRepository.findTopExpGuildsByPeriod(start, end, pageable))
-                .thenReturn(expected);
+                    .thenReturn(expected);
 
             List<Object[]> result = facadeService.getTopExpGuildsByPeriod(start, end, pageable);
 
@@ -658,7 +651,7 @@ class GuildQueryFacadeServiceTest {
             LocalDateTime end = LocalDateTime.of(2025, 1, 2, 0, 0);
 
             when(guildExpHistoryRepository.sumExpByGuildIdAndPeriod(1L, start, end))
-                .thenReturn(500L);
+                    .thenReturn(500L);
 
             assertThat(facadeService.sumGuildExpByPeriod(1L, start, end)).isEqualTo(500L);
         }
@@ -675,7 +668,7 @@ class GuildQueryFacadeServiceTest {
             LocalDateTime end = LocalDateTime.of(2025, 1, 2, 0, 0);
 
             when(guildExpHistoryRepository.countGuildsWithMoreExpByPeriod(start, end, 500L))
-                .thenReturn(3L);
+                    .thenReturn(3L);
 
             assertThat(facadeService.countGuildsWithMoreExp(start, end, 500L)).isEqualTo(3L);
         }
@@ -693,8 +686,7 @@ class GuildQueryFacadeServiceTest {
             Guild guild = createGuild(1L, "길드", "master-123");
             GuildPost post = createPost(10L, guild);
 
-            when(guildPostRepository.findByIdAndIsDeletedFalse(10L))
-                .thenReturn(Optional.of(post));
+            when(guildPostRepository.findByIdAndIsDeletedFalse(10L)).thenReturn(Optional.of(post));
 
             assertThat(facadeService.getGuildMasterIdByPostId(10L)).isEqualTo("master-123");
         }
@@ -702,8 +694,7 @@ class GuildQueryFacadeServiceTest {
         @Test
         @DisplayName("게시글이 없으면 null 반환")
         void shouldReturnNullWhenPostNotFound() {
-            when(guildPostRepository.findByIdAndIsDeletedFalse(999L))
-                .thenReturn(Optional.empty());
+            when(guildPostRepository.findByIdAndIsDeletedFalse(999L)).thenReturn(Optional.empty());
 
             assertThat(facadeService.getGuildMasterIdByPostId(999L)).isNull();
         }
@@ -719,8 +710,7 @@ class GuildQueryFacadeServiceTest {
             Guild guild = createGuild(1L, "길드", "master-123");
             GuildPost post = createPost(10L, guild);
 
-            when(guildPostRepository.findByIdAndIsDeletedFalse(10L))
-                .thenReturn(Optional.of(post));
+            when(guildPostRepository.findByIdAndIsDeletedFalse(10L)).thenReturn(Optional.of(post));
 
             GuildPostInfo result = facadeService.getGuildInfoByPostId(10L);
 
@@ -732,8 +722,7 @@ class GuildQueryFacadeServiceTest {
         @Test
         @DisplayName("게시글이 없으면 null 반환")
         void shouldReturnNullWhenPostNotFound() {
-            when(guildPostRepository.findByIdAndIsDeletedFalse(999L))
-                .thenReturn(Optional.empty());
+            when(guildPostRepository.findByIdAndIsDeletedFalse(999L)).thenReturn(Optional.empty());
 
             assertThat(facadeService.getGuildInfoByPostId(999L)).isNull();
         }

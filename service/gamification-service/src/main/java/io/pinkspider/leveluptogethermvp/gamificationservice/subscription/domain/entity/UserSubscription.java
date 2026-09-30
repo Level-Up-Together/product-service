@@ -25,12 +25,11 @@ import org.hibernate.annotations.Comment;
 /**
  * 유저 구독 (LUT-450)
  *
- * <p>유저당 1행 — 갱신/플랜 변경/해지는 이 행을 갱신한다(이력은 스토어가 원장). 상태는 컬럼으로
- * 저장하지 않고 {@link #resolveStatus(LocalDateTime)}로 시각 기준 파생한다 — 만료·유예 전환은
- * 시간 경과만으로 일어나므로 상태 컬럼은 필연적으로 낡는다.
+ * <p>유저당 1행 — 갱신/플랜 변경/해지는 이 행을 갱신한다(이력은 스토어가 원장). 상태는 컬럼으로 저장하지 않고 {@link
+ * #resolveStatus(LocalDateTime)}로 시각 기준 파생한다 — 만료·유예 전환은 시간 경과만으로 일어나므로 상태 컬럼은 필연적으로 낡는다.
  *
- * <p>프론트의 구독 상태 단일 출처는 {@code GET /api/v1/subscriptions/me} — 결제 응답으로 로컬 상태를
- * 갱신하는 패턴(다이아 잔액 방식)을 쓰면 자동갱신·해지 시점에 서버와 어긋난다.
+ * <p>프론트의 구독 상태 단일 출처는 {@code GET /api/v1/subscriptions/me} — 결제 응답으로 로컬 상태를 갱신하는 패턴(다이아 잔액 방식)을 쓰면
+ * 자동갱신·해지 시점에 서버와 어긋난다.
  */
 @Entity
 @Getter
@@ -41,7 +40,9 @@ import org.hibernate.annotations.Comment;
 @Table(
         name = "user_subscription",
         uniqueConstraints = {
-            @UniqueConstraint(name = "uk_user_subscription_user", columnNames = {"user_id"}),
+            @UniqueConstraint(
+                    name = "uk_user_subscription_user",
+                    columnNames = {"user_id"}),
             // LUT-451: 같은 스토어 원구독을 두 계정이 나눠 갖는 것을 DB 레벨에서도 차단
             @UniqueConstraint(
                     name = "uk_user_subscription_original_tx",

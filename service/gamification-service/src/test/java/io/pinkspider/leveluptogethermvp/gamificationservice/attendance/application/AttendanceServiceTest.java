@@ -11,18 +11,17 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import io.pinkspider.leveluptogethermvp.gamificationservice.achievement.event.AchievementCheckRequestedEvent;
-import io.pinkspider.leveluptogethermvp.gamificationservice.domain.entity.AttendanceRecord;
-import io.pinkspider.leveluptogethermvp.metaservice.attendancerewardconfig.application.AttendanceRewardConfigCacheService;
 import io.pinkspider.global.enums.ExpSourceType;
-import io.pinkspider.leveluptogethermvp.gamificationservice.infrastructure.AttendanceRecordRepository;
-import io.pinkspider.leveluptogethermvp.gamificationservice.stats.application.UserStatsService;
-import io.pinkspider.leveluptogethermvp.metaservice.attendancerewardconfig.domain.entity.AttendanceRewardConfig;
-import io.pinkspider.leveluptogethermvp.metaservice.attendancerewardconfig.domain.enums.AttendanceRewardType;
+import io.pinkspider.leveluptogethermvp.gamificationservice.achievement.event.AchievementCheckRequestedEvent;
 import io.pinkspider.leveluptogethermvp.gamificationservice.attendance.domain.dto.AttendanceCheckInResponse;
 import io.pinkspider.leveluptogethermvp.gamificationservice.attendance.domain.dto.MonthlyAttendanceResponse;
+import io.pinkspider.leveluptogethermvp.gamificationservice.domain.entity.AttendanceRecord;
 import io.pinkspider.leveluptogethermvp.gamificationservice.experience.application.UserExperienceService;
-import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.entity.Users;
+import io.pinkspider.leveluptogethermvp.gamificationservice.infrastructure.AttendanceRecordRepository;
+import io.pinkspider.leveluptogethermvp.gamificationservice.stats.application.UserStatsService;
+import io.pinkspider.leveluptogethermvp.metaservice.attendancerewardconfig.application.AttendanceRewardConfigCacheService;
+import io.pinkspider.leveluptogethermvp.metaservice.attendancerewardconfig.domain.entity.AttendanceRewardConfig;
+import io.pinkspider.leveluptogethermvp.metaservice.attendancerewardconfig.domain.enums.AttendanceRewardType;
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.infrastructure.UserRepository;
 import java.time.LocalDate;
 import java.time.ZoneId;
@@ -41,40 +40,36 @@ import org.springframework.context.ApplicationEventPublisher;
 @ExtendWith(MockitoExtension.class)
 class AttendanceServiceTest {
 
-    @Mock
-    private AttendanceRecordRepository attendanceRecordRepository;
+    @Mock private AttendanceRecordRepository attendanceRecordRepository;
 
-    @Mock
-    private AttendanceRewardConfigCacheService rewardConfigCacheService;
+    @Mock private AttendanceRewardConfigCacheService rewardConfigCacheService;
 
-    @Mock
-    private UserExperienceService userExperienceService;
+    @Mock private UserExperienceService userExperienceService;
 
-    @Mock
-    private UserStatsService userStatsService;
+    @Mock private UserStatsService userStatsService;
 
-    @Mock
-    private ApplicationEventPublisher eventPublisher;
+    @Mock private ApplicationEventPublisher eventPublisher;
 
-    @Mock
-    private UserRepository userRepository;
+    @Mock private UserRepository userRepository;
 
-    @InjectMocks
-    private AttendanceService attendanceService;
+    @InjectMocks private AttendanceService attendanceService;
 
     private static final String TEST_USER_ID = "test-user-123";
     private static final ZoneId KST = ZoneId.of("Asia/Seoul");
 
     @BeforeEach
     void setUp() {
-        org.mockito.Mockito.lenient().when(userRepository.findById(anyString())).thenReturn(Optional.empty());
+        org.mockito.Mockito.lenient()
+                .when(userRepository.findById(anyString()))
+                .thenReturn(Optional.empty());
     }
 
     private LocalDate today() {
         return LocalDate.now(KST);
     }
 
-    private AttendanceRecord createTestAttendanceRecord(Long id, String userId, LocalDate date, int consecutiveDays) {
+    private AttendanceRecord createTestAttendanceRecord(
+            Long id, String userId, LocalDate date, int consecutiveDays) {
         AttendanceRecord record = AttendanceRecord.create(userId, date, consecutiveDays);
         setId(record, id);
         record.setRewardExp(10);
@@ -94,15 +89,18 @@ class AttendanceServiceTest {
             AttendanceRecord savedRecord = createTestAttendanceRecord(1L, TEST_USER_ID, today, 1);
 
             when(attendanceRecordRepository.findByUserIdAndAttendanceDate(TEST_USER_ID, today))
-                .thenReturn(Optional.empty());
-            when(attendanceRecordRepository.findByUserIdAndAttendanceDate(TEST_USER_ID, today.minusDays(1)))
-                .thenReturn(Optional.empty());
+                    .thenReturn(Optional.empty());
+            when(attendanceRecordRepository.findByUserIdAndAttendanceDate(
+                            TEST_USER_ID, today.minusDays(1)))
+                    .thenReturn(Optional.empty());
             when(rewardConfigCacheService.getConfigByRewardType(AttendanceRewardType.DAILY))
-                .thenReturn(AttendanceRewardConfig.builder()
-                    .rewardType(AttendanceRewardType.DAILY)
-                    .rewardExp(10)
-                    .build());
-            when(attendanceRecordRepository.saveAndFlush(any(AttendanceRecord.class))).thenReturn(savedRecord);
+                    .thenReturn(
+                            AttendanceRewardConfig.builder()
+                                    .rewardType(AttendanceRewardType.DAILY)
+                                    .rewardExp(10)
+                                    .build());
+            when(attendanceRecordRepository.saveAndFlush(any(AttendanceRecord.class)))
+                    .thenReturn(savedRecord);
 
             // when
             AttendanceCheckInResponse result = attendanceService.checkIn(TEST_USER_ID);
@@ -111,13 +109,21 @@ class AttendanceServiceTest {
             assertThat(result).isNotNull();
             assertThat(result.isAlreadyCheckedIn()).isFalse();
             verify(attendanceRecordRepository).saveAndFlush(any(AttendanceRecord.class));
-            verify(userExperienceService).addExperience(
-                eq(TEST_USER_ID), anyInt(), eq(ExpSourceType.EVENT), anyLong(), anyString(), eq("기타"));
+            verify(userExperienceService)
+                    .addExperience(
+                            eq(TEST_USER_ID),
+                            anyInt(),
+                            eq(ExpSourceType.EVENT),
+                            anyLong(),
+                            anyString(),
+                            eq("기타"));
             // QA-113 / B11: 출석 시 user_stats streak 갱신 + 업적 체크가 트리거되어야 한다
             // (체크는 커밋 후 리스너에서 실행되도록 AchievementCheckRequestedEvent 발행으로 대체)
             verify(userStatsService).recordAttendance(TEST_USER_ID, today);
-            verify(eventPublisher).publishEvent(
-                new AchievementCheckRequestedEvent(TEST_USER_ID, List.of("USER_STATS")));
+            verify(eventPublisher)
+                    .publishEvent(
+                            new AchievementCheckRequestedEvent(
+                                    TEST_USER_ID, List.of("USER_STATS")));
         }
 
         @Test
@@ -125,10 +131,11 @@ class AttendanceServiceTest {
         void checkIn_alreadyCheckedIn() {
             // given
             LocalDate today = today();
-            AttendanceRecord existingRecord = createTestAttendanceRecord(1L, TEST_USER_ID, today, 1);
+            AttendanceRecord existingRecord =
+                    createTestAttendanceRecord(1L, TEST_USER_ID, today, 1);
 
             when(attendanceRecordRepository.findByUserIdAndAttendanceDate(TEST_USER_ID, today))
-                .thenReturn(Optional.of(existingRecord));
+                    .thenReturn(Optional.of(existingRecord));
 
             // when
             AttendanceCheckInResponse result = attendanceService.checkIn(TEST_USER_ID);
@@ -146,19 +153,22 @@ class AttendanceServiceTest {
             LocalDate today = today();
             LocalDate yesterday = today.minusDays(1);
 
-            AttendanceRecord yesterdayRecord = createTestAttendanceRecord(1L, TEST_USER_ID, yesterday, 5);
+            AttendanceRecord yesterdayRecord =
+                    createTestAttendanceRecord(1L, TEST_USER_ID, yesterday, 5);
             AttendanceRecord savedRecord = createTestAttendanceRecord(2L, TEST_USER_ID, today, 6);
 
             when(attendanceRecordRepository.findByUserIdAndAttendanceDate(TEST_USER_ID, today))
-                .thenReturn(Optional.empty());
+                    .thenReturn(Optional.empty());
             when(attendanceRecordRepository.findByUserIdAndAttendanceDate(TEST_USER_ID, yesterday))
-                .thenReturn(Optional.of(yesterdayRecord));
+                    .thenReturn(Optional.of(yesterdayRecord));
             when(rewardConfigCacheService.getConfigByRewardType(AttendanceRewardType.DAILY))
-                .thenReturn(AttendanceRewardConfig.builder()
-                    .rewardType(AttendanceRewardType.DAILY)
-                    .rewardExp(10)
-                    .build());
-            when(attendanceRecordRepository.saveAndFlush(any(AttendanceRecord.class))).thenReturn(savedRecord);
+                    .thenReturn(
+                            AttendanceRewardConfig.builder()
+                                    .rewardType(AttendanceRewardType.DAILY)
+                                    .rewardExp(10)
+                                    .build());
+            when(attendanceRecordRepository.saveAndFlush(any(AttendanceRecord.class)))
+                    .thenReturn(savedRecord);
 
             // when
             AttendanceCheckInResponse result = attendanceService.checkIn(TEST_USER_ID);
@@ -175,25 +185,29 @@ class AttendanceServiceTest {
             LocalDate today = today();
             LocalDate yesterday = today.minusDays(1);
 
-            AttendanceRecord yesterdayRecord = createTestAttendanceRecord(1L, TEST_USER_ID, yesterday, 2);
+            AttendanceRecord yesterdayRecord =
+                    createTestAttendanceRecord(1L, TEST_USER_ID, yesterday, 2);
             AttendanceRecord savedRecord = createTestAttendanceRecord(2L, TEST_USER_ID, today, 3);
             savedRecord.setBonusRewardExp(20);
 
             when(attendanceRecordRepository.findByUserIdAndAttendanceDate(TEST_USER_ID, today))
-                .thenReturn(Optional.empty());
+                    .thenReturn(Optional.empty());
             when(attendanceRecordRepository.findByUserIdAndAttendanceDate(TEST_USER_ID, yesterday))
-                .thenReturn(Optional.of(yesterdayRecord));
+                    .thenReturn(Optional.of(yesterdayRecord));
             when(rewardConfigCacheService.getConfigByRewardType(AttendanceRewardType.DAILY))
-                .thenReturn(AttendanceRewardConfig.builder()
-                    .rewardType(AttendanceRewardType.DAILY)
-                    .rewardExp(10)
-                    .build());
+                    .thenReturn(
+                            AttendanceRewardConfig.builder()
+                                    .rewardType(AttendanceRewardType.DAILY)
+                                    .rewardExp(10)
+                                    .build());
             when(rewardConfigCacheService.getConfigByRewardType(AttendanceRewardType.CONSECUTIVE_3))
-                .thenReturn(AttendanceRewardConfig.builder()
-                    .rewardType(AttendanceRewardType.CONSECUTIVE_3)
-                    .rewardExp(20)
-                    .build());
-            when(attendanceRecordRepository.saveAndFlush(any(AttendanceRecord.class))).thenReturn(savedRecord);
+                    .thenReturn(
+                            AttendanceRewardConfig.builder()
+                                    .rewardType(AttendanceRewardType.CONSECUTIVE_3)
+                                    .rewardExp(20)
+                                    .build());
+            when(attendanceRecordRepository.saveAndFlush(any(AttendanceRecord.class)))
+                    .thenReturn(savedRecord);
 
             // when
             AttendanceCheckInResponse result = attendanceService.checkIn(TEST_USER_ID);
@@ -216,14 +230,17 @@ class AttendanceServiceTest {
         private AttendanceRecord stubStreak(int consecutiveDays) {
             LocalDate today = today();
             AttendanceRecord yesterdayRecord =
-                createTestAttendanceRecord(1L, TEST_USER_ID, today.minusDays(1), consecutiveDays - 1);
+                    createTestAttendanceRecord(
+                            1L, TEST_USER_ID, today.minusDays(1), consecutiveDays - 1);
             AttendanceRecord savedRecord =
-                createTestAttendanceRecord(2L, TEST_USER_ID, today, consecutiveDays);
+                    createTestAttendanceRecord(2L, TEST_USER_ID, today, consecutiveDays);
             when(attendanceRecordRepository.findByUserIdAndAttendanceDate(TEST_USER_ID, today))
-                .thenReturn(Optional.empty());
-            when(attendanceRecordRepository.findByUserIdAndAttendanceDate(TEST_USER_ID, today.minusDays(1)))
-                .thenReturn(Optional.of(yesterdayRecord));
-            when(attendanceRecordRepository.saveAndFlush(any(AttendanceRecord.class))).thenReturn(savedRecord);
+                    .thenReturn(Optional.empty());
+            when(attendanceRecordRepository.findByUserIdAndAttendanceDate(
+                            TEST_USER_ID, today.minusDays(1)))
+                    .thenReturn(Optional.of(yesterdayRecord));
+            when(attendanceRecordRepository.saveAndFlush(any(AttendanceRecord.class)))
+                    .thenReturn(savedRecord);
             return savedRecord;
         }
 
@@ -233,17 +250,26 @@ class AttendanceServiceTest {
             LocalDate today = today();
             AttendanceRecord savedRecord = createTestAttendanceRecord(1L, TEST_USER_ID, today, 1);
             when(attendanceRecordRepository.findByUserIdAndAttendanceDate(TEST_USER_ID, today))
-                .thenReturn(Optional.empty());
-            when(attendanceRecordRepository.findByUserIdAndAttendanceDate(TEST_USER_ID, today.minusDays(1)))
-                .thenReturn(Optional.empty());
-            when(rewardConfigCacheService.getConfigByRewardType(AttendanceRewardType.DAILY)).thenReturn(null);
-            when(attendanceRecordRepository.saveAndFlush(any(AttendanceRecord.class))).thenReturn(savedRecord);
+                    .thenReturn(Optional.empty());
+            when(attendanceRecordRepository.findByUserIdAndAttendanceDate(
+                            TEST_USER_ID, today.minusDays(1)))
+                    .thenReturn(Optional.empty());
+            when(rewardConfigCacheService.getConfigByRewardType(AttendanceRewardType.DAILY))
+                    .thenReturn(null);
+            when(attendanceRecordRepository.saveAndFlush(any(AttendanceRecord.class)))
+                    .thenReturn(savedRecord);
 
             AttendanceCheckInResponse result = attendanceService.checkIn(TEST_USER_ID);
 
             assertThat(result.getBaseExp()).isEqualTo(10);
-            verify(userExperienceService).addExperience(
-                eq(TEST_USER_ID), eq(10), eq(ExpSourceType.EVENT), anyLong(), anyString(), eq("기타"));
+            verify(userExperienceService)
+                    .addExperience(
+                            eq(TEST_USER_ID),
+                            eq(10),
+                            eq(ExpSourceType.EVENT),
+                            anyLong(),
+                            anyString(),
+                            eq("기타"));
         }
 
         @Test
@@ -252,18 +278,21 @@ class AttendanceServiceTest {
             LocalDate today = today();
             AttendanceRecord savedRecord = createTestAttendanceRecord(1L, TEST_USER_ID, today, 1);
             when(attendanceRecordRepository.findByUserIdAndAttendanceDate(TEST_USER_ID, today))
-                .thenReturn(Optional.empty());
-            when(attendanceRecordRepository.findByUserIdAndAttendanceDate(TEST_USER_ID, today.minusDays(1)))
-                .thenReturn(Optional.empty());
+                    .thenReturn(Optional.empty());
+            when(attendanceRecordRepository.findByUserIdAndAttendanceDate(
+                            TEST_USER_ID, today.minusDays(1)))
+                    .thenReturn(Optional.empty());
             when(rewardConfigCacheService.getConfigByRewardType(AttendanceRewardType.DAILY))
-                .thenReturn(config(AttendanceRewardType.DAILY, 0));
-            when(attendanceRecordRepository.saveAndFlush(any(AttendanceRecord.class))).thenReturn(savedRecord);
+                    .thenReturn(config(AttendanceRewardType.DAILY, 0));
+            when(attendanceRecordRepository.saveAndFlush(any(AttendanceRecord.class)))
+                    .thenReturn(savedRecord);
 
             AttendanceCheckInResponse result = attendanceService.checkIn(TEST_USER_ID);
 
             assertThat(result.getTotalExp()).isZero();
-            verify(userExperienceService, never()).addExperience(
-                anyString(), anyInt(), any(), anyLong(), anyString(), anyString());
+            verify(userExperienceService, never())
+                    .addExperience(
+                            anyString(), anyInt(), any(), anyLong(), anyString(), anyString());
             verify(userStatsService).recordAttendance(TEST_USER_ID, today);
         }
 
@@ -272,19 +301,27 @@ class AttendanceServiceTest {
         void checkIn_7dayStreak_bonusAndMilestoneEvent() {
             stubStreak(7);
             when(rewardConfigCacheService.getConfigByRewardType(AttendanceRewardType.DAILY))
-                .thenReturn(config(AttendanceRewardType.DAILY, 10));
+                    .thenReturn(config(AttendanceRewardType.DAILY, 10));
             when(rewardConfigCacheService.getConfigByRewardType(AttendanceRewardType.CONSECUTIVE_3))
-                .thenReturn(null);
+                    .thenReturn(null);
             when(rewardConfigCacheService.getConfigByRewardType(AttendanceRewardType.CONSECUTIVE_7))
-                .thenReturn(config(AttendanceRewardType.CONSECUTIVE_7, 50));
+                    .thenReturn(config(AttendanceRewardType.CONSECUTIVE_7, 50));
 
             AttendanceCheckInResponse result = attendanceService.checkIn(TEST_USER_ID);
 
             assertThat(result.getBonusExp()).isEqualTo(50);
             assertThat(result.getBonusReasons()).containsExactly("7일 연속 출석 보너스!");
-            verify(eventPublisher).publishEvent(org.mockito.ArgumentMatchers.argThat(
-                (Object e) -> e instanceof io.pinkspider.global.event.AttendanceStreakEvent ev
-                    && ev.userId().equals(TEST_USER_ID) && ev.streakDays() == 7));
+            verify(eventPublisher)
+                    .publishEvent(
+                            org.mockito.ArgumentMatchers.argThat(
+                                    (Object e) ->
+                                            e
+                                                            instanceof
+                                                            io.pinkspider.global.event
+                                                                                    .AttendanceStreakEvent
+                                                                            ev
+                                                    && ev.userId().equals(TEST_USER_ID)
+                                                    && ev.streakDays() == 7));
         }
 
         @Test
@@ -292,21 +329,30 @@ class AttendanceServiceTest {
         void checkIn_14dayStreak_bonus14Only() {
             stubStreak(14);
             when(rewardConfigCacheService.getConfigByRewardType(AttendanceRewardType.DAILY))
-                .thenReturn(config(AttendanceRewardType.DAILY, 10));
+                    .thenReturn(config(AttendanceRewardType.DAILY, 10));
             when(rewardConfigCacheService.getConfigByRewardType(AttendanceRewardType.CONSECUTIVE_3))
-                .thenReturn(config(AttendanceRewardType.CONSECUTIVE_3, 20));
+                    .thenReturn(config(AttendanceRewardType.CONSECUTIVE_3, 20));
             when(rewardConfigCacheService.getConfigByRewardType(AttendanceRewardType.CONSECUTIVE_7))
-                .thenReturn(config(AttendanceRewardType.CONSECUTIVE_7, 50));
-            when(rewardConfigCacheService.getConfigByRewardType(AttendanceRewardType.CONSECUTIVE_14))
-                .thenReturn(config(AttendanceRewardType.CONSECUTIVE_14, 100));
+                    .thenReturn(config(AttendanceRewardType.CONSECUTIVE_7, 50));
+            when(rewardConfigCacheService.getConfigByRewardType(
+                            AttendanceRewardType.CONSECUTIVE_14))
+                    .thenReturn(config(AttendanceRewardType.CONSECUTIVE_14, 100));
 
             AttendanceCheckInResponse result = attendanceService.checkIn(TEST_USER_ID);
 
             assertThat(result.getBonusExp()).isEqualTo(100);
             assertThat(result.getBonusReasons()).containsExactly("14일 연속 출석 보너스!");
-            verify(eventPublisher).publishEvent(org.mockito.ArgumentMatchers.argThat(
-                (Object e) -> e instanceof io.pinkspider.global.event.AttendanceStreakEvent ev
-                    && ev.userId().equals(TEST_USER_ID) && ev.streakDays() == 14));
+            verify(eventPublisher)
+                    .publishEvent(
+                            org.mockito.ArgumentMatchers.argThat(
+                                    (Object e) ->
+                                            e
+                                                            instanceof
+                                                            io.pinkspider.global.event
+                                                                                    .AttendanceStreakEvent
+                                                                            ev
+                                                    && ev.userId().equals(TEST_USER_ID)
+                                                    && ev.streakDays() == 14));
         }
 
         @Test
@@ -314,15 +360,17 @@ class AttendanceServiceTest {
         void checkIn_30dayStreak_bonus30Only() {
             stubStreak(30);
             when(rewardConfigCacheService.getConfigByRewardType(AttendanceRewardType.DAILY))
-                .thenReturn(config(AttendanceRewardType.DAILY, 10));
+                    .thenReturn(config(AttendanceRewardType.DAILY, 10));
             when(rewardConfigCacheService.getConfigByRewardType(AttendanceRewardType.CONSECUTIVE_3))
-                .thenReturn(null);
+                    .thenReturn(null);
             when(rewardConfigCacheService.getConfigByRewardType(AttendanceRewardType.CONSECUTIVE_7))
-                .thenReturn(null);
-            when(rewardConfigCacheService.getConfigByRewardType(AttendanceRewardType.CONSECUTIVE_14))
-                .thenReturn(config(AttendanceRewardType.CONSECUTIVE_14, 100));
-            when(rewardConfigCacheService.getConfigByRewardType(AttendanceRewardType.CONSECUTIVE_30))
-                .thenReturn(config(AttendanceRewardType.CONSECUTIVE_30, 300));
+                    .thenReturn(null);
+            when(rewardConfigCacheService.getConfigByRewardType(
+                            AttendanceRewardType.CONSECUTIVE_14))
+                    .thenReturn(config(AttendanceRewardType.CONSECUTIVE_14, 100));
+            when(rewardConfigCacheService.getConfigByRewardType(
+                            AttendanceRewardType.CONSECUTIVE_30))
+                    .thenReturn(config(AttendanceRewardType.CONSECUTIVE_30, 300));
 
             AttendanceCheckInResponse result = attendanceService.checkIn(TEST_USER_ID);
 
@@ -335,22 +383,24 @@ class AttendanceServiceTest {
         void checkIn_31dayStreak_noBonus() {
             stubStreak(31);
             when(rewardConfigCacheService.getConfigByRewardType(AttendanceRewardType.DAILY))
-                .thenReturn(config(AttendanceRewardType.DAILY, 10));
+                    .thenReturn(config(AttendanceRewardType.DAILY, 10));
             when(rewardConfigCacheService.getConfigByRewardType(AttendanceRewardType.CONSECUTIVE_3))
-                .thenReturn(config(AttendanceRewardType.CONSECUTIVE_3, 20));
+                    .thenReturn(config(AttendanceRewardType.CONSECUTIVE_3, 20));
             when(rewardConfigCacheService.getConfigByRewardType(AttendanceRewardType.CONSECUTIVE_7))
-                .thenReturn(config(AttendanceRewardType.CONSECUTIVE_7, 50));
-            when(rewardConfigCacheService.getConfigByRewardType(AttendanceRewardType.CONSECUTIVE_14))
-                .thenReturn(config(AttendanceRewardType.CONSECUTIVE_14, 100));
-            when(rewardConfigCacheService.getConfigByRewardType(AttendanceRewardType.CONSECUTIVE_30))
-                .thenReturn(config(AttendanceRewardType.CONSECUTIVE_30, 300));
+                    .thenReturn(config(AttendanceRewardType.CONSECUTIVE_7, 50));
+            when(rewardConfigCacheService.getConfigByRewardType(
+                            AttendanceRewardType.CONSECUTIVE_14))
+                    .thenReturn(config(AttendanceRewardType.CONSECUTIVE_14, 100));
+            when(rewardConfigCacheService.getConfigByRewardType(
+                            AttendanceRewardType.CONSECUTIVE_30))
+                    .thenReturn(config(AttendanceRewardType.CONSECUTIVE_30, 300));
 
             AttendanceCheckInResponse result = attendanceService.checkIn(TEST_USER_ID);
 
             assertThat(result.getBonusExp()).isZero();
             assertThat(result.getBonusReasons()).isEmpty();
-            verify(eventPublisher, never()).publishEvent(
-                any(io.pinkspider.global.event.AttendanceStreakEvent.class));
+            verify(eventPublisher, never())
+                    .publishEvent(any(io.pinkspider.global.event.AttendanceStreakEvent.class));
         }
 
         @Test
@@ -358,15 +408,23 @@ class AttendanceServiceTest {
         void checkIn_30dayStreak_noConfigs_noBonus() {
             stubStreak(30);
             when(rewardConfigCacheService.getConfigByRewardType(AttendanceRewardType.DAILY))
-                .thenReturn(config(AttendanceRewardType.DAILY, 10));
+                    .thenReturn(config(AttendanceRewardType.DAILY, 10));
 
             AttendanceCheckInResponse result = attendanceService.checkIn(TEST_USER_ID);
 
             assertThat(result.getBonusExp()).isZero();
             assertThat(result.getBonusReasons()).isEmpty();
-            verify(eventPublisher).publishEvent(org.mockito.ArgumentMatchers.argThat(
-                (Object e) -> e instanceof io.pinkspider.global.event.AttendanceStreakEvent ev
-                    && ev.userId().equals(TEST_USER_ID) && ev.streakDays() == 30));
+            verify(eventPublisher)
+                    .publishEvent(
+                            org.mockito.ArgumentMatchers.argThat(
+                                    (Object e) ->
+                                            e
+                                                            instanceof
+                                                            io.pinkspider.global.event
+                                                                                    .AttendanceStreakEvent
+                                                                            ev
+                                                    && ev.userId().equals(TEST_USER_ID)
+                                                    && ev.streakDays() == 30));
         }
     }
 
@@ -379,7 +437,7 @@ class AttendanceServiceTest {
         void hasCheckedInToday_true() {
             // given
             when(attendanceRecordRepository.existsByUserIdAndAttendanceDate(TEST_USER_ID, today()))
-                .thenReturn(true);
+                    .thenReturn(true);
 
             // when
             boolean result = attendanceService.hasCheckedInToday(TEST_USER_ID);
@@ -393,7 +451,7 @@ class AttendanceServiceTest {
         void hasCheckedInToday_false() {
             // given
             when(attendanceRecordRepository.existsByUserIdAndAttendanceDate(TEST_USER_ID, today()))
-                .thenReturn(false);
+                    .thenReturn(false);
 
             // when
             boolean result = attendanceService.hasCheckedInToday(TEST_USER_ID);
@@ -412,21 +470,26 @@ class AttendanceServiceTest {
         void getMonthlyAttendance_success() {
             // given
             String yearMonth = "2024-01";
-            List<AttendanceRecord> records = List.of(
-                createTestAttendanceRecord(1L, TEST_USER_ID, LocalDate.of(2024, 1, 1), 1),
-                createTestAttendanceRecord(2L, TEST_USER_ID, LocalDate.of(2024, 1, 2), 2),
-                createTestAttendanceRecord(3L, TEST_USER_ID, LocalDate.of(2024, 1, 3), 3)
-            );
+            List<AttendanceRecord> records =
+                    List.of(
+                            createTestAttendanceRecord(
+                                    1L, TEST_USER_ID, LocalDate.of(2024, 1, 1), 1),
+                            createTestAttendanceRecord(
+                                    2L, TEST_USER_ID, LocalDate.of(2024, 1, 2), 2),
+                            createTestAttendanceRecord(
+                                    3L, TEST_USER_ID, LocalDate.of(2024, 1, 3), 3));
 
-            when(attendanceRecordRepository.findByUserIdAndYearMonthOrderByDayOfMonthAsc(TEST_USER_ID, yearMonth))
-                .thenReturn(records);
+            when(attendanceRecordRepository.findByUserIdAndYearMonthOrderByDayOfMonthAsc(
+                            TEST_USER_ID, yearMonth))
+                    .thenReturn(records);
             when(attendanceRecordRepository.findLatestByUserId(TEST_USER_ID))
-                .thenReturn(Optional.of(records.get(2)));
+                    .thenReturn(Optional.of(records.get(2)));
             when(attendanceRecordRepository.findMaxConsecutiveDaysByUserId(TEST_USER_ID))
-                .thenReturn(Optional.of(5));
+                    .thenReturn(Optional.of(5));
 
             // when
-            MonthlyAttendanceResponse result = attendanceService.getMonthlyAttendance(TEST_USER_ID, yearMonth);
+            MonthlyAttendanceResponse result =
+                    attendanceService.getMonthlyAttendance(TEST_USER_ID, yearMonth);
 
             // then
             assertThat(result).isNotNull();
@@ -441,17 +504,20 @@ class AttendanceServiceTest {
         void getMonthlyAttendance_nullYearMonth_usesCurrentMonth() {
             // given
             LocalDate now = today();
-            String currentYearMonth = now.getYear() + "-" + String.format("%02d", now.getMonthValue());
+            String currentYearMonth =
+                    now.getYear() + "-" + String.format("%02d", now.getMonthValue());
 
-            when(attendanceRecordRepository.findByUserIdAndYearMonthOrderByDayOfMonthAsc(TEST_USER_ID, currentYearMonth))
-                .thenReturn(List.of());
+            when(attendanceRecordRepository.findByUserIdAndYearMonthOrderByDayOfMonthAsc(
+                            TEST_USER_ID, currentYearMonth))
+                    .thenReturn(List.of());
             when(attendanceRecordRepository.findLatestByUserId(TEST_USER_ID))
-                .thenReturn(Optional.empty());
+                    .thenReturn(Optional.empty());
             when(attendanceRecordRepository.findMaxConsecutiveDaysByUserId(TEST_USER_ID))
-                .thenReturn(Optional.empty());
+                    .thenReturn(Optional.empty());
 
             // when
-            MonthlyAttendanceResponse result = attendanceService.getMonthlyAttendance(TEST_USER_ID, null);
+            MonthlyAttendanceResponse result =
+                    attendanceService.getMonthlyAttendance(TEST_USER_ID, null);
 
             // then
             assertThat(result).isNotNull();
@@ -471,7 +537,7 @@ class AttendanceServiceTest {
             AttendanceRecord record = createTestAttendanceRecord(1L, TEST_USER_ID, today, 5);
 
             when(attendanceRecordRepository.findLatestByUserId(TEST_USER_ID))
-                .thenReturn(Optional.of(record));
+                    .thenReturn(Optional.of(record));
 
             // when
             int result = attendanceService.getCurrentStreak(TEST_USER_ID);
@@ -488,7 +554,7 @@ class AttendanceServiceTest {
             AttendanceRecord record = createTestAttendanceRecord(1L, TEST_USER_ID, yesterday, 3);
 
             when(attendanceRecordRepository.findLatestByUserId(TEST_USER_ID))
-                .thenReturn(Optional.of(record));
+                    .thenReturn(Optional.of(record));
 
             // when
             int result = attendanceService.getCurrentStreak(TEST_USER_ID);
@@ -502,7 +568,7 @@ class AttendanceServiceTest {
         void getCurrentStreak_noRecord() {
             // given
             when(attendanceRecordRepository.findLatestByUserId(TEST_USER_ID))
-                .thenReturn(Optional.empty());
+                    .thenReturn(Optional.empty());
 
             // when
             int result = attendanceService.getCurrentStreak(TEST_USER_ID);
@@ -519,7 +585,7 @@ class AttendanceServiceTest {
             AttendanceRecord record = createTestAttendanceRecord(1L, TEST_USER_ID, twoDaysAgo, 10);
 
             when(attendanceRecordRepository.findLatestByUserId(TEST_USER_ID))
-                .thenReturn(Optional.of(record));
+                    .thenReturn(Optional.of(record));
 
             // when
             int result = attendanceService.getCurrentStreak(TEST_USER_ID);

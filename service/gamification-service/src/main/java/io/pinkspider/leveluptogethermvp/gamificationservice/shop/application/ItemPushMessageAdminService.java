@@ -13,9 +13,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-/**
- * LUT-516: 장착 아이템 개별 푸시 메시지 관리 (어드민 내부 API 백엔드). HEAD 타입 아이템에만 등록/수정을 허용한다.
- */
+/** LUT-516: 장착 아이템 개별 푸시 메시지 관리 (어드민 내부 API 백엔드). HEAD 타입 아이템에만 등록/수정을 허용한다. */
 @Service
 @RequiredArgsConstructor
 @Transactional(transactionManager = "gamificationTransactionManager")
@@ -32,7 +30,8 @@ public class ItemPushMessageAdminService {
                 .toList();
     }
 
-    public ItemPushMessageResponse create(Long itemId, ItemPushMessageRequest request, Long adminId) {
+    public ItemPushMessageResponse create(
+            Long itemId, ItemPushMessageRequest request, Long adminId) {
         ShopItem item = requireHead(itemId);
         ItemPushMessage saved =
                 itemPushMessageRepository.save(
@@ -48,7 +47,8 @@ public class ItemPushMessageAdminService {
         return ItemPushMessageResponse.from(saved);
     }
 
-    public ItemPushMessageResponse update(Long itemId, Long messageId, ItemPushMessageRequest request) {
+    public ItemPushMessageResponse update(
+            Long itemId, Long messageId, ItemPushMessageRequest request) {
         ItemPushMessage message = findMessage(itemId, messageId);
         message.update(
                 request.getMessage(),

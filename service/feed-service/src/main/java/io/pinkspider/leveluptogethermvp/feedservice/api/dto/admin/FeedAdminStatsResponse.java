@@ -7,9 +7,4 @@ import lombok.Builder;
 @Builder
 @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
 public record FeedAdminStatsResponse(
-    long totalCount,
-    long publicCount,
-    long todayNewCount,
-    long missionSharedCount
-) {
-}
+        long totalCount, long publicCount, long todayNewCount, long missionSharedCount) {}

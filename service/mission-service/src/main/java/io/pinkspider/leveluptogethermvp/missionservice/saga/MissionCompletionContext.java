@@ -13,8 +13,7 @@ import lombok.Setter;
 /**
  * 미션 완료 Saga 통합 컨텍스트
  *
- * 일반 미션(MissionExecution)과 고정 미션(DailyMissionInstance) 모두 처리
- * isPinned 플래그로 분기
+ * <p>일반 미션(MissionExecution)과 고정 미션(DailyMissionInstance) 모두 처리 isPinned 플래그로 분기
  */
 @Getter
 @Setter
@@ -51,6 +50,7 @@ public class MissionCompletionContext extends SagaContext {
 
     // === Common Calculated Data ===
     private int userExpEarned;
+
     /** SIMPLE 일일 EXP 한도(10회) 도달 여부. true면 완료는 되지만 EXP=0으로 처리됨. */
     private boolean dailySimpleExpCapped;
 
@@ -87,7 +87,8 @@ public class MissionCompletionContext extends SagaContext {
         this.note = note;
     }
 
-    public MissionCompletionContext(Long executionId, String userId, String note, boolean shareToFeed) {
+    public MissionCompletionContext(
+            Long executionId, String userId, String note, boolean shareToFeed) {
         super(SAGA_TYPE, userId);
         this.executionId = executionId;
         this.userId = userId;
@@ -95,7 +96,8 @@ public class MissionCompletionContext extends SagaContext {
         this.shareToFeed = shareToFeed;
     }
 
-    public MissionCompletionContext(Long executionId, String userId, String note, FeedVisibility feedVisibility) {
+    public MissionCompletionContext(
+            Long executionId, String userId, String note, FeedVisibility feedVisibility) {
         super(SAGA_TYPE, userId);
         this.executionId = executionId;
         this.userId = userId;
@@ -105,7 +107,8 @@ public class MissionCompletionContext extends SagaContext {
     }
 
     // === Pinned mission factory ===
-    public static MissionCompletionContext forPinned(Long instanceId, String userId, String note, boolean shareToFeed) {
+    public static MissionCompletionContext forPinned(
+            Long instanceId, String userId, String note, boolean shareToFeed) {
         MissionCompletionContext ctx = new MissionCompletionContext(userId);
         ctx.instanceId = instanceId;
         ctx.note = note;
@@ -114,7 +117,8 @@ public class MissionCompletionContext extends SagaContext {
         return ctx;
     }
 
-    public static MissionCompletionContext forPinned(Long instanceId, String userId, String note, FeedVisibility feedVisibility) {
+    public static MissionCompletionContext forPinned(
+            Long instanceId, String userId, String note, FeedVisibility feedVisibility) {
         MissionCompletionContext ctx = new MissionCompletionContext(userId);
         ctx.instanceId = instanceId;
         ctx.note = note;
@@ -127,16 +131,14 @@ public class MissionCompletionContext extends SagaContext {
     /**
      * 길드 미션 여부 확인.
      *
-     * <p>QA-194: 고정 길드 미션도 길드 경험치/멤버 통계 등 길드 단위 보상이 필요하므로
-     * pinned 여부와 무관하게 mission 자체가 길드 미션인지로 판단한다.
+     * <p>QA-194: 고정 길드 미션도 길드 경험치/멤버 통계 등 길드 단위 보상이 필요하므로 pinned 여부와 무관하게 mission 자체가 길드 미션인지로
+     * 판단한다.
      */
     public boolean isGuildMission() {
         return mission != null && mission.isGuildMission() && mission.getGuildId() != null;
     }
 
-    /**
-     * 보상 데이터 키 상수 (regular + pinned 통합)
-     */
+    /** 보상 데이터 키 상수 (regular + pinned 통합) */
     public static class CompensationKeys {
         // Common
         public static final String USER_EXP_BEFORE = "userExpBefore";

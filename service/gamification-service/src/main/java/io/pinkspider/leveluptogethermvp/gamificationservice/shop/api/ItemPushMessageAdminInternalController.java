@@ -19,8 +19,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
- * Admin 내부 API 컨트롤러 - 장착 아이템 개별 푸시 메시지 (LUT-516). 기존 shop-items 리소스 하위에 중첩. 인증 불필요
- * (SecurityConfig 에서 /api/internal/** permitAll — InternalApiKeyFilter 가 방어). HEAD 아이템 검증은 서비스에서 수행.
+ * Admin 내부 API 컨트롤러 - 장착 아이템 개별 푸시 메시지 (LUT-516). 기존 shop-items 리소스 하위에 중첩. 인증 불필요 (SecurityConfig
+ * 에서 /api/internal/** permitAll — InternalApiKeyFilter 가 방어). HEAD 아이템 검증은 서비스에서 수행.
  */
 @RestController
 @RequestMapping("/api/internal/shop-items/{itemId}/push-messages")

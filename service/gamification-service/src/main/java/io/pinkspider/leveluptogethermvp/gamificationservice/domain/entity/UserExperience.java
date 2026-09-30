@@ -64,11 +64,7 @@ public class UserExperience extends LocalDateTimeBaseEntity {
     @Comment("낙관적 락 버전")
     private Long version;
 
-    /**
-     * 경험치 추가 (어뷰징 방지 검증 포함)
-     * - 음수 경험치 방지
-     * - Integer overflow 방지
-     */
+    /** 경험치 추가 (어뷰징 방지 검증 포함) - 음수 경험치 방지 - Integer overflow 방지 */
     public void addExperience(int exp) {
         if (exp < 0) {
             throw new IllegalArgumentException("경험치는 음수일 수 없습니다: " + exp);
@@ -89,8 +85,11 @@ public class UserExperience extends LocalDateTimeBaseEntity {
             int actualExp = MAX_EXPERIENCE - this.totalExp;
             this.currentExp += actualExp;
             this.totalExp = MAX_EXPERIENCE;
-            log.warn("경험치가 최대값으로 조정됩니다: userId={}, requestedExp={}, actualExp={}",
-                this.userId, exp, actualExp);
+            log.warn(
+                    "경험치가 최대값으로 조정됩니다: userId={}, requestedExp={}, actualExp={}",
+                    this.userId,
+                    exp,
+                    actualExp);
         } else {
             this.currentExp += exp;
             this.totalExp += exp;

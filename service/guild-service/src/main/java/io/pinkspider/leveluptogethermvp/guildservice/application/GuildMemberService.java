@@ -3,10 +3,17 @@ package io.pinkspider.leveluptogethermvp.guildservice.application;
 import io.pinkspider.global.event.GuildJoinApprovedEvent;
 import io.pinkspider.global.event.GuildJoinRejectedEvent;
 import io.pinkspider.global.event.GuildJoinRequestedEvent;
+import io.pinkspider.global.event.GuildJoinedEvent;
+import io.pinkspider.global.event.GuildMasterAssignedEvent;
 import io.pinkspider.global.event.GuildMemberJoinedChatNotifyEvent;
 import io.pinkspider.global.event.GuildMemberKickedChatNotifyEvent;
 import io.pinkspider.global.event.GuildMemberLeftChatNotifyEvent;
 import io.pinkspider.global.event.GuildMemberRemovedEvent;
+import io.pinkspider.global.facade.GamificationQueryFacade;
+import io.pinkspider.global.facade.UserQueryFacade;
+import io.pinkspider.global.facade.dto.DetailedTitleInfoDto;
+import io.pinkspider.global.facade.dto.UserProfileInfo;
+import io.pinkspider.global.translation.TitleNameUtils;
 import io.pinkspider.leveluptogethermvp.guildservice.domain.dto.GuildJoinRequestDto;
 import io.pinkspider.leveluptogethermvp.guildservice.domain.dto.GuildJoinRequestResponse;
 import io.pinkspider.leveluptogethermvp.guildservice.domain.dto.GuildMemberResponse;
@@ -18,14 +25,6 @@ import io.pinkspider.leveluptogethermvp.guildservice.domain.enums.GuildMemberSta
 import io.pinkspider.leveluptogethermvp.guildservice.domain.enums.JoinRequestStatus;
 import io.pinkspider.leveluptogethermvp.guildservice.infrastructure.GuildJoinRequestRepository;
 import io.pinkspider.leveluptogethermvp.guildservice.infrastructure.GuildMemberRepository;
-import io.pinkspider.global.event.GuildJoinedEvent;
-import io.pinkspider.global.event.GuildMasterAssignedEvent;
-import io.pinkspider.global.facade.GamificationQueryFacade;
-import io.pinkspider.global.facade.dto.DetailedTitleInfoDto;
-import io.pinkspider.global.facade.dto.EquippedItemRarityDto;
-import io.pinkspider.global.facade.UserQueryFacade;
-import io.pinkspider.global.facade.dto.UserProfileInfo;
-import io.pinkspider.global.translation.TitleNameUtils;
 import java.time.LocalDateTime;
 import java.util.Comparator;
 import java.util.List;
@@ -56,15 +55,19 @@ public class GuildMemberService {
         Guild guild = guildHelper.findActiveGuildById(guildId);
         guildHelper.validateMaster(guild, currentMasterId);
 
-        GuildMember newMaster = guildMemberRepository.findByGuildIdAndUserId(guildId, newMasterId)
-            .orElseThrow(() -> new IllegalArgumentException("새 길드 마스터가 길드원이 아닙니다."));
+        GuildMember newMaster =
+                guildMemberRepository
+                        .findByGuildIdAndUserId(guildId, newMasterId)
+                        .orElseThrow(() -> new IllegalArgumentException("새 길드 마스터가 길드원이 아닙니다."));
 
         if (!newMaster.isActive()) {
             throw new IllegalStateException("활성 상태의 길드원만 마스터가 될 수 있습니다.");
         }
 
-        GuildMember currentMaster = guildMemberRepository.findByGuildIdAndUserId(guildId, currentMasterId)
-            .orElseThrow(() -> new IllegalStateException("현재 마스터를 찾을 수 없습니다."));
+        GuildMember currentMaster =
+                guildMemberRepository
+                        .findByGuildIdAndUserId(guildId, currentMasterId)
+                        .orElseThrow(() -> new IllegalStateException("현재 마스터를 찾을 수 없습니다."));
 
         currentMaster.demoteToMember();
         newMaster.promoteToMaster();
@@ -75,7 +78,8 @@ public class GuildMemberService {
 
     // 가입 신청 또는 바로 가입 (공개 길드)
     @Transactional(transactionManager = "guildTransactionManager")
-    public GuildJoinRequestResponse requestJoin(Long guildId, String userId, GuildJoinRequestDto request) {
+    public GuildJoinRequestResponse requestJoin(
+            Long guildId, String userId, GuildJoinRequestDto request) {
         Guild guild = guildHelper.findActiveGuildById(guildId);
 
         if (guild.isPrivate()) {
@@ -94,7 +98,8 @@ public class GuildMemberService {
         // OPEN 길드는 바로 가입 처리
         if (guild.isOpenJoin()) {
             // 이전에 탈퇴/추방된 멤버인지 확인하여 재가입 처리
-            Optional<GuildMember> existingMember = guildMemberRepository.findByGuildIdAndUserId(guildId, userId);
+            Optional<GuildMember> existingMember =
+                    guildMemberRepository.findByGuildIdAndUserId(guildId, userId);
 
             if (existingMember.isPresent() && existingMember.get().hasLeft()) {
                 // 재가입 처리
@@ -107,13 +112,14 @@ public class GuildMemberService {
                 log.info("길드 재가입 (OPEN): guildId={}, userId={}", guildId, userId);
             } else {
                 // 신규 가입
-                GuildMember newMember = GuildMember.builder()
-                    .guild(guild)
-                    .userId(userId)
-                    .role(GuildMemberRole.MEMBER)
-                    .status(GuildMemberStatus.ACTIVE)
-                    .joinedAt(LocalDateTime.now())
-                    .build();
+                GuildMember newMember =
+                        GuildMember.builder()
+                                .guild(guild)
+                                .userId(userId)
+                                .role(GuildMemberRole.MEMBER)
+                                .status(GuildMemberStatus.ACTIVE)
+                                .joinedAt(LocalDateTime.now())
+                                .build();
 
                 guildMemberRepository.save(newMember);
 
@@ -125,19 +131,22 @@ public class GuildMemberService {
 
             // 바로 가입된 경우 APPROVED 상태의 응답 반환 (멤버 정보 포함)
             int updatedMemberCount = (int) guildMemberRepository.countActiveMembers(guildId);
-            return GuildJoinRequestResponse.forImmediateJoin(guildId, guild.getName(), userId, updatedMemberCount);
+            return GuildJoinRequestResponse.forImmediateJoin(
+                    guildId, guild.getName(), userId, updatedMemberCount);
         }
 
         // APPROVAL_REQUIRED 길드는 가입 신청 처리
-        if (joinRequestRepository.existsByGuildIdAndRequesterIdAndStatus(guildId, userId, JoinRequestStatus.PENDING)) {
+        if (joinRequestRepository.existsByGuildIdAndRequesterIdAndStatus(
+                guildId, userId, JoinRequestStatus.PENDING)) {
             throw new IllegalStateException("이미 가입 신청이 진행 중입니다.");
         }
 
-        GuildJoinRequest joinRequest = GuildJoinRequest.builder()
-            .guild(guild)
-            .requesterId(userId)
-            .message(request != null ? request.getMessage() : null)
-            .build();
+        GuildJoinRequest joinRequest =
+                GuildJoinRequest.builder()
+                        .guild(guild)
+                        .requesterId(userId)
+                        .message(request != null ? request.getMessage() : null)
+                        .build();
 
         GuildJoinRequest savedRequest = joinRequestRepository.save(joinRequest);
         log.info("길드 가입 신청 (APPROVAL_REQUIRED): guildId={}, requesterId={}", guildId, userId);
@@ -147,37 +156,45 @@ public class GuildMemberService {
         if (!officerIds.isEmpty()) {
             String requesterNickname = userQueryFacadeService.getUserNickname(userId);
             eventPublisher.publishEvent(
-                new GuildJoinRequestedEvent(
-                    userId,
-                    requesterNickname,
-                    guildId,
-                    guild.getName(),
-                    savedRequest.getId(),
-                    officerIds));
+                    new GuildJoinRequestedEvent(
+                            userId,
+                            requesterNickname,
+                            guildId,
+                            guild.getName(),
+                            savedRequest.getId(),
+                            officerIds));
         }
 
         return GuildJoinRequestResponse.from(savedRequest);
     }
 
-    public Page<GuildJoinRequestResponse> getPendingJoinRequests(Long guildId, String userId, Pageable pageable) {
+    public Page<GuildJoinRequestResponse> getPendingJoinRequests(
+            Long guildId, String userId, Pageable pageable) {
         guildHelper.findActiveGuildById(guildId);
         validateMasterOrSubMaster(guildId, userId);
 
-        return joinRequestRepository.findPendingRequests(guildId, pageable)
-            .map(request -> {
-                GuildJoinRequestResponse response = GuildJoinRequestResponse.from(request);
-                UserProfileInfo profile = userQueryFacadeService.getUserProfile(request.getRequesterId());
-                if (profile != null) {
-                    response.withRequesterProfile(profile.nickname(), profile.picture());
-                }
-                return response;
-            });
+        return joinRequestRepository
+                .findPendingRequests(guildId, pageable)
+                .map(
+                        request -> {
+                            GuildJoinRequestResponse response =
+                                    GuildJoinRequestResponse.from(request);
+                            UserProfileInfo profile =
+                                    userQueryFacadeService.getUserProfile(request.getRequesterId());
+                            if (profile != null) {
+                                response.withRequesterProfile(
+                                        profile.nickname(), profile.picture());
+                            }
+                            return response;
+                        });
     }
 
     @Transactional(transactionManager = "guildTransactionManager")
     public GuildMemberResponse approveJoinRequest(Long requestId, String operatorId) {
-        GuildJoinRequest request = joinRequestRepository.findById(requestId)
-            .orElseThrow(() -> new IllegalArgumentException("가입 신청을 찾을 수 없습니다."));
+        GuildJoinRequest request =
+                joinRequestRepository
+                        .findById(requestId)
+                        .orElseThrow(() -> new IllegalArgumentException("가입 신청을 찾을 수 없습니다."));
 
         if (!request.isPending()) {
             throw new IllegalStateException("이미 처리된 가입 신청입니다.");
@@ -194,7 +211,9 @@ public class GuildMemberService {
         request.approve(operatorId);
 
         // 이전에 탈퇴/추방된 멤버인지 확인하여 재가입 처리
-        Optional<GuildMember> existingMember = guildMemberRepository.findByGuildIdAndUserId(guild.getId(), request.getRequesterId());
+        Optional<GuildMember> existingMember =
+                guildMemberRepository.findByGuildIdAndUserId(
+                        guild.getId(), request.getRequesterId());
         GuildMember savedMember;
 
         if (existingMember.isPresent() && existingMember.get().hasLeft()) {
@@ -205,13 +224,14 @@ public class GuildMemberService {
             log.info("길드 재가입 승인: guildId={}, userId={}", guild.getId(), request.getRequesterId());
         } else {
             // 신규 가입
-            GuildMember newMember = GuildMember.builder()
-                .guild(guild)
-                .userId(request.getRequesterId())
-                .role(GuildMemberRole.MEMBER)
-                .status(GuildMemberStatus.ACTIVE)
-                .joinedAt(LocalDateTime.now())
-                .build();
+            GuildMember newMember =
+                    GuildMember.builder()
+                            .guild(guild)
+                            .userId(request.getRequesterId())
+                            .role(GuildMemberRole.MEMBER)
+                            .status(GuildMemberStatus.ACTIVE)
+                            .joinedAt(LocalDateTime.now())
+                            .build();
 
             savedMember = guildMemberRepository.save(newMember);
             log.info("길드 가입 승인: guildId={}, userId={}", guild.getId(), request.getRequesterId());
@@ -222,19 +242,24 @@ public class GuildMemberService {
 
         // 채팅방에 가입 알림 메시지 전송
         String memberNickname = userQueryFacadeService.getUserNickname(request.getRequesterId());
-        eventPublisher.publishEvent(new GuildMemberJoinedChatNotifyEvent(guild.getId(), memberNickname));
+        eventPublisher.publishEvent(
+                new GuildMemberJoinedChatNotifyEvent(guild.getId(), memberNickname));
 
         // 신청자에게 승인 알림 발송 (LUT-300)
         eventPublisher.publishEvent(
-            new GuildJoinApprovedEvent(request.getRequesterId(), guild.getId(), guild.getName()));
+                new GuildJoinApprovedEvent(
+                        request.getRequesterId(), guild.getId(), guild.getName()));
 
         return GuildMemberResponse.from(savedMember);
     }
 
     @Transactional(transactionManager = "guildTransactionManager")
-    public GuildJoinRequestResponse rejectJoinRequest(Long requestId, String operatorId, String reason) {
-        GuildJoinRequest request = joinRequestRepository.findById(requestId)
-            .orElseThrow(() -> new IllegalArgumentException("가입 신청을 찾을 수 없습니다."));
+    public GuildJoinRequestResponse rejectJoinRequest(
+            Long requestId, String operatorId, String reason) {
+        GuildJoinRequest request =
+                joinRequestRepository
+                        .findById(requestId)
+                        .orElseThrow(() -> new IllegalArgumentException("가입 신청을 찾을 수 없습니다."));
 
         if (!request.isPending()) {
             throw new IllegalStateException("이미 처리된 가입 신청입니다.");
@@ -248,7 +273,8 @@ public class GuildMemberService {
 
         // 신청자에게 거절 알림 발송 (LUT-300)
         eventPublisher.publishEvent(
-            new GuildJoinRejectedEvent(request.getRequesterId(), guild.getId(), guild.getName()));
+                new GuildJoinRejectedEvent(
+                        request.getRequesterId(), guild.getId(), guild.getName()));
 
         return GuildJoinRequestResponse.from(request);
     }
@@ -269,7 +295,8 @@ public class GuildMemberService {
         }
 
         // 이전에 탈퇴/추방된 멤버인지 확인하여 재가입 처리
-        Optional<GuildMember> existingMember = guildMemberRepository.findByGuildIdAndUserId(guildId, inviteeId);
+        Optional<GuildMember> existingMember =
+                guildMemberRepository.findByGuildIdAndUserId(guildId, inviteeId);
         GuildMember savedMember;
 
         if (existingMember.isPresent() && existingMember.get().hasLeft()) {
@@ -280,13 +307,14 @@ public class GuildMemberService {
             log.info("길드 재초대 (비공개): guildId={}, inviteeId={}", guildId, inviteeId);
         } else {
             // 신규 초대
-            GuildMember newMember = GuildMember.builder()
-                .guild(guild)
-                .userId(inviteeId)
-                .role(GuildMemberRole.MEMBER)
-                .status(GuildMemberStatus.ACTIVE)
-                .joinedAt(LocalDateTime.now())
-                .build();
+            GuildMember newMember =
+                    GuildMember.builder()
+                            .guild(guild)
+                            .userId(inviteeId)
+                            .role(GuildMemberRole.MEMBER)
+                            .status(GuildMemberStatus.ACTIVE)
+                            .joinedAt(LocalDateTime.now())
+                            .build();
 
             savedMember = guildMemberRepository.save(newMember);
             log.info("길드 초대 (비공개): guildId={}, inviteeId={}", guildId, inviteeId);
@@ -312,8 +340,10 @@ public class GuildMemberService {
             throw new IllegalStateException("길드 마스터는 탈퇴할 수 없습니다. 먼저 마스터를 이전하세요.");
         }
 
-        GuildMember member = guildMemberRepository.findByGuildIdAndUserId(guildId, userId)
-            .orElseThrow(() -> new IllegalArgumentException("길드 멤버가 아닙니다."));
+        GuildMember member =
+                guildMemberRepository
+                        .findByGuildIdAndUserId(guildId, userId)
+                        .orElseThrow(() -> new IllegalArgumentException("길드 멤버가 아닙니다."));
 
         if (!member.isActive()) {
             throw new IllegalStateException("이미 탈퇴한 멤버입니다.");
@@ -336,8 +366,7 @@ public class GuildMemberService {
     /**
      * 회원 탈퇴에 따른 길드 멤버십 일괄 정리 (LUT-287)
      *
-     * <p>일반 멤버는 탈퇴 처리한다. 길드 마스터는 남은 멤버가 있으면 부마스터 → 최고참 순으로
-     * 마스터를 승계한 뒤 탈퇴하고, 남은 멤버가 없으면 길드를 해체한다.
+     * <p>일반 멤버는 탈퇴 처리한다. 길드 마스터는 남은 멤버가 있으면 부마스터 → 최고참 순으로 마스터를 승계한 뒤 탈퇴하고, 남은 멤버가 없으면 길드를 해체한다.
      */
     @Transactional(transactionManager = "guildTransactionManager")
     public void cleanupMembershipsForWithdrawnUser(String userId) {
@@ -355,7 +384,7 @@ public class GuildMemberService {
             } else {
                 member.leave();
                 eventPublisher.publishEvent(
-                    new GuildMemberLeftChatNotifyEvent(guild.getId(), memberNickname));
+                        new GuildMemberLeftChatNotifyEvent(guild.getId(), memberNickname));
                 log.info("회원 탈퇴로 길드 탈퇴 처리: guildId={}, userId={}", guild.getId(), userId);
             }
             // 길드 미션 참여 정리 + DM 대화방 비활성화(chatservice) 트리거
@@ -365,13 +394,19 @@ public class GuildMemberService {
 
     private void handleMasterWithdrawal(
             Guild guild, GuildMember masterMember, String userId, String memberNickname) {
-        List<GuildMember> successors = guildMemberRepository
-            .findByGuildIdAndStatus(guild.getId(), GuildMemberStatus.ACTIVE).stream()
-            .filter(m -> !m.getUserId().equals(userId))
-            .sorted(Comparator
-                .comparing((GuildMember m) -> m.getRole() == GuildMemberRole.SUB_MASTER ? 0 : 1)
-                .thenComparing(GuildMember::getJoinedAt))
-            .toList();
+        List<GuildMember> successors =
+                guildMemberRepository
+                        .findByGuildIdAndStatus(guild.getId(), GuildMemberStatus.ACTIVE)
+                        .stream()
+                        .filter(m -> !m.getUserId().equals(userId))
+                        .sorted(
+                                Comparator.comparing(
+                                                (GuildMember m) ->
+                                                        m.getRole() == GuildMemberRole.SUB_MASTER
+                                                                ? 0
+                                                                : 1)
+                                        .thenComparing(GuildMember::getJoinedAt))
+                        .toList();
 
         if (successors.isEmpty()) {
             // 마지막 1인(마스터)의 회원 탈퇴 → 길드 해체 (dissolveGuild와 동일한 정리)
@@ -387,24 +422,25 @@ public class GuildMemberService {
         guild.transferMaster(successor.getUserId());
         masterMember.leave();
         eventPublisher.publishEvent(
-            new GuildMemberLeftChatNotifyEvent(guild.getId(), memberNickname));
-        log.info("회원 탈퇴로 길드 마스터 승계: guildId={}, {} -> {}",
-            guild.getId(), userId, successor.getUserId());
+                new GuildMemberLeftChatNotifyEvent(guild.getId(), memberNickname));
+        log.info(
+                "회원 탈퇴로 길드 마스터 승계: guildId={}, {} -> {}",
+                guild.getId(),
+                userId,
+                successor.getUserId());
     }
 
-    /**
-     * 부길드마스터 승격
-     * 길드 마스터만 멤버를 부길드마스터로 승격시킬 수 있음
-     */
+    /** 부길드마스터 승격 길드 마스터만 멤버를 부길드마스터로 승격시킬 수 있음 */
     @Transactional(transactionManager = "guildTransactionManager")
-    public GuildMemberResponse promoteToSubMaster(Long guildId, String masterId, String targetUserId) {
+    public GuildMemberResponse promoteToSubMaster(
+            Long guildId, String masterId, String targetUserId) {
         return promoteToSubMaster(guildId, masterId, targetUserId, null);
     }
 
     /** LUT-255: locale에 맞는 장착 칭호명으로 응답 구성 */
     @Transactional(transactionManager = "guildTransactionManager")
     public GuildMemberResponse promoteToSubMaster(
-        Long guildId, String masterId, String targetUserId, String locale) {
+            Long guildId, String masterId, String targetUserId, String locale) {
         Guild guild = guildHelper.findActiveGuildById(guildId);
         guildHelper.validateMaster(guild, masterId);
 
@@ -412,8 +448,10 @@ public class GuildMemberService {
             throw new IllegalStateException("자기 자신을 부길드마스터로 승격할 수 없습니다.");
         }
 
-        GuildMember targetMember = guildMemberRepository.findByGuildIdAndUserId(guildId, targetUserId)
-            .orElseThrow(() -> new IllegalArgumentException("해당 사용자는 길드 멤버가 아닙니다."));
+        GuildMember targetMember =
+                guildMemberRepository
+                        .findByGuildIdAndUserId(guildId, targetUserId)
+                        .orElseThrow(() -> new IllegalArgumentException("해당 사용자는 길드 멤버가 아닙니다."));
 
         if (!targetMember.isActive()) {
             throw new IllegalStateException("활성 상태의 멤버만 승격할 수 있습니다.");
@@ -433,24 +471,24 @@ public class GuildMemberService {
         return buildGuildMemberResponse(targetMember, locale);
     }
 
-    /**
-     * 부길드마스터 강등
-     * 길드 마스터만 부길드마스터를 일반 멤버로 강등시킬 수 있음
-     */
+    /** 부길드마스터 강등 길드 마스터만 부길드마스터를 일반 멤버로 강등시킬 수 있음 */
     @Transactional(transactionManager = "guildTransactionManager")
-    public GuildMemberResponse demoteFromSubMaster(Long guildId, String masterId, String targetUserId) {
+    public GuildMemberResponse demoteFromSubMaster(
+            Long guildId, String masterId, String targetUserId) {
         return demoteFromSubMaster(guildId, masterId, targetUserId, null);
     }
 
     /** LUT-255: locale에 맞는 장착 칭호명으로 응답 구성 */
     @Transactional(transactionManager = "guildTransactionManager")
     public GuildMemberResponse demoteFromSubMaster(
-        Long guildId, String masterId, String targetUserId, String locale) {
+            Long guildId, String masterId, String targetUserId, String locale) {
         Guild guild = guildHelper.findActiveGuildById(guildId);
         guildHelper.validateMaster(guild, masterId);
 
-        GuildMember targetMember = guildMemberRepository.findByGuildIdAndUserId(guildId, targetUserId)
-            .orElseThrow(() -> new IllegalArgumentException("해당 사용자는 길드 멤버가 아닙니다."));
+        GuildMember targetMember =
+                guildMemberRepository
+                        .findByGuildIdAndUserId(guildId, targetUserId)
+                        .orElseThrow(() -> new IllegalArgumentException("해당 사용자는 길드 멤버가 아닙니다."));
 
         if (!targetMember.isSubMaster()) {
             throw new IllegalStateException("부길드마스터만 강등할 수 있습니다.");
@@ -462,11 +500,7 @@ public class GuildMemberService {
         return buildGuildMemberResponse(targetMember, locale);
     }
 
-    /**
-     * 멤버 추방
-     * 길드 마스터 또는 부길드마스터가 멤버를 추방할 수 있음
-     * 단, 부길드마스터는 다른 부길드마스터나 마스터를 추방할 수 없음
-     */
+    /** 멤버 추방 길드 마스터 또는 부길드마스터가 멤버를 추방할 수 있음 단, 부길드마스터는 다른 부길드마스터나 마스터를 추방할 수 없음 */
     @Transactional(transactionManager = "guildTransactionManager")
     public void kickMember(Long guildId, String operatorId, String targetUserId) {
         Guild guild = guildHelper.findActiveGuildById(guildId);
@@ -475,15 +509,19 @@ public class GuildMemberService {
             throw new IllegalStateException("자기 자신을 추방할 수 없습니다.");
         }
 
-        GuildMember operatorMember = guildMemberRepository.findByGuildIdAndUserId(guildId, operatorId)
-            .orElseThrow(() -> new IllegalStateException("길드 멤버가 아닙니다."));
+        GuildMember operatorMember =
+                guildMemberRepository
+                        .findByGuildIdAndUserId(guildId, operatorId)
+                        .orElseThrow(() -> new IllegalStateException("길드 멤버가 아닙니다."));
 
         if (!operatorMember.isMasterOrSubMaster()) {
             throw new IllegalStateException("길드 마스터 또는 부길드마스터만 멤버를 추방할 수 있습니다.");
         }
 
-        GuildMember targetMember = guildMemberRepository.findByGuildIdAndUserId(guildId, targetUserId)
-            .orElseThrow(() -> new IllegalArgumentException("해당 사용자는 길드 멤버가 아닙니다."));
+        GuildMember targetMember =
+                guildMemberRepository
+                        .findByGuildIdAndUserId(guildId, targetUserId)
+                        .orElseThrow(() -> new IllegalArgumentException("해당 사용자는 길드 멤버가 아닙니다."));
 
         if (!targetMember.isActive()) {
             throw new IllegalStateException("이미 탈퇴하거나 추방된 멤버입니다.");
@@ -514,8 +552,10 @@ public class GuildMemberService {
     }
 
     private void validateMasterOrSubMaster(Long guildId, String userId) {
-        GuildMember member = guildMemberRepository.findByGuildIdAndUserId(guildId, userId)
-            .orElseThrow(() -> new IllegalStateException("길드 멤버가 아닙니다."));
+        GuildMember member =
+                guildMemberRepository
+                        .findByGuildIdAndUserId(guildId, userId)
+                        .orElseThrow(() -> new IllegalStateException("길드 멤버가 아닙니다."));
         if (!member.isMasterOrSubMaster()) {
             throw new IllegalStateException("길드 마스터 또는 부길드마스터만 이 작업을 수행할 수 있습니다.");
         }
@@ -535,9 +575,11 @@ public class GuildMemberService {
             try {
                 // LUT-255: 한국어 고정 캐시(getDetailedEquippedTitleInfo) 대신
                 // 다국어 필드가 포함된 장착 칭호 목록으로 locale에 맞게 조합
-                DetailedTitleInfoDto titleInfo = TitleNameUtils.buildDetailedTitleInfo(
-                    gamificationQueryFacadeService.getEquippedTitlesByUserId(member.getUserId()),
-                    locale);
+                DetailedTitleInfoDto titleInfo =
+                        TitleNameUtils.buildDetailedTitleInfo(
+                                gamificationQueryFacadeService.getEquippedTitlesByUserId(
+                                        member.getUserId()),
+                                locale);
                 response.setEquippedTitleName(titleInfo.combinedName());
                 response.setEquippedTitleRarity(titleInfo.highestRarity());
                 response.setLeftTitleName(titleInfo.leftTitle());
@@ -550,9 +592,9 @@ public class GuildMemberService {
             try {
                 // LUT-424: 장착 아이템 희귀도 (썸네일 등급 표식용, 실패 시 빈 배열 유지)
                 response.setEquippedItemRarities(
-                    gamificationQueryFacadeService
-                        .getEquippedItemRaritiesByUserIds(List.of(member.getUserId()))
-                        .getOrDefault(member.getUserId(), List.of()));
+                        gamificationQueryFacadeService
+                                .getEquippedItemRaritiesByUserIds(List.of(member.getUserId()))
+                                .getOrDefault(member.getUserId(), List.of()));
             } catch (Exception e) {
                 log.warn("장착 아이템 희귀도 조회 실패: userId={}", member.getUserId());
             }
@@ -563,9 +605,8 @@ public class GuildMemberService {
     /**
      * LUT-519: 초대 링크 합류 등에서 재사용하는 공통 멤버 추가.
      *
-     * <p>승인/공개 여부를 따지지 않고(초대=승인) 활성 멤버로 추가한다. 이미 활성 멤버면 멱등하게 무시하고,
-     * 탈퇴/강퇴 이력이 있으면 재가입 처리한다. {@code GuildJoinedEvent} 를 발행해 업적·길드 고정 미션 자동
-     * 참여(LUT-518)가 이어지게 한다.
+     * <p>승인/공개 여부를 따지지 않고(초대=승인) 활성 멤버로 추가한다. 이미 활성 멤버면 멱등하게 무시하고, 탈퇴/강퇴 이력이 있으면 재가입 처리한다. {@code
+     * GuildJoinedEvent} 를 발행해 업적·길드 고정 미션 자동 참여(LUT-518)가 이어지게 한다.
      */
     @Transactional(transactionManager = "guildTransactionManager")
     public void addActiveMember(Guild guild, String userId) {
@@ -579,39 +620,39 @@ public class GuildMemberService {
         }
 
         Optional<GuildMember> existingMember =
-            guildMemberRepository.findByGuildIdAndUserId(guild.getId(), userId);
+                guildMemberRepository.findByGuildIdAndUserId(guild.getId(), userId);
         if (existingMember.isPresent() && existingMember.get().hasLeft()) {
             existingMember.get().rejoin();
         } else {
             GuildMember newMember =
-                GuildMember.builder()
-                    .guild(guild)
-                    .userId(userId)
-                    .role(GuildMemberRole.MEMBER)
-                    .status(GuildMemberStatus.ACTIVE)
-                    .joinedAt(LocalDateTime.now())
-                    .build();
+                    GuildMember.builder()
+                            .guild(guild)
+                            .userId(userId)
+                            .role(GuildMemberRole.MEMBER)
+                            .status(GuildMemberStatus.ACTIVE)
+                            .joinedAt(LocalDateTime.now())
+                            .build();
             guildMemberRepository.save(newMember);
         }
 
         // 업적/고정 미션(LUT-518) 이벤트 + 채팅방 가입 알림
         publishGuildAchievementEvents(userId, guild, true, false);
         String memberNickname = userQueryFacadeService.getUserNickname(userId);
-        eventPublisher.publishEvent(new GuildMemberJoinedChatNotifyEvent(guild.getId(), memberNickname));
+        eventPublisher.publishEvent(
+                new GuildMemberJoinedChatNotifyEvent(guild.getId(), memberNickname));
     }
 
-    /**
-     * 길드 업적 관련 이벤트 발행
-     * - 길드 가입 시: GuildJoinedEvent 발행
-     * - 길드 마스터 할당 시: GuildMasterAssignedEvent 발행
-     */
-    private void publishGuildAchievementEvents(String userId, Guild guild, boolean isJoin, boolean isMaster) {
+    /** 길드 업적 관련 이벤트 발행 - 길드 가입 시: GuildJoinedEvent 발행 - 길드 마스터 할당 시: GuildMasterAssignedEvent 발행 */
+    private void publishGuildAchievementEvents(
+            String userId, Guild guild, boolean isJoin, boolean isMaster) {
         if (isJoin) {
-            eventPublisher.publishEvent(new GuildJoinedEvent(userId, guild.getId(), guild.getName()));
+            eventPublisher.publishEvent(
+                    new GuildJoinedEvent(userId, guild.getId(), guild.getName()));
             log.debug("길드 가입 이벤트 발행: userId={}, guildId={}", userId, guild.getId());
         }
         if (isMaster) {
-            eventPublisher.publishEvent(new GuildMasterAssignedEvent(userId, guild.getId(), guild.getName()));
+            eventPublisher.publishEvent(
+                    new GuildMasterAssignedEvent(userId, guild.getId(), guild.getName()));
             log.debug("길드 마스터 할당 이벤트 발행: userId={}, guildId={}", userId, guild.getId());
         }
     }

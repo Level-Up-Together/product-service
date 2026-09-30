@@ -4,10 +4,10 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
+import io.pinkspider.global.test.TestReflectionUtils;
 import io.pinkspider.leveluptogethermvp.userservice.core.application.UserExistsCacheService;
 import io.pinkspider.leveluptogethermvp.userservice.friend.application.FriendCacheService;
 import io.pinkspider.leveluptogethermvp.userservice.friend.application.FriendService;
-import io.pinkspider.global.test.TestReflectionUtils;
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.entity.Users;
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.infrastructure.UserRepository;
 import java.time.LocalDateTime;
@@ -44,8 +44,7 @@ class UserQueryFacadeServiceTest {
                                 new Object[] {"u1", "Asia/Tokyo"},
                                 new Object[] {"u2", null})); // u2 값 null, u3 아예 없음
 
-        Map<String, String> result =
-                facadeService.getPreferredTimezones(List.of("u1", "u2", "u3"));
+        Map<String, String> result = facadeService.getPreferredTimezones(List.of("u1", "u2", "u3"));
 
         assertThat(result)
                 .containsEntry("u1", "Asia/Tokyo")
@@ -101,7 +100,8 @@ class UserQueryFacadeServiceTest {
             Users user = Users.builder().nickname("n").email("e@test.com").build();
             TestReflectionUtils.setId(user, "u1");
             try {
-                java.lang.reflect.Field field = Users.class.getSuperclass().getDeclaredField("createdAt");
+                java.lang.reflect.Field field =
+                        Users.class.getSuperclass().getDeclaredField("createdAt");
                 field.setAccessible(true);
                 field.set(user, createdAt);
             } catch (Exception e) {
@@ -113,7 +113,8 @@ class UserQueryFacadeServiceTest {
         @Test
         @DisplayName("오늘 가입한 유저는 true")
         void createdToday_true() {
-            when(userRepository.findById("u1")).thenReturn(Optional.of(userCreatedAt(LocalDateTime.now())));
+            when(userRepository.findById("u1"))
+                    .thenReturn(Optional.of(userCreatedAt(LocalDateTime.now())));
 
             assertThat(facadeService.isNewUserToday("u1")).isTrue();
         }
@@ -168,7 +169,8 @@ class UserQueryFacadeServiceTest {
             when(userRepository.findIdsByNicknameContaining("rumi", PageRequest.of(0, 200)))
                     .thenReturn(List.of("u1"));
 
-            assertThat(facadeService.findUserIdsByNicknameContaining("  rumi ")).containsExactly("u1");
+            assertThat(facadeService.findUserIdsByNicknameContaining("  rumi "))
+                    .containsExactly("u1");
         }
     }
 }

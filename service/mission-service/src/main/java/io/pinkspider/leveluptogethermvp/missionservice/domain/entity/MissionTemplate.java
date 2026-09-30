@@ -153,9 +153,7 @@ public class MissionTemplate extends LocalDateTimeBaseEntity {
     @Builder.Default
     private String creatorId = "ADMIN";
 
-    /**
-     * Lombok @Getter보다 우선하여 customCategory 폴백 로직 유지
-     */
+    /** Lombok @Getter보다 우선하여 customCategory 폴백 로직 유지 */
     public String getCategoryName() {
         if (categoryName != null) {
             return categoryName;
@@ -168,6 +166,7 @@ public class MissionTemplate extends LocalDateTimeBaseEntity {
     }
 
     public String getLocalizedDescription(String locale) {
-        return LocaleUtils.getLocalizedText(description, descriptionEn, descriptionAr, descriptionJa, locale);
+        return LocaleUtils.getLocalizedText(
+                description, descriptionEn, descriptionAr, descriptionJa, locale);
     }
 }

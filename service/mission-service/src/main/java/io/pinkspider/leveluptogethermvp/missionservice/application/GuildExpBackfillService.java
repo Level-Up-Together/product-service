@@ -14,9 +14,8 @@ import org.springframework.stereotype.Service;
 /**
  * LUT-236: 자동종료된 길드 미션의 누락된 길드 경험치 소급 보정 (일회성, 내부 API 트리거).
  *
- * <p>4시간 초과 자동종료(Saga 우회) 경로가 길드 경험치를 누락해 길드 총 경험치가 미션 누적보다
- * 작아진 문제를 소급한다. saga 완료분(isAutoCompleted=false)은 제외되고, 이미 지급된
- * 건(guildExpGranted=true)도 제외되므로 재실행해도 중복 지급되지 않는다(멱등).
+ * <p>4시간 초과 자동종료(Saga 우회) 경로가 길드 경험치를 누락해 길드 총 경험치가 미션 누적보다 작아진 문제를 소급한다. saga
+ * 완료분(isAutoCompleted=false)은 제외되고, 이미 지급된 건(guildExpGranted=true)도 제외되므로 재실행해도 중복 지급되지 않는다(멱등).
  *
  * <p>지급+마커는 {@link GuildExpBackfillExecutor} 가 건별 트랜잭션으로 커밋한다.
  */
@@ -38,11 +37,13 @@ public class GuildExpBackfillService {
         long lastId = 0L;
         while (true) {
             // 대상 id 만 읽어와 건별 REQUIRES_NEW 로 처리 (리포지토리 호출이 자체 읽기 트랜잭션)
-            List<Long> ids = executionRepository
-                .findAutoCompletedGuildExecutionsNeedingGuildExp(lastId, PageRequest.of(0, BATCH_SIZE))
-                .stream()
-                .map(MissionExecution::getId)
-                .toList();
+            List<Long> ids =
+                    executionRepository
+                            .findAutoCompletedGuildExecutionsNeedingGuildExp(
+                                    lastId, PageRequest.of(0, BATCH_SIZE))
+                            .stream()
+                            .map(MissionExecution::getId)
+                            .toList();
             if (ids.isEmpty()) {
                 break;
             }
@@ -57,8 +58,11 @@ public class GuildExpBackfillService {
                     }
                 } catch (Exception e) {
                     c.failed++;
-                    log.error("길드 경험치 소급 실패 (skip): executionId={}, error={}",
-                        executionId, e.getMessage(), e);
+                    log.error(
+                            "길드 경험치 소급 실패 (skip): executionId={}, error={}",
+                            executionId,
+                            e.getMessage(),
+                            e);
                 }
             }
         }
@@ -66,11 +70,13 @@ public class GuildExpBackfillService {
         // 2) 고정 미션(DailyMissionInstance) 자동종료 누락분 (LUT-236 재수정)
         lastId = 0L;
         while (true) {
-            List<Long> ids = instanceRepository
-                .findAutoCompletedGuildInstancesNeedingGuildExp(lastId, PageRequest.of(0, BATCH_SIZE))
-                .stream()
-                .map(DailyMissionInstance::getId)
-                .toList();
+            List<Long> ids =
+                    instanceRepository
+                            .findAutoCompletedGuildInstancesNeedingGuildExp(
+                                    lastId, PageRequest.of(0, BATCH_SIZE))
+                            .stream()
+                            .map(DailyMissionInstance::getId)
+                            .toList();
             if (ids.isEmpty()) {
                 break;
             }
@@ -85,14 +91,21 @@ public class GuildExpBackfillService {
                     }
                 } catch (Exception e) {
                     c.failed++;
-                    log.error("길드 경험치 소급 실패 (skip): instanceId={}, error={}",
-                        instanceId, e.getMessage(), e);
+                    log.error(
+                            "길드 경험치 소급 실패 (skip): instanceId={}, error={}",
+                            instanceId,
+                            e.getMessage(),
+                            e);
                 }
             }
         }
 
-        log.info("자동종료 길드 경험치 소급 완료: scanned={}, granted={}, totalExp={}, failed={}",
-            c.scanned, c.granted, c.totalExp, c.failed);
+        log.info(
+                "자동종료 길드 경험치 소급 완료: scanned={}, granted={}, totalExp={}, failed={}",
+                c.scanned,
+                c.granted,
+                c.totalExp,
+                c.failed);
         return new GuildExpBackfillResultResponse(c.scanned, c.granted, c.totalExp, c.failed);
     }
 

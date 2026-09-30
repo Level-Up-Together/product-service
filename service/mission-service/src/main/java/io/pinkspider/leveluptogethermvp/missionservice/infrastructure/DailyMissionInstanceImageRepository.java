@@ -10,15 +10,19 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 @Repository
-public interface DailyMissionInstanceImageRepository extends JpaRepository<DailyMissionInstanceImage, Long> {
+public interface DailyMissionInstanceImageRepository
+        extends JpaRepository<DailyMissionInstanceImage, Long> {
 
     List<DailyMissionInstanceImage> findByInstanceIdOrderBySortOrderAsc(Long instanceId);
 
-    @Query("SELECT dmi FROM DailyMissionInstanceImage dmi " +
-           "WHERE dmi.instance.id IN :instanceIds ORDER BY dmi.instance.id, dmi.sortOrder ASC")
-    List<DailyMissionInstanceImage> findByInstanceIdInOrderBySortOrder(@Param("instanceIds") List<Long> instanceIds);
+    @Query(
+            "SELECT dmi FROM DailyMissionInstanceImage dmi WHERE dmi.instance.id IN :instanceIds"
+                    + " ORDER BY dmi.instance.id, dmi.sortOrder ASC")
+    List<DailyMissionInstanceImage> findByInstanceIdInOrderBySortOrder(
+            @Param("instanceIds") List<Long> instanceIds);
 
-    Optional<DailyMissionInstanceImage> findByInstanceIdAndImageUrl(Long instanceId, String imageUrl);
+    Optional<DailyMissionInstanceImage> findByInstanceIdAndImageUrl(
+            Long instanceId, String imageUrl);
 
     int countByInstanceId(Long instanceId);
 

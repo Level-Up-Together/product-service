@@ -35,13 +35,16 @@ class DeviceTypeResolverTest {
     @DisplayName("값이 없으면 User-Agent 로 ios/ipad/android/web 를 판정한다")
     void derivesFromUserAgent() {
         assertThat(resolver.resolve(requestWithUserAgent("Mozilla/5.0 (iPad; CPU OS 17_0)"), null))
-            .isEqualTo("ipad");
-        assertThat(resolver.resolve(requestWithUserAgent("Mozilla/5.0 (iPhone; CPU iPhone OS 17_0)"), null))
-            .isEqualTo("ios");
+                .isEqualTo("ipad");
+        assertThat(
+                        resolver.resolve(
+                                requestWithUserAgent("Mozilla/5.0 (iPhone; CPU iPhone OS 17_0)"),
+                                null))
+                .isEqualTo("ios");
         assertThat(resolver.resolve(requestWithUserAgent("Mozilla/5.0 (Linux; Android 14)"), null))
-            .isEqualTo("android");
+                .isEqualTo("android");
         assertThat(resolver.resolve(requestWithUserAgent("Mozilla/5.0 (Macintosh)"), null))
-            .isEqualTo("web");
+                .isEqualTo("web");
         assertThat(resolver.resolve(requestWithUserAgent(null), null)).isEqualTo("web");
     }
 
@@ -50,9 +53,11 @@ class DeviceTypeResolverTest {
     void legacyMobileFallsBackToUserAgent() {
         // 예전 모바일 로그인 기본값. ios/android 를 특정하지 못해 재발급 값과 어긋났다
         assertThat(resolver.normalize("mobile")).isNull();
-        assertThat(resolver.resolve(
-            requestWithUserAgent("Mozilla/5.0 (iPhone; CPU iPhone OS 17_0)"), "mobile"))
-            .isEqualTo("ios");
+        assertThat(
+                        resolver.resolve(
+                                requestWithUserAgent("Mozilla/5.0 (iPhone; CPU iPhone OS 17_0)"),
+                                "mobile"))
+                .isEqualTo("ios");
     }
 
     @Test

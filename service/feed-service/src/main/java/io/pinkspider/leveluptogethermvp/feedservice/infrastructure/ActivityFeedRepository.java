@@ -24,186 +24,195 @@ public interface ActivityFeedRepository extends JpaRepository<ActivityFeed, Long
     Page<ActivityFeed> findPublicFeeds(Pageable pageable);
 
     /**
-     * QA-168: 사용자가 볼 수 있는 모든 피드 조회 (홈 '전체' 탭)
-     * - PUBLIC 피드
-     * - 본인이 작성한 피드 (PRIVATE 제외)
-     * - 친구가 작성한 FRIENDS 공개 피드
-     * - 같은 길드원이 작성한 GUILD 공개 피드
-     * 비로그인은 userId=null, friendIds/guildIds=빈 리스트 → PUBLIC만 반환됨
+     * QA-168: 사용자가 볼 수 있는 모든 피드 조회 (홈 '전체' 탭) - PUBLIC 피드 - 본인이 작성한 피드 (PRIVATE 제외) - 친구가 작성한
+     * FRIENDS 공개 피드 - 같은 길드원이 작성한 GUILD 공개 피드 비로그인은 userId=null, friendIds/guildIds=빈 리스트 → PUBLIC만
+     * 반환됨
      */
-    @Query("SELECT f FROM ActivityFeed f WHERE ("
-        + "f.visibility = 'PUBLIC' "
-        + "OR (:userId IS NOT NULL AND f.userId = :userId AND f.visibility <> 'PRIVATE') "
-        + "OR (f.userId IN :friendIds AND f.visibility = 'FRIENDS') "
-        + "OR (f.guildId IN :guildIds AND f.visibility = 'GUILD')) "
-        + "AND f.userId NOT IN :excludedUserIds "
-        + "ORDER BY f.createdAt DESC")
+    @Query(
+            "SELECT f FROM ActivityFeed f WHERE (f.visibility = 'PUBLIC' OR (:userId IS NOT NULL"
+                    + " AND f.userId = :userId AND f.visibility <> 'PRIVATE') OR (f.userId IN"
+                    + " :friendIds AND f.visibility = 'FRIENDS') OR (f.guildId IN :guildIds AND"
+                    + " f.visibility = 'GUILD')) AND f.userId NOT IN :excludedUserIds ORDER BY"
+                    + " f.createdAt DESC")
     Page<ActivityFeed> findAccessibleFeeds(
-        @Param("userId") String userId,
-        @Param("friendIds") List<String> friendIds,
-        @Param("guildIds") List<Long> guildIds,
-        @Param("excludedUserIds") List<String> excludedUserIds,
-        Pageable pageable);
+            @Param("userId") String userId,
+            @Param("friendIds") List<String> friendIds,
+            @Param("guildIds") List<Long> guildIds,
+            @Param("excludedUserIds") List<String> excludedUserIds,
+            Pageable pageable);
 
     // 전체 공개 피드 조회 (시간 범위 필터)
-    @Query("SELECT f FROM ActivityFeed f WHERE f.visibility = 'PUBLIC' " +
-           "AND f.createdAt >= :startTime AND f.createdAt < :endTime " +
-           "ORDER BY f.createdAt DESC")
+    @Query(
+            "SELECT f FROM ActivityFeed f WHERE f.visibility = 'PUBLIC' "
+                    + "AND f.createdAt >= :startTime AND f.createdAt < :endTime "
+                    + "ORDER BY f.createdAt DESC")
     Page<ActivityFeed> findPublicFeedsInTimeRange(
-        @Param("startTime") LocalDateTime startTime,
-        @Param("endTime") LocalDateTime endTime,
-        Pageable pageable);
+            @Param("startTime") LocalDateTime startTime,
+            @Param("endTime") LocalDateTime endTime,
+            Pageable pageable);
 
     // 사용자의 피드 조회 (전체 — 마이페이지 내가 쓴 글용)
     @Query("SELECT f FROM ActivityFeed f WHERE f.userId = :userId ORDER BY f.createdAt DESC")
     Page<ActivityFeed> findByUserId(@Param("userId") String userId, Pageable pageable);
 
     // 사용자의 공개 피드 조회 (PRIVATE 제외 — 홈피드 MINE 필터용)
-    @Query("SELECT f FROM ActivityFeed f WHERE f.userId = :userId " +
-           "AND f.visibility != 'PRIVATE' ORDER BY f.createdAt DESC")
+    @Query(
+            "SELECT f FROM ActivityFeed f WHERE f.userId = :userId "
+                    + "AND f.visibility != 'PRIVATE' ORDER BY f.createdAt DESC")
     Page<ActivityFeed> findPublicFeedsByUserId(@Param("userId") String userId, Pageable pageable);
 
     /**
-     * LUT-334: 특정 유저의 피드 중 조회자가 볼 수 있는 것만 조회 (프로필 &gt; 피드 탭).
-     * {@link #findAccessibleFeeds} 의 공개범위 판정을 그대로 쓰되 작성자를 targetUserId 로 한정한다.
-     * 본인 프로필에서는 PRIVATE 도 보인다 (PRIVATE = 작성자 본인만 열람).
-     * 비로그인은 viewerId=null, friendIds/guildIds=빈 리스트 → PUBLIC 만 반환됨.
+     * LUT-334: 특정 유저의 피드 중 조회자가 볼 수 있는 것만 조회 (프로필 &gt; 피드 탭). {@link #findAccessibleFeeds} 의 공개범위
+     * 판정을 그대로 쓰되 작성자를 targetUserId 로 한정한다. 본인 프로필에서는 PRIVATE 도 보인다 (PRIVATE = 작성자 본인만 열람). 비로그인은
+     * viewerId=null, friendIds/guildIds=빈 리스트 → PUBLIC 만 반환됨.
      */
-    @Query("SELECT f FROM ActivityFeed f WHERE f.userId = :targetUserId AND ("
-        + "f.visibility = 'PUBLIC' "
-        + "OR (:viewerId IS NOT NULL AND f.userId = :viewerId) "
-        + "OR (f.userId IN :friendIds AND f.visibility = 'FRIENDS') "
-        + "OR (f.guildId IN :guildIds AND f.visibility = 'GUILD')) "
-        + "ORDER BY f.createdAt DESC")
+    @Query(
+            "SELECT f FROM ActivityFeed f WHERE f.userId = :targetUserId AND ("
+                    + "f.visibility = 'PUBLIC' "
+                    + "OR (:viewerId IS NOT NULL AND f.userId = :viewerId) "
+                    + "OR (f.userId IN :friendIds AND f.visibility = 'FRIENDS') "
+                    + "OR (f.guildId IN :guildIds AND f.visibility = 'GUILD')) "
+                    + "ORDER BY f.createdAt DESC")
     Page<ActivityFeed> findAccessibleFeedsByUserId(
-        @Param("targetUserId") String targetUserId,
-        @Param("viewerId") String viewerId,
-        @Param("friendIds") List<String> friendIds,
-        @Param("guildIds") List<Long> guildIds,
-        Pageable pageable);
+            @Param("targetUserId") String targetUserId,
+            @Param("viewerId") String viewerId,
+            @Param("friendIds") List<String> friendIds,
+            @Param("guildIds") List<Long> guildIds,
+            Pageable pageable);
 
     // 친구 피드 조회 (공개 + 친구공개) — 타임라인용
-    @Query("SELECT f FROM ActivityFeed f WHERE f.userId IN :friendIds " +
-           "AND f.visibility IN ('PUBLIC', 'FRIENDS') ORDER BY f.createdAt DESC")
-    Page<ActivityFeed> findFriendsFeeds(@Param("friendIds") List<String> friendIds, Pageable pageable);
+    @Query(
+            "SELECT f FROM ActivityFeed f WHERE f.userId IN :friendIds "
+                    + "AND f.visibility IN ('PUBLIC', 'FRIENDS') ORDER BY f.createdAt DESC")
+    Page<ActivityFeed> findFriendsFeeds(
+            @Param("friendIds") List<String> friendIds, Pageable pageable);
 
     // 친구공개 피드만 조회 — FRIENDS 필터 탭용
-    @Query("SELECT f FROM ActivityFeed f WHERE f.userId IN :friendIds " +
-           "AND f.visibility = 'FRIENDS' ORDER BY f.createdAt DESC")
-    Page<ActivityFeed> findFriendsOnlyFeeds(@Param("friendIds") List<String> friendIds, Pageable pageable);
+    @Query(
+            "SELECT f FROM ActivityFeed f WHERE f.userId IN :friendIds "
+                    + "AND f.visibility = 'FRIENDS' ORDER BY f.createdAt DESC")
+    Page<ActivityFeed> findFriendsOnlyFeeds(
+            @Param("friendIds") List<String> friendIds, Pageable pageable);
 
     // 길드 피드 조회 (멤버용: PUBLIC + GUILD)
-    @Query("SELECT f FROM ActivityFeed f WHERE f.guildId = :guildId " +
-           "AND f.visibility IN ('PUBLIC', 'GUILD') " +
-           "AND f.userId NOT IN :excludedUserIds ORDER BY f.createdAt DESC")
+    @Query(
+            "SELECT f FROM ActivityFeed f WHERE f.guildId = :guildId "
+                    + "AND f.visibility IN ('PUBLIC', 'GUILD') "
+                    + "AND f.userId NOT IN :excludedUserIds ORDER BY f.createdAt DESC")
     Page<ActivityFeed> findGuildFeeds(
-        @Param("guildId") Long guildId,
-        @Param("excludedUserIds") List<String> excludedUserIds,
-        Pageable pageable);
+            @Param("guildId") Long guildId,
+            @Param("excludedUserIds") List<String> excludedUserIds,
+            Pageable pageable);
 
     // 길드 피드 조회 (비멤버용: PUBLIC만)
-    @Query("SELECT f FROM ActivityFeed f WHERE f.guildId = :guildId " +
-           "AND f.visibility = 'PUBLIC' " +
-           "AND f.userId NOT IN :excludedUserIds ORDER BY f.createdAt DESC")
+    @Query(
+            "SELECT f FROM ActivityFeed f WHERE f.guildId = :guildId "
+                    + "AND f.visibility = 'PUBLIC' "
+                    + "AND f.userId NOT IN :excludedUserIds ORDER BY f.createdAt DESC")
     Page<ActivityFeed> findPublicFeedsByGuildId(
-        @Param("guildId") Long guildId,
-        @Param("excludedUserIds") List<String> excludedUserIds,
-        Pageable pageable);
+            @Param("guildId") Long guildId,
+            @Param("excludedUserIds") List<String> excludedUserIds,
+            Pageable pageable);
 
     // 내 타임라인 피드 조회 (내 피드 + 친구 피드)
-    @Query("SELECT f FROM ActivityFeed f WHERE " +
-           "(f.userId = :userId) OR " +
-           "(f.userId IN :friendIds AND f.visibility IN ('PUBLIC', 'FRIENDS')) " +
-           "ORDER BY f.createdAt DESC")
+    @Query(
+            "SELECT f FROM ActivityFeed f WHERE "
+                    + "(f.userId = :userId) OR "
+                    + "(f.userId IN :friendIds AND f.visibility IN ('PUBLIC', 'FRIENDS')) "
+                    + "ORDER BY f.createdAt DESC")
     Page<ActivityFeed> findTimelineFeeds(
-        @Param("userId") String userId,
-        @Param("friendIds") List<String> friendIds,
-        Pageable pageable);
+            @Param("userId") String userId,
+            @Param("friendIds") List<String> friendIds,
+            Pageable pageable);
 
     // 유저가 속한 길드들의 피드 조회 (공개 + 길드공개) — 길드 상세 등
-    @Query("SELECT f FROM ActivityFeed f WHERE f.guildId IN :guildIds " +
-           "AND f.visibility IN ('PUBLIC', 'GUILD') ORDER BY f.createdAt DESC")
+    @Query(
+            "SELECT f FROM ActivityFeed f WHERE f.guildId IN :guildIds "
+                    + "AND f.visibility IN ('PUBLIC', 'GUILD') ORDER BY f.createdAt DESC")
     Page<ActivityFeed> findGuildFeedsByGuildIds(
-        @Param("guildIds") List<Long> guildIds, Pageable pageable);
+            @Param("guildIds") List<Long> guildIds, Pageable pageable);
 
     // 길드공개 피드만 조회 — GUILD 필터 탭용
-    @Query("SELECT f FROM ActivityFeed f WHERE f.guildId IN :guildIds " +
-           "AND f.visibility = 'GUILD' " +
-           "AND f.userId NOT IN :excludedUserIds ORDER BY f.createdAt DESC")
+    @Query(
+            "SELECT f FROM ActivityFeed f WHERE f.guildId IN :guildIds "
+                    + "AND f.visibility = 'GUILD' "
+                    + "AND f.userId NOT IN :excludedUserIds ORDER BY f.createdAt DESC")
     Page<ActivityFeed> findGuildOnlyFeedsByGuildIds(
-        @Param("guildIds") List<Long> guildIds,
-        @Param("excludedUserIds") List<String> excludedUserIds,
-        Pageable pageable);
+            @Param("guildIds") List<Long> guildIds,
+            @Param("excludedUserIds") List<String> excludedUserIds,
+            Pageable pageable);
 
     // 특정 타입 피드 조회
     Page<ActivityFeed> findByActivityTypeAndVisibilityOrderByCreatedAtDesc(
-        ActivityType activityType, FeedVisibility visibility, Pageable pageable);
+            ActivityType activityType, FeedVisibility visibility, Pageable pageable);
 
     // 카테고리별 피드 조회
-    @Query("SELECT f FROM ActivityFeed f WHERE f.activityType IN :types " +
-           "AND f.visibility = 'PUBLIC' " +
-           "AND f.userId NOT IN :excludedUserIds ORDER BY f.createdAt DESC")
+    @Query(
+            "SELECT f FROM ActivityFeed f WHERE f.activityType IN :types "
+                    + "AND f.visibility = 'PUBLIC' "
+                    + "AND f.userId NOT IN :excludedUserIds ORDER BY f.createdAt DESC")
     Page<ActivityFeed> findByCategoryTypes(
-        @Param("types") List<ActivityType> types,
-        @Param("excludedUserIds") List<String> excludedUserIds,
-        Pageable pageable);
+            @Param("types") List<ActivityType> types,
+            @Param("excludedUserIds") List<String> excludedUserIds,
+            Pageable pageable);
 
     // 검색 기능 - 제목(미션명) 기준 검색 (전체 카테고리)
-    @Query("SELECT f FROM ActivityFeed f WHERE f.visibility = 'PUBLIC' " +
-           "AND LOWER(f.title) LIKE LOWER(CONCAT('%', :keyword, '%')) " +
-           "AND f.userId NOT IN :excludedUserIds " +
-           "ORDER BY f.createdAt DESC")
+    @Query(
+            "SELECT f FROM ActivityFeed f WHERE f.visibility = 'PUBLIC' "
+                    + "AND LOWER(f.title) LIKE LOWER(CONCAT('%', :keyword, '%')) "
+                    + "AND f.userId NOT IN :excludedUserIds "
+                    + "ORDER BY f.createdAt DESC")
     Page<ActivityFeed> searchByKeyword(
-        @Param("keyword") String keyword,
-        @Param("excludedUserIds") List<String> excludedUserIds,
-        Pageable pageable);
+            @Param("keyword") String keyword,
+            @Param("excludedUserIds") List<String> excludedUserIds,
+            Pageable pageable);
 
     // 검색 기능 - 제목(미션명) 기준 검색 (카테고리 내 검색)
-    @Query("SELECT f FROM ActivityFeed f WHERE f.visibility = 'PUBLIC' " +
-           "AND f.activityType IN :types " +
-           "AND LOWER(f.title) LIKE LOWER(CONCAT('%', :keyword, '%')) " +
-           "AND f.userId NOT IN :excludedUserIds " +
-           "ORDER BY f.createdAt DESC")
+    @Query(
+            "SELECT f FROM ActivityFeed f WHERE f.visibility = 'PUBLIC' "
+                    + "AND f.activityType IN :types "
+                    + "AND LOWER(f.title) LIKE LOWER(CONCAT('%', :keyword, '%')) "
+                    + "AND f.userId NOT IN :excludedUserIds "
+                    + "ORDER BY f.createdAt DESC")
     Page<ActivityFeed> searchByKeywordAndCategory(
-        @Param("keyword") String keyword,
-        @Param("types") List<ActivityType> types,
-        @Param("excludedUserIds") List<String> excludedUserIds,
-        Pageable pageable);
+            @Param("keyword") String keyword,
+            @Param("types") List<ActivityType> types,
+            @Param("excludedUserIds") List<String> excludedUserIds,
+            Pageable pageable);
 
     // 카테고리별 공개 피드 조회 (미션 카테고리 기준)
-    @Query("SELECT f FROM ActivityFeed f WHERE f.visibility = 'PUBLIC' " +
-           "AND f.categoryId = :categoryId ORDER BY f.createdAt DESC")
+    @Query(
+            "SELECT f FROM ActivityFeed f WHERE f.visibility = 'PUBLIC' "
+                    + "AND f.categoryId = :categoryId ORDER BY f.createdAt DESC")
     Page<ActivityFeed> findPublicFeedsByCategoryId(
-        @Param("categoryId") Long categoryId, Pageable pageable);
+            @Param("categoryId") Long categoryId, Pageable pageable);
 
-    /**
-     * QA-168: 카테고리별로 사용자가 볼 수 있는 모든 피드 조회.
-     * findAccessibleFeeds의 카테고리 필터 버전.
-     */
-    @Query("SELECT f FROM ActivityFeed f WHERE f.categoryId = :categoryId AND ("
-        + "f.visibility = 'PUBLIC' "
-        + "OR (:userId IS NOT NULL AND f.userId = :userId AND f.visibility <> 'PRIVATE') "
-        + "OR (f.userId IN :friendIds AND f.visibility = 'FRIENDS') "
-        + "OR (f.guildId IN :guildIds AND f.visibility = 'GUILD')"
-        + ") AND f.userId NOT IN :excludedUserIds ORDER BY f.createdAt DESC")
+    /** QA-168: 카테고리별로 사용자가 볼 수 있는 모든 피드 조회. findAccessibleFeeds의 카테고리 필터 버전. */
+    @Query(
+            "SELECT f FROM ActivityFeed f WHERE f.categoryId = :categoryId AND (f.visibility ="
+                    + " 'PUBLIC' OR (:userId IS NOT NULL AND f.userId = :userId AND f.visibility <>"
+                    + " 'PRIVATE') OR (f.userId IN :friendIds AND f.visibility = 'FRIENDS') OR"
+                    + " (f.guildId IN :guildIds AND f.visibility = 'GUILD')) AND f.userId NOT IN"
+                    + " :excludedUserIds ORDER BY f.createdAt DESC")
     Page<ActivityFeed> findAccessibleFeedsByCategoryId(
-        @Param("categoryId") Long categoryId,
-        @Param("userId") String userId,
-        @Param("friendIds") List<String> friendIds,
-        @Param("guildIds") List<Long> guildIds,
-        @Param("excludedUserIds") List<String> excludedUserIds,
-        Pageable pageable);
+            @Param("categoryId") Long categoryId,
+            @Param("userId") String userId,
+            @Param("friendIds") List<String> friendIds,
+            @Param("guildIds") List<Long> guildIds,
+            @Param("excludedUserIds") List<String> excludedUserIds,
+            Pageable pageable);
 
     // 카테고리별 공개 피드 조회 (시간 범위 필터)
-    @Query("SELECT f FROM ActivityFeed f WHERE f.visibility = 'PUBLIC' " +
-           "AND f.categoryId = :categoryId " +
-           "AND f.createdAt >= :startTime AND f.createdAt < :endTime " +
-           "ORDER BY f.createdAt DESC")
+    @Query(
+            "SELECT f FROM ActivityFeed f WHERE f.visibility = 'PUBLIC' "
+                    + "AND f.categoryId = :categoryId "
+                    + "AND f.createdAt >= :startTime AND f.createdAt < :endTime "
+                    + "ORDER BY f.createdAt DESC")
     Page<ActivityFeed> findPublicFeedsByCategoryIdInTimeRange(
-        @Param("categoryId") Long categoryId,
-        @Param("startTime") LocalDateTime startTime,
-        @Param("endTime") LocalDateTime endTime,
-        Pageable pageable);
+            @Param("categoryId") Long categoryId,
+            @Param("startTime") LocalDateTime startTime,
+            @Param("endTime") LocalDateTime endTime,
+            Pageable pageable);
 
     // ID 목록으로 피드 조회 (Featured Feed 조회용)
     @Query("SELECT f FROM ActivityFeed f WHERE f.id IN :feedIds ORDER BY f.createdAt DESC")
@@ -212,27 +221,30 @@ public interface ActivityFeedRepository extends JpaRepository<ActivityFeed, Long
     // 사용자의 모든 피드의 칭호 정보 업데이트 (조합 + 좌/우 개별)
     @Modifying
     @Transactional(transactionManager = "feedTransactionManager")
-    @Query("UPDATE ActivityFeed f SET f.userTitle = :userTitle, f.userTitleRarity = :userTitleRarity, f.userTitleColorCode = :userTitleColorCode, " +
-           "f.userLeftTitle = :userLeftTitle, f.userLeftTitleRarity = :userLeftTitleRarity, " +
-           "f.userRightTitle = :userRightTitle, f.userRightTitleRarity = :userRightTitleRarity " +
-           "WHERE f.userId = :userId")
+    @Query(
+            "UPDATE ActivityFeed f SET f.userTitle = :userTitle, f.userTitleRarity ="
+                + " :userTitleRarity, f.userTitleColorCode = :userTitleColorCode, f.userLeftTitle ="
+                + " :userLeftTitle, f.userLeftTitleRarity = :userLeftTitleRarity, f.userRightTitle"
+                + " = :userRightTitle, f.userRightTitleRarity = :userRightTitleRarity WHERE"
+                + " f.userId = :userId")
     int updateUserTitleByUserId(
-        @Param("userId") String userId,
-        @Param("userTitle") String userTitle,
-        @Param("userTitleRarity") TitleRarity userTitleRarity,
-        @Param("userTitleColorCode") String userTitleColorCode,
-        @Param("userLeftTitle") String userLeftTitle,
-        @Param("userLeftTitleRarity") TitleRarity userLeftTitleRarity,
-        @Param("userRightTitle") String userRightTitle,
-        @Param("userRightTitleRarity") TitleRarity userRightTitleRarity);
+            @Param("userId") String userId,
+            @Param("userTitle") String userTitle,
+            @Param("userTitleRarity") TitleRarity userTitleRarity,
+            @Param("userTitleColorCode") String userTitleColorCode,
+            @Param("userLeftTitle") String userLeftTitle,
+            @Param("userLeftTitleRarity") TitleRarity userLeftTitleRarity,
+            @Param("userRightTitle") String userRightTitle,
+            @Param("userRightTitleRarity") TitleRarity userRightTitleRarity);
 
     // referenceId로 피드 삭제 (미션 삭제 시 관련 피드 삭제용)
     @Modifying
     @Transactional(transactionManager = "feedTransactionManager")
-    @Query("DELETE FROM ActivityFeed f WHERE f.referenceId = :referenceId AND f.referenceType = :referenceType")
+    @Query(
+            "DELETE FROM ActivityFeed f WHERE f.referenceId = :referenceId AND f.referenceType ="
+                    + " :referenceType")
     int deleteByReferenceIdAndReferenceType(
-        @Param("referenceId") Long referenceId,
-        @Param("referenceType") String referenceType);
+            @Param("referenceId") Long referenceId, @Param("referenceType") String referenceType);
 
     // missionId로 피드 삭제 (미션 삭제 시 관련 피드 삭제용)
     @Modifying
@@ -245,51 +257,53 @@ public interface ActivityFeedRepository extends JpaRepository<ActivityFeed, Long
     Optional<ActivityFeed> findFirstByExecutionIdOrderByCreatedAtDesc(Long executionId);
 
     /**
-     * LUT-380: execution_id 는 MissionExecution.id 와 DailyMissionInstance.id 라는 서로 다른
-     * 시퀀스를 구분 없이 담고 있어 ID 충돌 시 executionId 단독 조회가 타인의(또는 다른 유형의)
-     * 피드를 집는다. 기록 동기화/삭제는 반드시 userId 로 범위를 좁힌 이 메서드를 사용할 것.
+     * LUT-380: execution_id 는 MissionExecution.id 와 DailyMissionInstance.id 라는 서로 다른 시퀀스를 구분 없이 담고
+     * 있어 ID 충돌 시 executionId 단독 조회가 타인의(또는 다른 유형의) 피드를 집는다. 기록 동기화/삭제는 반드시 userId 로 범위를 좁힌 이 메서드를
+     * 사용할 것.
      */
     Optional<ActivityFeed> findFirstByExecutionIdAndUserIdOrderByCreatedAtDesc(
-        Long executionId, String userId);
+            Long executionId, String userId);
 
     /**
      * QA-152 안전망: 주어진 execution_id 목록 중 실제 ActivityFeed 가 존재하는 것만 추려서 반환.
-     * mission_execution.is_shared_to_feed=true 인데 ActivityFeed 가 누락된 케이스를 응답 단에서
-     * 보정하기 위해 사용. 한 번에 배치 조회하여 N+1 회피.
-     * LUT-381: execution/instance ID 시퀀스 충돌 시 타인의 피드를 집지 않도록 userId 로 좁힌다.
+     * mission_execution.is_shared_to_feed=true 인데 ActivityFeed 가 누락된 케이스를 응답 단에서 보정하기 위해 사용. 한 번에
+     * 배치 조회하여 N+1 회피. LUT-381: execution/instance ID 시퀀스 충돌 시 타인의 피드를 집지 않도록 userId 로 좁힌다.
      */
-    @Query("SELECT DISTINCT f.executionId FROM ActivityFeed f " +
-           "WHERE f.executionId IN :executionIds AND f.userId = :userId")
+    @Query(
+            "SELECT DISTINCT f.executionId FROM ActivityFeed f "
+                    + "WHERE f.executionId IN :executionIds AND f.userId = :userId")
     java.util.List<Long> findExistingExecutionIdsByExecutionIdIn(
-        @Param("executionIds") java.util.Collection<Long> executionIds,
-        @Param("userId") String userId);
+            @Param("executionIds") java.util.Collection<Long> executionIds,
+            @Param("userId") String userId);
 
     // 사용자의 모든 피드의 프로필 스냅샷 업데이트
     // LUT-276: 레벨은 작성 당시 스냅샷을 유지한다 — 닉네임/프로필 사진만 동기화
     @Modifying
     @Transactional(transactionManager = "feedTransactionManager")
-    @Query("UPDATE ActivityFeed f SET f.userNickname = :nickname, f.userProfileImageUrl = :profileImageUrl WHERE f.userId = :userId")
+    @Query(
+            "UPDATE ActivityFeed f SET f.userNickname = :nickname, f.userProfileImageUrl ="
+                    + " :profileImageUrl WHERE f.userId = :userId")
     int updateUserProfileByUserId(
-        @Param("userId") String userId,
-        @Param("nickname") String nickname,
-        @Param("profileImageUrl") String profileImageUrl);
+            @Param("userId") String userId,
+            @Param("nickname") String nickname,
+            @Param("profileImageUrl") String profileImageUrl);
 
     // ===== Admin 내부 API용 쿼리 =====
 
     // Admin 피드 검색 (optional 필터 + 페이징)
-    @Query("SELECT f FROM ActivityFeed f " +
-           "WHERE (:activityType IS NULL OR f.activityType = :activityType) " +
-           "AND (:visibility IS NULL OR f.visibility = :visibility) " +
-           "AND (:userId IS NULL OR f.userId = :userId) " +
-           "AND (:categoryId IS NULL OR f.categoryId = :categoryId) " +
-           "AND (:keyword IS NULL OR f.title LIKE %:keyword% OR f.description LIKE %:keyword% OR f.userNickname LIKE %:keyword%)")
+    @Query(
+            "SELECT f FROM ActivityFeed f WHERE (:activityType IS NULL OR f.activityType ="
+                + " :activityType) AND (:visibility IS NULL OR f.visibility = :visibility) AND"
+                + " (:userId IS NULL OR f.userId = :userId) AND (:categoryId IS NULL OR"
+                + " f.categoryId = :categoryId) AND (:keyword IS NULL OR f.title LIKE %:keyword% OR"
+                + " f.description LIKE %:keyword% OR f.userNickname LIKE %:keyword%)")
     Page<ActivityFeed> searchFeedsForAdmin(
-        @Param("activityType") ActivityType activityType,
-        @Param("visibility") FeedVisibility visibility,
-        @Param("userId") String userId,
-        @Param("categoryId") Long categoryId,
-        @Param("keyword") String keyword,
-        Pageable pageable);
+            @Param("activityType") ActivityType activityType,
+            @Param("visibility") FeedVisibility visibility,
+            @Param("userId") String userId,
+            @Param("categoryId") Long categoryId,
+            @Param("keyword") String keyword,
+            Pageable pageable);
 
     // Admin 통계: 공개 범위별 카운트
     long countByVisibility(FeedVisibility visibility);

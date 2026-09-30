@@ -14,10 +14,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 
-/**
- * BFF (Backend for Frontend) 서비스 - 미션
- * 미션 관련 화면에 필요한 여러 데이터를 한 번에 조회합니다.
- */
+/** BFF (Backend for Frontend) 서비스 - 미션 미션 관련 화면에 필요한 여러 데이터를 한 번에 조회합니다. */
 @Service
 @Slf4j
 public class BffMissionService {
@@ -50,65 +47,89 @@ public class BffMissionService {
         log.info("BFF getTodayMissions called: userId={}", userId);
 
         // 병렬로 모든 데이터 조회
-        CompletableFuture<List<MissionResponse>> myMissionsFuture = CompletableFuture.supplyAsync(() -> {
-            try {
-                return missionService.getMyMissions(userId, locale);
-            } catch (Exception e) {
-                log.error("Failed to fetch my missions", e);
-                return Collections.emptyList();
-            }
-        }, bffExecutor);
+        CompletableFuture<List<MissionResponse>> myMissionsFuture =
+                CompletableFuture.supplyAsync(
+                        () -> {
+                            try {
+                                return missionService.getMyMissions(userId, locale);
+                            } catch (Exception e) {
+                                log.error("Failed to fetch my missions", e);
+                                return Collections.emptyList();
+                            }
+                        },
+                        bffExecutor);
 
-        CompletableFuture<List<MissionExecutionResponse>> todayExecutionsFuture = CompletableFuture.supplyAsync(() -> {
-            try {
-                return missionExecutionQueryService.getTodayExecutions(userId, locale);
-            } catch (Exception e) {
-                log.error("Failed to fetch today executions", e);
-                return Collections.emptyList();
-            }
-        }, bffExecutor);
+        CompletableFuture<List<MissionExecutionResponse>> todayExecutionsFuture =
+                CompletableFuture.supplyAsync(
+                        () -> {
+                            try {
+                                return missionExecutionQueryService.getTodayExecutions(
+                                        userId, locale);
+                            } catch (Exception e) {
+                                log.error("Failed to fetch today executions", e);
+                                return Collections.emptyList();
+                            }
+                        },
+                        bffExecutor);
 
-        CompletableFuture<List<MissionExecutionResponse>> completedPinnedFuture = CompletableFuture.supplyAsync(() -> {
-            try {
-                return missionExecutionQueryService.getCompletedPinnedInstancesForToday(userId, locale);
-            } catch (Exception e) {
-                log.error("Failed to fetch completed pinned instances", e);
-                return Collections.emptyList();
-            }
-        }, bffExecutor);
+        CompletableFuture<List<MissionExecutionResponse>> completedPinnedFuture =
+                CompletableFuture.supplyAsync(
+                        () -> {
+                            try {
+                                return missionExecutionQueryService
+                                        .getCompletedPinnedInstancesForToday(userId, locale);
+                            } catch (Exception e) {
+                                log.error("Failed to fetch completed pinned instances", e);
+                                return Collections.emptyList();
+                            }
+                        },
+                        bffExecutor);
 
         // 모든 결과 취합
-        CompletableFuture.allOf(myMissionsFuture, todayExecutionsFuture, completedPinnedFuture).join();
+        CompletableFuture.allOf(myMissionsFuture, todayExecutionsFuture, completedPinnedFuture)
+                .join();
 
         List<MissionResponse> myMissions = myMissionsFuture.join();
         List<MissionExecutionResponse> todayExecutions = todayExecutionsFuture.join();
         List<MissionExecutionResponse> completedPinnedInstances = completedPinnedFuture.join();
 
         // 통계 계산 (일반 미션 완료 + 고정 미션 완료 횟수)
-        int regularCompletedCount = (int) todayExecutions.stream()
-            .filter(e -> e.getStatus() == ExecutionStatus.COMPLETED)
-            .count();
+        int regularCompletedCount =
+                (int)
+                        todayExecutions.stream()
+                                .filter(e -> e.getStatus() == ExecutionStatus.COMPLETED)
+                                .count();
         int completedCount = regularCompletedCount + completedPinnedInstances.size();
 
-        int inProgressCount = (int) todayExecutions.stream()
-            .filter(e -> e.getStatus() == ExecutionStatus.IN_PROGRESS)
-            .count();
+        int inProgressCount =
+                (int)
+                        todayExecutions.stream()
+                                .filter(e -> e.getStatus() == ExecutionStatus.IN_PROGRESS)
+                                .count();
 
-        int pendingCount = (int) todayExecutions.stream()
-            .filter(e -> e.getStatus() == ExecutionStatus.PENDING)
-            .count();
+        int pendingCount =
+                (int)
+                        todayExecutions.stream()
+                                .filter(e -> e.getStatus() == ExecutionStatus.PENDING)
+                                .count();
 
-        MissionTodayDataResponse response = MissionTodayDataResponse.builder()
-            .myMissions(myMissions)
-            .todayExecutions(todayExecutions)
-            .completedPinnedInstances(completedPinnedInstances)
-            .completedCount(completedCount)
-            .inProgressCount(inProgressCount)
-            .pendingCount(pendingCount)
-            .build();
+        MissionTodayDataResponse response =
+                MissionTodayDataResponse.builder()
+                        .myMissions(myMissions)
+                        .todayExecutions(todayExecutions)
+                        .completedPinnedInstances(completedPinnedInstances)
+                        .completedCount(completedCount)
+                        .inProgressCount(inProgressCount)
+                        .pendingCount(pendingCount)
+                        .build();
 
-        log.info("BFF getTodayMissions completed: userId={}, missionCount={}, executionCount={}, completedPinnedCount={}",
-            userId, myMissions.size(), todayExecutions.size(), completedPinnedInstances.size());
+        log.info(
+                "BFF getTodayMissions completed: userId={}, missionCount={}, executionCount={},"
+                        + " completedPinnedCount={}",
+                userId,
+                myMissions.size(),
+                todayExecutions.size(),
+                completedPinnedInstances.size());
         return response;
     }
 }
