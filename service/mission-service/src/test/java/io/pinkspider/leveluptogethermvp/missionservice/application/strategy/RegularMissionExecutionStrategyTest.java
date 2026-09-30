@@ -7,6 +7,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -358,11 +359,173 @@ class RegularMissionExecutionStrategyTest {
             assertThat(response).isNotNull();
             verify(missionCompletionSaga).execute(execution.getId(), testUserId, note, feedVisibility);
         }
+
+        @Test
+        @DisplayName("Saga 실패(보상 미완료)면 IllegalStateException 을 던진다")
+        void completeExecution_sagaFailed_notCompensated_throws() {
+            // given
+            LocalDate executionDate = LocalDate.now();
+            MissionExecution execution = createCompletedExecution(1L, executionDate, 50, 30);
+            MissionCompletionContext context = new MissionCompletionContext(testUserId);
+            SagaResult<MissionCompletionContext> failure =
+                SagaResult.failure(context, "saga 실패", new RuntimeException("원인"));
+
+            when(participantRepository.findByMissionIdAndUserId(testMission.getId(), testUserId))
+                .thenReturn(Optional.of(testParticipant));
+            when(executionRepository.findByParticipantIdAndExecutionDate(testParticipant.getId(), executionDate))
+                .thenReturn(Optional.of(execution));
+            when(missionCompletionSaga.execute(execution.getId(), testUserId, "n", FeedVisibility.PRIVATE))
+                .thenReturn(failure);
+
+            // when & then
+            assertThatThrownBy(() -> strategy.completeExecution(
+                testMission.getId(), testUserId, executionDate, "n", FeedVisibility.PRIVATE))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("saga 실패");
+            verify(missionCompletionSaga, org.mockito.Mockito.never()).toResponse(any());
+        }
+
+        @Test
+        @DisplayName("Saga 실패 + 보상 완료 상태여도 IllegalStateException 을 던진다")
+        void completeExecution_sagaFailed_compensated_throws() {
+            // given
+            LocalDate executionDate = LocalDate.now();
+            MissionExecution execution = createCompletedExecution(1L, executionDate, 50, 30);
+            MissionCompletionContext context = new MissionCompletionContext(testUserId);
+            context.compensated();
+            SagaResult<MissionCompletionContext> failure = SagaResult.failure(context, "보상됨");
+
+            when(participantRepository.findByMissionIdAndUserId(testMission.getId(), testUserId))
+                .thenReturn(Optional.of(testParticipant));
+            when(executionRepository.findByParticipantIdAndExecutionDate(testParticipant.getId(), executionDate))
+                .thenReturn(Optional.of(execution));
+            when(missionCompletionSaga.execute(execution.getId(), testUserId, null, FeedVisibility.PRIVATE))
+                .thenReturn(failure);
+
+            // when & then
+            assertThatThrownBy(() -> strategy.completeExecution(
+                testMission.getId(), testUserId, executionDate, null, FeedVisibility.PRIVATE))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("보상됨");
+        }
+
+        @Test
+        @DisplayName("해당 날짜 기록이 없으면 자정을 넘긴 IN_PROGRESS 기록으로 완료한다")
+        void completeExecution_fallsBackToInProgressExecution() {
+            // given
+            LocalDate executionDate = LocalDate.now();
+            MissionExecution execution = createCompletedExecution(7L, executionDate.minusDays(1), 50, 30);
+            MissionCompletionContext context = new MissionCompletionContext(testUserId);
+            context.setExecution(execution);
+            SagaResult<MissionCompletionContext> successResult = SagaResult.success(context);
+
+            when(participantRepository.findByMissionIdAndUserId(testMission.getId(), testUserId))
+                .thenReturn(Optional.of(testParticipant));
+            when(executionRepository.findByParticipantIdAndExecutionDate(testParticipant.getId(), executionDate))
+                .thenReturn(Optional.empty());
+            when(executionRepository.findInProgressByUserId(testUserId)).thenReturn(Optional.of(execution));
+            when(missionCompletionSaga.execute(7L, testUserId, null, FeedVisibility.PRIVATE))
+                .thenReturn(successResult);
+            when(missionCompletionSaga.toResponse(successResult))
+                .thenReturn(MissionExecutionResponse.from(execution));
+
+            // when
+            MissionExecutionResponse response = strategy.completeExecution(
+                testMission.getId(), testUserId, executionDate, null, FeedVisibility.PRIVATE);
+
+            // then
+            assertThat(response).isNotNull();
+        }
+
+        @Test
+        @DisplayName("기록이 전혀 없으면 IllegalArgumentException 을 던진다")
+        void completeExecution_noExecution_throws() {
+            // given
+            LocalDate executionDate = LocalDate.now();
+            when(participantRepository.findByMissionIdAndUserId(testMission.getId(), testUserId))
+                .thenReturn(Optional.of(testParticipant));
+            when(executionRepository.findByParticipantIdAndExecutionDate(testParticipant.getId(), executionDate))
+                .thenReturn(Optional.empty());
+            when(executionRepository.findInProgressByUserId(testUserId)).thenReturn(Optional.empty());
+
+            // when & then
+            assertThatThrownBy(() -> strategy.completeExecution(
+                testMission.getId(), testUserId, executionDate, null, FeedVisibility.PRIVATE))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("해당 날짜의 수행 기록을 찾을 수 없습니다");
+        }
     }
 
     @Nested
     @DisplayName("이미지 다중 업로드/삭제 테스트 (QA-53)")
     class ImageManagementTest {
+
+        @Test
+        @DisplayName("이미지 리스트가 null 이면 예외가 발생한다")
+        void uploadExecutionImages_null_throwsException() {
+            assertThatThrownBy(() -> strategy.uploadExecutionImages(
+                testMission.getId(), testUserId, LocalDate.now(), null, null))
+                .isInstanceOf(io.pinkspider.global.exception.CustomException.class)
+                .hasMessageContaining("error.mission.image.empty");
+        }
+
+        @Test
+        @DisplayName("완료되지 않은 미션의 이미지 삭제 시 예외가 발생한다")
+        void deleteExecutionImageByUrl_notCompleted_throwsException() {
+            LocalDate executionDate = LocalDate.now();
+            MissionExecution execution = MissionExecution.builder()
+                .participant(testParticipant)
+                .executionDate(executionDate)
+                .status(ExecutionStatus.IN_PROGRESS)
+                .build();
+            setId(execution, 1L);
+
+            when(participantRepository.findByMissionIdAndUserId(testMission.getId(), testUserId))
+                .thenReturn(Optional.of(testParticipant));
+            when(executionRepository.findByParticipantIdAndExecutionDate(testParticipant.getId(), executionDate))
+                .thenReturn(Optional.of(execution));
+
+            assertThatThrownBy(() -> strategy.deleteExecutionImageByUrl(
+                testMission.getId(), testUserId, executionDate, "https://x.com/a.jpg", null))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("완료된 미션만 이미지를 삭제할 수 있습니다");
+        }
+
+        @Test
+        @DisplayName("이미지 삭제 후 남은 이미지의 sort_order 를 재정렬하고 첫 장을 동기화한다")
+        void deleteExecutionImageByUrl_reordersRemainingAndSyncsFirstImage() {
+            LocalDate executionDate = LocalDate.now();
+            MissionExecution execution = createCompletedExecution(1L, executionDate, 50, 30);
+            String deletedUrl = "https://cdn/b.jpg";
+
+            io.pinkspider.leveluptogethermvp.missionservice.domain.entity.MissionExecutionImage deleted =
+                io.pinkspider.leveluptogethermvp.missionservice.domain.entity.MissionExecutionImage.builder()
+                    .execution(execution).imageUrl(deletedUrl).sortOrder(1).build();
+            io.pinkspider.leveluptogethermvp.missionservice.domain.entity.MissionExecutionImage first =
+                io.pinkspider.leveluptogethermvp.missionservice.domain.entity.MissionExecutionImage.builder()
+                    .execution(execution).imageUrl("https://cdn/a.jpg").sortOrder(0).build();
+            io.pinkspider.leveluptogethermvp.missionservice.domain.entity.MissionExecutionImage third =
+                io.pinkspider.leveluptogethermvp.missionservice.domain.entity.MissionExecutionImage.builder()
+                    .execution(execution).imageUrl("https://cdn/c.jpg").sortOrder(2).build();
+
+            when(participantRepository.findByMissionIdAndUserId(testMission.getId(), testUserId))
+                .thenReturn(Optional.of(testParticipant));
+            when(executionRepository.findByParticipantIdAndExecutionDate(testParticipant.getId(), executionDate))
+                .thenReturn(Optional.of(execution));
+            when(executionImageRepository.findByExecutionIdAndImageUrl(execution.getId(), deletedUrl))
+                .thenReturn(Optional.of(deleted));
+            when(executionImageRepository.findByExecutionIdOrderBySortOrderAsc(execution.getId()))
+                .thenReturn(java.util.List.of(first, third));
+
+            MissionExecutionResponse response = strategy.deleteExecutionImageByUrl(
+                testMission.getId(), testUserId, executionDate, deletedUrl, null);
+
+            // 0 은 그대로, 2 → 1 로 재정렬
+            assertThat(first.getSortOrder()).isEqualTo(0);
+            assertThat(third.getSortOrder()).isEqualTo(1);
+            assertThat(execution.getImageUrl()).isEqualTo("https://cdn/a.jpg");
+            assertThat(response.getImageUrls()).containsExactly("https://cdn/a.jpg", "https://cdn/c.jpg");
+        }
 
         @Test
         @DisplayName("완료된 미션에 다중 이미지를 업로드한다")
@@ -561,6 +724,280 @@ class RegularMissionExecutionStrategyTest {
             // then
             assertThat(response).isNotNull();
             verify(feedCommandService).updateFeedContentByExecutionId(any(), any(), any(), any(), any(), any(), any());
+        }
+
+        @Test
+        @DisplayName("기존 피드가 있고 아직 공유 상태가 아니면 execution 을 공유 상태로 바꾼다")
+        void shareExecutionToFeed_existingFeed_notYetShared_marksShared() {
+            // given
+            LocalDate executionDate = LocalDate.now();
+            MissionExecution execution = createCompletedExecution(1L, executionDate, 50, 30);
+
+            when(participantRepository.findByMissionIdAndUserId(testMission.getId(), testUserId))
+                .thenReturn(Optional.of(testParticipant));
+            when(executionRepository.findByParticipantIdAndExecutionDate(testParticipant.getId(), executionDate))
+                .thenReturn(Optional.of(execution));
+            when(feedCommandService.updateFeedContentByExecutionId(any(), any(), any(), any(), any(), any(), any()))
+                .thenReturn(io.pinkspider.leveluptogethermvp.feedservice.domain.entity.ActivityFeed.builder().build());
+
+            // when
+            strategy.shareExecutionToFeed(testMission.getId(), testUserId, executionDate, null, FeedVisibility.PUBLIC);
+
+            // then
+            assertThat(execution.getIsSharedToFeed()).isTrue();
+            verify(executionRepository).save(execution);
+        }
+
+        @Test
+        @DisplayName("기존 피드가 없으면 프로필을 조회해 새 피드를 생성한다")
+        void shareExecutionToFeed_noExistingFeed_createsNewFeed() {
+            // given
+            LocalDate executionDate = LocalDate.now();
+            MissionExecution execution = createCompletedExecution(1L, executionDate, 50, 30);
+
+            when(participantRepository.findByMissionIdAndUserId(testMission.getId(), testUserId))
+                .thenReturn(Optional.of(testParticipant));
+            when(executionRepository.findByParticipantIdAndExecutionDate(testParticipant.getId(), executionDate))
+                .thenReturn(Optional.of(execution));
+            when(feedCommandService.updateFeedContentByExecutionId(any(), any(), any(), any(), any(), any(), any()))
+                .thenReturn(null);
+            when(userQueryFacadeService.getUserProfile(testUserId)).thenReturn(
+                new io.pinkspider.global.facade.dto.UserProfileInfo(
+                    testUserId, "닉", "pic", 3, "칭호", io.pinkspider.global.enums.TitleRarity.COMMON, "#fff"));
+            when(feedCommandService.createMissionSharedFeed(
+                any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(),
+                any(), any(), any(), any(), any(), any(), any()))
+                .thenReturn(io.pinkspider.leveluptogethermvp.feedservice.domain.entity.ActivityFeed.builder().build());
+
+            // when
+            MissionExecutionResponse response = strategy.shareExecutionToFeed(
+                testMission.getId(), testUserId, executionDate, null, FeedVisibility.PUBLIC);
+
+            // then
+            assertThat(response).isNotNull();
+            assertThat(execution.getIsSharedToFeed()).isTrue();
+            verify(feedCommandService).createMissionSharedFeed(
+                any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(),
+                any(), any(), any(), any(), eq(FeedVisibility.PUBLIC), any(), any());
+            verify(eventPublisher).publishEvent(any(io.pinkspider.global.event.MissionFeedImageChangedEvent.class));
+        }
+
+        @Test
+        @DisplayName("GUILD 공개 + 숫자 guildId 면 길드 ID/이름을 함께 전달한다")
+        void shareExecutionToFeed_guildVisibility_numericGuildId_passesGuildInfo() {
+            // given
+            testMission.setType(MissionType.GUILD);
+            testMission.setGuildId("99");
+            testMission.setGuildName("길드명");
+            LocalDate executionDate = LocalDate.now();
+            MissionExecution execution = createCompletedExecution(1L, executionDate, 50, 30);
+
+            when(participantRepository.findByMissionIdAndUserId(testMission.getId(), testUserId))
+                .thenReturn(Optional.of(testParticipant));
+            when(executionRepository.findByParticipantIdAndExecutionDate(testParticipant.getId(), executionDate))
+                .thenReturn(Optional.of(execution));
+            when(feedCommandService.updateFeedContentByExecutionId(
+                eq(1L), eq(testUserId), any(), any(), eq(FeedVisibility.GUILD), eq(99L), eq("길드명")))
+                .thenReturn(io.pinkspider.leveluptogethermvp.feedservice.domain.entity.ActivityFeed.builder().build());
+
+            // when
+            strategy.shareExecutionToFeed(testMission.getId(), testUserId, executionDate, null, FeedVisibility.GUILD);
+
+            // then
+            verify(feedCommandService).updateFeedContentByExecutionId(
+                eq(1L), eq(testUserId), any(), any(), eq(FeedVisibility.GUILD), eq(99L), eq("길드명"));
+        }
+
+        @Test
+        @DisplayName("GUILD 공개 + 숫자가 아닌 guildId 면 길드 ID 는 null 로 전달한다")
+        void shareExecutionToFeed_guildVisibility_nonNumericGuildId_passesNullGuildId() {
+            // given
+            testMission.setGuildId("abc");
+            LocalDate executionDate = LocalDate.now();
+            MissionExecution execution = createCompletedExecution(1L, executionDate, 50, 30);
+
+            when(participantRepository.findByMissionIdAndUserId(testMission.getId(), testUserId))
+                .thenReturn(Optional.of(testParticipant));
+            when(executionRepository.findByParticipantIdAndExecutionDate(testParticipant.getId(), executionDate))
+                .thenReturn(Optional.of(execution));
+            when(feedCommandService.updateFeedContentByExecutionId(
+                eq(1L), eq(testUserId), any(), any(), eq(FeedVisibility.GUILD), isNull(), any()))
+                .thenReturn(io.pinkspider.leveluptogethermvp.feedservice.domain.entity.ActivityFeed.builder().build());
+
+            // when
+            strategy.shareExecutionToFeed(testMission.getId(), testUserId, executionDate, null, FeedVisibility.GUILD);
+
+            // then
+            verify(feedCommandService).updateFeedContentByExecutionId(
+                eq(1L), eq(testUserId), any(), any(), eq(FeedVisibility.GUILD), isNull(), any());
+        }
+
+        @Test
+        @DisplayName("GUILD 공개 + 공백 guildId 면 길드 ID 는 null 로 전달한다")
+        void shareExecutionToFeed_guildVisibility_blankGuildId_passesNullGuildId() {
+            // given
+            testMission.setGuildId("  ");
+            LocalDate executionDate = LocalDate.now();
+            MissionExecution execution = createCompletedExecution(1L, executionDate, 50, 30);
+
+            when(participantRepository.findByMissionIdAndUserId(testMission.getId(), testUserId))
+                .thenReturn(Optional.of(testParticipant));
+            when(executionRepository.findByParticipantIdAndExecutionDate(testParticipant.getId(), executionDate))
+                .thenReturn(Optional.of(execution));
+            when(feedCommandService.updateFeedContentByExecutionId(
+                eq(1L), eq(testUserId), any(), any(), eq(FeedVisibility.GUILD), isNull(), any()))
+                .thenReturn(io.pinkspider.leveluptogethermvp.feedservice.domain.entity.ActivityFeed.builder().build());
+
+            // when
+            strategy.shareExecutionToFeed(testMission.getId(), testUserId, executionDate, null, FeedVisibility.GUILD);
+
+            // then
+            verify(feedCommandService).updateFeedContentByExecutionId(
+                eq(1L), eq(testUserId), any(), any(), eq(FeedVisibility.GUILD), isNull(), any());
+        }
+
+        @Test
+        @DisplayName("GUILD 공개 + guildId 미설정(null)이면 길드 ID 는 null 로 전달한다")
+        void shareExecutionToFeed_guildVisibility_nullGuildId_passesNullGuildId() {
+            // given
+            LocalDate executionDate = LocalDate.now();
+            MissionExecution execution = createCompletedExecution(1L, executionDate, 50, 30);
+
+            when(participantRepository.findByMissionIdAndUserId(testMission.getId(), testUserId))
+                .thenReturn(Optional.of(testParticipant));
+            when(executionRepository.findByParticipantIdAndExecutionDate(testParticipant.getId(), executionDate))
+                .thenReturn(Optional.of(execution));
+            when(feedCommandService.updateFeedContentByExecutionId(
+                eq(1L), eq(testUserId), any(), any(), eq(FeedVisibility.GUILD), isNull(), isNull()))
+                .thenReturn(io.pinkspider.leveluptogethermvp.feedservice.domain.entity.ActivityFeed.builder().build());
+
+            // when
+            strategy.shareExecutionToFeed(testMission.getId(), testUserId, executionDate, null, FeedVisibility.GUILD);
+
+            // then
+            verify(feedCommandService).updateFeedContentByExecutionId(
+                eq(1L), eq(testUserId), any(), any(), eq(FeedVisibility.GUILD), isNull(), isNull());
+        }
+
+        @Test
+        @DisplayName("피드 서비스 예외 시 IllegalStateException 으로 감싼다")
+        void shareExecutionToFeed_feedServiceThrows_wrapsException() {
+            // given
+            LocalDate executionDate = LocalDate.now();
+            MissionExecution execution = createCompletedExecution(1L, executionDate, 50, 30);
+
+            when(participantRepository.findByMissionIdAndUserId(testMission.getId(), testUserId))
+                .thenReturn(Optional.of(testParticipant));
+            when(executionRepository.findByParticipantIdAndExecutionDate(testParticipant.getId(), executionDate))
+                .thenReturn(Optional.of(execution));
+            when(feedCommandService.updateFeedContentByExecutionId(any(), any(), any(), any(), any(), any(), any()))
+                .thenThrow(new RuntimeException("feed down"));
+
+            // when & then
+            assertThatThrownBy(() -> strategy.shareExecutionToFeed(
+                testMission.getId(), testUserId, executionDate, null, FeedVisibility.PUBLIC))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("피드 공유에 실패했습니다");
+        }
+    }
+
+    @Nested
+    @DisplayName("피드 공유 취소 테스트")
+    class UnshareExecutionFromFeedTest {
+
+        @Test
+        @DisplayName("공유된 미션은 공유를 취소하고 이벤트를 발행한다")
+        void unshareExecutionFromFeed_success() {
+            // given
+            LocalDate executionDate = LocalDate.now();
+            MissionExecution execution = createCompletedExecution(1L, executionDate, 50, 30);
+            TestReflectionUtils.setField(execution, "isSharedToFeed", true);
+
+            when(participantRepository.findByMissionIdAndUserId(testMission.getId(), testUserId))
+                .thenReturn(Optional.of(testParticipant));
+            when(executionRepository.findByParticipantIdAndExecutionDate(testParticipant.getId(), executionDate))
+                .thenReturn(Optional.of(execution));
+
+            // when
+            MissionExecutionResponse response = strategy.unshareExecutionFromFeed(
+                testMission.getId(), testUserId, executionDate, null);
+
+            // then
+            assertThat(response).isNotNull();
+            assertThat(execution.getIsSharedToFeed()).isFalse();
+            verify(executionRepository).save(execution);
+            verify(eventPublisher).publishEvent(any(io.pinkspider.global.event.MissionFeedUnsharedEvent.class));
+        }
+
+        @Test
+        @DisplayName("공유되지 않은 미션의 공유 취소 시 예외가 발생한다")
+        void unshareExecutionFromFeed_notShared_throwsException() {
+            // given
+            LocalDate executionDate = LocalDate.now();
+            MissionExecution execution = createCompletedExecution(1L, executionDate, 50, 30);
+
+            when(participantRepository.findByMissionIdAndUserId(testMission.getId(), testUserId))
+                .thenReturn(Optional.of(testParticipant));
+            when(executionRepository.findByParticipantIdAndExecutionDate(testParticipant.getId(), executionDate))
+                .thenReturn(Optional.of(execution));
+
+            // when & then
+            assertThatThrownBy(() -> strategy.unshareExecutionFromFeed(
+                testMission.getId(), testUserId, executionDate, null))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("공유된 피드가 없습니다");
+        }
+    }
+
+    @Nested
+    @DisplayName("수행 기록(노트) 업데이트 테스트")
+    class UpdateExecutionNoteTest {
+
+        @Test
+        @DisplayName("완료된 미션의 노트를 업데이트하고 이벤트를 발행한다")
+        void updateExecutionNote_success() {
+            // given
+            LocalDate executionDate = LocalDate.now();
+            MissionExecution execution = createCompletedExecution(1L, executionDate, 50, 30);
+
+            when(participantRepository.findByMissionIdAndUserId(testMission.getId(), testUserId))
+                .thenReturn(Optional.of(testParticipant));
+            when(executionRepository.findByParticipantIdAndExecutionDate(testParticipant.getId(), executionDate))
+                .thenReturn(Optional.of(execution));
+
+            // when
+            MissionExecutionResponse response = strategy.updateExecutionNote(
+                testMission.getId(), testUserId, executionDate, "새 기록", null);
+
+            // then
+            assertThat(response).isNotNull();
+            assertThat(execution.getNote()).isEqualTo("새 기록");
+            verify(executionRepository).save(execution);
+            verify(eventPublisher).publishEvent(any(io.pinkspider.global.event.MissionFeedNoteChangedEvent.class));
+        }
+
+        @Test
+        @DisplayName("완료되지 않은 미션의 노트 업데이트 시 예외가 발생한다")
+        void updateExecutionNote_notCompleted_throwsException() {
+            // given
+            LocalDate executionDate = LocalDate.now();
+            MissionExecution execution = MissionExecution.builder()
+                .participant(testParticipant)
+                .executionDate(executionDate)
+                .status(ExecutionStatus.IN_PROGRESS)
+                .build();
+            setId(execution, 1L);
+
+            when(participantRepository.findByMissionIdAndUserId(testMission.getId(), testUserId))
+                .thenReturn(Optional.of(testParticipant));
+            when(executionRepository.findByParticipantIdAndExecutionDate(testParticipant.getId(), executionDate))
+                .thenReturn(Optional.of(execution));
+
+            // when & then
+            assertThatThrownBy(() -> strategy.updateExecutionNote(
+                testMission.getId(), testUserId, executionDate, "새 기록", null))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("완료된 미션만 기록을 추가할 수 있습니다");
         }
     }
 

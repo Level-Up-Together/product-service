@@ -198,6 +198,265 @@ class TranslationServiceTest {
             verify(translationClient)
                     .translate(eq("test-api-key"), any(GoogleTranslationRequest.class));
         }
+
+        @Test
+        @DisplayName("내용이 null이면 번역하지 않음")
+        void shouldNotTranslateNullContent() {
+            TranslationInfo result =
+                    translationService.translateContent(ContentType.FEED, 1L, null, "en");
+
+            assertThat(result.isTranslated()).isFalse();
+            verify(translationClient, never()).translate(anyString(), any());
+        }
+
+        @Test
+        @DisplayName("제목이 있으면 제목과 내용을 모두 번역")
+        void shouldTranslateTitleAndContent() {
+            // given
+            when(redisTemplate.opsForValue()).thenReturn(valueOperations);
+            when(valueOperations.get(anyString())).thenReturn(null);
+            when(translationRepository
+                            .findByContentTypeAndContentIdAndFieldNameAndTargetLocaleAndOriginalHash(
+                                    any(), any(), any(), any(), any()))
+                    .thenReturn(Optional.empty());
+            when(translationRepository.findByContentTypeAndContentIdAndFieldNameAndTargetLocale(
+                            any(), any(), any(), any()))
+                    .thenReturn(Optional.empty());
+            when(translationClient.translate(
+                            eq("test-api-key"), any(GoogleTranslationRequest.class)))
+                    .thenAnswer(
+                            inv -> {
+                                GoogleTranslationRequest req = inv.getArgument(1);
+                                String text = req.getQueries().get(0);
+                                return new GoogleTranslationResponse(
+                                        new GoogleTranslationResponse.TranslationData(
+                                                List.of(
+                                                        new GoogleTranslationResponse.Translation(
+                                                                "T:" + text, "ko"))));
+                            });
+
+            // when
+            TranslationInfo result =
+                    translationService.translateContent(
+                            ContentType.GUILD_POST, 1L, "제목입니다", "이것은 테스트 콘텐츠입니다.", "en");
+
+            // then
+            assertThat(result.isTranslated()).isTrue();
+            assertThat(result.getTitle()).isEqualTo("T:제목입니다");
+            assertThat(result.getContent()).isEqualTo("T:이것은 테스트 콘텐츠입니다.");
+            verify(translationClient, org.mockito.Mockito.times(2))
+                    .translate(eq("test-api-key"), any(GoogleTranslationRequest.class));
+        }
+
+        @Test
+        @DisplayName("제목이 공백이면 제목 번역을 건너뜀")
+        void shouldSkipBlankTitle() {
+            // given
+            when(redisTemplate.opsForValue()).thenReturn(valueOperations);
+            when(valueOperations.get(anyString())).thenReturn("Cached content.");
+
+            // when
+            TranslationInfo result =
+                    translationService.translateContent(
+                            ContentType.GUILD_POST, 1L, "   ", "이것은 테스트 콘텐츠입니다.", "en");
+
+            // then
+            assertThat(result.isTranslated()).isTrue();
+            assertThat(result.getTitle()).isNull();
+            verify(valueOperations, org.mockito.Mockito.times(1)).get(anyString());
+        }
+
+        @Test
+        @DisplayName("번역 결과가 원문과 동일하면 notTranslated 반환")
+        void shouldReturnNotTranslatedWhenSameAsOriginal() {
+            // given
+            String content = "This is already English text.";
+            when(redisTemplate.opsForValue()).thenReturn(valueOperations);
+            when(valueOperations.get(anyString())).thenReturn(content);
+
+            // when
+            TranslationInfo result =
+                    translationService.translateContent(ContentType.FEED, 1L, content, "en");
+
+            // then
+            assertThat(result.isTranslated()).isFalse();
+        }
+
+        @Test
+        @DisplayName("API Key가 비어 있으면 번역 실패로 notTranslated 반환")
+        void shouldFallbackWhenApiKeyBlank() {
+            // given
+            TestReflectionUtils.setField(translationService, "apiKey", "  ");
+            when(redisTemplate.opsForValue()).thenReturn(valueOperations);
+            when(valueOperations.get(anyString())).thenReturn(null);
+            when(translationRepository
+                            .findByContentTypeAndContentIdAndFieldNameAndTargetLocaleAndOriginalHash(
+                                    any(), any(), any(), any(), any()))
+                    .thenReturn(Optional.empty());
+
+            // when
+            TranslationInfo result =
+                    translationService.translateContent(
+                            ContentType.FEED, 1L, "이것은 테스트 콘텐츠입니다.", "en");
+
+            // then
+            assertThat(result.isTranslated()).isFalse();
+            verify(translationClient, never()).translate(anyString(), any());
+        }
+
+        @Test
+        @DisplayName("API Key가 null이면 번역 실패로 notTranslated 반환")
+        void shouldFallbackWhenApiKeyNull() {
+            // given
+            TestReflectionUtils.setField(translationService, "apiKey", null);
+            when(redisTemplate.opsForValue()).thenReturn(valueOperations);
+            when(valueOperations.get(anyString())).thenReturn(null);
+            when(translationRepository
+                            .findByContentTypeAndContentIdAndFieldNameAndTargetLocaleAndOriginalHash(
+                                    any(), any(), any(), any(), any()))
+                    .thenReturn(Optional.empty());
+
+            // when
+            TranslationInfo result =
+                    translationService.translateContent(
+                            ContentType.FEED, 1L, "이것은 테스트 콘텐츠입니다.", "en");
+
+            // then
+            assertThat(result.isTranslated()).isFalse();
+            verify(translationClient, never()).translate(anyString(), any());
+        }
+
+        @Test
+        @DisplayName("Google 응답에 번역 결과가 없으면 notTranslated 반환")
+        void shouldFallbackWhenGoogleReturnsNoTranslation() {
+            // given
+            when(redisTemplate.opsForValue()).thenReturn(valueOperations);
+            when(valueOperations.get(anyString())).thenReturn(null);
+            when(translationRepository
+                            .findByContentTypeAndContentIdAndFieldNameAndTargetLocaleAndOriginalHash(
+                                    any(), any(), any(), any(), any()))
+                    .thenReturn(Optional.empty());
+            when(translationClient.translate(
+                            eq("test-api-key"), any(GoogleTranslationRequest.class)))
+                    .thenReturn(new GoogleTranslationResponse(null));
+
+            // when
+            TranslationInfo result =
+                    translationService.translateContent(
+                            ContentType.FEED, 1L, "이것은 테스트 콘텐츠입니다.", "en");
+
+            // then
+            assertThat(result.isTranslated()).isFalse();
+            verify(translationRepository, never()).save(any());
+        }
+
+        @Test
+        @DisplayName("Redis 조회·저장 예외는 삼키고 진행")
+        void shouldIgnoreRedisFailures() {
+            // given
+            when(redisTemplate.opsForValue()).thenThrow(new RuntimeException("redis down"));
+            ContentTranslation cachedEntity =
+                    ContentTranslation.builder()
+                            .contentType(ContentType.FEED)
+                            .contentId(1L)
+                            .fieldName("content")
+                            .sourceLocale("ko")
+                            .targetLocale("en")
+                            .translatedText("From DB.")
+                            .build();
+            when(translationRepository
+                            .findByContentTypeAndContentIdAndFieldNameAndTargetLocaleAndOriginalHash(
+                                    any(), any(), any(), any(), any()))
+                    .thenReturn(Optional.of(cachedEntity));
+
+            // when
+            TranslationInfo result =
+                    translationService.translateContent(
+                            ContentType.FEED, 1L, "이것은 테스트 콘텐츠입니다.", "en");
+
+            // then
+            assertThat(result.isTranslated()).isTrue();
+            assertThat(result.getContent()).isEqualTo("From DB.");
+        }
+    }
+
+    @Nested
+    @DisplayName("saveTranslationCache / deleteTranslationCache")
+    class CacheMaintenanceTest {
+
+        @Test
+        @DisplayName("기존 DB 캐시가 있으면 갱신한다")
+        void shouldUpdateExistingTranslation() {
+            // given
+            when(redisTemplate.opsForValue()).thenReturn(valueOperations);
+            ContentTranslation existing =
+                    ContentTranslation.builder()
+                            .contentType(ContentType.FEED)
+                            .contentId(1L)
+                            .fieldName("content")
+                            .sourceLocale("ko")
+                            .targetLocale("en")
+                            .originalHash("old")
+                            .translatedText("Old.")
+                            .build();
+            when(translationRepository.findByContentTypeAndContentIdAndFieldNameAndTargetLocale(
+                            ContentType.FEED, 1L, "content", "en"))
+                    .thenReturn(Optional.of(existing));
+
+            // when
+            translationService.saveTranslationCache(
+                    ContentType.FEED, 1L, "content", "en", "new", "New.");
+
+            // then
+            assertThat(existing.getOriginalHash()).isEqualTo("new");
+            assertThat(existing.getTranslatedText()).isEqualTo("New.");
+            verify(translationRepository, never()).save(any());
+        }
+
+        @Test
+        @DisplayName("Redis 저장 실패는 삼키고 DB 저장은 수행한다")
+        void shouldSaveDbEvenIfRedisFails() {
+            // given
+            when(redisTemplate.opsForValue()).thenThrow(new RuntimeException("redis down"));
+            when(translationRepository.findByContentTypeAndContentIdAndFieldNameAndTargetLocale(
+                            any(), any(), any(), any()))
+                    .thenReturn(Optional.empty());
+
+            // when
+            translationService.saveTranslationCache(
+                    ContentType.FEED, 1L, "content", "en", "hash", "Text.");
+
+            // then
+            verify(translationRepository).save(any(ContentTranslation.class));
+        }
+
+        @Test
+        @DisplayName("콘텐츠 삭제 시 DB 와 모든 언어의 Redis 키를 삭제한다")
+        void shouldDeleteDbAndRedisKeysForAllLocales() {
+            // when
+            translationService.deleteTranslationCache(ContentType.FEED, 7L);
+
+            // then
+            verify(translationRepository).deleteByContentTypeAndContentId(ContentType.FEED, 7L);
+            verify(redisTemplate, org.mockito.Mockito.times(SupportedLocale.values().length * 2))
+                    .delete(anyString());
+            verify(redisTemplate).delete("translation:FEED:7:title:en");
+            verify(redisTemplate).delete("translation:FEED:7:content:ja");
+        }
+
+        @Test
+        @DisplayName("Redis 삭제 실패는 삼키고 나머지 언어도 계속 진행한다")
+        void shouldContinueWhenRedisDeleteFails() {
+            // given
+            when(redisTemplate.delete(anyString())).thenThrow(new RuntimeException("redis down"));
+
+            // when
+            translationService.deleteTranslationCache(ContentType.FEED, 7L);
+
+            // then
+            verify(redisTemplate, org.mockito.Mockito.times(SupportedLocale.values().length))
+                    .delete(anyString());
+        }
     }
 
     @Nested
@@ -326,6 +585,276 @@ class TranslationServiceTest {
             // then
             assertThat(result.get(1L).isTranslated()).isFalse();
             verify(translationClient, never()).translate(anyString(), any());
+        }
+
+        @Test
+        @DisplayName("지원하지 않는 언어면 빈 Map 반환")
+        void shouldReturnEmptyMapForUnsupportedLocale() {
+            Map<Long, TranslationInfo> result =
+                    translationService.translateContents(
+                            ContentType.FEED,
+                            List.of(new TranslationService.BatchItem(1L, null, "이것은 테스트 콘텐츠입니다.")),
+                            "xx");
+
+            assertThat(result).isEmpty();
+        }
+
+        @Test
+        @DisplayName("항목이 비어 있으면 빈 Map 반환")
+        void shouldReturnEmptyMapForEmptyItems() {
+            Map<Long, TranslationInfo> result =
+                    translationService.translateContents(ContentType.FEED, List.of(), "en");
+
+            assertThat(result).isEmpty();
+        }
+
+        @Test
+        @DisplayName("내용이 null 인 항목은 notTranslated 로 반환")
+        void shouldSkipNullContent() {
+            Map<Long, TranslationInfo> result =
+                    translationService.translateContents(
+                            ContentType.FEED,
+                            List.of(new TranslationService.BatchItem(1L, "제목", null)),
+                            "en");
+
+            assertThat(result.get(1L).isTranslated()).isFalse();
+            verify(translationClient, never()).translate(anyString(), any());
+        }
+
+        @Test
+        @DisplayName("제목이 캐시에 있으면 제목은 캐시를 쓰고 내용만 Google 에 요청")
+        void shouldUseCachedTitleAndTranslateContent() {
+            // given
+            when(redisTemplate.opsForValue()).thenReturn(valueOperations);
+            when(valueOperations.get("translation:GUILD_POST:1:title:en"))
+                    .thenReturn("Cached title");
+            when(valueOperations.get("translation:GUILD_POST:1:content:en")).thenReturn(null);
+            when(translationRepository
+                            .findByContentTypeAndContentIdAndFieldNameAndTargetLocaleAndOriginalHash(
+                                    any(), any(), any(), any(), any()))
+                    .thenReturn(Optional.empty());
+            when(translationRepository.findByContentTypeAndContentIdAndFieldNameAndTargetLocale(
+                            any(), any(), any(), any()))
+                    .thenReturn(Optional.empty());
+            when(translationClient.translate(
+                            eq("test-api-key"), any(GoogleTranslationRequest.class)))
+                    .thenReturn(
+                            new GoogleTranslationResponse(
+                                    new GoogleTranslationResponse.TranslationData(
+                                            List.of(
+                                                    new GoogleTranslationResponse.Translation(
+                                                            "Translated content.", "ko")))));
+
+            // when
+            Map<Long, TranslationInfo> result =
+                    translationService.translateContents(
+                            ContentType.GUILD_POST,
+                            List.of(
+                                    new TranslationService.BatchItem(
+                                            1L, "제목입니다", "이것은 테스트 콘텐츠입니다.")),
+                            "en");
+
+            // then
+            assertThat(result.get(1L).isTranslated()).isTrue();
+            assertThat(result.get(1L).getTitle()).isEqualTo("Cached title");
+            assertThat(result.get(1L).getContent()).isEqualTo("Translated content.");
+            ArgumentCaptor<GoogleTranslationRequest> captor =
+                    ArgumentCaptor.forClass(GoogleTranslationRequest.class);
+            verify(translationClient).translate(eq("test-api-key"), captor.capture());
+            assertThat(captor.getValue().getQueries()).containsExactly("이것은 테스트 콘텐츠입니다.");
+        }
+
+        @Test
+        @DisplayName("제목 미스는 Google 결과를 제목으로 저장하고, 공백 제목은 무시")
+        void shouldTranslateMissedTitleAndIgnoreBlankTitle() {
+            // given
+            when(redisTemplate.opsForValue()).thenReturn(valueOperations);
+            when(valueOperations.get(anyString())).thenReturn(null);
+            when(translationRepository
+                            .findByContentTypeAndContentIdAndFieldNameAndTargetLocaleAndOriginalHash(
+                                    any(), any(), any(), any(), any()))
+                    .thenReturn(Optional.empty());
+            when(translationRepository.findByContentTypeAndContentIdAndFieldNameAndTargetLocale(
+                            any(), any(), any(), any()))
+                    .thenReturn(Optional.empty());
+            when(translationClient.translate(
+                            eq("test-api-key"), any(GoogleTranslationRequest.class)))
+                    .thenReturn(
+                            new GoogleTranslationResponse(
+                                    new GoogleTranslationResponse.TranslationData(
+                                            List.of(
+                                                    new GoogleTranslationResponse.Translation(
+                                                            "Title one.", "ko"),
+                                                    new GoogleTranslationResponse.Translation(
+                                                            "Content one.", "ko"),
+                                                    new GoogleTranslationResponse.Translation(
+                                                            "Content two.", "ko")))));
+
+            // when
+            Map<Long, TranslationInfo> result =
+                    translationService.translateContents(
+                            ContentType.GUILD_POST,
+                            List.of(
+                                    new TranslationService.BatchItem(
+                                            1L, "제목 하나", "첫 번째 게시글 내용입니다."),
+                                    new TranslationService.BatchItem(2L, "   ", "두 번째 게시글 내용입니다.")),
+                            "en");
+
+            // then
+            assertThat(result.get(1L).getTitle()).isEqualTo("Title one.");
+            assertThat(result.get(1L).getContent()).isEqualTo("Content one.");
+            assertThat(result.get(2L).getTitle()).isNull();
+            assertThat(result.get(2L).getContent()).isEqualTo("Content two.");
+            ArgumentCaptor<GoogleTranslationRequest> captor =
+                    ArgumentCaptor.forClass(GoogleTranslationRequest.class);
+            verify(translationClient).translate(eq("test-api-key"), captor.capture());
+            assertThat(captor.getValue().getQueries())
+                    .containsExactly("제목 하나", "첫 번째 게시글 내용입니다.", "두 번째 게시글 내용입니다.");
+        }
+
+        @Test
+        @DisplayName("Google 결과가 null 이거나 개수가 부족하면 해당 항목은 notTranslated")
+        void shouldHandleNullAndMissingTranslatedTexts() {
+            // given
+            when(redisTemplate.opsForValue()).thenReturn(valueOperations);
+            when(valueOperations.get(anyString())).thenReturn(null);
+            when(translationRepository
+                            .findByContentTypeAndContentIdAndFieldNameAndTargetLocaleAndOriginalHash(
+                                    any(), any(), any(), any(), any()))
+                    .thenReturn(Optional.empty());
+            List<GoogleTranslationResponse.Translation> translations = new java.util.ArrayList<>();
+            translations.add(new GoogleTranslationResponse.Translation(null, "ko"));
+            when(translationClient.translate(
+                            eq("test-api-key"), any(GoogleTranslationRequest.class)))
+                    .thenReturn(
+                            new GoogleTranslationResponse(
+                                    new GoogleTranslationResponse.TranslationData(translations)));
+
+            // when
+            Map<Long, TranslationInfo> result =
+                    translationService.translateContents(
+                            ContentType.FEED,
+                            List.of(
+                                    new TranslationService.BatchItem(1L, null, "첫 번째 피드 내용입니다."),
+                                    new TranslationService.BatchItem(2L, null, "두 번째 피드 내용입니다.")),
+                            "en");
+
+            // then
+            assertThat(result.get(1L).isTranslated()).isFalse();
+            assertThat(result.get(2L).isTranslated()).isFalse();
+            verify(translationRepository, never()).save(any());
+        }
+
+        @Test
+        @DisplayName("번역 결과가 원문과 같은 항목은 notTranslated")
+        void shouldReturnNotTranslatedWhenSameAsOriginalInBatch() {
+            // given
+            String content = "This is already English text.";
+            when(redisTemplate.opsForValue()).thenReturn(valueOperations);
+            when(valueOperations.get(anyString())).thenReturn(content);
+
+            // when
+            Map<Long, TranslationInfo> result =
+                    translationService.translateContents(
+                            ContentType.FEED,
+                            List.of(new TranslationService.BatchItem(1L, null, content)),
+                            "en");
+
+            // then
+            assertThat(result.get(1L).isTranslated()).isFalse();
+        }
+
+        @Test
+        @DisplayName("API Key 가 없으면 Google 호출 없이 notTranslated 로 폴백")
+        void shouldFallbackWhenApiKeyMissingInBatch() {
+            // given
+            TestReflectionUtils.setField(translationService, "apiKey", "");
+            when(redisTemplate.opsForValue()).thenReturn(valueOperations);
+            when(valueOperations.get(anyString())).thenReturn(null);
+            when(translationRepository
+                            .findByContentTypeAndContentIdAndFieldNameAndTargetLocaleAndOriginalHash(
+                                    any(), any(), any(), any(), any()))
+                    .thenReturn(Optional.empty());
+
+            // when
+            Map<Long, TranslationInfo> result =
+                    translationService.translateContents(
+                            ContentType.FEED,
+                            List.of(new TranslationService.BatchItem(1L, null, "이것은 테스트 콘텐츠입니다.")),
+                            "en");
+
+            // then
+            assertThat(result.get(1L).isTranslated()).isFalse();
+            verify(translationClient, never()).translate(anyString(), any());
+        }
+
+        @Test
+        @DisplayName("API Key 가 null 이면 Google 호출 없이 notTranslated 로 폴백")
+        void shouldFallbackWhenApiKeyNullInBatch() {
+            // given
+            TestReflectionUtils.setField(translationService, "apiKey", null);
+            when(redisTemplate.opsForValue()).thenReturn(valueOperations);
+            when(valueOperations.get(anyString())).thenReturn(null);
+            when(translationRepository
+                            .findByContentTypeAndContentIdAndFieldNameAndTargetLocaleAndOriginalHash(
+                                    any(), any(), any(), any(), any()))
+                    .thenReturn(Optional.empty());
+
+            // when
+            Map<Long, TranslationInfo> result =
+                    translationService.translateContents(
+                            ContentType.FEED,
+                            List.of(new TranslationService.BatchItem(1L, null, "이것은 테스트 콘텐츠입니다.")),
+                            "en");
+
+            // then
+            assertThat(result.get(1L).isTranslated()).isFalse();
+            verify(translationClient, never()).translate(anyString(), any());
+        }
+
+        @Test
+        @DisplayName("미스가 100건을 넘으면 청크 단위로 Google 을 여러 번 호출")
+        void shouldChunkLargeBatches() {
+            // given
+            when(redisTemplate.opsForValue()).thenReturn(valueOperations);
+            when(valueOperations.get(anyString())).thenReturn(null);
+            when(translationRepository
+                            .findByContentTypeAndContentIdAndFieldNameAndTargetLocaleAndOriginalHash(
+                                    any(), any(), any(), any(), any()))
+                    .thenReturn(Optional.empty());
+            when(translationRepository.findByContentTypeAndContentIdAndFieldNameAndTargetLocale(
+                            any(), any(), any(), any()))
+                    .thenReturn(Optional.empty());
+            when(translationClient.translate(
+                            eq("test-api-key"), any(GoogleTranslationRequest.class)))
+                    .thenAnswer(
+                            inv -> {
+                                GoogleTranslationRequest req = inv.getArgument(1);
+                                List<GoogleTranslationResponse.Translation> list =
+                                        req.getQueries().stream()
+                                                .map(
+                                                        q ->
+                                                                new GoogleTranslationResponse
+                                                                        .Translation(
+                                                                        "T:" + q, "ko"))
+                                                .toList();
+                                return new GoogleTranslationResponse(
+                                        new GoogleTranslationResponse.TranslationData(list));
+                            });
+            List<TranslationService.BatchItem> items = new java.util.ArrayList<>();
+            for (long i = 1; i <= 101; i++) {
+                items.add(new TranslationService.BatchItem(i, null, "피드 내용 번호 " + i + " 입니다."));
+            }
+
+            // when
+            Map<Long, TranslationInfo> result =
+                    translationService.translateContents(ContentType.FEED, items, "en");
+
+            // then
+            assertThat(result).hasSize(101);
+            assertThat(result.get(101L).getContent()).isEqualTo("T:피드 내용 번호 101 입니다.");
+            verify(translationClient, org.mockito.Mockito.times(2))
+                    .translate(eq("test-api-key"), any(GoogleTranslationRequest.class));
         }
     }
 

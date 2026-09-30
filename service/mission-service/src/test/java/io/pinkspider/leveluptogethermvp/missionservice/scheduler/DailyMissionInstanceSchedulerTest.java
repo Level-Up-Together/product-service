@@ -377,6 +377,391 @@ class DailyMissionInstanceSchedulerTest {
     }
 
     @Nested
+    @DisplayName("자정 자동 완료 추가 분기 테스트 (startedAt null, 최대수행시간 미경과, 폴백 분기)")
+    class MidnightAutoCompleteBranchCoverageTest {
+
+        private void stubRestEmpty() {
+            when(instanceRepository.findInProgressBeforeDate(any(LocalDate.class))).thenReturn(List.of());
+            when(executionRepository.findInProgressBeforeDate(any(LocalDate.class))).thenReturn(List.of());
+            when(instanceRepository.markMissedInstances(any(LocalDate.class))).thenReturn(0);
+            when(missionExecutionService.markMissedExecutions()).thenReturn(0);
+            when(participantRepository.findAllActivePinnedMissionParticipants()).thenReturn(List.of());
+        }
+
+        private DailyMissionInstance inProgressInstance(MissionParticipant p, LocalDateTime startedAt) {
+            DailyMissionInstance instance = DailyMissionInstance.createFrom(p, today().minusDays(1));
+            setId(instance, 100L);
+            instance.setStatus(ExecutionStatus.IN_PROGRESS);
+            instance.setStartedAt(startedAt);
+            return instance;
+        }
+
+        private MissionExecution inProgressExecution(MissionParticipant p, LocalDateTime startedAt) {
+            MissionExecution execution = MissionExecution.builder()
+                .participant(p)
+                .executionDate(today().minusDays(1))
+                .status(ExecutionStatus.IN_PROGRESS)
+                .startedAt(startedAt)
+                .build();
+            setId(execution, 200L);
+            return execution;
+        }
+
+        @Test
+        @DisplayName("startedAt 이 null 인 고정 인스턴스는 경과시간 판정 없이 Saga 자동 완료를 시도한다")
+        void instance_startedAtNull_completesViaSaga() {
+            // given
+            when(missionExecutionProperties.getMaxExecutionMinutes()).thenReturn(240);
+            DailyMissionInstance instance = inProgressInstance(participant1, null);
+            stubRestEmpty();
+            when(instanceRepository.findInProgressBeforeDate(any(LocalDate.class))).thenReturn(List.of(instance));
+
+            // when
+            scheduler.generateDailyInstances();
+
+            // then
+            verify(dailyMissionInstanceService).completeInstance(eq(100L), eq(USER_ID_1), isNull(), eq(false));
+        }
+
+        @Test
+        @DisplayName("최대 수행시간 미경과 고정 인스턴스는 자정 자동 완료를 건너뛴다")
+        void instance_underMaxExecutionMinutes_skipped() {
+            // given
+            when(missionExecutionProperties.getMaxExecutionMinutes()).thenReturn(240);
+            DailyMissionInstance instance = inProgressInstance(participant1, LocalDateTime.now().minusMinutes(30));
+            stubRestEmpty();
+            when(instanceRepository.findInProgressBeforeDate(any(LocalDate.class))).thenReturn(List.of(instance));
+
+            // when
+            scheduler.generateDailyInstances();
+
+            // then
+            verify(dailyMissionInstanceService, never()).completeInstance(any(), anyString(), isNull(), anyBoolean());
+            assertThat(instance.getStatus()).isEqualTo(ExecutionStatus.IN_PROGRESS);
+        }
+
+        @Test
+        @DisplayName("Saga 실패 + startedAt null 이면 폴백 완료도 불가하여 저장하지 않는다")
+        void instance_sagaFails_fallbackReturnsFalse_noSave() {
+            // given
+            when(missionExecutionProperties.getMaxExecutionMinutes()).thenReturn(240);
+            DailyMissionInstance instance = inProgressInstance(participant1, null);
+            stubRestEmpty();
+            when(instanceRepository.findInProgressBeforeDate(any(LocalDate.class))).thenReturn(List.of(instance));
+            doThrow(new RuntimeException("Saga 실패")).when(dailyMissionInstanceService)
+                .completeInstance(any(), anyString(), isNull(), anyBoolean());
+
+            // when
+            scheduler.generateDailyInstances();
+
+            // then
+            assertThat(instance.getStatus()).isEqualTo(ExecutionStatus.IN_PROGRESS);
+            verify(instanceRepository, never()).save(any());
+            verify(gamificationQueryFacade, never()).addExperience(any(), org.mockito.ArgumentMatchers.anyInt(), any(), any(), any(), any(), any());
+        }
+
+        @Test
+        @DisplayName("폴백 완료 시 baseExp 가 0 이면 gamification EXP 를 지급하지 않는다")
+        void instance_fallback_baseExpZero_skipsGrant() {
+            // given
+            when(missionExecutionProperties.getBaseExp()).thenReturn(0);
+            DailyMissionInstance instance = inProgressInstance(participant1, LocalDateTime.now().minusHours(5));
+            stubRestEmpty();
+            when(instanceRepository.findInProgressBeforeDate(any(LocalDate.class))).thenReturn(List.of(instance));
+            doThrow(new RuntimeException("Saga 실패")).when(dailyMissionInstanceService)
+                .completeInstance(any(), anyString(), isNull(), anyBoolean());
+
+            // when
+            scheduler.generateDailyInstances();
+
+            // then
+            assertThat(instance.getStatus()).isEqualTo(ExecutionStatus.COMPLETED);
+            assertThat(instance.getExpEarned()).isEqualTo(0);
+            verify(instanceRepository).save(instance);
+            verify(gamificationQueryFacade, never()).addExperience(any(), org.mockito.ArgumentMatchers.anyInt(), any(), any(), any(), any(), any());
+        }
+
+        @Test
+        @DisplayName("폴백 완료 시 participant.mission 이 null 이면 gamification EXP 를 지급하지 않는다")
+        void instance_fallback_missionNull_skipsGrant() {
+            // given
+            MissionParticipant noMissionParticipant = MissionParticipant.builder()
+                .mission(null)
+                .userId(USER_ID_1)
+                .status(ParticipantStatus.ACCEPTED)
+                .build();
+            setId(noMissionParticipant, 77L);
+            DailyMissionInstance instance = DailyMissionInstance.builder()
+                .participant(noMissionParticipant)
+                .instanceDate(today().minusDays(1))
+                .sequenceNumber(1)
+                .missionTitle("미션 없는 인스턴스")
+                .status(ExecutionStatus.IN_PROGRESS)
+                .startedAt(LocalDateTime.now().minusHours(5))
+                .expEarned(0)
+                .completionCount(0)
+                .totalExpEarned(0)
+                .build();
+            setId(instance, 101L);
+            stubRestEmpty();
+            when(instanceRepository.findInProgressBeforeDate(any(LocalDate.class))).thenReturn(List.of(instance));
+            doThrow(new RuntimeException("Saga 실패")).when(dailyMissionInstanceService)
+                .completeInstance(any(), anyString(), isNull(), anyBoolean());
+
+            // when
+            scheduler.generateDailyInstances();
+
+            // then
+            assertThat(instance.getStatus()).isEqualTo(ExecutionStatus.COMPLETED);
+            verify(instanceRepository).save(instance);
+            verify(gamificationQueryFacade, never()).addExperience(any(), org.mockito.ArgumentMatchers.anyInt(), any(), any(), any(), any(), any());
+        }
+
+        @Test
+        @DisplayName("폴백 EXP 지급 실패는 로그만 남기고 카운트는 유지된다")
+        void instance_fallback_grantThrows_swallowed() {
+            // given
+            DailyMissionInstance instance = inProgressInstance(participant1, LocalDateTime.now().minusHours(5));
+            stubRestEmpty();
+            when(instanceRepository.findInProgressBeforeDate(any(LocalDate.class))).thenReturn(List.of(instance));
+            doThrow(new RuntimeException("Saga 실패")).when(dailyMissionInstanceService)
+                .completeInstance(any(), anyString(), isNull(), anyBoolean());
+            when(gamificationQueryFacade.addExperience(any(), org.mockito.ArgumentMatchers.anyInt(), any(), any(), any(), any(), any()))
+                .thenThrow(new RuntimeException("gamification down"));
+
+            // when & then
+            org.junit.jupiter.api.Assertions.assertDoesNotThrow(() -> scheduler.generateDailyInstances());
+            assertThat(instance.getStatus()).isEqualTo(ExecutionStatus.COMPLETED);
+        }
+
+        @Test
+        @DisplayName("startedAt 이 null 인 일반 미션 실행은 경과시간 판정 없이 Saga 자동 완료를 시도한다")
+        void execution_startedAtNull_completesViaSaga() {
+            // given
+            when(missionExecutionProperties.getMaxExecutionMinutes()).thenReturn(240);
+            MissionExecution execution = inProgressExecution(participant1, null);
+            stubRestEmpty();
+            when(executionRepository.findInProgressBeforeDate(any(LocalDate.class))).thenReturn(List.of(execution));
+
+            // when
+            scheduler.generateDailyInstances();
+
+            // then
+            verify(missionExecutionService).completeExecution(eq(200L), eq(USER_ID_1), isNull(), eq(false));
+        }
+
+        @Test
+        @DisplayName("최대 수행시간 미경과 일반 미션 실행은 자정 자동 완료를 건너뛴다")
+        void execution_underMaxExecutionMinutes_skipped() {
+            // given
+            when(missionExecutionProperties.getMaxExecutionMinutes()).thenReturn(240);
+            MissionExecution execution = inProgressExecution(participant1, LocalDateTime.now().minusMinutes(30));
+            stubRestEmpty();
+            when(executionRepository.findInProgressBeforeDate(any(LocalDate.class))).thenReturn(List.of(execution));
+
+            // when
+            scheduler.generateDailyInstances();
+
+            // then
+            verify(missionExecutionService, never()).completeExecution(any(Long.class), anyString(), isNull(), anyBoolean());
+            assertThat(execution.getStatus()).isEqualTo(ExecutionStatus.IN_PROGRESS);
+        }
+
+        @Test
+        @DisplayName("일반 미션 Saga 실패 + startedAt null 이면 폴백 완료도 불가하여 저장하지 않는다")
+        void execution_sagaFails_fallbackReturnsFalse_noSave() {
+            // given
+            when(missionExecutionProperties.getMaxExecutionMinutes()).thenReturn(240);
+            MissionExecution execution = inProgressExecution(participant1, null);
+            stubRestEmpty();
+            when(executionRepository.findInProgressBeforeDate(any(LocalDate.class))).thenReturn(List.of(execution));
+            doThrow(new RuntimeException("Saga 실패")).when(missionExecutionService)
+                .completeExecution(any(Long.class), anyString(), isNull(), anyBoolean());
+
+            // when
+            scheduler.generateDailyInstances();
+
+            // then
+            assertThat(execution.getStatus()).isEqualTo(ExecutionStatus.IN_PROGRESS);
+            verify(executionRepository, never()).save(any());
+            verify(participantRepository, never()).save(any());
+        }
+
+        @Test
+        @DisplayName("고정(isPinned) 미션의 일반 실행 폴백 시 participant 상태를 바꾸지 않는다")
+        void execution_fallback_pinnedMission_participantNotUpdated() {
+            // given: participant1.mission 은 isPinned=true
+            MissionExecution execution = inProgressExecution(participant1, LocalDateTime.now().minusHours(5));
+            stubRestEmpty();
+            when(executionRepository.findInProgressBeforeDate(any(LocalDate.class))).thenReturn(List.of(execution));
+            doThrow(new RuntimeException("Saga 실패")).when(missionExecutionService)
+                .completeExecution(any(Long.class), anyString(), isNull(), anyBoolean());
+
+            // when
+            scheduler.generateDailyInstances();
+
+            // then
+            assertThat(execution.getStatus()).isEqualTo(ExecutionStatus.COMPLETED);
+            assertThat(participant1.getStatus()).isEqualTo(ParticipantStatus.ACCEPTED);
+            verify(participantRepository, never()).save(any());
+            verify(gamificationQueryFacade).addExperience(
+                eq(USER_ID_1), eq(10), eq(io.pinkspider.global.enums.ExpSourceType.MISSION_EXECUTION),
+                eq(1L), anyString(), eq(1L), eq("운동"));
+        }
+
+        @Test
+        @DisplayName("이미 COMPLETED 인 participant 는 폴백 시 상태를 다시 바꾸지 않는다")
+        void execution_fallback_participantAlreadyCompleted_notUpdated() {
+            // given
+            Mission regularMission = Mission.builder()
+                .title("일반 미션")
+                .creatorId(USER_ID_1)
+                .status(MissionStatus.IN_PROGRESS)
+                .visibility(MissionVisibility.PRIVATE)
+                .type(MissionType.PERSONAL)
+                .categoryId(2L)
+                .categoryName("학습")
+                .isPinned(false)
+                .build();
+            setId(regularMission, 9L);
+            MissionParticipant completedParticipant = MissionParticipant.builder()
+                .mission(regularMission)
+                .userId(USER_ID_1)
+                .status(ParticipantStatus.COMPLETED)
+                .build();
+            setId(completedParticipant, 9L);
+            MissionExecution execution = inProgressExecution(completedParticipant, LocalDateTime.now().minusHours(5));
+            stubRestEmpty();
+            when(executionRepository.findInProgressBeforeDate(any(LocalDate.class))).thenReturn(List.of(execution));
+            doThrow(new RuntimeException("Saga 실패")).when(missionExecutionService)
+                .completeExecution(any(Long.class), anyString(), isNull(), anyBoolean());
+
+            // when
+            scheduler.generateDailyInstances();
+
+            // then
+            assertThat(execution.getStatus()).isEqualTo(ExecutionStatus.COMPLETED);
+            assertThat(completedParticipant.getCompletedAt()).isNull();
+            verify(participantRepository, never()).save(any());
+        }
+
+        @Test
+        @DisplayName("일반 미션 폴백 완료 시 baseExp 가 0 이면 gamification EXP 를 지급하지 않는다")
+        void execution_fallback_baseExpZero_skipsGrant() {
+            // given
+            when(missionExecutionProperties.getBaseExp()).thenReturn(0);
+            MissionExecution execution = inProgressExecution(participant1, LocalDateTime.now().minusHours(5));
+            stubRestEmpty();
+            when(executionRepository.findInProgressBeforeDate(any(LocalDate.class))).thenReturn(List.of(execution));
+            doThrow(new RuntimeException("Saga 실패")).when(missionExecutionService)
+                .completeExecution(any(Long.class), anyString(), isNull(), anyBoolean());
+
+            // when
+            scheduler.generateDailyInstances();
+
+            // then
+            assertThat(execution.getStatus()).isEqualTo(ExecutionStatus.COMPLETED);
+            verify(gamificationQueryFacade, never()).addExperience(any(), org.mockito.ArgumentMatchers.anyInt(), any(), any(), any(), any(), any());
+        }
+
+        @Test
+        @DisplayName("일반 미션 폴백 중 participant.mission 이 null 이면 폴백 예외를 잡고 계속 진행한다")
+        void execution_fallback_missionNull_swallowed() {
+            // given
+            MissionParticipant noMissionParticipant = MissionParticipant.builder()
+                .mission(null)
+                .userId(USER_ID_1)
+                .status(ParticipantStatus.ACCEPTED)
+                .build();
+            setId(noMissionParticipant, 78L);
+            MissionExecution execution = inProgressExecution(noMissionParticipant, LocalDateTime.now().minusHours(5));
+            stubRestEmpty();
+            when(executionRepository.findInProgressBeforeDate(any(LocalDate.class))).thenReturn(List.of(execution));
+            doThrow(new RuntimeException("Saga 실패")).when(missionExecutionService)
+                .completeExecution(any(Long.class), anyString(), isNull(), anyBoolean());
+
+            // when & then
+            org.junit.jupiter.api.Assertions.assertDoesNotThrow(() -> scheduler.generateDailyInstances());
+            assertThat(execution.getStatus()).isEqualTo(ExecutionStatus.COMPLETED);
+            verify(executionRepository).save(execution);
+            verify(gamificationQueryFacade, never()).addExperience(any(), org.mockito.ArgumentMatchers.anyInt(), any(), any(), any(), any(), any());
+        }
+    }
+
+    @Nested
+    @DisplayName("createTodayInstances 배치 분기 테스트")
+    class CreateTodayInstancesBatchTest {
+
+        private void stubMidnightEmpty() {
+            when(instanceRepository.findInProgressBeforeDate(any(LocalDate.class))).thenReturn(List.of());
+            when(executionRepository.findInProgressBeforeDate(any(LocalDate.class))).thenReturn(List.of());
+            when(instanceRepository.markMissedInstances(any(LocalDate.class))).thenReturn(0);
+            when(missionExecutionService.markMissedExecutions()).thenReturn(0);
+        }
+
+        private List<MissionParticipant> participants(int count) {
+            List<MissionParticipant> list = new java.util.ArrayList<>();
+            for (int i = 0; i < count; i++) {
+                MissionParticipant p = MissionParticipant.builder()
+                    .mission(mission)
+                    .userId("user-" + i)
+                    .status(ParticipantStatus.ACCEPTED)
+                    .build();
+                setId(p, (long) (1000 + i));
+                list.add(p);
+            }
+            return list;
+        }
+
+        @Test
+        @DisplayName("참여자가 정확히 배치 크기(100)면 루프 안에서 한 번만 저장하고 최종 저장은 생략한다")
+        void createTodayInstances_exactBatchSize_savesOnceInLoop() {
+            // given
+            stubMidnightEmpty();
+            when(participantRepository.findAllActivePinnedMissionParticipants()).thenReturn(participants(100));
+            when(instanceRepository.existsByParticipantIdAndInstanceDate(any(), any(LocalDate.class))).thenReturn(false);
+            when(instanceRepository.saveAll(any())).thenAnswer(invocation -> invocation.getArgument(0));
+
+            // when
+            scheduler.generateDailyInstances();
+
+            // then
+            verify(instanceRepository, times(1)).saveAll(any());
+        }
+
+        @Test
+        @DisplayName("참여자가 배치 크기를 넘으면 루프 저장 + 남은 인스턴스 최종 저장으로 두 번 저장한다")
+        void createTodayInstances_overBatchSize_savesTwice() {
+            // given
+            stubMidnightEmpty();
+            when(participantRepository.findAllActivePinnedMissionParticipants()).thenReturn(participants(101));
+            when(instanceRepository.existsByParticipantIdAndInstanceDate(any(), any(LocalDate.class))).thenReturn(false);
+            when(instanceRepository.saveAll(any())).thenAnswer(invocation -> invocation.getArgument(0));
+
+            // when
+            scheduler.generateDailyInstances();
+
+            // then
+            verify(instanceRepository, times(2)).saveAll(any());
+        }
+
+        @Test
+        @DisplayName("모든 참여자가 이미 오늘 인스턴스를 가지면 저장하지 않는다")
+        void createTodayInstances_allExisting_noSave() {
+            // given
+            stubMidnightEmpty();
+            when(participantRepository.findAllActivePinnedMissionParticipants()).thenReturn(List.of(participant1, participant2));
+            when(instanceRepository.existsByParticipantIdAndInstanceDate(any(), any(LocalDate.class))).thenReturn(true);
+
+            // when
+            scheduler.generateDailyInstances();
+
+            // then
+            verify(instanceRepository, never()).saveAll(any());
+        }
+    }
+
+    @Nested
     @DisplayName("createOrGetTodayInstance 테스트")
     class CreateOrGetTodayInstanceTest {
 

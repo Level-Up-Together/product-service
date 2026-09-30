@@ -3391,4 +3391,410 @@ class MissionServiceTest {
             assertThat(mp1.getUserOrder()).isEqualTo(1);
         }
     }
+
+    @Nested
+    @DisplayName("브랜치 커버리지 보강 테스트")
+    class BranchCoverageTest {
+
+        private static final List<MissionStatus> GUILD_LIST_STATUSES = List.of(
+            MissionStatus.OPEN, MissionStatus.IN_PROGRESS, MissionStatus.COMPLETED);
+
+        private Mission guildMission(Long id, String guildId, String creatorId, MissionStatus status) {
+            Mission mission = Mission.builder()
+                .title("길드 미션")
+                .status(status)
+                .visibility(MissionVisibility.PUBLIC)
+                .type(MissionType.GUILD)
+                .guildId(guildId)
+                .creatorId(creatorId)
+                .build();
+            setId(mission, id);
+            TestReflectionUtils.setField(mission, "source", MissionSource.USER);
+            return mission;
+        }
+
+        private Mission draftPersonal(Long id) {
+            Mission mission = Mission.builder()
+                .title("개인 미션")
+                .status(MissionStatus.DRAFT)
+                .visibility(MissionVisibility.PUBLIC)
+                .type(MissionType.PERSONAL)
+                .creatorId(TEST_USER_ID)
+                .build();
+            setId(mission, id);
+            TestReflectionUtils.setField(mission, "source", MissionSource.USER);
+            return mission;
+        }
+
+        private MissionTemplate template(Long id, Long categoryId, Integer targetDurationMinutes) {
+            MissionTemplate t = MissionTemplate.builder()
+                .title("템플릿" + id)
+                .description("설명")
+                .visibility(MissionVisibility.PUBLIC)
+                .source(MissionSource.SYSTEM)
+                .categoryId(categoryId)
+                .categoryName("카테고리")
+                .targetDurationMinutes(targetDurationMinutes)
+                .build();
+            setId(t, id);
+            return t;
+        }
+
+        private final org.springframework.data.domain.Pageable pageable =
+            org.springframework.data.domain.PageRequest.of(0, 10);
+
+        // ---------- createMission ----------
+
+        @Test
+        @DisplayName("createMission: customCategory 가 공백이면 카테고리 없이 생성된다")
+        void createMission_blankCustomCategory_ignored() {
+            MissionCreateRequest request = MissionCreateRequest.builder()
+                .title("미션")
+                .visibility(MissionVisibility.PUBLIC)
+                .type(MissionType.PERSONAL)
+                .customCategory("   ")
+                .executionMode(null)
+                .build();
+            ArgumentCaptor<Mission> captor = ArgumentCaptor.forClass(Mission.class);
+            when(missionRepository.save(captor.capture())).thenAnswer(inv -> {
+                Mission m = inv.getArgument(0);
+                setId(m, 1L);
+                return m;
+            });
+
+            MissionResponse response = missionService.createMission(TEST_USER_ID, request);
+
+            assertThat(captor.getValue().getCustomCategory()).isNull();
+            assertThat(response.getCategoryId()).isNull();
+            assertThat(response.getExecutionMode())
+                .isEqualTo(io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionExecutionMode.TIMED);
+        }
+
+        @Test
+        @DisplayName("createMissionFromTemplate: 템플릿 executionMode 가 null 이면 TIMED 로 생성된다")
+        void createMissionFromTemplate_nullExecutionMode_defaultsTimed() {
+            MissionTemplate t = template(5L, 1L, null);
+            TestReflectionUtils.setField(t, "executionMode", null);
+            when(missionTemplateRepository.findById(5L)).thenReturn(Optional.of(t));
+            when(missionRepository.existsActiveByBaseMissionIdAndCreatorId(5L, TEST_USER_ID)).thenReturn(false);
+            when(missionRepository.save(any(Mission.class))).thenAnswer(inv -> {
+                Mission m = inv.getArgument(0);
+                setId(m, 50L);
+                return m;
+            });
+
+            MissionResponse response = missionService.createMissionFromTemplate(5L, TEST_USER_ID);
+
+            assertThat(response.getExecutionMode())
+                .isEqualTo(io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionExecutionMode.TIMED);
+        }
+
+        // ---------- reorder ----------
+
+        @Test
+        @DisplayName("reorderMyMissions: orderedMissionIds 가 null 이면 050105 예외")
+        void reorder_null_throws() {
+            assertThatThrownBy(() -> missionService.reorderMyMissions(TEST_USER_ID, null))
+                .isInstanceOf(io.pinkspider.global.exception.CustomException.class)
+                .hasMessageContaining("error.mission.reorder.empty");
+        }
+
+        // ---------- getMyMissions / getGuildMissions / localize ----------
+
+        @Test
+        @DisplayName("getGuildMissions: 결과가 비어 있으면 신고 상태 배치 조회를 생략한다")
+        void getGuildMissions_empty_skipsReportBatch() {
+            when(missionRepository.findGuildMissions("100", GUILD_LIST_STATUSES)).thenReturn(List.of());
+
+            List<MissionResponse> result = missionService.getGuildMissions("100", "en");
+
+            assertThat(result).isEmpty();
+            verify(reportService, never()).isUnderReviewBatch(any(), any());
+            verify(missionCategoryService, never()).getCategoriesByIds(any());
+        }
+
+        @Test
+        @DisplayName("getGuildMissions: id 없는 미션은 누적 EXP 계산을 건너뛰고, EXP 합이 null 이면 0 으로 본다")
+        void getGuildMissions_totalExp_nullSafe() {
+            Mission noId = Mission.builder()
+                .title("id 없음").status(MissionStatus.OPEN).visibility(MissionVisibility.PUBLIC)
+                .type(MissionType.GUILD).guildId("100").creatorId(TEST_USER_ID).build();
+            Mission withId = guildMission(7L, "100", TEST_USER_ID, MissionStatus.OPEN);
+            when(missionRepository.findGuildMissions("100", GUILD_LIST_STATUSES)).thenReturn(List.of(noId, withId));
+            when(executionRepository.sumExpEarnedByMissionId(7L)).thenReturn(null);
+            when(dailyMissionInstanceRepository.sumExpEarnedByMissionId(7L)).thenReturn(null);
+
+            List<MissionResponse> result = missionService.getGuildMissions("100");
+
+            assertThat(result.get(0).getTotalExpEarned()).isNull();
+            assertThat(result.get(1).getTotalExpEarned()).isZero();
+            verify(executionRepository, never()).sumExpEarnedByMissionId(null);
+        }
+
+        @Test
+        @DisplayName("getMyMissions: locale 이 공백이면 meta 조회를 생략한다")
+        void getMyMissions_blankLocale_skipsLocalize() {
+            Mission mission = draftPersonal(1L);
+            TestReflectionUtils.setField(mission, "categoryId", 10L);
+            when(missionRepository.findByParticipantUserIdSorted(TEST_USER_ID)).thenReturn(List.of(mission));
+
+            missionService.getMyMissions(TEST_USER_ID, "  ");
+
+            verify(missionCategoryService, never()).getCategoriesByIds(any());
+        }
+
+        @Test
+        @DisplayName("getMyMissions: locale 이 있어도 결과가 비면 meta 조회를 생략한다")
+        void getMyMissions_emptyWithLocale_skipsLocalize() {
+            when(missionRepository.findByParticipantUserIdSorted(TEST_USER_ID)).thenReturn(List.of());
+
+            List<MissionResponse> result = missionService.getMyMissions(TEST_USER_ID, "en");
+
+            assertThat(result).isEmpty();
+            verify(missionCategoryService, never()).getCategoriesByIds(any());
+        }
+
+        @Test
+        @DisplayName("getMyMissions: categoryId 가 모두 null 이면 meta 조회 없이 스냅샷 유지")
+        void getMyMissions_noCategoryIds_skipsMeta() {
+            Mission mission = draftPersonal(1L);
+            when(missionRepository.findByParticipantUserIdSorted(TEST_USER_ID)).thenReturn(List.of(mission));
+
+            List<MissionResponse> result = missionService.getMyMissions(TEST_USER_ID, "en");
+
+            assertThat(result).hasSize(1);
+            verify(missionCategoryService, never()).getCategoriesByIds(any());
+        }
+
+        @Test
+        @DisplayName("getMyMissions: id 없는 카테고리·번역명 없는 카테고리는 무시된다")
+        void getMyMissions_categoryEdgeCases() {
+            Mission m1 = draftPersonal(1L);
+            TestReflectionUtils.setField(m1, "categoryId", 10L);
+            TestReflectionUtils.setField(m1, "categoryName", "운동");
+            Mission m2 = draftPersonal(2L);
+            TestReflectionUtils.setField(m2, "categoryId", 11L);
+            TestReflectionUtils.setField(m2, "categoryName", "독서");
+            when(missionRepository.findByParticipantUserIdSorted(TEST_USER_ID)).thenReturn(List.of(m1, m2));
+            when(missionCategoryService.getCategoriesByIds(List.of(10L, 11L))).thenReturn(List.of(
+                MissionCategoryResponse.builder().id(null).name("무시").nameEn("Ignored").build(),
+                MissionCategoryResponse.builder().id(10L).name(null).nameEn(null).build(),
+                MissionCategoryResponse.builder().id(11L).name("독서").nameEn("Reading").build()));
+
+            List<MissionResponse> result = missionService.getMyMissions(TEST_USER_ID, "en");
+
+            assertThat(result.get(0).getCategoryName()).isEqualTo("운동");
+            assertThat(result.get(1).getCategoryName()).isEqualTo("Reading");
+        }
+
+        // ---------- getSystemMissions (로그인 유저) ----------
+
+        @Test
+        @DisplayName("미션북: 로그인 유저는 목표시간 있는 템플릿에만 has_achieved_target 이 채워진다")
+        void getSystemMissions_loggedIn_fillsAchievedTarget() {
+            MissionTemplate withTarget = template(1L, 10L, 30);
+            MissionTemplate noTarget = template(2L, null, null);
+            when(missionTemplateRepository.findPublicTemplates(MissionSource.SYSTEM, MissionVisibility.PUBLIC, pageable))
+                .thenReturn(new org.springframework.data.domain.PageImpl<>(List.of(withTarget, noTarget)));
+            when(dailyMissionInstanceRepository.findAchievedTargetTemplateIds(TEST_USER_ID, List.of(1L)))
+                .thenReturn(List.of(1L));
+            when(executionRepository.findAchievedTargetTemplateIds(TEST_USER_ID, List.of(1L)))
+                .thenReturn(List.of());
+            when(missionCategoryService.getCategoriesByIds(List.of(10L))).thenReturn(List.of(
+                MissionCategoryResponse.builder().id(10L).name("운동").nameEn("Exercise").build()));
+
+            org.springframework.data.domain.Page<MissionTemplateResponse> result =
+                missionService.getSystemMissions(TEST_USER_ID, pageable, "en");
+
+            assertThat(result.getContent().get(0).getHasAchievedTarget()).isTrue();
+            assertThat(result.getContent().get(0).getCategoryName()).isEqualTo("Exercise");
+            assertThat(result.getContent().get(1).getHasAchievedTarget()).isNull();
+            assertThat(result.getContent().get(1).getCategoryName()).isEqualTo("카테고리");
+        }
+
+        @Test
+        @DisplayName("미션북: 로그인 유저지만 목표시간 템플릿이 없으면 달성 조회를 생략한다")
+        void getSystemMissions_loggedIn_noTargets_skipsAchievedLookup() {
+            when(missionTemplateRepository.findPublicTemplates(MissionSource.SYSTEM, MissionVisibility.PUBLIC, pageable))
+                .thenReturn(new org.springframework.data.domain.PageImpl<>(List.of(template(3L, null, null))));
+
+            org.springframework.data.domain.Page<MissionTemplateResponse> result =
+                missionService.getSystemMissions(TEST_USER_ID, pageable, "  ");
+
+            assertThat(result.getContent()).hasSize(1);
+            verify(dailyMissionInstanceRepository, never()).findAchievedTargetTemplateIds(any(), any());
+            verify(missionCategoryService, never()).getCategoriesByIds(any());
+        }
+
+        @Test
+        @DisplayName("미션북: 비로그인·locale 지정이지만 결과가 비면 meta 조회를 생략한다")
+        void getSystemMissions_anonymous_emptyPage() {
+            when(missionTemplateRepository.findPublicTemplates(MissionSource.SYSTEM, MissionVisibility.PUBLIC, pageable))
+                .thenReturn(new org.springframework.data.domain.PageImpl<>(List.of()));
+
+            org.springframework.data.domain.Page<MissionTemplateResponse> result =
+                missionService.getSystemMissions(null, pageable, "en");
+
+            assertThat(result.getContent()).isEmpty();
+            verify(missionCategoryService, never()).getCategoriesByIds(any());
+        }
+
+        @Test
+        @DisplayName("미션북 카테고리별: 로그인 유저는 목표시간 있는 템플릿에만 has_achieved_target 이 채워진다")
+        void getSystemMissionsByCategory_loggedIn_fillsAchievedTarget() {
+            MissionTemplate withTarget = template(1L, 10L, 30);
+            MissionTemplate noTarget = template(2L, 10L, null);
+            when(missionTemplateRepository.findPublicTemplatesByCategory(
+                MissionSource.SYSTEM, MissionVisibility.PUBLIC, 10L, pageable))
+                .thenReturn(new org.springframework.data.domain.PageImpl<>(List.of(withTarget, noTarget)));
+            when(dailyMissionInstanceRepository.findAchievedTargetTemplateIds(TEST_USER_ID, List.of(1L)))
+                .thenReturn(List.of());
+            when(executionRepository.findAchievedTargetTemplateIds(TEST_USER_ID, List.of(1L)))
+                .thenReturn(List.of(1L));
+
+            org.springframework.data.domain.Page<MissionTemplateResponse> result =
+                missionService.getSystemMissionsByCategory(TEST_USER_ID, 10L, pageable);
+
+            assertThat(result.getContent().get(0).getHasAchievedTarget()).isTrue();
+            assertThat(result.getContent().get(1).getHasAchievedTarget()).isNull();
+        }
+
+        @Test
+        @DisplayName("미션북 카테고리별: 로그인 유저지만 목표시간 템플릿이 없으면 달성 조회를 생략한다")
+        void getSystemMissionsByCategory_loggedIn_noTargets() {
+            when(missionTemplateRepository.findPublicTemplatesByCategory(
+                MissionSource.SYSTEM, MissionVisibility.PUBLIC, 10L, pageable))
+                .thenReturn(new org.springframework.data.domain.PageImpl<>(List.of(template(3L, 10L, null))));
+
+            org.springframework.data.domain.Page<MissionTemplateResponse> result =
+                missionService.getSystemMissionsByCategory(TEST_USER_ID, 10L, pageable, "  ");
+
+            assertThat(result.getContent()).hasSize(1);
+            verify(executionRepository, never()).findAchievedTargetTemplateIds(any(), any());
+        }
+
+        // ---------- updateMission ----------
+
+        @Test
+        @DisplayName("updateMission: DRAFT 상태에서는 시작/종료 시각·기간(일)이 반영된다")
+        void updateMission_draft_appliesSchedule() {
+            Mission mission = draftPersonal(1L);
+            java.time.LocalDateTime start = java.time.LocalDateTime.of(2026, 10, 1, 9, 0);
+            java.time.LocalDateTime end = start.plusDays(7);
+            when(missionRepository.findByIdAndIsDeletedFalse(1L)).thenReturn(Optional.of(mission));
+            var request = io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MissionUpdateRequest.builder()
+                .startAt(start).endAt(end).durationDays(7).build();
+
+            missionService.updateMission(1L, TEST_USER_ID, request);
+
+            assertThat(mission.getStartAt()).isEqualTo(start);
+            assertThat(mission.getEndAt()).isEqualTo(end);
+            assertThat(mission.getDurationDays()).isEqualTo(7);
+        }
+
+        @Test
+        @DisplayName("updateMission: 리마인더 요일만 보내도 리마인더 갱신 경로를 탄다")
+        void updateMission_reminderDaysOnly() {
+            Mission mission = draftPersonal(1L);
+            when(missionRepository.findByIdAndIsDeletedFalse(1L)).thenReturn(Optional.of(mission));
+            var request = io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MissionUpdateRequest.builder()
+                .reminderDaysOfWeek(List.of(java.time.DayOfWeek.MONDAY)).build();
+
+            missionService.updateMission(1L, TEST_USER_ID, request);
+
+            // 시각이 없으므로 활성화되지 않는다 (시각+요일 모두 필요)
+            assertThat(mission.getReminderHour()).isNull();
+        }
+
+        // ---------- 권한: validateMissionOwner / isGuildAdmin ----------
+
+        @Test
+        @DisplayName("길드 마스터는 생성자가 아니어도 길드 미션을 시작할 수 있다")
+        void startMission_guildMaster_allowed() {
+            Mission mission = guildMission(1L, "100", "other", MissionStatus.OPEN);
+            when(missionRepository.findByIdAndIsDeletedFalse(1L)).thenReturn(Optional.of(mission));
+            when(guildQueryFacadeService.checkPermissions(100L, TEST_USER_ID))
+                .thenReturn(new io.pinkspider.global.facade.dto.GuildPermissionCheck(true, false, true));
+
+            MissionResponse response = missionService.startMission(1L, TEST_USER_ID);
+
+            assertThat(response.getStatus()).isEqualTo(MissionStatus.IN_PROGRESS);
+        }
+
+        @Test
+        @DisplayName("길드 일반 멤버는 길드 미션을 시작할 수 없다")
+        void startMission_guildRegularMember_denied() {
+            Mission mission = guildMission(1L, "100", "other", MissionStatus.OPEN);
+            when(missionRepository.findByIdAndIsDeletedFalse(1L)).thenReturn(Optional.of(mission));
+            when(guildQueryFacadeService.checkPermissions(100L, TEST_USER_ID))
+                .thenReturn(new io.pinkspider.global.facade.dto.GuildPermissionCheck(true, false, false));
+
+            assertThatThrownBy(() -> missionService.startMission(1L, TEST_USER_ID))
+                .isInstanceOf(IllegalStateException.class);
+        }
+
+        @Test
+        @DisplayName("비활성 길드 멤버는 마스터 플래그가 있어도 길드 미션을 시작할 수 없다")
+        void startMission_inactiveMember_denied() {
+            Mission mission = guildMission(1L, "100", "other", MissionStatus.OPEN);
+            when(missionRepository.findByIdAndIsDeletedFalse(1L)).thenReturn(Optional.of(mission));
+            when(guildQueryFacadeService.checkPermissions(100L, TEST_USER_ID))
+                .thenReturn(new io.pinkspider.global.facade.dto.GuildPermissionCheck(false, true, false));
+
+            assertThatThrownBy(() -> missionService.startMission(1L, TEST_USER_ID))
+                .isInstanceOf(IllegalStateException.class);
+        }
+
+        @Test
+        @DisplayName("guildId 가 없는 길드 미션은 길드 권한 조회 없이 생성자 외 거부된다")
+        void startMission_guildMissionWithoutGuildId_denied() {
+            Mission mission = guildMission(1L, null, "other", MissionStatus.OPEN);
+            when(missionRepository.findByIdAndIsDeletedFalse(1L)).thenReturn(Optional.of(mission));
+
+            assertThatThrownBy(() -> missionService.startMission(1L, TEST_USER_ID))
+                .isInstanceOf(IllegalStateException.class);
+            verify(guildQueryFacadeService, never()).checkPermissions(any(), any());
+        }
+
+        @Test
+        @DisplayName("deleteMission: guildId 없는 길드 미션은 생성자 외 삭제할 수 없다")
+        void deleteMission_guildMissionWithoutGuildId_denied() {
+            Mission mission = guildMission(1L, null, "other", MissionStatus.OPEN);
+            when(missionRepository.findByIdAndIsDeletedFalse(1L)).thenReturn(Optional.of(mission));
+
+            assertThatThrownBy(() -> missionService.deleteMission(1L, TEST_USER_ID))
+                .isInstanceOf(IllegalStateException.class);
+            verify(guildQueryFacadeService, never()).checkPermissions(any(), any());
+        }
+
+        @Test
+        @DisplayName("deleteMission: 비활성 길드 멤버는 길드 미션을 삭제할 수 없다")
+        void deleteMission_inactiveMember_denied() {
+            Mission mission = guildMission(1L, "100", "other", MissionStatus.OPEN);
+            when(missionRepository.findByIdAndIsDeletedFalse(1L)).thenReturn(Optional.of(mission));
+            when(guildQueryFacadeService.checkPermissions(100L, TEST_USER_ID))
+                .thenReturn(new io.pinkspider.global.facade.dto.GuildPermissionCheck(false, true, false));
+
+            assertThatThrownBy(() -> missionService.deleteMission(1L, TEST_USER_ID))
+                .isInstanceOf(IllegalStateException.class);
+            verify(missionRepository, never()).save(any());
+        }
+
+        @Test
+        @DisplayName("[QA-112] 시스템 미션 참여자에게 IN_PROGRESS execution 이 있으면 철회되지 않는다")
+        void deleteMission_systemMission_userExecutionInProgress_throws() {
+            Mission mission = Mission.builder()
+                .title("시스템 미션").status(MissionStatus.OPEN).visibility(MissionVisibility.PUBLIC)
+                .type(MissionType.PERSONAL).creatorId(ADMIN_USER_ID).build();
+            setId(mission, 1L);
+            TestReflectionUtils.setField(mission, "source", MissionSource.SYSTEM);
+            when(missionRepository.findByIdAndIsDeletedFalse(1L)).thenReturn(Optional.of(mission));
+            when(executionRepository.existsInProgressByMissionIdAndUserId(1L, TEST_USER_ID)).thenReturn(true);
+
+            assertThatThrownBy(() -> missionService.deleteMission(1L, TEST_USER_ID))
+                .isInstanceOf(io.pinkspider.global.exception.CustomException.class)
+                .hasMessageContaining("error.mission.cannot_withdraw_in_progress");
+            verify(dailyMissionInstanceRepository, never()).existsInProgressByMissionIdAndUserId(any(), any());
+        }
+    }
 }

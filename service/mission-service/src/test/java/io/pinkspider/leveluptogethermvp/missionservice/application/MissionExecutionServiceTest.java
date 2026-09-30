@@ -76,6 +76,12 @@ class MissionExecutionServiceTest {
     @Mock
     private io.pinkspider.leveluptogethermvp.missionservice.application.strategy.MissionExecutionStrategyResolver strategyResolver;
 
+    @Mock
+    private MissionExecutionQueryService executionQueryService;
+
+    @Mock
+    private io.pinkspider.leveluptogethermvp.feedservice.application.FeedQueryService feedQueryService;
+
     @InjectMocks
     private MissionExecutionService executionService;
 
@@ -1096,6 +1102,377 @@ class MissionExecutionServiceTest {
 
             // then
             assertThat(reached).isTrue();
+        }
+    }
+
+    @Nested
+    @DisplayName("브랜치 커버리지 보강 테스트")
+    class BranchCoverageTest {
+
+        @Mock
+        private io.pinkspider.leveluptogethermvp.missionservice.application.strategy.MissionExecutionStrategy mockStrategy;
+
+        private Mission otherMission(Long id) {
+            Mission mission = Mission.builder()
+                .title("다른 미션")
+                .status(MissionStatus.IN_PROGRESS)
+                .visibility(MissionVisibility.PUBLIC)
+                .type(MissionType.PERSONAL)
+                .creatorId(testUserId)
+                .expPerCompletion(30)
+                .build();
+            setId(mission, id);
+            return mission;
+        }
+
+        private MissionParticipant participantOf(Mission mission, Long id) {
+            MissionParticipant participant = MissionParticipant.builder()
+                .mission(mission)
+                .userId(testUserId)
+                .status(ParticipantStatus.COMPLETED)
+                .build();
+            setId(participant, id);
+            return participant;
+        }
+
+        private MissionExecution executionOf(
+                MissionParticipant participant, LocalDate date, LocalDateTime startedAt, LocalDateTime completedAt) {
+            MissionExecution execution = MissionExecution.builder()
+                .participant(participant)
+                .executionDate(date)
+                .status(ExecutionStatus.COMPLETED)
+                .build();
+            setId(execution, participant.getId() + 1000);
+            TestReflectionUtils.setField(execution, "startedAt", startedAt);
+            TestReflectionUtils.setField(execution, "completedAt", completedAt);
+            return execution;
+        }
+
+        private DailyMissionInstance instanceOf(
+                MissionParticipant participant, LocalDate date, LocalDateTime startedAt, LocalDateTime completedAt) {
+            DailyMissionInstance instance = DailyMissionInstance.builder()
+                .participant(participant)
+                .instanceDate(date)
+                .missionTitle("고정")
+                .status(ExecutionStatus.COMPLETED)
+                .startedAt(startedAt)
+                .completedAt(completedAt)
+                .build();
+            setId(instance, participant.getId() + 2000);
+            return instance;
+        }
+
+        private void stubRegularUpdate(LocalDate date) {
+            MissionExecution execution = createCompletedExecution(1L, date, 50, 30);
+            when(participantRepository.findByMissionIdAndUserId(testMission.getId(), testUserId))
+                .thenReturn(Optional.of(testParticipant));
+            when(executionRepository.findByParticipantIdAndExecutionDate(testParticipant.getId(), date))
+                .thenReturn(Optional.of(execution));
+            when(executionRepository.save(any(MissionExecution.class))).thenReturn(execution);
+        }
+
+        @Test
+        @DisplayName("IN_PROGRESS 길드미션은 startExecution이 차단되지 않는다")
+        void startExecution_inProgressGuildMission_passes() {
+            Mission guild = Mission.builder()
+                .status(MissionStatus.IN_PROGRESS)
+                .type(MissionType.GUILD)
+                .creatorId(testUserId)
+                .guildId("100")
+                .build();
+            setId(guild, 97L);
+            when(missionRepository.findById(97L)).thenReturn(Optional.of(guild));
+            when(strategyResolver.resolve(97L, testUserId)).thenReturn(mockStrategy);
+            MissionExecutionResponse expected = MissionExecutionResponse.from(
+                MissionExecution.builder()
+                    .participant(testParticipant)
+                    .executionDate(today())
+                    .status(ExecutionStatus.IN_PROGRESS)
+                    .build());
+            when(mockStrategy.startExecution(97L, testUserId, today())).thenReturn(expected);
+
+            MissionExecutionResponse result = executionService.startExecution(97L, testUserId, today());
+
+            assertThat(result).isEqualTo(expected);
+        }
+
+        @Test
+        @DisplayName("미션이 없으면 validateMissionStarted에서 050101 예외")
+        void startExecution_missionNotFound_throws() {
+            when(missionRepository.findById(404L)).thenReturn(Optional.empty());
+
+            assertThatThrownBy(() -> executionService.startExecution(404L, testUserId, today()))
+                .isInstanceOf(CustomException.class)
+                .hasMessageContaining("error.mission.not_found");
+        }
+
+        @Test
+        @DisplayName("completeExecution(shareToFeed=true)는 PUBLIC 공개범위로 위임한다")
+        void completeExecution_shareToFeedTrue_public() {
+            LocalDate date = today();
+            MissionExecutionResponse expected = MissionExecutionResponse.from(createCompletedExecution(1L, date, 50, 30));
+            when(strategyResolver.resolve(testMission.getId(), testUserId)).thenReturn(mockStrategy);
+            when(mockStrategy.completeExecution(testMission.getId(), testUserId, date, "n", FeedVisibility.PUBLIC))
+                .thenReturn(expected);
+
+            MissionExecutionResponse result =
+                executionService.completeExecution(testMission.getId(), testUserId, date, "n", true);
+
+            assertThat(result).isEqualTo(expected);
+        }
+
+        @Test
+        @DisplayName("completeExecution(shareToFeed=false)는 PRIVATE 공개범위로 위임한다")
+        void completeExecution_shareToFeedFalse_private() {
+            LocalDate date = today();
+            MissionExecutionResponse expected = MissionExecutionResponse.from(createCompletedExecution(1L, date, 50, 30));
+            when(strategyResolver.resolve(testMission.getId(), testUserId)).thenReturn(mockStrategy);
+            when(mockStrategy.completeExecution(testMission.getId(), testUserId, date, "n", FeedVisibility.PRIVATE))
+                .thenReturn(expected);
+
+            MissionExecutionResponse result =
+                executionService.completeExecution(testMission.getId(), testUserId, date, "n", false);
+
+            assertThat(result).isEqualTo(expected);
+        }
+
+        @Test
+        @DisplayName("completeExecution(note만)은 PRIVATE 으로 위임한다")
+        void completeExecution_noteOnly_private() {
+            LocalDate date = today();
+            MissionExecutionResponse expected = MissionExecutionResponse.from(createCompletedExecution(1L, date, 50, 30));
+            when(strategyResolver.resolve(testMission.getId(), testUserId)).thenReturn(mockStrategy);
+            when(mockStrategy.completeExecution(testMission.getId(), testUserId, date, "n", FeedVisibility.PRIVATE))
+                .thenReturn(expected);
+
+            MissionExecutionResponse result =
+                executionService.completeExecution(testMission.getId(), testUserId, date, "n");
+
+            assertThat(result).isEqualTo(expected);
+        }
+
+        @Test
+        @DisplayName("getExecutionByDate: id가 있으면 피드 공개범위를 조회해 세팅한다")
+        void getExecutionByDate_withId_setsFeedVisibility() {
+            LocalDate date = today();
+            MissionExecutionResponse response = MissionExecutionResponse.from(createCompletedExecution(7L, date, 50, 30));
+            when(strategyResolver.resolve(testMission.getId(), testUserId)).thenReturn(mockStrategy);
+            when(mockStrategy.getExecutionByDate(testMission.getId(), testUserId, date, null)).thenReturn(response);
+            when(feedQueryService.getFeedVisibilityByExecutionId(7L, testUserId)).thenReturn("PUBLIC");
+
+            MissionExecutionResponse result =
+                executionService.getExecutionByDate(testMission.getId(), testUserId, date, null);
+
+            assertThat(result.getFeedVisibility()).isEqualTo("PUBLIC");
+            verify(executionQueryService).localizeMissionFields(List.of(response), null);
+        }
+
+        @Test
+        @DisplayName("getExecutionByDate: id가 없으면 피드 공개범위를 조회하지 않는다")
+        void getExecutionByDate_withoutId_skipsFeedVisibility() {
+            LocalDate date = today();
+            MissionExecutionResponse response = MissionExecutionResponse.from(
+                MissionExecution.builder()
+                    .participant(testParticipant)
+                    .executionDate(date)
+                    .status(ExecutionStatus.PENDING)
+                    .build());
+            when(strategyResolver.resolve(testMission.getId(), testUserId)).thenReturn(mockStrategy);
+            when(mockStrategy.getExecutionByDate(testMission.getId(), testUserId, date, null)).thenReturn(response);
+
+            MissionExecutionResponse result =
+                executionService.getExecutionByDate(testMission.getId(), testUserId, date, null, "ko");
+
+            assertThat(result.getId()).isNull();
+            verify(feedQueryService, never()).getFeedVisibilityByExecutionId(any(), anyString());
+            verify(executionQueryService).localizeMissionFields(List.of(response), "ko");
+        }
+
+        @Test
+        @DisplayName("Saga 실패 후 보상 완료(COMPENSATED) 상태여도 예외를 던진다")
+        void completeExecution_sagaCompensated_throws() {
+            MissionCompletionContext context = new MissionCompletionContext(testUserId);
+            context.compensated();
+            SagaResult<MissionCompletionContext> failure = SagaResult.failure(context, "실패");
+            when(missionCompletionSaga.execute(1L, testUserId, "n", false)).thenReturn(failure);
+
+            assertThatThrownBy(() -> executionService.completeExecution(1L, testUserId, "n"))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("실패");
+        }
+
+        @Test
+        @DisplayName("겹침 검사: 일반 미션 startedAt이 null이면 건너뛴다")
+        void overlap_regular_startedAtNull_skipped() {
+            LocalDate date = today();
+            MissionParticipant other = participantOf(otherMission(901L), 901L);
+            when(executionRepository.findCompletedByUserIdAndDateRange(testUserId, date, date))
+                .thenReturn(List.of(executionOf(other, date, null, date.atTime(10, 0))));
+            when(dailyMissionInstanceRepository.findCompletedByUserIdAndDateRange(testUserId, date, date))
+                .thenReturn(List.of());
+            stubRegularUpdate(date);
+
+            org.junit.jupiter.api.Assertions.assertDoesNotThrow(() ->
+                executionService.updateExecutionTime(
+                    testMission.getId(), testUserId, date, date.atTime(9, 0), date.atTime(10, 0)));
+        }
+
+        @Test
+        @DisplayName("겹침 검사: 일반 미션 completedAt이 null이면 건너뛴다")
+        void overlap_regular_completedAtNull_skipped() {
+            LocalDate date = today();
+            MissionParticipant other = participantOf(otherMission(902L), 902L);
+            when(executionRepository.findCompletedByUserIdAndDateRange(testUserId, date, date))
+                .thenReturn(List.of(executionOf(other, date, date.atTime(9, 0), null)));
+            when(dailyMissionInstanceRepository.findCompletedByUserIdAndDateRange(testUserId, date, date))
+                .thenReturn(List.of());
+            stubRegularUpdate(date);
+
+            org.junit.jupiter.api.Assertions.assertDoesNotThrow(() ->
+                executionService.updateExecutionTime(
+                    testMission.getId(), testUserId, date, date.atTime(9, 0), date.atTime(10, 0)));
+        }
+
+        @Test
+        @DisplayName("겹침 검사: 일반 미션이 요청 구간 이후에 있으면 통과")
+        void overlap_regular_afterRange_passes() {
+            LocalDate date = today();
+            MissionParticipant other = participantOf(otherMission(903L), 903L);
+            when(executionRepository.findCompletedByUserIdAndDateRange(testUserId, date, date))
+                .thenReturn(List.of(executionOf(other, date, date.atTime(11, 0), date.atTime(12, 0))));
+            when(dailyMissionInstanceRepository.findCompletedByUserIdAndDateRange(testUserId, date, date))
+                .thenReturn(List.of());
+            stubRegularUpdate(date);
+
+            org.junit.jupiter.api.Assertions.assertDoesNotThrow(() ->
+                executionService.updateExecutionTime(
+                    testMission.getId(), testUserId, date, date.atTime(9, 0), date.atTime(10, 0)));
+        }
+
+        @Test
+        @DisplayName("겹침 검사: 일반 미션이 요청 구간 이전에 있으면 통과")
+        void overlap_regular_beforeRange_passes() {
+            LocalDate date = today();
+            MissionParticipant other = participantOf(otherMission(904L), 904L);
+            when(executionRepository.findCompletedByUserIdAndDateRange(testUserId, date, date))
+                .thenReturn(List.of(executionOf(other, date, date.atTime(7, 0), date.atTime(8, 0))));
+            when(dailyMissionInstanceRepository.findCompletedByUserIdAndDateRange(testUserId, date, date))
+                .thenReturn(List.of());
+            stubRegularUpdate(date);
+
+            org.junit.jupiter.api.Assertions.assertDoesNotThrow(() ->
+                executionService.updateExecutionTime(
+                    testMission.getId(), testUserId, date, date.atTime(9, 0), date.atTime(10, 0)));
+        }
+
+        @Test
+        @DisplayName("겹침 검사: 같은 미션의 일반 수행 기록은 건너뛴다")
+        void overlap_regular_sameMission_skipped() {
+            LocalDate date = today();
+            when(executionRepository.findCompletedByUserIdAndDateRange(testUserId, date, date))
+                .thenReturn(List.of(executionOf(testParticipant, date, date.atTime(9, 0), date.atTime(10, 0))));
+            when(dailyMissionInstanceRepository.findCompletedByUserIdAndDateRange(testUserId, date, date))
+                .thenReturn(List.of());
+            stubRegularUpdate(date);
+
+            org.junit.jupiter.api.Assertions.assertDoesNotThrow(() ->
+                executionService.updateExecutionTime(
+                    testMission.getId(), testUserId, date, date.atTime(9, 0), date.atTime(10, 0)));
+        }
+
+        @Test
+        @DisplayName("겹침 검사: 고정 미션 인스턴스와 겹치면 예외")
+        void overlap_pinned_overlapping_throws() {
+            LocalDate date = today();
+            MissionParticipant other = participantOf(otherMission(905L), 905L);
+            when(executionRepository.findCompletedByUserIdAndDateRange(testUserId, date, date))
+                .thenReturn(List.of());
+            when(dailyMissionInstanceRepository.findCompletedByUserIdAndDateRange(testUserId, date, date))
+                .thenReturn(List.of(instanceOf(other, date, date.atTime(9, 30), date.atTime(10, 30))));
+
+            assertThatThrownBy(() ->
+                executionService.updateExecutionTime(
+                    testMission.getId(), testUserId, date, date.atTime(9, 0), date.atTime(10, 0)))
+                .isInstanceOf(IllegalStateException.class);
+        }
+
+        @Test
+        @DisplayName("겹침 검사: 같은 미션의 고정 인스턴스는 건너뛴다")
+        void overlap_pinned_sameMission_skipped() {
+            LocalDate date = today();
+            when(executionRepository.findCompletedByUserIdAndDateRange(testUserId, date, date))
+                .thenReturn(List.of());
+            when(dailyMissionInstanceRepository.findCompletedByUserIdAndDateRange(testUserId, date, date))
+                .thenReturn(List.of(instanceOf(testParticipant, date, date.atTime(9, 0), date.atTime(10, 0))));
+            stubRegularUpdate(date);
+
+            org.junit.jupiter.api.Assertions.assertDoesNotThrow(() ->
+                executionService.updateExecutionTime(
+                    testMission.getId(), testUserId, date, date.atTime(9, 0), date.atTime(10, 0)));
+        }
+
+        @Test
+        @DisplayName("겹침 검사: 고정 인스턴스 startedAt이 null이면 건너뛴다")
+        void overlap_pinned_startedAtNull_skipped() {
+            LocalDate date = today();
+            MissionParticipant other = participantOf(otherMission(906L), 906L);
+            when(executionRepository.findCompletedByUserIdAndDateRange(testUserId, date, date))
+                .thenReturn(List.of());
+            when(dailyMissionInstanceRepository.findCompletedByUserIdAndDateRange(testUserId, date, date))
+                .thenReturn(List.of(instanceOf(other, date, null, date.atTime(10, 0))));
+            stubRegularUpdate(date);
+
+            org.junit.jupiter.api.Assertions.assertDoesNotThrow(() ->
+                executionService.updateExecutionTime(
+                    testMission.getId(), testUserId, date, date.atTime(9, 0), date.atTime(10, 0)));
+        }
+
+        @Test
+        @DisplayName("겹침 검사: 고정 인스턴스 completedAt이 null이면 건너뛴다")
+        void overlap_pinned_completedAtNull_skipped() {
+            LocalDate date = today();
+            MissionParticipant other = participantOf(otherMission(907L), 907L);
+            when(executionRepository.findCompletedByUserIdAndDateRange(testUserId, date, date))
+                .thenReturn(List.of());
+            when(dailyMissionInstanceRepository.findCompletedByUserIdAndDateRange(testUserId, date, date))
+                .thenReturn(List.of(instanceOf(other, date, date.atTime(9, 0), null)));
+            stubRegularUpdate(date);
+
+            org.junit.jupiter.api.Assertions.assertDoesNotThrow(() ->
+                executionService.updateExecutionTime(
+                    testMission.getId(), testUserId, date, date.atTime(9, 0), date.atTime(10, 0)));
+        }
+
+        @Test
+        @DisplayName("겹침 검사: 고정 인스턴스가 요청 구간 이후면 통과")
+        void overlap_pinned_afterRange_passes() {
+            LocalDate date = today();
+            MissionParticipant other = participantOf(otherMission(908L), 908L);
+            when(executionRepository.findCompletedByUserIdAndDateRange(testUserId, date, date))
+                .thenReturn(List.of());
+            when(dailyMissionInstanceRepository.findCompletedByUserIdAndDateRange(testUserId, date, date))
+                .thenReturn(List.of(instanceOf(other, date, date.atTime(11, 0), date.atTime(12, 0))));
+            stubRegularUpdate(date);
+
+            org.junit.jupiter.api.Assertions.assertDoesNotThrow(() ->
+                executionService.updateExecutionTime(
+                    testMission.getId(), testUserId, date, date.atTime(9, 0), date.atTime(10, 0)));
+        }
+
+        @Test
+        @DisplayName("겹침 검사: 고정 인스턴스가 요청 구간 이전이면 통과")
+        void overlap_pinned_beforeRange_passes() {
+            LocalDate date = today();
+            MissionParticipant other = participantOf(otherMission(909L), 909L);
+            when(executionRepository.findCompletedByUserIdAndDateRange(testUserId, date, date))
+                .thenReturn(List.of());
+            when(dailyMissionInstanceRepository.findCompletedByUserIdAndDateRange(testUserId, date, date))
+                .thenReturn(List.of(instanceOf(other, date, date.atTime(7, 0), date.atTime(8, 0))));
+            stubRegularUpdate(date);
+
+            org.junit.jupiter.api.Assertions.assertDoesNotThrow(() ->
+                executionService.updateExecutionTime(
+                    testMission.getId(), testUserId, date, date.atTime(9, 0), date.atTime(10, 0)));
         }
     }
 

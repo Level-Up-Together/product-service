@@ -991,4 +991,233 @@ class FriendServiceTest {
             assertThat(result.getContent().get(0).getFriendTitleRight()).isEqualTo("전사");
         }
     }
+
+    @Nested
+    @DisplayName("sendFriendRequest 역방향 행 경계 테스트")
+    class SendFriendRequestReverseRowTest {
+
+        @Test
+        @DisplayName("상대가 만든 ACCEPTED 행이 있으면 이미 친구 예외가 발생한다")
+        void theirsAccepted_throws() {
+            when(friendshipRepository.findByUserIdAndFriendId(TEST_USER_ID, FRIEND_USER_ID))
+                .thenReturn(Optional.empty());
+            when(friendshipRepository.findByUserIdAndFriendId(FRIEND_USER_ID, TEST_USER_ID))
+                .thenReturn(Optional.of(createTestFriendship(1L, FRIEND_USER_ID, TEST_USER_ID, FriendshipStatus.ACCEPTED)));
+
+            assertThatThrownBy(() -> friendService.sendFriendRequest(TEST_USER_ID, FRIEND_USER_ID, null))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("이미 친구");
+        }
+
+        @Test
+        @DisplayName("상대가 보낸 PENDING 요청이 있으면 진행 중 예외가 발생한다")
+        void theirsPending_throws() {
+            when(friendshipRepository.findByUserIdAndFriendId(TEST_USER_ID, FRIEND_USER_ID))
+                .thenReturn(Optional.empty());
+            when(friendshipRepository.findByUserIdAndFriendId(FRIEND_USER_ID, TEST_USER_ID))
+                .thenReturn(Optional.of(createTestFriendship(1L, FRIEND_USER_ID, TEST_USER_ID, FriendshipStatus.PENDING)));
+
+            assertThatThrownBy(() -> friendService.sendFriendRequest(TEST_USER_ID, FRIEND_USER_ID, null))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("진행 중");
+        }
+
+        @Test
+        @DisplayName("요청자 정보를 찾지 못하면 기본 닉네임으로 이벤트를 발행한다")
+        void requesterNotFound_defaultNickname() {
+            Friendship saved = createTestFriendship(1L, TEST_USER_ID, FRIEND_USER_ID, FriendshipStatus.PENDING);
+            when(friendshipRepository.save(any(Friendship.class))).thenReturn(saved);
+            when(userRepository.findById(TEST_USER_ID)).thenReturn(Optional.empty());
+
+            friendService.sendFriendRequest(TEST_USER_ID, FRIEND_USER_ID, null);
+
+            org.mockito.ArgumentCaptor<Object> captor = org.mockito.ArgumentCaptor.forClass(Object.class);
+            verify(eventPublisher).publishEvent(captor.capture());
+            assertThat(captor.getValue()).isInstanceOf(FriendRequestEvent.class);
+            assertThat(((FriendRequestEvent) captor.getValue()).requesterNickname()).isEqualTo("사용자");
+        }
+    }
+
+    @Nested
+    @DisplayName("accept/reject 경계 테스트")
+    class AcceptRejectEdgeTest {
+
+        @Test
+        @DisplayName("수락자 정보를 찾지 못하면 기본 닉네임으로 수락 이벤트를 발행한다")
+        void accepterNotFound_defaultNickname() {
+            Friendship request = createTestFriendship(1L, FRIEND_USER_ID, TEST_USER_ID, FriendshipStatus.PENDING);
+            when(friendshipRepository.findById(1L)).thenReturn(Optional.of(request));
+            when(userRepository.findById(TEST_USER_ID)).thenReturn(Optional.empty());
+
+            friendService.acceptFriendRequest(TEST_USER_ID, 1L);
+
+            org.mockito.ArgumentCaptor<Object> captor = org.mockito.ArgumentCaptor.forClass(Object.class);
+            verify(eventPublisher, org.mockito.Mockito.times(2)).publishEvent(captor.capture());
+            FriendRequestAcceptedEvent accepted = captor.getAllValues().stream()
+                .filter(FriendRequestAcceptedEvent.class::isInstance)
+                .map(FriendRequestAcceptedEvent.class::cast)
+                .findFirst().orElseThrow();
+            assertThat(accepted.accepterNickname()).isEqualTo("사용자");
+        }
+
+        @Test
+        @DisplayName("본인에게 온 요청이 아니면 거절할 수 없다")
+        void rejectNotMine_throws() {
+            Friendship request = createTestFriendship(1L, FRIEND_USER_ID, "someone-else", FriendshipStatus.PENDING);
+            when(friendshipRepository.findById(1L)).thenReturn(Optional.of(request));
+
+            assertThatThrownBy(() -> friendService.rejectFriendRequest(TEST_USER_ID, 1L))
+                .isInstanceOf(IllegalStateException.class);
+            verify(eventPublisher, never()).publishEvent(any(FriendRequestProcessedEvent.class));
+        }
+    }
+
+    @Nested
+    @DisplayName("blockUser 역방향 행 정리 경계 테스트")
+    class BlockUserReverseRowTest {
+
+        @Test
+        @DisplayName("LUT-367: 상대가 보낸 PENDING 행은 이벤트 없이 삭제한다")
+        void reversePending_deletedWithoutEvent() {
+            Friendship reversePending = createTestFriendship(2L, FRIEND_USER_ID, TEST_USER_ID, FriendshipStatus.PENDING);
+            when(friendshipRepository.findByUserIdAndFriendId(TEST_USER_ID, FRIEND_USER_ID))
+                .thenReturn(Optional.empty());
+            when(friendshipRepository.findByUserIdAndFriendId(FRIEND_USER_ID, TEST_USER_ID))
+                .thenReturn(Optional.of(reversePending));
+
+            friendService.blockUser(TEST_USER_ID, FRIEND_USER_ID);
+
+            verify(friendshipRepository).delete(reversePending);
+            verify(eventPublisher, never()).publishEvent(any(FriendRemovedEvent.class));
+        }
+    }
+
+    @Nested
+    @DisplayName("친구 목록 방향/유저 누락 경계 테스트")
+    class FriendListDirectionEdgeTest {
+
+        private UserTitleDto titleDto(String userId, TitleRarity rarity, TitlePosition position) {
+            return new UserTitleDto(
+                1L, userId, 1L, "칭호", null, null, null, null, null, null, null,
+                rarity, position, "#FFFFFF", null, true, position, java.time.LocalDateTime.now());
+        }
+
+        @Test
+        @DisplayName("상대가 요청자인 친구 행은 userId 쪽을 친구로 판정하고, 유저 정보가 없으면 null 로 내린다")
+        void getFriends_reverseDirection_andMissingUser() {
+            Pageable pageable = PageRequest.of(0, 10);
+            // 상대(FRIEND)가 요청자, 내가 수신자인 ACCEPTED 행
+            Friendship friendship = createTestFriendship(1L, FRIEND_USER_ID, TEST_USER_ID, FriendshipStatus.ACCEPTED);
+            Page<Friendship> page = new PageImpl<>(List.of(friendship), pageable, 1);
+
+            when(friendshipRepository.findFriends(TEST_USER_ID, pageable)).thenReturn(page);
+            when(userRepository.findAllById(List.of(FRIEND_USER_ID))).thenReturn(List.of()); // 탈퇴 등으로 누락
+            when(gamificationQueryFacadeService.getUserLevelMap(List.of(FRIEND_USER_ID))).thenReturn(Map.of());
+            when(gamificationQueryFacadeService.getEquippedTitlesByUserIds(List.of(FRIEND_USER_ID)))
+                .thenReturn(Map.of());
+
+            Page<FriendResponse> result = friendService.getFriends(TEST_USER_ID, pageable);
+
+            assertThat(result.getContent()).hasSize(1);
+            assertThat(result.getContent().get(0).getFriendId()).isEqualTo(FRIEND_USER_ID);
+            assertThat(result.getContent().get(0).getFriendNickname()).isNull();
+            assertThat(result.getContent().get(0).getFriendProfileImageUrl()).isNull();
+        }
+
+        @Test
+        @DisplayName("전체 친구 목록도 역방향 행과 유저 누락을 동일하게 처리한다")
+        void getAllFriends_reverseDirection_andMissingUser() {
+            Friendship friendship = createTestFriendship(1L, FRIEND_USER_ID, TEST_USER_ID, FriendshipStatus.ACCEPTED);
+
+            when(friendshipRepository.findAllFriends(TEST_USER_ID)).thenReturn(List.of(friendship));
+            when(userRepository.findAllById(List.of(FRIEND_USER_ID))).thenReturn(List.of());
+            when(gamificationQueryFacadeService.getUserLevelMap(List.of(FRIEND_USER_ID))).thenReturn(Map.of());
+            when(gamificationQueryFacadeService.getEquippedTitlesByUserIds(List.of(FRIEND_USER_ID)))
+                .thenReturn(Map.of());
+
+            List<FriendResponse> result = friendService.getAllFriends(TEST_USER_ID);
+
+            assertThat(result).hasSize(1);
+            assertThat(result.get(0).getFriendId()).isEqualTo(FRIEND_USER_ID);
+            assertThat(result.get(0).getFriendNickname()).isNull();
+        }
+
+        @Test
+        @DisplayName("친구가 없으면 칭호/아이템 배치 조회를 호출하지 않는다")
+        void noFriends_skipsBatchLookups() {
+            when(friendshipRepository.findAllFriends(TEST_USER_ID)).thenReturn(List.of());
+            when(userRepository.findAllById(List.of())).thenReturn(List.of());
+            when(gamificationQueryFacadeService.getUserLevelMap(List.of())).thenReturn(Map.of());
+
+            List<FriendResponse> result = friendService.getAllFriends(TEST_USER_ID);
+
+            assertThat(result).isEmpty();
+            verify(gamificationQueryFacadeService, never()).getEquippedTitlesByUserIds(any());
+            verify(gamificationQueryFacadeService, never()).getEquippedItemRaritiesByUserIds(any());
+        }
+
+        @Test
+        @DisplayName("칭호 등급이 없거나 장착 위치가 없는 칭호는 등급/이름을 null 로 처리한다")
+        void titlePair_nullRarity_andNullPosition() {
+            Friendship friendship = createTestFriendship(1L, TEST_USER_ID, FRIEND_USER_ID, FriendshipStatus.ACCEPTED);
+            Users friend = createTestUser(FRIEND_USER_ID, "친구");
+
+            when(friendshipRepository.findAllFriends(TEST_USER_ID)).thenReturn(List.of(friendship));
+            when(userRepository.findAllById(List.of(FRIEND_USER_ID))).thenReturn(List.of(friend));
+            when(gamificationQueryFacadeService.getUserLevelMap(List.of(FRIEND_USER_ID))).thenReturn(Map.of());
+            when(gamificationQueryFacadeService.getEquippedTitlesByUserIds(List.of(FRIEND_USER_ID)))
+                .thenReturn(Map.of(FRIEND_USER_ID, List.of(
+                    titleDto(FRIEND_USER_ID, null, TitlePosition.LEFT),
+                    titleDto(FRIEND_USER_ID, null, TitlePosition.RIGHT),
+                    titleDto(FRIEND_USER_ID, TitleRarity.RARE, null))));
+
+            List<FriendResponse> result = friendService.getAllFriends(TEST_USER_ID);
+
+            assertThat(result.get(0).getFriendTitleLeft()).isEqualTo("칭호");
+            assertThat(result.get(0).getFriendTitleLeftRarity()).isNull();
+            assertThat(result.get(0).getFriendTitleRight()).isEqualTo("칭호");
+            assertThat(result.get(0).getFriendTitleRightRarity()).isNull();
+        }
+
+        @Test
+        @DisplayName("칭호 목록이 null 인 유저는 빈 칭호 페어로 처리한다")
+        void titlePair_nullList_treatedAsEmpty() {
+            Friendship friendship = createTestFriendship(1L, TEST_USER_ID, FRIEND_USER_ID, FriendshipStatus.ACCEPTED);
+            Users friend = createTestUser(FRIEND_USER_ID, "친구");
+            java.util.Map<String, List<UserTitleDto>> titlesWithNull = new java.util.HashMap<>();
+            titlesWithNull.put(FRIEND_USER_ID, null);
+
+            when(friendshipRepository.findAllFriends(TEST_USER_ID)).thenReturn(List.of(friendship));
+            when(userRepository.findAllById(List.of(FRIEND_USER_ID))).thenReturn(List.of(friend));
+            when(gamificationQueryFacadeService.getUserLevelMap(List.of(FRIEND_USER_ID))).thenReturn(Map.of());
+            when(gamificationQueryFacadeService.getEquippedTitlesByUserIds(List.of(FRIEND_USER_ID)))
+                .thenReturn(titlesWithNull);
+
+            List<FriendResponse> result = friendService.getAllFriends(TEST_USER_ID);
+
+            assertThat(result.get(0).getFriendTitleLeft()).isNull();
+            assertThat(result.get(0).getFriendTitleRight()).isNull();
+        }
+    }
+
+    @Nested
+    @DisplayName("getPendingRequestsReceived 경계 테스트")
+    class GetPendingRequestsReceivedEdgeTest {
+
+        @Test
+        @DisplayName("요청자 정보가 없으면 닉네임/사진을 null 로 내린다")
+        void requesterMissing_nullFields() {
+            Friendship pendingRequest = createTestFriendship(1L, FRIEND_USER_ID, TEST_USER_ID, FriendshipStatus.PENDING);
+
+            when(friendshipRepository.findPendingRequestsReceived(TEST_USER_ID)).thenReturn(List.of(pendingRequest));
+            when(userRepository.findAllById(List.of(FRIEND_USER_ID))).thenReturn(List.of());
+            when(gamificationQueryFacadeService.getUserLevelMap(List.of(FRIEND_USER_ID))).thenReturn(Map.of());
+
+            List<FriendRequestResponse> result = friendService.getPendingRequestsReceived(TEST_USER_ID);
+
+            assertThat(result).hasSize(1);
+            assertThat(result.get(0).getRequesterNickname()).isNull();
+            assertThat(result.get(0).getRequesterProfileImageUrl()).isNull();
+        }
+    }
 }

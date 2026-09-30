@@ -1498,5 +1498,594 @@ class Oauth2ServiceTest {
                 assertThat(captor.getValue().appleClientId()).isEqualTo(APPLE_CLIENT_ID);
             }
         }
+
+        @Test
+        @DisplayName("code 가 빈 문자열이면 교환을 시도하지 않는다")
+        void mobileLogin_appleBlankCode_skipsCapture() {
+            try (MockedStatic<CryptoUtils> mockedCrypto = mockStatic(CryptoUtils.class)) {
+                Users existingUser = existingAppleUser();
+                try {
+                    when(jwtUtil.decodeIdToken(APPLE_ID_TOKEN)).thenReturn(appleClaims());
+                } catch (Exception ignored) {
+                }
+                mockedCrypto.when(() -> CryptoUtils.encryptAes(TEST_EMAIL)).thenReturn("encrypted-email");
+                when(userRepository.findActiveByEncryptedEmailAndProvider("encrypted-email", "apple"))
+                    .thenReturn(Optional.of(existingUser));
+                mockLoginPlumbing();
+
+                oauth2Service.createJwtFromMobileToken(
+                    httpRequest, "apple", APPLE_ID_TOKEN, "ios", TEST_DEVICE_ID, null, null,
+                    "   ", null);
+
+                verifyNoInteractions(appleTokenService);
+                assertThat(existingUser.getAppleRefreshToken()).isNull();
+            }
+        }
+
+        @Test
+        @DisplayName("id_token 에 aud 가 없으면 client_id 를 알 수 없어 교환을 건너뛴다")
+        void mobileLogin_appleNoAudience_skipsCapture() {
+            try (MockedStatic<CryptoUtils> mockedCrypto = mockStatic(CryptoUtils.class)) {
+                Users existingUser = existingAppleUser();
+                com.nimbusds.jwt.JWTClaimsSet claimsWithoutAud = new com.nimbusds.jwt.JWTClaimsSet.Builder()
+                    .subject("apple-sub-1")
+                    .claim("email", TEST_EMAIL)
+                    .build();
+                try {
+                    when(jwtUtil.decodeIdToken(APPLE_ID_TOKEN)).thenReturn(claimsWithoutAud);
+                } catch (Exception ignored) {
+                }
+                mockedCrypto.when(() -> CryptoUtils.encryptAes(TEST_EMAIL)).thenReturn("encrypted-email");
+                when(userRepository.findActiveByEncryptedEmailAndProvider("encrypted-email", "apple"))
+                    .thenReturn(Optional.of(existingUser));
+                mockLoginPlumbing();
+
+                oauth2Service.createJwtFromMobileToken(
+                    httpRequest, "apple", APPLE_ID_TOKEN, "ios", TEST_DEVICE_ID, null, null,
+                    "auth-code", null);
+
+                verifyNoInteractions(appleTokenService);
+                assertThat(existingUser.getAppleRefreshToken()).isNull();
+            }
+        }
+    }
+
+    @Nested
+    @DisplayName("resolveRedirectUri 경계 테스트")
+    class ResolveRedirectUriEdgeTest {
+
+        @Test
+        @DisplayName("Origin 이 빈 문자열이면 Referer 로 폴백한다")
+        void blankOrigin_fallsBackToReferer() {
+            when(clientRegistrationRepository.findByRegistrationId("google"))
+                .thenReturn(buildMockClientRegistration("google"));
+            when(httpRequest.getHeader("Origin")).thenReturn("   ");
+            when(httpRequest.getHeader("Referer")).thenReturn("https://allowed.example.com/page");
+            when(oAuth2Properties.isAllowedOrigin("https://allowed.example.com")).thenReturn(true);
+
+            OAuth2LoginUriResponseDto result = oauth2Service.getOauth2LoginUri("google", httpRequest);
+
+            assertThat(result.getAuthUrl())
+                .contains("redirect_uri=https://allowed.example.com/oauth/callback/google");
+        }
+
+        @Test
+        @DisplayName("Referer 의 80 포트는 origin 에 포함하지 않는다")
+        void refererPort80_omitted() {
+            when(clientRegistrationRepository.findByRegistrationId("google"))
+                .thenReturn(buildMockClientRegistration("google"));
+            when(httpRequest.getHeader("Origin")).thenReturn(null);
+            when(httpRequest.getHeader("Referer")).thenReturn("http://allowed.example.com:80/page");
+            when(oAuth2Properties.isAllowedOrigin("http://allowed.example.com")).thenReturn(true);
+
+            OAuth2LoginUriResponseDto result = oauth2Service.getOauth2LoginUri("google", httpRequest);
+
+            assertThat(result.getAuthUrl())
+                .contains("redirect_uri=http://allowed.example.com/oauth/callback/google");
+        }
+
+        @Test
+        @DisplayName("Referer 의 443 포트는 origin 에 포함하지 않는다")
+        void refererPort443_omitted() {
+            when(clientRegistrationRepository.findByRegistrationId("google"))
+                .thenReturn(buildMockClientRegistration("google"));
+            when(httpRequest.getHeader("Origin")).thenReturn(null);
+            when(httpRequest.getHeader("Referer")).thenReturn("https://allowed.example.com:443/page");
+            when(oAuth2Properties.isAllowedOrigin("https://allowed.example.com")).thenReturn(true);
+
+            OAuth2LoginUriResponseDto result = oauth2Service.getOauth2LoginUri("google", httpRequest);
+
+            assertThat(result.getAuthUrl())
+                .contains("redirect_uri=https://allowed.example.com/oauth/callback/google");
+        }
+    }
+
+    @Nested
+    @DisplayName("createJwt(웹 콜백) 경계 테스트")
+    class CreateJwtEdgeTest {
+
+        private Map<String, Object> googleUserInfoMap(String name) {
+            Map<String, Object> map = new HashMap<>();
+            map.put("sub", "google-sub-123");
+            map.put("email", TEST_EMAIL);
+            if (name != null) {
+                map.put("name", name);
+            }
+            return map;
+        }
+
+        @Test
+        @DisplayName("신규 사용자는 signup token 을 발급한다")
+        void createJwt_newUser_returnsSignupToken() throws Exception {
+            try (MockedStatic<CryptoUtils> mockedCrypto = mockStatic(CryptoUtils.class)) {
+                Map<String, String> tokenResponse = new HashMap<>();
+                tokenResponse.put("access_token", "google-access-token");
+
+                when(httpRequest.getHeader("Origin")).thenReturn(null);
+                when(httpRequest.getHeader("Referer")).thenReturn(null);
+                when(clientRegistrationRepository.findByRegistrationId("google"))
+                    .thenReturn(buildMockClientRegistration("google"));
+                when(googleOAuth2FeignClient.getAccessToken(anyString(), anyString(), anyString(), anyString(), anyString()))
+                    .thenReturn(tokenResponse);
+                when(googleUserInfoFeignClient.getUserInfo("Bearer google-access-token"))
+                    .thenReturn(googleUserInfoMap(TEST_NICKNAME));
+                mockedCrypto.when(() -> CryptoUtils.encryptAes(TEST_EMAIL)).thenReturn("encrypted-email");
+                when(userRepository.findActiveByEncryptedEmailAndProvider("encrypted-email", "google"))
+                    .thenReturn(Optional.empty());
+                when(userRepository.existsByNickname(TEST_NICKNAME)).thenReturn(false);
+                when(signupTokenService.createOrRefresh(any())).thenReturn("signup-token");
+
+                SocialLoginResponseDto result = oauth2Service.createJwt(
+                    httpRequest, "google", "auth-code-123", "web", TEST_DEVICE_ID);
+
+                assertThat(result.isNewUser()).isTrue();
+                assertThat(result.getSignupToken()).isEqualTo("signup-token");
+                assertThat(result.getSuggestedNickname()).isEqualTo(TEST_NICKNAME);
+                verify(tokenService, never()).saveTokensToRedis(any(), any(), any(), any(), any());
+            }
+        }
+
+        @Test
+        @DisplayName("토큰 교환을 지원하지 않는 provider 면 IllegalArgumentException")
+        void createJwt_unsupportedProvider_throws() {
+            when(httpRequest.getHeader("Origin")).thenReturn(null);
+            when(httpRequest.getHeader("Referer")).thenReturn(null);
+            when(clientRegistrationRepository.findByRegistrationId("naver"))
+                .thenReturn(buildMockClientRegistration("naver"));
+
+            assertThatThrownBy(() -> oauth2Service.createJwt(
+                httpRequest, "naver", "auth-code-123", "web", TEST_DEVICE_ID))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Unsupported provider");
+        }
+
+        @Test
+        @DisplayName("Kakao 토큰 응답에 access_token 이 없으면 null 토큰으로 사용자 정보를 조회한다")
+        void createJwt_kakaoWithoutAccessToken_proceedsWithNull() throws Exception {
+            try (MockedStatic<CryptoUtils> mockedCrypto = mockStatic(CryptoUtils.class)) {
+                Users existingUser = Users.builder()
+                    .id(TEST_USER_ID).email(TEST_EMAIL).nickname(TEST_NICKNAME)
+                    .provider("kakao").providerUserId("12345").nicknameSet(true).build();
+
+                Map<String, Object> kakaoUserInfo = new HashMap<>();
+                kakaoUserInfo.put("id", 12345L);
+                Map<String, Object> kakaoAccount = new HashMap<>();
+                Map<String, Object> profile = new HashMap<>();
+                profile.put("nickname", TEST_NICKNAME);
+                kakaoAccount.put("profile", profile);
+                kakaoAccount.put("email", TEST_EMAIL);
+                kakaoUserInfo.put("kakao_account", kakaoAccount);
+
+                when(httpRequest.getHeader("Origin")).thenReturn(null);
+                when(httpRequest.getHeader("Referer")).thenReturn(null);
+                when(clientRegistrationRepository.findByRegistrationId("kakao"))
+                    .thenReturn(buildMockClientRegistration("kakao"));
+                when(kakaoOAuth2FeignClient.getAccessToken(anyString(), anyString(), anyString(), anyString(), anyString()))
+                    .thenReturn(new HashMap<>());
+                when(kakaoUserInfoFeignClient.getUserInfo("Bearer null")).thenReturn(kakaoUserInfo);
+                mockedCrypto.when(() -> CryptoUtils.encryptAes(TEST_EMAIL)).thenReturn("encrypted-email");
+                when(userRepository.findActiveByEncryptedEmailAndProvider("encrypted-email", "kakao"))
+                    .thenReturn(Optional.of(existingUser));
+                when(geoIpService.extractClientIp(httpRequest)).thenReturn("127.0.0.1");
+                when(geoIpService.lookupCountry("127.0.0.1")).thenReturn(GeoIpResult.empty());
+                when(jwtUtil.generateAccessToken(TEST_USER_ID, TEST_EMAIL, TEST_DEVICE_ID))
+                    .thenReturn(TEST_ACCESS_TOKEN);
+                when(jwtUtil.generateRefreshToken(TEST_USER_ID, TEST_EMAIL, TEST_DEVICE_ID))
+                    .thenReturn(TEST_REFRESH_TOKEN);
+
+                SocialLoginResponseDto result = oauth2Service.createJwt(
+                    httpRequest, "kakao", "auth-code-123", "web", TEST_DEVICE_ID);
+
+                assertThat(result.getAccessToken()).isEqualTo(TEST_ACCESS_TOKEN);
+                verify(kakaoUserInfoFeignClient).getUserInfo("Bearer null");
+            }
+        }
+    }
+
+    @Nested
+    @DisplayName("createJwtFromMobileToken 경계 테스트")
+    class CreateJwtFromMobileTokenEdgeTest {
+
+        private Map<String, Object> googleUserInfoMap(String name) {
+            Map<String, Object> map = new HashMap<>();
+            map.put("sub", "google-sub-123");
+            map.put("email", TEST_EMAIL);
+            if (name != null) {
+                map.put("name", name);
+            }
+            return map;
+        }
+
+        private void stubNewGoogleUser(MockedStatic<CryptoUtils> mockedCrypto, String name) {
+            mockedCrypto.when(() -> CryptoUtils.encryptAes(TEST_EMAIL)).thenReturn("encrypted-email");
+            when(googleUserInfoFeignClient.getUserInfo("Bearer google-provider-token"))
+                .thenReturn(googleUserInfoMap(name));
+            when(userRepository.findActiveByEncryptedEmailAndProvider("encrypted-email", "google"))
+                .thenReturn(Optional.empty());
+            when(signupTokenService.createOrRefresh(any())).thenReturn("signup-token");
+        }
+
+        private SocialLoginResponseDto mobileLogin(String preferredLocale) {
+            return oauth2Service.createJwtFromMobileToken(
+                httpRequest, "google", "google-provider-token", "android", TEST_DEVICE_ID,
+                preferredLocale, null, null, null);
+        }
+
+        @Test
+        @DisplayName("지원하지 않는 provider 면 CustomException 으로 감싸 던진다")
+        void unsupportedProvider_throwsCustomException() {
+            assertThatThrownBy(() -> oauth2Service.createJwtFromMobileToken(
+                httpRequest, "naver", "token", "android", TEST_DEVICE_ID, null, null, null, null))
+                .isInstanceOf(CustomException.class)
+                .hasMessageContaining("Unsupported provider");
+        }
+
+        @Test
+        @DisplayName("deviceId 가 공백이면 자동 생성한 deviceId 를 사용한다")
+        void blankDeviceId_generatesDeviceId() {
+            try (MockedStatic<CryptoUtils> mockedCrypto = mockStatic(CryptoUtils.class)) {
+                Users existingUser = Users.builder()
+                    .id(TEST_USER_ID).email(TEST_EMAIL).nickname(TEST_NICKNAME)
+                    .provider("google").providerUserId("google-sub-123").nicknameSet(true).build();
+
+                mockedCrypto.when(() -> CryptoUtils.encryptAes(TEST_EMAIL)).thenReturn("encrypted-email");
+                when(googleUserInfoFeignClient.getUserInfo("Bearer google-provider-token"))
+                    .thenReturn(googleUserInfoMap(TEST_NICKNAME));
+                when(userRepository.findActiveByEncryptedEmailAndProvider("encrypted-email", "google"))
+                    .thenReturn(Optional.of(existingUser));
+                when(geoIpService.extractClientIp(httpRequest)).thenReturn("127.0.0.1");
+                when(geoIpService.lookupCountry("127.0.0.1")).thenReturn(GeoIpResult.empty());
+                when(deviceIdentifier.generateDeviceId(httpRequest, "android")).thenReturn("generated-id");
+                when(jwtUtil.generateAccessToken(TEST_USER_ID, TEST_EMAIL, "generated-id"))
+                    .thenReturn(TEST_ACCESS_TOKEN);
+                when(jwtUtil.generateRefreshToken(TEST_USER_ID, TEST_EMAIL, "generated-id"))
+                    .thenReturn(TEST_REFRESH_TOKEN);
+
+                SocialLoginResponseDto result = oauth2Service.createJwtFromMobileToken(
+                    httpRequest, "google", "google-provider-token", "android", "   ",
+                    null, null, null, null);
+
+                assertThat(result.getDeviceId()).isEqualTo("generated-id");
+            }
+        }
+
+        @Test
+        @DisplayName("공급자 닉네임이 없으면 제안 닉네임은 null")
+        void noProviderNickname_suggestedNull() {
+            try (MockedStatic<CryptoUtils> mockedCrypto = mockStatic(CryptoUtils.class)) {
+                stubNewGoogleUser(mockedCrypto, null);
+
+                SocialLoginResponseDto result = mobileLogin(null);
+
+                assertThat(result.isNewUser()).isTrue();
+                assertThat(result.getSuggestedNickname()).isNull();
+                verify(userRepository, never()).existsByNickname(any());
+            }
+        }
+
+        @Test
+        @DisplayName("공급자 닉네임이 공백이면 제안 닉네임은 null")
+        void blankProviderNickname_suggestedNull() {
+            try (MockedStatic<CryptoUtils> mockedCrypto = mockStatic(CryptoUtils.class)) {
+                stubNewGoogleUser(mockedCrypto, "   ");
+
+                SocialLoginResponseDto result = mobileLogin(null);
+
+                assertThat(result.getSuggestedNickname()).isNull();
+                verify(userRepository, never()).existsByNickname(any());
+            }
+        }
+
+        @Test
+        @DisplayName("닉네임이 중복이면 6자 prefix + 4자리 숫자로 유니크 변형한다")
+        void duplicateLongNickname_generatesUniqueWithPrefix() {
+            try (MockedStatic<CryptoUtils> mockedCrypto = mockStatic(CryptoUtils.class)) {
+                stubNewGoogleUser(mockedCrypto, TEST_NICKNAME); // "testNick" (8자)
+                when(userRepository.existsByNickname(anyString())).thenReturn(false);
+                when(userRepository.existsByNickname(TEST_NICKNAME)).thenReturn(true);
+
+                SocialLoginResponseDto result = mobileLogin(null);
+
+                assertThat(result.getSuggestedNickname()).matches("testNi\\d{4}");
+            }
+        }
+
+        @Test
+        @DisplayName("6자 이하 닉네임 중복이면 자르지 않고 4자리 숫자를 붙인다")
+        void duplicateShortNickname_keepsWholeBase() {
+            try (MockedStatic<CryptoUtils> mockedCrypto = mockStatic(CryptoUtils.class)) {
+                stubNewGoogleUser(mockedCrypto, "abc");
+                when(userRepository.existsByNickname(anyString())).thenReturn(false);
+                when(userRepository.existsByNickname("abc")).thenReturn(true);
+
+                SocialLoginResponseDto result = mobileLogin(null);
+
+                assertThat(result.getSuggestedNickname()).matches("abc\\d{4}");
+            }
+        }
+
+        @Test
+        @DisplayName("100회 시도해도 전부 중복이면 UUID 일부를 붙인다")
+        void allAttemptsDuplicate_fallsBackToUuidSuffix() {
+            try (MockedStatic<CryptoUtils> mockedCrypto = mockStatic(CryptoUtils.class)) {
+                stubNewGoogleUser(mockedCrypto, TEST_NICKNAME);
+                when(userRepository.existsByNickname(anyString())).thenReturn(true);
+
+                SocialLoginResponseDto result = mobileLogin(null);
+
+                assertThat(result.getSuggestedNickname()).matches("testNi[0-9a-f]{4}");
+                // (최초 1회 + 루프 100회) × 2 — 세션 저장용·응답용으로 제안 닉네임을 두 번 계산한다
+                verify(userRepository, org.mockito.Mockito.times(202)).existsByNickname(anyString());
+            }
+        }
+
+        @Test
+        @DisplayName("미지원 locale 이 오면 기본 locale/timezone 으로 세션을 만든다")
+        void unsupportedLocale_fallsBackToDefault() {
+            try (MockedStatic<CryptoUtils> mockedCrypto = mockStatic(CryptoUtils.class)) {
+                stubNewGoogleUser(mockedCrypto, TEST_NICKNAME);
+                when(userRepository.existsByNickname(TEST_NICKNAME)).thenReturn(false);
+
+                mobileLogin("xx");
+
+                var captor = org.mockito.ArgumentCaptor.forClass(
+                    io.pinkspider.leveluptogethermvp.userservice.oauth.domain.SignupSessionData.class);
+                verify(signupTokenService).createOrRefresh(captor.capture());
+                assertThat(captor.getValue().preferredLocale()).isEqualTo("en");
+                assertThat(captor.getValue().preferredTimezone()).isEqualTo("Asia/Seoul");
+            }
+        }
+    }
+
+    @Nested
+    @DisplayName("findExistingUser 경계 테스트")
+    class FindExistingUserEdgeTest {
+
+        private io.pinkspider.leveluptogethermvp.userservice.oauth.domain.dto.OAuth2UserInfo userInfoWithId(
+            String id) {
+            return new io.pinkspider.leveluptogethermvp.userservice.oauth.domain.dto.OAuth2UserInfo() {
+                @Override
+                public String getId() {
+                    return id;
+                }
+
+                @Override
+                public String getNickname() {
+                    return TEST_NICKNAME;
+                }
+
+                @Override
+                public String getEmail() {
+                    return TEST_EMAIL;
+                }
+
+                @Override
+                public String getProvider() {
+                    return "google";
+                }
+            };
+        }
+
+        private Users activeUserWithTimezone(String timezone) {
+            return Users.builder()
+                .id(TEST_USER_ID).email(TEST_EMAIL).nickname(TEST_NICKNAME).provider("google")
+                .providerUserId("provider-id-123")
+                .preferredTimezone(timezone)
+                .build();
+        }
+
+        @Test
+        @DisplayName("withdrawnAt 이 null 인 레거시 탈퇴 row 는 cool-down 만료로 취급해 재가입을 허용한다")
+        void legacyWithdrawnWithoutTimestamp_allowsSignup() {
+            try (MockedStatic<CryptoUtils> mockedCrypto = mockStatic(CryptoUtils.class)) {
+                Users withdrawnUser = Users.builder()
+                    .id(TEST_USER_ID).email(TEST_EMAIL).nickname("탈퇴").provider("google")
+                    .status(UserStatus.WITHDRAWN)
+                    .build();
+                mockedCrypto.when(() -> CryptoUtils.encryptAes(TEST_EMAIL)).thenReturn("encrypted-email");
+                when(userRepository.findActiveByEncryptedEmailAndProvider("encrypted-email", "google"))
+                    .thenReturn(Optional.empty());
+                when(userRepository.findWithdrawnByEncryptedEmailAndProvider("encrypted-email", "google"))
+                    .thenReturn(List.of(withdrawnUser));
+                when(withdrawalProperties.getCoolDownDays()).thenReturn(7);
+
+                Optional<Users> result = oauth2Service.findExistingUser(
+                    createMockUserInfo(TEST_EMAIL, TEST_NICKNAME, "google"), null, null);
+
+                assertThat(result).isEmpty();
+                verifyNoInteractions(messageSource);
+            }
+        }
+
+        @Test
+        @DisplayName("유효하지 않은 timezone 이 오면 업데이트하지 않는다")
+        void invalidTimezone_notUpdated() {
+            try (MockedStatic<CryptoUtils> mockedCrypto = mockStatic(CryptoUtils.class)) {
+                Users user = activeUserWithTimezone("Asia/Seoul");
+                mockedCrypto.when(() -> CryptoUtils.encryptAes(TEST_EMAIL)).thenReturn("encrypted-email");
+                when(userRepository.findActiveByEncryptedEmailAndProvider("encrypted-email", "google"))
+                    .thenReturn(Optional.of(user));
+
+                oauth2Service.findExistingUser(userInfoWithId("provider-id-123"), null, "Mars/Olympus");
+
+                assertThat(user.getPreferredTimezone()).isEqualTo("Asia/Seoul");
+                verify(userRepository, never()).save(any(Users.class));
+            }
+        }
+
+        @Test
+        @DisplayName("기본값이 아닌 timezone 을 가진 사용자는 디바이스 timezone 으로 덮어쓰지 않는다")
+        void nonDefaultTimezone_notOverwritten() {
+            try (MockedStatic<CryptoUtils> mockedCrypto = mockStatic(CryptoUtils.class)) {
+                Users user = activeUserWithTimezone("Asia/Tokyo");
+                mockedCrypto.when(() -> CryptoUtils.encryptAes(TEST_EMAIL)).thenReturn("encrypted-email");
+                when(userRepository.findActiveByEncryptedEmailAndProvider("encrypted-email", "google"))
+                    .thenReturn(Optional.of(user));
+
+                oauth2Service.findExistingUser(userInfoWithId("provider-id-123"), null, "America/New_York");
+
+                assertThat(user.getPreferredTimezone()).isEqualTo("Asia/Tokyo");
+                verify(userRepository, never()).save(any(Users.class));
+            }
+        }
+
+        @Test
+        @DisplayName("디바이스 timezone 이 기본값과 같으면 업데이트하지 않는다")
+        void sameAsDefaultTimezone_notUpdated() {
+            try (MockedStatic<CryptoUtils> mockedCrypto = mockStatic(CryptoUtils.class)) {
+                Users user = activeUserWithTimezone("Asia/Seoul");
+                mockedCrypto.when(() -> CryptoUtils.encryptAes(TEST_EMAIL)).thenReturn("encrypted-email");
+                when(userRepository.findActiveByEncryptedEmailAndProvider("encrypted-email", "google"))
+                    .thenReturn(Optional.of(user));
+
+                oauth2Service.findExistingUser(userInfoWithId("provider-id-123"), null, "Asia/Seoul");
+
+                verify(userRepository, never()).save(any(Users.class));
+            }
+        }
+
+        @Test
+        @DisplayName("공급자 사용자 ID 가 null 이면 백필하지 않는다")
+        void nullProviderUserId_noBackfill() {
+            try (MockedStatic<CryptoUtils> mockedCrypto = mockStatic(CryptoUtils.class)) {
+                Users user = Users.builder()
+                    .id(TEST_USER_ID).email(TEST_EMAIL).nickname(TEST_NICKNAME).provider("google")
+                    .build();
+                mockedCrypto.when(() -> CryptoUtils.encryptAes(TEST_EMAIL)).thenReturn("encrypted-email");
+                when(userRepository.findActiveByEncryptedEmailAndProvider("encrypted-email", "google"))
+                    .thenReturn(Optional.of(user));
+
+                oauth2Service.findExistingUser(userInfoWithId(null), null, null);
+
+                assertThat(user.getProviderUserId()).isNull();
+                verify(userRepository, never()).save(any(Users.class));
+            }
+        }
+    }
+
+    @Nested
+    @DisplayName("completeSignup 경계 테스트")
+    class CompleteSignupEdgeTest {
+
+        private io.pinkspider.leveluptogethermvp.userservice.oauth.domain.dto.request.CompleteSignupRequestDto
+            buildRequest(List<io.pinkspider.leveluptogethermvp.userservice.oauth.domain.dto.request
+                .CompleteSignupRequestDto.TermAgreement> agreedTerms) {
+            var request =
+                new io.pinkspider.leveluptogethermvp.userservice.oauth.domain.dto.request
+                    .CompleteSignupRequestDto();
+            request.setNickname(TEST_NICKNAME);
+            request.setAgreedTerms(agreedTerms);
+            request.setDeviceType("web");
+            request.setDeviceId(TEST_DEVICE_ID);
+            return request;
+        }
+
+        private io.pinkspider.leveluptogethermvp.userservice.oauth.domain.SignupSessionData session() {
+            return new io.pinkspider.leveluptogethermvp.userservice.oauth.domain.SignupSessionData(
+                "signup-token", "google", TEST_EMAIL, TEST_NICKNAME, "en", "UTC", "google-sub-1");
+        }
+
+        private void stubSuccessfulSignup(MockedStatic<CryptoUtils> mockedCrypto) {
+            when(signupTokenService.findByToken("signup-token")).thenReturn(session());
+            when(userRepository.existsByNickname(TEST_NICKNAME)).thenReturn(false);
+            mockedCrypto.when(() -> CryptoUtils.encryptAes(TEST_EMAIL)).thenReturn("encrypted-email");
+            when(userRepository.findActiveByEncryptedEmailAndProvider("encrypted-email", "google"))
+                .thenReturn(Optional.empty());
+            when(userRepository.save(any(Users.class))).thenReturn(Users.builder()
+                .id(TEST_USER_ID).email(TEST_EMAIL).nickname(TEST_NICKNAME).provider("google")
+                .preferredLocale("en").preferredTimezone("UTC").build());
+            when(geoIpService.extractClientIp(httpRequest)).thenReturn("127.0.0.1");
+            when(geoIpService.lookupCountry("127.0.0.1")).thenReturn(GeoIpResult.empty());
+            when(jwtUtil.generateAccessToken(TEST_USER_ID, TEST_EMAIL, TEST_DEVICE_ID))
+                .thenReturn(TEST_ACCESS_TOKEN);
+            when(jwtUtil.generateRefreshToken(TEST_USER_ID, TEST_EMAIL, TEST_DEVICE_ID))
+                .thenReturn(TEST_REFRESH_TOKEN);
+        }
+
+        @Test
+        @DisplayName("agreed_terms 가 null 이면 빈 집합으로 검증하고 약관 저장은 건너뛴다")
+        void nullAgreedTerms_validatedAsEmpty_andNotSaved() {
+            try (MockedStatic<CryptoUtils> mockedCrypto = mockStatic(CryptoUtils.class)) {
+                stubSuccessfulSignup(mockedCrypto);
+
+                CreateJwtResponseDto result =
+                    oauth2Service.completeSignup("signup-token", buildRequest(null), httpRequest);
+
+                assertThat(result.getAccessToken()).isEqualTo(TEST_ACCESS_TOKEN);
+                verify(userTermsService).validateRequiredTermsAgreed(java.util.Set.of());
+                verify(userTermsService, never()).agreementTermsByUser(any(), any());
+                verify(signupTokenService).delete(any());
+            }
+        }
+
+        @Test
+        @DisplayName("동의 약관이 있으면 유저 생성 후 약관 동의를 저장한다")
+        void agreedTerms_savedAfterUserCreation() {
+            try (MockedStatic<CryptoUtils> mockedCrypto = mockStatic(CryptoUtils.class)) {
+                stubSuccessfulSignup(mockedCrypto);
+                var term = new io.pinkspider.leveluptogethermvp.userservice.oauth.domain.dto.request
+                    .CompleteSignupRequestDto.TermAgreement();
+                term.setTermVersionId(10L);
+                term.setAgreed(true);
+
+                oauth2Service.completeSignup("signup-token", buildRequest(List.of(term)), httpRequest);
+
+                verify(userTermsService).agreementTermsByUser(eq(TEST_USER_ID), any());
+                verify(eventPublisher).publishEvent(any(io.pinkspider.global.event.UserSignedUpEvent.class));
+            }
+        }
+
+        @Test
+        @DisplayName("가입 진행 중 닉네임이 선점되면 NICKNAME_001 로 차단한다")
+        void nicknameTaken_throws() {
+            when(signupTokenService.findByToken("signup-token")).thenReturn(session());
+            when(userRepository.existsByNickname(TEST_NICKNAME)).thenReturn(true);
+
+            assertThatThrownBy(() -> oauth2Service.completeSignup(
+                "signup-token", buildRequest(List.of()), httpRequest))
+                .isInstanceOf(CustomException.class)
+                .hasMessageContaining("error.nickname.already_in_use");
+
+            verify(userRepository, never()).save(any(Users.class));
+        }
+
+        @Test
+        @DisplayName("같은 (provider, email) 이 이미 가입 완료됐으면 차단한다")
+        void alreadyCompleted_throws() {
+            try (MockedStatic<CryptoUtils> mockedCrypto = mockStatic(CryptoUtils.class)) {
+                when(signupTokenService.findByToken("signup-token")).thenReturn(session());
+                when(userRepository.existsByNickname(TEST_NICKNAME)).thenReturn(false);
+                mockedCrypto.when(() -> CryptoUtils.encryptAes(TEST_EMAIL)).thenReturn("encrypted-email");
+                when(userRepository.findActiveByEncryptedEmailAndProvider("encrypted-email", "google"))
+                    .thenReturn(Optional.of(Users.builder().id("other").build()));
+
+                assertThatThrownBy(() -> oauth2Service.completeSignup(
+                    "signup-token", buildRequest(List.of()), httpRequest))
+                    .isInstanceOf(CustomException.class)
+                    .hasMessageContaining("error.signup.already_completed");
+
+                verify(userRepository, never()).save(any(Users.class));
+            }
+        }
     }
 }

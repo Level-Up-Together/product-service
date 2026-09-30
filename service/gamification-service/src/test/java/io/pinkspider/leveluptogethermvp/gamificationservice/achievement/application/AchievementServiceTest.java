@@ -1779,4 +1779,284 @@ class AchievementServiceTest {
             assertThat(result.get(0).getRewardTitleName()).isEqualTo("The First");
         }
     }
+
+    @Nested
+    @DisplayName("분기 보강 — 목록 필터·null currentCount·Boolean false·null 컬렉션")
+    class BranchCoverageTest {
+
+        private Achievement createCategoryAchievement(Long id, String name, Long missionCategoryId) {
+            Achievement achievement = Achievement.builder()
+                .name(name)
+                .description(name + " 설명")
+                .categoryCode("MISSION")
+                .requiredCount(1000)
+                .rewardExp(100)
+                .isActive(true)
+                .isHidden(false)
+                .checkLogicDataSource("USER_CATEGORY_EXPERIENCE")
+                .checkLogicDataField("categoryExp")
+                .comparisonOperator("GTE")
+                .missionCategoryId(missionCategoryId)
+                .build();
+            setId(achievement, id);
+            return achievement;
+        }
+
+        private UserAchievement createUserAchievementWithNullCount(Long id, Achievement achievement,
+                                                                    boolean isCompleted) {
+            UserAchievement ua = UserAchievement.builder()
+                .userId(TEST_USER_ID)
+                .achievement(achievement)
+                .currentCount(null)
+                .isCompleted(isCompleted)
+                .isRewardClaimed(false)
+                .build();
+            setId(ua, id);
+            return ua;
+        }
+
+        private void stubSyncContext() {
+            when(userStatsRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.empty());
+            when(userExperienceRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.empty());
+            when(userCategoryExperienceRepository.findByUserIdOrderByTotalExpDesc(TEST_USER_ID))
+                .thenReturn(List.of());
+            when(guildQueryFacade.getUserGuildMemberships(TEST_USER_ID)).thenReturn(List.of());
+            when(userAchievementRepository.findClaimableByUserId(TEST_USER_ID)).thenReturn(List.of());
+        }
+
+        @Test
+        @DisplayName("getAllAchievements — 메타에 없는 카테고리 업적은 제외되고, 카테고리 ID 없는 업적은 유지된다")
+        void getAllAchievements_filtersOrphaned_keepsNullCategoryId() {
+            Achievement orphaned = createCategoryAchievement(1L, "사라진 카테고리", 99L);
+            Achievement nullCategory = createCategoryAchievement(2L, "카테고리 미지정", null);
+            Achievement alive = createCategoryAchievement(3L, "운동 마스터", 1L);
+
+            when(missionCategoryService.getActiveCategories()).thenReturn(List.of(
+                MissionCategoryResponse.builder().id(1L).name("운동").isActive(true).build()));
+            when(achievementCacheService.getVisibleAchievements())
+                .thenReturn(List.of(orphaned, nullCategory, alive));
+
+            List<AchievementResponse> result = achievementService.getAllAchievements();
+
+            assertThat(result).extracting(AchievementResponse::getName)
+                .containsExactly("카테고리 미지정", "운동 마스터");
+        }
+
+        @Test
+        @DisplayName("getAchievementsByCategoryCode — 숨김 업적과 메타에 없는 카테고리 업적은 제외된다")
+        void getAchievementsByCategoryCode_filtersHiddenAndOrphaned() {
+            Achievement hidden = createTestAchievement(1L, "HIDDEN", 1, 0);
+            hidden.setIsHidden(true);
+            Achievement orphaned = createCategoryAchievement(2L, "사라진 카테고리", 99L);
+            Achievement visible = createTestAchievement(3L, "VISIBLE", 1, 0);
+
+            when(achievementCacheService.getAchievementsByCategoryCode("MISSION"))
+                .thenReturn(List.of(hidden, orphaned, visible));
+
+            List<AchievementResponse> result =
+                achievementService.getAchievementsByCategoryCode("MISSION");
+
+            assertThat(result).extracting(AchievementResponse::getName).containsExactly("VISIBLE");
+        }
+
+        @Test
+        @DisplayName("getAchievementsByMissionCategoryId — 숨김 업적과 메타에 없는 카테고리 업적은 제외된다")
+        void getAchievementsByMissionCategoryId_filtersHiddenAndOrphaned() {
+            Achievement hidden = createCategoryAchievement(1L, "숨김", 1L);
+            hidden.setIsHidden(true);
+            Achievement orphaned = createCategoryAchievement(2L, "사라진 카테고리", 99L);
+            Achievement visible = createCategoryAchievement(3L, "운동 마스터", 1L);
+
+            when(missionCategoryService.getActiveCategories()).thenReturn(List.of(
+                MissionCategoryResponse.builder().id(1L).name("운동").isActive(true).build()));
+            when(achievementCacheService.getAchievementsByMissionCategoryId(1L))
+                .thenReturn(List.of(hidden, orphaned, visible));
+
+            List<AchievementResponse> result =
+                achievementService.getAchievementsByMissionCategoryId(1L);
+
+            assertThat(result).extracting(AchievementResponse::getName).containsExactly("운동 마스터");
+        }
+
+        @Test
+        @DisplayName("buildSyncContext — 카테고리 경험치·유저 업적 조회가 null 이어도 빈 목록으로 컨텍스트를 만든다")
+        void buildSyncContext_nullCollections_fallbackToEmpty() {
+            Achievement achievement = createTestAchievement(1L, "MISSION_10", 10, 0);
+
+            when(userStatsRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.empty());
+            when(userExperienceRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.empty());
+            when(userCategoryExperienceRepository.findByUserIdOrderByTotalExpDesc(TEST_USER_ID))
+                .thenReturn(null);
+            when(guildQueryFacade.getUserGuildMemberships(TEST_USER_ID)).thenReturn(List.of());
+            when(userAchievementRepository.findAllByUserIdForSync(TEST_USER_ID)).thenReturn(null);
+            when(achievementCacheService.getAchievementsWithCheckLogic()).thenReturn(List.of(achievement));
+            when(strategyRegistry.getStrategy("USER_STATS")).thenReturn(mockStrategy);
+            when(mockStrategy.checkCondition(any(AchievementSyncContext.class), eq(achievement))).thenReturn(false);
+            when(mockStrategy.fetchCurrentValue(any(AchievementSyncContext.class), eq(achievement))).thenReturn("NA");
+            when(userAchievementRepository.findClaimableByUserId(TEST_USER_ID)).thenReturn(List.of());
+
+            assertThat(achievementService.syncUserAchievements(TEST_USER_ID)).isTrue();
+            verify(userAchievementRepository, never()).saveAndFlush(any());
+        }
+
+        @Test
+        @DisplayName("ctx 경로 — 이미 완료된 행의 currentCount 가 null 이면 최신값으로 채운다")
+        void withCtx_alreadyCompleted_nullCount_isFilled() {
+            Achievement achievement = createTestAchievement(1L, "COMPLETED_ACH", 5, 0);
+            UserAchievement completed = createUserAchievementWithNullCount(1L, achievement, true);
+
+            stubSyncContext();
+            when(userAchievementRepository.findAllByUserIdForSync(TEST_USER_ID)).thenReturn(List.of(completed));
+            when(achievementCacheService.getAchievementsWithCheckLogic()).thenReturn(List.of(achievement));
+            when(strategyRegistry.getStrategy("USER_STATS")).thenReturn(mockStrategy);
+            when(mockStrategy.fetchCurrentValue(any(AchievementSyncContext.class), eq(achievement))).thenReturn(7);
+
+            achievementService.syncUserAchievements(TEST_USER_ID);
+
+            assertThat(completed.getCurrentCount()).isEqualTo(7);
+            assertThat(completed.getIsCompleted()).isTrue();
+            verify(userStatsService, never()).recordAchievementCompleted(any());
+        }
+
+        @Test
+        @DisplayName("ctx 경로 — 조건 충족이지만 fetchCurrentValue 가 Boolean false 면 완료 처리하지 않는다")
+        void withCtx_conditionMet_booleanFalse_doesNotComplete() {
+            Achievement achievement = createTestAchievement(1L, "BOOL_FALSE", 1, 0);
+            UserAchievement existing = createTestUserAchievement(1L, TEST_USER_ID, achievement, 0, false);
+
+            stubSyncContext();
+            when(userAchievementRepository.findAllByUserIdForSync(TEST_USER_ID)).thenReturn(List.of(existing));
+            when(achievementCacheService.getAchievementsWithCheckLogic()).thenReturn(List.of(achievement));
+            when(strategyRegistry.getStrategy("USER_STATS")).thenReturn(mockStrategy);
+            when(mockStrategy.checkCondition(any(AchievementSyncContext.class), eq(achievement))).thenReturn(true);
+            when(mockStrategy.fetchCurrentValue(any(AchievementSyncContext.class), eq(achievement))).thenReturn(Boolean.FALSE);
+
+            achievementService.syncUserAchievements(TEST_USER_ID);
+
+            assertThat(existing.getCurrentCount()).isZero();
+            assertThat(existing.getIsCompleted()).isFalse();
+            verify(userStatsService, never()).recordAchievementCompleted(any());
+        }
+
+        @Test
+        @DisplayName("ctx 경로 — 조건 충족 + currentCount null 이면 값을 채우고, 목표 미달이면 완료하지 않는다")
+        void withCtx_conditionMet_nullCount_filledButNotCompleted() {
+            Achievement achievement = createTestAchievement(1L, "MISSION_10", 10, 0);
+            UserAchievement existing = createUserAchievementWithNullCount(1L, achievement, false);
+
+            stubSyncContext();
+            when(userAchievementRepository.findAllByUserIdForSync(TEST_USER_ID)).thenReturn(List.of(existing));
+            when(achievementCacheService.getAchievementsWithCheckLogic()).thenReturn(List.of(achievement));
+            when(strategyRegistry.getStrategy("USER_STATS")).thenReturn(mockStrategy);
+            when(mockStrategy.checkCondition(any(AchievementSyncContext.class), eq(achievement))).thenReturn(true);
+            when(mockStrategy.fetchCurrentValue(any(AchievementSyncContext.class), eq(achievement))).thenReturn(4);
+
+            achievementService.syncUserAchievements(TEST_USER_ID);
+
+            assertThat(existing.getCurrentCount()).isEqualTo(4);
+            assertThat(existing.getIsCompleted()).isFalse();
+            verify(userStatsService, never()).recordAchievementCompleted(any());
+            verify(eventPublisher, never()).publishEvent(any());
+        }
+
+        @Test
+        @DisplayName("ctx 경로 — 조건 충족이지만 count 가 동일하고 목표 미달이면 setCount·완료 모두 없다")
+        void withCtx_conditionMet_sameCount_notCompleted_noop() {
+            Achievement achievement = createTestAchievement(1L, "MISSION_10", 10, 0);
+            UserAchievement existing = createTestUserAchievement(1L, TEST_USER_ID, achievement, 5, false);
+
+            stubSyncContext();
+            when(userAchievementRepository.findAllByUserIdForSync(TEST_USER_ID)).thenReturn(List.of(existing));
+            when(achievementCacheService.getAchievementsWithCheckLogic()).thenReturn(List.of(achievement));
+            when(strategyRegistry.getStrategy("USER_STATS")).thenReturn(mockStrategy);
+            when(mockStrategy.checkCondition(any(AchievementSyncContext.class), eq(achievement))).thenReturn(true);
+            when(mockStrategy.fetchCurrentValue(any(AchievementSyncContext.class), eq(achievement))).thenReturn(5);
+
+            achievementService.syncUserAchievements(TEST_USER_ID);
+
+            assertThat(existing.getCurrentCount()).isEqualTo(5);
+            assertThat(existing.getIsCompleted()).isFalse();
+            verify(userStatsService, never()).recordAchievementCompleted(any());
+        }
+
+        @Test
+        @DisplayName("ctx 경로 — 조건 미충족 + currentCount null 이면 Number 값으로 채운다")
+        void withCtx_conditionNotMet_nullCount_isFilled() {
+            Achievement achievement = createTestAchievement(1L, "MISSION_10", 10, 0);
+            UserAchievement existing = createUserAchievementWithNullCount(1L, achievement, false);
+
+            stubSyncContext();
+            when(userAchievementRepository.findAllByUserIdForSync(TEST_USER_ID)).thenReturn(List.of(existing));
+            when(achievementCacheService.getAchievementsWithCheckLogic()).thenReturn(List.of(achievement));
+            when(strategyRegistry.getStrategy("USER_STATS")).thenReturn(mockStrategy);
+            when(mockStrategy.checkCondition(any(AchievementSyncContext.class), eq(achievement))).thenReturn(false);
+            when(mockStrategy.fetchCurrentValue(any(AchievementSyncContext.class), eq(achievement))).thenReturn(3);
+
+            achievementService.syncUserAchievements(TEST_USER_ID);
+
+            assertThat(existing.getCurrentCount()).isEqualTo(3);
+            assertThat(existing.getIsCompleted()).isFalse();
+        }
+
+        @Test
+        @DisplayName("dynamic 경로 — 이미 완료된 행의 currentCount 가 null 이면 최신값으로 채운다")
+        void dynamic_alreadyCompleted_nullCount_isFilled() {
+            Achievement achievement = createTestAchievement(1L, "COMPLETED_ACH", 5, 0);
+            UserAchievement completed = createUserAchievementWithNullCount(1L, achievement, true);
+
+            when(achievementCacheService.getAchievementsByDataSource("USER_STATS"))
+                .thenReturn(List.of(achievement));
+            when(strategyRegistry.getStrategy("USER_STATS")).thenReturn(mockStrategy);
+            when(userAchievementRepository.findByUserIdAndAchievementId(TEST_USER_ID, 1L))
+                .thenReturn(Optional.of(completed));
+            when(mockStrategy.fetchCurrentValue(TEST_USER_ID, achievement)).thenReturn(9);
+
+            achievementService.checkAchievementsByDataSource(TEST_USER_ID, "USER_STATS");
+
+            assertThat(completed.getCurrentCount()).isEqualTo(9);
+            verify(mockStrategy, never()).checkCondition(anyString(), any(Achievement.class));
+        }
+
+        @Test
+        @DisplayName("dynamic 경로 — 조건 충족이지만 fetchCurrentValue 가 Boolean false 면 count 변경·완료가 없다")
+        void dynamic_conditionMet_booleanFalse_noCompletion() {
+            Achievement achievement = createTestAchievement(1L, "BOOL_FALSE", 1, 0);
+            UserAchievement existing = createTestUserAchievement(1L, TEST_USER_ID, achievement, 0, false);
+
+            when(achievementCacheService.getAchievementsByDataSource("USER_STATS"))
+                .thenReturn(List.of(achievement));
+            when(strategyRegistry.getStrategy("USER_STATS")).thenReturn(mockStrategy);
+            when(userAchievementRepository.findByUserIdAndAchievementId(TEST_USER_ID, 1L))
+                .thenReturn(Optional.of(existing));
+            when(mockStrategy.checkCondition(TEST_USER_ID, achievement)).thenReturn(true);
+            when(mockStrategy.fetchCurrentValue(TEST_USER_ID, achievement)).thenReturn(Boolean.FALSE);
+
+            achievementService.checkAchievementsByDataSource(TEST_USER_ID, "USER_STATS");
+
+            assertThat(existing.getCurrentCount()).isZero();
+            assertThat(existing.getIsCompleted()).isFalse();
+            verify(userStatsService, never()).recordAchievementCompleted(any());
+        }
+
+        @Test
+        @DisplayName("dynamic 경로 — 조건 충족이지만 fetchCurrentValue 가 Number/Boolean 이 아니면 완료하지 않는다")
+        void dynamic_conditionMet_unknownType_noCompletion() {
+            Achievement achievement = createTestAchievement(1L, "UNKNOWN_TYPE", 1, 0);
+            UserAchievement existing = createTestUserAchievement(1L, TEST_USER_ID, achievement, 0, false);
+
+            when(achievementCacheService.getAchievementsByDataSource("USER_STATS"))
+                .thenReturn(List.of(achievement));
+            when(strategyRegistry.getStrategy("USER_STATS")).thenReturn(mockStrategy);
+            when(userAchievementRepository.findByUserIdAndAchievementId(TEST_USER_ID, 1L))
+                .thenReturn(Optional.of(existing));
+            when(mockStrategy.checkCondition(TEST_USER_ID, achievement)).thenReturn(true);
+            when(mockStrategy.fetchCurrentValue(TEST_USER_ID, achievement)).thenReturn("TEXT");
+
+            achievementService.checkAchievementsByDataSource(TEST_USER_ID, "USER_STATS");
+
+            assertThat(existing.getCurrentCount()).isZero();
+            verify(userStatsService, never()).recordAchievementCompleted(any());
+            verify(eventPublisher, never()).publishEvent(any());
+        }
+    }
 }

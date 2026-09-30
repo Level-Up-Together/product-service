@@ -59,6 +59,10 @@ class UserAdminInternalServiceTest {
     @Mock
     private GuildQueryFacade guildQueryFacadeService;
 
+    @Mock
+    private io.pinkspider.leveluptogethermvp.notificationservice.application.NotificationService
+        notificationService;
+
     @InjectMocks
     private UserAdminInternalService service;
 
@@ -502,6 +506,297 @@ class UserAdminInternalServiceTest {
 
             assertThatThrownBy(() -> service.getBlacklistHistory("not-found"))
                 .isInstanceOf(CustomException.class);
+        }
+    }
+
+    @Nested
+    @DisplayName("searchUsers 정렬 파라미터 테스트")
+    class SearchUsersSortTest {
+
+        @Test
+        @DisplayName("정렬 기준과 방향이 주어지면 그대로 Pageable 에 반영한다")
+        void explicitSortApplied() {
+            Page<Users> page = new PageImpl<>(List.of());
+            org.mockito.ArgumentCaptor<Pageable> captor = org.mockito.ArgumentCaptor.forClass(Pageable.class);
+            when(userRepository.searchUsersForAdmin(anyString(), any(), captor.capture())).thenReturn(page);
+
+            service.searchUsers("test", "google", 1, 20, "nickname", "ASC");
+
+            org.springframework.data.domain.Sort.Order order = captor.getValue().getSort().getOrderFor("nickname");
+            assertThat(order).isNotNull();
+            assertThat(order.getDirection()).isEqualTo(org.springframework.data.domain.Sort.Direction.ASC);
+        }
+    }
+
+    @Nested
+    @DisplayName("getUserDetail 필드 경계 테스트")
+    class GetUserDetailEdgeTest {
+
+        @Test
+        @DisplayName("status 가 null 이면 status 필드를 null 로 내려주고 활성 블랙리스트를 찾는다")
+        void nullStatus_andActiveBlacklist() {
+            Users user = Users.builder().id("user-1").email("t@t.com").nickname("tester").provider("google").build();
+            // builder 기본값이 ACTIVE 라 reflection 으로 null 상태를 재현한다
+            io.pinkspider.global.test.TestReflectionUtils.setField(user, "status", null);
+            UserBlacklist inactive = UserBlacklist.builder()
+                .userId("user-1").blacklistType(BlacklistType.SUSPENSION).reason("r1").adminId(1L)
+                .isActive(false).startedAt(LocalDateTime.now().minusDays(3)).build();
+            UserBlacklist active = UserBlacklist.builder()
+                .userId("user-1").blacklistType(BlacklistType.PERMANENT_BAN).reason("r2").adminId(1L)
+                .isActive(true).startedAt(LocalDateTime.now()).build();
+            when(userRepository.findById("user-1")).thenReturn(Optional.of(user));
+            when(gamificationQueryFacadeService.getUserTitlesWithTitleInfo("user-1")).thenReturn(List.of());
+            when(gamificationQueryFacadeService.getUserAchievements("user-1")).thenReturn(List.of());
+            when(userBlacklistRepository.findAllByUserIdOrderByCreatedAtDesc("user-1"))
+                .thenReturn(List.of(inactive, active));
+
+            UserDetailAdminResponse result = service.getUserDetail("user-1");
+
+            assertThat(result.status()).isNull();
+            assertThat(result.activeBlacklist()).isNotNull();
+            assertThat(result.activeBlacklist().reason()).isEqualTo("r2");
+            assertThat(result.blacklistHistory()).hasSize(2);
+        }
+    }
+
+    @Nested
+    @DisplayName("칭호 응답 변환 테스트")
+    class BuildTitleResponsesTest {
+
+        private io.pinkspider.global.facade.dto.UserTitleDto titleDto(
+            io.pinkspider.global.enums.TitleRarity rarity,
+            io.pinkspider.global.enums.TitlePosition positionType,
+            io.pinkspider.global.enums.TitlePosition equippedPosition) {
+            return new io.pinkspider.global.facade.dto.UserTitleDto(
+                1L, "user-1", 10L, "칭호", "Title", null, null, null, null, null, null,
+                rarity, positionType, "#FFFFFF", null, equippedPosition != null, equippedPosition,
+                LocalDateTime.now());
+        }
+
+        @Test
+        @DisplayName("희귀도/위치/장착위치가 있으면 enum 이름으로 변환한다")
+        void enumsPresent_convertedToNames() {
+            when(userRepository.existsById("user-1")).thenReturn(true);
+            when(gamificationQueryFacadeService.getUserTitlesWithTitleInfo("user-1")).thenReturn(List.of(
+                titleDto(io.pinkspider.global.enums.TitleRarity.RARE,
+                    io.pinkspider.global.enums.TitlePosition.LEFT,
+                    io.pinkspider.global.enums.TitlePosition.LEFT)));
+
+            List<UserTitleAdminResponse> result = service.getUserTitles("user-1");
+
+            assertThat(result).hasSize(1);
+            assertThat(result.get(0).titleRarity()).isEqualTo("RARE");
+            assertThat(result.get(0).titlePositionType()).isEqualTo("LEFT");
+            assertThat(result.get(0).equippedPosition()).isEqualTo("LEFT");
+        }
+
+        @Test
+        @DisplayName("희귀도/위치/장착위치가 없으면 null 로 내려준다")
+        void enumsAbsent_null() {
+            when(userRepository.existsById("user-1")).thenReturn(true);
+            when(gamificationQueryFacadeService.getUserTitlesWithTitleInfo("user-1"))
+                .thenReturn(List.of(titleDto(null, null, null)));
+
+            List<UserTitleAdminResponse> result = service.getUserTitles("user-1");
+
+            assertThat(result.get(0).titleRarity()).isNull();
+            assertThat(result.get(0).titlePositionType()).isNull();
+            assertThat(result.get(0).equippedPosition()).isNull();
+        }
+    }
+
+    @Nested
+    @DisplayName("getStatistics 일별 집계 변환 테스트")
+    class GetStatisticsDailyTest {
+
+        @Test
+        @DisplayName("날짜 컬럼이 LocalDate 면 포맷하고, 아니면 toString 을 사용한다")
+        void dailyRows_dateFormatting() {
+            when(userRepository.count()).thenReturn(1L);
+            when(userRepository.countNewUsersSince(any())).thenReturn(0L);
+            when(userRepository.countUsersByProvider()).thenReturn(List.of());
+            when(userRepository.countDailyNewUsers(any(), any())).thenReturn(List.of(
+                new Object[]{java.time.LocalDate.of(2026, 9, 1), 3L},
+                new Object[]{"2026-09-02", 4L}));
+
+            var result = service.getStatistics();
+
+            assertThat(result.dailyNewUsers()).hasSize(2);
+            assertThat(result.dailyNewUsers().get(0).date()).isEqualTo("2026-09-01");
+            assertThat(result.dailyNewUsers().get(0).count()).isEqualTo(3L);
+            assertThat(result.dailyNewUsers().get(1).date()).isEqualTo("2026-09-02");
+        }
+    }
+
+    @Nested
+    @DisplayName("addToBlacklist 기간 정지 테스트")
+    class AddToBlacklistSuspensionTest {
+
+        @Test
+        @DisplayName("종료 일시가 과거면 예외를 발생시킨다")
+        void throwsWhenEndDateInPast() {
+            Users user = createTestUser("user-1");
+            when(userRepository.findById("user-1")).thenReturn(Optional.of(user));
+
+            UserBlacklistAdminRequest request = new UserBlacklistAdminRequest(
+                "SUSPENSION", "경고", LocalDateTime.now().minusDays(1), 1L);
+
+            assertThatThrownBy(() -> service.addToBlacklist("user-1", request))
+                .isInstanceOf(CustomException.class)
+                .hasMessageContaining("미래");
+            verify(userBlacklistRepository, org.mockito.Mockito.never()).save(any());
+        }
+
+        @Test
+        @DisplayName("미래 종료 일시의 기간 정지는 endedAt 을 기록하고 SUSPENDED 로 전환한다")
+        void suspensionWithFutureEndDate() {
+            Users user = createTestUser("user-1");
+            when(userRepository.findById("user-1")).thenReturn(Optional.of(user));
+            when(userRepository.save(any())).thenReturn(user);
+            LocalDateTime endedAt = LocalDateTime.now().plusDays(7);
+
+            UserBlacklistAdminRequest request = new UserBlacklistAdminRequest(
+                "SUSPENSION", "경고", endedAt, 1L);
+
+            UserBlacklistAdminResponse result = service.addToBlacklist("user-1", request);
+
+            org.mockito.ArgumentCaptor<UserBlacklist> captor = org.mockito.ArgumentCaptor.forClass(UserBlacklist.class);
+            verify(userBlacklistRepository).save(captor.capture());
+            assertThat(captor.getValue().getBlacklistType()).isEqualTo(BlacklistType.SUSPENSION);
+            assertThat(captor.getValue().getEndedAt()).isEqualTo(endedAt);
+            assertThat(user.getStatus()).isEqualTo(UserStatus.SUSPENDED);
+            assertThat(result).isNotNull();
+        }
+    }
+
+    @Nested
+    @DisplayName("suspendFromReport 테스트")
+    class SuspendFromReportTest {
+
+        @Test
+        @DisplayName("누적 정지 횟수가 임계값 미만이면 기간 정지 + 정지 알림")
+        void belowThreshold_suspension() {
+            Users user = createTestUser("user-1");
+            when(userRepository.findById("user-1")).thenReturn(Optional.of(user));
+            when(userRepository.save(any())).thenReturn(user);
+
+            UserBlacklistAdminResponse result = service.suspendFromReport("user-1",
+                new io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.dto.admin
+                    .UserSuspendFromReportRequest("신고", 1L, 7, 3));
+
+            org.mockito.ArgumentCaptor<UserBlacklist> captor = org.mockito.ArgumentCaptor.forClass(UserBlacklist.class);
+            verify(userBlacklistRepository).save(captor.capture());
+            assertThat(captor.getValue().getBlacklistType()).isEqualTo(BlacklistType.SUSPENSION);
+            assertThat(captor.getValue().getEndedAt()).isNotNull();
+            assertThat(user.getStatus()).isEqualTo(UserStatus.SUSPENDED);
+            assertThat(user.getSuspensionCount()).isEqualTo(1);
+            verify(notificationService).sendNotification(
+                org.mockito.ArgumentMatchers.eq("user-1"),
+                org.mockito.ArgumentMatchers.eq(io.pinkspider.global.enums.NotificationType.REPORT_SUSPENDED),
+                any(), any(), org.mockito.ArgumentMatchers.eq(1));
+            assertThat(result).isNotNull();
+        }
+
+        @Test
+        @DisplayName("누적 정지 횟수가 임계값 이상이면 영구 강퇴 + 강퇴 알림")
+        void reachesThreshold_permanentBan() {
+            Users user = createTestUser("user-1");
+            when(userRepository.findById("user-1")).thenReturn(Optional.of(user));
+            when(userRepository.save(any())).thenReturn(user);
+
+            service.suspendFromReport("user-1",
+                new io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.dto.admin
+                    .UserSuspendFromReportRequest("신고", 1L, 7, 1));
+
+            org.mockito.ArgumentCaptor<UserBlacklist> captor = org.mockito.ArgumentCaptor.forClass(UserBlacklist.class);
+            verify(userBlacklistRepository).save(captor.capture());
+            assertThat(captor.getValue().getBlacklistType()).isEqualTo(BlacklistType.PERMANENT_BAN);
+            assertThat(captor.getValue().getEndedAt()).isNull();
+            assertThat(user.getStatus()).isEqualTo(UserStatus.PERMANENTLY_BANNED);
+            verify(notificationService).sendNotification(
+                org.mockito.ArgumentMatchers.eq("user-1"),
+                org.mockito.ArgumentMatchers.eq(
+                    io.pinkspider.global.enums.NotificationType.REPORT_PERMANENTLY_BANNED),
+                any(), any(), org.mockito.ArgumentMatchers.eq(1));
+        }
+
+        @Test
+        @DisplayName("존재하지 않는 사용자는 예외를 발생시킨다")
+        void throwsWhenNotFound() {
+            when(userRepository.findById("not-found")).thenReturn(Optional.empty());
+
+            assertThatThrownBy(() -> service.suspendFromReport("not-found",
+                new io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.dto.admin
+                    .UserSuspendFromReportRequest("신고", 1L, 7, 3)))
+                .isInstanceOf(CustomException.class);
+        }
+    }
+
+    @Nested
+    @DisplayName("warnFromReport 테스트")
+    class WarnFromReportTest {
+
+        @Test
+        @DisplayName("경고 누적이 임계값 미만이면 경고 알림만 발송한다")
+        void belowThreshold_warningOnly() {
+            Users user = createTestUser("user-1");
+            when(userRepository.findById("user-1")).thenReturn(Optional.of(user));
+            when(userRepository.save(any())).thenReturn(user);
+
+            var result = service.warnFromReport("user-1",
+                new io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.dto.admin
+                    .UserWarnFromReportRequest("신고", 1L, 3, 7, 3));
+
+            assertThat(result.escalated()).isFalse();
+            assertThat(result.warningCount()).isEqualTo(1);
+            verify(notificationService).sendNotification(
+                org.mockito.ArgumentMatchers.eq("user-1"),
+                org.mockito.ArgumentMatchers.eq(
+                    io.pinkspider.global.enums.NotificationType.REPORT_WARNING_RECEIVED),
+                any(), any(), org.mockito.ArgumentMatchers.eq(1));
+            verify(userBlacklistRepository, org.mockito.Mockito.never()).save(any());
+        }
+
+        @Test
+        @DisplayName("경고 누적이 임계값에 도달하면 카운트를 리셋하고 자동 정지로 전환한다")
+        void reachesThreshold_escalatesToSuspension() {
+            Users user = createTestUser("user-1");
+            when(userRepository.findById("user-1")).thenReturn(Optional.of(user));
+            when(userRepository.save(any())).thenReturn(user);
+
+            var result = service.warnFromReport("user-1",
+                new io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.dto.admin
+                    .UserWarnFromReportRequest("신고", 1L, 1, 7, 3));
+
+            assertThat(result.escalated()).isTrue();
+            assertThat(result.blacklist()).isNotNull();
+            assertThat(user.getWarningCount()).isZero();
+            assertThat(user.getStatus()).isEqualTo(UserStatus.SUSPENDED);
+            verify(userBlacklistRepository).save(any(UserBlacklist.class));
+            verify(notificationService).sendNotification(
+                org.mockito.ArgumentMatchers.eq("user-1"),
+                org.mockito.ArgumentMatchers.eq(io.pinkspider.global.enums.NotificationType.REPORT_SUSPENDED),
+                any(), any(), any());
+        }
+    }
+
+    @Nested
+    @DisplayName("getBlacklistList 날짜 필터 경계 테스트")
+    class GetBlacklistListDateEdgeTest {
+
+        @Test
+        @DisplayName("시작일만 있고 종료일이 없으면 날짜 필터를 적용하지 않는다")
+        void startDateOnly_noDateFilter() {
+            Page<UserBlacklist> page = new PageImpl<>(List.of());
+            when(userBlacklistRepository.findAllByOrderByCreatedAtDesc(any(Pageable.class)))
+                .thenReturn(page);
+
+            var result = service.getBlacklistList(null, false,
+                LocalDateTime.now().minusDays(7), null, 0, 10);
+
+            assertThat(result).isNotNull();
+            verify(userBlacklistRepository, org.mockito.Mockito.never())
+                .findByStartedAtBetween(any(), any(), any());
         }
     }
 }

@@ -1205,5 +1205,332 @@ class RankingServiceTest {
             assertThat(result.getContent().get(1).getRank()).isEqualTo(1L); // 동점 → 공동 1위
             assertThat(result.getContent().get(2).getRank()).isEqualTo(3L);
         }
+
+        @Test
+        @DisplayName("기간 랭킹 목록에 프로필이 있으면 닉네임·이미지를 채운다")
+        void getPeriodRanking_withProfile() {
+            List<Object[]> rows = Collections.singletonList(new Object[]{"user1", 800L});
+
+            when(experienceHistoryRepository.findUserExpRankingByPeriod(any(), any()))
+                .thenReturn(rows);
+            when(userQueryFacadeService.getActiveUserIds(anyList())).thenReturn(List.of("user1"));
+            when(userQueryFacadeService.getUserProfiles(List.of("user1")))
+                .thenReturn(Map.of("user1",
+                    new UserProfileInfo("user1", "주간왕", "https://img/1.png", 20, null, null, null)));
+
+            Page<LevelRankingResponse> result =
+                rankingService.getWeeklyLevelRanking(PageRequest.of(0, 10), null, null, "Asia/Seoul");
+
+            assertThat(result.getContent().get(0).getNickname()).isEqualTo("주간왕");
+            assertThat(result.getContent().get(0).getProfileImageUrl()).isEqualTo("https://img/1.png");
+        }
+    }
+
+    @Nested
+    @DisplayName("분기 보강 — 탈퇴자·빈 페이지·프로필 유무·마스킹·다국어 카테고리")
+    class BranchCoverageTest {
+
+        @Test
+        @DisplayName("종합 랭킹에서 탈퇴 유저 행은 건너뛰고 순번은 연속이다")
+        void getOverallRanking_skipsWithdrawn() {
+            Pageable pageable = PageRequest.of(0, 10);
+            UserStats stats1 = createTestUserStats(1L, "user1", 1000L);
+            UserStats withdrawn = createTestUserStats(2L, "withdrawn", 900L);
+            UserStats stats3 = createTestUserStats(3L, "user3", 800L);
+            Page<UserStats> statsPage = new PageImpl<>(List.of(stats1, withdrawn, stats3), pageable, 3);
+
+            when(userStatsRepository.findAllByOrderByRankingPointsDesc(pageable)).thenReturn(statsPage);
+            when(userQueryFacadeService.getActiveUserIds(List.of("user1", "withdrawn", "user3")))
+                .thenReturn(List.of("user1", "user3"));
+
+            Page<RankingResponse> result = rankingService.getOverallRanking(pageable);
+
+            assertThat(result.getContent()).extracting(RankingResponse::getUserId)
+                .containsExactly("user1", "user3");
+            assertThat(result.getContent().get(1).getRank()).isEqualTo(2L);
+        }
+
+        @Test
+        @DisplayName("종합 랭킹 페이지가 비어 있으면 배치 조회 없이 빈 페이지를 반환한다")
+        void getOverallRanking_emptyPage_skipsBatchLookups() {
+            Pageable pageable = PageRequest.of(0, 10);
+            Page<UserStats> statsPage = new PageImpl<>(List.of(), pageable, 0);
+
+            when(userStatsRepository.findAllByOrderByRankingPointsDesc(pageable)).thenReturn(statsPage);
+            when(userQueryFacadeService.getActiveUserIds(List.of())).thenReturn(List.of());
+
+            Page<RankingResponse> result = rankingService.getOverallRanking(pageable);
+
+            assertThat(result.getContent()).isEmpty();
+            verify(userExperienceRepository, never()).findByUserIdIn(anyList());
+            verify(userTitleRepository, never()).findEquippedTitlesByUserIdIn(anyList());
+            verify(userItemService, never()).getEquippedItemRarityMap(anyList());
+        }
+
+        @Test
+        @DisplayName("레벨 랭킹의 활성 유저가 없으면 아이템·진행중 미션 조회 없이 빈 페이지를 반환한다")
+        void getLevelRanking_allWithdrawn_skipsEnrichment() {
+            Pageable pageable = PageRequest.of(0, 10);
+            UserExperience w = createTestUserExperience(1L, "withdrawn1", 5, 500);
+
+            when(userExperienceRepository.findAllByOrderByCurrentLevelDescTotalExpDesc())
+                .thenReturn(List.of(w));
+            when(userQueryFacadeService.getActiveUserIds(List.of("withdrawn1"))).thenReturn(List.of());
+            when(userQueryFacadeService.getUserProfiles(List.of())).thenReturn(Map.of());
+
+            Page<LevelRankingResponse> result = rankingService.getLevelRanking(pageable, null, null);
+
+            assertThat(result.getContent()).isEmpty();
+            assertThat(result.getTotalElements()).isZero();
+            verify(userItemService, never()).getEquippedItemRarityMap(anyList());
+            verify(missionQueryFacade, never()).findInProgressMissions(anyList(), any());
+        }
+
+        @Test
+        @DisplayName("카테고리 랭킹은 동점 공동순위를 매기고 프로필이 없으면 닉네임·이미지가 null 이다")
+        void getLevelRankingByCategory_ties_andMissingProfile() {
+            String category = "HEALTH";
+            Pageable pageable = PageRequest.of(0, 10);
+            Page<Object[]> rankingPage = new PageImpl<>(List.of(
+                new Object[]{"u1", 500L},
+                new Object[]{"u2", 500L},
+                new Object[]{"u3", 100L}));
+
+            when(experienceHistoryRepository.countUsersByCategory(category)).thenReturn(3L);
+            when(experienceHistoryRepository.findUserExpRankingByCategory(eq(category), any(Pageable.class)))
+                .thenReturn(rankingPage);
+            when(userQueryFacadeService.getActiveUserIds(List.of("u1", "u2", "u3")))
+                .thenReturn(List.of("u1", "u2", "u3"));
+            when(userQueryFacadeService.getUserProfiles(List.of("u1", "u2", "u3")))
+                .thenReturn(Map.of("u1",
+                    new UserProfileInfo("u1", "일등", "https://img/u1.png", 3, null, null, null)));
+
+            Page<LevelRankingResponse> result =
+                rankingService.getLevelRankingByCategory(category, pageable);
+
+            assertThat(result.getContent()).hasSize(3);
+            assertThat(result.getContent().get(0).getRank()).isEqualTo(1L);
+            assertThat(result.getContent().get(0).getNickname()).isEqualTo("일등");
+            assertThat(result.getContent().get(0).getProfileImageUrl()).isEqualTo("https://img/u1.png");
+            assertThat(result.getContent().get(1).getRank()).isEqualTo(1L); // 동점 → 공동 1위
+            assertThat(result.getContent().get(1).getNickname()).isNull();
+            assertThat(result.getContent().get(1).getProfileImageUrl()).isNull();
+            assertThat(result.getContent().get(2).getRank()).isEqualTo(3L);
+        }
+
+        @Test
+        @DisplayName("실시간 랭킹에 프로필·경험치가 있으면 닉네임·이미지·레벨·경험치를 채운다")
+        void getRealtimeRanking_withProfileAndExp() {
+            java.time.LocalDateTime now = java.time.LocalDateTime.of(2026, 7, 29, 12, 0);
+            when(missionQueryFacade.findAllInProgressMissions(any())).thenReturn(Map.of(
+                "user1", new InProgressMissionDto(11L, 1L, "운동", "달리기", "PUBLIC", null,
+                    now.minusHours(1))));
+            when(userQueryFacadeService.getActiveUserIds(anyList())).thenReturn(List.of("user1"));
+            when(userQueryFacadeService.getUserProfiles(List.of("user1")))
+                .thenReturn(Map.of("user1",
+                    new UserProfileInfo("user1", "러너", "https://img/run.png", 12, null, null, null)));
+            when(userExperienceRepository.findByUserIdIn(List.of("user1")))
+                .thenReturn(List.of(createTestUserExperience(1L, "user1", 12, 2400)));
+
+            Page<LevelRankingResponse> result =
+                rankingService.getRealtimeRanking(PageRequest.of(0, 10), null, null);
+
+            LevelRankingResponse row = result.getContent().get(0);
+            assertThat(row.getNickname()).isEqualTo("러너");
+            assertThat(row.getProfileImageUrl()).isEqualTo("https://img/run.png");
+            assertThat(row.getCurrentLevel()).isEqualTo(12);
+            assertThat(row.getCurrentExp()).isEqualTo(100);
+            assertThat(row.getTotalExp()).isEqualTo(2400);
+        }
+
+        @Test
+        @DisplayName("주간 내 랭킹은 프로필이 없어도(null) 닉네임·이미지 null 로 반환한다")
+        void getMyWeeklyLevelRanking_nullProfile() {
+            List<Object[]> rows = Collections.singletonList(new Object[]{TEST_USER_ID, 500L});
+
+            when(experienceHistoryRepository.findUserExpRankingByPeriod(any(), any())).thenReturn(rows);
+            when(userQueryFacadeService.getActiveUserIds(anyList())).thenReturn(List.of(TEST_USER_ID));
+            when(userQueryFacadeService.getUserProfile(TEST_USER_ID)).thenReturn(null);
+            when(userTitleRepository.findEquippedTitlesByUserId(TEST_USER_ID))
+                .thenReturn(Collections.emptyList());
+            when(userExperienceRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.empty());
+
+            LevelRankingResponse result =
+                rankingService.getMyWeeklyLevelRanking(TEST_USER_ID, null, "Asia/Seoul");
+
+            assertThat(result.getRank()).isEqualTo(1L);
+            assertThat(result.getNickname()).isNull();
+            assertThat(result.getProfileImageUrl()).isNull();
+            assertThat(result.getCurrentLevel()).isEqualTo(1);
+        }
+
+        @Test
+        @DisplayName("카테고리 내 내 랭킹은 프로필이 없어도(null) 닉네임·이미지 null 로 반환한다")
+        void getMyLevelRankingByCategory_nullProfile() {
+            String category = "HEALTH";
+            Page<Object[]> rankingPage =
+                new PageImpl<>(Collections.singletonList(new Object[]{TEST_USER_ID, 500L}));
+
+            when(experienceHistoryRepository.findUserExpRankingByCategory(eq(category), any(Pageable.class)))
+                .thenReturn(rankingPage);
+            when(userQueryFacadeService.getActiveUserIds(anyList())).thenReturn(List.of(TEST_USER_ID));
+            when(userQueryFacadeService.getUserProfile(TEST_USER_ID)).thenReturn(null);
+            when(userTitleRepository.findEquippedTitlesByUserId(TEST_USER_ID))
+                .thenReturn(Collections.emptyList());
+            when(userExperienceRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.empty());
+
+            LevelRankingResponse result =
+                rankingService.getMyLevelRankingByCategory(TEST_USER_ID, category);
+
+            assertThat(result.getRank()).isEqualTo(1L);
+            assertThat(result.getNickname()).isNull();
+            assertThat(result.getProfileImageUrl()).isNull();
+        }
+
+        @Test
+        @DisplayName("LUT-275: 다른 유저가 보면 비공개 미션은 마스킹된다 (viewer != owner)")
+        void getLevelRanking_otherViewer_privateMasked() {
+            Pageable pageable = PageRequest.of(0, 10);
+            UserExperience exp1 = createTestUserExperience(1L, "user1", 20, 5000);
+
+            when(userExperienceRepository.findAllByOrderByCurrentLevelDescTotalExpDesc())
+                .thenReturn(List.of(exp1));
+            when(userQueryFacadeService.getActiveUserIds(List.of("user1"))).thenReturn(List.of("user1"));
+            when(userQueryFacadeService.getUserProfiles(List.of("user1"))).thenReturn(Map.of());
+            when(missionQueryFacade.findInProgressMissions(eq(List.of("user1")), any()))
+                .thenReturn(Map.of("user1",
+                    new InProgressMissionDto(11L, 1L, "운동", "비공개 달리기", "PRIVATE", null,
+                        java.time.LocalDateTime.now())));
+
+            Page<LevelRankingResponse> result =
+                rankingService.getLevelRanking(pageable, null, "someone-else");
+
+            LevelRankingResponse row = result.getContent().get(0);
+            assertThat(row.getInProgressMission().getIsVisible()).isFalse();
+            assertThat(row.getInProgressMission().getTitle()).isNull();
+            assertThat(row.getInProgressMission().getCategoryName()).isNull();
+        }
+
+        private void stubSingleUserLevelRankingWithMission(InProgressMissionDto mission) {
+            UserExperience exp1 = createTestUserExperience(1L, "user1", 20, 5000);
+            when(userExperienceRepository.findAllByOrderByCurrentLevelDescTotalExpDesc())
+                .thenReturn(List.of(exp1));
+            when(userQueryFacadeService.getActiveUserIds(List.of("user1"))).thenReturn(List.of("user1"));
+            when(userQueryFacadeService.getUserProfiles(List.of("user1"))).thenReturn(Map.of());
+            when(missionQueryFacade.findInProgressMissions(eq(List.of("user1")), eq("en")))
+                .thenReturn(Map.of("user1", mission));
+        }
+
+        @Test
+        @DisplayName("locale 이 있으면 진행중 미션의 카테고리명을 현지화한다")
+        void inProgressMission_localizesCategoryName() {
+            stubSingleUserLevelRankingWithMission(
+                new InProgressMissionDto(11L, 1L, "운동", "달리기", "PUBLIC", null,
+                    java.time.LocalDateTime.now()));
+            when(missionCategoryService.getCategory(1L)).thenReturn(
+                io.pinkspider.leveluptogethermvp.metaservice.domain.dto.MissionCategoryResponse
+                    .builder().id(1L).name("운동").nameEn("Exercise").build());
+
+            Page<LevelRankingResponse> result =
+                rankingService.getLevelRanking(PageRequest.of(0, 10), "en", null);
+
+            assertThat(result.getContent().get(0).getInProgressMission().getCategoryName())
+                .isEqualTo("Exercise");
+        }
+
+        @Test
+        @DisplayName("카테고리 조회 결과가 null 이면 원문 카테고리명으로 폴백한다")
+        void inProgressMission_categoryNull_fallsBack() {
+            stubSingleUserLevelRankingWithMission(
+                new InProgressMissionDto(11L, 1L, "운동", "달리기", "PUBLIC", null,
+                    java.time.LocalDateTime.now()));
+            when(missionCategoryService.getCategory(1L)).thenReturn(null);
+
+            Page<LevelRankingResponse> result =
+                rankingService.getLevelRanking(PageRequest.of(0, 10), "en", null);
+
+            assertThat(result.getContent().get(0).getInProgressMission().getCategoryName())
+                .isEqualTo("운동");
+        }
+
+        @Test
+        @DisplayName("카테고리 조회가 실패하면 원문 카테고리명으로 폴백한다")
+        void inProgressMission_categoryLookupFails_fallsBack() {
+            stubSingleUserLevelRankingWithMission(
+                new InProgressMissionDto(11L, 1L, "운동", "달리기", "PUBLIC", null,
+                    java.time.LocalDateTime.now()));
+            when(missionCategoryService.getCategory(1L))
+                .thenThrow(new RuntimeException("category db down"));
+
+            Page<LevelRankingResponse> result =
+                rankingService.getLevelRanking(PageRequest.of(0, 10), "en", null);
+
+            assertThat(result.getContent().get(0).getInProgressMission().getCategoryName())
+                .isEqualTo("운동");
+        }
+
+        @Test
+        @DisplayName("카테고리 ID 가 없으면 locale 이 있어도 조회 없이 원문 카테고리명을 쓴다")
+        void inProgressMission_nullCategoryId_skipsLookup() {
+            stubSingleUserLevelRankingWithMission(
+                new InProgressMissionDto(11L, null, "기타", "자유 미션", "PUBLIC", null,
+                    java.time.LocalDateTime.now()));
+
+            Page<LevelRankingResponse> result =
+                rankingService.getLevelRanking(PageRequest.of(0, 10), "en", null);
+
+            assertThat(result.getContent().get(0).getInProgressMission().getCategoryName())
+                .isEqualTo("기타");
+            verify(missionCategoryService, never()).getCategory(any());
+        }
+
+        @Test
+        @DisplayName("LEFT 칭호 등급이 더 높으면 LEFT 의 등급·색상을 대표값으로 쓴다")
+        void getMyRanking_leftRarityHigher_usesLeftColor() {
+            UserStats stats = createTestUserStats(1L, TEST_USER_ID, 1000L);
+            UserExperience exp = createTestUserExperience(1L, TEST_USER_ID, 10, 1000);
+            Title leftTitle = Title.builder().name("전설의").rarity(TitleRarity.LEGENDARY)
+                .colorCode("#GOLD").positionType(TitlePosition.LEFT).build();
+            Title rightTitle = Title.builder().name("전사").rarity(TitleRarity.RARE)
+                .colorCode("#BLUE").positionType(TitlePosition.RIGHT).build();
+            UserTitle left = UserTitle.builder().userId(TEST_USER_ID).title(leftTitle).build();
+            left.equip(TitlePosition.LEFT);
+            UserTitle right = UserTitle.builder().userId(TEST_USER_ID).title(rightTitle).build();
+            right.equip(TitlePosition.RIGHT);
+
+            when(userStatsRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.of(stats));
+            when(userStatsRepository.findUserRank(TEST_USER_ID)).thenReturn(5L);
+            when(userExperienceRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.of(exp));
+            when(userTitleRepository.findEquippedTitlesByUserId(TEST_USER_ID))
+                .thenReturn(List.of(left, right));
+
+            RankingResponse result = rankingService.getMyRanking(TEST_USER_ID);
+
+            assertThat(result.getEquippedTitleName()).isEqualTo("전설의 전사");
+            assertThat(result.getEquippedTitleRarity()).isEqualTo(TitleRarity.LEGENDARY);
+            assertThat(result.getEquippedTitleColorCode()).isEqualTo("#GOLD");
+        }
+
+        @Test
+        @DisplayName("장착 칭호에 LEFT/RIGHT 위치가 없으면 칭호명·등급·색상이 모두 null 이다")
+        void getMyRanking_equippedWithoutPosition_returnsNullTitleInfo() {
+            UserStats stats = createTestUserStats(1L, TEST_USER_ID, 1000L);
+            UserExperience exp = createTestUserExperience(1L, TEST_USER_ID, 10, 1000);
+            Title title = Title.builder().name("고아").rarity(TitleRarity.RARE)
+                .colorCode("#BLUE").positionType(TitlePosition.LEFT).build();
+            UserTitle noPosition = UserTitle.builder().userId(TEST_USER_ID).title(title).build();
+
+            when(userStatsRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.of(stats));
+            when(userStatsRepository.findUserRank(TEST_USER_ID)).thenReturn(5L);
+            when(userExperienceRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.of(exp));
+            when(userTitleRepository.findEquippedTitlesByUserId(TEST_USER_ID))
+                .thenReturn(List.of(noPosition));
+
+            RankingResponse result = rankingService.getMyRanking(TEST_USER_ID);
+
+            assertThat(result.getEquippedTitleName()).isNull();
+            assertThat(result.getEquippedTitleRarity()).isNull();
+            assertThat(result.getEquippedTitleColorCode()).isNull();
+        }
     }
 }

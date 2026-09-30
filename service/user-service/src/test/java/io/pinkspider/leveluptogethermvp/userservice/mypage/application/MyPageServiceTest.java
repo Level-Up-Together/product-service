@@ -2101,4 +2101,305 @@ class MyPageServiceTest {
             verify(contentReviewChecker).isUnderReview(ReportTargetType.USER_PROFILE, otherUserId);
         }
     }
+
+    @Nested
+    @DisplayName("getPublicProfile 칭호/아이템/차단 경계 테스트")
+    class GetPublicProfileEdgeTest {
+
+        @Test
+        @DisplayName("장착 위치가 null 인 칭호는 좌/우 어디에도 매핑되지 않고, rarity null 은 null 로 내려간다")
+        void equippedTitle_nullPosition_andNullRarity() {
+            Users user = createTestUser(TEST_USER_ID, "테스터");
+            UserTitleDto noPosition = createTestUserTitleDto(
+                1L, TEST_USER_ID, 1L, "무위치", TitleRarity.RARE, TitlePosition.LEFT, true, null);
+            UserTitleDto leftNoRarity = createTestUserTitleDto(
+                2L, TEST_USER_ID, 2L, "좌측", null, TitlePosition.LEFT, true, TitlePosition.LEFT);
+
+            when(userRepository.findById(TEST_USER_ID)).thenReturn(Optional.of(user));
+            when(gamificationQueryFacadeService.getEquippedTitlesByUserId(TEST_USER_ID))
+                .thenReturn(List.of(noPosition, leftNoRarity));
+            when(gamificationQueryFacadeService.getUserLevel(TEST_USER_ID)).thenReturn(1);
+            when(gamificationQueryFacadeService.getOrCreateUserStats(TEST_USER_ID))
+                .thenReturn(createDefaultUserStats(TEST_USER_ID));
+            when(gamificationQueryFacadeService.countUserTitles(TEST_USER_ID)).thenReturn(2L);
+            when(gamificationQueryFacadeService.countAttendanceDays(TEST_USER_ID)).thenReturn(1L);
+            when(guildQueryFacadeService.getUserGuildMemberships(TEST_USER_ID)).thenReturn(Collections.emptyList());
+
+            PublicProfileResponse result = myPageService.getPublicProfile(TEST_USER_ID, TEST_USER_ID);
+
+            assertThat(result.getRightTitle()).isNull();
+            assertThat(result.getLeftTitle()).isNotNull();
+            assertThat(result.getLeftTitle().getName()).isEqualTo("좌측");
+            assertThat(result.getLeftTitle().getRarity()).isNull();
+        }
+
+        @Test
+        @DisplayName("장착 아이템은 rarity 유무에 따라 name/null 로 변환되어 응답에 포함된다")
+        void equippedItems_mappedWithRarityBranches() {
+            Users user = createTestUser(TEST_USER_ID, "테스터");
+            io.pinkspider.global.facade.dto.UserItemDto withRarity =
+                new io.pinkspider.global.facade.dto.UserItemDto(
+                    1L, TEST_USER_ID, 10L, "날개", "Wings", null, null, null, null, null, null,
+                    "BASIC", TitleRarity.RARE, "img.png", "CENTER", null, true, LocalDateTime.now());
+            io.pinkspider.global.facade.dto.UserItemDto withoutRarity =
+                new io.pinkspider.global.facade.dto.UserItemDto(
+                    2L, TEST_USER_ID, 11L, "이펙트", null, null, null, null, null, null, null,
+                    "EFFECT", null, null, null, "sparkle", true, LocalDateTime.now());
+
+            when(userRepository.findById(TEST_USER_ID)).thenReturn(Optional.of(user));
+            stubPublicProfileDefaults(TEST_USER_ID);
+            when(gamificationQueryFacadeService.getEquippedItemsByUserId(TEST_USER_ID))
+                .thenReturn(List.of(withRarity, withoutRarity));
+
+            PublicProfileResponse result = myPageService.getPublicProfile(TEST_USER_ID, TEST_USER_ID);
+
+            assertThat(result.getEquippedItems()).hasSize(2);
+            assertThat(result.getEquippedItems().get(0).getRarity()).isEqualTo("RARE");
+            assertThat(result.getEquippedItems().get(0).getShopItemId()).isEqualTo(10L);
+            assertThat(result.getEquippedItems().get(1).getRarity()).isNull();
+            assertThat(result.getEquippedItems().get(1).getEffectCode()).isEqualTo("sparkle");
+        }
+
+        @Test
+        @DisplayName("LUT-367: 상대가 나를 차단한 경우 차단 사실을 숨기고 NONE 을 반환한다")
+        void blockedByTarget_returnsNone() {
+            String currentUserId = "current-user-123";
+            Users user = createTestUser(TEST_USER_ID, "테스터");
+            // 차단 행의 주체(userId)가 프로필 주인 = 내가 피차단자
+            Friendship blockedByTarget = Friendship.builder()
+                .userId(TEST_USER_ID)
+                .friendId(currentUserId)
+                .status(FriendshipStatus.BLOCKED)
+                .build();
+            setId(blockedByTarget, 1L);
+
+            when(userRepository.findById(TEST_USER_ID)).thenReturn(Optional.of(user));
+            stubPublicProfileDefaults(TEST_USER_ID);
+            when(friendshipRepository.findFriendship(currentUserId, TEST_USER_ID))
+                .thenReturn(Optional.of(blockedByTarget));
+
+            PublicProfileResponse result = myPageService.getPublicProfile(TEST_USER_ID, currentUserId);
+
+            assertThat(result.getFriendshipStatus()).isEqualTo("NONE");
+        }
+    }
+
+    @Nested
+    @DisplayName("LUT-257: 진행중 미션 노출 판정 경계 테스트")
+    class InProgressMissionVisibilityEdgeTest {
+
+        private void stubViewerProfile(Users user, String viewerId, List<GuildMembershipInfo> targetGuilds) {
+            when(userRepository.findById(TEST_USER_ID)).thenReturn(Optional.of(user));
+            when(gamificationQueryFacadeService.getEquippedTitlesByUserId(TEST_USER_ID)).thenReturn(Collections.emptyList());
+            when(gamificationQueryFacadeService.getUserLevel(TEST_USER_ID)).thenReturn(1);
+            when(gamificationQueryFacadeService.getOrCreateUserStats(TEST_USER_ID)).thenReturn(createDefaultUserStats(TEST_USER_ID));
+            when(gamificationQueryFacadeService.countUserTitles(TEST_USER_ID)).thenReturn(0L);
+            when(gamificationQueryFacadeService.countAttendanceDays(TEST_USER_ID)).thenReturn(1L);
+            when(guildQueryFacadeService.getUserGuildMemberships(TEST_USER_ID)).thenReturn(targetGuilds);
+            when(friendshipRepository.findFriendship(viewerId, TEST_USER_ID)).thenReturn(Optional.empty());
+        }
+
+        @Test
+        @DisplayName("FRIENDS_AND_GUILD: 친구가 아니어도 같은 길드면 노출된다")
+        void friendsAndGuild_notFriendButSameGuild_visible() {
+            String viewerId = "viewer-1";
+            Users user = createTestUser(TEST_USER_ID, "테스터");
+            GuildMembershipInfo sharedGuild = new GuildMembershipInfo(5L, "공유 길드", null, 1, false, false);
+            stubViewerProfile(user, viewerId, List.of(sharedGuild));
+            when(guildQueryFacadeService.countActiveMembersByGuildIds(List.of(5L))).thenReturn(java.util.Map.of(5L, 3));
+            when(guildQueryFacadeService.getUserGuildMemberships(viewerId)).thenReturn(List.of(sharedGuild));
+            when(missionQueryFacadeService.findInProgressMission(eq(TEST_USER_ID), any()))
+                .thenReturn(Optional.of(createInProgressMissionDto("FRIENDS_AND_GUILD", "5")));
+
+            PublicProfileResponse result = myPageService.getPublicProfile(TEST_USER_ID, viewerId);
+
+            assertThat(result.getInProgressMission().getIsVisible()).isTrue();
+        }
+
+        @Test
+        @DisplayName("GUILD_ONLY: 대상이 길드가 없으면 조회자 길드를 확인하지 않고 마스킹된다")
+        void guildOnly_targetHasNoGuild_masked() {
+            String viewerId = "viewer-1";
+            Users user = createTestUser(TEST_USER_ID, "테스터");
+            stubViewerProfile(user, viewerId, Collections.emptyList());
+            when(missionQueryFacadeService.findInProgressMission(eq(TEST_USER_ID), any()))
+                .thenReturn(Optional.of(createInProgressMissionDto("GUILD_ONLY", null)));
+
+            PublicProfileResponse result = myPageService.getPublicProfile(TEST_USER_ID, viewerId);
+
+            assertThat(result.getInProgressMission().getIsVisible()).isFalse();
+            assertThat(result.getInProgressMission().getMissionId()).isNull();
+            verify(guildQueryFacadeService, never()).getUserGuildMemberships(viewerId);
+        }
+
+        @Test
+        @DisplayName("PRIVATE 미션은 친구·길드와 무관하게 타인에게 마스킹된다")
+        void privateMission_maskedForOthers() {
+            String viewerId = "viewer-1";
+            Users user = createTestUser(TEST_USER_ID, "테스터");
+            stubViewerProfile(user, viewerId, Collections.emptyList());
+            when(missionQueryFacadeService.findInProgressMission(eq(TEST_USER_ID), any()))
+                .thenReturn(Optional.of(createInProgressMissionDto("PRIVATE", null)));
+
+            PublicProfileResponse result = myPageService.getPublicProfile(TEST_USER_ID, viewerId);
+
+            assertThat(result.getInProgressMission().getIsVisible()).isFalse();
+        }
+
+        @Test
+        @DisplayName("커스텀 미션(categoryId null)은 locale 이 있어도 스냅샷 카테고리명을 그대로 쓴다")
+        void nullCategoryId_usesSnapshotName() {
+            Users user = createTestUser(TEST_USER_ID, "테스터");
+            when(userRepository.findById(TEST_USER_ID)).thenReturn(Optional.of(user));
+            stubPublicProfileDefaults(TEST_USER_ID);
+            when(missionQueryFacadeService.findInProgressMission(eq(TEST_USER_ID), any()))
+                .thenReturn(Optional.of(new InProgressMissionDto(
+                    100L, null, "나만의 카테고리", "달리기", "PUBLIC", null, LocalDateTime.now())));
+
+            PublicProfileResponse result = myPageService.getPublicProfile(TEST_USER_ID, TEST_USER_ID, "en");
+
+            assertThat(result.getInProgressMission().getCategoryName()).isEqualTo("나만의 카테고리");
+            verify(missionCategoryService, never()).getCategory(anyLong());
+        }
+
+        @Test
+        @DisplayName("카테고리 메타가 없으면(null) 스냅샷 카테고리명으로 폴백한다")
+        void categoryNotFound_fallsBackToSnapshot() {
+            Users user = createTestUser(TEST_USER_ID, "테스터");
+            when(userRepository.findById(TEST_USER_ID)).thenReturn(Optional.of(user));
+            stubPublicProfileDefaults(TEST_USER_ID);
+            when(missionQueryFacadeService.findInProgressMission(eq(TEST_USER_ID), any()))
+                .thenReturn(Optional.of(createInProgressMissionDto("PUBLIC", null)));
+            when(missionCategoryService.getCategory(10L)).thenReturn(null);
+
+            PublicProfileResponse result = myPageService.getPublicProfile(TEST_USER_ID, TEST_USER_ID, "en");
+
+            assertThat(result.getInProgressMission().getCategoryName()).isEqualTo("운동");
+        }
+    }
+
+    @Nested
+    @DisplayName("buildProfileInfo 장착 칭호 분기 테스트")
+    class BuildProfileInfoTitlesTest {
+
+        @Test
+        @DisplayName("좌/우/무위치 칭호가 각각 매핑되고 rarity null 은 null 로 내려간다")
+        void equippedTitles_mappedByPosition() {
+            Users user = createTestUser(TEST_USER_ID, "테스터");
+            UserTitleDto left = createTestUserTitleDto(
+                1L, TEST_USER_ID, 1L, "좌측", null, TitlePosition.LEFT, true, TitlePosition.LEFT);
+            UserTitleDto right = createTestUserTitleDto(
+                2L, TEST_USER_ID, 2L, "우측", TitleRarity.RARE, TitlePosition.RIGHT, true, TitlePosition.RIGHT);
+            UserTitleDto none = createTestUserTitleDto(
+                3L, TEST_USER_ID, 3L, "무위치", TitleRarity.RARE, TitlePosition.LEFT, true, null);
+
+            when(userRepository.findById(TEST_USER_ID)).thenReturn(Optional.of(user));
+            when(userRepository.save(any(Users.class))).thenReturn(user);
+            when(gamificationQueryFacadeService.getEquippedTitlesByUserId(TEST_USER_ID))
+                .thenReturn(List.of(left, right, none));
+            when(friendshipRepository.countFriends(TEST_USER_ID)).thenReturn(0);
+
+            ProfileInfo result = myPageService.updateBio(TEST_USER_ID, "소개");
+
+            assertThat(result.getLeftTitle().getUserTitleId()).isEqualTo(1L);
+            assertThat(result.getLeftTitle().getRarity()).isNull();
+            assertThat(result.getRightTitle().getUserTitleId()).isEqualTo(2L);
+            assertThat(result.getRightTitle().getRarity()).isEqualTo("RARE");
+        }
+    }
+
+    @Nested
+    @DisplayName("buildExperienceInfo 필요 경험치 폴백 경계 테스트")
+    class ExperienceFallbackEdgeTest {
+
+        private void stubMyPageCommon(Users user, int level) {
+            when(userRepository.findById(TEST_USER_ID)).thenReturn(Optional.of(user));
+            when(gamificationQueryFacadeService.getEquippedTitlesByUserId(TEST_USER_ID)).thenReturn(Collections.emptyList());
+            when(friendshipRepository.countFriends(TEST_USER_ID)).thenReturn(0);
+            when(gamificationQueryFacadeService.getOrCreateUserExperience(TEST_USER_ID)).thenReturn(
+                new UserExperienceDto(null, TEST_USER_ID, level, 50, 200, null, null, null));
+            when(gamificationQueryFacadeService.getOrCreateUserStats(TEST_USER_ID)).thenReturn(createDefaultUserStats(TEST_USER_ID));
+            when(gamificationQueryFacadeService.countUserTitles(TEST_USER_ID)).thenReturn(0L);
+            when(gamificationQueryFacadeService.calculateRankingPercentile(0L)).thenReturn(50.0);
+        }
+
+        @Test
+        @DisplayName("다음 레벨 config 가 없고 현재 config 의 requiredExp 가 0 이면 기본 공식을 사용한다")
+        void currentConfigZero_usesDefaultFormula() {
+            Users user = createTestUser(TEST_USER_ID, "테스터");
+            stubMyPageCommon(user, 5);
+            when(userLevelConfigCacheService.getLevelConfigByLevel(6)).thenReturn(null);
+            when(userLevelConfigCacheService.getLevelConfigByLevel(5))
+                .thenReturn(UserLevelConfig.builder().requiredExp(0).build());
+
+            MyPageResponse result = myPageService.getMyPage(TEST_USER_ID);
+
+            // 100 + (5-1)*50 = 300
+            assertThat(result.getExperience().getNextLevelRequiredExp()).isEqualTo(300);
+        }
+
+        @Test
+        @DisplayName("필요 경험치가 0 이하로 계산되면 퍼센티지는 0 이다")
+        void nonPositiveRequiredExp_zeroPercentage() {
+            Users user = createTestUser(TEST_USER_ID, "테스터");
+            // 기본 공식 100 + (level-1)*50 이 0 이 되는 비정상 레벨(-1) — 0 나눗셈 방어 분기
+            stubMyPageCommon(user, -1);
+            when(userLevelConfigCacheService.getLevelConfigByLevel(0)).thenReturn(null);
+            when(userLevelConfigCacheService.getLevelConfigByLevel(-1)).thenReturn(null);
+
+            MyPageResponse result = myPageService.getMyPage(TEST_USER_ID);
+
+            assertThat(result.getExperience().getNextLevelRequiredExp()).isEqualTo(0);
+            assertThat(result.getExperience().getExpPercentage()).isEqualTo(0.0);
+        }
+    }
+
+    @Nested
+    @DisplayName("설정/닉네임 입력 경계 테스트")
+    class SettingsInputEdgeTest {
+
+        @Test
+        @DisplayName("저장된 locale 이 공백이면 기본값 en 을 반환한다")
+        void blankPreferredLocale_defaultsToEn() {
+            Users user = createTestUser(TEST_USER_ID, "테스터");
+            TestReflectionUtils.setField(user, "preferredLocale", "   ");
+            when(userRepository.findById(TEST_USER_ID)).thenReturn(Optional.of(user));
+
+            assertThat(myPageService.getPreferredLocale(TEST_USER_ID)).isEqualTo("en");
+        }
+
+        @Test
+        @DisplayName("피드 공개범위가 null 이면 예외가 발생한다")
+        void nullFeedVisibility_throws() {
+            assertThatThrownBy(() -> myPageService.updatePreferredFeedVisibility(TEST_USER_ID, null))
+                .isInstanceOf(CustomException.class)
+                .hasFieldOrPropertyWithValue("code", "VISIBILITY_001");
+        }
+
+        @Test
+        @DisplayName("닉네임이 null 이면 NICKNAME_002 예외가 발생한다")
+        void nullNickname_throws() {
+            assertThatThrownBy(() -> myPageService.updateNickname(TEST_USER_ID, null))
+                .isInstanceOf(CustomException.class)
+                .hasFieldOrPropertyWithValue("code", "NICKNAME_002");
+        }
+
+        @Test
+        @DisplayName("닉네임이 공백이면 NICKNAME_002 예외가 발생한다")
+        void blankNickname_throws() {
+            assertThatThrownBy(() -> myPageService.updateNickname(TEST_USER_ID, "   "))
+                .isInstanceOf(CustomException.class)
+                .hasFieldOrPropertyWithValue("code", "NICKNAME_002");
+        }
+
+        @Test
+        @DisplayName("닉네임이 이미 설정된 유저는 needsNicknameSetup 이 false 다")
+        void nicknameAlreadySet_false() {
+            Users user = createTestUser(TEST_USER_ID, "테스터");
+            TestReflectionUtils.setField(user, "nicknameSet", true);
+            when(userRepository.findById(TEST_USER_ID)).thenReturn(Optional.of(user));
+
+            assertThat(myPageService.needsNicknameSetup(TEST_USER_ID)).isFalse();
+        }
+    }
 }

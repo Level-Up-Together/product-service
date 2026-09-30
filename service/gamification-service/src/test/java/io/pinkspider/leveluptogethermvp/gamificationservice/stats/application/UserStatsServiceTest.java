@@ -519,4 +519,82 @@ class UserStatsServiceTest {
             assertThat(result).isEqualTo(0);
         }
     }
+
+    @Nested
+    @DisplayName("undoMissionCompletion 테스트")
+    class UndoMissionCompletionTest {
+
+        @Test
+        @DisplayName("길드 미션 완료 취소 시 전체·길드 미션 카운터를 모두 감소시킨다")
+        void undoMissionCompletion_guildMission_decrementsBoth() {
+            // given
+            UserStats stats = UserStats.builder()
+                .userId(TEST_USER_ID)
+                .totalMissionCompletions(5)
+                .totalGuildMissionCompletions(2)
+                .build();
+            setId(stats, 1L);
+            when(userStatsRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.of(stats));
+
+            // when
+            userStatsService.undoMissionCompletion(TEST_USER_ID, true);
+
+            // then
+            assertThat(stats.getTotalMissionCompletions()).isEqualTo(4);
+            assertThat(stats.getTotalGuildMissionCompletions()).isEqualTo(1);
+        }
+
+        @Test
+        @DisplayName("일반 미션 완료 취소 시 길드 미션 카운터는 건드리지 않는다")
+        void undoMissionCompletion_regularMission_keepsGuildCount() {
+            // given
+            UserStats stats = UserStats.builder()
+                .userId(TEST_USER_ID)
+                .totalMissionCompletions(5)
+                .totalGuildMissionCompletions(2)
+                .build();
+            setId(stats, 1L);
+            when(userStatsRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.of(stats));
+
+            // when
+            userStatsService.undoMissionCompletion(TEST_USER_ID, false);
+
+            // then
+            assertThat(stats.getTotalMissionCompletions()).isEqualTo(4);
+            assertThat(stats.getTotalGuildMissionCompletions()).isEqualTo(2);
+        }
+    }
+
+    @Nested
+    @DisplayName("calculateRankingPercentile 테스트")
+    class CalculateRankingPercentileTest {
+
+        @Test
+        @DisplayName("전체 유저가 0명이면 100.0 을 반환한다")
+        void calculateRankingPercentile_noUsers_returns100() {
+            // given
+            when(userStatsRepository.countTotalUsers()).thenReturn(0L);
+
+            // when
+            Double result = userStatsService.calculateRankingPercentile(500L);
+
+            // then
+            assertThat(result).isEqualTo(100.0);
+            verify(userStatsRepository, org.mockito.Mockito.never()).calculateRank(org.mockito.ArgumentMatchers.anyLong());
+        }
+
+        @Test
+        @DisplayName("순위/전체 비율을 소수점 첫째 자리까지 백분율로 계산한다")
+        void calculateRankingPercentile_computesRatio() {
+            // given
+            when(userStatsRepository.countTotalUsers()).thenReturn(8L);
+            when(userStatsRepository.calculateRank(500L)).thenReturn(3L);
+
+            // when
+            Double result = userStatsService.calculateRankingPercentile(500L);
+
+            // then
+            assertThat(result).isEqualTo(37.5);
+        }
+    }
 }

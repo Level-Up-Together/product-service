@@ -1639,4 +1639,409 @@ class MissionExecutionQueryServiceTest {
             assertThat(missions.get(0).getMissionTitle()).isEqualTo("독서 미션");
         }
     }
+
+    @Nested
+    @DisplayName("브랜치 커버리지 보강 테스트")
+    class BranchCoverageTest {
+
+        private static final String VIEWER_ID = "viewer-456";
+
+        private Mission missionWith(Long id, String title, String titleEn,
+                MissionVisibility visibility, MissionType type) {
+            Mission mission = Mission.builder()
+                .title(title)
+                .titleEn(titleEn)
+                .status(MissionStatus.IN_PROGRESS)
+                .visibility(visibility)
+                .type(type)
+                .creatorId(testUserId)
+                .missionInterval(MissionInterval.DAILY)
+                .expPerCompletion(50)
+                .build();
+            setId(mission, id);
+            return mission;
+        }
+
+        private MissionParticipant participantOf(Mission mission) {
+            MissionParticipant participant = MissionParticipant.builder()
+                .mission(mission)
+                .userId(testUserId)
+                .status(ParticipantStatus.IN_PROGRESS)
+                .build();
+            setId(participant, mission.getId());
+            return participant;
+        }
+
+        private MissionExecution executionOf(Long id, MissionParticipant participant, LocalDate date,
+                LocalDateTime startedAt, LocalDateTime completedAt) {
+            MissionExecution execution = MissionExecution.builder()
+                .participant(participant)
+                .executionDate(date)
+                .status(ExecutionStatus.COMPLETED)
+                .expEarned(10)
+                .build();
+            if (id != null) {
+                setId(execution, id);
+            }
+            TestReflectionUtils.setField(execution, "startedAt", startedAt);
+            TestReflectionUtils.setField(execution, "completedAt", completedAt);
+            return execution;
+        }
+
+        private DailyMissionInstance instanceOf(Long id, MissionParticipant participant, LocalDate date,
+                LocalDateTime startedAt, LocalDateTime completedAt) {
+            DailyMissionInstance instance = DailyMissionInstance.builder()
+                .participant(participant)
+                .instanceDate(date)
+                .missionTitle(participant.getMission().getTitle())
+                .status(ExecutionStatus.COMPLETED)
+                .startedAt(startedAt)
+                .completedAt(completedAt)
+                .build();
+            setId(instance, id);
+            return instance;
+        }
+
+        private void mockCompleted(List<MissionExecution> executions, List<DailyMissionInstance> instances) {
+            when(executionRepository.findCompletedByUserIdAndCompletedAtBetween(
+                eq(testUserId), any(LocalDateTime.class), any(LocalDateTime.class)))
+                .thenReturn(executions);
+            when(dailyMissionInstanceRepository.findCompletedByUserIdAndCompletedAtBetween(
+                eq(testUserId), any(LocalDateTime.class), any(LocalDateTime.class)))
+                .thenReturn(instances);
+        }
+
+        private void mockToday(List<MissionExecution> executions, List<DailyMissionInstance> instances) {
+            when(participantRepository.findPinnedMissionParticipants(testUserId)).thenReturn(List.of());
+            when(executionRepository.findByUserIdAndTodayOrYesterdayInProgress(
+                    eq(testUserId), any(LocalDate.class), any(LocalDate.class),
+                    any(LocalDateTime.class), any(LocalDateTime.class)))
+                .thenReturn(executions);
+            when(dailyMissionInstanceRepository.findByUserIdAndTodayOrYesterdayInProgress(
+                    eq(testUserId), any(LocalDate.class), any(LocalDate.class),
+                    any(LocalDateTime.class), any(LocalDateTime.class)))
+                .thenReturn(instances);
+        }
+
+        @Test
+        @DisplayName("getExecutionByDate: Strategy가 null을 주면 null을 그대로 반환한다")
+        void getExecutionByDate_nullResponse() {
+            var mockStrategy = org.mockito.Mockito.mock(
+                io.pinkspider.leveluptogethermvp.missionservice.application.strategy.MissionExecutionStrategy.class);
+            when(strategyResolver.resolve(testMission.getId(), testUserId)).thenReturn(mockStrategy);
+            when(mockStrategy.getExecutionByDate(testMission.getId(), testUserId, today())).thenReturn(null);
+
+            MissionExecutionResponse response =
+                executionService.getExecutionByDate(testMission.getId(), testUserId, today(), "en");
+
+            assertThat(response).isNull();
+            verify(missionRepository, never()).findAllById(any());
+        }
+
+        @Test
+        @DisplayName("QA-152 보정: id 없는 공유행·비공유행은 건너뛰고 피드 없는 공유행만 false 로 보정한다")
+        void reconcileSharedToFeed_skipsNullIdAndUnshared() {
+            MissionExecution sharedNoId = executionOf(null, testParticipant, today(),
+                today().atTime(9, 0), today().atTime(9, 30));
+            TestReflectionUtils.setField(sharedNoId, "isSharedToFeed", true);
+            MissionExecution unshared = createCompletedExecution(2L, today(), 10, 30);
+            MissionExecution sharedNoFeed = createCompletedExecution(3L, today(), 10, 30);
+            TestReflectionUtils.setField(sharedNoFeed, "isSharedToFeed", true);
+            mockToday(List.of(sharedNoId, unshared, sharedNoFeed), List.of());
+
+            List<MissionExecutionResponse> responses = executionService.getTodayExecutions(testUserId);
+
+            assertThat(responses).hasSize(3);
+            assertThat(responses.get(0).getIsSharedToFeed()).isTrue();
+            assertThat(responses.get(1).getIsSharedToFeed()).isFalse();
+            assertThat(responses.get(2).getIsSharedToFeed()).isFalse();
+        }
+
+        @Test
+        @DisplayName("진행 중 미션 조회 시 이미지가 있으면 imageUrls 에 채운다")
+        void getInProgressExecution_withImages() {
+            MissionExecution execution = MissionExecution.builder()
+                .participant(testParticipant)
+                .executionDate(today())
+                .status(ExecutionStatus.IN_PROGRESS)
+                .build();
+            setId(execution, 5L);
+            when(executionRepository.findInProgressByUserId(testUserId)).thenReturn(Optional.of(execution));
+            when(executionImageRepository.findByExecutionIdOrderBySortOrderAsc(5L))
+                .thenReturn(List.of(
+                    io.pinkspider.leveluptogethermvp.missionservice.domain.entity.MissionExecutionImage.builder()
+                        .execution(execution).imageUrl("https://cdn/a.jpg").sortOrder(0).build()));
+
+            MissionExecutionResponse response = executionService.getInProgressExecution(testUserId, "en");
+
+            assertThat(response.getImageUrls()).containsExactly("https://cdn/a.jpg");
+        }
+
+        @Test
+        @DisplayName("일반·고정 목록 조회 시 이미지가 있으면 각 응답의 imageUrls 에 매핑한다")
+        void getTodayExecutions_withImages() {
+            MissionExecution execution = createCompletedExecution(7L, today(), 10, 30);
+            DailyMissionInstance instance = instanceOf(8L, testParticipant, today(),
+                today().atTime(10, 0), today().atTime(10, 30));
+            mockToday(List.of(execution), List.of(instance));
+            when(executionImageRepository.findByExecutionIdInOrderBySortOrder(List.of(7L)))
+                .thenReturn(List.of(
+                    io.pinkspider.leveluptogethermvp.missionservice.domain.entity.MissionExecutionImage.builder()
+                        .execution(execution).imageUrl("https://cdn/e.jpg").sortOrder(0).build()));
+            when(instanceImageRepository.findByInstanceIdInOrderBySortOrder(List.of(8L)))
+                .thenReturn(List.of(
+                    io.pinkspider.leveluptogethermvp.missionservice.domain.entity.DailyMissionInstanceImage.builder()
+                        .instance(instance).imageUrl("https://cdn/i.jpg").sortOrder(0).build()));
+
+            List<MissionExecutionResponse> responses = executionService.getTodayExecutions(testUserId);
+
+            assertThat(responses).hasSize(2);
+            assertThat(responses.get(0).getImageUrls()).containsExactly("https://cdn/e.jpg");
+            assertThat(responses.get(1).getImageUrls()).containsExactly("https://cdn/i.jpg");
+        }
+
+        @Test
+        @DisplayName("월별 캘린더: 시작/종료 시각이 하나라도 없으면 durationMinutes 는 null")
+        void getMonthlyCalendarData_missingTimes_nullDuration() {
+            LocalDate date = LocalDate.of(2026, 8, 5);
+            Mission untyped = missionWith(30L, "타입없음", null, MissionVisibility.PUBLIC, null);
+            MissionParticipant p = participantOf(untyped);
+            MissionExecution noStart = executionOf(31L, p, date, null, date.atTime(10, 0));
+            MissionExecution noEnd = executionOf(32L, p, date, date.atTime(9, 0), null);
+            DailyMissionInstance instNoStart = instanceOf(33L, p, date, null, date.atTime(11, 0));
+            DailyMissionInstance instNoEnd = instanceOf(34L, p, date, date.atTime(11, 0), null);
+            mockCompleted(List.of(noStart, noEnd), List.of(instNoStart, instNoEnd));
+            when(gamificationQueryFacade.getDailyExpSummary(
+                eq(testUserId), any(LocalDateTime.class), any(LocalDateTime.class), any()))
+                .thenReturn(java.util.Map.of());
+
+            MonthlyCalendarResponse response =
+                executionService.getMonthlyCalendarData(testUserId, 2026, 8, "Asia/Seoul");
+
+            List<MonthlyCalendarResponse.DailyMission> all = response.getDailyMissions().values().stream()
+                .flatMap(List::stream).toList();
+            assertThat(all).hasSize(4);
+            assertThat(all).allSatisfy(m -> {
+                assertThat(m.getDurationMinutes()).isNull();
+                assertThat(m.getMissionType()).isNull();
+            });
+        }
+
+        @Test
+        @DisplayName("월별 캘린더: 번역이 없거나 제목이 null 이면 스냅샷/원문을 유지한다")
+        void getMonthlyCalendarData_localeFallbacks() {
+            LocalDate date = LocalDate.of(2026, 8, 5);
+            Mission noTranslation = missionWith(40L, "번역없음", null, MissionVisibility.PUBLIC, MissionType.PERSONAL);
+            Mission nullTitle = missionWith(41L, null, null, MissionVisibility.PUBLIC, MissionType.PERSONAL);
+            MissionExecution e1 = executionOf(42L, participantOf(noTranslation), date,
+                date.atTime(9, 0), date.atTime(10, 0));
+            DailyMissionInstance i1 = instanceOf(43L, participantOf(nullTitle), date,
+                date.atTime(11, 0), date.atTime(12, 0));
+            TestReflectionUtils.setField(i1, "missionTitle", "스냅샷");
+            mockCompleted(List.of(e1), List.of(i1));
+            when(gamificationQueryFacade.getDailyExpSummary(
+                eq(testUserId), any(LocalDateTime.class), any(LocalDateTime.class), any()))
+                .thenReturn(java.util.Map.of());
+
+            MonthlyCalendarResponse response =
+                executionService.getMonthlyCalendarData(testUserId, 2026, 8, null, "en");
+
+            List<MonthlyCalendarResponse.DailyMission> missions = response.getDailyMissions().get(date.toString());
+            assertThat(missions).extracting(MonthlyCalendarResponse.DailyMission::getMissionTitle)
+                .containsExactlyInAnyOrder("번역없음", "스냅샷");
+        }
+
+        @Test
+        @DisplayName("월별 캘린더: locale 이 공백이면 원문 제목을 그대로 쓴다")
+        void getMonthlyCalendarData_blankLocale() {
+            LocalDate date = LocalDate.of(2026, 8, 5);
+            Mission translated = missionWith(44L, "독서", "Reading", MissionVisibility.PUBLIC, MissionType.PERSONAL);
+            MissionExecution e1 = executionOf(45L, participantOf(translated), date,
+                date.atTime(9, 0), date.atTime(10, 0));
+            mockCompleted(List.of(e1), List.of());
+            when(gamificationQueryFacade.getDailyExpSummary(
+                eq(testUserId), any(LocalDateTime.class), any(LocalDateTime.class), any()))
+                .thenReturn(java.util.Map.of());
+
+            MonthlyCalendarResponse response =
+                executionService.getMonthlyCalendarData(testUserId, 2026, 8, null, "  ");
+
+            assertThat(response.getDailyMissions().get(date.toString()).get(0).getMissionTitle())
+                .isEqualTo("독서");
+        }
+
+        @Test
+        @DisplayName("주간 캘린더: timezone·date 가 null 이면 KST·오늘 기준으로 조회한다")
+        void getWeeklyCalendarData_nullTimezoneAndDate() {
+            mockCompleted(List.of(), List.of());
+
+            var response = executionService.getWeeklyCalendarData(testUserId, null, null, null);
+
+            LocalDate expectedStart = LocalDate.now(KST).with(java.time.DayOfWeek.MONDAY);
+            assertThat(response.getStartDate()).isEqualTo(expectedStart.toString());
+            assertThat(response.getEndDate()).isEqualTo(expectedStart.plusDays(6).toString());
+        }
+
+        @Test
+        @DisplayName("주간 캘린더: 잘못된 timezone 은 KST 로 폴백한다")
+        void getWeeklyCalendarData_invalidTimezone() {
+            LocalDate date = LocalDate.of(2026, 8, 5);
+            mockCompleted(List.of(), List.of());
+
+            var response = executionService.getWeeklyCalendarData(testUserId, null, date, "Not/AZone");
+
+            assertThat(response.getStartDate()).isEqualTo("2026-08-03");
+        }
+
+        @Test
+        @DisplayName("주간 캘린더: FRIENDS_AND_GUILD 만 있으면 친구·길드 판정을 모두 수행한다")
+        void getWeeklyCalendarData_onlyFriendsAndGuild() {
+            LocalDate date = LocalDate.of(2026, 8, 5);
+            Mission fag = missionWith(50L, "FAG", null, MissionVisibility.FRIENDS_AND_GUILD, MissionType.PERSONAL);
+            mockCompleted(List.of(executionOf(51L, participantOf(fag), date,
+                date.atTime(9, 0), date.atTime(10, 0))), List.of());
+            when(userQueryFacade.areFriends(VIEWER_ID, testUserId)).thenReturn(false);
+            when(guildQueryFacade.getUserGuildMemberships(testUserId)).thenReturn(List.of());
+
+            var response = executionService.getWeeklyCalendarData(testUserId, VIEWER_ID, date, "Asia/Seoul");
+
+            assertThat(response.getDailyMissions().get("2026-08-05").get(0).getIsVisible()).isFalse();
+            verify(userQueryFacade).areFriends(VIEWER_ID, testUserId);
+            verify(guildQueryFacade).getUserGuildMemberships(testUserId);
+        }
+
+        @Test
+        @DisplayName("주간 캘린더: GUILD_ONLY 만 있으면 친구 판정은 생략하고 길드 판정만 수행한다")
+        void getWeeklyCalendarData_onlyGuildOnly() {
+            LocalDate date = LocalDate.of(2026, 8, 5);
+            Mission guildOnly = missionWith(52L, "GO", null, MissionVisibility.GUILD_ONLY, MissionType.PERSONAL);
+            mockCompleted(List.of(executionOf(53L, participantOf(guildOnly), date,
+                date.atTime(9, 0), date.atTime(10, 0))), List.of());
+            io.pinkspider.global.facade.dto.GuildMembershipInfo shared =
+                new io.pinkspider.global.facade.dto.GuildMembershipInfo(10L, "길드", null, 1, false, false);
+            when(guildQueryFacade.getUserGuildMemberships(testUserId)).thenReturn(List.of(shared));
+            when(guildQueryFacade.getUserGuildMemberships(VIEWER_ID)).thenReturn(List.of(shared));
+
+            var response = executionService.getWeeklyCalendarData(testUserId, VIEWER_ID, date, "Asia/Seoul");
+
+            assertThat(response.getDailyMissions().get("2026-08-05").get(0).getIsVisible()).isTrue();
+            verify(userQueryFacade, never()).areFriends(any(), any());
+        }
+
+        @Test
+        @DisplayName("주간 캘린더: 길드 조회 실패 시 비노출로 폴백한다")
+        void getWeeklyCalendarData_guildLookupFails() {
+            LocalDate date = LocalDate.of(2026, 8, 5);
+            Mission guildOnly = missionWith(54L, "GO", null, MissionVisibility.GUILD_ONLY, MissionType.PERSONAL);
+            mockCompleted(List.of(executionOf(55L, participantOf(guildOnly), date,
+                date.atTime(9, 0), date.atTime(10, 0))), List.of());
+            when(guildQueryFacade.getUserGuildMemberships(testUserId))
+                .thenThrow(new RuntimeException("guild down"));
+
+            var response = executionService.getWeeklyCalendarData(testUserId, VIEWER_ID, date, "Asia/Seoul");
+
+            assertThat(response.getDailyMissions().get("2026-08-05").get(0).getIsVisible()).isFalse();
+        }
+
+        @Test
+        @DisplayName("주간 캘린더: 본인이 보는 고정 미션은 식별 정보·번역 제목·유형이 모두 노출된다")
+        void getWeeklyCalendarData_ownerPinnedVisible() {
+            LocalDate date = LocalDate.of(2026, 8, 5);
+            Mission translated = missionWith(60L, "독서", "Reading", MissionVisibility.PRIVATE, MissionType.PERSONAL);
+            DailyMissionInstance inst = instanceOf(61L, participantOf(translated), date,
+                date.atTime(9, 0), date.atTime(10, 0));
+            TestReflectionUtils.setField(inst, "categoryName", "자기계발");
+            mockCompleted(List.of(), List.of(inst));
+
+            var response = executionService.getWeeklyCalendarData(testUserId, testUserId, date, "Asia/Seoul", "en");
+
+            var m = response.getDailyMissions().get("2026-08-05").get(0);
+            assertThat(m.getIsVisible()).isTrue();
+            assertThat(m.getMissionId()).isEqualTo(60L);
+            assertThat(m.getMissionTitle()).isEqualTo("Reading");
+            assertThat(m.getCategoryName()).isEqualTo("자기계발");
+            assertThat(m.getMissionType()).isEqualTo("PERSONAL");
+            assertThat(m.getDurationMinutes()).isEqualTo(60);
+        }
+
+        @Test
+        @DisplayName("주간 캘린더: 공개범위·유형이 없는 레거시 미션은 PRIVATE·null 로 취급한다")
+        void getWeeklyCalendarData_legacyNullVisibilityAndType() {
+            LocalDate date = LocalDate.of(2026, 8, 5);
+            Mission legacy = missionWith(62L, "레거시", null, null, null);
+            MissionExecution noStart = executionOf(63L, participantOf(legacy), date, null, date.atTime(10, 0));
+            MissionExecution noEnd = executionOf(64L, participantOf(legacy), date, date.atTime(9, 0), null);
+            mockCompleted(List.of(noStart, noEnd), List.of());
+
+            var response = executionService.getWeeklyCalendarData(testUserId, testUserId, date, "Asia/Seoul");
+
+            var missions = response.getDailyMissions().get("2026-08-05");
+            assertThat(missions).hasSize(2);
+            assertThat(missions).allSatisfy(m -> {
+                assertThat(m.getVisibility()).isEqualTo("PRIVATE");
+                assertThat(m.getIsVisible()).isTrue();
+                assertThat(m.getMissionType()).isNull();
+                assertThat(m.getDurationMinutes()).isNull();
+            });
+        }
+
+        @Test
+        @DisplayName("localizeMissionFields: locale 공백·빈 목록이면 아무것도 조회하지 않는다")
+        void localizeMissionFields_blankLocaleOrEmpty() {
+            MissionExecutionResponse response = MissionExecutionResponse.builder()
+                .missionId(1L).missionTitle("제목").build();
+
+            executionService.localizeMissionFields(new java.util.ArrayList<>(List.of(response)), "  ");
+            executionService.localizeMissionFields(new java.util.ArrayList<>(), "en");
+
+            verify(missionRepository, never()).findAllById(any());
+            assertThat(response.getMissionTitle()).isEqualTo("제목");
+        }
+
+        @Test
+        @DisplayName("localizeMissionFields: missionId 가 모두 null 이면 조회를 생략한다")
+        void localizeMissionFields_allMissionIdsNull() {
+            MissionExecutionResponse response = MissionExecutionResponse.builder()
+                .missionId(null).missionTitle("마스킹").build();
+
+            executionService.localizeMissionFields(new java.util.ArrayList<>(List.of(response)), "en");
+
+            verify(missionRepository, never()).findAllById(any());
+        }
+
+        @Test
+        @DisplayName("localizeMissionFields: 제목 null 미션·id 없는 카테고리·이름 없는 카테고리·missionId 없는 응답을 안전하게 건너뛴다")
+        void localizeMissionFields_edgeCases() {
+            Mission nullTitle = missionWith(70L, null, null, MissionVisibility.PUBLIC, MissionType.PERSONAL);
+            TestReflectionUtils.setField(nullTitle, "categoryId", 7L);
+            Mission translated = missionWith(71L, "독서", "Reading", MissionVisibility.PUBLIC, MissionType.PERSONAL);
+            TestReflectionUtils.setField(translated, "categoryId", 8L);
+            when(missionRepository.findAllById(List.of(70L, 71L))).thenReturn(List.of(nullTitle, translated));
+            when(missionCategoryService.getCategoriesByIds(any()))
+                .thenReturn(List.of(
+                    io.pinkspider.leveluptogethermvp.metaservice.domain.dto.MissionCategoryResponse.builder()
+                        .id(null).name("무시").nameEn("Ignored").build(),
+                    io.pinkspider.leveluptogethermvp.metaservice.domain.dto.MissionCategoryResponse.builder()
+                        .id(7L).name(null).nameEn(null).build(),
+                    io.pinkspider.leveluptogethermvp.metaservice.domain.dto.MissionCategoryResponse.builder()
+                        .id(8L).name("독서").nameEn("Reading").build()));
+
+            MissionExecutionResponse r70 = MissionExecutionResponse.builder()
+                .missionId(70L).missionTitle("스냅샷").missionCategoryName("기타").build();
+            MissionExecutionResponse r71 = MissionExecutionResponse.builder()
+                .missionId(71L).missionTitle("독서").missionCategoryName("독서").build();
+            MissionExecutionResponse rNull = MissionExecutionResponse.builder()
+                .missionId(null).missionTitle("마스킹").missionCategoryName("기타").build();
+
+            executionService.localizeMissionFields(
+                new java.util.ArrayList<>(List.of(r70, r71, rNull)), "en");
+
+            assertThat(r70.getMissionTitle()).isEqualTo("스냅샷");
+            assertThat(r70.getMissionCategoryName()).isEqualTo("기타");
+            assertThat(r71.getMissionTitle()).isEqualTo("Reading");
+            assertThat(r71.getMissionCategoryName()).isEqualTo("Reading");
+            assertThat(rNull.getMissionTitle()).isEqualTo("마스킹");
+            assertThat(rNull.getMissionCategoryName()).isEqualTo("기타");
+        }
+    }
 }

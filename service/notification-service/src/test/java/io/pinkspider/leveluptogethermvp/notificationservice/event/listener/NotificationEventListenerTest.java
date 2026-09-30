@@ -10,12 +10,17 @@ import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import io.pinkspider.global.event.AchievementCompletedEvent;
+import io.pinkspider.global.event.MissionAutoEndMilestone;
+import io.pinkspider.global.event.MissionAutoEndWarningEvent;
 import io.pinkspider.global.event.MissionAutoEndedEvent;
 import io.pinkspider.global.event.ContentReportedEvent;
 import io.pinkspider.global.event.FeedCommentEvent;
+import io.pinkspider.global.event.FeedCommentLikedEvent;
+import io.pinkspider.global.event.FeedCommentReplyEvent;
 import io.pinkspider.global.event.FriendRequestAcceptedEvent;
 import io.pinkspider.global.event.FriendRequestEvent;
 import io.pinkspider.global.event.FriendRequestProcessedEvent;
@@ -505,6 +510,48 @@ class NotificationEventListenerTest {
                 eq(1L), isNull(),
                 eq("마스터닉네임"), eq("테스트 길드"));
         }
+
+        @Test
+        @DisplayName("LUT-367: 차단 관계면 길드 초대 알림을 보내지 않는다")
+        void handleGuildInvitation_blocked_skipsNotification() {
+            when(userQueryFacadeService.isBlockedBetween(INVITEE_ID, GUILD_MASTER_ID)).thenReturn(true);
+            GuildInvitationEvent event = new GuildInvitationEvent(
+                GUILD_MASTER_ID, INVITEE_ID, "마스터닉네임", 100L, "테스트 길드", 1L, LocalDateTime.now());
+
+            eventListener.handleGuildInvitation(event);
+
+            verifyNoInteractions(notificationService);
+        }
+
+        @Test
+        @DisplayName("초대자 ID가 null이면 차단 조회 없이 알림을 보낸다")
+        void handleGuildInvitation_nullInviter_skipsBlockCheck() {
+            GuildInvitationEvent event = new GuildInvitationEvent(
+                null, INVITEE_ID, "마스터닉네임", 100L, "테스트 길드", 1L, LocalDateTime.now());
+
+            eventListener.handleGuildInvitation(event);
+
+            verify(userQueryFacadeService, never()).isBlockedBetween(any(), any());
+            verify(notificationService).sendNotification(
+                eq(INVITEE_ID), eq(NotificationType.GUILD_INVITE),
+                eq(1L), isNull(),
+                eq("마스터닉네임"), eq("테스트 길드"));
+        }
+
+        @Test
+        @DisplayName("초대받은 유저 ID가 null이면 차단 조회 없이 진행한다")
+        void handleGuildInvitation_nullInvitee_skipsBlockCheck() {
+            GuildInvitationEvent event = new GuildInvitationEvent(
+                GUILD_MASTER_ID, null, "마스터닉네임", 100L, "테스트 길드", 1L, LocalDateTime.now());
+
+            eventListener.handleGuildInvitation(event);
+
+            verify(userQueryFacadeService, never()).isBlockedBetween(any(), any());
+            verify(notificationService).sendNotification(
+                isNull(), eq(NotificationType.GUILD_INVITE),
+                eq(1L), isNull(),
+                eq("마스터닉네임"), eq("테스트 길드"));
+        }
     }
 
     @Nested
@@ -656,6 +703,149 @@ class NotificationEventListenerTest {
     }
 
     @Nested
+    @DisplayName("피드 대댓글 이벤트 처리 (QA-73)")
+    class HandleFeedCommentReplyTest {
+
+        @Test
+        @DisplayName("부모 댓글 작성자와 스레드 참여자 모두에게 알림을 보낸다 (작성자 본인 제외)")
+        void shouldNotifyParentAuthorAndThreadParticipants() {
+            FeedCommentReplyEvent event = new FeedCommentReplyEvent(
+                "replier-1", "대댓글러", "parent-author", List.of("participant-1", "replier-1"), 10L, 20L, 30L);
+
+            eventListener.handleFeedCommentReply(event);
+
+            verify(notificationService).sendNotification(
+                eq("parent-author"), eq(NotificationType.COMMENT_REPLY), eq(10L), isNull(), eq("대댓글러"));
+            verify(notificationService).sendNotification(
+                eq("participant-1"), eq(NotificationType.COMMENT_REPLY), eq(10L), isNull(), eq("대댓글러"));
+            verify(notificationService, never()).sendNotification(
+                eq("replier-1"), any(NotificationType.class), anyLong(), any(), any());
+        }
+
+        @Test
+        @DisplayName("부모 작성자가 null이고 참여자가 null이면 아무 알림도 보내지 않는다")
+        void shouldSkipWhenParentAuthorNullAndNoParticipants() {
+            FeedCommentReplyEvent event = new FeedCommentReplyEvent(
+                "replier-1", "대댓글러", null, null, 10L, 20L, 30L);
+
+            eventListener.handleFeedCommentReply(event);
+
+            verify(notificationService, never()).sendNotification(
+                anyString(), any(NotificationType.class), anyLong(), any(), any());
+        }
+
+        @Test
+        @DisplayName("부모 작성자가 본인이고 참여자가 비어 있으면 아무 알림도 보내지 않는다")
+        void shouldSkipWhenParentAuthorIsSelfAndParticipantsEmpty() {
+            FeedCommentReplyEvent event = new FeedCommentReplyEvent(
+                "replier-1", "대댓글러", "replier-1", List.of(), 10L, 20L, 30L);
+
+            eventListener.handleFeedCommentReply(event);
+
+            verify(notificationService, never()).sendNotification(
+                anyString(), any(NotificationType.class), anyLong(), any(), any());
+        }
+
+        @Test
+        @DisplayName("LUT-367: 차단 관계인 부모 작성자·참여자에게는 알림을 보내지 않는다")
+        void shouldSkipBlockedRecipients() {
+            when(userQueryFacadeService.isBlockedBetween("parent-author", "replier-1")).thenReturn(true);
+            when(userQueryFacadeService.isBlockedBetween("participant-1", "replier-1")).thenReturn(true);
+            when(userQueryFacadeService.isBlockedBetween("participant-2", "replier-1")).thenReturn(false);
+            FeedCommentReplyEvent event = new FeedCommentReplyEvent(
+                "replier-1", "대댓글러", "parent-author", List.of("participant-1", "participant-2"), 10L, 20L, 30L);
+
+            eventListener.handleFeedCommentReply(event);
+
+            verify(notificationService, never()).sendNotification(
+                eq("parent-author"), any(NotificationType.class), anyLong(), any(), any());
+            verify(notificationService, never()).sendNotification(
+                eq("participant-1"), any(NotificationType.class), anyLong(), any(), any());
+            verify(notificationService).sendNotification(
+                eq("participant-2"), eq(NotificationType.COMMENT_REPLY), eq(10L), isNull(), eq("대댓글러"));
+        }
+    }
+
+    @Nested
+    @DisplayName("피드 댓글 좋아요 이벤트 처리 (QA-73)")
+    class HandleFeedCommentLikedTest {
+
+        @Test
+        @DisplayName("댓글 작성자에게 좋아요 알림을 보낸다")
+        void shouldNotifyCommentAuthor() {
+            FeedCommentLikedEvent event = new FeedCommentLikedEvent("liker-1", "좋아요러", "author-1", 10L, 20L);
+
+            eventListener.handleFeedCommentLiked(event);
+
+            verify(notificationService).sendNotification(
+                eq("author-1"), eq(NotificationType.COMMENT_LIKED), eq(10L), isNull(), eq("좋아요러"));
+        }
+
+        @Test
+        @DisplayName("자기 댓글에 좋아요를 누르면 알림을 보내지 않는다")
+        void shouldSkipSelfLike() {
+            FeedCommentLikedEvent event = new FeedCommentLikedEvent("user-1", "유저", "user-1", 10L, 20L);
+
+            eventListener.handleFeedCommentLiked(event);
+
+            verify(notificationService, never()).sendNotification(
+                anyString(), any(NotificationType.class), anyLong(), any(), any());
+        }
+
+        @Test
+        @DisplayName("LUT-367: 차단 관계면 좋아요 알림을 보내지 않는다")
+        void shouldSkipWhenBlocked() {
+            when(userQueryFacadeService.isBlockedBetween("author-1", "liker-1")).thenReturn(true);
+            FeedCommentLikedEvent event = new FeedCommentLikedEvent("liker-1", "좋아요러", "author-1", 10L, 20L);
+
+            eventListener.handleFeedCommentLiked(event);
+
+            verify(notificationService, never()).sendNotification(
+                anyString(), any(NotificationType.class), anyLong(), any(), any());
+        }
+    }
+
+    @Nested
+    @DisplayName("미션 자동종료 임박 이벤트 처리")
+    class HandleMissionAutoEndWarningTest {
+
+        @Test
+        @DisplayName("FIRST 마일스톤이면 1차 경고 알림을 보낸다")
+        void shouldSendFirstWarning() {
+            MissionAutoEndWarningEvent event =
+                new MissionAutoEndWarningEvent("user-1", 100L, "미션", MissionAutoEndMilestone.FIRST);
+
+            eventListener.handleMissionAutoEndWarning(event);
+
+            verify(notificationService).sendNotification(
+                eq("user-1"), eq(NotificationType.MISSION_AUTO_END_WARNING_FIRST), eq(100L), isNull(), eq("미션"));
+        }
+
+        @Test
+        @DisplayName("FINAL 마일스톤이면 최종 경고 알림을 보낸다")
+        void shouldSendFinalWarning() {
+            MissionAutoEndWarningEvent event =
+                new MissionAutoEndWarningEvent("user-1", 100L, "미션", MissionAutoEndMilestone.FINAL);
+
+            eventListener.handleMissionAutoEndWarning(event);
+
+            verify(notificationService).sendNotification(
+                eq("user-1"), eq(NotificationType.MISSION_AUTO_END_WARNING_FINAL), eq(100L), isNull(), eq("미션"));
+        }
+
+        @Test
+        @DisplayName("마일스톤이 null이면 FINAL로 폴백한다")
+        void shouldFallbackToFinalWhenMilestoneNull() {
+            MissionAutoEndWarningEvent event = new MissionAutoEndWarningEvent("user-1", 100L, "미션", null);
+
+            eventListener.handleMissionAutoEndWarning(event);
+
+            verify(notificationService).sendNotification(
+                eq("user-1"), eq(NotificationType.MISSION_AUTO_END_WARNING_FINAL), eq(100L), isNull(), eq("미션"));
+        }
+    }
+
+    @Nested
     @DisplayName("미션 댓글 이벤트 처리")
     class HandleMissionCommentTest {
 
@@ -741,6 +931,58 @@ class NotificationEventListenerTest {
                 REPORTER_ID, "FEED", "feed-123", TARGET_USER_ID, "피드", LocalDateTime.now());
             eventListener.handleContentReported(event);
             verify(notificationService).notifyContentReported(TARGET_USER_ID, "피드");
+            verify(notificationService, never()).notifyGuildContentReported(anyString(), anyString(), anyLong());
+        }
+
+        @Test
+        @DisplayName("targetUserId가 공백이면 신고 대상 알림을 생성하지 않는다")
+        void handleContentReported_blankTargetUserId_doesNotCreateNotification() {
+            ContentReportedEvent event = new ContentReportedEvent(
+                REPORTER_ID, "FEED", "feed-123", "   ", "피드", LocalDateTime.now());
+            eventListener.handleContentReported(event);
+            verify(notificationService, never()).notifyContentReported(anyString(), anyString());
+        }
+
+        @Test
+        @DisplayName("신고 대상 유저 알림 실패해도 길드 마스터 알림은 진행한다")
+        void handleContentReported_targetNotifyFails_stillNotifiesGuildMaster() {
+            Long guildId = 100L;
+            ContentReportedEvent event = new ContentReportedEvent(
+                REPORTER_ID, "GUILD", String.valueOf(guildId), TARGET_USER_ID, "길드", LocalDateTime.now());
+            doThrow(new RuntimeException("fail")).when(notificationService).notifyContentReported(TARGET_USER_ID, "길드");
+            when(guildQueryFacadeService.getGuildMasterId(guildId)).thenReturn(GUILD_MASTER_ID);
+            eventListener.handleContentReported(event);
+            verify(notificationService).notifyGuildContentReported(GUILD_MASTER_ID, "길드", guildId);
+        }
+
+        @Test
+        @DisplayName("GUILD_NOTICE 신고에서 게시글 정보가 없으면 길드 마스터 알림을 생성하지 않는다")
+        void handleContentReported_guildNoticeWithoutPostInfo_noGuildMasterNotification() {
+            ContentReportedEvent event = new ContentReportedEvent(
+                REPORTER_ID, "GUILD_NOTICE", "1", TARGET_USER_ID, "길드 공지", LocalDateTime.now());
+            when(guildQueryFacadeService.getGuildInfoByPostId(1L)).thenReturn(null);
+            eventListener.handleContentReported(event);
+            verify(notificationService).notifyContentReported(TARGET_USER_ID, "길드 공지");
+            verify(notificationService, never()).notifyGuildContentReported(anyString(), anyString(), anyLong());
+        }
+
+        @Test
+        @DisplayName("GUILD 신고의 targetId가 숫자가 아니면 파싱 실패를 삼키고 종료한다")
+        void handleContentReported_guildInvalidId_swallowsParseError() {
+            ContentReportedEvent event = new ContentReportedEvent(
+                REPORTER_ID, "GUILD", "not-a-number", TARGET_USER_ID, "길드", LocalDateTime.now());
+            eventListener.handleContentReported(event);
+            verify(notificationService).notifyContentReported(TARGET_USER_ID, "길드");
+            verify(notificationService, never()).notifyGuildContentReported(anyString(), anyString(), anyLong());
+        }
+
+        @Test
+        @DisplayName("길드 마스터 조회가 실패해도 예외를 전파하지 않는다")
+        void handleContentReported_guildMasterLookupFails_swallowsError() {
+            ContentReportedEvent event = new ContentReportedEvent(
+                REPORTER_ID, "GUILD", "100", TARGET_USER_ID, "길드", LocalDateTime.now());
+            when(guildQueryFacadeService.getGuildMasterId(100L)).thenThrow(new RuntimeException("facade down"));
+            eventListener.handleContentReported(event);
             verify(notificationService, never()).notifyGuildContentReported(anyString(), anyString(), anyLong());
         }
     }

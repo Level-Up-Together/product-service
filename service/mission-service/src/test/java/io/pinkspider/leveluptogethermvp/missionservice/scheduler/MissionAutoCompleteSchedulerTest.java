@@ -66,6 +66,9 @@ class MissionAutoCompleteSchedulerTest {
     @Mock
     private io.pinkspider.global.facade.GuildQueryFacade guildQueryFacade;
 
+    @Mock
+    private io.pinkspider.global.facade.GamificationQueryFacade gamificationQueryFacade;
+
     @InjectMocks
     private MissionAutoCompleteScheduler scheduler;
 
@@ -978,6 +981,559 @@ class MissionAutoCompleteSchedulerTest {
             // then - execution은 자동완료, participant는 이미 COMPLETED
             org.assertj.core.api.Assertions.assertThat(execution.getStatus()).isEqualTo(ExecutionStatus.COMPLETED);
             org.assertj.core.api.Assertions.assertThat(completedParticipant.getStatus()).isEqualTo(ParticipantStatus.COMPLETED);
+        }
+    }
+
+    @Nested
+    @DisplayName("자동 종료 추가 분기 테스트 (participant/mission null, baseExp, guild 멱등)")
+    class AutoCompleteBranchCoverageTest {
+
+        private void stubEmptyQueries() {
+            when(missionExecutionProperties.getWarningMinutesAfterStart()).thenReturn(List.of());
+            when(instanceRepository.findInProgressWithTargetDuration()).thenReturn(List.of());
+            when(executionRepository.findInProgressWithTargetDuration()).thenReturn(List.of());
+            when(executionRepository.findExpiredInProgressExecutions(any())).thenReturn(List.of());
+            when(instanceRepository.findExpiredInProgressInstances(any())).thenReturn(List.of());
+        }
+
+        private Mission buildMission(MissionType type, String guildId, Boolean pinned) {
+            Mission m = Mission.builder()
+                .title("분기 미션")
+                .description("분기 테스트")
+                .creatorId(USER_ID)
+                .status(MissionStatus.IN_PROGRESS)
+                .visibility(MissionVisibility.PRIVATE)
+                .type(type)
+                .guildId(guildId)
+                .isPinned(pinned)
+                .categoryId(1L)
+                .categoryName("운동")
+                .expPerCompletion(50)
+                .build();
+            setId(m, 500L);
+            return m;
+        }
+
+        private MissionParticipant buildParticipant(Mission m, ParticipantStatus status) {
+            MissionParticipant p = MissionParticipant.builder()
+                .mission(m)
+                .userId(USER_ID)
+                .status(status)
+                .build();
+            setId(p, 500L);
+            return p;
+        }
+
+        private MissionExecution expiredExecution(MissionParticipant p) {
+            MissionExecution execution = MissionExecution.builder()
+                .participant(p)
+                .executionDate(LocalDate.now())
+                .status(ExecutionStatus.IN_PROGRESS)
+                .startedAt(LocalDateTime.now().minusHours(5))
+                .build();
+            setId(execution, 501L);
+            return execution;
+        }
+
+        private DailyMissionInstance expiredInstance(MissionParticipant p) {
+            DailyMissionInstance instance = DailyMissionInstance.builder()
+                .participant(p)
+                .instanceDate(LocalDate.now())
+                .sequenceNumber(1)
+                .missionTitle("분기 고정미션")
+                .status(ExecutionStatus.IN_PROGRESS)
+                .startedAt(LocalDateTime.now().minusHours(5))
+                .expEarned(0)
+                .completionCount(0)
+                .totalExpEarned(0)
+                .isSharedToFeed(false)
+                .isAutoCompleted(false)
+                .build();
+            setId(instance, 502L);
+            return instance;
+        }
+
+        @Test
+        @DisplayName("participant 가 null 인 execution 은 EXP 지급 없이 자동 종료만 된다")
+        void expiredExecution_participantNull_completesWithoutExp() {
+            // given
+            MissionExecution execution = expiredExecution(null);
+            stubEmptyQueries();
+            when(executionRepository.findExpiredInProgressExecutions(any())).thenReturn(List.of(execution));
+
+            // when
+            scheduler.autoCompleteExpiredMissions();
+
+            // then
+            assertThat(execution.getStatus()).isEqualTo(ExecutionStatus.COMPLETED);
+            org.mockito.Mockito.verify(gamificationQueryFacade, org.mockito.Mockito.never())
+                .addExperience(any(), org.mockito.ArgumentMatchers.anyInt(), any(), any(), any(), any(), any());
+            org.mockito.Mockito.verify(guildQueryFacade, org.mockito.Mockito.never())
+                .addGuildExperience(any(), org.mockito.ArgumentMatchers.anyInt(), any(), any(), any(), any());
+        }
+
+        @Test
+        @DisplayName("participant.mission 이 null 인 execution 은 목표시간 스킵 판정을 통과하고 예외는 스케줄러가 삼킨다")
+        void expiredExecution_missionNull_doesNotPropagate() {
+            // given
+            MissionParticipant noMissionParticipant = buildParticipant(null, ParticipantStatus.IN_PROGRESS);
+            MissionExecution execution = expiredExecution(noMissionParticipant);
+            stubEmptyQueries();
+            when(executionRepository.findExpiredInProgressExecutions(any())).thenReturn(List.of(execution));
+
+            // when & then
+            org.junit.jupiter.api.Assertions.assertDoesNotThrow(() -> scheduler.autoCompleteExpiredMissions());
+            assertThat(execution.getStatus()).isEqualTo(ExecutionStatus.COMPLETED);
+        }
+
+        @Test
+        @DisplayName("조회됐지만 아직 만료되지 않은 execution 은 자동 종료되지 않는다")
+        void expiredExecution_notActuallyExpired_skipped() {
+            // given
+            Mission personal = buildMission(MissionType.PERSONAL, null, false);
+            MissionExecution execution = MissionExecution.builder()
+                .participant(buildParticipant(personal, ParticipantStatus.IN_PROGRESS))
+                .executionDate(LocalDate.now())
+                .status(ExecutionStatus.IN_PROGRESS)
+                .startedAt(LocalDateTime.now().minusMinutes(30))
+                .build();
+            setId(execution, 503L);
+            stubEmptyQueries();
+            when(executionRepository.findExpiredInProgressExecutions(any())).thenReturn(List.of(execution));
+
+            // when
+            scheduler.autoCompleteExpiredMissions();
+
+            // then
+            assertThat(execution.getStatus()).isEqualTo(ExecutionStatus.IN_PROGRESS);
+            org.mockito.Mockito.verify(gamificationQueryFacade, org.mockito.Mockito.never())
+                .addExperience(any(), org.mockito.ArgumentMatchers.anyInt(), any(), any(), any(), any(), any());
+        }
+
+        @Test
+        @DisplayName("일반(비고정) 미션 participant 가 이미 COMPLETED 면 상태를 다시 바꾸지 않는다")
+        void expiredExecution_nonPinned_participantAlreadyCompleted_notTouched() {
+            // given
+            Mission personal = buildMission(MissionType.PERSONAL, null, false);
+            MissionParticipant completed = buildParticipant(personal, ParticipantStatus.COMPLETED);
+            MissionExecution execution = expiredExecution(completed);
+            stubEmptyQueries();
+            when(executionRepository.findExpiredInProgressExecutions(any())).thenReturn(List.of(execution));
+
+            // when
+            scheduler.autoCompleteExpiredMissions();
+
+            // then
+            assertThat(execution.getStatus()).isEqualTo(ExecutionStatus.COMPLETED);
+            assertThat(completed.getStatus()).isEqualTo(ParticipantStatus.COMPLETED);
+            assertThat(completed.getCompletedAt()).isNull();
+            org.mockito.Mockito.verify(gamificationQueryFacade).addExperience(
+                org.mockito.ArgumentMatchers.eq(USER_ID),
+                org.mockito.ArgumentMatchers.eq(10),
+                org.mockito.ArgumentMatchers.eq(io.pinkspider.global.enums.ExpSourceType.MISSION_EXECUTION),
+                org.mockito.ArgumentMatchers.eq(500L),
+                org.mockito.ArgumentMatchers.anyString(),
+                org.mockito.ArgumentMatchers.eq(1L),
+                org.mockito.ArgumentMatchers.eq("운동"));
+        }
+
+        @Test
+        @DisplayName("baseExp 가 0 이면 유저/길드 EXP 지급을 모두 건너뛴다")
+        void expiredExecution_baseExpZero_skipsGrants() {
+            // given
+            when(missionExecutionProperties.getBaseExp()).thenReturn(0);
+            Mission guild = buildMission(MissionType.GUILD, "77", false);
+            MissionExecution execution = expiredExecution(buildParticipant(guild, ParticipantStatus.IN_PROGRESS));
+            stubEmptyQueries();
+            when(executionRepository.findExpiredInProgressExecutions(any())).thenReturn(List.of(execution));
+
+            // when
+            scheduler.autoCompleteExpiredMissions();
+
+            // then
+            assertThat(execution.getStatus()).isEqualTo(ExecutionStatus.COMPLETED);
+            assertThat(execution.getExpEarned()).isEqualTo(0);
+            org.mockito.Mockito.verify(gamificationQueryFacade, org.mockito.Mockito.never())
+                .addExperience(any(), org.mockito.ArgumentMatchers.anyInt(), any(), any(), any(), any(), any());
+            org.mockito.Mockito.verify(guildQueryFacade, org.mockito.Mockito.never())
+                .addGuildExperience(any(), org.mockito.ArgumentMatchers.anyInt(), any(), any(), any(), any());
+        }
+
+        @Test
+        @DisplayName("길드 미션이지만 guildId 가 없으면 길드 EXP 를 지급하지 않는다")
+        void expiredExecution_guildMissionWithoutGuildId_skipsGuildExp() {
+            // given
+            Mission guildNoId = buildMission(MissionType.GUILD, null, false);
+            MissionExecution execution = expiredExecution(buildParticipant(guildNoId, ParticipantStatus.IN_PROGRESS));
+            stubEmptyQueries();
+            when(executionRepository.findExpiredInProgressExecutions(any())).thenReturn(List.of(execution));
+
+            // when
+            scheduler.autoCompleteExpiredMissions();
+
+            // then
+            assertThat(execution.getGuildExpGranted()).isFalse();
+            org.mockito.Mockito.verify(guildQueryFacade, org.mockito.Mockito.never())
+                .addGuildExperience(any(), org.mockito.ArgumentMatchers.anyInt(), any(), any(), any(), any());
+        }
+
+        @Test
+        @DisplayName("이미 guildExpGranted=true 인 execution 은 길드 EXP 를 재지급하지 않는다")
+        void expiredExecution_guildExpAlreadyGranted_skipsGuildExp() {
+            // given
+            Mission guild = buildMission(MissionType.GUILD, "77", false);
+            MissionExecution execution = expiredExecution(buildParticipant(guild, ParticipantStatus.IN_PROGRESS));
+            execution.setGuildExpGranted(true);
+            stubEmptyQueries();
+            when(executionRepository.findExpiredInProgressExecutions(any())).thenReturn(List.of(execution));
+
+            // when
+            scheduler.autoCompleteExpiredMissions();
+
+            // then
+            org.mockito.Mockito.verify(guildQueryFacade, org.mockito.Mockito.never())
+                .addGuildExperience(any(), org.mockito.ArgumentMatchers.anyInt(), any(), any(), any(), any());
+        }
+
+        @Test
+        @DisplayName("유저 EXP 지급 실패는 로그만 남기고 길드 EXP 지급은 계속한다")
+        void expiredExecution_userExpThrows_continuesToGuildExp() {
+            // given
+            Mission guild = buildMission(MissionType.GUILD, "77", false);
+            MissionExecution execution = expiredExecution(buildParticipant(guild, ParticipantStatus.IN_PROGRESS));
+            stubEmptyQueries();
+            when(executionRepository.findExpiredInProgressExecutions(any())).thenReturn(List.of(execution));
+            when(gamificationQueryFacade.addExperience(any(), org.mockito.ArgumentMatchers.anyInt(), any(), any(), any(), any(), any()))
+                .thenThrow(new RuntimeException("gamification down"));
+
+            // when
+            org.junit.jupiter.api.Assertions.assertDoesNotThrow(() -> scheduler.autoCompleteExpiredMissions());
+
+            // then
+            assertThat(execution.getGuildExpGranted()).isTrue();
+            org.mockito.Mockito.verify(guildQueryFacade).addGuildExperience(
+                org.mockito.ArgumentMatchers.eq(77L), org.mockito.ArgumentMatchers.eq(10), any(),
+                org.mockito.ArgumentMatchers.eq(500L), org.mockito.ArgumentMatchers.eq(USER_ID), any());
+        }
+
+        @Test
+        @DisplayName("길드 EXP 지급 실패 시 guildExpGranted 는 false 로 남는다")
+        void expiredExecution_guildExpThrows_flagStaysFalse() {
+            // given
+            Mission guild = buildMission(MissionType.GUILD, "77", false);
+            MissionExecution execution = expiredExecution(buildParticipant(guild, ParticipantStatus.IN_PROGRESS));
+            stubEmptyQueries();
+            when(executionRepository.findExpiredInProgressExecutions(any())).thenReturn(List.of(execution));
+            org.mockito.Mockito.doThrow(new RuntimeException("guild down"))
+                .when(guildQueryFacade).addGuildExperience(any(), org.mockito.ArgumentMatchers.anyInt(), any(), any(), any(), any());
+
+            // when
+            org.junit.jupiter.api.Assertions.assertDoesNotThrow(() -> scheduler.autoCompleteExpiredMissions());
+
+            // then
+            assertThat(execution.getStatus()).isEqualTo(ExecutionStatus.COMPLETED);
+            assertThat(execution.getGuildExpGranted()).isFalse();
+        }
+
+        @Test
+        @DisplayName("participant.mission 이 null 인 고정 인스턴스는 EXP 지급 없이 자동 종료된다")
+        void expiredInstance_missionNull_completesWithoutExp() {
+            // given
+            DailyMissionInstance instance = expiredInstance(buildParticipant(null, ParticipantStatus.IN_PROGRESS));
+            stubEmptyQueries();
+            when(instanceRepository.findExpiredInProgressInstances(any())).thenReturn(List.of(instance));
+
+            // when
+            scheduler.autoCompleteExpiredMissions();
+
+            // then
+            assertThat(instance.getStatus()).isEqualTo(ExecutionStatus.COMPLETED);
+            org.mockito.Mockito.verify(gamificationQueryFacade, org.mockito.Mockito.never())
+                .addExperience(any(), org.mockito.ArgumentMatchers.anyInt(), any(), any(), any(), any(), any());
+            org.mockito.Mockito.verify(guildQueryFacade, org.mockito.Mockito.never())
+                .addGuildExperience(any(), org.mockito.ArgumentMatchers.anyInt(), any(), any(), any(), any());
+        }
+
+        @Test
+        @DisplayName("participant 가 null 인 고정 인스턴스는 EXP 지급을 건너뛰고 예외는 스케줄러가 삼킨다")
+        void expiredInstance_participantNull_doesNotPropagate() {
+            // given
+            DailyMissionInstance instance = expiredInstance(null);
+            stubEmptyQueries();
+            when(instanceRepository.findExpiredInProgressInstances(any())).thenReturn(List.of(instance));
+
+            // when & then
+            org.junit.jupiter.api.Assertions.assertDoesNotThrow(() -> scheduler.autoCompleteExpiredMissions());
+            assertThat(instance.getStatus()).isEqualTo(ExecutionStatus.COMPLETED);
+            org.mockito.Mockito.verify(gamificationQueryFacade, org.mockito.Mockito.never())
+                .addExperience(any(), org.mockito.ArgumentMatchers.anyInt(), any(), any(), any(), any(), any());
+        }
+
+        @Test
+        @DisplayName("조회됐지만 아직 만료되지 않은 고정 인스턴스는 자동 종료되지 않는다")
+        void expiredInstance_notActuallyExpired_skipped() {
+            // given
+            DailyMissionInstance instance = DailyMissionInstance.builder()
+                .participant(participant)
+                .instanceDate(LocalDate.now())
+                .sequenceNumber(1)
+                .missionTitle("아직 진행중")
+                .status(ExecutionStatus.IN_PROGRESS)
+                .startedAt(LocalDateTime.now().minusMinutes(30))
+                .completionCount(0)
+                .totalExpEarned(0)
+                .isAutoCompleted(false)
+                .build();
+            setId(instance, 504L);
+            stubEmptyQueries();
+            when(instanceRepository.findExpiredInProgressInstances(any())).thenReturn(List.of(instance));
+
+            // when
+            scheduler.autoCompleteExpiredMissions();
+
+            // then
+            assertThat(instance.getStatus()).isEqualTo(ExecutionStatus.IN_PROGRESS);
+            org.mockito.Mockito.verify(gamificationQueryFacade, org.mockito.Mockito.never())
+                .addExperience(any(), org.mockito.ArgumentMatchers.anyInt(), any(), any(), any(), any(), any());
+        }
+
+        @Test
+        @DisplayName("baseExp 가 0 이면 고정 인스턴스도 유저/길드 EXP 지급을 건너뛴다")
+        void expiredInstance_baseExpZero_skipsGrants() {
+            // given
+            when(missionExecutionProperties.getBaseExp()).thenReturn(0);
+            Mission guild = buildMission(MissionType.GUILD, "77", true);
+            DailyMissionInstance instance = expiredInstance(buildParticipant(guild, ParticipantStatus.IN_PROGRESS));
+            stubEmptyQueries();
+            when(instanceRepository.findExpiredInProgressInstances(any())).thenReturn(List.of(instance));
+
+            // when
+            scheduler.autoCompleteExpiredMissions();
+
+            // then
+            assertThat(instance.getStatus()).isEqualTo(ExecutionStatus.COMPLETED);
+            org.mockito.Mockito.verify(gamificationQueryFacade, org.mockito.Mockito.never())
+                .addExperience(any(), org.mockito.ArgumentMatchers.anyInt(), any(), any(), any(), any(), any());
+            org.mockito.Mockito.verify(guildQueryFacade, org.mockito.Mockito.never())
+                .addGuildExperience(any(), org.mockito.ArgumentMatchers.anyInt(), any(), any(), any(), any());
+        }
+
+        @Test
+        @DisplayName("고정 길드 미션이지만 guildId 가 없으면 길드 EXP 를 지급하지 않는다")
+        void expiredInstance_guildMissionWithoutGuildId_skipsGuildExp() {
+            // given
+            Mission guildNoId = buildMission(MissionType.GUILD, null, true);
+            DailyMissionInstance instance = expiredInstance(buildParticipant(guildNoId, ParticipantStatus.IN_PROGRESS));
+            stubEmptyQueries();
+            when(instanceRepository.findExpiredInProgressInstances(any())).thenReturn(List.of(instance));
+
+            // when
+            scheduler.autoCompleteExpiredMissions();
+
+            // then
+            assertThat(instance.getGuildExpGranted()).isFalse();
+            org.mockito.Mockito.verify(guildQueryFacade, org.mockito.Mockito.never())
+                .addGuildExperience(any(), org.mockito.ArgumentMatchers.anyInt(), any(), any(), any(), any());
+        }
+
+        @Test
+        @DisplayName("이미 guildExpGranted=true 인 고정 인스턴스는 길드 EXP 를 재지급하지 않는다")
+        void expiredInstance_guildExpAlreadyGranted_skipsGuildExp() {
+            // given
+            Mission guild = buildMission(MissionType.GUILD, "77", true);
+            DailyMissionInstance instance = expiredInstance(buildParticipant(guild, ParticipantStatus.IN_PROGRESS));
+            instance.setGuildExpGranted(true);
+            stubEmptyQueries();
+            when(instanceRepository.findExpiredInProgressInstances(any())).thenReturn(List.of(instance));
+
+            // when
+            scheduler.autoCompleteExpiredMissions();
+
+            // then
+            org.mockito.Mockito.verify(guildQueryFacade, org.mockito.Mockito.never())
+                .addGuildExperience(any(), org.mockito.ArgumentMatchers.anyInt(), any(), any(), any(), any());
+        }
+
+        @Test
+        @DisplayName("고정 인스턴스 길드 EXP 지급 실패 시 guildExpGranted 는 false 로 남는다")
+        void expiredInstance_guildExpThrows_flagStaysFalse() {
+            // given
+            Mission guild = buildMission(MissionType.GUILD, "77", true);
+            DailyMissionInstance instance = expiredInstance(buildParticipant(guild, ParticipantStatus.IN_PROGRESS));
+            stubEmptyQueries();
+            when(instanceRepository.findExpiredInProgressInstances(any())).thenReturn(List.of(instance));
+            org.mockito.Mockito.doThrow(new RuntimeException("guild down"))
+                .when(guildQueryFacade).addGuildExperience(any(), org.mockito.ArgumentMatchers.anyInt(), any(), any(), any(), any());
+
+            // when
+            org.junit.jupiter.api.Assertions.assertDoesNotThrow(() -> scheduler.autoCompleteExpiredMissions());
+
+            // then
+            assertThat(instance.getStatus()).isEqualTo(ExecutionStatus.COMPLETED);
+            assertThat(instance.getGuildExpGranted()).isFalse();
+        }
+    }
+
+    @Nested
+    @DisplayName("sendAutoEndWarnings 추가 분기 테스트 (다중 시점, null 참조)")
+    class SendAutoEndWarningsBranchCoverageTest {
+
+        private void stubNoAutoComplete() {
+            when(instanceRepository.findInProgressWithTargetDuration()).thenReturn(List.of());
+            when(executionRepository.findInProgressWithTargetDuration()).thenReturn(List.of());
+            when(executionRepository.findExpiredInProgressExecutions(any())).thenReturn(List.of());
+            when(instanceRepository.findExpiredInProgressInstances(any())).thenReturn(List.of());
+        }
+
+        @Test
+        @DisplayName("경고 시점이 2개면 첫 시점은 FIRST, 마지막 시점은 FINAL 마일스톤으로 발송한다")
+        void multipleWarningPoints_firstAndFinalMilestones() {
+            // given
+            when(missionExecutionProperties.getWarningMinutesAfterStart()).thenReturn(List.of(60, 110));
+            Mission noTarget = Mission.builder()
+                .title("경고 대상")
+                .status(MissionStatus.IN_PROGRESS)
+                .visibility(MissionVisibility.PRIVATE)
+                .type(MissionType.PERSONAL)
+                .creatorId(USER_ID)
+                .isPinned(false)
+                .expPerCompletion(50)
+                .build();
+            setId(noTarget, 600L);
+            MissionParticipant p = MissionParticipant.builder()
+                .mission(noTarget).userId(USER_ID).status(ParticipantStatus.IN_PROGRESS).build();
+            setId(p, 600L);
+            MissionExecution execution = MissionExecution.builder()
+                .participant(p)
+                .executionDate(LocalDate.now())
+                .status(ExecutionStatus.IN_PROGRESS)
+                .startedAt(LocalDateTime.now().minusMinutes(65))
+                .build();
+            setId(execution, 600L);
+
+            when(executionRepository.findInProgressWarningExecutions(any(), any())).thenReturn(List.of(execution));
+            when(instanceRepository.findInProgressWarningInstances(any(), any())).thenReturn(List.of());
+            stubNoAutoComplete();
+
+            // when
+            scheduler.autoCompleteExpiredMissions();
+
+            // then
+            ArgumentCaptor<io.pinkspider.global.event.MissionAutoEndWarningEvent> captor =
+                ArgumentCaptor.forClass(io.pinkspider.global.event.MissionAutoEndWarningEvent.class);
+            verify(eventPublisher, org.mockito.Mockito.times(2)).publishEvent(captor.capture());
+            assertThat(captor.getAllValues())
+                .extracting(io.pinkspider.global.event.MissionAutoEndWarningEvent::milestone)
+                .containsExactly(
+                    io.pinkspider.global.event.MissionAutoEndMilestone.FIRST,
+                    io.pinkspider.global.event.MissionAutoEndMilestone.FINAL);
+            assertThat(captor.getAllValues().get(0).missionId()).isEqualTo(600L);
+            assertThat(captor.getAllValues().get(0).missionTitle()).isEqualTo("경고 대상");
+        }
+
+        @Test
+        @DisplayName("participant 가 null 인 일반 미션 경고는 실패를 잡고 발송하지 않는다")
+        void warningExecution_participantNull_swallowed() {
+            // given
+            when(missionExecutionProperties.getWarningMinutesAfterStart()).thenReturn(List.of(60));
+            MissionExecution execution = MissionExecution.builder()
+                .participant(null)
+                .executionDate(LocalDate.now())
+                .status(ExecutionStatus.IN_PROGRESS)
+                .startedAt(LocalDateTime.now().minusMinutes(65))
+                .build();
+            setId(execution, 601L);
+
+            when(executionRepository.findInProgressWarningExecutions(any(), any())).thenReturn(List.of(execution));
+            when(instanceRepository.findInProgressWarningInstances(any(), any())).thenReturn(List.of());
+            stubNoAutoComplete();
+
+            // when & then
+            org.junit.jupiter.api.Assertions.assertDoesNotThrow(() -> scheduler.autoCompleteExpiredMissions());
+            org.mockito.Mockito.verify(eventPublisher, org.mockito.Mockito.never()).publishEvent(any(Object.class));
+        }
+
+        @Test
+        @DisplayName("participant.mission 이 null 인 일반 미션 경고는 실패를 잡고 발송하지 않는다")
+        void warningExecution_missionNull_swallowed() {
+            // given
+            when(missionExecutionProperties.getWarningMinutesAfterStart()).thenReturn(List.of(60));
+            MissionParticipant noMission = MissionParticipant.builder()
+                .mission(null).userId(USER_ID).status(ParticipantStatus.IN_PROGRESS).build();
+            setId(noMission, 602L);
+            MissionExecution execution = MissionExecution.builder()
+                .participant(noMission)
+                .executionDate(LocalDate.now())
+                .status(ExecutionStatus.IN_PROGRESS)
+                .startedAt(LocalDateTime.now().minusMinutes(65))
+                .build();
+            setId(execution, 602L);
+
+            when(executionRepository.findInProgressWarningExecutions(any(), any())).thenReturn(List.of(execution));
+            when(instanceRepository.findInProgressWarningInstances(any(), any())).thenReturn(List.of());
+            stubNoAutoComplete();
+
+            // when & then
+            org.junit.jupiter.api.Assertions.assertDoesNotThrow(() -> scheduler.autoCompleteExpiredMissions());
+            org.mockito.Mockito.verify(eventPublisher, org.mockito.Mockito.never()).publishEvent(any(Object.class));
+        }
+
+        @Test
+        @DisplayName("targetDurationMinutes 가 null 인 고정 미션은 경고 알림을 발송한다")
+        void warningInstance_targetNull_sends() {
+            // given
+            when(missionExecutionProperties.getWarningMinutesAfterStart()).thenReturn(List.of(60));
+            DailyMissionInstance instance = DailyMissionInstance.builder()
+                .participant(participant)
+                .instanceDate(LocalDate.now())
+                .sequenceNumber(1)
+                .missionTitle("목표 없는 고정미션")
+                .status(ExecutionStatus.IN_PROGRESS)
+                .startedAt(LocalDateTime.now().minusMinutes(65))
+                .completionCount(0)
+                .totalExpEarned(0)
+                .isAutoCompleted(false)
+                .build();
+            setId(instance, 603L);
+
+            when(executionRepository.findInProgressWarningExecutions(any(), any())).thenReturn(List.of());
+            when(instanceRepository.findInProgressWarningInstances(any(), any())).thenReturn(List.of(instance));
+            stubNoAutoComplete();
+
+            // when
+            scheduler.autoCompleteExpiredMissions();
+
+            // then
+            ArgumentCaptor<io.pinkspider.global.event.MissionAutoEndWarningEvent> captor =
+                ArgumentCaptor.forClass(io.pinkspider.global.event.MissionAutoEndWarningEvent.class);
+            verify(eventPublisher).publishEvent(captor.capture());
+            assertThat(captor.getValue().missionTitle()).isEqualTo("목표 없는 고정미션");
+            assertThat(captor.getValue().milestone())
+                .isEqualTo(io.pinkspider.global.event.MissionAutoEndMilestone.FINAL);
+        }
+
+        @Test
+        @DisplayName("participant 가 null 인 고정 미션 경고는 실패를 잡고 발송하지 않는다")
+        void warningInstance_participantNull_swallowed() {
+            // given
+            when(missionExecutionProperties.getWarningMinutesAfterStart()).thenReturn(List.of(60));
+            DailyMissionInstance instance = DailyMissionInstance.builder()
+                .participant(null)
+                .instanceDate(LocalDate.now())
+                .sequenceNumber(1)
+                .missionTitle("participant 없음")
+                .status(ExecutionStatus.IN_PROGRESS)
+                .startedAt(LocalDateTime.now().minusMinutes(65))
+                .build();
+            setId(instance, 604L);
+
+            when(executionRepository.findInProgressWarningExecutions(any(), any())).thenReturn(List.of());
+            when(instanceRepository.findInProgressWarningInstances(any(), any())).thenReturn(List.of(instance));
+            stubNoAutoComplete();
+
+            // when & then
+            org.junit.jupiter.api.Assertions.assertDoesNotThrow(() -> scheduler.autoCompleteExpiredMissions());
+            org.mockito.Mockito.verify(eventPublisher, org.mockito.Mockito.never()).publishEvent(any(Object.class));
         }
     }
 

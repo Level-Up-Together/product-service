@@ -205,6 +205,172 @@ class AttendanceServiceTest {
     }
 
     @Nested
+    @DisplayName("checkIn 보너스·마일스톤 분기 테스트")
+    class CheckInBonusBranchTest {
+
+        private AttendanceRewardConfig config(AttendanceRewardType type, int exp) {
+            return AttendanceRewardConfig.builder().rewardType(type).rewardExp(exp).build();
+        }
+
+        /** 어제 (n-1)일 연속 기록 + 오늘 저장 결과를 스텁한다 (DAILY 설정은 호출자가 결정) */
+        private AttendanceRecord stubStreak(int consecutiveDays) {
+            LocalDate today = today();
+            AttendanceRecord yesterdayRecord =
+                createTestAttendanceRecord(1L, TEST_USER_ID, today.minusDays(1), consecutiveDays - 1);
+            AttendanceRecord savedRecord =
+                createTestAttendanceRecord(2L, TEST_USER_ID, today, consecutiveDays);
+            when(attendanceRecordRepository.findByUserIdAndAttendanceDate(TEST_USER_ID, today))
+                .thenReturn(Optional.empty());
+            when(attendanceRecordRepository.findByUserIdAndAttendanceDate(TEST_USER_ID, today.minusDays(1)))
+                .thenReturn(Optional.of(yesterdayRecord));
+            when(attendanceRecordRepository.saveAndFlush(any(AttendanceRecord.class))).thenReturn(savedRecord);
+            return savedRecord;
+        }
+
+        @Test
+        @DisplayName("DAILY 보상 설정이 없으면 기본 경험치(10)를 지급한다")
+        void checkIn_noDailyConfig_usesDefaultExp() {
+            LocalDate today = today();
+            AttendanceRecord savedRecord = createTestAttendanceRecord(1L, TEST_USER_ID, today, 1);
+            when(attendanceRecordRepository.findByUserIdAndAttendanceDate(TEST_USER_ID, today))
+                .thenReturn(Optional.empty());
+            when(attendanceRecordRepository.findByUserIdAndAttendanceDate(TEST_USER_ID, today.minusDays(1)))
+                .thenReturn(Optional.empty());
+            when(rewardConfigCacheService.getConfigByRewardType(AttendanceRewardType.DAILY)).thenReturn(null);
+            when(attendanceRecordRepository.saveAndFlush(any(AttendanceRecord.class))).thenReturn(savedRecord);
+
+            AttendanceCheckInResponse result = attendanceService.checkIn(TEST_USER_ID);
+
+            assertThat(result.getBaseExp()).isEqualTo(10);
+            verify(userExperienceService).addExperience(
+                eq(TEST_USER_ID), eq(10), eq(ExpSourceType.EVENT), anyLong(), anyString(), eq("기타"));
+        }
+
+        @Test
+        @DisplayName("지급 경험치 합계가 0이면 경험치를 지급하지 않는다")
+        void checkIn_zeroTotalExp_skipsExperience() {
+            LocalDate today = today();
+            AttendanceRecord savedRecord = createTestAttendanceRecord(1L, TEST_USER_ID, today, 1);
+            when(attendanceRecordRepository.findByUserIdAndAttendanceDate(TEST_USER_ID, today))
+                .thenReturn(Optional.empty());
+            when(attendanceRecordRepository.findByUserIdAndAttendanceDate(TEST_USER_ID, today.minusDays(1)))
+                .thenReturn(Optional.empty());
+            when(rewardConfigCacheService.getConfigByRewardType(AttendanceRewardType.DAILY))
+                .thenReturn(config(AttendanceRewardType.DAILY, 0));
+            when(attendanceRecordRepository.saveAndFlush(any(AttendanceRecord.class))).thenReturn(savedRecord);
+
+            AttendanceCheckInResponse result = attendanceService.checkIn(TEST_USER_ID);
+
+            assertThat(result.getTotalExp()).isZero();
+            verify(userExperienceService, never()).addExperience(
+                anyString(), anyInt(), any(), anyLong(), anyString(), anyString());
+            verify(userStatsService).recordAttendance(TEST_USER_ID, today);
+        }
+
+        @Test
+        @DisplayName("7일 연속 출석 — 7일 보너스를 지급하고 스트릭 마일스톤 이벤트를 발행한다")
+        void checkIn_7dayStreak_bonusAndMilestoneEvent() {
+            stubStreak(7);
+            when(rewardConfigCacheService.getConfigByRewardType(AttendanceRewardType.DAILY))
+                .thenReturn(config(AttendanceRewardType.DAILY, 10));
+            when(rewardConfigCacheService.getConfigByRewardType(AttendanceRewardType.CONSECUTIVE_3))
+                .thenReturn(null);
+            when(rewardConfigCacheService.getConfigByRewardType(AttendanceRewardType.CONSECUTIVE_7))
+                .thenReturn(config(AttendanceRewardType.CONSECUTIVE_7, 50));
+
+            AttendanceCheckInResponse result = attendanceService.checkIn(TEST_USER_ID);
+
+            assertThat(result.getBonusExp()).isEqualTo(50);
+            assertThat(result.getBonusReasons()).containsExactly("7일 연속 출석 보너스!");
+            verify(eventPublisher).publishEvent(org.mockito.ArgumentMatchers.argThat(
+                (Object e) -> e instanceof io.pinkspider.global.event.AttendanceStreakEvent ev
+                    && ev.userId().equals(TEST_USER_ID) && ev.streakDays() == 7));
+        }
+
+        @Test
+        @DisplayName("14일 연속 출석 — 14일 보너스만 지급한다 (3·7일 설정이 있어도 정확히 그 날만)")
+        void checkIn_14dayStreak_bonus14Only() {
+            stubStreak(14);
+            when(rewardConfigCacheService.getConfigByRewardType(AttendanceRewardType.DAILY))
+                .thenReturn(config(AttendanceRewardType.DAILY, 10));
+            when(rewardConfigCacheService.getConfigByRewardType(AttendanceRewardType.CONSECUTIVE_3))
+                .thenReturn(config(AttendanceRewardType.CONSECUTIVE_3, 20));
+            when(rewardConfigCacheService.getConfigByRewardType(AttendanceRewardType.CONSECUTIVE_7))
+                .thenReturn(config(AttendanceRewardType.CONSECUTIVE_7, 50));
+            when(rewardConfigCacheService.getConfigByRewardType(AttendanceRewardType.CONSECUTIVE_14))
+                .thenReturn(config(AttendanceRewardType.CONSECUTIVE_14, 100));
+
+            AttendanceCheckInResponse result = attendanceService.checkIn(TEST_USER_ID);
+
+            assertThat(result.getBonusExp()).isEqualTo(100);
+            assertThat(result.getBonusReasons()).containsExactly("14일 연속 출석 보너스!");
+            verify(eventPublisher).publishEvent(org.mockito.ArgumentMatchers.argThat(
+                (Object e) -> e instanceof io.pinkspider.global.event.AttendanceStreakEvent ev
+                    && ev.userId().equals(TEST_USER_ID) && ev.streakDays() == 14));
+        }
+
+        @Test
+        @DisplayName("30일 연속 출석 — 30일 보너스만 지급한다")
+        void checkIn_30dayStreak_bonus30Only() {
+            stubStreak(30);
+            when(rewardConfigCacheService.getConfigByRewardType(AttendanceRewardType.DAILY))
+                .thenReturn(config(AttendanceRewardType.DAILY, 10));
+            when(rewardConfigCacheService.getConfigByRewardType(AttendanceRewardType.CONSECUTIVE_3))
+                .thenReturn(null);
+            when(rewardConfigCacheService.getConfigByRewardType(AttendanceRewardType.CONSECUTIVE_7))
+                .thenReturn(null);
+            when(rewardConfigCacheService.getConfigByRewardType(AttendanceRewardType.CONSECUTIVE_14))
+                .thenReturn(config(AttendanceRewardType.CONSECUTIVE_14, 100));
+            when(rewardConfigCacheService.getConfigByRewardType(AttendanceRewardType.CONSECUTIVE_30))
+                .thenReturn(config(AttendanceRewardType.CONSECUTIVE_30, 300));
+
+            AttendanceCheckInResponse result = attendanceService.checkIn(TEST_USER_ID);
+
+            assertThat(result.getBonusExp()).isEqualTo(300);
+            assertThat(result.getBonusReasons()).containsExactly("30일 연속 출석 보너스! 대단해요!");
+        }
+
+        @Test
+        @DisplayName("31일 연속 출석 — 모든 보너스 설정이 있어도 정확한 날이 아니라 보너스가 없다")
+        void checkIn_31dayStreak_noBonus() {
+            stubStreak(31);
+            when(rewardConfigCacheService.getConfigByRewardType(AttendanceRewardType.DAILY))
+                .thenReturn(config(AttendanceRewardType.DAILY, 10));
+            when(rewardConfigCacheService.getConfigByRewardType(AttendanceRewardType.CONSECUTIVE_3))
+                .thenReturn(config(AttendanceRewardType.CONSECUTIVE_3, 20));
+            when(rewardConfigCacheService.getConfigByRewardType(AttendanceRewardType.CONSECUTIVE_7))
+                .thenReturn(config(AttendanceRewardType.CONSECUTIVE_7, 50));
+            when(rewardConfigCacheService.getConfigByRewardType(AttendanceRewardType.CONSECUTIVE_14))
+                .thenReturn(config(AttendanceRewardType.CONSECUTIVE_14, 100));
+            when(rewardConfigCacheService.getConfigByRewardType(AttendanceRewardType.CONSECUTIVE_30))
+                .thenReturn(config(AttendanceRewardType.CONSECUTIVE_30, 300));
+
+            AttendanceCheckInResponse result = attendanceService.checkIn(TEST_USER_ID);
+
+            assertThat(result.getBonusExp()).isZero();
+            assertThat(result.getBonusReasons()).isEmpty();
+            verify(eventPublisher, never()).publishEvent(
+                any(io.pinkspider.global.event.AttendanceStreakEvent.class));
+        }
+
+        @Test
+        @DisplayName("30일 연속 출석 — 보너스 설정이 하나도 없으면 보너스 없이 마일스톤 이벤트만 발행한다")
+        void checkIn_30dayStreak_noConfigs_noBonus() {
+            stubStreak(30);
+            when(rewardConfigCacheService.getConfigByRewardType(AttendanceRewardType.DAILY))
+                .thenReturn(config(AttendanceRewardType.DAILY, 10));
+
+            AttendanceCheckInResponse result = attendanceService.checkIn(TEST_USER_ID);
+
+            assertThat(result.getBonusExp()).isZero();
+            assertThat(result.getBonusReasons()).isEmpty();
+            verify(eventPublisher).publishEvent(org.mockito.ArgumentMatchers.argThat(
+                (Object e) -> e instanceof io.pinkspider.global.event.AttendanceStreakEvent ev
+                    && ev.userId().equals(TEST_USER_ID) && ev.streakDays() == 30));
+        }
+    }
+
+    @Nested
     @DisplayName("hasCheckedInToday 테스트")
     class HasCheckedInTodayTest {
 

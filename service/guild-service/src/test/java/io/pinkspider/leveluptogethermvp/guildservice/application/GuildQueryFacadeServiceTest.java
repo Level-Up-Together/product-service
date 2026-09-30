@@ -12,6 +12,7 @@ import io.pinkspider.global.facade.dto.GuildMembershipInfo;
 import io.pinkspider.global.facade.dto.GuildPermissionCheck;
 import io.pinkspider.global.facade.dto.GuildPostInfo;
 import io.pinkspider.global.facade.dto.GuildWithMemberCount;
+import io.pinkspider.global.facade.dto.UserGuildAdminInfo;
 import io.pinkspider.leveluptogethermvp.guildservice.domain.entity.Guild;
 import io.pinkspider.leveluptogethermvp.guildservice.domain.entity.GuildMember;
 import io.pinkspider.leveluptogethermvp.guildservice.domain.entity.GuildPost;
@@ -506,6 +507,67 @@ class GuildQueryFacadeServiceTest {
                 .thenReturn(List.of());
 
             assertThat(facadeService.getUserGuildMemberships("user-1")).isEmpty();
+        }
+
+        @Test
+        @DisplayName("부마스터 멤버십은 isSubMaster가 true")
+        void shouldMarkSubMaster() {
+            Guild guild = createGuild(1L, "길드1", "other-master");
+            GuildMember m = createMember(1L, guild, "user-1", GuildMemberRole.SUB_MASTER);
+            when(guildMemberRepository.findAllActiveGuildMemberships("user-1"))
+                .thenReturn(List.of(m));
+
+            List<GuildMembershipInfo> result = facadeService.getUserGuildMemberships("user-1");
+
+            assertThat(result).hasSize(1);
+            assertThat(result.get(0).isMaster()).isFalse();
+            assertThat(result.get(0).isSubMaster()).isTrue();
+        }
+    }
+
+    @Nested
+    @DisplayName("getUserGuildInfoForAdmin")
+    class GetUserGuildInfoForAdminTest {
+
+        @Test
+        @DisplayName("멤버십이 없으면 null 반환")
+        void shouldReturnNullWhenNoMemberships() {
+            when(guildMemberRepository.findAllActiveGuildMemberships("user-1"))
+                .thenReturn(List.of());
+
+            assertThat(facadeService.getUserGuildInfoForAdmin("user-1")).isNull();
+        }
+
+        @Test
+        @DisplayName("첫 번째 활성 길드 정보와 역할명을 반환")
+        void shouldReturnFirstGuildInfoWithRole() {
+            Guild guild = createGuild(1L, "길드1", "user-1");
+            GuildMember m = createMember(1L, guild, "user-1", GuildMemberRole.MASTER);
+            when(guildMemberRepository.findAllActiveGuildMemberships("user-1"))
+                .thenReturn(List.of(m));
+            when(guildMemberRepository.countActiveMembers(1L)).thenReturn(4L);
+
+            UserGuildAdminInfo result = facadeService.getUserGuildInfoForAdmin("user-1");
+
+            assertThat(result.guildId()).isEqualTo(1L);
+            assertThat(result.guildName()).isEqualTo("길드1");
+            assertThat(result.guildLevel()).isEqualTo(3);
+            assertThat(result.role()).isEqualTo("MASTER");
+            assertThat(result.memberCount()).isEqualTo(4);
+        }
+
+        @Test
+        @DisplayName("역할이 null이면 role도 null")
+        void shouldReturnNullRoleWhenRoleNull() {
+            Guild guild = createGuild(1L, "길드1", "user-1");
+            GuildMember m = createMember(1L, guild, "user-1", null);
+            when(guildMemberRepository.findAllActiveGuildMemberships("user-1"))
+                .thenReturn(List.of(m));
+            when(guildMemberRepository.countActiveMembers(1L)).thenReturn(1L);
+
+            UserGuildAdminInfo result = facadeService.getUserGuildInfoForAdmin("user-1");
+
+            assertThat(result.role()).isNull();
         }
     }
 

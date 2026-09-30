@@ -3,6 +3,7 @@ package io.pinkspider.leveluptogethermvp.missionservice.saga.steps;
 import static io.pinkspider.global.test.TestReflectionUtils.setId;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -18,6 +19,7 @@ import org.mockito.ArgumentCaptor;
 import io.pinkspider.global.saga.SagaStepResult;
 import io.pinkspider.leveluptogethermvp.feedservice.domain.entity.ActivityFeed;
 import io.pinkspider.leveluptogethermvp.feedservice.domain.enums.FeedVisibility;
+import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.DailyMissionInstance;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.Mission;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.MissionExecution;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.MissionParticipant;
@@ -231,6 +233,318 @@ class CreateFeedFromMissionStepTest {
             assertThat(result.isSuccess()).isFalse();
             assertThat(result.getMessage()).contains("피드 생성 실패");
         }
+
+        @Test
+        @DisplayName("shareToFeed=false 이면 피드는 생성하되 execution 공유 상태는 갱신하지 않는다")
+        void execute_shareToFeedFalse_skipsSharedStatusUpdate() {
+            // given
+            context.setShareToFeed(false);
+            when(userQueryFacadeService.getUserProfile(TEST_USER_ID)).thenReturn(userProfile);
+            when(feedCommandService.createMissionSharedFeed(
+                any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(),
+                any(), any(), any(), any(), any(), any(), any()
+            )).thenReturn(activityFeed);
+
+            // when
+            SagaStepResult result = createFeedFromMissionStep.execute(context);
+
+            // then
+            assertThat(result.isSuccess()).isTrue();
+            assertThat(context.getCreatedFeedId()).isEqualTo(FEED_ID);
+            verify(selfMock, never()).updateExecutionSharedStatus(anyLong(), anyBoolean());
+        }
+
+        @Test
+        @DisplayName("GUILD 공개 + 숫자 guildId 이면 길드 ID/이름을 피드에 채운다")
+        void execute_guildVisibility_numericGuildId_fillsGuildInfo() {
+            // given
+            mission.setType(MissionType.GUILD);
+            mission.setGuildId("777");
+            mission.setGuildName("테스트길드");
+            context = new MissionCompletionContext(EXECUTION_ID, TEST_USER_ID, null, FeedVisibility.GUILD);
+            context.setExecution(execution);
+            context.setMission(mission);
+
+            when(userQueryFacadeService.getUserProfile(TEST_USER_ID)).thenReturn(userProfile);
+            ArgumentCaptor<Long> guildIdCaptor = ArgumentCaptor.forClass(Long.class);
+            ArgumentCaptor<String> guildNameCaptor = ArgumentCaptor.forClass(String.class);
+            when(feedCommandService.createMissionSharedFeed(
+                any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(),
+                any(), any(), any(), any(), any(), guildIdCaptor.capture(), guildNameCaptor.capture()
+            )).thenReturn(activityFeed);
+            doNothing().when(selfMock).updateExecutionSharedStatus(anyLong(), eq(true));
+
+            // when
+            SagaStepResult result = createFeedFromMissionStep.execute(context);
+
+            // then
+            assertThat(result.isSuccess()).isTrue();
+            assertThat(guildIdCaptor.getValue()).isEqualTo(777L);
+            assertThat(guildNameCaptor.getValue()).isEqualTo("테스트길드");
+        }
+
+        @Test
+        @DisplayName("GUILD 공개 + 숫자가 아닌 guildId 이면 길드 ID는 null 로 둔다")
+        void execute_guildVisibility_nonNumericGuildId_guildIdNull() {
+            // given
+            mission.setType(MissionType.GUILD);
+            mission.setGuildId("not-a-number");
+            context = new MissionCompletionContext(EXECUTION_ID, TEST_USER_ID, null, FeedVisibility.GUILD);
+            context.setExecution(execution);
+            context.setMission(mission);
+
+            when(userQueryFacadeService.getUserProfile(TEST_USER_ID)).thenReturn(userProfile);
+            ArgumentCaptor<Long> guildIdCaptor = ArgumentCaptor.forClass(Long.class);
+            when(feedCommandService.createMissionSharedFeed(
+                any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(),
+                any(), any(), any(), any(), any(), guildIdCaptor.capture(), any()
+            )).thenReturn(activityFeed);
+            doNothing().when(selfMock).updateExecutionSharedStatus(anyLong(), eq(true));
+
+            // when
+            SagaStepResult result = createFeedFromMissionStep.execute(context);
+
+            // then
+            assertThat(result.isSuccess()).isTrue();
+            assertThat(guildIdCaptor.getValue()).isNull();
+        }
+
+        @Test
+        @DisplayName("GUILD 공개 + 공백 guildId 이면 길드 ID는 null 로 둔다")
+        void execute_guildVisibility_blankGuildId_guildIdNull() {
+            // given
+            mission.setGuildId("   ");
+            context = new MissionCompletionContext(EXECUTION_ID, TEST_USER_ID, null, FeedVisibility.GUILD);
+            context.setExecution(execution);
+            context.setMission(mission);
+
+            when(userQueryFacadeService.getUserProfile(TEST_USER_ID)).thenReturn(userProfile);
+            ArgumentCaptor<Long> guildIdCaptor = ArgumentCaptor.forClass(Long.class);
+            when(feedCommandService.createMissionSharedFeed(
+                any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(),
+                any(), any(), any(), any(), any(), guildIdCaptor.capture(), any()
+            )).thenReturn(activityFeed);
+            doNothing().when(selfMock).updateExecutionSharedStatus(anyLong(), eq(true));
+
+            // when
+            SagaStepResult result = createFeedFromMissionStep.execute(context);
+
+            // then
+            assertThat(result.isSuccess()).isTrue();
+            assertThat(guildIdCaptor.getValue()).isNull();
+        }
+
+        @Test
+        @DisplayName("feedVisibility 를 명시적으로 null 로 두면 PRIVATE 으로 간주해 스킵한다")
+        void execute_feedVisibilityExplicitNull_skips() {
+            // given
+            context.setFeedVisibility(null);
+
+            // when
+            SagaStepResult result = createFeedFromMissionStep.execute(context);
+
+            // then
+            assertThat(result.isSuccess()).isTrue();
+            assertThat(context.getCreatedFeedId()).isNull();
+        }
+    }
+
+    @Nested
+    @DisplayName("execute 테스트 (고정 미션)")
+    class ExecutePinnedTest {
+
+        private static final Long INSTANCE_ID = 42L;
+
+        private DailyMissionInstance instance;
+        private MissionCompletionContext pinnedContext;
+
+        @BeforeEach
+        void setUpPinned() {
+            instance = DailyMissionInstance.createFrom(participant, LocalDate.now());
+            instance.setStatus(ExecutionStatus.COMPLETED);
+            instance.setStartedAt(LocalDateTime.now().minusMinutes(20));
+            instance.setCompletedAt(LocalDateTime.now());
+            instance.setExpEarned(20);
+            setId(instance, INSTANCE_ID);
+
+            pinnedContext = MissionCompletionContext.forPinned(
+                INSTANCE_ID, TEST_USER_ID, null, FeedVisibility.PUBLIC);
+            pinnedContext.setInstance(instance);
+            pinnedContext.setParticipant(participant);
+            pinnedContext.setMission(mission);
+            pinnedContext.setCategoryId(1L);
+        }
+
+        @Test
+        @DisplayName("고정 미션 피드를 생성하고 인스턴스 공유 상태를 갱신한다")
+        void executePinned_success_updatesInstanceSharedStatus() {
+            // given
+            when(userQueryFacadeService.getUserProfile(TEST_USER_ID)).thenReturn(userProfile);
+            ArgumentCaptor<Long> guildIdCaptor = ArgumentCaptor.forClass(Long.class);
+            ArgumentCaptor<String> guildNameCaptor = ArgumentCaptor.forClass(String.class);
+            when(feedCommandService.createMissionSharedFeed(
+                any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(),
+                any(), any(), any(), any(), any(), guildIdCaptor.capture(), guildNameCaptor.capture()
+            )).thenReturn(activityFeed);
+            doNothing().when(selfMock).updateInstanceSharedStatus(INSTANCE_ID, true);
+
+            // when
+            SagaStepResult result = createFeedFromMissionStep.execute(pinnedContext);
+
+            // then
+            assertThat(result.isSuccess()).isTrue();
+            assertThat(pinnedContext.getCreatedFeedId()).isEqualTo(FEED_ID);
+            assertThat(guildIdCaptor.getValue()).isNull();
+            assertThat(guildNameCaptor.getValue()).isNull();
+            verify(selfMock).updateInstanceSharedStatus(INSTANCE_ID, true);
+        }
+
+        @Test
+        @DisplayName("고정 미션 shareToFeed=false 이면 인스턴스 공유 상태를 갱신하지 않는다")
+        void executePinned_shareToFeedFalse_skipsSharedStatusUpdate() {
+            // given
+            pinnedContext.setShareToFeed(false);
+            when(userQueryFacadeService.getUserProfile(TEST_USER_ID)).thenReturn(userProfile);
+            when(feedCommandService.createMissionSharedFeed(
+                any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(),
+                any(), any(), any(), any(), any(), any(), any()
+            )).thenReturn(activityFeed);
+
+            // when
+            SagaStepResult result = createFeedFromMissionStep.execute(pinnedContext);
+
+            // then
+            assertThat(result.isSuccess()).isTrue();
+            verify(selfMock, never()).updateInstanceSharedStatus(anyLong(), anyBoolean());
+        }
+
+        @Test
+        @DisplayName("고정 길드 미션 GUILD 공개면 길드 ID/이름을 피드에 채운다")
+        void executePinned_guildVisibility_fillsGuildInfo() {
+            // given
+            mission.setType(MissionType.GUILD);
+            mission.setGuildId("321");
+            mission.setGuildName("고정길드");
+            pinnedContext = MissionCompletionContext.forPinned(
+                INSTANCE_ID, TEST_USER_ID, null, FeedVisibility.GUILD);
+            pinnedContext.setInstance(instance);
+            pinnedContext.setMission(mission);
+
+            when(userQueryFacadeService.getUserProfile(TEST_USER_ID)).thenReturn(userProfile);
+            ArgumentCaptor<Long> guildIdCaptor = ArgumentCaptor.forClass(Long.class);
+            ArgumentCaptor<String> guildNameCaptor = ArgumentCaptor.forClass(String.class);
+            when(feedCommandService.createMissionSharedFeed(
+                any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(),
+                any(), any(), any(), any(), any(), guildIdCaptor.capture(), guildNameCaptor.capture()
+            )).thenReturn(activityFeed);
+            doNothing().when(selfMock).updateInstanceSharedStatus(INSTANCE_ID, true);
+
+            // when
+            SagaStepResult result = createFeedFromMissionStep.execute(pinnedContext);
+
+            // then
+            assertThat(result.isSuccess()).isTrue();
+            assertThat(guildIdCaptor.getValue()).isEqualTo(321L);
+            assertThat(guildNameCaptor.getValue()).isEqualTo("고정길드");
+        }
+
+        @Test
+        @DisplayName("고정 미션 피드 생성 실패 시 실패 결과를 반환한다")
+        void executePinned_failsWhenServiceThrows() {
+            // given
+            when(userQueryFacadeService.getUserProfile(TEST_USER_ID))
+                .thenThrow(new RuntimeException("프로필 조회 실패"));
+
+            // when
+            SagaStepResult result = createFeedFromMissionStep.execute(pinnedContext);
+
+            // then
+            assertThat(result.isSuccess()).isFalse();
+            assertThat(result.getMessage()).contains("피드 생성 실패");
+            verify(selfMock, never()).updateInstanceSharedStatus(anyLong(), anyBoolean());
+        }
+    }
+
+    @Nested
+    @DisplayName("공유 상태 업데이트 메서드 테스트")
+    class SharedStatusUpdateTest {
+
+        @Test
+        @DisplayName("updateExecutionSharedStatus(shared=true) 는 execution 을 공유 상태로 바꾼다")
+        void updateExecutionSharedStatus_true_sharesExecution() {
+            // given
+            when(executionRepository.findById(EXECUTION_ID)).thenReturn(java.util.Optional.of(execution));
+            when(executionRepository.save(any(MissionExecution.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+            // when
+            createFeedFromMissionStep.updateExecutionSharedStatus(EXECUTION_ID, true);
+
+            // then
+            assertThat(execution.getIsSharedToFeed()).isTrue();
+            verify(executionRepository).save(execution);
+        }
+
+        @Test
+        @DisplayName("updateExecutionSharedStatus(shared=false) 는 execution 공유를 해제한다")
+        void updateExecutionSharedStatus_false_unsharesExecution() {
+            // given
+            execution.shareToFeed();
+            when(executionRepository.findById(EXECUTION_ID)).thenReturn(java.util.Optional.of(execution));
+            when(executionRepository.save(any(MissionExecution.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+            // when
+            createFeedFromMissionStep.updateExecutionSharedStatus(EXECUTION_ID, false);
+
+            // then
+            assertThat(execution.getIsSharedToFeed()).isFalse();
+            verify(executionRepository).save(execution);
+        }
+
+        @Test
+        @DisplayName("updateExecutionSharedStatus 는 execution 이 없으면 예외를 던진다")
+        void updateExecutionSharedStatus_notFound_throws() {
+            // given
+            when(executionRepository.findById(999L)).thenReturn(java.util.Optional.empty());
+
+            // when & then
+            org.assertj.core.api.Assertions.assertThatThrownBy(
+                    () -> createFeedFromMissionStep.updateExecutionSharedStatus(999L, true))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Execution not found");
+        }
+
+        @Test
+        @DisplayName("updateInstanceSharedStatus 는 인스턴스가 있으면 공유 상태를 갱신한다")
+        void updateInstanceSharedStatus_present_updates() {
+            // given
+            DailyMissionInstance instance = DailyMissionInstance.createFrom(participant, LocalDate.now());
+            setId(instance, 42L);
+            when(instanceRepository.findById(42L)).thenReturn(java.util.Optional.of(instance));
+            when(instanceRepository.save(any(DailyMissionInstance.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+            // when
+            createFeedFromMissionStep.updateInstanceSharedStatus(42L, true);
+
+            // then
+            assertThat(instance.getIsSharedToFeed()).isTrue();
+            verify(instanceRepository).save(instance);
+        }
+
+        @Test
+        @DisplayName("updateInstanceSharedStatus 는 인스턴스가 없으면 아무 것도 하지 않는다")
+        void updateInstanceSharedStatus_absent_noop() {
+            // given
+            when(instanceRepository.findById(42L)).thenReturn(java.util.Optional.empty());
+
+            // when
+            createFeedFromMissionStep.updateInstanceSharedStatus(42L, true);
+
+            // then
+            verify(instanceRepository, never()).save(any());
+        }
     }
 
     @Nested
@@ -297,6 +611,84 @@ class CreateFeedFromMissionStepTest {
             // then
             assertThat(result.isSuccess()).isFalse();
             assertThat(result.getMessage()).contains("피드 보상 실패");
+        }
+
+        @Test
+        @DisplayName("execution 이 null 이면 공유 상태 초기화 없이 피드만 삭제한다")
+        void compensate_executionNull_deletesFeedOnly() {
+            // given
+            context.setCreatedFeedId(FEED_ID);
+            context.setExecution(null);
+
+            // when
+            SagaStepResult result = createFeedFromMissionStep.compensate(context);
+
+            // then
+            assertThat(result.isSuccess()).isTrue();
+            verify(executionRepository, never()).save(any());
+            verify(feedCommandService).deleteFeedById(FEED_ID);
+        }
+
+        @Test
+        @DisplayName("고정 미션 보상 시 공유된 인스턴스의 공유 상태를 초기화한다")
+        void compensate_pinned_clearsInstanceSharedStatus() {
+            // given
+            DailyMissionInstance instance = DailyMissionInstance.createFrom(participant, LocalDate.now());
+            setId(instance, 42L);
+            instance.setIsSharedToFeed(true);
+            MissionCompletionContext pinnedContext = MissionCompletionContext.forPinned(
+                42L, TEST_USER_ID, null, FeedVisibility.PUBLIC);
+            pinnedContext.setInstance(instance);
+            pinnedContext.setCreatedFeedId(FEED_ID);
+            when(instanceRepository.save(any(DailyMissionInstance.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+            // when
+            SagaStepResult result = createFeedFromMissionStep.compensate(pinnedContext);
+
+            // then
+            assertThat(result.isSuccess()).isTrue();
+            assertThat(instance.getIsSharedToFeed()).isFalse();
+            verify(instanceRepository).save(instance);
+            verify(feedCommandService).deleteFeedById(FEED_ID);
+        }
+
+        @Test
+        @DisplayName("고정 미션 보상 시 공유되지 않은 인스턴스는 저장하지 않는다")
+        void compensate_pinned_notShared_skipsInstanceSave() {
+            // given
+            DailyMissionInstance instance = DailyMissionInstance.createFrom(participant, LocalDate.now());
+            setId(instance, 42L);
+            MissionCompletionContext pinnedContext = MissionCompletionContext.forPinned(
+                42L, TEST_USER_ID, null, FeedVisibility.PUBLIC);
+            pinnedContext.setInstance(instance);
+            pinnedContext.setCreatedFeedId(FEED_ID);
+
+            // when
+            SagaStepResult result = createFeedFromMissionStep.compensate(pinnedContext);
+
+            // then
+            assertThat(result.isSuccess()).isTrue();
+            verify(instanceRepository, never()).save(any());
+            verify(feedCommandService).deleteFeedById(FEED_ID);
+        }
+
+        @Test
+        @DisplayName("고정 미션 보상 시 인스턴스가 null 이면 피드만 삭제한다")
+        void compensate_pinned_instanceNull_deletesFeedOnly() {
+            // given
+            MissionCompletionContext pinnedContext = MissionCompletionContext.forPinned(
+                42L, TEST_USER_ID, null, FeedVisibility.PUBLIC);
+            pinnedContext.setInstance(null);
+            pinnedContext.setCreatedFeedId(FEED_ID);
+
+            // when
+            SagaStepResult result = createFeedFromMissionStep.compensate(pinnedContext);
+
+            // then
+            assertThat(result.isSuccess()).isTrue();
+            verify(instanceRepository, never()).save(any());
+            verify(feedCommandService).deleteFeedById(FEED_ID);
         }
     }
 

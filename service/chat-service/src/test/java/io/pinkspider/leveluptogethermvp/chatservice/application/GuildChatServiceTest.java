@@ -1168,4 +1168,238 @@ class GuildChatServiceTest {
                 .hasMessageContaining("해당 길드의 메시지가 아닙니다");
         }
     }
+
+    @Nested
+    @DisplayName("분기 보강 테스트")
+    class BranchCoverageTest {
+
+        private void stubSaveMessage() {
+            when(chatMessageRepository.save(any(GuildChatMessage.class))).thenAnswer(inv -> {
+                GuildChatMessage msg = inv.getArgument(0);
+                setId(msg, 1L);
+                return msg;
+            });
+        }
+
+        @Test
+        @DisplayName("길드 기본 정보가 null이면 메시지 전송 시 예외 발생")
+        void sendMessage_nullGuildInfo_fail() {
+            ChatMessageRequest request = ChatMessageRequest.builder().content("hi").build();
+            when(guildQueryFacadeService.getGuildBasicInfo(1L)).thenReturn(null);
+
+            assertThatThrownBy(() -> guildChatService.sendMessage(1L, testUserId, testNickname, request))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("길드를 찾을 수 없습니다");
+        }
+
+        @Test
+        @DisplayName("닉네임이 null이면 프로필에서 가져와 메시지를 전송한다")
+        void sendMessage_nullNickname_fetchFromProfile() {
+            ChatMessageRequest request = ChatMessageRequest.builder().content("hi").build();
+            when(guildQueryFacadeService.getGuildBasicInfo(1L)).thenReturn(new GuildBasicInfo(1L, "길드", null, 1));
+            when(guildQueryFacadeService.isActiveMember(1L, testUserId)).thenReturn(true);
+            when(guildQueryFacadeService.getActiveMemberUserIds(1L)).thenReturn(Collections.emptyList());
+            when(userQueryFacadeService.getUserProfile(testUserId))
+                .thenReturn(new UserProfileInfo(testUserId, "프로필닉", null, 1, null, null, null));
+            stubSaveMessage();
+
+            ChatMessageResponse response = guildChatService.sendMessage(1L, testUserId, null, request);
+
+            assertThat(response.getSenderNickname()).isEqualTo("프로필닉");
+        }
+
+        @Test
+        @DisplayName("이미지 URL이 빈 문자열이면 텍스트 메시지로 전송한다")
+        void sendMessage_emptyImageUrl_text() {
+            ChatMessageRequest request = ChatMessageRequest.builder().content("hi").imageUrl("").build();
+            when(guildQueryFacadeService.getGuildBasicInfo(1L)).thenReturn(new GuildBasicInfo(1L, "길드", null, 1));
+            when(guildQueryFacadeService.isActiveMember(1L, testUserId)).thenReturn(true);
+            when(guildQueryFacadeService.getActiveMemberUserIds(1L)).thenReturn(Collections.emptyList());
+            stubSaveMessage();
+
+            ChatMessageResponse response = guildChatService.sendMessage(1L, testUserId, testNickname, request);
+
+            assertThat(response.getMessageType()).isEqualTo(ChatMessageType.TEXT);
+        }
+
+        @Test
+        @DisplayName("이미지 메시지에 내용이 없으면 빈 문자열로 저장한다")
+        void sendMessage_imageWithoutContent_emptyContent() {
+            ChatMessageRequest request = ChatMessageRequest.builder()
+                .imageUrl("https://example.com/a.jpg")
+                .build();
+            when(guildQueryFacadeService.getGuildBasicInfo(1L)).thenReturn(new GuildBasicInfo(1L, "길드", null, 1));
+            when(guildQueryFacadeService.isActiveMember(1L, testUserId)).thenReturn(true);
+            when(guildQueryFacadeService.getActiveMemberUserIds(1L)).thenReturn(Collections.emptyList());
+            stubSaveMessage();
+
+            ChatMessageResponse response = guildChatService.sendMessage(1L, testUserId, testNickname, request);
+
+            assertThat(response.getMessageType()).isEqualTo(ChatMessageType.IMAGE);
+            assertThat(response.getContent()).isEmpty();
+        }
+
+        @Test
+        @DisplayName("본인을 제외한 길드원이 있으면 채팅 이벤트를 발행한다")
+        void sendMessage_publishesEventExcludingSender() {
+            ChatMessageRequest request = ChatMessageRequest.builder().content("hi").build();
+            when(guildQueryFacadeService.getGuildBasicInfo(1L)).thenReturn(new GuildBasicInfo(1L, "길드", null, 1));
+            when(guildQueryFacadeService.isActiveMember(1L, testUserId)).thenReturn(true);
+            when(guildQueryFacadeService.getActiveMemberUserIds(1L))
+                .thenReturn(List.of(testUserId, "other-1", "other-2"));
+            stubSaveMessage();
+
+            guildChatService.sendMessage(1L, testUserId, testNickname, request);
+
+            org.mockito.ArgumentCaptor<io.pinkspider.global.event.GuildChatMessageEvent> captor =
+                org.mockito.ArgumentCaptor.forClass(io.pinkspider.global.event.GuildChatMessageEvent.class);
+            verify(eventPublisher).publishEvent(captor.capture());
+            assertThat(captor.getValue().memberIds()).containsExactly("other-1", "other-2");
+        }
+
+        @Test
+        @DisplayName("길드원이 본인뿐이면 채팅 이벤트를 발행하지 않는다")
+        void sendMessage_onlySelf_noEvent() {
+            ChatMessageRequest request = ChatMessageRequest.builder().content("hi").build();
+            when(guildQueryFacadeService.getGuildBasicInfo(1L)).thenReturn(new GuildBasicInfo(1L, "길드", null, 1));
+            when(guildQueryFacadeService.isActiveMember(1L, testUserId)).thenReturn(true);
+            when(guildQueryFacadeService.getActiveMemberUserIds(1L)).thenReturn(List.of(testUserId));
+            stubSaveMessage();
+
+            guildChatService.sendMessage(1L, testUserId, testNickname, request);
+
+            verify(eventPublisher, org.mockito.Mockito.never()).publishEvent(any());
+        }
+
+        @Test
+        @DisplayName("userId가 null이면 차단 목록 조회 없이 센티널을 사용한다")
+        void getMessages_nullUserId_usesSentinel() {
+            Pageable pageable = PageRequest.of(0, 20);
+            when(guildQueryFacadeService.isActiveMember(1L, null)).thenReturn(true);
+            when(chatMessageRepository.findByGuildIdOrderByCreatedAtDesc(eq(1L), eq(List.of("__none__")), eq(pageable)))
+                .thenReturn(new PageImpl<>(List.of(), pageable, 0));
+
+            Page<ChatMessageResponse> result = guildChatService.getMessages(1L, null, pageable);
+
+            assertThat(result.getContent()).isEmpty();
+            verify(userQueryFacadeService, org.mockito.Mockito.never()).getBlockedUserIds(any());
+        }
+
+        @Test
+        @DisplayName("차단 목록이 null이면 센티널을 사용한다")
+        void getMessages_nullBlockedList_usesSentinel() {
+            Pageable pageable = PageRequest.of(0, 20);
+            when(guildQueryFacadeService.isActiveMember(1L, testUserId)).thenReturn(true);
+            when(userQueryFacadeService.getBlockedUserIds(testUserId)).thenReturn(null);
+            when(chatMessageRepository.findByGuildIdOrderByCreatedAtDesc(eq(1L), eq(List.of("__none__")), eq(pageable)))
+                .thenReturn(new PageImpl<>(List.of(), pageable, 0));
+
+            Page<ChatMessageResponse> result = guildChatService.getMessages(1L, testUserId, pageable);
+
+            assertThat(result.getContent()).isEmpty();
+        }
+
+        @Test
+        @DisplayName("차단 목록 조회가 실패하면 센티널로 진행한다")
+        void getMessages_blockedLookupFails_usesSentinel() {
+            Pageable pageable = PageRequest.of(0, 20);
+            when(guildQueryFacadeService.isActiveMember(1L, testUserId)).thenReturn(true);
+            when(userQueryFacadeService.getBlockedUserIds(testUserId)).thenThrow(new RuntimeException("down"));
+            when(chatMessageRepository.findByGuildIdOrderByCreatedAtDesc(eq(1L), eq(List.of("__none__")), eq(pageable)))
+                .thenReturn(new PageImpl<>(List.of(), pageable, 0));
+
+            Page<ChatMessageResponse> result = guildChatService.getMessages(1L, testUserId, pageable);
+
+            assertThat(result.getContent()).isEmpty();
+        }
+
+        @Test
+        @DisplayName("존재하지 않는 길드에 시스템 메시지 전송 시 예외 발생")
+        void sendSystemMessage_guildNotExists_fail() {
+            when(guildQueryFacadeService.guildExists(999L)).thenReturn(false);
+
+            assertThatThrownBy(() -> guildChatService.sendSystemMessage(999L, ChatMessageType.SYSTEM_JOIN, "x"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("길드를 찾을 수 없습니다");
+        }
+
+        @Test
+        @DisplayName("채팅방 정보 조회 시 길드 기본 정보가 null이면 예외 발생")
+        void getChatRoomInfo_nullGuildInfo_fail() {
+            when(guildQueryFacadeService.isActiveMember(1L, testUserId)).thenReturn(true);
+            when(guildQueryFacadeService.getGuildBasicInfo(1L)).thenReturn(null);
+
+            assertThatThrownBy(() -> guildChatService.getChatRoomInfo(1L, testUserId))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("길드를 찾을 수 없습니다");
+        }
+
+        @Test
+        @DisplayName("빈 닉네임으로 채팅방 입장 시 프로필에서 가져온다")
+        void joinChat_blankNickname_fetchFromProfile() {
+            GuildChatParticipant participant = GuildChatParticipant.create(1L, testUserId, testNickname);
+            setId(participant, 1L);
+            when(guildQueryFacadeService.isActiveMember(1L, testUserId)).thenReturn(true);
+            when(guildQueryFacadeService.guildExists(1L)).thenReturn(true);
+            when(userQueryFacadeService.getUserProfile(testUserId))
+                .thenReturn(new UserProfileInfo(testUserId, "프로필닉", null, 1, null, null, null));
+            when(participantRepository.findByGuildIdAndUserId(1L, testUserId)).thenReturn(Optional.of(participant));
+            when(readStatusRepository.findByGuildIdAndUserId(1L, testUserId))
+                .thenReturn(Optional.of(GuildChatReadStatus.create(1L, testUserId)));
+
+            ChatParticipantResponse response = guildChatService.joinChat(1L, testUserId, "   ");
+
+            assertThat(response).isNotNull();
+            verify(userQueryFacadeService).getUserProfile(testUserId);
+        }
+
+        @Test
+        @DisplayName("이미 참여 중이면 재입장 처리와 시스템 메시지를 건너뛴다")
+        void joinChat_alreadyParticipating_skipsRejoin() {
+            GuildChatParticipant participant = GuildChatParticipant.create(1L, testUserId, testNickname);
+            setId(participant, 1L);
+            when(guildQueryFacadeService.isActiveMember(1L, testUserId)).thenReturn(true);
+            when(guildQueryFacadeService.guildExists(1L)).thenReturn(true);
+            when(participantRepository.findByGuildIdAndUserId(1L, testUserId)).thenReturn(Optional.of(participant));
+            when(readStatusRepository.findByGuildIdAndUserId(1L, testUserId))
+                .thenReturn(Optional.of(GuildChatReadStatus.create(1L, testUserId)));
+
+            guildChatService.joinChat(1L, testUserId, testNickname);
+
+            verify(chatMessageRepository, org.mockito.Mockito.never()).save(any(GuildChatMessage.class));
+            verify(participantRepository, org.mockito.Mockito.never()).save(any(GuildChatParticipant.class));
+        }
+
+        @Test
+        @DisplayName("null 닉네임으로 채팅방 퇴장 시 프로필에서 가져온다")
+        void leaveChat_nullNickname_fetchFromProfile() {
+            GuildChatParticipant participant = GuildChatParticipant.create(1L, testUserId, testNickname);
+            setId(participant, 1L);
+            when(guildQueryFacadeService.isActiveMember(1L, testUserId)).thenReturn(true);
+            when(userQueryFacadeService.getUserProfile(testUserId))
+                .thenReturn(new UserProfileInfo(testUserId, "프로필닉", null, 1, null, null, null));
+            when(participantRepository.findByGuildIdAndUserId(1L, testUserId)).thenReturn(Optional.of(participant));
+            when(guildQueryFacadeService.guildExists(1L)).thenReturn(true);
+            stubSaveMessage();
+
+            guildChatService.leaveChat(1L, testUserId, null);
+
+            assertThat(participant.isParticipating()).isFalse();
+            verify(userQueryFacadeService).getUserProfile(testUserId);
+        }
+
+        @Test
+        @DisplayName("이미 퇴장한 참여자는 퇴장 처리를 건너뛴다")
+        void leaveChat_notParticipating_skips() {
+            GuildChatParticipant participant = GuildChatParticipant.create(1L, testUserId, testNickname);
+            participant.leave();
+            setId(participant, 1L);
+            when(guildQueryFacadeService.isActiveMember(1L, testUserId)).thenReturn(true);
+            when(participantRepository.findByGuildIdAndUserId(1L, testUserId)).thenReturn(Optional.of(participant));
+
+            guildChatService.leaveChat(1L, testUserId, testNickname);
+
+            verify(chatMessageRepository, org.mockito.Mockito.never()).save(any(GuildChatMessage.class));
+        }
+    }
 }

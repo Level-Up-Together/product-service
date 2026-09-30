@@ -1620,4 +1620,240 @@ class FeedCommandServiceTest {
             verify(activityFeedRepository).save(any(ActivityFeed.class));
         }
     }
+
+    @Nested
+    @DisplayName("분기 보강 테스트")
+    class BranchCoverageTest {
+
+        @Test
+        @DisplayName("createActivityFeed: userLevel이 null이면 1로 저장한다")
+        void createActivityFeed_nullLevel_defaultsToOne() {
+            when(gamificationQueryFacadeService.getDetailedEquippedTitleInfo(TEST_USER_ID)).thenReturn(EMPTY_DETAILED_TITLE);
+            when(activityFeedRepository.save(any(ActivityFeed.class))).thenAnswer(inv -> inv.getArgument(0));
+
+            ActivityFeed result = feedCommandService.createActivityFeed(
+                TEST_USER_ID, "닉", null, null, null, null, null,
+                ActivityType.MISSION_COMPLETED, "제목", "설명",
+                "MISSION", 1L, "미션", FeedVisibility.PUBLIC, null, null, null);
+
+            assertThat(result.getUserLevel()).isEqualTo(1);
+        }
+
+        @Test
+        @DisplayName("createMissionSharedFeed: userLevel이 null이면 1로 저장한다")
+        void createMissionSharedFeed_nullLevel_defaultsToOne() {
+            when(gamificationQueryFacadeService.getDetailedEquippedTitleInfo(TEST_USER_ID)).thenReturn(EMPTY_DETAILED_TITLE);
+            when(activityFeedRepository.save(any(ActivityFeed.class))).thenAnswer(inv -> inv.getArgument(0));
+
+            ActivityFeed result = feedCommandService.createMissionSharedFeed(
+                TEST_USER_ID, "닉", null, null, null, null, null,
+                1L, 2L, "미션 제목", "미션 설명", 1L,
+                "노트", null, 60, 50, FeedVisibility.PUBLIC, null, null);
+
+            assertThat(result.getUserLevel()).isEqualTo(1);
+        }
+
+        @Test
+        @DisplayName("createFeed: visibility가 실제 null이면 PUBLIC으로 대체한다")
+        void createFeed_explicitNullVisibility_defaultsToPublic() {
+            CreateFeedRequest request = createTestFeedRequest();
+            TestReflectionUtils.setField(request, "visibility", null);
+            when(userQueryFacadeService.userExistsById(TEST_USER_ID)).thenReturn(true);
+            when(userQueryFacadeService.getUserProfile(TEST_USER_ID)).thenReturn(
+                new UserProfileInfo(TEST_USER_ID, "테스트유저", null, 5, null, null, null));
+            when(gamificationQueryFacadeService.getCombinedEquippedTitleInfo(TEST_USER_ID))
+                .thenReturn(new TitleInfoDto("칭호", TitleRarity.COMMON, "#FFFFFF"));
+            when(gamificationQueryFacadeService.getDetailedEquippedTitleInfo(TEST_USER_ID))
+                .thenReturn(EMPTY_DETAILED_TITLE);
+            when(activityFeedRepository.save(any(ActivityFeed.class))).thenAnswer(inv -> {
+                ActivityFeed f = inv.getArgument(0);
+                setId(f, 1L);
+                return f;
+            });
+
+            ActivityFeedResponse result = feedCommandService.createFeed(TEST_USER_ID, request);
+
+            assertThat(result.getVisibility()).isEqualTo(FeedVisibility.PUBLIC);
+        }
+
+        @Test
+        @DisplayName("updateComment: 다른 피드의 댓글이면 wrong_feed 예외")
+        void updateComment_wrongFeed_throws() {
+            ActivityFeed otherFeed = createTestFeed(2L, OTHER_USER_ID);
+            FeedComment comment = createTestComment(10L, otherFeed, TEST_USER_ID, null);
+            when(feedCommentRepository.findById(10L)).thenReturn(Optional.of(comment));
+
+            assertThatThrownBy(() ->
+                feedCommandService.updateComment(1L, 10L, TEST_USER_ID, createTestUpdateRequest("x")))
+                .isInstanceOf(CustomException.class)
+                .hasMessageContaining("error.feed.comment.wrong_feed");
+        }
+
+        @Test
+        @DisplayName("updateComment: 대댓글은 답글 수 조회 없이 수정 가능하다")
+        void updateComment_reply_skipsReplyCountCheck() {
+            ActivityFeed feed = createTestFeed(1L, OTHER_USER_ID);
+            FeedComment root = createTestComment(10L, feed, OTHER_USER_ID, null);
+            FeedComment reply = createTestComment(11L, feed, TEST_USER_ID, root);
+            when(feedCommentRepository.findById(11L)).thenReturn(Optional.of(reply));
+            when(feedCommentRepository.save(any(FeedComment.class))).thenReturn(reply);
+
+            FeedCommentResponse result =
+                feedCommandService.updateComment(1L, 11L, TEST_USER_ID, createTestUpdateRequest("수정"));
+
+            assertThat(result.getIsEditable()).isTrue();
+            verify(feedCommentRepository, never()).countActiveRepliesByParentId(any());
+        }
+
+        @Test
+        @DisplayName("updateComment: 장착 칭호 조회가 null을 주면 칭호를 비운 채 응답한다")
+        void updateComment_nullEquippedTitles_leavesTitlesEmpty() {
+            ActivityFeed feed = createTestFeed(1L, OTHER_USER_ID);
+            FeedComment comment = createTestComment(10L, feed, TEST_USER_ID, null);
+            when(feedCommentRepository.findById(10L)).thenReturn(Optional.of(comment));
+            when(feedCommentRepository.countActiveRepliesByParentId(10L)).thenReturn(0);
+            when(feedCommentRepository.save(any(FeedComment.class))).thenReturn(comment);
+            when(gamificationQueryFacadeService.getEquippedTitlesByUserId(TEST_USER_ID)).thenReturn(null);
+
+            FeedCommentResponse result =
+                feedCommandService.updateComment(1L, 10L, TEST_USER_ID, createTestUpdateRequest("수정"));
+
+            assertThat(result.getUserLeftTitle()).isNull();
+            assertThat(result.getUserRightTitle()).isNull();
+        }
+
+        @Test
+        @DisplayName("toggleCommentLike: 다른 피드의 댓글이면 wrong_feed 예외")
+        void toggleCommentLike_wrongFeed_throws() {
+            ActivityFeed otherFeed = createTestFeed(2L, OTHER_USER_ID);
+            FeedComment comment = createTestComment(10L, otherFeed, OTHER_USER_ID, null);
+            when(feedCommentRepository.findById(10L)).thenReturn(Optional.of(comment));
+
+            assertThatThrownBy(() -> feedCommandService.toggleCommentLike(1L, 10L, TEST_USER_ID))
+                .isInstanceOf(CustomException.class)
+                .hasMessageContaining("error.feed.comment.wrong_feed");
+        }
+
+        @Test
+        @DisplayName("toggleCommentLike: 삭제된 댓글이면 deleted 예외")
+        void toggleCommentLike_deleted_throws() {
+            ActivityFeed feed = createTestFeed(1L, OTHER_USER_ID);
+            FeedComment comment = createTestComment(10L, feed, OTHER_USER_ID, null);
+            comment.setIsDeleted(true);
+            when(feedCommentRepository.findById(10L)).thenReturn(Optional.of(comment));
+
+            assertThatThrownBy(() -> feedCommandService.toggleCommentLike(1L, 10L, TEST_USER_ID))
+                .isInstanceOf(CustomException.class)
+                .hasMessageContaining("error.feed.comment.deleted");
+        }
+
+        private void stubReplyCreation(Long feedId, ActivityFeed feed, FeedComment parent) {
+            when(activityFeedRepository.findById(feedId)).thenReturn(Optional.of(feed));
+            when(feedCommentRepository.findById(parent.getId())).thenReturn(Optional.of(parent));
+            when(feedCommentRepository.save(any(FeedComment.class))).thenAnswer(inv -> {
+                FeedComment c = inv.getArgument(0);
+                setId(c, 100L);
+                return c;
+            });
+            when(activityFeedRepository.save(any(ActivityFeed.class))).thenReturn(feed);
+        }
+
+        @Test
+        @DisplayName("대댓글: 스레드 참여자에서 작성자 본인과 부모 작성자는 제외된다")
+        void addReply_filtersReplierAndParentAuthorFromThread() {
+            ActivityFeed feed = createTestFeed(1L, OTHER_USER_ID);
+            FeedComment parent = createTestComment(10L, feed, OTHER_USER_ID, null);
+            stubReplyCreation(1L, feed, parent);
+            when(userQueryFacadeService.getUserProfile(TEST_USER_ID))
+                .thenReturn(new UserProfileInfo(TEST_USER_ID, "테스트유저", null, 5, null, null, null));
+            when(feedCommentRepository.findReplyAuthorsByParentId(10L))
+                .thenReturn(List.of(TEST_USER_ID, OTHER_USER_ID, "third-user"));
+
+            feedCommandService.addComment(1L, TEST_USER_ID, createTestReplyRequest("대댓글", 10L));
+
+            ArgumentCaptor<FeedCommentReplyEvent> captor = ArgumentCaptor.forClass(FeedCommentReplyEvent.class);
+            verify(eventPublisher).publishEvent(captor.capture());
+            assertThat(captor.getValue().parentCommentAuthorId()).isEqualTo(OTHER_USER_ID);
+            assertThat(captor.getValue().threadParticipants()).containsExactly("third-user");
+        }
+
+        @Test
+        @DisplayName("대댓글: 부모 작성자가 본인이고 다른 참여자도 없으면 이벤트를 발행하지 않는다")
+        void addReply_selfParentNoParticipants_noEvent() {
+            ActivityFeed feed = createTestFeed(1L, OTHER_USER_ID);
+            FeedComment parent = createTestComment(10L, feed, TEST_USER_ID, null);
+            stubReplyCreation(1L, feed, parent);
+            when(userQueryFacadeService.getUserProfile(TEST_USER_ID))
+                .thenReturn(new UserProfileInfo(TEST_USER_ID, "테스트유저", null, 5, null, null, null));
+            when(feedCommentRepository.findReplyAuthorsByParentId(10L)).thenReturn(List.of(TEST_USER_ID));
+
+            feedCommandService.addComment(1L, TEST_USER_ID, createTestReplyRequest("대댓글", 10L));
+
+            verify(eventPublisher, never()).publishEvent(any());
+        }
+
+        @Test
+        @DisplayName("대댓글: 부모 작성자가 본인이어도 다른 참여자가 있으면 부모 작성자 null로 발행한다")
+        void addReply_selfParentWithParticipants_publishesWithNullParent() {
+            ActivityFeed feed = createTestFeed(1L, OTHER_USER_ID);
+            FeedComment parent = createTestComment(10L, feed, TEST_USER_ID, null);
+            stubReplyCreation(1L, feed, parent);
+            when(userQueryFacadeService.getUserProfile(TEST_USER_ID))
+                .thenReturn(new UserProfileInfo(TEST_USER_ID, "테스트유저", null, 5, null, null, null));
+            when(feedCommentRepository.findReplyAuthorsByParentId(10L)).thenReturn(List.of("third-user"));
+
+            feedCommandService.addComment(1L, TEST_USER_ID, createTestReplyRequest("대댓글", 10L));
+
+            ArgumentCaptor<FeedCommentReplyEvent> captor = ArgumentCaptor.forClass(FeedCommentReplyEvent.class);
+            verify(eventPublisher).publishEvent(captor.capture());
+            assertThat(captor.getValue().parentCommentAuthorId()).isNull();
+            assertThat(captor.getValue().threadParticipants()).containsExactly("third-user");
+        }
+
+        @Test
+        @DisplayName("deleteComment: 이미 삭제된 댓글을 다시 삭제하면 이벤트를 발행하지 않는다")
+        void deleteComment_alreadyDeleted_noEvent() {
+            ActivityFeed feed = createTestFeed(1L, OTHER_USER_ID);
+            FeedComment comment = createTestComment(10L, feed, TEST_USER_ID, null);
+            comment.setIsDeleted(true);
+            when(feedCommentRepository.findById(10L)).thenReturn(Optional.of(comment));
+            when(feedCommentRepository.save(any(FeedComment.class))).thenReturn(comment);
+
+            feedCommandService.deleteComment(1L, 10L, TEST_USER_ID);
+
+            verify(eventPublisher, never()).publishEvent(any(FeedCommentDeletedEvent.class));
+        }
+
+        @Test
+        @DisplayName("updateFeedImageUrlByExecutionId: imageUrl이 null이면 이미지를 모두 비운다")
+        void updateFeedImageUrlByExecutionId_null_clearsImages() {
+            ActivityFeed feed = createTestFeed(1L, TEST_USER_ID);
+            feed.setImageUrl("https://x.com/old.jpg");
+            when(activityFeedRepository.findFirstByExecutionIdAndUserIdOrderByCreatedAtDesc(10L, TEST_USER_ID))
+                .thenReturn(Optional.of(feed));
+            when(activityFeedRepository.save(any(ActivityFeed.class))).thenReturn(feed);
+
+            feedCommandService.updateFeedImageUrlByExecutionId(10L, TEST_USER_ID, null);
+
+            assertThat(feed.getImageUrl()).isNull();
+            verify(activityFeedImageRepository).deleteByFeedId(1L);
+            verify(activityFeedImageRepository, never())
+                .save(any(io.pinkspider.leveluptogethermvp.feedservice.domain.entity.ActivityFeedImage.class));
+        }
+
+        @Test
+        @DisplayName("updateFeedImagesByExecutionId: imageUrls가 null이면 빈 목록으로 처리한다")
+        void updateFeedImagesByExecutionId_nullList_clearsImages() {
+            ActivityFeed feed = createTestFeed(1L, TEST_USER_ID);
+            feed.setImageUrl("https://x.com/old.jpg");
+            when(activityFeedRepository.findFirstByExecutionIdAndUserIdOrderByCreatedAtDesc(10L, TEST_USER_ID))
+                .thenReturn(Optional.of(feed));
+            when(activityFeedRepository.save(any(ActivityFeed.class))).thenReturn(feed);
+
+            feedCommandService.updateFeedImagesByExecutionId(10L, TEST_USER_ID, null);
+
+            assertThat(feed.getImageUrl()).isNull();
+            verify(activityFeedImageRepository).deleteByFeedId(1L);
+        }
+    }
 }

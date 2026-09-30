@@ -1085,4 +1085,375 @@ class DailyMissionInstanceServiceTest {
             verify(missionImageStorageService).delete(imageUrl);
         }
     }
+
+    @Nested
+    @DisplayName("브랜치 커버리지 보강 테스트")
+    class BranchCoverageTest {
+
+        private io.pinkspider.leveluptogethermvp.missionservice.domain.entity.DailyMissionInstanceImage imageOf(
+                String url, int sortOrder) {
+            return io.pinkspider.leveluptogethermvp.missionservice.domain.entity.DailyMissionInstanceImage.builder()
+                .instance(instance).imageUrl(url).sortOrder(sortOrder).build();
+        }
+
+        private void markCompleted() {
+            TestReflectionUtils.setField(instance, "status", ExecutionStatus.COMPLETED);
+            TestReflectionUtils.setField(instance, "startedAt", LocalDateTime.now().minusMinutes(30));
+            TestReflectionUtils.setField(instance, "completedAt", LocalDateTime.now());
+        }
+
+        private UserProfileInfo profile() {
+            return new UserProfileInfo(TEST_USER_ID, "닉", null, 1, null, TitleRarity.COMMON, null);
+        }
+
+        @Test
+        @DisplayName("오늘 인스턴스 목록 조회 시 이미지가 있으면 imageUrls 에 매핑한다")
+        void getTodayInstances_withImages() {
+            when(instanceRepository.findByUserIdAndInstanceDateWithMission(eq(TEST_USER_ID), any(LocalDate.class)))
+                .thenReturn(List.of(instance));
+            when(instanceImageRepository.findByInstanceIdInOrderBySortOrder(List.of(INSTANCE_ID)))
+                .thenReturn(List.of(imageOf("https://cdn/1.jpg", 0), imageOf("https://cdn/2.jpg", 1)));
+
+            List<DailyMissionInstanceResponse> responses = service.getTodayInstances(TEST_USER_ID);
+
+            assertThat(responses.get(0).getImageUrls()).containsExactly("https://cdn/1.jpg", "https://cdn/2.jpg");
+        }
+
+        @Test
+        @DisplayName("baseMissionId 가 있는 미션은 템플릿 기준으로 일일 완료 횟수를 합산한다 (한도 미달 시 통과)")
+        void startInstanceByMission_baseMissionId_countsByTemplate() {
+            LocalDate today = LocalDate.now();
+            TestReflectionUtils.setField(mission, "dailyExecutionLimit", 3);
+            TestReflectionUtils.setField(mission, "baseMissionId", 77L);
+
+            when(participantRepository.findByMissionIdAndUserId(MISSION_ID, TEST_USER_ID))
+                .thenReturn(Optional.of(participant));
+            when(instanceRepository.countCompletedByUserIdAndBaseMissionIdAndDate(TEST_USER_ID, 77L, today))
+                .thenReturn(1L);
+            when(instanceRepository.findInProgressByParticipantIdAndDate(PARTICIPANT_ID, today))
+                .thenReturn(Optional.empty());
+            when(instanceRepository.findPendingByParticipantIdAndDate(PARTICIPANT_ID, today))
+                .thenReturn(List.of(instance));
+            when(instanceRepository.findInProgressByUserId(TEST_USER_ID)).thenReturn(Optional.empty());
+            when(instanceRepository.findByIdWithParticipantAndMission(INSTANCE_ID)).thenReturn(Optional.of(instance));
+            when(instanceRepository.save(any(DailyMissionInstance.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+            DailyMissionInstanceResponse response = service.startInstanceByMission(MISSION_ID, TEST_USER_ID, today);
+
+            assertThat(response).isNotNull();
+            verify(instanceRepository).countCompletedByUserIdAndBaseMissionIdAndDate(TEST_USER_ID, 77L, today);
+            verify(instanceRepository, never()).countCompletedByParticipantIdAndDate(anyLong(), any());
+        }
+
+        @Test
+        @DisplayName("Saga 실패 시 completeInstance 는 IllegalStateException 을 던진다")
+        void completeInstance_sagaFailure_throws() {
+            MissionCompletionContext context = MissionCompletionContext.forPinned(
+                INSTANCE_ID, TEST_USER_ID, "n", FeedVisibility.PRIVATE);
+            when(missionCompletionSaga.executePinned(INSTANCE_ID, TEST_USER_ID, "n", FeedVisibility.PRIVATE))
+                .thenReturn(SagaResult.failure(context, "보상 실패"));
+
+            assertThatThrownBy(() -> service.completeInstance(INSTANCE_ID, TEST_USER_ID, "n"))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("보상 실패");
+        }
+
+        @Test
+        @DisplayName("completeInstanceByMission(shareToFeed=true) 는 PUBLIC 으로 Saga 를 실행한다")
+        @SuppressWarnings("unchecked")
+        void completeInstanceByMission_shareToFeedTrue_public() {
+            LocalDate today = LocalDate.now();
+            TestReflectionUtils.setField(instance, "status", ExecutionStatus.IN_PROGRESS);
+            MissionCompletionContext context = MissionCompletionContext.forPinned(
+                INSTANCE_ID, TEST_USER_ID, "완료", FeedVisibility.PUBLIC);
+            context.setInstance(instance);
+
+            when(participantRepository.findByMissionIdAndUserId(MISSION_ID, TEST_USER_ID))
+                .thenReturn(Optional.of(participant));
+            when(instanceRepository.findInProgressByParticipantIdAndDate(PARTICIPANT_ID, today))
+                .thenReturn(Optional.of(instance));
+            when(missionCompletionSaga.executePinned(INSTANCE_ID, TEST_USER_ID, "완료", FeedVisibility.PUBLIC))
+                .thenReturn(SagaResult.success(context));
+            when(missionCompletionSaga.toPinnedResponse(any(SagaResult.class)))
+                .thenReturn(DailyMissionInstanceResponse.from(instance));
+
+            service.completeInstanceByMission(MISSION_ID, TEST_USER_ID, today, "완료", true);
+
+            verify(missionCompletionSaga).executePinned(INSTANCE_ID, TEST_USER_ID, "완료", FeedVisibility.PUBLIC);
+        }
+
+        @Test
+        @DisplayName("completeInstanceByMission: 해당 날짜에 없으면 자정을 넘긴 본인 IN_PROGRESS 인스턴스를 사용한다")
+        @SuppressWarnings("unchecked")
+        void completeInstanceByMission_fallsBackToUserInProgress() {
+            LocalDate today = LocalDate.now();
+            TestReflectionUtils.setField(instance, "status", ExecutionStatus.IN_PROGRESS);
+            MissionCompletionContext context = MissionCompletionContext.forPinned(
+                INSTANCE_ID, TEST_USER_ID, "완료", FeedVisibility.PRIVATE);
+            context.setInstance(instance);
+
+            when(participantRepository.findByMissionIdAndUserId(MISSION_ID, TEST_USER_ID))
+                .thenReturn(Optional.of(participant));
+            when(instanceRepository.findInProgressByParticipantIdAndDate(PARTICIPANT_ID, today))
+                .thenReturn(Optional.empty());
+            when(instanceRepository.findInProgressByUserId(TEST_USER_ID)).thenReturn(Optional.of(instance));
+            when(missionCompletionSaga.executePinned(INSTANCE_ID, TEST_USER_ID, "완료", FeedVisibility.PRIVATE))
+                .thenReturn(SagaResult.success(context));
+            when(missionCompletionSaga.toPinnedResponse(any(SagaResult.class)))
+                .thenReturn(DailyMissionInstanceResponse.from(instance));
+
+            DailyMissionInstanceResponse response =
+                service.completeInstanceByMission(MISSION_ID, TEST_USER_ID, today, "완료", false);
+
+            assertThat(response).isNotNull();
+        }
+
+        @Test
+        @DisplayName("기존 피드 업데이트 시 아직 공유 표시가 아니면 isSharedToFeed 를 true 로 바꾼다")
+        void shareToFeed_existingFeed_marksShared() {
+            markCompleted();
+            when(instanceRepository.findByIdWithParticipantAndMission(INSTANCE_ID)).thenReturn(Optional.of(instance));
+            when(feedCommandService.updateFeedContentByExecutionId(any(), any(), any(), any(), any(), any(), any()))
+                .thenReturn(ActivityFeed.builder().build());
+            when(instanceImageRepository.findByInstanceIdOrderBySortOrderAsc(INSTANCE_ID))
+                .thenReturn(List.of(imageOf("https://cdn/1.jpg", 0)));
+
+            DailyMissionInstanceResponse response = service.shareToFeed(INSTANCE_ID, TEST_USER_ID);
+
+            assertThat(instance.getIsSharedToFeed()).isTrue();
+            assertThat(response.getImageUrls()).containsExactly("https://cdn/1.jpg");
+        }
+
+        @Test
+        @DisplayName("GUILD 공개범위로 기존 피드 업데이트 시 길드 ID·이름을 전달한다")
+        void shareToFeed_guildVisibility_existingFeed_passesGuildInfo() {
+            markCompleted();
+            TestReflectionUtils.setField(mission, "guildId", "123");
+            TestReflectionUtils.setField(mission, "guildName", "우리길드");
+            when(instanceRepository.findByIdWithParticipantAndMission(INSTANCE_ID)).thenReturn(Optional.of(instance));
+            when(feedCommandService.updateFeedContentByExecutionId(any(), any(), any(), any(), any(), any(), any()))
+                .thenReturn(ActivityFeed.builder().build());
+
+            service.shareToFeed(INSTANCE_ID, TEST_USER_ID, FeedVisibility.GUILD);
+
+            verify(feedCommandService).updateFeedContentByExecutionId(
+                eq(INSTANCE_ID), eq(TEST_USER_ID), any(), any(), eq(FeedVisibility.GUILD), eq(123L), eq("우리길드"));
+        }
+
+        @Test
+        @DisplayName("GUILD 공개범위로 새 피드 생성 시 길드 ID·이름을 전달한다")
+        void shareToFeed_guildVisibility_newFeed_passesGuildInfo() {
+            markCompleted();
+            TestReflectionUtils.setField(mission, "guildId", "456");
+            TestReflectionUtils.setField(mission, "guildName", "새길드");
+            when(instanceRepository.findByIdWithParticipantAndMission(INSTANCE_ID)).thenReturn(Optional.of(instance));
+            when(feedCommandService.updateFeedContentByExecutionId(any(), any(), any(), any(), any(), any(), any()))
+                .thenReturn(null);
+            when(userQueryFacadeService.getUserProfile(TEST_USER_ID)).thenReturn(profile());
+            when(feedCommandService.createMissionSharedFeed(any(), any(), any(), any(), any(), any(), any(),
+                    any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any()))
+                .thenReturn(ActivityFeed.builder().build());
+
+            service.shareToFeed(INSTANCE_ID, TEST_USER_ID, FeedVisibility.GUILD);
+
+            verify(feedCommandService).createMissionSharedFeed(any(), any(), any(), any(), any(), any(), any(),
+                any(), any(), any(), any(), any(), any(), any(), any(), any(), eq(FeedVisibility.GUILD),
+                eq(456L), eq("새길드"));
+            assertThat(instance.getIsSharedToFeed()).isTrue();
+        }
+
+        @Test
+        @DisplayName("GUILD 공개범위지만 guildId 가 null 이면 길드 ID 는 null 이다")
+        void shareToFeed_guildVisibility_nullGuildId() {
+            markCompleted();
+            TestReflectionUtils.setField(mission, "guildId", null);
+            when(instanceRepository.findByIdWithParticipantAndMission(INSTANCE_ID)).thenReturn(Optional.of(instance));
+            when(feedCommandService.updateFeedContentByExecutionId(any(), any(), any(), any(), any(), any(), any()))
+                .thenReturn(ActivityFeed.builder().build());
+
+            service.shareToFeed(INSTANCE_ID, TEST_USER_ID, FeedVisibility.GUILD);
+
+            verify(feedCommandService).updateFeedContentByExecutionId(
+                eq(INSTANCE_ID), eq(TEST_USER_ID), any(), any(), eq(FeedVisibility.GUILD), org.mockito.ArgumentMatchers.isNull(), any());
+        }
+
+        @Test
+        @DisplayName("GUILD 공개범위지만 guildId 가 공백이면 길드 ID 는 null 이다")
+        void shareToFeed_guildVisibility_blankGuildId() {
+            markCompleted();
+            TestReflectionUtils.setField(mission, "guildId", "  ");
+            when(instanceRepository.findByIdWithParticipantAndMission(INSTANCE_ID)).thenReturn(Optional.of(instance));
+            when(feedCommandService.updateFeedContentByExecutionId(any(), any(), any(), any(), any(), any(), any()))
+                .thenReturn(ActivityFeed.builder().build());
+
+            service.shareToFeed(INSTANCE_ID, TEST_USER_ID, FeedVisibility.GUILD);
+
+            verify(feedCommandService).updateFeedContentByExecutionId(
+                eq(INSTANCE_ID), eq(TEST_USER_ID), any(), any(), eq(FeedVisibility.GUILD), org.mockito.ArgumentMatchers.isNull(), any());
+        }
+
+        @Test
+        @DisplayName("GUILD 공개범위지만 guildId 가 숫자가 아니면 길드 ID 는 null 이다")
+        void shareToFeed_guildVisibility_nonNumericGuildId() {
+            markCompleted();
+            TestReflectionUtils.setField(mission, "guildId", "abc");
+            when(instanceRepository.findByIdWithParticipantAndMission(INSTANCE_ID)).thenReturn(Optional.of(instance));
+            when(feedCommandService.updateFeedContentByExecutionId(any(), any(), any(), any(), any(), any(), any()))
+                .thenReturn(ActivityFeed.builder().build());
+
+            service.shareToFeed(INSTANCE_ID, TEST_USER_ID, FeedVisibility.GUILD);
+
+            verify(feedCommandService).updateFeedContentByExecutionId(
+                eq(INSTANCE_ID), eq(TEST_USER_ID), any(), any(), eq(FeedVisibility.GUILD), org.mockito.ArgumentMatchers.isNull(), any());
+        }
+
+        @Test
+        @DisplayName("피드 생성 실패 시 IllegalStateException 으로 감싼다")
+        void shareToFeed_createFeedFails_wraps() {
+            markCompleted();
+            when(instanceRepository.findByIdWithParticipantAndMission(INSTANCE_ID)).thenReturn(Optional.of(instance));
+            when(feedCommandService.updateFeedContentByExecutionId(any(), any(), any(), any(), any(), any(), any()))
+                .thenReturn(null);
+            when(userQueryFacadeService.getUserProfile(TEST_USER_ID)).thenThrow(new RuntimeException("user down"));
+
+            assertThatThrownBy(() -> service.shareToFeed(INSTANCE_ID, TEST_USER_ID))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("피드 생성에 실패했습니다");
+        }
+
+        @Test
+        @DisplayName("shareToFeedByMission(공개범위 지정)·instanceId 지정 시 직접 조회한다")
+        void shareToFeedByMission_withVisibilityAndInstanceId() {
+            markCompleted();
+            when(instanceRepository.findByIdWithParticipantAndMission(INSTANCE_ID)).thenReturn(Optional.of(instance));
+            when(feedCommandService.updateFeedContentByExecutionId(any(), any(), any(), any(), any(), any(), any()))
+                .thenReturn(ActivityFeed.builder().build());
+
+            DailyMissionInstanceResponse response = service.shareToFeedByMission(
+                MISSION_ID, TEST_USER_ID, LocalDate.now(), INSTANCE_ID, FeedVisibility.FRIENDS);
+
+            assertThat(response).isNotNull();
+            verify(participantRepository, never()).findByMissionIdAndUserId(any(), any());
+        }
+
+        @Test
+        @DisplayName("unshareFromFeedByMission 은 완료 인스턴스를 찾아 공유를 취소한다")
+        void unshareFromFeedByMission_success() {
+            LocalDate today = LocalDate.now();
+            markCompleted();
+            TestReflectionUtils.setField(instance, "isSharedToFeed", true);
+            when(participantRepository.findByMissionIdAndUserId(MISSION_ID, TEST_USER_ID))
+                .thenReturn(Optional.of(participant));
+            when(instanceRepository.findByParticipantIdAndInstanceDateOrderBySequenceDesc(PARTICIPANT_ID, today))
+                .thenReturn(List.of(instance));
+            when(instanceRepository.findByIdWithParticipantAndMission(INSTANCE_ID)).thenReturn(Optional.of(instance));
+
+            DailyMissionInstanceResponse response =
+                service.unshareFromFeedByMission(MISSION_ID, TEST_USER_ID, today, null);
+
+            assertThat(response.getIsSharedToFeed()).isFalse();
+        }
+
+        @Test
+        @DisplayName("완료 인스턴스가 없으면 resolveCompletedInstance 는 예외를 던진다")
+        void resolveCompletedInstance_noCompleted_throws() {
+            LocalDate today = LocalDate.now();
+            when(participantRepository.findByMissionIdAndUserId(MISSION_ID, TEST_USER_ID))
+                .thenReturn(Optional.of(participant));
+            when(instanceRepository.findByParticipantIdAndInstanceDateOrderBySequenceDesc(PARTICIPANT_ID, today))
+                .thenReturn(List.of(instance)); // PENDING
+
+            assertThatThrownBy(() -> service.unshareFromFeedByMission(MISSION_ID, TEST_USER_ID, today, null))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("완료된 인스턴스를 찾을 수 없습니다");
+        }
+
+        @Test
+        @DisplayName("updateNoteByMission: 완료 인스턴스의 노트를 갱신하고 이벤트를 발행한다")
+        void updateNoteByMission_success() {
+            markCompleted();
+            when(instanceRepository.findByIdWithParticipantAndMission(INSTANCE_ID)).thenReturn(Optional.of(instance));
+
+            DailyMissionInstanceResponse response = service.updateNoteByMission(
+                MISSION_ID, TEST_USER_ID, LocalDate.now(), "새 기록", INSTANCE_ID);
+
+            assertThat(response.getNote()).isEqualTo("새 기록");
+            verify(eventPublisher).publishEvent(any(io.pinkspider.global.event.MissionFeedNoteChangedEvent.class));
+        }
+
+        @Test
+        @DisplayName("updateNoteByMission: 완료되지 않은 인스턴스는 예외")
+        void updateNoteByMission_notCompleted_throws() {
+            when(instanceRepository.findByIdWithParticipantAndMission(INSTANCE_ID)).thenReturn(Optional.of(instance));
+
+            assertThatThrownBy(() -> service.updateNoteByMission(
+                    MISSION_ID, TEST_USER_ID, LocalDate.now(), "새 기록", INSTANCE_ID))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("완료된 미션만 기록을 추가할 수 있습니다");
+        }
+
+        @Test
+        @DisplayName("uploadImages: images 가 null 이면 예외")
+        void uploadImages_null_throws() {
+            assertThatThrownBy(() -> service.uploadImages(INSTANCE_ID, TEST_USER_ID, null))
+                .isInstanceOf(io.pinkspider.global.exception.CustomException.class)
+                .hasMessageContaining("error.mission.image.empty");
+        }
+
+        @Test
+        @DisplayName("이미지 삭제 후 남은 이미지의 sortOrder 를 재정렬하고 대표 이미지를 동기화한다")
+        void deleteImageByUrl_reordersRemainingImages() {
+            String deleted = "https://cdn/0.jpg";
+            var first = imageOf("https://cdn/1.jpg", 0);
+            var second = imageOf("https://cdn/2.jpg", 2);
+            when(instanceRepository.findByIdWithParticipantAndMission(INSTANCE_ID)).thenReturn(Optional.of(instance));
+            when(instanceImageRepository.findByInstanceIdAndImageUrl(INSTANCE_ID, deleted))
+                .thenReturn(Optional.of(imageOf(deleted, 0)));
+            when(instanceImageRepository.findByInstanceIdOrderBySortOrderAsc(INSTANCE_ID))
+                .thenReturn(List.of(first, second));
+
+            DailyMissionInstanceResponse response = service.deleteImageByUrl(INSTANCE_ID, TEST_USER_ID, deleted);
+
+            assertThat(first.getSortOrder()).isZero();
+            assertThat(second.getSortOrder()).isEqualTo(1);
+            assertThat(instance.getImageUrl()).isEqualTo("https://cdn/1.jpg");
+            assertThat(response.getImageUrls()).containsExactly("https://cdn/1.jpg", "https://cdn/2.jpg");
+        }
+
+        @Test
+        @DisplayName("getInstanceByMission: instanceId 지정 시 직접 조회한다")
+        void getInstanceByMission_withInstanceId() {
+            when(instanceRepository.findByIdWithParticipantAndMission(INSTANCE_ID)).thenReturn(Optional.of(instance));
+
+            DailyMissionInstanceResponse response =
+                service.getInstanceByMission(MISSION_ID, TEST_USER_ID, LocalDate.now(), INSTANCE_ID);
+
+            assertThat(response.getId()).isEqualTo(INSTANCE_ID);
+            verify(participantRepository, never()).findByMissionIdAndUserId(any(), any());
+        }
+
+        @Test
+        @DisplayName("getInstanceByMission: IN_PROGRESS 가 없으면 COMPLETED 인스턴스를 우선 반환한다")
+        void getInstanceByMission_prefersCompleted() {
+            LocalDate today = LocalDate.now();
+            DailyMissionInstance completed = DailyMissionInstance.createFrom(participant, today, 1);
+            setId(completed, 300L);
+            TestReflectionUtils.setField(completed, "status", ExecutionStatus.COMPLETED);
+            DailyMissionInstance pending = DailyMissionInstance.createFrom(participant, today, 2);
+            setId(pending, 301L);
+
+            when(participantRepository.findByMissionIdAndUserId(MISSION_ID, TEST_USER_ID))
+                .thenReturn(Optional.of(participant));
+            when(instanceRepository.findInProgressByParticipantIdAndDate(PARTICIPANT_ID, today))
+                .thenReturn(Optional.empty());
+            when(instanceRepository.findByParticipantIdAndInstanceDateOrderBySequenceDesc(PARTICIPANT_ID, today))
+                .thenReturn(List.of(pending, completed));
+
+            DailyMissionInstanceResponse response =
+                service.getInstanceByMission(MISSION_ID, TEST_USER_ID, today, null);
+
+            assertThat(response.getId()).isEqualTo(300L);
+        }
+    }
 }

@@ -8,7 +8,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 # Build
 ./gradlew clean build
 
-# Run ALL tests (4,100+ tests across 5 modules)
+# Run ALL tests (4,900+ tests across 5 modules)
 ./gradlew test
 
 # Run tests by module
@@ -29,7 +29,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 # Generate GraphQL classes from DGS schema
 ./gradlew generateJava
 
-# Test coverage report (minimum 75% — service 모듈 jacocoTestCoverageVerification 이 check/CI 에서 강제)
+# Test coverage report (minimum INSTRUCTION 80% + BRANCH 80% — service 모듈 jacocoTestCoverageVerification 이 check/CI 에서 강제)
 ./gradlew test jacocoTestReport
 # Report: service/build/reports/jacoco/html/index.html
 ```
@@ -145,11 +145,17 @@ All REST endpoints return `ApiResult<T>`:
 
 | Module            | Tests  | Content                                                       |
 |-------------------|--------|---------------------------------------------------------------|
-| `platform:kernel` | 49     | util tests + `NotificationTypeTest`                            |
-| `platform:infra`  | 2      | `RestExceptionHandlerTest` (resolver/profanity/crypto 테스트는 `service`로 이동) |
-| `platform:saga`   | 29     | saga framework tests                                          |
-| `service`         | 4,048  | all service unit + controller tests                           |
+| `platform:kernel` | 204    | util/wrapper/aop/converter/api tests + `NotificationTypeTest`  |
+| `platform:infra`  | 98     | JwtUtil/JwtAuthenticationFilter/RestExceptionHandler/Crypto/Feign 등 (resolver/profanity 테스트는 `service`) |
+| `platform:saga`   | 90     | saga framework tests                                          |
+| `service`         | 4,577  | all service unit + controller tests                           |
 | `app`             | 15     | `@SpringBootTest` (full context) + 벤치마크/통합                  |
+
+**커버리지 게이트** (`service/build.gradle` `jacocoTestCoverageVerification`, `check`에 연결): INSTRUCTION 80% + **BRANCH 80%**
+두 룰. `jacocoExcludes`(config/dto/entity/enums/외부 의존 컴포넌트 등)가 리포트와 게이트에 동일 적용. 2026-09-30 기준 INSTRUCTION 91.8% /
+BRANCH 88.0%. 분기 커버리지는 if/switch의 **모든 경로**를 요구하므로 새 조건 로직에는 양쪽 경로 테스트를 함께 작성할 것.
+분기 공략 시 `jacocoTestReport.xml`의 `<line nr mb cb>`(mb=미커버 분기 수)로 정확한 라인을 찾을 수 있다. app 모듈의 75% 룰은
+`check` 미연결·측정 대상 없음(무효).
 
 **Shared utilities**: `service/shared-test/src/test/java/` (`ControllerTestConfig`, `BaseTestController`, `MockUtil`,
 `TestApplication`). `kernel`의 `TestReflectionUtils`는 `java-test-fixtures` plugin으로 공유.

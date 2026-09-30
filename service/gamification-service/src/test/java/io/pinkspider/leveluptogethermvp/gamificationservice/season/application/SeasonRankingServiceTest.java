@@ -805,4 +805,182 @@ class SeasonRankingServiceTest {
         }
     }
 
+    @Nested
+    @DisplayName("분기 보강 — DTO 변환·칭호 조합·프로필 누락·탈퇴자·길드 경험치 null")
+    class BranchCoverageTest {
+
+        private Title title(String name, TitleRarity rarity, TitlePosition position, long id) {
+            Title t = Title.builder().name(name).rarity(rarity).positionType(position).build();
+            setId(t, id);
+            return t;
+        }
+
+        private UserTitle equipped(Title t, TitlePosition position) {
+            return UserTitle.builder()
+                .userId(testUserId)
+                .title(t)
+                .isEquipped(true)
+                .equippedPosition(position)
+                .build();
+        }
+
+        private void stubSingleActivePlayer(List<UserTitle> titles) {
+            List<Object[]> topGainers = new ArrayList<>();
+            topGainers.add(new Object[]{testUserId, 1000L});
+            when(seasonRepository.findCurrentSeason(any(LocalDateTime.class))).thenReturn(Optional.of(testSeason));
+            when(experienceHistoryRepository.findTopExpGainersByPeriod(any(), any(), any()))
+                .thenReturn(topGainers);
+            when(guildQueryFacadeService.getTopExpGuildsByPeriod(any(), any(), any()))
+                .thenReturn(List.of());
+            when(userQueryFacadeService.getActiveUserIds(List.of(testUserId))).thenReturn(List.of(testUserId));
+            when(userQueryFacadeService.getUserProfiles(List.of(testUserId)))
+                .thenReturn(java.util.Map.of(testUserId,
+                    new UserProfileInfo(testUserId, "테스터", null, 5, null, null, null)));
+            when(userExperienceRepository.findByUserIdIn(List.of(testUserId)))
+                .thenReturn(List.of(testUserExperience));
+            when(userTitleRepository.findEquippedTitlesByUserIdIn(List.of(testUserId)))
+                .thenReturn(titles);
+        }
+
+        @Test
+        @DisplayName("getSeasonMvpDataDto — 플레이어의 장착 아이템 희귀도를 DTO 로 그대로 옮긴다")
+        void getSeasonMvpDataDto_copiesEquippedItemRarities() {
+            stubSingleActivePlayer(List.of());
+            when(userItemService.getEquippedItemRarityMap(List.of(testUserId)))
+                .thenReturn(java.util.Map.of(testUserId,
+                    List.of(new EquippedItemRarityDto("HEAD", TitleRarity.EPIC))));
+
+            var result = seasonRankingService.getSeasonMvpDataDto(null);
+
+            assertThat(result).isPresent();
+            assertThat(result.get().seasonMvpPlayers()).hasSize(1);
+            assertThat(result.get().seasonMvpPlayers().get(0).equippedItemRarities())
+                .extracting(EquippedItemRarityDto::itemType).containsExactly("HEAD");
+            assertThat(result.get().currentSeason().title()).isEqualTo("2024 시즌 1");
+        }
+
+        @Test
+        @DisplayName("getSeasonMvpDataDto — 플레이어의 장착 아이템 희귀도가 null 이면 빈 목록으로 변환한다")
+        void getSeasonMvpDataDto_nullRarities_becomesEmptyList() {
+            SeasonRankingService spy = org.mockito.Mockito.spy(seasonRankingService);
+            io.pinkspider.leveluptogethermvp.gamificationservice.season.api.dto.SeasonResponse season =
+                new io.pinkspider.leveluptogethermvp.gamificationservice.season.api.dto.SeasonResponse(
+                    1L, "시즌", "설명", LocalDateTime.now().minusDays(1), LocalDateTime.now().plusDays(1),
+                    null, null, SeasonStatus.ACTIVE, SeasonStatus.ACTIVE.getDescription());
+            SeasonMvpPlayerResponse player = new SeasonMvpPlayerResponse(
+                testUserId, "닉", null, 5, null, null, null, null, null, null, 100L, 1, null);
+            org.mockito.Mockito.doReturn(Optional.of(SeasonMvpData.of(season, List.of(player), List.of())))
+                .when(spy).getSeasonMvpData("ko");
+
+            var result = spy.getSeasonMvpDataDto("ko");
+
+            assertThat(result).isPresent();
+            assertThat(result.get().seasonMvpPlayers()).hasSize(1);
+            assertThat(result.get().seasonMvpPlayers().get(0).equippedItemRarities()).isEmpty();
+            assertThat(result.get().currentSeason().status()).isEqualTo("ACTIVE");
+        }
+
+        @Test
+        @DisplayName("LEFT 칭호만 있으면 LEFT 이름·등급이 대표값이고 RIGHT 는 null 이다")
+        void getSeasonMvpData_leftTitleOnly() {
+            stubSingleActivePlayer(List.of(
+                equipped(title("강인한", TitleRarity.RARE, TitlePosition.LEFT, 1L), TitlePosition.LEFT)));
+
+            Optional<SeasonMvpData> result = seasonRankingService.getSeasonMvpData(null);
+
+            SeasonMvpPlayerResponse player = result.get().seasonMvpPlayers().get(0);
+            assertThat(player.title()).isEqualTo("강인한");
+            assertThat(player.titleRarity()).isEqualTo(TitleRarity.RARE);
+            assertThat(player.leftTitle()).isEqualTo("강인한");
+            assertThat(player.leftTitleRarity()).isEqualTo(TitleRarity.RARE);
+            assertThat(player.rightTitle()).isNull();
+            assertThat(player.rightTitleRarity()).isNull();
+        }
+
+        @Test
+        @DisplayName("LEFT 칭호 등급이 RIGHT 보다 높으면 LEFT 등급이 대표 등급이다")
+        void getSeasonMvpData_leftRarityHigher() {
+            stubSingleActivePlayer(List.of(
+                equipped(title("전설의", TitleRarity.LEGENDARY, TitlePosition.LEFT, 1L), TitlePosition.LEFT),
+                equipped(title("전사", TitleRarity.COMMON, TitlePosition.RIGHT, 2L), TitlePosition.RIGHT)));
+
+            Optional<SeasonMvpData> result = seasonRankingService.getSeasonMvpData(null);
+
+            SeasonMvpPlayerResponse player = result.get().seasonMvpPlayers().get(0);
+            assertThat(player.title()).isEqualTo("전설의 전사");
+            assertThat(player.titleRarity()).isEqualTo(TitleRarity.LEGENDARY);
+        }
+
+        @Test
+        @DisplayName("시즌 MVP 플레이어의 프로필이 없으면 닉네임·이미지가 null 이다")
+        void getSeasonMvpData_missingProfile() {
+            List<Object[]> topGainers = new ArrayList<>();
+            topGainers.add(new Object[]{testUserId, 1000L});
+            when(seasonRepository.findCurrentSeason(any(LocalDateTime.class))).thenReturn(Optional.of(testSeason));
+            when(experienceHistoryRepository.findTopExpGainersByPeriod(any(), any(), any()))
+                .thenReturn(topGainers);
+            when(guildQueryFacadeService.getTopExpGuildsByPeriod(any(), any(), any()))
+                .thenReturn(List.of());
+            when(userQueryFacadeService.getActiveUserIds(List.of(testUserId))).thenReturn(List.of(testUserId));
+            when(userQueryFacadeService.getUserProfiles(List.of(testUserId))).thenReturn(java.util.Map.of());
+            when(userExperienceRepository.findByUserIdIn(List.of(testUserId))).thenReturn(List.of());
+            when(userTitleRepository.findEquippedTitlesByUserIdIn(List.of(testUserId))).thenReturn(List.of());
+
+            Optional<SeasonMvpData> result = seasonRankingService.getSeasonMvpData(null);
+
+            SeasonMvpPlayerResponse player = result.get().seasonMvpPlayers().get(0);
+            assertThat(player.nickname()).isNull();
+            assertThat(player.profileImageUrl()).isNull();
+            assertThat(player.level()).isEqualTo(1);
+        }
+
+        @Test
+        @DisplayName("getSeasonPlayerRankings — 탈퇴 유저는 제외되고 프로필 없는 유저는 닉네임 null 이다")
+        void getSeasonPlayerRankings_withdrawnFiltered_missingProfile() {
+            String withdrawn = "withdrawn-user";
+            List<Object[]> topGainers = new ArrayList<>();
+            topGainers.add(new Object[]{withdrawn, 2000L});
+            topGainers.add(new Object[]{testUserId, 1000L});
+            when(experienceHistoryRepository.findTopExpGainersByPeriod(any(), any(), any()))
+                .thenReturn(topGainers);
+            when(userQueryFacadeService.getActiveUserIds(List.of(withdrawn, testUserId)))
+                .thenReturn(List.of(testUserId));
+            when(userQueryFacadeService.getUserProfiles(List.of(withdrawn, testUserId)))
+                .thenReturn(java.util.Map.of());
+            when(userExperienceRepository.findByUserIdIn(List.of(withdrawn, testUserId)))
+                .thenReturn(List.of(testUserExperience));
+            when(userTitleRepository.findEquippedTitlesByUserIdIn(List.of(withdrawn, testUserId)))
+                .thenReturn(List.of());
+
+            var result = seasonRankingService.getSeasonPlayerRankings(testSeason, null, 10, null);
+
+            assertThat(result).hasSize(1);
+            assertThat(result.get(0).userId()).isEqualTo(testUserId);
+            assertThat(result.get(0).rank()).isEqualTo(1);
+            assertThat(result.get(0).nickname()).isNull();
+            assertThat(result.get(0).profileImageUrl()).isNull();
+        }
+
+        @Test
+        @DisplayName("getMySeasonRanking — 길드 경험치 합계가 null 이면 길드 랭킹 없이 길드 정보만 반환한다")
+        void getMySeasonRanking_guildExpNull() {
+            when(experienceHistoryRepository.sumExpByUserIdAndPeriod(any(), any(), any()))
+                .thenReturn(null);
+            io.pinkspider.global.facade.dto.GuildMembershipInfo guildMembership =
+                new io.pinkspider.global.facade.dto.GuildMembershipInfo(
+                    30L, "길드B", null, 2, false, false);
+            when(guildQueryFacadeService.getUserGuildMemberships(testUserId))
+                .thenReturn(List.of(guildMembership));
+            when(guildQueryFacadeService.sumGuildExpByPeriod(eq(30L), any(), any()))
+                .thenReturn(null);
+
+            var result = seasonRankingService.getMySeasonRanking(testSeason, testUserId);
+
+            assertThat(result.guildId()).isEqualTo(30L);
+            assertThat(result.guildName()).isEqualTo("길드B");
+            assertThat(result.guildRank()).isNull();
+            assertThat(result.guildSeasonExp()).isNull();
+        }
+    }
+
 }

@@ -987,4 +987,651 @@ class MultiDeviceTokenServiceTest {
                 .isNotEqualTo(MultiDeviceTokenService.hashToken("other-token"));
         }
     }
+
+    @Nested
+    @DisplayName("isWithinRotationGrace 경계 테스트")
+    class IsWithinRotationGraceEdgeTest {
+
+        @Test
+        @DisplayName("제시 토큰이 null이면 Redis 조회 없이 false")
+        void nullPresentedToken_returnsFalse() {
+            assertThat(multiDeviceTokenService.isWithinRotationGrace(
+                TEST_USER_ID, DEVICE_TYPE, DEVICE_ID, null)).isFalse();
+
+            verify(redisTemplate, never()).opsForHash();
+        }
+
+        @Test
+        @DisplayName("previous 해시는 있지만 previousRefreshTime이 없으면 false")
+        void missingPreviousTime_returnsFalse() {
+            when(redisTemplate.opsForHash()).thenReturn(hashOperations);
+            when(hashOperations.get(SESSION_KEY, "previousRefreshToken"))
+                .thenReturn(MultiDeviceTokenService.hashToken(REFRESH_TOKEN));
+            when(hashOperations.get(SESSION_KEY, "previousRefreshTime")).thenReturn(null);
+
+            assertThat(multiDeviceTokenService.isWithinRotationGrace(
+                TEST_USER_ID, DEVICE_TYPE, DEVICE_ID, REFRESH_TOKEN)).isFalse();
+        }
+
+        @Test
+        @DisplayName("previousRefreshTime이 숫자가 아니면 false")
+        void corruptedPreviousTime_returnsFalse() {
+            when(redisTemplate.opsForHash()).thenReturn(hashOperations);
+            when(hashOperations.get(SESSION_KEY, "previousRefreshToken"))
+                .thenReturn(MultiDeviceTokenService.hashToken(REFRESH_TOKEN));
+            when(hashOperations.get(SESSION_KEY, "previousRefreshTime")).thenReturn("not-a-number");
+
+            assertThat(multiDeviceTokenService.isWithinRotationGrace(
+                TEST_USER_ID, DEVICE_TYPE, DEVICE_ID, REFRESH_TOKEN)).isFalse();
+        }
+    }
+
+    @Nested
+    @DisplayName("checkRefreshToken 경계 테스트")
+    class CheckRefreshTokenEdgeTest {
+
+        @Test
+        @DisplayName("제시 토큰이 null이면 세션이 있어도 MISMATCH")
+        void nullPresentedToken_returnsMismatch() {
+            when(redisTemplate.opsForHash()).thenReturn(hashOperations);
+            when(hashOperations.get(SESSION_KEY, "refreshToken"))
+                .thenReturn(MultiDeviceTokenService.hashToken(REFRESH_TOKEN));
+
+            assertThat(multiDeviceTokenService.checkRefreshToken(
+                TEST_USER_ID, DEVICE_TYPE, DEVICE_ID, null))
+                .isEqualTo(RefreshTokenMatch.MISMATCH);
+        }
+    }
+
+    @Nested
+    @DisplayName("blacklistToken jti 경계 테스트")
+    class BlacklistJtiEdgeTest {
+
+        @Test
+        @DisplayName("jti가 null이면 블랙리스트에 추가하지 않는다")
+        void nullJti_notAdded() {
+            when(jwtUtil.validateToken(ACCESS_TOKEN)).thenReturn(true);
+            when(jwtUtil.getJtiFromToken(ACCESS_TOKEN)).thenReturn(null);
+            when(jwtUtil.getRemainingTime(ACCESS_TOKEN)).thenReturn(60_000L);
+
+            multiDeviceTokenService.blacklistToken(ACCESS_TOKEN);
+
+            verify(redisTemplate, never()).opsForValue();
+        }
+    }
+
+    @Nested
+    @DisplayName("logoutAllDevices 경계 테스트")
+    class LogoutAllDevicesEdgeTest {
+
+        @Test
+        @DisplayName("세션 목록이 빈 Set이면 세션 처리 없이 목록 키만 삭제한다")
+        void emptySessions_onlyDeletesUserSessionsKey() {
+            when(redisTemplate.opsForSet()).thenReturn(setOperations);
+            when(setOperations.members("userSessions:" + TEST_USER_ID)).thenReturn(new HashSet<>());
+
+            multiDeviceTokenService.logoutAllDevices(TEST_USER_ID);
+
+            verify(redisTemplate, never()).opsForHash();
+            verify(redisTemplate).delete("userSessions:" + TEST_USER_ID);
+        }
+    }
+
+    @Nested
+    @DisplayName("getSessionInfo 갱신 판정 테스트")
+    class GetSessionInfoRenewTest {
+
+        private Map<Object, Object> sessionWithRefreshExp(long expiresAt) {
+            Map<Object, Object> sessionData = new HashMap<>();
+            sessionData.put("refreshExpiresAt", String.valueOf(expiresAt));
+            sessionData.put("loginTime", String.valueOf(System.currentTimeMillis()));
+            return sessionData;
+        }
+
+        @Test
+        @DisplayName("refresh가 만료됐으면 valid/canRenew 모두 false이고 최대수명 판정은 하지 않는다")
+        void expiredRefresh_notValid() {
+            when(redisTemplate.opsForHash()).thenReturn(hashOperations);
+            when(hashOperations.entries(SESSION_KEY))
+                .thenReturn(sessionWithRefreshExp(System.currentTimeMillis() - 1000L));
+
+            Map<String, Object> result = multiDeviceTokenService.getSessionInfo(
+                TEST_USER_ID, DEVICE_TYPE, DEVICE_ID);
+
+            assertThat(result.get("refreshTokenValid")).isEqualTo(false);
+            assertThat(result.get("canRenewRefreshToken")).isEqualTo(false);
+            verify(slidingExpirationService, never()).isSessionWithinMaxLifetime(any());
+        }
+
+        @Test
+        @DisplayName("갱신 시점이 아니면 canRenew는 false이고 최대수명 판정은 하지 않는다")
+        void shouldNotRenew_cannotRenew() {
+            when(redisTemplate.opsForHash()).thenReturn(hashOperations);
+            when(hashOperations.entries(SESSION_KEY))
+                .thenReturn(sessionWithRefreshExp(
+                    System.currentTimeMillis() + Duration.ofDays(60).toMillis()));
+            when(slidingExpirationService.shouldRenewByRemainingMillis(
+                org.mockito.ArgumentMatchers.anyLong())).thenReturn(false);
+
+            Map<String, Object> result = multiDeviceTokenService.getSessionInfo(
+                TEST_USER_ID, DEVICE_TYPE, DEVICE_ID);
+
+            assertThat(result.get("refreshTokenValid")).isEqualTo(true);
+            assertThat(result.get("shouldRenewRefreshToken")).isEqualTo(false);
+            assertThat(result.get("canRenewRefreshToken")).isEqualTo(false);
+            verify(slidingExpirationService, never()).isSessionWithinMaxLifetime(any());
+        }
+
+        @Test
+        @DisplayName("세션 절대 상한을 넘었으면 갱신 시점이어도 canRenew는 false")
+        void beyondMaxLifetime_cannotRenew() {
+            when(redisTemplate.opsForHash()).thenReturn(hashOperations);
+            when(hashOperations.entries(SESSION_KEY))
+                .thenReturn(sessionWithRefreshExp(
+                    System.currentTimeMillis() + Duration.ofDays(60).toMillis()));
+            when(slidingExpirationService.shouldRenewByRemainingMillis(
+                org.mockito.ArgumentMatchers.anyLong())).thenReturn(true);
+            when(slidingExpirationService.isSessionWithinMaxLifetime(any())).thenReturn(false);
+
+            Map<String, Object> result = multiDeviceTokenService.getSessionInfo(
+                TEST_USER_ID, DEVICE_TYPE, DEVICE_ID);
+
+            assertThat(result.get("shouldRenewRefreshToken")).isEqualTo(true);
+            assertThat(result.get("canRenewRefreshToken")).isEqualTo(false);
+        }
+
+        @Test
+        @DisplayName("레거시 평문 refresh 잔여시간 계산이 실패하면 0으로 취급한다")
+        void legacyRefreshParseFailure_zeroRemaining() {
+            when(redisTemplate.opsForHash()).thenReturn(hashOperations);
+            Map<Object, Object> sessionData = new HashMap<>();
+            sessionData.put("refreshToken", REFRESH_TOKEN);
+            when(hashOperations.entries(SESSION_KEY)).thenReturn(sessionData);
+            when(jwtUtil.getRemainingTime(REFRESH_TOKEN)).thenThrow(new RuntimeException("bad"));
+
+            Map<String, Object> result = multiDeviceTokenService.getSessionInfo(
+                TEST_USER_ID, DEVICE_TYPE, DEVICE_ID);
+
+            assertThat(result.get("refreshTokenRemaining")).isEqualTo(0L);
+            assertThat(result.get("refreshTokenValid")).isEqualTo(false);
+        }
+    }
+
+    @Nested
+    @DisplayName("getActiveSessions 필드 경계 테스트")
+    class GetActiveSessionsEdgeTest {
+
+        private static final String KEY = "session:" + TEST_USER_ID + ":device1";
+
+        private void stubSession(Map<Object, Object> sessionData) {
+            when(redisTemplate.opsForSet()).thenReturn(setOperations);
+            when(redisTemplate.opsForHash()).thenReturn(hashOperations);
+            when(setOperations.members("userSessions:" + TEST_USER_ID)).thenReturn(Set.of(KEY));
+            when(hashOperations.entries(KEY)).thenReturn(sessionData);
+        }
+
+        @Test
+        @DisplayName("토큰 정보가 전혀 없으면 잔여시간 필드를 채우지 않고 문자열 필드는 null")
+        void noTokenInfo_fieldsNull() {
+            Map<Object, Object> sessionData = new HashMap<>();
+            sessionData.put("userId", TEST_USER_ID);
+            stubSession(sessionData);
+
+            List<Session> result = multiDeviceTokenService.getActiveSessions(TEST_USER_ID);
+
+            assertThat(result).hasSize(1);
+            Session session = result.get(0);
+            assertThat(session.getDeviceType()).isNull();
+            assertThat(session.getRefreshTokenRemaining()).isNull();
+            assertThat(session.getAccessTokenRemaining()).isNull();
+            assertThat(session.isRefreshTokenValid()).isFalse();
+            assertThat(session.isAccessTokenValid()).isFalse();
+        }
+
+        @Test
+        @DisplayName("만료된 exp 메타데이터는 잔여 0과 valid=false로 표시한다")
+        void expiredMetadata_invalid() {
+            long past = System.currentTimeMillis() - Duration.ofHours(1).toMillis();
+            Map<Object, Object> sessionData = new HashMap<>();
+            sessionData.put("refreshExpiresAt", String.valueOf(past));
+            sessionData.put("accessExpiresAt", String.valueOf(past));
+            stubSession(sessionData);
+
+            List<Session> result = multiDeviceTokenService.getActiveSessions(TEST_USER_ID);
+
+            Session session = result.get(0);
+            assertThat(session.getRefreshTokenRemaining()).isEqualTo(java.math.BigInteger.ZERO);
+            assertThat(session.isRefreshTokenValid()).isFalse();
+            assertThat(session.getAccessTokenRemaining()).isEqualTo(java.math.BigInteger.ZERO);
+            assertThat(session.isAccessTokenValid()).isFalse();
+        }
+
+        @Test
+        @DisplayName("레거시 평문 access 토큰은 원문에서 잔여시간을 계산한다")
+        void legacyAccessToken_computedFromRaw() {
+            Map<Object, Object> sessionData = new HashMap<>();
+            sessionData.put("accessToken", "legacy-access");
+            sessionData.put("refreshToken", REFRESH_TOKEN);
+            stubSession(sessionData);
+            when(jwtUtil.getRemainingTime("legacy-access")).thenReturn(5_000L);
+            when(jwtUtil.getRemainingTime(REFRESH_TOKEN)).thenThrow(new RuntimeException("bad"));
+
+            List<Session> result = multiDeviceTokenService.getActiveSessions(TEST_USER_ID);
+
+            Session session = result.get(0);
+            assertThat(session.getAccessTokenRemaining())
+                .isEqualTo(java.math.BigInteger.valueOf(5_000L));
+            assertThat(session.isAccessTokenValid()).isTrue();
+            // 레거시 refresh 파싱 실패 → 0 취급
+            assertThat(session.getRefreshTokenRemaining()).isEqualTo(java.math.BigInteger.ZERO);
+            assertThat(session.isRefreshTokenValid()).isFalse();
+        }
+
+        @Test
+        @DisplayName("레거시 평문 access 토큰 파싱이 실패하면 0으로 취급한다")
+        void legacyAccessTokenParseFailure_zero() {
+            Map<Object, Object> sessionData = new HashMap<>();
+            sessionData.put("accessToken", "broken-access");
+            stubSession(sessionData);
+            when(jwtUtil.getRemainingTime("broken-access")).thenThrow(new RuntimeException("bad"));
+
+            List<Session> result = multiDeviceTokenService.getActiveSessions(TEST_USER_ID);
+
+            Session session = result.get(0);
+            assertThat(session.getAccessTokenRemaining()).isEqualTo(java.math.BigInteger.ZERO);
+            assertThat(session.isAccessTokenValid()).isFalse();
+        }
+    }
+
+    @Nested
+    @DisplayName("getSessionStats 테스트")
+    class GetSessionStatsTest {
+
+        @SuppressWarnings("unchecked")
+        private Map<String, Object> captureStats() {
+            ArgumentCaptor<Object> captor = ArgumentCaptor.forClass(Object.class);
+            verify(objectMapper).convertValue(captor.capture(), eq(Session.class));
+            return (Map<String, Object>) captor.getValue();
+        }
+
+        @Test
+        @DisplayName("세션이 없으면 총 개수 0이고 최초/최근 로그인 시각을 넣지 않는다")
+        void noSessions_noLoginTimes() {
+            Session mapped = Session.builder().build();
+            when(objectMapper.convertValue(any(), eq(Session.class))).thenReturn(mapped);
+
+            Session result = multiDeviceTokenService.getSessionStats(TEST_USER_ID);
+
+            assertThat(result).isSameAs(mapped);
+            Map<String, Object> stats = captureStats();
+            assertThat(stats.get("totalSessions")).isEqualTo(0);
+            assertThat(stats).doesNotContainKeys("oldestLoginTime", "newestLoginTime");
+        }
+
+        @Test
+        @DisplayName("세션이 있으면 가장 오래된/최근 로그인 시각과 디바이스별 개수를 계산한다")
+        void withSessions_loginTimesComputed() {
+            when(redisTemplate.opsForHash()).thenReturn(hashOperations);
+            String key1 = "session:" + TEST_USER_ID + ":d1";
+            String key2 = "session:" + TEST_USER_ID + ":d2";
+            when(setOperations.members("userSessions:" + TEST_USER_ID)).thenReturn(Set.of(key1, key2));
+
+            Map<Object, Object> s1 = new HashMap<>();
+            s1.put("deviceType", "ios");
+            s1.put("loginTime", "1000");
+            Map<Object, Object> s2 = new HashMap<>();
+            s2.put("deviceType", "ios");
+            s2.put("loginTime", "5000");
+            when(hashOperations.entries(key1)).thenReturn(s1);
+            when(hashOperations.entries(key2)).thenReturn(s2);
+            when(objectMapper.convertValue(any(), eq(Session.class)))
+                .thenReturn(Session.builder().build());
+
+            multiDeviceTokenService.getSessionStats(TEST_USER_ID);
+
+            Map<String, Object> stats = captureStats();
+            assertThat(stats.get("totalSessions")).isEqualTo(2);
+            assertThat(stats.get("oldestLoginTime")).isEqualTo(1000L);
+            assertThat(stats.get("newestLoginTime")).isEqualTo(5000L);
+            @SuppressWarnings("unchecked")
+            Map<String, Long> deviceTypeCounts = (Map<String, Long>) stats.get("deviceTypeCounts");
+            assertThat(deviceTypeCounts).containsEntry("ios", 2L);
+        }
+    }
+
+    @Nested
+    @DisplayName("cleanupExpiredSessions 경계 테스트")
+    class CleanupExpiredSessionsEdgeTest {
+
+        @Test
+        @DisplayName("userId를 추출할 수 없는 키는 세션만 삭제하고 세션 목록은 건드리지 않는다")
+        void keyWithoutUserId_deletedWithoutSetRemoval() {
+            when(redisTemplate.keys("session:*")).thenReturn(Set.of("session:"));
+            when(redisTemplate.opsForHash()).thenReturn(hashOperations);
+            when(hashOperations.get("session:", "refreshExpiresAt"))
+                .thenReturn(String.valueOf(System.currentTimeMillis() - 1000L));
+
+            assertThat(multiDeviceTokenService.cleanupExpiredSessions()).isEqualTo(1);
+
+            verify(redisTemplate).delete("session:");
+            verify(redisTemplate, never()).opsForSet();
+        }
+
+        @Test
+        @DisplayName("레거시 평문 refresh가 아직 유효하면 삭제하지 않는다")
+        void legacyValid_notDeleted() {
+            String key = "session:user5:device5";
+            when(redisTemplate.keys("session:*")).thenReturn(Set.of(key));
+            when(redisTemplate.opsForHash()).thenReturn(hashOperations);
+            when(hashOperations.get(key, "refreshExpiresAt")).thenReturn(null);
+            when(hashOperations.get(key, "refreshToken")).thenReturn(REFRESH_TOKEN);
+            when(jwtUtil.validateToken(REFRESH_TOKEN)).thenReturn(true);
+
+            assertThat(multiDeviceTokenService.cleanupExpiredSessions()).isEqualTo(0);
+            verify(redisTemplate, never()).delete(eq(key));
+        }
+    }
+
+    @Nested
+    @DisplayName("updateTokens TTL/메타데이터 경계 테스트")
+    class UpdateTokensEdgeTest {
+
+        private void stubNewAccess() {
+            when(jwtUtil.getJtiFromToken("new-access-token")).thenReturn("new-access-jti");
+            when(jwtUtil.getRemainingTime("new-access-token"))
+                .thenReturn(Duration.ofHours(24).toMillis());
+        }
+
+        private void stubNewRefresh() {
+            when(jwtUtil.getJtiFromToken("new-refresh-token")).thenReturn("new-refresh-jti");
+            when(jwtUtil.getRemainingTime("new-refresh-token"))
+                .thenReturn(Duration.ofDays(90).toMillis());
+        }
+
+        /** rotation 경로가 읽는 previous* 필드를 전부 없음으로 고정 (strict stubs) */
+        private void stubNoPrevious() {
+            when(hashOperations.get(SESSION_KEY, "previousRefreshTime")).thenReturn(null);
+            when(hashOperations.get(SESSION_KEY, "previousRefreshJti")).thenReturn(null);
+            when(hashOperations.get(SESSION_KEY, "previousRefreshExpiresAt")).thenReturn(null);
+            when(hashOperations.get(SESSION_KEY, "previousRefreshToken")).thenReturn(null);
+        }
+
+        @Test
+        @DisplayName("access 메타데이터 추출이 실패하면 putAll 없이 레거시 필드만 제거하고 TTL은 버퍼만 적용한다")
+        void accessMetadataFailure_noPutAll_bufferTtl() {
+            when(redisTemplate.opsForHash()).thenReturn(hashOperations);
+            when(jwtUtil.getJtiFromToken("bad-access")).thenThrow(new RuntimeException("bad"));
+            when(hashOperations.get(SESSION_KEY, "refreshExpiresAt")).thenReturn(null);
+            when(hashOperations.get(SESSION_KEY, "refreshToken")).thenReturn(null);
+
+            multiDeviceTokenService.updateTokens(
+                TEST_USER_ID, DEVICE_TYPE, DEVICE_ID, "bad-access", null);
+
+            verify(hashOperations, never()).putAll(eq(SESSION_KEY), any());
+            verify(hashOperations).delete(SESSION_KEY, "accessToken");
+            verify(redisTemplate).expire(eq(SESSION_KEY), eq(Duration.ofDays(1)));
+        }
+
+        @Test
+        @DisplayName("저장된 refresh exp가 이미 지났으면 TTL은 버퍼만 적용한다")
+        void storedRefreshExpired_bufferTtl() {
+            when(redisTemplate.opsForHash()).thenReturn(hashOperations);
+            stubNewAccess();
+            when(hashOperations.get(SESSION_KEY, "refreshExpiresAt"))
+                .thenReturn(String.valueOf(System.currentTimeMillis() - 1000L));
+
+            multiDeviceTokenService.updateTokens(
+                TEST_USER_ID, DEVICE_TYPE, DEVICE_ID, "new-access-token", null);
+
+            verify(redisTemplate).expire(eq(SESSION_KEY), eq(Duration.ofDays(1)));
+        }
+
+        @Test
+        @DisplayName("exp 메타데이터가 없고 레거시 평문 refresh면 원문 잔여시간으로 TTL을 계산한다")
+        void legacyStoredRefresh_ttlFromRaw() {
+            when(redisTemplate.opsForHash()).thenReturn(hashOperations);
+            stubNewAccess();
+            when(hashOperations.get(SESSION_KEY, "refreshExpiresAt")).thenReturn(null);
+            when(hashOperations.get(SESSION_KEY, "refreshToken")).thenReturn(REFRESH_TOKEN);
+            when(jwtUtil.getRemainingTime(REFRESH_TOKEN)).thenReturn(Duration.ofDays(10).toMillis());
+
+            multiDeviceTokenService.updateTokens(
+                TEST_USER_ID, DEVICE_TYPE, DEVICE_ID, "new-access-token", null);
+
+            verify(redisTemplate).expire(eq(SESSION_KEY), eq(Duration.ofDays(11)));
+        }
+
+        @Test
+        @DisplayName("exp 메타데이터가 없고 해시 refresh면 TTL은 버퍼만 적용한다")
+        void hashedStoredRefreshWithoutExp_bufferTtl() {
+            when(redisTemplate.opsForHash()).thenReturn(hashOperations);
+            stubNewAccess();
+            when(hashOperations.get(SESSION_KEY, "refreshExpiresAt")).thenReturn(null);
+            when(hashOperations.get(SESSION_KEY, "refreshToken"))
+                .thenReturn(MultiDeviceTokenService.hashToken(REFRESH_TOKEN));
+
+            multiDeviceTokenService.updateTokens(
+                TEST_USER_ID, DEVICE_TYPE, DEVICE_ID, "new-access-token", null);
+
+            verify(redisTemplate).expire(eq(SESSION_KEY), eq(Duration.ofDays(1)));
+            verify(jwtUtil, never()).getRemainingTime(REFRESH_TOKEN);
+        }
+
+        @Test
+        @DisplayName("rotation 시 현재 refresh 기록이 없으면 previous를 만들지 않는다")
+        void rotationWithoutCurrent_noPrevious() {
+            when(redisTemplate.opsForHash()).thenReturn(hashOperations);
+            stubNewAccess();
+            stubNewRefresh();
+            stubNoPrevious();
+            when(hashOperations.get(SESSION_KEY, "refreshToken")).thenReturn(null);
+
+            multiDeviceTokenService.updateTokens(
+                TEST_USER_ID, DEVICE_TYPE, DEVICE_ID, "new-access-token", "new-refresh-token");
+
+            Map<String, String> stored = captureAllPutFields();
+            assertThat(stored).doesNotContainKeys("previousRefreshToken", "previousRefreshTime");
+            assertThat(stored.get("refreshJti")).isEqualTo("new-refresh-jti");
+        }
+
+        @Test
+        @DisplayName("rotation 시 레거시 평문 현재 토큰은 원문에서 previous 메타데이터를 추출한다")
+        void rotationLegacyCurrent_extractsMetadata() {
+            when(redisTemplate.opsForHash()).thenReturn(hashOperations);
+            stubNewAccess();
+            stubNewRefresh();
+            stubNoPrevious();
+            when(hashOperations.get(SESSION_KEY, "refreshToken")).thenReturn(REFRESH_TOKEN);
+            when(hashOperations.get(SESSION_KEY, "refreshJti")).thenReturn(null);
+            when(hashOperations.get(SESSION_KEY, "refreshExpiresAt")).thenReturn(null);
+            when(jwtUtil.getJtiFromToken(REFRESH_TOKEN)).thenReturn("legacy-jti");
+            when(jwtUtil.getRemainingTime(REFRESH_TOKEN)).thenReturn(1_000L);
+
+            multiDeviceTokenService.updateTokens(
+                TEST_USER_ID, DEVICE_TYPE, DEVICE_ID, "new-access-token", "new-refresh-token");
+
+            Map<String, String> stored = captureAllPutFields();
+            assertThat(stored.get("previousRefreshToken")).isEqualTo(REFRESH_TOKEN);
+            assertThat(stored.get("previousRefreshJti")).isEqualTo("legacy-jti");
+            assertThat(stored).containsKey("previousRefreshExpiresAt");
+        }
+
+        @Test
+        @DisplayName("rotation 시 레거시 원문 메타데이터 추출이 실패하면 previous jti/exp 없이 저장한다")
+        void rotationLegacyCurrent_metadataFailure() {
+            when(redisTemplate.opsForHash()).thenReturn(hashOperations);
+            stubNewAccess();
+            stubNewRefresh();
+            stubNoPrevious();
+            when(hashOperations.get(SESSION_KEY, "refreshToken")).thenReturn(REFRESH_TOKEN);
+            when(hashOperations.get(SESSION_KEY, "refreshJti")).thenReturn(null);
+            when(hashOperations.get(SESSION_KEY, "refreshExpiresAt")).thenReturn(null);
+            when(jwtUtil.getJtiFromToken(REFRESH_TOKEN)).thenThrow(new RuntimeException("bad"));
+
+            multiDeviceTokenService.updateTokens(
+                TEST_USER_ID, DEVICE_TYPE, DEVICE_ID, "new-access-token", "new-refresh-token");
+
+            Map<String, String> stored = captureAllPutFields();
+            assertThat(stored.get("previousRefreshToken")).isEqualTo(REFRESH_TOKEN);
+            assertThat(stored).doesNotContainKeys("previousRefreshJti", "previousRefreshExpiresAt");
+        }
+
+        @Test
+        @DisplayName("rotation 시 해시 현재 토큰에 jti가 없으면 exp만 previous로 옮긴다")
+        void rotationHashedCurrentWithoutJti_expOnly() {
+            when(redisTemplate.opsForHash()).thenReturn(hashOperations);
+            stubNewAccess();
+            stubNewRefresh();
+            stubNoPrevious();
+            when(hashOperations.get(SESSION_KEY, "refreshToken"))
+                .thenReturn(MultiDeviceTokenService.hashToken(REFRESH_TOKEN));
+            when(hashOperations.get(SESSION_KEY, "refreshJti")).thenReturn(null);
+            when(hashOperations.get(SESSION_KEY, "refreshExpiresAt")).thenReturn("1893456000000");
+
+            multiDeviceTokenService.updateTokens(
+                TEST_USER_ID, DEVICE_TYPE, DEVICE_ID, "new-access-token", "new-refresh-token");
+
+            Map<String, String> stored = captureAllPutFields();
+            assertThat(stored).doesNotContainKey("previousRefreshJti");
+            assertThat(stored.get("previousRefreshExpiresAt")).isEqualTo("1893456000000");
+            verify(jwtUtil, never()).getJtiFromToken(REFRESH_TOKEN);
+        }
+    }
+
+    @Nested
+    @DisplayName("logout 블랙리스트 폴백 경계 테스트")
+    class LogoutFallbackTest {
+
+        @Test
+        @DisplayName("previous jti는 있지만 exp가 없으면 레거시 평문 previous를 원문으로 블랙리스트한다")
+        void previousMissingExp_fallsBackToRawPrevious() {
+            when(redisTemplate.opsForHash()).thenReturn(hashOperations);
+            when(redisTemplate.opsForSet()).thenReturn(setOperations);
+            when(redisTemplate.opsForValue()).thenReturn(valueOperations);
+
+            when(hashOperations.get(SESSION_KEY, "accessJti")).thenReturn(null);
+            when(hashOperations.get(SESSION_KEY, "accessExpiresAt")).thenReturn(null);
+            when(hashOperations.get(SESSION_KEY, "accessToken")).thenReturn(null);
+            when(hashOperations.get(SESSION_KEY, "refreshJti")).thenReturn(null);
+            when(hashOperations.get(SESSION_KEY, "refreshExpiresAt")).thenReturn(null);
+            when(hashOperations.get(SESSION_KEY, "refreshToken"))
+                .thenReturn(MultiDeviceTokenService.hashToken(REFRESH_TOKEN));
+            when(hashOperations.get(SESSION_KEY, "previousRefreshJti")).thenReturn("prev-jti");
+            when(hashOperations.get(SESSION_KEY, "previousRefreshExpiresAt")).thenReturn(null);
+            when(hashOperations.get(SESSION_KEY, "previousRefreshToken")).thenReturn("old-plain");
+            when(jwtUtil.validateToken("old-plain")).thenReturn(true);
+            when(jwtUtil.getJtiFromToken("old-plain")).thenReturn("old-jti");
+            when(jwtUtil.getRemainingTime("old-plain")).thenReturn(60_000L);
+
+            multiDeviceTokenService.logout(TEST_USER_ID, DEVICE_TYPE, DEVICE_ID);
+
+            verify(valueOperations).set(eq("blacklist:old-jti"), eq("revoked"), any(Duration.class));
+            verify(valueOperations, org.mockito.Mockito.times(1))
+                .set(anyString(), anyString(), any(Duration.class));
+            verify(redisTemplate).delete(SESSION_KEY);
+        }
+
+        @Test
+        @DisplayName("jti/exp가 불완전하고 레거시 값이 해시면 어떤 토큰도 블랙리스트하지 않는다")
+        void incompleteMetadataAndHashedLegacy_noBlacklist() {
+            when(redisTemplate.opsForHash()).thenReturn(hashOperations);
+            when(redisTemplate.opsForSet()).thenReturn(setOperations);
+
+            when(hashOperations.get(SESSION_KEY, "accessJti")).thenReturn("access-jti");
+            when(hashOperations.get(SESSION_KEY, "accessExpiresAt")).thenReturn(null);
+            when(hashOperations.get(SESSION_KEY, "accessToken")).thenReturn(null);
+            when(hashOperations.get(SESSION_KEY, "refreshJti")).thenReturn(null);
+            when(hashOperations.get(SESSION_KEY, "refreshExpiresAt")).thenReturn("1893456000000");
+            when(hashOperations.get(SESSION_KEY, "refreshToken"))
+                .thenReturn(MultiDeviceTokenService.hashToken(REFRESH_TOKEN));
+            when(hashOperations.get(SESSION_KEY, "previousRefreshJti")).thenReturn(null);
+            when(hashOperations.get(SESSION_KEY, "previousRefreshExpiresAt")).thenReturn("1893456000000");
+            when(hashOperations.get(SESSION_KEY, "previousRefreshToken"))
+                .thenReturn(MultiDeviceTokenService.hashToken("old"));
+
+            multiDeviceTokenService.logout(TEST_USER_ID, DEVICE_TYPE, DEVICE_ID);
+
+            verify(redisTemplate, never()).opsForValue();
+            verify(jwtUtil, never()).validateToken(anyString());
+            verify(redisTemplate).delete(SESSION_KEY);
+        }
+    }
+
+    @Nested
+    @DisplayName("LUT-336: 구 키 이관 경계 테스트")
+    class LegacyKeyMigrationEdgeTest {
+
+        private static final String USER_SESSIONS_KEY = "userSessions:" + TEST_USER_ID;
+        private static final String KEY_IOS = "session:" + TEST_USER_ID + ":ios:" + DEVICE_ID;
+        private static final String KEY_WEB = "session:" + TEST_USER_ID + ":web:" + DEVICE_ID;
+        private static final String KEY_ANDROID = "session:" + TEST_USER_ID + ":android:" + DEVICE_ID;
+        private static final String KEY_DEAD = "session:" + TEST_USER_ID + ":ipad:" + DEVICE_ID;
+
+        @Test
+        @DisplayName("세션 목록이 null이면 이관 없이 신 키를 그대로 쓴다")
+        void nullMembers_usesCanonical() {
+            when(redisTemplate.hasKey(SESSION_KEY)).thenReturn(false);
+            when(setOperations.members(USER_SESSIONS_KEY)).thenReturn(null);
+            when(redisTemplate.opsForHash()).thenReturn(hashOperations);
+            when(hashOperations.get(SESSION_KEY, "loginTime")).thenReturn("100");
+
+            assertThat(multiDeviceTokenService.getLoginTime(TEST_USER_ID, DEVICE_TYPE, DEVICE_ID))
+                .isEqualTo(100L);
+            verify(redisTemplate, never()).rename(anyString(), anyString());
+        }
+
+        @Test
+        @DisplayName("요청 deviceType 키가 없으면 가장 최근 활동 키를 이관하고 나머지 중복은 정리한다")
+        void picksMostRecentLegacyAndRemovesDuplicates() {
+            when(redisTemplate.hasKey(SESSION_KEY)).thenReturn(false);
+            when(setOperations.members(USER_SESSIONS_KEY)).thenReturn(Set.of(
+                KEY_IOS, KEY_WEB, KEY_ANDROID, KEY_DEAD,
+                "session:" + TEST_USER_ID + ":ios:other-device", // suffix 불일치
+                "other:" + TEST_USER_ID + ":ios:" + DEVICE_ID,   // prefix 불일치
+                SESSION_KEY));                                     // 신 키 자체는 제외
+            when(redisTemplate.hasKey(KEY_IOS)).thenReturn(true);
+            when(redisTemplate.hasKey(KEY_WEB)).thenReturn(true);
+            when(redisTemplate.hasKey(KEY_ANDROID)).thenReturn(true);
+            when(redisTemplate.hasKey(KEY_DEAD)).thenReturn(false);
+            when(redisTemplate.opsForHash()).thenReturn(hashOperations);
+            // lastRefreshTime 우선, 없으면 loginTime, 둘 다 없으면 0
+            when(hashOperations.get(KEY_IOS, "lastRefreshTime")).thenReturn("2000");
+            when(hashOperations.get(KEY_WEB, "lastRefreshTime")).thenReturn(null);
+            when(hashOperations.get(KEY_WEB, "loginTime")).thenReturn("3000");
+            when(hashOperations.get(KEY_ANDROID, "lastRefreshTime")).thenReturn(null);
+            when(hashOperations.get(KEY_ANDROID, "loginTime")).thenReturn(null);
+            when(hashOperations.get(SESSION_KEY, "loginTime")).thenReturn(null);
+
+            // when — 요청 deviceType(mobile) 키는 목록에 없다
+            multiDeviceTokenService.getLoginTime(TEST_USER_ID, DEVICE_TYPE, DEVICE_ID);
+
+            // then — 가장 최근 활동(web, 3000)을 이관
+            verify(redisTemplate).rename(KEY_WEB, SESSION_KEY);
+            verify(setOperations).remove(USER_SESSIONS_KEY, KEY_WEB);
+            verify(setOperations).add(USER_SESSIONS_KEY, SESSION_KEY);
+            // 중복 구 키 정리
+            verify(redisTemplate).delete(KEY_IOS);
+            verify(redisTemplate).delete(KEY_ANDROID);
+            verify(setOperations).remove(USER_SESSIONS_KEY, KEY_IOS);
+            verify(setOperations).remove(USER_SESSIONS_KEY, KEY_ANDROID);
+            verify(redisTemplate, never()).delete(KEY_WEB);
+            verify(redisTemplate, never()).delete(KEY_DEAD);
+        }
+
+        @Test
+        @DisplayName("이관(RENAME)이 실패하면 구 키를 그대로 사용한다")
+        void renameFailure_fallsBackToLegacyKey() {
+            when(redisTemplate.hasKey(SESSION_KEY)).thenReturn(false);
+            when(redisTemplate.hasKey(KEY_IOS)).thenReturn(true);
+            when(setOperations.members(USER_SESSIONS_KEY)).thenReturn(Set.of(KEY_IOS));
+            org.mockito.Mockito.doThrow(new RuntimeException("redis down"))
+                .when(redisTemplate).rename(KEY_IOS, SESSION_KEY);
+            when(redisTemplate.opsForHash()).thenReturn(hashOperations);
+            when(hashOperations.get(KEY_IOS, "loginTime")).thenReturn("123");
+
+            assertThat(multiDeviceTokenService.getLoginTime(TEST_USER_ID, "ios", DEVICE_ID))
+                .isEqualTo(123L);
+            verify(setOperations, never()).add(USER_SESSIONS_KEY, SESSION_KEY);
+        }
+    }
 }

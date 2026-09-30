@@ -2613,5 +2613,449 @@ class FeedQueryServiceTest {
             verify(activityFeedRepository, never())
                 .findExistingExecutionIdsByExecutionIdIn(anyList(), any());
         }
+
+        @Test
+        @DisplayName("findExecutionIdsWithFeed 는 null 입력이면 Repository 호출 없이 빈 Set 을 반환한다")
+        void findExecutionIdsWithFeed_nullInput_returnsEmptySet() {
+            java.util.Set<Long> result =
+                feedQueryService.findExecutionIdsWithFeed(null, TEST_USER_ID);
+
+            assertThat(result).isEmpty();
+            verify(activityFeedRepository, never())
+                .findExistingExecutionIdsByExecutionIdIn(any(), any());
+        }
+    }
+
+    @Nested
+    @DisplayName("분기 보강 테스트")
+    class BranchCoverageTest {
+
+        private UserTitleDto titleDto(String userId, String name, String nameEn, TitlePosition position) {
+            return new UserTitleDto(
+                1L, userId, 1L,
+                name, nameEn, null, null,
+                null, null, null, null,
+                TitleRarity.COMMON,
+                position, "#FFFFFF", null,
+                true, position,
+                java.time.LocalDateTime.now()
+            );
+        }
+
+        private FeedComment rootComment(ActivityFeed feed, Long id, String userId) {
+            FeedComment comment = FeedComment.builder()
+                .feed(feed).userId(userId).userNickname("nick-" + userId)
+                .content("댓글").isDeleted(false).isEdited(false).build();
+            setId(comment, id);
+            return comment;
+        }
+
+        private FeedComment replyComment(ActivityFeed feed, Long id, String userId, FeedComment parent) {
+            FeedComment comment = FeedComment.builder()
+                .feed(feed).userId(userId).userNickname("nick-" + userId).parent(parent)
+                .content("대댓글").isDeleted(false).isEdited(false).build();
+            setId(comment, id);
+            return comment;
+        }
+
+        // ---------- resolveExcludedUserIds ----------
+
+        @Test
+        @DisplayName("LUT-367: 차단 목록이 null이면 센티널(__none__)로 조회한다")
+        void getPublicFeeds_nullBlockedList_usesSentinel() {
+            when(userQueryFacadeService.getBlockedUserIds(TEST_USER_ID)).thenReturn(null);
+            when(activityFeedRepository.findAccessibleFeeds(eq(TEST_USER_ID), any(), any(), eq(List.of("__none__")), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of()));
+
+            Page<ActivityFeedResponse> result = feedQueryService.getPublicFeeds(TEST_USER_ID, 0, 10);
+
+            assertThat(result.getContent()).isEmpty();
+        }
+
+        @Test
+        @DisplayName("LUT-367: 차단 목록이 비어 있으면 센티널(__none__)로 조회한다")
+        void getPublicFeeds_emptyBlockedList_usesSentinel() {
+            when(userQueryFacadeService.getBlockedUserIds(TEST_USER_ID)).thenReturn(List.of());
+            when(activityFeedRepository.findAccessibleFeeds(eq(TEST_USER_ID), any(), any(), eq(List.of("__none__")), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of()));
+
+            Page<ActivityFeedResponse> result = feedQueryService.getPublicFeeds(TEST_USER_ID, 0, 10);
+
+            assertThat(result.getContent()).isEmpty();
+        }
+
+        @Test
+        @DisplayName("LUT-367: 차단 목록이 있으면 그대로 제외 조건으로 전달한다")
+        void getPublicFeeds_blockedList_passedThrough() {
+            when(userQueryFacadeService.getBlockedUserIds(TEST_USER_ID)).thenReturn(List.of("blocked-1"));
+            when(activityFeedRepository.findAccessibleFeeds(eq(TEST_USER_ID), any(), any(), eq(List.of("blocked-1")), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of()));
+
+            Page<ActivityFeedResponse> result = feedQueryService.getPublicFeeds(TEST_USER_ID, 0, 10);
+
+            assertThat(result.getContent()).isEmpty();
+        }
+
+        // ---------- getPublicFeedsByCategory ----------
+
+        @Test
+        @DisplayName("Featured 피드 중 비공개 피드는 제외된다")
+        void getPublicFeedsByCategory_nonPublicFeatured_excluded() {
+            Long categoryId = 1L;
+            ActivityFeed privateFeatured = createTestFeed(1L, OTHER_USER_ID);
+            privateFeatured.setVisibility(FeedVisibility.PRIVATE);
+            ActivityFeed publicFeatured = createTestFeed(2L, OTHER_USER_ID);
+
+            when(adminInternalFeignClient.getFeaturedFeedIds(categoryId)).thenReturn(List.of(1L, 2L));
+            when(activityFeedRepository.findByIdIn(List.of(1L, 2L))).thenReturn(List.of(privateFeatured, publicFeatured));
+            when(activityFeedRepository.findAccessibleFeedsByCategoryId(eq(categoryId), any(), any(), any(), anyList(), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of()));
+            when(reportService.isUnderReviewBatch(any(), anyList())).thenReturn(Collections.emptyMap());
+
+            Page<ActivityFeedResponse> result = feedQueryService.getPublicFeedsByCategory(categoryId, TEST_USER_ID, 0, 10);
+
+            assertThat(result.getContent()).extracting(ActivityFeedResponse::getId).containsExactly(2L);
+        }
+
+        @Test
+        @DisplayName("Featured ID가 중복되어도 한 번만 추가된다")
+        void getPublicFeedsByCategory_duplicateFeaturedIds_addedOnce() {
+            Long categoryId = 1L;
+            ActivityFeed featured = createTestFeed(1L, OTHER_USER_ID);
+
+            when(adminInternalFeignClient.getFeaturedFeedIds(categoryId)).thenReturn(List.of(1L, 1L));
+            when(activityFeedRepository.findByIdIn(List.of(1L, 1L))).thenReturn(List.of(featured));
+            when(activityFeedRepository.findAccessibleFeedsByCategoryId(eq(categoryId), any(), any(), any(), anyList(), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of()));
+            when(reportService.isUnderReviewBatch(any(), anyList())).thenReturn(Collections.emptyMap());
+
+            Page<ActivityFeedResponse> result = feedQueryService.getPublicFeedsByCategory(categoryId, TEST_USER_ID, 0, 10);
+
+            assertThat(result.getContent()).hasSize(1);
+        }
+
+        @Test
+        @DisplayName("좋아요한 카테고리 피드는 likedByMe=true로 매핑된다")
+        void getPublicFeedsByCategory_likedFeed_markedLiked() {
+            Long categoryId = 1L;
+            ActivityFeed feed = createTestFeed(1L, OTHER_USER_ID);
+
+            when(adminInternalFeignClient.getFeaturedFeedIds(categoryId)).thenReturn(Collections.emptyList());
+            when(activityFeedRepository.findAccessibleFeedsByCategoryId(eq(categoryId), any(), any(), any(), anyList(), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of(feed)));
+            when(feedLikeRepository.findLikedFeedIds(eq(TEST_USER_ID), anyList())).thenReturn(List.of(1L));
+            when(reportService.isUnderReviewBatch(any(), anyList())).thenReturn(Collections.emptyMap());
+
+            Page<ActivityFeedResponse> result = feedQueryService.getPublicFeedsByCategory(categoryId, TEST_USER_ID, 0, 10);
+
+            assertThat(result.getContent().get(0).isLikedByMe()).isTrue();
+        }
+
+        // ---------- getUserFeeds ----------
+
+        @Test
+        @DisplayName("LUT-367: 차단한 유저의 피드 탭은 빈 페이지를 반환한다")
+        void getUserFeeds_blockedTarget_returnsEmptyPage() {
+            when(userQueryFacadeService.getBlockedUserIds(TEST_USER_ID)).thenReturn(List.of(OTHER_USER_ID));
+
+            Page<ActivityFeedResponse> result = feedQueryService.getUserFeeds(OTHER_USER_ID, TEST_USER_ID, 0, 10);
+
+            assertThat(result.getContent()).isEmpty();
+            verify(activityFeedRepository, never())
+                .findAccessibleFeedsByUserId(any(), any(), any(), any(), any(Pageable.class));
+        }
+
+        // ---------- getComments ----------
+
+        @Test
+        @DisplayName("루트 댓글이 없으면 빈 페이지를 즉시 반환한다")
+        void getComments_noRoots_returnsEmptyPage() {
+            ActivityFeed feed = createTestFeed(1L, OTHER_USER_ID);
+            when(activityFeedRepository.findById(1L)).thenReturn(Optional.of(feed));
+            when(feedCommentRepository.findRootCommentsByFeedIdExcluding(eq(1L), anyList(), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of()));
+
+            Page<FeedCommentResponse> result = feedQueryService.getComments(1L, TEST_USER_ID, 0, 10);
+
+            assertThat(result.getContent()).isEmpty();
+            verify(feedCommentRepository, never()).findRepliesByParentIds(anyList());
+        }
+
+        @Test
+        @DisplayName("비로그인 댓글 조회는 좋아요 여부 조회 없이 센티널로 조회한다")
+        void getComments_nullUser_skipsLikedLookup() {
+            ActivityFeed feed = createTestFeed(1L, OTHER_USER_ID);
+            FeedComment root = rootComment(feed, 10L, OTHER_USER_ID);
+            when(activityFeedRepository.findById(1L)).thenReturn(Optional.of(feed));
+            when(feedCommentRepository.findRootCommentsByFeedIdExcluding(eq(1L), eq(List.of("__none__")), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of(root)));
+
+            Page<FeedCommentResponse> result = feedQueryService.getComments(1L, null, 0, 10);
+
+            assertThat(result.getContent()).hasSize(1);
+            assertThat(result.getContent().get(0).getIsLiked()).isFalse();
+            assertThat(result.getContent().get(0).getIsMyComment()).isFalse();
+            verify(feedCommentLikeRepository, never()).findLikedCommentIds(any(), anyList());
+        }
+
+        @Test
+        @DisplayName("LUT-367: 차단한 유저의 대댓글은 트리에서 제외된다")
+        void getComments_blockedReplyAuthor_excluded() {
+            ActivityFeed feed = createTestFeed(1L, OTHER_USER_ID);
+            FeedComment root = rootComment(feed, 10L, OTHER_USER_ID);
+            FeedComment blockedReply = replyComment(feed, 11L, "blocked-user", root);
+            when(activityFeedRepository.findById(1L)).thenReturn(Optional.of(feed));
+            when(userQueryFacadeService.getBlockedUserIds(TEST_USER_ID)).thenReturn(List.of("blocked-user"));
+            when(feedCommentRepository.findRootCommentsByFeedIdExcluding(eq(1L), eq(List.of("blocked-user")), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of(root)));
+            when(feedCommentRepository.findRepliesByParentIds(List.of(10L))).thenReturn(List.of(blockedReply));
+
+            Page<FeedCommentResponse> result = feedQueryService.getComments(1L, TEST_USER_ID, 0, 10);
+
+            assertThat(result.getContent().get(0).getReplies()).isEmpty();
+        }
+
+        @Test
+        @DisplayName("삭제된 대댓글은 활성 대댓글 수에서 제외되어 부모가 수정 가능하다")
+        void getComments_deletedReply_parentStaysEditable() {
+            ActivityFeed feed = createTestFeed(1L, OTHER_USER_ID);
+            FeedComment root = rootComment(feed, 10L, TEST_USER_ID);
+            FeedComment deletedReply = replyComment(feed, 11L, OTHER_USER_ID, root);
+            deletedReply.setIsDeleted(true);
+            when(activityFeedRepository.findById(1L)).thenReturn(Optional.of(feed));
+            when(feedCommentRepository.findRootCommentsByFeedIdExcluding(eq(1L), anyList(), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of(root)));
+            when(feedCommentRepository.findRepliesByParentIds(List.of(10L))).thenReturn(List.of(deletedReply));
+
+            Page<FeedCommentResponse> result = feedQueryService.getComments(1L, TEST_USER_ID, 0, 10);
+
+            FeedCommentResponse parent = result.getContent().get(0);
+            assertThat(parent.getIsEditable()).isTrue();
+            assertThat(parent.getReplies()).hasSize(1);
+            assertThat(parent.getReplies().get(0).getIsDeleted()).isTrue();
+            assertThat(parent.getReplies().get(0).getIsEditable()).isFalse();
+        }
+
+        @Test
+        @DisplayName("내가 쓴 대댓글은 항상 수정 가능하다")
+        void getComments_myReply_editable() {
+            ActivityFeed feed = createTestFeed(1L, OTHER_USER_ID);
+            FeedComment root = rootComment(feed, 10L, OTHER_USER_ID);
+            FeedComment myReply = replyComment(feed, 11L, TEST_USER_ID, root);
+            when(activityFeedRepository.findById(1L)).thenReturn(Optional.of(feed));
+            when(feedCommentRepository.findRootCommentsByFeedIdExcluding(eq(1L), anyList(), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of(root)));
+            when(feedCommentRepository.findRepliesByParentIds(List.of(10L))).thenReturn(List.of(myReply));
+
+            Page<FeedCommentResponse> result = feedQueryService.getComments(1L, TEST_USER_ID, 0, 10);
+
+            FeedCommentResponse reply = result.getContent().get(0).getReplies().get(0);
+            assertThat(reply.getIsMyComment()).isTrue();
+            assertThat(reply.getIsEditable()).isTrue();
+        }
+
+        @Test
+        @DisplayName("LUT-422: 삭제된 댓글은 장착 칭호가 있어도 칭호·아이템을 노출하지 않는다")
+        void getComments_deletedRootWithTitles_hidesTitles() {
+            ActivityFeed feed = createTestFeed(1L, OTHER_USER_ID);
+            FeedComment deletedRoot = rootComment(feed, 10L, TEST_USER_ID);
+            deletedRoot.setIsDeleted(true);
+            when(activityFeedRepository.findById(1L)).thenReturn(Optional.of(feed));
+            when(feedCommentRepository.findRootCommentsByFeedIdExcluding(eq(1L), anyList(), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of(deletedRoot)));
+            when(gamificationQueryFacadeService.getEquippedTitlesByUserIds(anyList()))
+                .thenReturn(Map.of(TEST_USER_ID, List.of(
+                    titleDto(TEST_USER_ID, "용감한", "Brave", TitlePosition.LEFT))));
+            when(gamificationQueryFacadeService.getEquippedItemRaritiesByUserIds(anyList()))
+                .thenReturn(Map.of(TEST_USER_ID, List.of(new EquippedItemRarityDto("EFFECT", TitleRarity.RARE))));
+
+            Page<FeedCommentResponse> result = feedQueryService.getComments(1L, TEST_USER_ID, 0, 10);
+
+            FeedCommentResponse response = result.getContent().get(0);
+            assertThat(response.getIsDeleted()).isTrue();
+            assertThat(response.getUserLeftTitle()).isNull();
+            assertThat(response.getEquippedItemRarities()).isEmpty();
+            assertThat(response.getIsEditable()).isFalse();
+        }
+
+        @Test
+        @DisplayName("LUT-422: 칭호 목록이 null·빈 값인 유저는 칭호 맵에서 제외된다")
+        void getComments_nullOrEmptyTitleLists_skipped() {
+            ActivityFeed feed = createTestFeed(1L, OTHER_USER_ID);
+            FeedComment root1 = rootComment(feed, 10L, TEST_USER_ID);
+            FeedComment root2 = rootComment(feed, 11L, OTHER_USER_ID);
+            when(activityFeedRepository.findById(1L)).thenReturn(Optional.of(feed));
+            when(feedCommentRepository.findRootCommentsByFeedIdExcluding(eq(1L), anyList(), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of(root1, root2)));
+            Map<String, List<UserTitleDto>> titles = new HashMap<>();
+            titles.put(TEST_USER_ID, null);
+            titles.put(OTHER_USER_ID, List.of());
+            when(gamificationQueryFacadeService.getEquippedTitlesByUserIds(anyList())).thenReturn(titles);
+
+            Page<FeedCommentResponse> result = feedQueryService.getComments(1L, TEST_USER_ID, 0, 10);
+
+            assertThat(result.getContent()).hasSize(2);
+            assertThat(result.getContent().get(0).getUserLeftTitle()).isNull();
+            assertThat(result.getContent().get(1).getUserLeftTitle()).isNull();
+        }
+
+        // ---------- getFeed / translateFeed ----------
+
+        @Test
+        @DisplayName("비기본 언어(ja)로 피드 상세를 조회하면 번역 서비스를 호출한다")
+        void getFeed_nonDefaultLocale_callsTranslation() {
+            ActivityFeed feed = createTestFeed(1L, OTHER_USER_ID);
+            when(activityFeedRepository.findById(1L)).thenReturn(Optional.of(feed));
+            when(translationService.translateContent(any(), eq(1L), any(), any(), eq("ja")))
+                .thenReturn(io.pinkspider.global.translation.dto.TranslationInfo.notTranslated("en"));
+
+            ActivityFeedResponse result = feedQueryService.getFeed(1L, null, "ja");
+
+            assertThat(result).isNotNull();
+            verify(translationService).translateContent(any(), eq(1L), any(), any(), eq("ja"));
+        }
+
+        // ---------- localizeUserTitles / enrichAuthorLiveInfo ----------
+
+        @Test
+        @DisplayName("Accept-Language가 공백이면 칭호 다국어 변환을 건너뛴다")
+        void getPublicFeeds_blankLocale_skipsLocalization() {
+            ActivityFeed feed = createTestFeed(1L, TEST_USER_ID);
+            feed.setUserTitle("용감한 전사");
+            when(activityFeedRepository.findAccessibleFeeds(any(), any(), any(), anyList(), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of(feed)));
+            when(feedLikeRepository.findLikedFeedIds(eq(TEST_USER_ID), anyList())).thenReturn(Collections.emptyList());
+            when(reportService.isUnderReviewBatch(any(), anyList())).thenReturn(Collections.emptyMap());
+
+            Page<ActivityFeedResponse> result = feedQueryService.getPublicFeeds(TEST_USER_ID, 0, 10, "   ");
+
+            assertThat(result.getContent().get(0).getUserTitle()).isEqualTo("용감한 전사");
+            verify(gamificationQueryFacadeService, never()).getEquippedTitlesByUserIds(anyList());
+        }
+
+        @Test
+        @DisplayName("작성자 ID가 없는 피드만 있으면 칭호·아이템·구독 조회를 모두 건너뛴다")
+        void getPublicFeeds_nullAuthorIds_skipsAuthorEnrichment() {
+            ActivityFeed feed = ActivityFeed.builder()
+                .userId(null)
+                .activityType(ActivityType.MISSION_COMPLETED)
+                .visibility(FeedVisibility.PUBLIC)
+                .likeCount(0).commentCount(0)
+                .build();
+            setId(feed, 1L);
+            when(activityFeedRepository.findAccessibleFeeds(any(), any(), any(), anyList(), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of(feed)));
+            when(reportService.isUnderReviewBatch(any(), anyList())).thenReturn(Collections.emptyMap());
+
+            Page<ActivityFeedResponse> result = feedQueryService.getPublicFeeds(null, 0, 10, "en");
+
+            assertThat(result.getContent()).hasSize(1);
+            verify(gamificationQueryFacadeService, never()).getEquippedTitlesByUserIds(anyList());
+            verify(gamificationQueryFacadeService, never()).getEquippedItemRaritiesByUserIds(anyList());
+            verify(gamificationQueryFacadeService, never()).getSubscribedUserIds(anyList());
+        }
+
+        @Test
+        @DisplayName("장착 칭호 목록이 null인 유저는 스냅샷을 유지한다")
+        void getPublicFeeds_nullEquippedList_keepsSnapshot() {
+            ActivityFeed feed = createTestFeed(1L, TEST_USER_ID);
+            feed.setUserTitle("용감한 전사");
+            when(activityFeedRepository.findAccessibleFeeds(any(), any(), any(), anyList(), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of(feed)));
+            when(feedLikeRepository.findLikedFeedIds(eq(TEST_USER_ID), anyList())).thenReturn(Collections.emptyList());
+            when(reportService.isUnderReviewBatch(any(), anyList())).thenReturn(Collections.emptyMap());
+            Map<String, List<UserTitleDto>> titles = new HashMap<>();
+            titles.put(TEST_USER_ID, null);
+            when(gamificationQueryFacadeService.getEquippedTitlesByUserIds(List.of(TEST_USER_ID))).thenReturn(titles);
+
+            Page<ActivityFeedResponse> result = feedQueryService.getPublicFeeds(TEST_USER_ID, 0, 10, "en");
+
+            assertThat(result.getContent().get(0).getUserTitle()).isEqualTo("용감한 전사");
+        }
+
+        @Test
+        @DisplayName("장착 칭호에 좌/우 위치가 없어 조합명이 null이면 스냅샷을 유지한다")
+        void getPublicFeeds_noPositionedTitle_keepsSnapshot() {
+            ActivityFeed feed = createTestFeed(1L, TEST_USER_ID);
+            feed.setUserTitle("용감한 전사");
+            when(activityFeedRepository.findAccessibleFeeds(any(), any(), any(), anyList(), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of(feed)));
+            when(feedLikeRepository.findLikedFeedIds(eq(TEST_USER_ID), anyList())).thenReturn(Collections.emptyList());
+            when(reportService.isUnderReviewBatch(any(), anyList())).thenReturn(Collections.emptyMap());
+            when(gamificationQueryFacadeService.getEquippedTitlesByUserIds(List.of(TEST_USER_ID)))
+                .thenReturn(Map.of(TEST_USER_ID, List.of(titleDto(TEST_USER_ID, "용감한", "Brave", null))));
+
+            Page<ActivityFeedResponse> result = feedQueryService.getPublicFeeds(TEST_USER_ID, 0, 10, "en");
+
+            assertThat(result.getContent().get(0).getUserTitle()).isEqualTo("용감한 전사");
+        }
+
+        @Test
+        @DisplayName("비로그인 카테고리 피드 조회는 myFeed=false로 매핑된다")
+        void getPublicFeedsByCategory_nullUser_notMyFeed() {
+            Long categoryId = 1L;
+            ActivityFeed feed = createTestFeed(1L, OTHER_USER_ID);
+            when(adminInternalFeignClient.getFeaturedFeedIds(categoryId)).thenReturn(Collections.emptyList());
+            when(activityFeedRepository.findAccessibleFeedsByCategoryId(eq(categoryId), any(), any(), any(), anyList(), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of(feed)));
+            when(reportService.isUnderReviewBatch(any(), anyList())).thenReturn(Collections.emptyMap());
+
+            Page<ActivityFeedResponse> result = feedQueryService.getPublicFeedsByCategory(categoryId, null, 0, 10);
+
+            assertThat(result.getContent().get(0).isMyFeed()).isFalse();
+            assertThat(result.getContent().get(0).isLikedByMe()).isFalse();
+        }
+
+        @Test
+        @DisplayName("내 최상위 댓글에 활성 대댓글이 있으면 수정 불가하다")
+        void getComments_myRootWithActiveReply_notEditable() {
+            ActivityFeed feed = createTestFeed(1L, OTHER_USER_ID);
+            FeedComment myRoot = rootComment(feed, 10L, TEST_USER_ID);
+            FeedComment reply = replyComment(feed, 11L, OTHER_USER_ID, myRoot);
+            when(activityFeedRepository.findById(1L)).thenReturn(Optional.of(feed));
+            when(feedCommentRepository.findRootCommentsByFeedIdExcluding(eq(1L), anyList(), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of(myRoot)));
+            when(feedCommentRepository.findRepliesByParentIds(List.of(10L))).thenReturn(List.of(reply));
+
+            Page<FeedCommentResponse> result = feedQueryService.getComments(1L, TEST_USER_ID, 0, 10);
+
+            FeedCommentResponse root = result.getContent().get(0);
+            assertThat(root.getIsMyComment()).isTrue();
+            assertThat(root.getIsEditable()).isFalse();
+        }
+
+        @Test
+        @DisplayName("장착 칭호 목록이 비어 있는 유저는 스냅샷을 유지한다")
+        void getPublicFeeds_emptyEquippedList_keepsSnapshot() {
+            ActivityFeed feed = createTestFeed(1L, TEST_USER_ID);
+            feed.setUserTitle("용감한 전사");
+            when(activityFeedRepository.findAccessibleFeeds(any(), any(), any(), anyList(), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of(feed)));
+            when(feedLikeRepository.findLikedFeedIds(eq(TEST_USER_ID), anyList())).thenReturn(Collections.emptyList());
+            when(reportService.isUnderReviewBatch(any(), anyList())).thenReturn(Collections.emptyMap());
+            when(gamificationQueryFacadeService.getEquippedTitlesByUserIds(List.of(TEST_USER_ID)))
+                .thenReturn(Map.of(TEST_USER_ID, List.of()));
+
+            Page<ActivityFeedResponse> result = feedQueryService.getPublicFeeds(TEST_USER_ID, 0, 10, "en");
+
+            assertThat(result.getContent().get(0).getUserTitle()).isEqualTo("용감한 전사");
+        }
+
+        @Test
+        @DisplayName("장착 칭호 조합명이 공백이면 스냅샷을 유지한다")
+        void getPublicFeeds_blankCombinedName_keepsSnapshot() {
+            ActivityFeed feed = createTestFeed(1L, TEST_USER_ID);
+            feed.setUserTitle("용감한 전사");
+            when(activityFeedRepository.findAccessibleFeeds(any(), any(), any(), anyList(), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of(feed)));
+            when(feedLikeRepository.findLikedFeedIds(eq(TEST_USER_ID), anyList())).thenReturn(Collections.emptyList());
+            when(reportService.isUnderReviewBatch(any(), anyList())).thenReturn(Collections.emptyMap());
+            when(gamificationQueryFacadeService.getEquippedTitlesByUserIds(List.of(TEST_USER_ID)))
+                .thenReturn(Map.of(TEST_USER_ID, List.of(titleDto(TEST_USER_ID, "   ", null, TitlePosition.LEFT))));
+
+            Page<ActivityFeedResponse> result = feedQueryService.getPublicFeeds(TEST_USER_ID, 0, 10, "en");
+
+            assertThat(result.getContent().get(0).getUserTitle()).isEqualTo("용감한 전사");
+        }
     }
 }

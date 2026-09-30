@@ -7,6 +7,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -26,6 +27,7 @@ import io.pinkspider.leveluptogethermvp.guildservice.infrastructure.GuildReposit
 import io.pinkspider.leveluptogethermvp.metaservice.application.MissionCategoryService;
 import io.pinkspider.leveluptogethermvp.metaservice.domain.dto.MissionCategoryResponse;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -114,6 +116,150 @@ class GuildAdminInternalServiceTest {
             // then
             assertThat(result).isNotNull();
         }
+
+        @Test
+        @DisplayName("categoryIds가 있으면 멀티 카테고리 필터로 검색한다")
+        void searchByCategoryIds() {
+            // given
+            Page<Guild> page = new PageImpl<>(List.of());
+            Pageable pageable = PageRequest.of(0, 10);
+            when(guildRepository.searchGuildsForAdmin(any(), eq(true), eq(List.of(1L, 2L)), any(), any(), any()))
+                .thenReturn(page);
+            when(missionCategoryService.getAllCategories()).thenReturn(List.of());
+
+            // when
+            GuildAdminPageResponse result =
+                service.searchGuilds(null, 9L, List.of(1L, 2L), null, null, pageable);
+
+            // then
+            assertThat(result).isNotNull();
+        }
+
+        @Test
+        @DisplayName("categoryIds가 비어있고 categoryId가 있으면 단일 카테고리 필터를 사용한다")
+        void searchByEmptyCategoryIdsFallsBackToCategoryId() {
+            // given
+            Page<Guild> page = new PageImpl<>(List.of());
+            Pageable pageable = PageRequest.of(0, 10);
+            when(guildRepository.searchGuildsForAdmin(any(), eq(true), eq(List.of(7L)), any(), any(), any()))
+                .thenReturn(page);
+            when(missionCategoryService.getAllCategories()).thenReturn(List.of());
+
+            // when
+            GuildAdminPageResponse result =
+                service.searchGuilds(null, 7L, List.of(), null, null, pageable);
+
+            // then
+            assertThat(result).isNotNull();
+        }
+
+        @Test
+        @DisplayName("categoryIds가 null이고 categoryId가 있으면 단일 카테고리 필터를 사용한다")
+        void searchByNullCategoryIdsWithCategoryId() {
+            // given
+            Page<Guild> page = new PageImpl<>(List.of());
+            Pageable pageable = PageRequest.of(0, 10);
+            when(guildRepository.searchGuildsForAdmin(any(), eq(true), eq(List.of(3L)), any(), any(), any()))
+                .thenReturn(page);
+            when(missionCategoryService.getAllCategories()).thenReturn(List.of());
+
+            // when
+            GuildAdminPageResponse result = service.searchGuilds(null, 3L, null, null, null, pageable);
+
+            // then
+            assertThat(result).isNotNull();
+        }
+
+        @Test
+        @DisplayName("카테고리 맵에 있으면 카테고리 이름·아이콘을 채운다")
+        void fillsCategoryNameAndIcon() {
+            // given
+            Guild guild = createTestGuild(1L);
+            Page<Guild> page = new PageImpl<>(List.of(guild));
+            Pageable pageable = PageRequest.of(0, 10);
+            when(guildRepository.searchGuildsForAdmin(any(), anyBoolean(), anyList(), any(), any(), any()))
+                .thenReturn(page);
+            when(missionCategoryService.getAllCategories())
+                .thenReturn(List.of(MissionCategoryResponse.builder().id(1L).name("운동").icon("dumbbell").build()));
+            when(guildMemberRepository.countActiveMembersByGuildIds(anyList())).thenReturn(List.of());
+            when(userQueryFacadeService.getUserProfiles(anyList())).thenReturn(Map.of());
+
+            // when
+            GuildAdminPageResponse result = service.searchGuilds(null, null, null, null, pageable);
+
+            // then
+            assertThat(result.content().get(0).categoryName()).isEqualTo("운동");
+            assertThat(result.content().get(0).categoryIcon()).isEqualTo("dumbbell");
+            assertThat(result.content().get(0).currentMemberCount()).isZero();
+        }
+
+        @Test
+        @DisplayName("마스터가 없는 길드는 마스터 닉네임 조회를 건너뛴다")
+        void skipsMasterNicknameWhenMasterIdNull() {
+            // given
+            Guild guild = Guild.builder()
+                .name("주인 없는 길드")
+                .visibility(GuildVisibility.PUBLIC)
+                .masterId(null)
+                .categoryId(1L)
+                .build();
+            setId(guild, 5L);
+            Page<Guild> page = new PageImpl<>(List.of(guild));
+            Pageable pageable = PageRequest.of(0, 10);
+            when(guildRepository.searchGuildsForAdmin(any(), anyBoolean(), anyList(), any(), any(), any()))
+                .thenReturn(page);
+            when(missionCategoryService.getAllCategories()).thenReturn(List.of());
+            when(guildMemberRepository.countActiveMembersByGuildIds(anyList())).thenReturn(List.of());
+
+            // when
+            GuildAdminPageResponse result = service.searchGuilds(null, null, null, null, pageable);
+
+            // then
+            assertThat(result.content().get(0).masterNickname()).isNull();
+            verify(userQueryFacadeService, never()).getUserProfiles(anyList());
+        }
+
+        @Test
+        @DisplayName("마스터 프로필이 null이면 닉네임 맵에서 제외한다")
+        void excludesNullProfileFromMasterNicknameMap() {
+            // given
+            Guild guild = createTestGuild(1L);
+            Page<Guild> page = new PageImpl<>(List.of(guild));
+            Pageable pageable = PageRequest.of(0, 10);
+            when(guildRepository.searchGuildsForAdmin(any(), anyBoolean(), anyList(), any(), any(), any()))
+                .thenReturn(page);
+            when(missionCategoryService.getAllCategories()).thenReturn(List.of());
+            when(guildMemberRepository.countActiveMembersByGuildIds(anyList())).thenReturn(List.of());
+            Map<String, UserProfileInfo> profiles = new HashMap<>();
+            profiles.put("master-1", null);
+            when(userQueryFacadeService.getUserProfiles(anyList())).thenReturn(profiles);
+
+            // when
+            GuildAdminPageResponse result = service.searchGuilds(null, null, null, null, pageable);
+
+            // then
+            assertThat(result.content().get(0).masterNickname()).isNull();
+        }
+
+        @Test
+        @DisplayName("카테고리 조회 실패 시 빈 카테고리 맵으로 진행한다")
+        void proceedsWhenCategoryLookupFails() {
+            // given
+            Guild guild = createTestGuild(1L);
+            Page<Guild> page = new PageImpl<>(List.of(guild));
+            Pageable pageable = PageRequest.of(0, 10);
+            when(guildRepository.searchGuildsForAdmin(any(), anyBoolean(), anyList(), any(), any(), any()))
+                .thenReturn(page);
+            when(missionCategoryService.getAllCategories()).thenThrow(new RuntimeException("meta down"));
+            when(guildMemberRepository.countActiveMembersByGuildIds(anyList())).thenReturn(List.of());
+            when(userQueryFacadeService.getUserProfiles(anyList())).thenReturn(Map.of());
+
+            // when
+            GuildAdminPageResponse result = service.searchGuilds(null, null, null, null, pageable);
+
+            // then
+            assertThat(result.content().get(0).categoryName()).isNull();
+        }
     }
 
     @Nested
@@ -147,6 +293,48 @@ class GuildAdminInternalServiceTest {
             assertThatThrownBy(() -> service.getGuild(999L))
                 .isInstanceOf(CustomException.class);
         }
+
+        @Test
+        @DisplayName("카테고리 조회 실패·마스터 없음이면 카테고리·닉네임이 null이다")
+        void nullCategoryAndNullMaster() {
+            // given
+            Guild guild = Guild.builder()
+                .name("주인 없는 길드")
+                .visibility(GuildVisibility.PUBLIC)
+                .masterId(null)
+                .categoryId(1L)
+                .build();
+            setId(guild, 1L);
+            when(guildRepository.findById(1L)).thenReturn(Optional.of(guild));
+            when(missionCategoryService.getCategory(1L)).thenThrow(new RuntimeException("meta down"));
+            when(guildMemberRepository.countActiveMembers(1L)).thenReturn(0L);
+
+            // when
+            GuildAdminResponse result = service.getGuild(1L);
+
+            // then
+            assertThat(result.categoryName()).isNull();
+            assertThat(result.categoryIcon()).isNull();
+            assertThat(result.masterNickname()).isNull();
+            verify(userQueryFacadeService, never()).getUserProfile(any());
+        }
+
+        @Test
+        @DisplayName("마스터 프로필이 null이면 닉네임이 null이다")
+        void nullMasterProfile() {
+            // given
+            Guild guild = createTestGuild(1L);
+            when(guildRepository.findById(1L)).thenReturn(Optional.of(guild));
+            when(missionCategoryService.getCategory(1L)).thenReturn(null);
+            when(guildMemberRepository.countActiveMembers(1L)).thenReturn(0L);
+            when(userQueryFacadeService.getUserProfile("master-1")).thenReturn(null);
+
+            // when
+            GuildAdminResponse result = service.getGuild(1L);
+
+            // then
+            assertThat(result.masterNickname()).isNull();
+        }
     }
 
     @Nested
@@ -174,6 +362,32 @@ class GuildAdminInternalServiceTest {
             assertThat(result.totalGuilds()).isEqualTo(100L);
             assertThat(result.activeGuilds()).isEqualTo(80L);
             assertThat(result.inactiveGuilds()).isEqualTo(20L);
+        }
+
+        @Test
+        @DisplayName("카테고리별 통계는 알려진 카테고리 이름, 미지 카테고리는 Unknown으로 집계한다")
+        void aggregatesByCategoryName() {
+            // given
+            when(guildRepository.count()).thenReturn(3L);
+            when(guildRepository.countByIsActiveTrue()).thenReturn(3L);
+            when(guildRepository.countByIsActiveFalse()).thenReturn(0L);
+            when(guildRepository.countByVisibility(any())).thenReturn(1L);
+            when(guildRepository.countByCreatedAtAfter(any())).thenReturn(1L);
+            when(missionCategoryService.getAllCategories())
+                .thenReturn(List.of(MissionCategoryResponse.builder().id(1L).name("운동").build()));
+            List<Object[]> categoryStats = List.of(new Object[]{1L, 2L}, new Object[]{99L, 1L});
+            when(guildRepository.countGuildsByCategory()).thenReturn(categoryStats);
+            List<Object[]> dailyStats =
+                Collections.singletonList(new Object[]{java.sql.Date.valueOf("2026-01-01"), 2L});
+            when(guildRepository.countDailyNewGuilds(any(), any())).thenReturn(dailyStats);
+
+            // when
+            GuildStatisticsAdminResponse result = service.getStatistics();
+
+            // then
+            assertThat(result.guildsByCategory()).containsEntry("운동", 2L).containsEntry("Unknown", 1L);
+            assertThat(result.dailyNewGuilds()).hasSize(1);
+            assertThat(result.dailyNewGuilds().get(0).count()).isEqualTo(2L);
         }
     }
 
@@ -214,6 +428,31 @@ class GuildAdminInternalServiceTest {
             assertThatThrownBy(() -> service.getGuildMembers(999L))
                 .isInstanceOf(CustomException.class);
         }
+
+        @Test
+        @DisplayName("프로필이 없는 멤버는 닉네임·이미지가 null이다")
+        void nullProfileMember() {
+            // given
+            Guild guild = createTestGuild(1L);
+            when(guildRepository.existsById(1L)).thenReturn(true);
+            GuildMember member = GuildMember.builder()
+                .guild(guild)
+                .userId("user-x")
+                .status(GuildMemberStatus.ACTIVE)
+                .build();
+            setId(member, 1L);
+            when(guildMemberRepository.findByGuildIdAndStatus(1L, GuildMemberStatus.ACTIVE))
+                .thenReturn(List.of(member));
+            when(userQueryFacadeService.getUserProfiles(anyList())).thenReturn(Map.of());
+
+            // when
+            List<GuildMemberAdminResponse> result = service.getGuildMembers(1L);
+
+            // then
+            assertThat(result).hasSize(1);
+            assertThat(result.get(0).userNickname()).isNull();
+            assertThat(result.get(0).userProfileImage()).isNull();
+        }
     }
 
     @Nested
@@ -237,6 +476,65 @@ class GuildAdminInternalServiceTest {
             // then
             assertThat(result).isNotNull();
             verify(guildRepository).save(any(Guild.class));
+        }
+
+        @Test
+        @DisplayName("비활성 길드를 토글하면 활성이 되고 카테고리·닉네임을 채운다")
+        void toggleInactiveToActiveWithCategory() {
+            // given
+            Guild guild = createTestGuild(1L);
+            guild.setIsActive(false);
+            when(guildRepository.findById(1L)).thenReturn(Optional.of(guild));
+            when(guildRepository.save(any(Guild.class))).thenReturn(guild);
+            when(missionCategoryService.getCategory(1L))
+                .thenReturn(MissionCategoryResponse.builder().id(1L).name("운동").icon("dumbbell").build());
+            when(guildMemberRepository.countActiveMembers(1L)).thenReturn(3L);
+            when(userQueryFacadeService.getUserProfile("master-1"))
+                .thenReturn(new UserProfileInfo("master-1", "마스터", null, null, null, null, null));
+
+            // when
+            GuildAdminResponse result = service.toggleActive(1L);
+
+            // then
+            assertThat(result.isActive()).isTrue();
+            assertThat(result.categoryName()).isEqualTo("운동");
+            assertThat(result.categoryIcon()).isEqualTo("dumbbell");
+            assertThat(result.masterNickname()).isEqualTo("마스터");
+        }
+
+        @Test
+        @DisplayName("존재하지 않는 길드를 토글하면 예외를 발생시킨다")
+        void throwsWhenNotFound() {
+            when(guildRepository.findById(999L)).thenReturn(Optional.empty());
+
+            assertThatThrownBy(() -> service.toggleActive(999L))
+                .isInstanceOf(CustomException.class);
+        }
+    }
+
+    @Nested
+    @DisplayName("banFromReport 테스트")
+    class BanFromReportTest {
+
+        @Test
+        @DisplayName("신고 처리로 길드를 차단한다")
+        void bansGuild() {
+            Guild guild = createTestGuild(1L);
+            when(guildRepository.findById(1L)).thenReturn(Optional.of(guild));
+
+            service.banFromReport(1L, "부적절");
+
+            assertThat(guild.getIsBanned()).isTrue();
+            verify(guildRepository).save(guild);
+        }
+
+        @Test
+        @DisplayName("존재하지 않는 길드 차단은 예외를 발생시킨다")
+        void throwsWhenNotFound() {
+            when(guildRepository.findById(999L)).thenReturn(Optional.empty());
+
+            assertThatThrownBy(() -> service.banFromReport(999L, "x"))
+                .isInstanceOf(CustomException.class);
         }
     }
 
