@@ -369,6 +369,9 @@ public class SubscriptionWebhookTxService {
         subscription.setBasePlanId(state.basePlanId());
         subscription.setPlan(
                 SubscriptionPlanMapping.resolve("android", state.productId(), state.basePlanId()));
+        // expiresAt 은 PENDING(위에서 return) 외에는 파서(fetchGoogleSubscription)가 항상 채운다 — 없으면 120702 로
+        // 던진다.
+        // 위 소유권 이전 가드의 `expiresAt != null` 은 이전 판정용이지 여기 null 방어가 아니다.
         subscription.setExpiresAt(state.expiresAt());
         subscription.setAutoRenew(state.autoRenew());
         if (state.isInGracePeriod()) {
