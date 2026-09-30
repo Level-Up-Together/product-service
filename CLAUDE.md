@@ -196,6 +196,8 @@ BRANCH 88.0%. 분기 커버리지는 if/switch의 **모든 경로**를 요구하
 ### 코드 포맷팅 (Spotless + google-java-format AOSP)
 
 전 Java 저장소는 Spotless + google-java-format(AOSP, 4-space, 100col)으로 자동 포맷팅 강제. Import 정렬 자동.
+검사 경로는 `src/**` + `*-service/src/**` + `shared-test/src/**` (LUT-532 — 이전엔 `service/src`만 검사되어 서비스 코드 90%가 빠져 있었다.
+새 서비스 디렉토리는 `*-service/` 명명을 따를 것). 일괄 포맷 커밋은 `.git-blame-ignore-revs`에 등록 — `git config blame.ignoreRevsFile .git-blame-ignore-revs`.
 
 ```bash
 ./gradlew spotlessApply  # 적용
