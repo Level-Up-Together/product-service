@@ -225,6 +225,68 @@ class GuildExperienceServiceTest {
         }
 
         @Test
+        @DisplayName("LUT-534: 설정 캐시가 스테일(cumulativePoint 전부 null)이어도 레벨·포인트·정원이 유지된다")
+        void addExperience_staleConfigWithoutCumulativePoint_keepsLevel() {
+            // prod 사고 재현: 147pt 레벨 3 길드, LUT-483 이전 직렬화본(포인트 필드 없음)
+            testGuild.setCurrentLevel(3);
+            testGuild.setCurrentPoint(57);
+            testGuild.setTotalPoint(147);
+            testGuild.setMaxMembers(12);
+            GuildLevelConfig staleL1 =
+                    GuildLevelConfig.builder().level(1).requiredExp(0).cumulativeExp(0).build();
+            GuildLevelConfig staleL2 =
+                    GuildLevelConfig.builder()
+                            .level(2)
+                            .requiredExp(6020)
+                            .cumulativeExp(6020)
+                            .build();
+            when(guildRepository.findByIdAndIsActiveTrue(1L)).thenReturn(Optional.of(testGuild));
+            when(guildLevelConfigCacheService.getAllLevelConfigs())
+                    .thenReturn(List.of(staleL1, staleL2));
+            when(guildLevelConfigCacheService.getLevelConfigByLevel(anyInt()))
+                    .thenReturn(level1Config);
+            when(historyRepository.save(any(GuildExperienceHistory.class)))
+                    .thenAnswer(inv -> inv.getArgument(0));
+
+            guildExperienceService.addExperience(
+                    1L, 28, GuildExpSourceType.GUILD_MISSION_EXECUTION, 1L, testUserId, "미션 완료 보상");
+
+            assertThat(testGuild.getCurrentLevel()).isEqualTo(3);
+            assertThat(testGuild.getCurrentPoint()).isEqualTo(57);
+            assertThat(testGuild.getMaxMembers()).isEqualTo(12);
+            verify(eventPublisher, never()).publishEvent(any());
+        }
+
+        @Test
+        @DisplayName("LUT-534: 어드민이 임계값을 올려 재판정 레벨이 낮아져도 강등하지 않는다")
+        void addExperience_raisedThreshold_doesNotDemote() {
+            testGuild.setCurrentLevel(2);
+            testGuild.setCurrentPoint(0);
+            testGuild.setTotalPoint(30);
+            testGuild.setMaxMembers(11);
+            GuildLevelConfig raisedL2 =
+                    GuildLevelConfig.builder()
+                            .level(2)
+                            .requiredPoint(50)
+                            .cumulativePoint(50)
+                            .maxMembers(30)
+                            .build();
+            when(guildRepository.findByIdAndIsActiveTrue(1L)).thenReturn(Optional.of(testGuild));
+            when(guildLevelConfigCacheService.getAllLevelConfigs())
+                    .thenReturn(List.of(level1Config, raisedL2));
+            when(guildLevelConfigCacheService.getLevelConfigByLevel(anyInt()))
+                    .thenReturn(level1Config);
+            when(historyRepository.save(any(GuildExperienceHistory.class)))
+                    .thenAnswer(inv -> inv.getArgument(0));
+
+            guildExperienceService.addExperience(
+                    1L, 10, GuildExpSourceType.GUILD_MISSION_EXECUTION, 1L, testUserId, "미션 완료 보상");
+
+            assertThat(testGuild.getCurrentLevel()).isEqualTo(2);
+            assertThat(testGuild.getMaxMembers()).isEqualTo(11);
+        }
+
+        @Test
         @DisplayName("존재하지 않는 길드에 경험치 추가 시 예외 발생")
         void addExperience_failWhenGuildNotFound() {
             when(guildRepository.findByIdAndIsActiveTrue(999L)).thenReturn(Optional.empty());

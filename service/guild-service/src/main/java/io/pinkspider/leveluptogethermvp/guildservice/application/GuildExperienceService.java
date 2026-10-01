@@ -228,6 +228,22 @@ public class GuildExperienceService {
             }
         }
 
+        // LUT-534: 포인트는 단조 증가만 하므로 레벨도 내려가지 않는다. 설정 캐시가 스테일(cumulativePoint 없는
+        // 옛 직렬화본)이거나 어드민이 임계값을 올려도 기존 레벨은 유지한다 — prod 에서 TTL 없는 Redis 캐시가
+        // LUT-483 컬럼 추가 전 JSON 을 돌려줘 활성 길드가 3→1 로 강등된 사고의 재발 방지.
+        int currentLevel = guild.getCurrentLevel();
+        if (newLevel < currentLevel) {
+            log.warn(
+                    "길드 레벨 재판정 결과가 현재 레벨보다 낮아 유지합니다: guildId={}, current={}, computed={},"
+                            + " totalPoint={}, configs={}",
+                    guild.getId(),
+                    currentLevel,
+                    newLevel,
+                    totalPoint,
+                    levelConfigs == null ? 0 : levelConfigs.size());
+            return;
+        }
+
         guild.setCurrentLevel(Math.max(1, newLevel));
         guild.setCurrentPoint(Math.max(0, totalPoint - cumulativeForLevel));
 
