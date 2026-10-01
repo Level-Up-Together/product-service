@@ -284,8 +284,11 @@ Redis Stream `stream:app-push` → `AppPushMessageConsumer` → `FcmPushService`
 | `userExists`                                          | 5분  | JWT 인증 필터 유저 존재 확인        |
 | `reportUnderReview`                                   | 1분  | 신고 진행 상태                  |
 | `missionCategories`, `activeMissionCategories`        | 1시간 | 마스터 데이터 (Admin evict+reload) |
+| `guildLevelConfigs`, `userLevelConfigs`               | 1시간 | 레벨 설정 (LUT-534 — 무기한 캐시가 컬럼 추가 후 스테일 JSON을 돌려줘 길드 레벨 강등 사고) |
 
-그 외 설정·조회 캐시(`userLevelConfigs`, 길드 레벨, 출석 보상, 업적, `profanityWords`, `userDetailedTitleInfo` 등)는 각 `*CacheService`의 `@Cacheable` 사용 — **기본 설정은 TTL 없음(무기한)**이라 evict 이벤트에 전적으로 의존한다.
+그 외 설정·조회 캐시(출석 보상, 업적, `profanityWords`, `userDetailedTitleInfo` 등)는 각 `*CacheService`의 `@Cacheable` 사용 — **기본 설정은 TTL 없음(무기한)**이라 evict 이벤트에 전적으로 의존한다.
+**캐시되는 엔티티에 컬럼을 추가할 때는 배포 직후 해당 키를 evict할 것** (LUT-534): 옛 JSON은 역직렬화 오류 없이 새 필드만 `null`로 살아남으므로 `RedisConfig`의 "오류 시 evict" 안전망에 걸리지 않는다. `@PostConstruct warmUpCache()`류 self-invocation은 캐시 프록시를 타지 않아 기동 시 갱신 효과가 없다.
+길드 레벨 재판정(`GuildExperienceService.processLevelUp`)은 **강등 금지**(포인트 단조 증가 → 레벨도 단조) — 재판정 결과가 현재 레벨보다 낮으면 warn 로그 후 유지.
 
 ## Scheduler & Distributed Lock (ShedLock)
 
