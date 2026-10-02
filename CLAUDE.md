@@ -510,8 +510,16 @@ uk 멱등) — 쪼개서 수행해도 몰아서 한 것과 같은 점수. "하�
   두 짝**이 맞아야 완성된다. `@CurrentUser`는 argument resolver라 **필터체인을 통과한 뒤에야** 동작하므로, `required = false`만
   달면 요청이 필터에서 401로 끊긴다. `permitAll`은 메서드까지 명시할 것(`HttpMethod.GET` — 구매 같은 POST는 인증 유지).
   컨트롤러 슬라이스 테스트는 이 누락을 통과시키므로 `SecurityConfigPublicEndpointTest`에 경로를 등록해 검증할 것
-- **Race condition** (중복 키): `saveAndFlush + DataIntegrityViolationException` 패턴 (예시: [
-  `docs/FEATURES.md`](docs/FEATURES.md))
+- **Race condition** (중복 키, LUT-538): "없으면 생성" insert 는 **반드시 별도 트랜잭션(`REQUIRES_NEW`) 전용 빈**에 두고,
+  호출부는 `catch (DataIntegrityViolationException)` 후 **재조회**해 managed 엔티티를 얻는다
+  (`UserStatsCreator` / `UserAchievementCreator` 참고).
+  같은 트랜잭션에서 `saveAndFlush + catch` 로 흡수하려 하면 **제약 위반이 영속성 컨텍스트를 오염시켜**
+  (`don't flush the Session after an exception occurs`) 트랜잭션이 rollback-only 가 되고, 중복을 잡아 재조회해도
+  커밋 시 `UnexpectedRollbackException` → 요청 전체가 500 이 된다. 내부 빈에서 예외를 삼키지도 말 것(같은 이유).
+  내부 트랜잭션이 반환한 엔티티는 detached 라 이후 `setXxx` 가 flush 되지 않으므로 **반환값을 쓰지 말고 재조회**한다.
+  ⚠️ `AttendanceService.checkIn` · `GuildPointService.findOrCreateDaily` · `UserItemService.grantItem` ·
+  `NotificationService`(dedup) · `CreateNextPinnedInstanceStep` 은 아직 구 패턴(동일 트랜잭션 흡수)이라 동시 요청 시
+  같은 방식으로 실패할 수 있다 — 손댈 때 위 구조로 전환할 것.
 
 ## Image Moderation & Storage
 
