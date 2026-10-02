@@ -7,8 +7,10 @@ import io.pinkspider.leveluptogethermvp.gamificationservice.infrastructure.UserS
 import io.pinkspider.leveluptogethermvp.gamificationservice.stats.domain.dto.UserStatsResponse;
 import java.time.LocalDate;
 import java.time.ZoneId;
+import java.util.Optional;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Lazy;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -18,6 +20,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class UserStatsService {
 
     private final UserStatsRepository userStatsRepository;
+    private final UserStatsCreator userStatsCreator;
     private final UserQueryFacade userQueryFacade;
     private final GuildQueryFacade guildQueryFacade;
 
@@ -26,22 +29,43 @@ public class UserStatsService {
     // LUT-418: guildQueryFacade 도 같은 이유로 @Lazy (guild↔gamification 생성 사이클 예방).
     public UserStatsService(
             UserStatsRepository userStatsRepository,
+            UserStatsCreator userStatsCreator,
             @Lazy UserQueryFacade userQueryFacade,
             @Lazy GuildQueryFacade guildQueryFacade) {
         this.userStatsRepository = userStatsRepository;
+        this.userStatsCreator = userStatsCreator;
         this.userQueryFacade = userQueryFacade;
         this.guildQueryFacade = guildQueryFacade;
     }
 
+    /**
+     * user_stats 행 확보 (레이스 안전).
+     *
+     * <p>LUT-538: 신규 가입 직후 `/api/v1/mypage`(프리페치 2건)와 BFF home 이 동시에 첫 행을 만들려다
+     * uk_user_stats_user_id 가 충돌해 500 이 났다. 생성은 {@link UserStatsCreator}(REQUIRES_NEW)에 맡겨 제약 위반이 이
+     * 트랜잭션의 영속성 컨텍스트를 오염시키지 않게 하고, 생성 후에는 **반드시 재조회**해 managed 엔티티를 반환한다 — 내부 트랜잭션이 반환한 인스턴스는
+     * detached 라 호출자의 변경 (setXxx)이 flush 되지 않는다.
+     */
     @Transactional(transactionManager = "gamificationTransactionManager")
     public UserStats getOrCreateUserStats(String userId) {
+        Optional<UserStats> existing = userStatsRepository.findByUserId(userId);
+        if (existing.isPresent()) {
+            return existing.get();
+        }
+
+        try {
+            userStatsCreator.create(userId);
+        } catch (DataIntegrityViolationException e) {
+            // 다른 요청이 먼저 생성 — 아래 재조회가 그 행을 집는다
+            log.debug("UserStats 중복 감지, 기존 레코드 조회: userId={}", userId);
+        }
+
         return userStatsRepository
                 .findByUserId(userId)
-                .orElseGet(
-                        () -> {
-                            UserStats newStats = UserStats.builder().userId(userId).build();
-                            return userStatsRepository.save(newStats);
-                        });
+                .orElseThrow(
+                        () ->
+                                new IllegalStateException(
+                                        "UserStats not found after creation: userId=" + userId));
     }
 
     public UserStatsResponse getUserStats(String userId) {

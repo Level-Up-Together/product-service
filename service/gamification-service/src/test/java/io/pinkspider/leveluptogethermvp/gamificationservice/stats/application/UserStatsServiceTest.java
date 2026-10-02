@@ -2,7 +2,10 @@ package io.pinkspider.leveluptogethermvp.gamificationservice.stats.application;
 
 import static io.pinkspider.global.test.TestReflectionUtils.setId;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -14,6 +17,7 @@ import io.pinkspider.leveluptogethermvp.gamificationservice.stats.domain.dto.Use
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -21,11 +25,14 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.dao.DataIntegrityViolationException;
 
 @ExtendWith(MockitoExtension.class)
 class UserStatsServiceTest {
 
     @Mock private UserStatsRepository userStatsRepository;
+
+    @Mock private UserStatsCreator userStatsCreator;
 
     @Mock private UserQueryFacade userQueryFacade;
 
@@ -74,20 +81,65 @@ class UserStatsServiceTest {
         }
 
         @Test
-        @DisplayName("사용자 통계가 없으면 새로 생성한다")
+        @DisplayName("사용자 통계가 없으면 별도 트랜잭션으로 생성하고 재조회한 managed 엔티티를 반환한다")
         void getOrCreateUserStats_creates() {
-            // given
-            UserStats newStats = UserStats.builder().userId(TEST_USER_ID).build();
-
-            when(userStatsRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.empty());
-            when(userStatsRepository.save(any(UserStats.class))).thenReturn(newStats);
+            // given — 생성 전엔 비어 있고, creator 가 행을 만든 뒤에는 조회된다
+            UserStats created = createTestUserStats(1L, TEST_USER_ID, 0, 0);
+            AtomicReference<UserStats> row = new AtomicReference<>();
+            when(userStatsRepository.findByUserId(TEST_USER_ID))
+                    .thenAnswer(invocation -> Optional.ofNullable(row.get()));
+            doAnswer(
+                            invocation -> {
+                                row.set(created);
+                                return null;
+                            })
+                    .when(userStatsCreator)
+                    .create(TEST_USER_ID);
 
             // when
             UserStats result = userStatsService.getOrCreateUserStats(TEST_USER_ID);
 
             // then
-            assertThat(result).isNotNull();
-            verify(userStatsRepository).save(any(UserStats.class));
+            assertThat(result).isSameAs(created);
+            verify(userStatsCreator).create(TEST_USER_ID);
+            // LUT-538: 생성은 creator(REQUIRES_NEW) 담당 — 이 트랜잭션에서 직접 insert 하지 않는다
+            verify(userStatsRepository, never()).save(any(UserStats.class));
+        }
+
+        @Test
+        @DisplayName("LUT-538: 동시 요청이 먼저 생성해 중복 예외가 나도 그 행을 재조회해 반환한다")
+        void getOrCreateUserStats_duplicateKey_returnsExistingRow() {
+            // given — 신규 가입 직후 /api/v1/mypage 2건이 동시에 첫 행을 만들려는 상황
+            UserStats createdByOther = createTestUserStats(2L, TEST_USER_ID, 0, 0);
+            AtomicReference<UserStats> row = new AtomicReference<>();
+            when(userStatsRepository.findByUserId(TEST_USER_ID))
+                    .thenAnswer(invocation -> Optional.ofNullable(row.get()));
+            doAnswer(
+                            invocation -> {
+                                // 상대 요청이 선점 → 내부 트랜잭션만 롤백되고 중복 예외가 올라온다
+                                row.set(createdByOther);
+                                throw new DataIntegrityViolationException("duplicate key");
+                            })
+                    .when(userStatsCreator)
+                    .create(TEST_USER_ID);
+
+            // when
+            UserStats result = userStatsService.getOrCreateUserStats(TEST_USER_ID);
+
+            // then — 예외가 호출자로 전파되지 않고(= API 500 아님) 상대가 만든 행을 쓴다
+            assertThat(result).isSameAs(createdByOther);
+        }
+
+        @Test
+        @DisplayName("LUT-538: 생성 후에도 행을 찾을 수 없으면 IllegalStateException")
+        void getOrCreateUserStats_missingAfterCreate_throws() {
+            // given
+            when(userStatsRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.empty());
+
+            // when & then
+            assertThatThrownBy(() -> userStatsService.getOrCreateUserStats(TEST_USER_ID))
+                    .isInstanceOf(IllegalStateException.class)
+                    .hasMessageContaining(TEST_USER_ID);
         }
     }
 

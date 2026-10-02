@@ -49,6 +49,7 @@ public class AchievementService {
 
     private final AchievementRepository achievementRepository;
     private final UserAchievementRepository userAchievementRepository;
+    private final UserAchievementCreator userAchievementCreator;
     private final UserStatsService userStatsService;
     private final UserExperienceService userExperienceService;
     private final TitleService titleService;
@@ -601,41 +602,39 @@ public class AchievementService {
         }
     }
 
-    /** UserAchievement 생성 또는 조회 (레이스 컨디션 안전) 동시 요청으로 중복 키 예외 발생 시 기존 레코드를 조회하여 반환 */
+    /**
+     * UserAchievement 생성 또는 조회 (레이스 안전).
+     *
+     * <p>LUT-538: 예전에는 같은 트랜잭션에서 saveAndFlush 하고 중복을 catch 해 재조회했지만, flush 실패로 영속성 컨텍스트가 오염돼 (`null
+     * id in UserAchievement entry`) 트랜잭션이 rollback-only 가 되고 신규 유저 업적 동기화가 통째로 실패했다. 생성은 {@link
+     * UserAchievementCreator}(REQUIRES_NEW)에 맡기고, 생성 후에는 **반드시 재조회**해 managed 엔티티를 반환한다 (내부 트랜잭션이
+     * 반환한 인스턴스는 detached 라 이후 setCount 가 flush 되지 않는다).
+     */
     private UserAchievement getOrCreateUserAchievement(String userId, Achievement achievement) {
-        // 먼저 기존 레코드 조회
+        Optional<UserAchievement> existing =
+                userAchievementRepository.findByUserIdAndAchievementId(userId, achievement.getId());
+        if (existing.isPresent()) {
+            return existing.get();
+        }
+
+        try {
+            userAchievementCreator.create(userId, achievement.getId());
+        } catch (DataIntegrityViolationException e) {
+            // 다른 요청이 먼저 생성 — 아래 재조회가 그 행을 집는다
+            log.debug(
+                    "UserAchievement 중복 감지, 기존 레코드 조회: userId={}, achievementId={}",
+                    userId,
+                    achievement.getId());
+        }
+
         return userAchievementRepository
                 .findByUserIdAndAchievementId(userId, achievement.getId())
-                .orElseGet(
-                        () -> {
-                            try {
-                                UserAchievement newAchievement =
-                                        UserAchievement.builder()
-                                                .userId(userId)
-                                                .achievement(achievement)
-                                                .currentCount(0)
-                                                .build();
-                                // saveAndFlush로 즉시 INSERT 실행 및 예외 발생
-                                return userAchievementRepository.saveAndFlush(newAchievement);
-                            } catch (DataIntegrityViolationException e) {
-                                // 레이스 컨디션: 다른 스레드가 먼저 저장한 경우, 기존 레코드 조회
-                                log.debug(
-                                        "UserAchievement 중복 감지, 기존 레코드 조회: userId={},"
-                                                + " achievementId={}",
-                                        userId,
-                                        achievement.getId());
-                                return userAchievementRepository
-                                        .findByUserIdAndAchievementId(userId, achievement.getId())
-                                        .orElseThrow(
-                                                () ->
-                                                        new IllegalStateException(
-                                                                "UserAchievement not found after"
-                                                                        + " duplicate key error:"
-                                                                        + " userId="
-                                                                        + userId
-                                                                        + ", achievementId="
-                                                                        + achievement.getId()));
-                            }
-                        });
+                .orElseThrow(
+                        () ->
+                                new IllegalStateException(
+                                        "UserAchievement not found after creation: userId="
+                                                + userId
+                                                + ", achievementId="
+                                                + achievement.getId()));
     }
 }

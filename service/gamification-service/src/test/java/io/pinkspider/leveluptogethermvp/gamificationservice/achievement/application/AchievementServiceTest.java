@@ -8,6 +8,7 @@ import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -33,6 +34,7 @@ import io.pinkspider.leveluptogethermvp.metaservice.application.MissionCategoryS
 import io.pinkspider.leveluptogethermvp.metaservice.domain.dto.MissionCategoryResponse;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -41,6 +43,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.dao.DataIntegrityViolationException;
 
 @ExtendWith(MockitoExtension.class)
 class AchievementServiceTest {
@@ -48,6 +51,8 @@ class AchievementServiceTest {
     @Mock private AchievementRepository achievementRepository;
 
     @Mock private UserAchievementRepository userAchievementRepository;
+
+    @Mock private UserAchievementCreator userAchievementCreator;
 
     @Mock private UserStatsService userStatsService;
 
@@ -98,6 +103,29 @@ class AchievementServiceTest {
                         .build();
         setId(achievement, id);
         return achievement;
+    }
+
+    /**
+     * LUT-538: 첫 행 생성은 {@link UserAchievementCreator}(REQUIRES_NEW)가 하고, 호출부는 생성 후 재조회로 managed
+     * 엔티티를 얻는다. 생성 전에는 조회가 비어 있고 create 호출 뒤에는 행이 잡히는 실제 동작을 모사한다.
+     *
+     * @return 생성된 행을 담는 홀더 (생성 전에는 null)
+     */
+    private AtomicReference<UserAchievement> stubCreateThenFound(Achievement achievement) {
+        AtomicReference<UserAchievement> row = new AtomicReference<>();
+        when(userAchievementRepository.findByUserIdAndAchievementId(
+                        TEST_USER_ID, achievement.getId()))
+                .thenAnswer(invocation -> Optional.ofNullable(row.get()));
+        doAnswer(
+                        invocation -> {
+                            row.set(
+                                    createTestUserAchievement(
+                                            1L, TEST_USER_ID, achievement, 0, false));
+                            return null;
+                        })
+                .when(userAchievementCreator)
+                .create(TEST_USER_ID, achievement.getId());
+        return row;
     }
 
     private UserAchievement createTestUserAchievement(
@@ -488,10 +516,19 @@ class AchievementServiceTest {
                     .thenReturn(5);
             when(userAchievementRepository.findAllByUserIdForSync(TEST_USER_ID))
                     .thenReturn(List.of());
+            // LUT-538: 생성은 creator(REQUIRES_NEW)가 하고, 호출부는 생성 후 재조회로 managed 엔티티를 얻는다
+            AtomicReference<UserAchievement> createdRow = new AtomicReference<>();
             when(userAchievementRepository.findByUserIdAndAchievementId(anyString(), anyLong()))
-                    .thenReturn(Optional.empty());
-            when(userAchievementRepository.saveAndFlush(any(UserAchievement.class)))
-                    .thenAnswer(invocation -> invocation.getArgument(0));
+                    .thenAnswer(invocation -> Optional.ofNullable(createdRow.get()));
+            doAnswer(
+                            invocation -> {
+                                createdRow.set(
+                                        createTestUserAchievement(
+                                                1L, TEST_USER_ID, achievement, 0, false));
+                                return null;
+                            })
+                    .when(userAchievementCreator)
+                    .create(anyString(), anyLong());
             when(userAchievementRepository.findClaimableByUserId(TEST_USER_ID))
                     .thenReturn(List.of());
 
@@ -785,10 +822,19 @@ class AchievementServiceTest {
             when(strategyRegistry.getStrategy("USER_STATS")).thenReturn(mockStrategy);
             when(mockStrategy.checkCondition(TEST_USER_ID, achievement)).thenReturn(true);
             when(mockStrategy.fetchCurrentValue(TEST_USER_ID, achievement)).thenReturn(10);
+            // LUT-538: 생성 전엔 비어 있고, creator 가 행을 만든 뒤 재조회에서 잡힌다
+            AtomicReference<UserAchievement> createdRow = new AtomicReference<>();
             when(userAchievementRepository.findByUserIdAndAchievementId(TEST_USER_ID, 1L))
-                    .thenReturn(Optional.empty());
-            when(userAchievementRepository.saveAndFlush(any(UserAchievement.class)))
-                    .thenAnswer(invocation -> invocation.getArgument(0));
+                    .thenAnswer(invocation -> Optional.ofNullable(createdRow.get()));
+            doAnswer(
+                            invocation -> {
+                                createdRow.set(
+                                        createTestUserAchievement(
+                                                1L, TEST_USER_ID, achievement, 0, false));
+                                return null;
+                            })
+                    .when(userAchievementCreator)
+                    .create(TEST_USER_ID, 1L);
 
             // when
             achievementService.checkAchievementsByDataSource(TEST_USER_ID, "USER_STATS");
@@ -1005,10 +1051,7 @@ class AchievementServiceTest {
             when(achievementCacheService.getAchievementsByDataSource("USER_STATS"))
                     .thenReturn(List.of(achievement));
             when(strategyRegistry.getStrategy("USER_STATS")).thenReturn(mockStrategy);
-            when(userAchievementRepository.findByUserIdAndAchievementId(TEST_USER_ID, 1L))
-                    .thenReturn(Optional.empty());
-            when(userAchievementRepository.saveAndFlush(any(UserAchievement.class)))
-                    .thenAnswer(inv -> inv.getArgument(0));
+            stubCreateThenFound(achievement);
             when(mockStrategy.checkCondition(TEST_USER_ID, achievement)).thenReturn(true);
             when(mockStrategy.fetchCurrentValue(TEST_USER_ID, achievement)).thenReturn(10);
 
@@ -1030,10 +1073,7 @@ class AchievementServiceTest {
             when(achievementCacheService.getAchievementsByDataSource("USER_STATS"))
                     .thenReturn(List.of(achievement));
             when(strategyRegistry.getStrategy("USER_STATS")).thenReturn(mockStrategy);
-            when(userAchievementRepository.findByUserIdAndAchievementId(TEST_USER_ID, 1L))
-                    .thenReturn(Optional.empty());
-            when(userAchievementRepository.saveAndFlush(any(UserAchievement.class)))
-                    .thenAnswer(inv -> inv.getArgument(0));
+            stubCreateThenFound(achievement);
             when(mockStrategy.checkCondition(TEST_USER_ID, achievement)).thenReturn(true);
             when(mockStrategy.fetchCurrentValue(TEST_USER_ID, achievement))
                     .thenReturn(Boolean.TRUE);
@@ -1055,10 +1095,7 @@ class AchievementServiceTest {
             when(achievementCacheService.getAchievementsByDataSource("USER_STATS"))
                     .thenReturn(List.of(achievement));
             when(strategyRegistry.getStrategy("USER_STATS")).thenReturn(mockStrategy);
-            when(userAchievementRepository.findByUserIdAndAchievementId(TEST_USER_ID, 1L))
-                    .thenReturn(Optional.empty());
-            when(userAchievementRepository.saveAndFlush(any(UserAchievement.class)))
-                    .thenAnswer(inv -> inv.getArgument(0));
+            stubCreateThenFound(achievement);
             when(mockStrategy.checkCondition(TEST_USER_ID, achievement)).thenReturn(true);
             when(mockStrategy.fetchCurrentValue(TEST_USER_ID, achievement)).thenReturn(1);
 
@@ -1104,10 +1141,7 @@ class AchievementServiceTest {
             when(achievementCacheService.getAchievementsByDataSource("USER_STATS"))
                     .thenReturn(List.of(achievement));
             when(strategyRegistry.getStrategy("USER_STATS")).thenReturn(mockStrategy);
-            when(userAchievementRepository.findByUserIdAndAchievementId(TEST_USER_ID, 1L))
-                    .thenReturn(Optional.empty());
-            when(userAchievementRepository.saveAndFlush(any(UserAchievement.class)))
-                    .thenAnswer(inv -> inv.getArgument(0));
+            stubCreateThenFound(achievement);
             when(mockStrategy.checkCondition(TEST_USER_ID, achievement)).thenReturn(false);
             when(mockStrategy.fetchCurrentValue(TEST_USER_ID, achievement)).thenReturn(5);
 
@@ -1166,40 +1200,36 @@ class AchievementServiceTest {
         }
 
         @Test
-        @DisplayName(
-                "Race condition — saveAndFlush에서 DataIntegrityViolationException 발생 시 기존 레코드를 조회한다")
+        @DisplayName("LUT-538: 동시 요청이 먼저 생성해 중복 예외가 나도 그 행을 재조회해 진행도를 갱신한다")
         void dynamic_raceCondition_duplicateKey_fallbackToExisting() {
-            // given
-            // checkAndUpdateAchievementDynamic 흐름:
-            //   1. findByUserIdAndAchievementId → empty (미완료 판단)
-            //   2. conditionMet=true → getOrCreateUserAchievement 호출
-            //      → findByUserIdAndAchievementId (2nd) → empty → saveAndFlush →
-            // DataIntegrityViolationException
-            //      → findByUserIdAndAchievementId (3rd) → 기존 레코드 반환
+            // given — 신규 가입 직후 업적 동기화가 여러 요청에서 동시에 도는 상황.
+            // creator(REQUIRES_NEW)가 중복 예외를 올리고, 호출부는 상대가 만든 행을 재조회해 쓴다.
+            // 예전엔 같은 트랜잭션에서 saveAndFlush 가 터져 세션이 오염되고 동기화 전체가 실패했다.
             Achievement achievement = createTestAchievement(1L, "MISSION_10", 10, 0);
-            UserAchievement existingAfterRace =
+            UserAchievement createdByOther =
                     createTestUserAchievement(1L, TEST_USER_ID, achievement, 0, false);
+            AtomicReference<UserAchievement> row = new AtomicReference<>();
 
             when(achievementCacheService.getAchievementsByDataSource("USER_STATS"))
                     .thenReturn(List.of(achievement));
             when(strategyRegistry.getStrategy("USER_STATS")).thenReturn(mockStrategy);
             when(mockStrategy.checkCondition(TEST_USER_ID, achievement)).thenReturn(true);
             when(mockStrategy.fetchCurrentValue(TEST_USER_ID, achievement)).thenReturn(10);
-            // 1st: empty(미완료 판단), 2nd: empty(getOrCreate 내 첫 조회), 3rd: 기존 레코드(fallback)
             when(userAchievementRepository.findByUserIdAndAchievementId(TEST_USER_ID, 1L))
-                    .thenReturn(Optional.empty())
-                    .thenReturn(Optional.empty())
-                    .thenReturn(Optional.of(existingAfterRace));
-            when(userAchievementRepository.saveAndFlush(any(UserAchievement.class)))
-                    .thenThrow(
-                            new org.springframework.dao.DataIntegrityViolationException(
-                                    "duplicate key"));
+                    .thenAnswer(invocation -> Optional.ofNullable(row.get()));
+            doAnswer(
+                            invocation -> {
+                                row.set(createdByOther);
+                                throw new DataIntegrityViolationException("duplicate key");
+                            })
+                    .when(userAchievementCreator)
+                    .create(TEST_USER_ID, 1L);
 
             // when
             achievementService.checkAchievementsByDataSource(TEST_USER_ID, "USER_STATS");
 
-            // then: race condition 후 기존 레코드 count 갱신
-            assertThat(existingAfterRace.getCurrentCount()).isEqualTo(10);
+            // then — 예외가 전파되지 않고 상대가 만든 행의 진행도가 갱신된다
+            assertThat(createdByOther.getCurrentCount()).isEqualTo(10);
         }
     }
 
@@ -1341,8 +1371,7 @@ class AchievementServiceTest {
                     .thenReturn(true);
             when(mockStrategy.fetchCurrentValue(any(AchievementSyncContext.class), eq(achievement)))
                     .thenReturn(10);
-            when(userAchievementRepository.saveAndFlush(any(UserAchievement.class)))
-                    .thenAnswer(inv -> inv.getArgument(0));
+            stubCreateThenFound(achievement);
             when(userAchievementRepository.findClaimableByUserId(TEST_USER_ID))
                     .thenReturn(List.of());
 
@@ -1371,8 +1400,7 @@ class AchievementServiceTest {
                     .thenReturn(true);
             when(mockStrategy.fetchCurrentValue(any(AchievementSyncContext.class), eq(achievement)))
                     .thenReturn(Boolean.TRUE);
-            when(userAchievementRepository.saveAndFlush(any(UserAchievement.class)))
-                    .thenAnswer(inv -> inv.getArgument(0));
+            stubCreateThenFound(achievement);
             when(userAchievementRepository.findClaimableByUserId(TEST_USER_ID))
                     .thenReturn(List.of());
 
@@ -1429,8 +1457,7 @@ class AchievementServiceTest {
                     .thenReturn(true);
             when(mockStrategy.fetchCurrentValue(any(AchievementSyncContext.class), eq(achievement)))
                     .thenReturn(1);
-            when(userAchievementRepository.saveAndFlush(any(UserAchievement.class)))
-                    .thenAnswer(inv -> inv.getArgument(0));
+            stubCreateThenFound(achievement);
             when(userAchievementRepository.findClaimableByUserId(TEST_USER_ID))
                     .thenReturn(List.of());
 
@@ -1517,8 +1544,7 @@ class AchievementServiceTest {
                     .thenReturn(false);
             when(mockStrategy.fetchCurrentValue(any(AchievementSyncContext.class), eq(achievement)))
                     .thenReturn(4);
-            when(userAchievementRepository.saveAndFlush(any(UserAchievement.class)))
-                    .thenAnswer(inv -> inv.getArgument(0));
+            stubCreateThenFound(achievement);
             when(userAchievementRepository.findClaimableByUserId(TEST_USER_ID))
                     .thenReturn(List.of());
 
@@ -1639,8 +1665,7 @@ class AchievementServiceTest {
                     .thenReturn(false);
             when(mockStrategy.fetchCurrentValue(any(AchievementSyncContext.class), eq(achievement)))
                     .thenReturn(0);
-            when(userAchievementRepository.saveAndFlush(any()))
-                    .thenAnswer(inv -> inv.getArgument(0));
+            stubCreateThenFound(achievement);
             when(userAchievementRepository.findClaimableByUserId(TEST_USER_ID))
                     .thenReturn(List.of());
 
@@ -1672,8 +1697,7 @@ class AchievementServiceTest {
                     .thenReturn(false);
             when(mockStrategy.fetchCurrentValue(any(AchievementSyncContext.class), eq(achievement)))
                     .thenReturn(0);
-            when(userAchievementRepository.saveAndFlush(any()))
-                    .thenAnswer(inv -> inv.getArgument(0));
+            stubCreateThenFound(achievement);
             when(userAchievementRepository.findClaimableByUserId(TEST_USER_ID))
                     .thenReturn(List.of());
 
@@ -1702,8 +1726,7 @@ class AchievementServiceTest {
                     .thenReturn(false);
             when(mockStrategy.fetchCurrentValue(any(AchievementSyncContext.class), eq(achievement)))
                     .thenReturn(0);
-            when(userAchievementRepository.saveAndFlush(any()))
-                    .thenAnswer(inv -> inv.getArgument(0));
+            stubCreateThenFound(achievement);
             when(userAchievementRepository.findClaimableByUserId(TEST_USER_ID))
                     .thenReturn(List.of());
 
@@ -1731,8 +1754,7 @@ class AchievementServiceTest {
                     .thenReturn(false);
             when(mockStrategy.fetchCurrentValue(any(AchievementSyncContext.class), eq(achievement)))
                     .thenReturn(0);
-            when(userAchievementRepository.saveAndFlush(any()))
-                    .thenAnswer(inv -> inv.getArgument(0));
+            stubCreateThenFound(achievement);
             when(userAchievementRepository.findClaimableByUserId(TEST_USER_ID))
                     .thenReturn(List.of());
 
