@@ -12,6 +12,7 @@ import io.pinkspider.global.event.EquippedItemPushDueEvent;
 import io.pinkspider.leveluptogethermvp.gamificationservice.shop.domain.entity.ItemPushMessage;
 import io.pinkspider.leveluptogethermvp.gamificationservice.shop.domain.entity.ItemPushSendLog;
 import io.pinkspider.leveluptogethermvp.gamificationservice.shop.domain.entity.ShopItem;
+import io.pinkspider.leveluptogethermvp.gamificationservice.shop.domain.enums.ItemPushDispatchOutcome;
 import io.pinkspider.leveluptogethermvp.gamificationservice.shop.domain.enums.ItemPushTriggerType;
 import io.pinkspider.leveluptogethermvp.gamificationservice.shop.domain.enums.ShopItemType;
 import io.pinkspider.leveluptogethermvp.gamificationservice.shop.infrastructure.ItemPushSendLogRepository;
@@ -126,6 +127,88 @@ class ItemPushDispatchServiceTest {
                 USER_ID, headItem, DATE, SLOT, List.of(message(1L, "x")), Set.of(DATE));
 
         verify(eventPublisher, never()).publishEvent(any());
+    }
+
+    // ===================== LUT-541 스킵 사유 노출 =====================
+
+    @Nested
+    @DisplayName("LUT-541: 시도 결과를 사유로 돌려준다 (로그·진단용)")
+    class Outcome {
+
+        @Test
+        @DisplayName("발송 성공 → SENT")
+        void sent() {
+            when(sendLogRepository.existsByUserIdAndSendDate(USER_ID, DATE)).thenReturn(false);
+
+            ItemPushDispatchOutcome outcome =
+                    dispatchService.trySendForUser(
+                            USER_ID, headItem, DATE, SLOT, List.of(message(1L, "x")), Set.of(DATE));
+
+            assertThat(outcome).isEqualTo(ItemPushDispatchOutcome.SENT);
+        }
+
+        @Test
+        @DisplayName("오늘 이미 발송 → SKIP_ALREADY_SENT")
+        void alreadySent() {
+            when(sendLogRepository.existsByUserIdAndSendDate(USER_ID, DATE)).thenReturn(true);
+
+            ItemPushDispatchOutcome outcome =
+                    dispatchService.trySendForUser(
+                            USER_ID, headItem, DATE, SLOT, List.of(message(1L, "x")), Set.of(DATE));
+
+            assertThat(outcome).isEqualTo(ItemPushDispatchOutcome.SKIP_ALREADY_SENT);
+        }
+
+        @Test
+        @DisplayName("INACTIVE 백오프 비발송일(k=2) → SKIP_BACKOFF")
+        void backoff() {
+            when(sendLogRepository.existsByUserIdAndSendDate(USER_ID, DATE)).thenReturn(false);
+            ItemPushMessage inactive = typed(1L, "보고싶어요", ItemPushTriggerType.INACTIVE);
+
+            ItemPushDispatchOutcome outcome =
+                    dispatchService.trySendForUser(
+                            USER_ID,
+                            headItem,
+                            DATE,
+                            SLOT,
+                            List.of(inactive),
+                            Set.of(DATE.minusDays(3)));
+
+            assertThat(outcome).isEqualTo(ItemPushDispatchOutcome.SKIP_BACKOFF);
+        }
+
+        @Test
+        @DisplayName("LUT-541 재현: 당일 완료(AFTER_COMPLETE) + 해당 대사 미등록 → SKIP_NO_MESSAGE")
+        void noMessageForAfterComplete() {
+            // prod/dev 실제 상황 — 설정된 아이템들에 AFTER_COMPLETE·ANY 대사가 하나도 없어
+            // 당일 미션을 완료한 유저는 그 날 푸시를 받지 못한다 (10/3 백루미 케이스)
+            when(sendLogRepository.existsByUserIdAndSendDate(USER_ID, DATE)).thenReturn(false);
+            List<ItemPushMessage> onlyBeforeAndInactive =
+                    List.of(
+                            typed(1L, "활동 전 대사", ItemPushTriggerType.BEFORE_ACTIVITY),
+                            typed(2L, "미활동 대사", ItemPushTriggerType.INACTIVE));
+
+            ItemPushDispatchOutcome outcome =
+                    dispatchService.trySendForUser(
+                            USER_ID, headItem, DATE, SLOT, onlyBeforeAndInactive, Set.of(DATE));
+
+            assertThat(outcome).isEqualTo(ItemPushDispatchOutcome.SKIP_NO_MESSAGE);
+            verify(eventPublisher, never()).publishEvent(any());
+        }
+
+        @Test
+        @DisplayName("선점 경합(유니크 위반) → SKIP_RACE")
+        void race() {
+            when(sendLogRepository.existsByUserIdAndSendDate(USER_ID, DATE)).thenReturn(false);
+            when(sendLogRepository.saveAndFlush(any(ItemPushSendLog.class)))
+                    .thenThrow(new DataIntegrityViolationException("dup"));
+
+            ItemPushDispatchOutcome outcome =
+                    dispatchService.trySendForUser(
+                            USER_ID, headItem, DATE, SLOT, List.of(message(1L, "x")), Set.of(DATE));
+
+            assertThat(outcome).isEqualTo(ItemPushDispatchOutcome.SKIP_RACE);
+        }
     }
 
     // ===================== R3 상태 판정 =====================

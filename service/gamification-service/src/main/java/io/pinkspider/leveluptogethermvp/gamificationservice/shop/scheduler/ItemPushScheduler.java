@@ -6,6 +6,7 @@ import io.pinkspider.leveluptogethermvp.gamificationservice.shop.application.Ite
 import io.pinkspider.leveluptogethermvp.gamificationservice.shop.domain.entity.ItemPushMessage;
 import io.pinkspider.leveluptogethermvp.gamificationservice.shop.domain.entity.ItemPushSetting;
 import io.pinkspider.leveluptogethermvp.gamificationservice.shop.domain.entity.ShopItem;
+import io.pinkspider.leveluptogethermvp.gamificationservice.shop.domain.enums.ItemPushDispatchOutcome;
 import io.pinkspider.leveluptogethermvp.gamificationservice.shop.domain.enums.ShopItemType;
 import io.pinkspider.leveluptogethermvp.gamificationservice.shop.infrastructure.ItemPushMessageRepository;
 import io.pinkspider.leveluptogethermvp.gamificationservice.shop.infrastructure.ItemPushSettingRepository;
@@ -17,6 +18,7 @@ import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 import java.util.ArrayList;
+import java.util.EnumMap;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -156,16 +158,25 @@ public class ItemPushScheduler {
         Map<String, Set<LocalDate>> completedByUser =
                 missionQueryFacade.findMissionCompletedLocalDates(groupUsers, startUtc, endUtc, tz);
 
+        // LUT-541: 슬롯이 매칭된 순간만 로그를 남긴다(유저·아이템당 하루 1회) — 매 분 실행이라
+        // 후보가 없는 틱까지 찍으면 로그가 폭주한다. 이 줄이 "그날 잡이 실제로 돌았다"는 증거가 된다.
+        EnumMap<ItemPushDispatchOutcome, Integer> tally =
+                new EnumMap<>(ItemPushDispatchOutcome.class);
+        int failed = 0;
+
         for (String userId : groupUsers) {
             try {
-                itemPushDispatchService.trySendForUser(
-                        userId,
-                        item,
-                        today,
-                        slot,
-                        itemMessages,
-                        completedByUser.getOrDefault(userId, Set.of()));
+                ItemPushDispatchOutcome outcome =
+                        itemPushDispatchService.trySendForUser(
+                                userId,
+                                item,
+                                today,
+                                slot,
+                                itemMessages,
+                                completedByUser.getOrDefault(userId, Set.of()));
+                tally.merge(outcome, 1, Integer::sum);
             } catch (Exception e) {
+                failed++;
                 log.error(
                         "장착 아이템 푸시 발송 실패: itemId={}, userId={}, error={}",
                         item.getId(),
@@ -174,6 +185,18 @@ public class ItemPushScheduler {
                         e);
             }
         }
+
+        log.info(
+                "장착 아이템 푸시 슬롯 처리: itemId={}, itemName={}, slot={}, tz={}, localDate={},"
+                        + " 후보={}명, 결과={}, 예외={}건",
+                item.getId(),
+                item.getName(),
+                slot,
+                tz,
+                today,
+                groupUsers.size(),
+                tally,
+                failed);
     }
 
     private ZoneId resolveZone(String tz) {

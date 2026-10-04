@@ -278,6 +278,28 @@ Redis Stream `stream:app-push` → `AppPushMessageConsumer` → `FcmPushService`
   COMPLETED/FAILED 상태로 이력에 남고, ALL 대상은 **발송 시점에 재산출**되어 요청 시 `target_count`와 미세하게 다를 수 있다.
   중복 트리거는 PENDING 검사로 무시(재발송 없음). 에러 코드 140101(대상 없음)/140102(활성 유저 없음)/140103(캠페인 없음).
 
+### 장착 아이템 푸시 (LUT-516/528/529/530/531, `gamificationservice/shop/{scheduler,application}`)
+
+유저가 **장착 중인 HEAD 아이템**이 유저 로컬 시각에 맞춰 말을 거는 푸시(`EQUIPPED_ITEM_PUSH`). 매분 cron(`ItemPushScheduler`)
+→ 아이템별 발송시각(`item_push_setting.send_time`, 아이템 단위 — LUT-528) → 유저 로컬 `HH:mm` **정확 일치** 후보만
+→ `ItemPushDispatchService.trySendForUser`(유저별 짧은 트랜잭션)에서 상태 판정·백오프·대사 선택·선점.
+
+**발송 규칙 (LUT-529) — "하루 1건"이 아니다. QA·기획 혼동이 반복된 지점이니 먼저 읽을 것:**
+
+| 단계 | 규칙 |
+|---|---|
+| 중복방지 | `item_push_send_log` `(user_id, send_date)` 유니크 — **유저·로컬날짜당 1건**(아이템 단위 아님). 장착을 바꿔도 그날 이미 받으면 재발송 없음 |
+| 상태 판정 | 오늘 완료 → `AFTER_COMPLETE` > 전날 미완료 → `INACTIVE` > 그 외 → `BEFORE_ACTIVITY` (미션 완료는 유저 로컬 날짜 기준) |
+| **백오프** | `INACTIVE` 는 **연속 미완료 일수 k ∈ {1,3,7,14} 인 날만** 발송. k는 `BACKOFF_MAX_DAYS(14)` 초과 시 15로 saturate → **15일 이상 미완료·완료 이력 0건 유저는 영구 미발송**(LUT-541 에서 확인된 설계 공백) |
+| 대사 선택 | `trigger_type` 이 상태와 일치하는 풀에서 최근 (후보−1)건 제외 후 랜덤 → 비면 `ANY` 풀 → **그것도 비면 조용히 스킵** |
+
+- **대사 미등록 = 그 상태의 유저는 무음**이다. 실제로 dev 전 아이템에 `AFTER_COMPLETE`·`ANY` 대사가 0건이어서 "당일 미션을 완료한
+  유저는 아무 푸시도 못 받는" 상태였다(LUT-541). 아이템을 추가하면 **상태 3종 대사를 모두 채웠는지 확인할 것**.
+- 스킵 사유는 `ItemPushDispatchOutcome`(SENT/SKIP_ALREADY_SENT/SKIP_BACKOFF/SKIP_NO_MESSAGE/SKIP_RACE)으로 반환되고
+  로그에 남는다 — 진단은 `grep "장착 아이템 푸시" product-service.log`. 백오프 로그에는 k가 함께 찍혀 다음 발송일을 계산할 수 있다.
+- 슬롯은 1분 폭 **정확 일치**이고 캐치업이 없다 — 그 1분을 놓치면 (아이템 × 타임존 그룹) 하루치가 조용히 유실된다.
+- 알림 토글은 `notification_preference.item_push_notifications`, 카테고리는 `ITEM_PUSH`.
+
 ## Redis Caching
 
 캐시 이름별 TTL은 platform `infra`의 `RedisConfig`에서 정의 (역직렬화 오류 시 자동 evict 후 원본 메서드 실행):
@@ -315,6 +337,7 @@ public void run() { ...}
 | `DailyMissionInstanceScheduler.generateDailyInstances`      | `0 0 0 * * *` KST           | 고정 미션 일일 인스턴스 생성 + 자정 자동완료 |
 | `MissionAutoCompleteScheduler.autoCompleteExpiredMissions`  | 5분 fixedRate                | 만료(4시간) 미션 자동 종료(baseExp 120) + 경고 알림  |
 | `MissionReminderScheduler.sendReminders`                    | 매시 0,30분 (zone 미지정 → JVM 기본 UTC) | 미션 리마인더 푸시 — 설정 요일·시각, 유저 preferred_timezone 기준 (LUT-282) |
+| `ItemPushScheduler.sendEquippedItemPushes`                  | `0 * * * * *` (매분, lock 50s)  | 장착 아이템 푸시 — 유저 로컬 `HH:mm` 정확 일치 슬롯, 상태·백오프 판정 (LUT-516/529, 규칙은 위 "장착 아이템 푸시" 절) |
 | `TokenMaintenanceScheduler.cleanupExpiredSessions`          | `0 0 2 * * *` KST           | 만료된 OAuth 세션 정리            |
 | `TokenMaintenanceScheduler.cleanupOrphanedUserSessions`     | `0 30 2 * * *` KST          | 고아 user_sessions 참조 정리     |
 | `DailyMvpHistoryScheduler.saveDailyMvpHistory{Kst,Ast,Utc}` | `0 0 0 * * *` (Asia/Seoul·Asia/Riyadh·UTC) | 타임존별 일간 MVP 기록             |

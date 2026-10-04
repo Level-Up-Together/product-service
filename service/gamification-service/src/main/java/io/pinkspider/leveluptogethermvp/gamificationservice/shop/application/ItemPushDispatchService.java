@@ -4,6 +4,7 @@ import io.pinkspider.global.event.EquippedItemPushDueEvent;
 import io.pinkspider.leveluptogethermvp.gamificationservice.shop.domain.entity.ItemPushMessage;
 import io.pinkspider.leveluptogethermvp.gamificationservice.shop.domain.entity.ItemPushSendLog;
 import io.pinkspider.leveluptogethermvp.gamificationservice.shop.domain.entity.ShopItem;
+import io.pinkspider.leveluptogethermvp.gamificationservice.shop.domain.enums.ItemPushDispatchOutcome;
 import io.pinkspider.leveluptogethermvp.gamificationservice.shop.domain.enums.ItemPushTriggerType;
 import io.pinkspider.leveluptogethermvp.gamificationservice.shop.infrastructure.ItemPushSendLogRepository;
 import java.time.LocalDate;
@@ -64,9 +65,10 @@ public class ItemPushDispatchService {
      * @param slot 발송 시각(HH:mm)
      * @param messages 이 아이템의 활성 메시지 전체(모든 trigger_type)
      * @param completedLocalDates 이 유저가 미션을 완료한 로컬 날짜 집합(백오프 창 범위)
+     * @return 시도 결과 — 발송 또는 스킵 사유 (LUT-541: 스케줄러 집계 로그·테스트 단언용)
      */
     @Transactional(transactionManager = "gamificationTransactionManager")
-    public void trySendForUser(
+    public ItemPushDispatchOutcome trySendForUser(
             String userId,
             ShopItem item,
             LocalDate localDate,
@@ -75,7 +77,12 @@ public class ItemPushDispatchService {
             Set<LocalDate> completedLocalDates) {
         // 1) 빠른 중복 체크 — 유저·로컬날짜당 1건 (장착을 바꿔도 오늘 이미 받았으면 재발송 안 함, R1)
         if (sendLogRepository.existsByUserIdAndSendDate(userId, localDate)) {
-            return;
+            log.info(
+                    "장착 아이템 푸시 스킵(오늘 이미 발송): userId={}, itemId={}, localDate={}",
+                    userId,
+                    item.getId(),
+                    localDate);
+            return ItemPushDispatchOutcome.SKIP_ALREADY_SENT;
         }
 
         // 2) 상태 판정 (R3)
@@ -83,15 +90,35 @@ public class ItemPushDispatchService {
         ItemPushTriggerType state = determineState(localDate, completed);
 
         // 3) 백오프 (R5) — INACTIVE 만 적용
-        if (state == ItemPushTriggerType.INACTIVE
-                && !isBackoffSendDay(consecutiveIncompleteDays(localDate, completed))) {
-            return;
+        if (state == ItemPushTriggerType.INACTIVE) {
+            int k = consecutiveIncompleteDays(localDate, completed);
+            if (!isBackoffSendDay(k)) {
+                // LUT-541: k 를 남겨야 "다음 발송일"을 로그만으로 계산할 수 있다 (k>14 는 완료 전까지 중단 구간)
+                log.info(
+                        "장착 아이템 푸시 스킵(INACTIVE 백오프): userId={}, itemId={}, localDate={},"
+                                + " 연속미완료={}일, 발송일차={}",
+                        userId,
+                        item.getId(),
+                        localDate,
+                        k,
+                        BACKOFF_SEND_DAYS);
+                return ItemPushDispatchOutcome.SKIP_BACKOFF;
+            }
         }
 
         // 4) 대사 선택 (R4) — 상태 풀 로테이션, 없으면 ANY 폴백, 그것도 없으면 스킵
         ItemPushMessage picked = pickMessage(userId, messages, state);
         if (picked == null) {
-            return;
+            // LUT-541: 어드민이 해당 상태의 대사를 등록하지 않으면 그 상태의 유저는 영구 무음이 된다.
+            // 설정 공백이므로 WARN — 예: AFTER_COMPLETE 대사가 없는 아이템은 당일 활동한 유저에게 아무것도 못 보낸다.
+            log.warn(
+                    "장착 아이템 푸시 스킵(대사 없음): userId={}, itemId={}, localDate={}, state={} —"
+                            + " 해당 trigger_type 과 ANY 대사가 모두 없음",
+                    userId,
+                    item.getId(),
+                    localDate,
+                    state);
+            return ItemPushDispatchOutcome.SKIP_NO_MESSAGE;
         }
 
         // 5) 발송 선점 — 유니크 위반이면 다른 인스턴스가 이미 처리한 것이므로 조용히 종료
@@ -99,8 +126,23 @@ public class ItemPushDispatchService {
             sendLogRepository.saveAndFlush(
                     ItemPushSendLog.record(picked.getId(), item.getId(), userId, localDate, slot));
         } catch (DataIntegrityViolationException e) {
-            return;
+            log.info(
+                    "장착 아이템 푸시 스킵(선점 경합): userId={}, itemId={}, localDate={}",
+                    userId,
+                    item.getId(),
+                    localDate);
+            return ItemPushDispatchOutcome.SKIP_RACE;
         }
+
+        log.info(
+                "장착 아이템 푸시 발송: userId={}, itemId={}, localDate={}, slot={}, state={},"
+                        + " messageId={}",
+                userId,
+                item.getId(),
+                localDate,
+                slot,
+                state,
+                picked.getId());
 
         // 6) 유저 단위 이벤트 발행 (이 트랜잭션 커밋 후 notification 리스너가 실제 발송)
         eventPublisher.publishEvent(
@@ -117,6 +159,7 @@ public class ItemPushDispatchService {
                         picked.getMessageAr(),
                         picked.getMessageJa(),
                         "/mypage/inventory"));
+        return ItemPushDispatchOutcome.SENT;
     }
 
     /** R3 상태 판정 — 우선순위 AFTER_COMPLETE &gt; INACTIVE &gt; BEFORE_ACTIVITY. */
