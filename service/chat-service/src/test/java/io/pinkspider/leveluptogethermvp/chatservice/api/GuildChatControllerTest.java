@@ -25,6 +25,7 @@ import io.pinkspider.leveluptogethermvp.chatservice.domain.dto.ChatMessageReques
 import io.pinkspider.leveluptogethermvp.chatservice.domain.dto.ChatMessageResponse;
 import io.pinkspider.leveluptogethermvp.chatservice.domain.dto.ChatParticipantResponse;
 import io.pinkspider.leveluptogethermvp.chatservice.domain.dto.ChatRoomInfoResponse;
+import io.pinkspider.leveluptogethermvp.chatservice.realtime.GuildChatRealtimePublisher;
 import io.pinkspider.leveluptogethermvp.config.ControllerTestConfig;
 import io.pinkspider.util.MockUtil;
 import java.time.LocalDateTime;
@@ -43,7 +44,6 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.MediaType;
-import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.restdocs.mockmvc.RestDocumentationRequestBuilders;
 import org.springframework.restdocs.payload.JsonFieldType;
 import org.springframework.test.context.ActiveProfiles;
@@ -71,7 +71,7 @@ class GuildChatControllerTest {
 
     @MockitoBean private GuildChatService guildChatService;
 
-    @MockitoBean private SimpMessagingTemplate messagingTemplate;
+    @MockitoBean private GuildChatRealtimePublisher guildChatRealtimePublisher;
 
     private static final String X_USER_NICKNAME = "X-User-Nickname";
     private static final String MOCK_USER_ID = "test-user-123";
@@ -1318,8 +1318,9 @@ class GuildChatControllerTest {
 
         // then
         resultActions.andExpect(MockMvcResultMatchers.status().isOk());
-        verify(messagingTemplate)
-                .convertAndSend(
+        // LUT-549: 멀티 인스턴스 전파를 위해 Redis 릴레이 퍼블리셔로 발행해야 한다
+        verify(guildChatRealtimePublisher)
+                .publishToTopic(
                         eq("/topic/guild/" + guildId + "/read"),
                         any(
                                 io.pinkspider.leveluptogethermvp.chatservice.domain.dto

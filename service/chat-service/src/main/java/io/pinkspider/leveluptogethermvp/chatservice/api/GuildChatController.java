@@ -8,16 +8,16 @@ import io.pinkspider.leveluptogethermvp.chatservice.domain.dto.ChatMessageRespon
 import io.pinkspider.leveluptogethermvp.chatservice.domain.dto.ChatParticipantResponse;
 import io.pinkspider.leveluptogethermvp.chatservice.domain.dto.ChatRoomInfoResponse;
 import io.pinkspider.leveluptogethermvp.chatservice.domain.dto.ReadStatusUpdate;
+import io.pinkspider.leveluptogethermvp.chatservice.realtime.GuildChatRealtimePublisher;
 import java.time.LocalDateTime;
 import java.util.List;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
-import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -30,19 +30,12 @@ import org.springframework.web.bind.annotation.RestController;
 
 @Slf4j
 @RestController
+@RequiredArgsConstructor
 @RequestMapping("/api/v1/guilds/{guildId}/chat")
 public class GuildChatController {
 
     private final GuildChatService chatService;
-    private final SimpMessagingTemplate messagingTemplate;
-
-    @Autowired
-    public GuildChatController(
-            GuildChatService chatService,
-            @Autowired(required = false) SimpMessagingTemplate messagingTemplate) {
-        this.chatService = chatService;
-        this.messagingTemplate = messagingTemplate;
-    }
+    private final GuildChatRealtimePublisher realtimePublisher;
 
     // 메시지 전송
     @PostMapping
@@ -157,10 +150,8 @@ public class GuildChatController {
         return ResponseEntity.ok(ApiResult.getBase());
     }
 
+    // LUT-549: Redis 릴레이 경유 — SimpleBroker 직접 전송은 이 인스턴스 구독자에게만 간다
     private void broadcastReadStatus(Long guildId, String userId, Long messageId) {
-        if (messagingTemplate == null) {
-            return;
-        }
         try {
             ReadStatusUpdate update =
                     new ReadStatusUpdate(
@@ -168,7 +159,8 @@ public class GuildChatController {
                             messageId,
                             userId,
                             chatService.getUnreadCount(guildId, messageId));
-            messagingTemplate.convertAndSend("/topic/guild/" + guildId + "/read", update);
+            realtimePublisher.publishToTopic(
+                    GuildChatWebSocketController.readTopic(guildId), update);
         } catch (Exception e) {
             log.error(
                     "읽음 상태 브로드캐스트 실패: guildId={}, userId={}, messageId={}, error={}",
