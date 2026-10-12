@@ -7,6 +7,7 @@ import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.MissionExec
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.MissionParticipant;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.ExecutionStatus;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionExecutionMode;
+import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionSource;
 import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.DailyMissionInstanceRepository;
 import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.MissionExecutionRepository;
 import io.pinkspider.leveluptogethermvp.missionservice.saga.MissionCompletionContext;
@@ -90,14 +91,22 @@ public class CompleteExecutionStep implements SagaStep<MissionCompletionContext>
                         && mission.getTargetDurationMinutes() > 0) {
                     // 목표시간 설정 미션: 목표시간 기반 XP (2시간 제한 미적용)
                     if (elapsed >= mission.getTargetDurationMinutes()) {
-                        // QA-153: 추가 보상은 bonusExpOnFullCompletion. 이전엔 expPerCompletion 을 잘못 가산.
-                        int bonus =
-                                mission.getBonusExpOnFullCompletion() != null
-                                        ? mission.getBonusExpOnFullCompletion()
-                                        : 0;
-                        execution.setExpEarned(mission.getTargetDurationMinutes() + bonus);
-                        context.setFullCompletionBonusGranted(true);
-                        context.setFullCompletionBonusExp(bonus);
+                        if (mission.getSource() == MissionSource.SYSTEM) {
+                            // 미션북(SYSTEM): 목표 달성 보너스 지급
+                            // QA-153: 추가 보상은 bonusExpOnFullCompletion. 이전엔 expPerCompletion 을 잘못
+                            // 가산.
+                            int bonus =
+                                    mission.getBonusExpOnFullCompletion() != null
+                                            ? mission.getBonusExpOnFullCompletion()
+                                            : 0;
+                            execution.setExpEarned(mission.getTargetDurationMinutes() + bonus);
+                            context.setFullCompletionBonusGranted(true);
+                            context.setFullCompletionBonusExp(bonus);
+                        } else {
+                            // LUT-551: 유저 생성 타이머 미션의 목표시간은 "최대 목표시간"(자동 종료 상한)일 뿐
+                            // 보너스 대상이 아니다 — 분당 1 EXP 를 목표분으로 캡 (30분 미션 = 30 EXP).
+                            execution.setExpEarned(mission.getTargetDurationMinutes());
+                        }
                     } else {
                         execution.setExpEarned((int) Math.max(1, elapsed));
                     }

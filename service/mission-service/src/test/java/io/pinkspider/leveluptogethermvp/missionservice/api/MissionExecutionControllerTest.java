@@ -3,9 +3,12 @@ package io.pinkspider.leveluptogethermvp.missionservice.api;
 import static com.epages.restdocs.apispec.ResourceDocumentation.parameterWithName;
 import static com.epages.restdocs.apispec.ResourceDocumentation.resource;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doNothing;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.restdocs.operation.preprocess.Preprocessors.preprocessRequest;
 import static org.springframework.restdocs.operation.preprocess.Preprocessors.preprocessResponse;
@@ -119,7 +122,8 @@ class MissionExecutionControllerTest {
                         anyString(),
                         any(
                                 io.pinkspider.leveluptogethermvp.feedservice.domain.enums
-                                        .FeedVisibility.class)))
+                                        .FeedVisibility.class),
+                        anyBoolean()))
                 .thenReturn(response);
 
         // when
@@ -132,6 +136,7 @@ class MissionExecutionControllerTest {
                                         .with(user(MOCK_USER_ID))
                                         .param("note", "1시간 조깅 완료")
                                         .param("feedVisibility", "PUBLIC")
+                                        .param("autoEnded", "true")
                                         .contentType(MediaType.APPLICATION_JSON))
                         .andDo(
                                 MockMvcRestDocumentationWrapper.document(
@@ -163,6 +168,15 @@ class MissionExecutionControllerTest {
                                                                                 "피드 공개범위 (PUBLIC,"
                                                                                     + " FRIENDS,"
                                                                                     + " PRIVATE)")
+                                                                        .optional(),
+                                                                parameterWithName("autoEnded")
+                                                                        .type(SimpleType.BOOLEAN)
+                                                                        .description(
+                                                                                "목표시간 도달 자동 종료 여부 —"
+                                                                                    + " true 면 자동"
+                                                                                    + " 종료 푸시 발송"
+                                                                                    + " (LUT-551,"
+                                                                                    + " 기본 false)")
                                                                         .optional())
                                                         .responseFields(
                                                                 fieldWithPath("code")
@@ -2962,5 +2976,46 @@ class MissionExecutionControllerTest {
 
         // then
         resultActions.andExpect(MockMvcResultMatchers.status().isOk());
+    }
+
+    @Test
+    @DisplayName("LUT-551: autoEnded=true 는 서비스로 그대로 전달된다 (클라이언트 목표시간 자동 종료)")
+    void completeExecution_autoEndedTrue_passesThrough() throws Exception {
+        when(executionService.completeExecution(
+                        anyLong(), anyString(), any(LocalDate.class), any(), any(), anyBoolean()))
+                .thenReturn(MissionExecutionResponse.builder().id(1L).missionId(1L).build());
+
+        mockMvc.perform(
+                        RestDocumentationRequestBuilders.patch(
+                                        "/api/v1/missions/{missionId}/executions/{executionDate}/complete",
+                                        1L,
+                                        LocalDate.now().toString())
+                                .with(user(MOCK_USER_ID))
+                                .param("autoEnded", "true"))
+                .andExpect(MockMvcResultMatchers.status().isOk());
+
+        verify(executionService)
+                .completeExecution(
+                        eq(1L), anyString(), any(LocalDate.class), any(), any(), eq(true));
+    }
+
+    @Test
+    @DisplayName("LUT-551: autoEnded 미지정이면 false 로 전달된다 (유저 직접 완료)")
+    void completeExecution_autoEndedDefault_false() throws Exception {
+        when(executionService.completeExecution(
+                        anyLong(), anyString(), any(LocalDate.class), any(), any(), anyBoolean()))
+                .thenReturn(MissionExecutionResponse.builder().id(1L).missionId(1L).build());
+
+        mockMvc.perform(
+                        RestDocumentationRequestBuilders.patch(
+                                        "/api/v1/missions/{missionId}/executions/{executionDate}/complete",
+                                        1L,
+                                        LocalDate.now().toString())
+                                .with(user(MOCK_USER_ID)))
+                .andExpect(MockMvcResultMatchers.status().isOk());
+
+        verify(executionService)
+                .completeExecution(
+                        eq(1L), anyString(), any(LocalDate.class), any(), any(), eq(false));
     }
 }

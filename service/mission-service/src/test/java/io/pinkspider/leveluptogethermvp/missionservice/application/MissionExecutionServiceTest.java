@@ -76,6 +76,8 @@ class MissionExecutionServiceTest {
     private io.pinkspider.leveluptogethermvp.feedservice.application.FeedQueryService
             feedQueryService;
 
+    @Mock private org.springframework.context.ApplicationEventPublisher eventPublisher;
+
     @InjectMocks private MissionExecutionService executionService;
 
     private String testUserId;
@@ -131,6 +133,117 @@ class MissionExecutionServiceTest {
         TestReflectionUtils.setField(execution, "completedAt", completedAt);
 
         return execution;
+    }
+
+    @Nested
+    @DisplayName("LUT-551: 클라이언트 자동 종료(autoEnded) 완료 — 자동 종료 푸시 이벤트")
+    class CompleteExecutionAutoEndedTest {
+
+        @Mock
+        private io.pinkspider.leveluptogethermvp.missionservice.application.strategy
+                        .MissionExecutionStrategy
+                mockStrategy;
+
+        private MissionExecutionResponse stubStrategyCompletion(LocalDate date) {
+            MissionExecution execution = createCompletedExecution(1L, date, 30, 30);
+            MissionExecutionResponse expected = MissionExecutionResponse.from(execution);
+            when(strategyResolver.resolve(testMission.getId(), testUserId))
+                    .thenReturn(mockStrategy);
+            when(mockStrategy.completeExecution(
+                            testMission.getId(), testUserId, date, null, FeedVisibility.PRIVATE))
+                    .thenReturn(expected);
+            return expected;
+        }
+
+        @Test
+        @DisplayName("autoEnded=true 이고 목표시간이 있으면 완료 후 MissionAutoEndedEvent 를 발행한다")
+        void completeExecution_autoEnded_withTarget_publishesEvent() {
+            // given
+            testMission.setTargetDurationMinutes(30);
+            LocalDate date = today();
+            MissionExecutionResponse expected = stubStrategyCompletion(date);
+
+            // when
+            MissionExecutionResponse result =
+                    executionService.completeExecution(
+                            testMission.getId(), testUserId, date, null, null, true);
+
+            // then
+            assertThat(result).isEqualTo(expected);
+            org.mockito.ArgumentCaptor<Object> captor =
+                    org.mockito.ArgumentCaptor.forClass(Object.class);
+            verify(eventPublisher).publishEvent(captor.capture());
+            assertThat(captor.getValue())
+                    .isInstanceOf(io.pinkspider.global.event.MissionAutoEndedEvent.class);
+            io.pinkspider.global.event.MissionAutoEndedEvent event =
+                    (io.pinkspider.global.event.MissionAutoEndedEvent) captor.getValue();
+            assertThat(event.userId()).isEqualTo(testUserId);
+            assertThat(event.missionId()).isEqualTo(testMission.getId());
+            assertThat(event.missionTitle()).isEqualTo(testMission.getTitle());
+        }
+
+        @Test
+        @DisplayName("autoEnded=true 이고 duration_minutes 만 있어도(미션북·시스템 미션) 이벤트를 발행한다")
+        void completeExecution_autoEnded_withDurationOnly_publishesEvent() {
+            testMission.setDurationMinutes(20);
+            LocalDate date = today();
+            stubStrategyCompletion(date);
+
+            executionService.completeExecution(
+                    testMission.getId(), testUserId, date, null, null, true);
+
+            verify(eventPublisher)
+                    .publishEvent(any(io.pinkspider.global.event.MissionAutoEndedEvent.class));
+        }
+
+        @Test
+        @DisplayName("autoEnded=true 라도 목표/수행 시간이 없는 미션이면 발행하지 않는다 (자동 종료 대상 아님)")
+        void completeExecution_autoEnded_noTarget_skipsEvent() {
+            LocalDate date = today();
+            stubStrategyCompletion(date);
+
+            executionService.completeExecution(
+                    testMission.getId(), testUserId, date, null, null, true);
+
+            verify(eventPublisher, never()).publishEvent(any());
+        }
+
+        @Test
+        @DisplayName("autoEnded=false(유저 직접 완료)면 이벤트를 발행하지 않는다")
+        void completeExecution_manual_skipsEvent() {
+            testMission.setTargetDurationMinutes(30);
+            LocalDate date = today();
+            stubStrategyCompletion(date);
+
+            executionService.completeExecution(
+                    testMission.getId(), testUserId, date, null, null, false);
+
+            verify(eventPublisher, never()).publishEvent(any());
+        }
+
+        @Test
+        @DisplayName("완료가 실패(예외)하면 이벤트를 발행하지 않는다")
+        void completeExecution_autoEnded_completionFails_noEvent() {
+            testMission.setTargetDurationMinutes(30);
+            LocalDate date = today();
+            when(strategyResolver.resolve(testMission.getId(), testUserId))
+                    .thenReturn(mockStrategy);
+            when(mockStrategy.completeExecution(
+                            testMission.getId(), testUserId, date, null, FeedVisibility.PRIVATE))
+                    .thenThrow(new IllegalStateException("이미 완료된 수행 기록입니다."));
+
+            org.assertj.core.api.Assertions.assertThatThrownBy(
+                            () ->
+                                    executionService.completeExecution(
+                                            testMission.getId(),
+                                            testUserId,
+                                            date,
+                                            null,
+                                            null,
+                                            true))
+                    .isInstanceOf(IllegalStateException.class);
+            verify(eventPublisher, never()).publishEvent(any());
+        }
     }
 
     @Nested

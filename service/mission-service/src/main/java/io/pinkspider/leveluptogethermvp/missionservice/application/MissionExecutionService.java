@@ -1,6 +1,7 @@
 package io.pinkspider.leveluptogethermvp.missionservice.application;
 
 import io.pinkspider.global.enums.MissionStatus;
+import io.pinkspider.global.event.MissionAutoEndedEvent;
 import io.pinkspider.global.exception.CustomException;
 import io.pinkspider.global.saga.SagaResult;
 import io.pinkspider.leveluptogethermvp.feedservice.domain.enums.FeedVisibility;
@@ -22,6 +23,7 @@ import java.time.ZoneId;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -41,6 +43,7 @@ public class MissionExecutionService {
     private final MissionCompletionSaga missionCompletionSaga;
     private final MissionExecutionStrategyResolver strategyResolver;
     private final MissionExecutionQueryService executionQueryService;
+    private final ApplicationEventPublisher eventPublisher;
     private final io.pinkspider.leveluptogethermvp.feedservice.application.FeedQueryService
             feedQueryService;
 
@@ -160,6 +163,46 @@ public class MissionExecutionService {
         return strategyResolver
                 .resolve(missionId, userId)
                 .completeExecution(missionId, userId, executionDate, note, resolvedVisibility);
+    }
+
+    /**
+     * LUT-551: 클라이언트가 목표시간 도달을 감지해 완료한 경우({@code autoEnded=true}) 스케줄러 자동 종료와 동일하게 자동 종료 푸시({@link
+     * MissionAutoEndedEvent})를 발행한다. 스케줄러(5분 주기)보다 수행 화면이 먼저 완료시키면 알림이 빠지는 공백을 메운다. 목표/수행 시간이 없는
+     * 미션은 자동 종료 대상이 아니므로 플래그가 와도 발행하지 않는다. 완료가 실패하면(예외) 발행되지 않는다.
+     */
+    @Transactional(transactionManager = "missionTransactionManager")
+    public MissionExecutionResponse completeExecution(
+            Long missionId,
+            String userId,
+            LocalDate executionDate,
+            String note,
+            FeedVisibility feedVisibility,
+            boolean autoEnded) {
+        MissionExecutionResponse response =
+                completeExecution(missionId, userId, executionDate, note, feedVisibility);
+        if (autoEnded) {
+            publishAutoEnded(missionId, userId);
+        }
+        return response;
+    }
+
+    private void publishAutoEnded(Long missionId, String userId) {
+        Mission mission = missionRepository.findById(missionId).orElse(null);
+        if (mission == null) {
+            return;
+        }
+        boolean hasTarget =
+                mission.getTargetDurationMinutes() != null
+                        && mission.getTargetDurationMinutes() > 0;
+        boolean hasDuration =
+                mission.getDurationMinutes() != null && mission.getDurationMinutes() > 0;
+        if (!hasTarget && !hasDuration) {
+            log.debug("자동 종료 플래그 무시 — 목표/수행 시간 없음: missionId={}", missionId);
+            return;
+        }
+        eventPublisher.publishEvent(
+                new MissionAutoEndedEvent(userId, mission.getId(), mission.getTitle()));
+        log.info("목표시간 도달 자동 종료 (클라이언트): missionId={}, userId={}", missionId, userId);
     }
 
     // === 후처리 메서드 (instanceId 지원) ===

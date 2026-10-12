@@ -6,6 +6,7 @@ import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.DailyMissio
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.Mission;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.ExecutionStatus;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionExecutionMode;
+import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionSource;
 import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.DailyMissionInstanceRepository;
 import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.MissionExecutionRepository;
 import io.pinkspider.leveluptogethermvp.missionservice.saga.MissionCompletionContext;
@@ -87,12 +88,19 @@ public class CompletePinnedInstanceStep implements SagaStep<MissionCompletionCon
                             Duration.between(instance.getStartedAt(), instance.getCompletedAt())
                                     .toMinutes();
                     if (elapsed >= instance.getTargetDurationMinutes()) {
-                        int bonus =
-                                instance.getBonusExpOnFullCompletion() != null
-                                        ? instance.getBonusExpOnFullCompletion()
-                                        : 0;
-                        context.setFullCompletionBonusGranted(true);
-                        context.setFullCompletionBonusExp(bonus);
+                        if (mission.getSource() == MissionSource.SYSTEM) {
+                            // 미션북(SYSTEM): complete() 가 이미 목표분+보너스로 계산 — 플래그만 기록
+                            int bonus =
+                                    instance.getBonusExpOnFullCompletion() != null
+                                            ? instance.getBonusExpOnFullCompletion()
+                                            : 0;
+                            context.setFullCompletionBonusGranted(true);
+                            context.setFullCompletionBonusExp(bonus);
+                        } else {
+                            // LUT-551: 유저 생성 고정 타이머 미션은 보너스 없음 — 인스턴스에 복사된 bonus 가
+                            // complete() 에서 가산되므로 목표분으로 되돌린다.
+                            instance.setExpEarned(instance.getTargetDurationMinutes());
+                        }
                     }
                 }
             }

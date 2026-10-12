@@ -69,6 +69,8 @@ public class MissionExecutionController {
      *
      * @param feedVisibility 피드 공개범위 (PUBLIC, FRIENDS, GUILD, PRIVATE). 미지정 시 PRIVATE — 피드를 생성하지 않는다
      *     (LUT-318). 피드는 미션 상세 등록(기록 공유)에서 유저가 공개범위를 직접 선택할 때만 생성된다.
+     * @param autoEnded LUT-551: 수행 화면이 목표시간 도달을 감지해 자동 종료한 완료면 true — 스케줄러 자동 종료와 동일한 푸시를 발송한다. 유저가
+     *     직접 완료 버튼을 누른 경우는 false(기본).
      */
     @PatchMapping("/{missionId}/executions/{executionDate}/complete")
     @PerUserRateLimit(name = "missionCompletion", limit = 10, windowSeconds = 60)
@@ -77,11 +79,12 @@ public class MissionExecutionController {
             @PathVariable @DateTimeFormat(pattern = "yyyy-MM-dd") LocalDate executionDate,
             @CurrentUser String userId,
             @RequestParam(required = false) String note,
-            @RequestParam(required = false) FeedVisibility feedVisibility) {
+            @RequestParam(required = false) FeedVisibility feedVisibility,
+            @RequestParam(required = false, defaultValue = "false") boolean autoEnded) {
 
         MissionExecutionResponse response =
                 executionService.completeExecution(
-                        missionId, userId, executionDate, note, feedVisibility);
+                        missionId, userId, executionDate, note, feedVisibility, autoEnded);
         return ResponseEntity.ok(
                 ApiResult.<MissionExecutionResponse>builder().value(response).build());
     }

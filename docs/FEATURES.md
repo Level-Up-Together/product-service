@@ -102,6 +102,12 @@ FeedSearchType { ALL, FRIENDS, GUILD, MINE }
 
 - `Mission.isDeleted` (boolean) + `Mission.deletedAt` (LocalDateTime)
 - 목록 조회 시 `isDeleted=false` 필터링
+- **타이머 미션 최대 목표시간 (LUT-551)**: 생성 폼의 TIMED 선택 시 `target_duration_minutes` 를 반드시 보낸다 — 10분 간격 10~240분, 기본 30분
+  (백엔드 `MissionCreateRequest` `@Max(240)`; 미션북 템플릿의 목표시간은 어드민 DTO 가 별도 관리). 폼 기본 선택은 **체크(SIMPLE)**, 순서 체크→타이머.
+  - 목표 도달 시 수행 화면이 즉시 `complete?autoEnded=true` 로 완료하고(5분 주기 스케줄러보다 먼저), 서버는 스케줄러 자동 종료와 동일한
+    `MissionAutoEndedEvent`(MISSION_AUTO_ENDED 푸시)를 발행한다. 화면을 닫은 뒤에는 스케줄러가 종료·발송한다. 유저 직접 완료(버튼)는 플래그 없음.
+  - **EXP: 목표 달성 보너스(`bonusExpOnFullCompletion`)는 미션북(`source=SYSTEM`) 전용**. 유저 생성 미션(USER/GUILD)은 목표 도달 시 보너스 없이
+    `expEarned = targetDurationMinutes` 로 캡한다(30분 미션 = 30 EXP). 미션북 다이아(`GrantMissionBookDiamondStep`)도 SYSTEM 게이트라 영향 없음.
 
 ## Mission Auto-Complete (미션 자동 종료)
 

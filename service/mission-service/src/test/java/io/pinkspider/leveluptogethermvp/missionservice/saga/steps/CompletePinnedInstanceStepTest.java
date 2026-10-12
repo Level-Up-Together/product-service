@@ -15,6 +15,7 @@ import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.Mission;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.MissionParticipant;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.ExecutionStatus;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionExecutionMode;
+import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionSource;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionType;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionVisibility;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.ParticipantStatus;
@@ -296,7 +297,8 @@ class CompletePinnedInstanceStepTest {
         @Test
         @DisplayName("목표시간 달성 시 fullCompletionBonus 를 context 에 반영한다 (bonus 설정)")
         void execute_targetDurationReached_setsFullCompletionBonus() {
-            // given
+            // given — 보너스는 미션북(SYSTEM) 전용 (LUT-551)
+            mission.setSource(MissionSource.SYSTEM);
             instance.setTargetDurationMinutes(10);
             instance.setBonusExpOnFullCompletion(7);
             instance.setStartedAt(LocalDateTime.now().minusMinutes(15));
@@ -317,6 +319,7 @@ class CompletePinnedInstanceStepTest {
         @DisplayName("목표시간 달성 + bonus 미설정(null)이면 보너스 EXP 0 으로 기록한다")
         void execute_targetDurationReached_bonusNull_setsZeroBonus() {
             // given
+            mission.setSource(MissionSource.SYSTEM);
             instance.setTargetDurationMinutes(10);
             instance.setBonusExpOnFullCompletion(null);
             instance.setStartedAt(LocalDateTime.now().minusMinutes(15));
@@ -330,6 +333,26 @@ class CompletePinnedInstanceStepTest {
             assertThat(result.isSuccess()).isTrue();
             assertThat(context.isFullCompletionBonusGranted()).isTrue();
             assertThat(context.getFullCompletionBonusExp()).isEqualTo(0);
+        }
+
+        @Test
+        @DisplayName("LUT-551: 유저 생성(USER) 고정 타이머 미션은 목표 도달 시 보너스 없이 목표분으로 EXP 를 되돌린다")
+        void execute_userPinnedTimerMission_targetReached_noBonus() {
+            // given — 미션에서 인스턴스로 복사된 bonus(7) 가 complete() 에서 가산되지만 USER 미션이라 되돌려야 한다
+            instance.setTargetDurationMinutes(10);
+            instance.setBonusExpOnFullCompletion(7);
+            instance.setStartedAt(LocalDateTime.now().minusMinutes(15));
+            when(instanceRepository.save(any(DailyMissionInstance.class)))
+                    .thenAnswer(invocation -> invocation.getArgument(0));
+
+            // when
+            SagaStepResult result = completePinnedInstanceStep.execute(context);
+
+            // then
+            assertThat(result.isSuccess()).isTrue();
+            assertThat(instance.getExpEarned()).isEqualTo(10);
+            assertThat(context.getUserExpEarned()).isEqualTo(10);
+            assertThat(context.isFullCompletionBonusGranted()).isFalse();
         }
 
         @Test

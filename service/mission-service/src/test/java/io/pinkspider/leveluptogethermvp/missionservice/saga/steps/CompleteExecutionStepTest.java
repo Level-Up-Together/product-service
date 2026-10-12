@@ -16,6 +16,7 @@ import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.MissionExec
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.MissionParticipant;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.ExecutionStatus;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionExecutionMode;
+import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionSource;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionType;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionVisibility;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.ParticipantStatus;
@@ -184,7 +185,7 @@ class CompleteExecutionStepTest {
         }
 
         @Test
-        @DisplayName("목표시간 미션에서 경과시간이 목표시간 이상이면 보너스 경험치를 지급한다")
+        @DisplayName("미션북(SYSTEM) 목표시간 미션에서 경과시간이 목표시간 이상이면 보너스 경험치를 지급한다")
         void execute_targetDurationMission_fullBonus() {
             // given
             Mission targetMission =
@@ -194,6 +195,7 @@ class CompleteExecutionStepTest {
                             .status(MissionStatus.IN_PROGRESS)
                             .visibility(MissionVisibility.PUBLIC)
                             .type(MissionType.PERSONAL)
+                            .source(MissionSource.SYSTEM)
                             .targetDurationMinutes(30)
                             .expPerCompletion(50)
                             .build();
@@ -237,6 +239,63 @@ class CompleteExecutionStepTest {
             assertThat(result.isSuccess()).isTrue();
             // 목표시간(30) + 보너스(50) = 80 exp
             assertThat(targetExecution.getExpEarned()).isEqualTo(80);
+        }
+
+        @Test
+        @DisplayName("LUT-551: 유저 생성(USER) 타이머 미션은 목표시간 도달 시 보너스 없이 목표분으로 EXP 를 캡한다")
+        void execute_userTimerMission_targetReached_noBonusCappedAtTarget() {
+            // given — source 미지정 = USER (유저 생성 미션), 보너스 50 이 저장돼 있어도 적용되지 않아야 한다
+            Mission userMission =
+                    Mission.builder()
+                            .title("30분 집중")
+                            .creatorId(TEST_USER_ID)
+                            .status(MissionStatus.IN_PROGRESS)
+                            .visibility(MissionVisibility.PUBLIC)
+                            .type(MissionType.PERSONAL)
+                            .targetDurationMinutes(30)
+                            .bonusExpOnFullCompletion(50)
+                            .build();
+            setId(userMission, 9L);
+
+            MissionParticipant userParticipant =
+                    MissionParticipant.builder()
+                            .mission(userMission)
+                            .userId(TEST_USER_ID)
+                            .status(ParticipantStatus.IN_PROGRESS)
+                            .progress(0)
+                            .build();
+            setId(userParticipant, 9L);
+
+            MissionExecution userExecution =
+                    MissionExecution.builder()
+                            .participant(userParticipant)
+                            .executionDate(LocalDate.now())
+                            .status(ExecutionStatus.IN_PROGRESS)
+                            .build();
+            setId(userExecution, 9L);
+            // 40분 경과 (목표 30분 초과 — 스케줄러 지연 등으로 늦게 완료된 상황)
+            userExecution.setStartedAt(LocalDateTime.now().minusMinutes(40));
+
+            MissionCompletionContext userContext =
+                    new MissionCompletionContext(9L, TEST_USER_ID, null);
+            userContext.setExecution(userExecution);
+            userContext.setParticipant(userParticipant);
+            userContext.setMission(userMission);
+            userContext.addCompensationData(
+                    MissionCompletionContext.CompensationKeys.EXECUTION_STATUS_BEFORE,
+                    ExecutionStatus.IN_PROGRESS);
+
+            when(executionRepository.save(any(MissionExecution.class)))
+                    .thenAnswer(invocation -> invocation.getArgument(0));
+
+            // when
+            SagaStepResult result = completeExecutionStep.execute(userContext);
+
+            // then — 목표분(30)으로 캡, 보너스 플래그 없음
+            assertThat(result.isSuccess()).isTrue();
+            assertThat(userExecution.getExpEarned()).isEqualTo(30);
+            assertThat(userContext.isFullCompletionBonusGranted()).isFalse();
+            assertThat(userContext.getUserExpEarned()).isEqualTo(30);
         }
 
         @Test
