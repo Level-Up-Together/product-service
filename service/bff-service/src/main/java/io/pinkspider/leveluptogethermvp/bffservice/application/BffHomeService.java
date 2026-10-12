@@ -129,11 +129,46 @@ public class BffHomeService {
             int publicGuildSize,
             String locale,
             String timezone) {
+        return getHomeData(
+                userId,
+                resolveCategoryIds(null, categoryId),
+                feedSearchType,
+                feedPage,
+                feedSize,
+                publicGuildSize,
+                locale,
+                timezone);
+    }
+
+    /** LUT-548: 복수 파라미터 우선, 없으면 단일(구버전) 폴백. null 원소 제거·중복 제거. */
+    public static List<Long> resolveCategoryIds(List<Long> categoryIds, Long categoryId) {
+        if (categoryIds != null && !categoryIds.isEmpty()) {
+            return categoryIds.stream().filter(java.util.Objects::nonNull).distinct().toList();
+        }
+        return categoryId != null ? List.of(categoryId) : List.of();
+    }
+
+    /**
+     * LUT-548: 홈 카테고리 멀티셀렉트 — 복수 카테고리(OR)로 피드를 조회한다. 빈 목록은 전체.
+     *
+     * <p>공개 길드 섹션은 카테고리가 정확히 1개일 때만 카테고리별 조회(기존 동작), 그 외(0개·여러 개)는 전체 공개 길드.
+     */
+    public HomeDataResponse getHomeData(
+            String userId,
+            List<Long> categoryIds,
+            FeedSearchType feedSearchType,
+            int feedPage,
+            int feedSize,
+            int publicGuildSize,
+            String locale,
+            String timezone) {
+        List<Long> resolvedCategoryIds = categoryIds == null ? List.of() : categoryIds;
+        Long categoryId = resolvedCategoryIds.size() == 1 ? resolvedCategoryIds.get(0) : null;
         log.info(
-                "BFF getHomeData called: userId={}, categoryId={}, feedPage={}, feedSize={},"
+                "BFF getHomeData called: userId={}, categoryIds={}, feedPage={}, feedSize={},"
                         + " locale={}, timezone={}",
                 userId,
-                categoryId,
+                resolvedCategoryIds,
                 feedPage,
                 feedSize,
                 locale,
@@ -181,6 +216,15 @@ public class BffHomeService {
                                     feedPage1 =
                                             feedQueryService.getPublicFeedsByCategory(
                                                     categoryId, userId, feedPage, feedSize, locale);
+                                } else if (!resolvedCategoryIds.isEmpty()) {
+                                    // LUT-548: 복수 카테고리(OR) 피드 조회
+                                    feedPage1 =
+                                            feedQueryService.getPublicFeedsByCategories(
+                                                    resolvedCategoryIds,
+                                                    userId,
+                                                    feedPage,
+                                                    feedSize,
+                                                    locale);
                                 } else {
                                     // 전체 피드 조회
                                     feedPage1 =
@@ -321,7 +365,10 @@ public class BffHomeService {
                         .events(eventsFuture.join())
                         .build();
 
-        log.info("BFF getHomeData completed: userId={}, categoryId={}", userId, categoryId);
+        log.info(
+                "BFF getHomeData completed: userId={}, categoryIds={}",
+                userId,
+                resolvedCategoryIds);
         return response;
     }
 

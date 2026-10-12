@@ -1,7 +1,9 @@
 package io.pinkspider.leveluptogethermvp.userservice.preference.domain.entity;
 
 import io.pinkspider.global.domain.auditentity.LocalDateTimeBaseEntity;
+import io.pinkspider.leveluptogethermvp.userservice.core.converter.LongListConverter;
 import jakarta.persistence.Column;
+import jakarta.persistence.Convert;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
@@ -9,6 +11,8 @@ import jakarta.persistence.Id;
 import jakarta.persistence.Index;
 import jakarta.persistence.Table;
 import jakarta.validation.constraints.NotNull;
+import java.util.ArrayList;
+import java.util.List;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
@@ -49,6 +53,13 @@ public class UserUiPreference extends LocalDateTimeBaseEntity {
     @Comment("나의 미션 '오늘 완료한 미션' 섹션 접힘 여부")
     @lombok.Builder.Default
     private Boolean missionCompletedSectionCollapsed = false;
+
+    /** LUT-548: 홈 피드 카테고리 필터 — 빈 목록이 "전체". 쉼표 구분 문자열 컬럼(비면 NULL). */
+    @Convert(converter = LongListConverter.class)
+    @Column(name = "home_feed_category_ids", length = 500)
+    @Comment("홈 피드 카테고리 필터 (쉼표 구분 카테고리 ID, 비면 전체)")
+    @lombok.Builder.Default
+    private List<Long> homeFeedCategoryIds = new ArrayList<>();
 
     public static UserUiPreference createDefault(String userId) {
         return UserUiPreference.builder().userId(userId).build();

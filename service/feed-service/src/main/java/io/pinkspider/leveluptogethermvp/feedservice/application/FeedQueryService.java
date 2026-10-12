@@ -273,14 +273,39 @@ public class FeedQueryService {
         return getPublicFeedsByCategory(categoryId, currentUserId, page, size, null);
     }
 
-    /** 카테고리별 공개 피드 조회 (다국어 지원) */
+    /** 카테고리별 공개 피드 조회 (다국어 지원) — 단일 카테고리는 복수 버전으로 위임 (LUT-548) */
     public Page<ActivityFeedResponse> getPublicFeedsByCategory(
             Long categoryId, String currentUserId, int page, int size, String acceptLanguage) {
+        return getPublicFeedsByCategories(
+                List.of(categoryId), currentUserId, page, size, acceptLanguage);
+    }
+
+    /**
+     * LUT-548: 복수 카테고리 공개 피드 조회 (OR 조건). 홈 카테고리 멀티셀렉트용 — 빈 목록은 호출부가 전체 조회로 분기해야 한다.
+     *
+     * <p>Featured 피드는 선택 카테고리 순서대로 각각 조회해 합치고(중복 제거), 첫 페이지에만 앞에 붙인다 — 단일 카테고리 동작과 동일.
+     */
+    public Page<ActivityFeedResponse> getPublicFeedsByCategories(
+            List<Long> categoryIds,
+            String currentUserId,
+            int page,
+            int size,
+            String acceptLanguage) {
+        if (categoryIds == null || categoryIds.isEmpty()) {
+            return getPublicFeeds(currentUserId, page, size, acceptLanguage);
+        }
         Pageable pageable = PageRequest.of(page, size);
         String targetLocale = SupportedLocale.extractLanguageCode(acceptLanguage);
 
-        // 1. Admin Featured Feeds 먼저 조회
-        List<Long> featuredFeedIds = adminInternalFeignClient.getFeaturedFeedIds(categoryId);
+        // 1. Admin Featured Feeds 먼저 조회 (카테고리 순서 유지, 중복 제거)
+        List<Long> featuredFeedIds = new ArrayList<>();
+        for (Long categoryId : categoryIds) {
+            for (Long feedId : adminInternalFeignClient.getFeaturedFeedIds(categoryId)) {
+                if (!featuredFeedIds.contains(feedId)) {
+                    featuredFeedIds.add(feedId);
+                }
+            }
+        }
 
         List<ActivityFeed> featuredFeedList = new ArrayList<>();
         if (!featuredFeedIds.isEmpty()) {
@@ -302,8 +327,8 @@ public class FeedQueryService {
         List<String> friendIds = resolveFriendIds(currentUserId);
         List<Long> guildIds = resolveGuildIds(currentUserId);
         Page<ActivityFeed> categoryFeeds =
-                activityFeedRepository.findAccessibleFeedsByCategoryId(
-                        categoryId,
+                activityFeedRepository.findAccessibleFeedsByCategoryIds(
+                        categoryIds,
                         currentUserId,
                         friendIds,
                         guildIds,

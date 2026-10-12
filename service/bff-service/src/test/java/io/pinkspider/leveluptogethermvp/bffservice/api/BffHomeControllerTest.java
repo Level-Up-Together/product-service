@@ -4,8 +4,11 @@ import static com.epages.restdocs.apispec.ResourceDocumentation.parameterWithNam
 import static com.epages.restdocs.apispec.ResourceDocumentation.resource;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.restdocs.operation.preprocess.Preprocessors.preprocessRequest;
 import static org.springframework.restdocs.operation.preprocess.Preprocessors.preprocessResponse;
@@ -290,7 +293,7 @@ class BffHomeControllerTest {
                         .build();
 
         when(bffHomeService.getHomeData(
-                        anyString(), any(), any(), anyInt(), anyInt(), anyInt(), any(), any()))
+                        anyString(), anyList(), any(), anyInt(), anyInt(), anyInt(), any(), any()))
                 .thenReturn(mockResponse);
 
         // when
@@ -315,6 +318,21 @@ class BffHomeControllerTest {
                                                                     + " 카테고리, 길드, 공지사항). MVP 랭킹은"
                                                                     + " BFF-09 홈 MVP 데이터 조회로 분리됨")
                                                         .queryParameters(
+                                                                parameterWithName("categoryIds")
+                                                                        .type(SimpleType.STRING)
+                                                                        .description(
+                                                                                "카테고리 ID 목록(쉼표 구분"
+                                                                                    + " 또는 반복, OR"
+                                                                                    + " 조건). 비어 있으면"
+                                                                                    + " 전체 (LUT-548)")
+                                                                        .optional(),
+                                                                parameterWithName("categoryId")
+                                                                        .type(SimpleType.NUMBER)
+                                                                        .description(
+                                                                                "단일 카테고리 ID (구버전"
+                                                                                    + " 호환, categoryIds"
+                                                                                    + " 가 있으면 무시)")
+                                                                        .optional(),
                                                                 parameterWithName("feedPage")
                                                                         .type(SimpleType.INTEGER)
                                                                         .description(
@@ -712,6 +730,55 @@ class BffHomeControllerTest {
 
         // then
         resultActions.andExpect(MockMvcResultMatchers.status().isOk());
+    }
+
+    @Test
+    @DisplayName("GET /api/v1/bff/home?categoryIds=1,2 : 복수 카테고리 목록을 서비스에 전달한다 (LUT-548)")
+    void getHomeDataWithCategoryIdsTest() throws Exception {
+        HomeDataResponse mockResponse =
+                HomeDataResponse.builder()
+                        .feeds(
+                                HomeDataResponse.FeedPageData.builder()
+                                        .content(Collections.emptyList())
+                                        .page(0)
+                                        .size(20)
+                                        .totalElements(0)
+                                        .totalPages(0)
+                                        .build())
+                        .categories(Collections.emptyList())
+                        .myGuilds(Collections.emptyList())
+                        .notices(Collections.emptyList())
+                        .events(Collections.emptyList())
+                        .build();
+        when(bffHomeService.getHomeData(
+                        anyString(),
+                        eq(List.of(1L, 2L)),
+                        any(),
+                        anyInt(),
+                        anyInt(),
+                        anyInt(),
+                        any(),
+                        any()))
+                .thenReturn(mockResponse);
+
+        mockMvc.perform(
+                        RestDocumentationRequestBuilders.get("/api/v1/bff/home")
+                                .with(user(MOCK_USER_ID))
+                                .param("categoryIds", "1,2")
+                                .param("categoryId", "9"))
+                .andExpect(MockMvcResultMatchers.status().isOk());
+
+        // categoryIds 가 있으면 구버전 categoryId(9) 는 무시된다
+        verify(bffHomeService)
+                .getHomeData(
+                        anyString(),
+                        eq(List.of(1L, 2L)),
+                        any(),
+                        anyInt(),
+                        anyInt(),
+                        anyInt(),
+                        any(),
+                        any());
     }
 
     @Test

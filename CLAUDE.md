@@ -488,7 +488,15 @@ list_price      = COMMON 유저 기준가 = 최대 할증가                    
 - **랭킹** `/api/v1/rankings` 14개: 전체·`/missions`·`/streaks`·`/achievements`·`/realtime`·`/level`·`/level/**`는 **비로그인 허용**(LUT-297,
   `SecurityConfig` permitAll + `SecurityConfigPublicEndpointTest`), `/my*`·`/nearby`는 인증 필요.
 - **UI 환경설정** (LUT-437): `GET/PUT /api/v1/users/me/preferences` — 기기 간 동기화되는 화면 토글(완료 미션 접기 등). 알림 설정
-  (`/api/v1/notifications/preferences`)과 별개 테이블(`user_ui_preference`).
+  (`/api/v1/notifications/preferences`)과 별개 테이블(`user_ui_preference`). **홈 피드 카테고리 필터** (LUT-548):
+  `home_feed_category_ids: number[]` — **빈 배열 = 전체**, null = 변경 없음(부분 업데이트). 쉼표 구분 VARCHAR(500) 컬럼을
+  `LongListConverter`로 변환하며 빈 목록은 NULL 저장. 저장 시 **존재하지 않는 카테고리 ID는 400이 아니라 조용히 제거**(클라이언트
+  카테고리 캐시 30분 지연 대비), 비활성은 저장하고 클라이언트가 적용 시 걸러낸다. 카테고리 조회(meta_db) 실패 시 검증 없이 저장.
+- **홈 피드 카테고리 멀티셀렉트** (LUT-548): `GET /api/v1/feeds/public`·`GET /api/v1/bff/home`에 `categoryIds`(쉼표 구분 또는 반복,
+  OR 조건) 추가. 비어 있으면 전체, 있으면 구버전 단일 `categoryId`는 무시(앱 호환용 유지). Featured 피드는 선택 카테고리 순서대로
+  합쳐 첫 페이지에만 붙인다. BFF 공개 길드 섹션은 카테고리가 **정확히 1개**일 때만 카테고리별 조회. **MVP(`/bff/home/mvp`)는 항상
+  전체 카테고리** — 프론트가 카테고리를 넘기지 않는다. 웹은 로그인 유저의 저장값을 RSC 프리페치(`bff-home-server.ts`)가 먼저 읽어
+  첫 피드를 그 카테고리로 받아와 "전체→필터" 플리커를 없앤다.
 
 ## 길드 활동 포인트 (LUT-483)
 

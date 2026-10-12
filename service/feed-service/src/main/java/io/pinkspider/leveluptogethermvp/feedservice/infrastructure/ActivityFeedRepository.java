@@ -187,15 +187,19 @@ public interface ActivityFeedRepository extends JpaRepository<ActivityFeed, Long
     Page<ActivityFeed> findPublicFeedsByCategoryId(
             @Param("categoryId") Long categoryId, Pageable pageable);
 
-    /** QA-168: 카테고리별로 사용자가 볼 수 있는 모든 피드 조회. findAccessibleFeeds의 카테고리 필터 버전. */
+    /**
+     * QA-168: 카테고리별로 사용자가 볼 수 있는 모든 피드 조회. findAccessibleFeeds의 카테고리 필터 버전.
+     *
+     * <p>LUT-548: 홈 카테고리 멀티셀렉트 — 복수 카테고리 OR 조건. 호출부가 빈 목록을 넘기지 않도록 보장한다 (IN () 은 JPQL 오류).
+     */
     @Query(
-            "SELECT f FROM ActivityFeed f WHERE f.categoryId = :categoryId AND (f.visibility ="
+            "SELECT f FROM ActivityFeed f WHERE f.categoryId IN :categoryIds AND (f.visibility ="
                     + " 'PUBLIC' OR (:userId IS NOT NULL AND f.userId = :userId AND f.visibility <>"
                     + " 'PRIVATE') OR (f.userId IN :friendIds AND f.visibility = 'FRIENDS') OR"
                     + " (f.guildId IN :guildIds AND f.visibility = 'GUILD')) AND f.userId NOT IN"
                     + " :excludedUserIds ORDER BY f.createdAt DESC")
-    Page<ActivityFeed> findAccessibleFeedsByCategoryId(
-            @Param("categoryId") Long categoryId,
+    Page<ActivityFeed> findAccessibleFeedsByCategoryIds(
+            @Param("categoryIds") List<Long> categoryIds,
             @Param("userId") String userId,
             @Param("friendIds") List<String> friendIds,
             @Param("guildIds") List<Long> guildIds,

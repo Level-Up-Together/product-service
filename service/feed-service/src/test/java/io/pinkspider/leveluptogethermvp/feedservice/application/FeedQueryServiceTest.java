@@ -1264,8 +1264,13 @@ class FeedQueryServiceTest {
 
             when(adminInternalFeignClient.getFeaturedFeedIds(categoryId))
                     .thenReturn(Collections.emptyList());
-            when(activityFeedRepository.findAccessibleFeedsByCategoryId(
-                            eq(categoryId), any(), any(), any(), anyList(), any(Pageable.class)))
+            when(activityFeedRepository.findAccessibleFeedsByCategoryIds(
+                            eq(List.of(categoryId)),
+                            any(),
+                            any(),
+                            any(),
+                            anyList(),
+                            any(Pageable.class)))
                     .thenReturn(feedPage);
             when(feedLikeRepository.findLikedFeedIds(eq(TEST_USER_ID), anyList()))
                     .thenReturn(Collections.emptyList());
@@ -1290,8 +1295,13 @@ class FeedQueryServiceTest {
 
             when(adminInternalFeignClient.getFeaturedFeedIds(categoryId)).thenReturn(List.of(1L));
             when(activityFeedRepository.findByIdIn(List.of(1L))).thenReturn(List.of(featuredFeed));
-            when(activityFeedRepository.findAccessibleFeedsByCategoryId(
-                            eq(categoryId), any(), any(), any(), anyList(), any(Pageable.class)))
+            when(activityFeedRepository.findAccessibleFeedsByCategoryIds(
+                            eq(List.of(categoryId)),
+                            any(),
+                            any(),
+                            any(),
+                            anyList(),
+                            any(Pageable.class)))
                     .thenReturn(new PageImpl<>(List.of(normalFeed)));
             when(feedLikeRepository.findLikedFeedIds(eq(TEST_USER_ID), anyList()))
                     .thenReturn(Collections.emptyList());
@@ -1315,8 +1325,13 @@ class FeedQueryServiceTest {
 
             when(adminInternalFeignClient.getFeaturedFeedIds(categoryId)).thenReturn(List.of(1L));
             when(activityFeedRepository.findByIdIn(List.of(1L))).thenReturn(List.of(feed));
-            when(activityFeedRepository.findAccessibleFeedsByCategoryId(
-                            eq(categoryId), any(), any(), any(), anyList(), any(Pageable.class)))
+            when(activityFeedRepository.findAccessibleFeedsByCategoryIds(
+                            eq(List.of(categoryId)),
+                            any(),
+                            any(),
+                            any(),
+                            anyList(),
+                            any(Pageable.class)))
                     .thenReturn(new PageImpl<>(List.of(feed))); // 동일한 피드
             when(feedLikeRepository.findLikedFeedIds(eq(TEST_USER_ID), anyList()))
                     .thenReturn(Collections.emptyList());
@@ -1342,8 +1357,13 @@ class FeedQueryServiceTest {
 
             when(adminInternalFeignClient.getFeaturedFeedIds(categoryId))
                     .thenReturn(Collections.emptyList());
-            when(activityFeedRepository.findAccessibleFeedsByCategoryId(
-                            eq(categoryId), any(), any(), any(), anyList(), any(Pageable.class)))
+            when(activityFeedRepository.findAccessibleFeedsByCategoryIds(
+                            eq(List.of(categoryId)),
+                            any(),
+                            any(),
+                            any(),
+                            anyList(),
+                            any(Pageable.class)))
                     .thenReturn(feedPage);
             when(feedLikeRepository.findLikedFeedIds(eq(TEST_USER_ID), anyList()))
                     .thenReturn(Collections.emptyList());
@@ -2045,8 +2065,13 @@ class FeedQueryServiceTest {
             Page<ActivityFeed> feedPage = new PageImpl<>(List.of(feed));
 
             when(adminInternalFeignClient.getFeaturedFeedIds(categoryId)).thenReturn(List.of(99L));
-            when(activityFeedRepository.findAccessibleFeedsByCategoryId(
-                            eq(categoryId), any(), any(), any(), anyList(), any(Pageable.class)))
+            when(activityFeedRepository.findAccessibleFeedsByCategoryIds(
+                            eq(List.of(categoryId)),
+                            any(),
+                            any(),
+                            any(),
+                            anyList(),
+                            any(Pageable.class)))
                     .thenReturn(feedPage);
             when(feedLikeRepository.findLikedFeedIds(eq(TEST_USER_ID), anyList()))
                     .thenReturn(Collections.emptyList());
@@ -2081,8 +2106,13 @@ class FeedQueryServiceTest {
 
             when(adminInternalFeignClient.getFeaturedFeedIds(categoryId)).thenReturn(featuredIds);
             when(activityFeedRepository.findByIdIn(featuredIds)).thenReturn(featuredFeeds);
-            when(activityFeedRepository.findAccessibleFeedsByCategoryId(
-                            eq(categoryId), any(), any(), any(), anyList(), any(Pageable.class)))
+            when(activityFeedRepository.findAccessibleFeedsByCategoryIds(
+                            eq(List.of(categoryId)),
+                            any(),
+                            any(),
+                            any(),
+                            anyList(),
+                            any(Pageable.class)))
                     .thenReturn(normalPage);
             when(feedLikeRepository.findLikedFeedIds(eq(TEST_USER_ID), anyList()))
                     .thenReturn(Collections.emptyList());
@@ -3257,8 +3287,13 @@ class FeedQueryServiceTest {
                     .thenReturn(List.of(1L, 2L));
             when(activityFeedRepository.findByIdIn(List.of(1L, 2L)))
                     .thenReturn(List.of(privateFeatured, publicFeatured));
-            when(activityFeedRepository.findAccessibleFeedsByCategoryId(
-                            eq(categoryId), any(), any(), any(), anyList(), any(Pageable.class)))
+            when(activityFeedRepository.findAccessibleFeedsByCategoryIds(
+                            eq(List.of(categoryId)),
+                            any(),
+                            any(),
+                            any(),
+                            anyList(),
+                            any(Pageable.class)))
                     .thenReturn(new PageImpl<>(List.of()));
             when(reportService.isUnderReviewBatch(any(), anyList()))
                     .thenReturn(Collections.emptyMap());
@@ -3279,9 +3314,15 @@ class FeedQueryServiceTest {
 
             when(adminInternalFeignClient.getFeaturedFeedIds(categoryId))
                     .thenReturn(List.of(1L, 1L));
-            when(activityFeedRepository.findByIdIn(List.of(1L, 1L))).thenReturn(List.of(featured));
-            when(activityFeedRepository.findAccessibleFeedsByCategoryId(
-                            eq(categoryId), any(), any(), any(), anyList(), any(Pageable.class)))
+            // LUT-548: Featured ID 는 조회 전에 중복 제거되므로 [1] 로 한 번만 조회된다
+            when(activityFeedRepository.findByIdIn(List.of(1L))).thenReturn(List.of(featured));
+            when(activityFeedRepository.findAccessibleFeedsByCategoryIds(
+                            eq(List.of(categoryId)),
+                            any(),
+                            any(),
+                            any(),
+                            anyList(),
+                            any(Pageable.class)))
                     .thenReturn(new PageImpl<>(List.of()));
             when(reportService.isUnderReviewBatch(any(), anyList()))
                     .thenReturn(Collections.emptyMap());
@@ -3300,8 +3341,13 @@ class FeedQueryServiceTest {
 
             when(adminInternalFeignClient.getFeaturedFeedIds(categoryId))
                     .thenReturn(Collections.emptyList());
-            when(activityFeedRepository.findAccessibleFeedsByCategoryId(
-                            eq(categoryId), any(), any(), any(), anyList(), any(Pageable.class)))
+            when(activityFeedRepository.findAccessibleFeedsByCategoryIds(
+                            eq(List.of(categoryId)),
+                            any(),
+                            any(),
+                            any(),
+                            anyList(),
+                            any(Pageable.class)))
                     .thenReturn(new PageImpl<>(List.of(feed)));
             when(feedLikeRepository.findLikedFeedIds(eq(TEST_USER_ID), anyList()))
                     .thenReturn(List.of(1L));
@@ -3615,8 +3661,13 @@ class FeedQueryServiceTest {
             ActivityFeed feed = createTestFeed(1L, OTHER_USER_ID);
             when(adminInternalFeignClient.getFeaturedFeedIds(categoryId))
                     .thenReturn(Collections.emptyList());
-            when(activityFeedRepository.findAccessibleFeedsByCategoryId(
-                            eq(categoryId), any(), any(), any(), anyList(), any(Pageable.class)))
+            when(activityFeedRepository.findAccessibleFeedsByCategoryIds(
+                            eq(List.of(categoryId)),
+                            any(),
+                            any(),
+                            any(),
+                            anyList(),
+                            any(Pageable.class)))
                     .thenReturn(new PageImpl<>(List.of(feed)));
             when(reportService.isUnderReviewBatch(any(), anyList()))
                     .thenReturn(Collections.emptyMap());
@@ -3697,6 +3748,66 @@ class FeedQueryServiceTest {
                     feedQueryService.getPublicFeeds(TEST_USER_ID, 0, 10, "en");
 
             assertThat(result.getContent().get(0).getUserTitle()).isEqualTo("용감한 전사");
+        }
+    }
+
+    @Nested
+    @DisplayName("LUT-548: 복수 카테고리 공개 피드 조회")
+    class GetPublicFeedsByCategoriesTest {
+
+        @Test
+        @DisplayName("선택 카테고리들을 IN 조건으로 한 번에 조회하고 Featured 는 카테고리 순서대로 합친다")
+        void getPublicFeedsByCategories_unionFeaturedAcrossCategories() {
+            // given
+            List<Long> categoryIds = List.of(1L, 2L);
+            ActivityFeed featuredA = createTestFeed(11L, TEST_USER_ID);
+            ActivityFeed featuredB = createTestFeed(22L, OTHER_USER_ID);
+            ActivityFeed normal = createTestFeed(33L, OTHER_USER_ID);
+
+            when(adminInternalFeignClient.getFeaturedFeedIds(1L)).thenReturn(List.of(11L, 22L));
+            when(adminInternalFeignClient.getFeaturedFeedIds(2L)).thenReturn(List.of(22L));
+            when(activityFeedRepository.findByIdIn(List.of(11L, 22L)))
+                    .thenReturn(List.of(featuredA, featuredB));
+            when(activityFeedRepository.findAccessibleFeedsByCategoryIds(
+                            eq(categoryIds), any(), any(), any(), anyList(), any(Pageable.class)))
+                    .thenReturn(new PageImpl<>(List.of(normal)));
+            when(feedLikeRepository.findLikedFeedIds(eq(TEST_USER_ID), anyList()))
+                    .thenReturn(Collections.emptyList());
+            when(reportService.isUnderReviewBatch(any(), anyList()))
+                    .thenReturn(Collections.emptyMap());
+
+            // when
+            Page<ActivityFeedResponse> result =
+                    feedQueryService.getPublicFeedsByCategories(
+                            categoryIds, TEST_USER_ID, 0, 10, null);
+
+            // then — featured 11, 22(중복 1회) + 일반 33
+            assertThat(result.getContent())
+                    .extracting(ActivityFeedResponse::getId)
+                    .containsExactly(11L, 22L, 33L);
+        }
+
+        @Test
+        @DisplayName("빈 카테고리 목록은 전체 공개 피드 조회로 폴백한다")
+        void getPublicFeedsByCategories_empty_fallsBackToAll() {
+            // given
+            ActivityFeed feed = createTestFeed(1L, TEST_USER_ID);
+            when(activityFeedRepository.findAccessibleFeeds(
+                            any(), any(), any(), anyList(), any(Pageable.class)))
+                    .thenReturn(new PageImpl<>(List.of(feed)));
+            when(feedLikeRepository.findLikedFeedIds(eq(TEST_USER_ID), anyList()))
+                    .thenReturn(Collections.emptyList());
+            when(reportService.isUnderReviewBatch(any(), anyList()))
+                    .thenReturn(Collections.emptyMap());
+
+            // when
+            Page<ActivityFeedResponse> result =
+                    feedQueryService.getPublicFeedsByCategories(
+                            List.of(), TEST_USER_ID, 0, 10, null);
+
+            // then
+            assertThat(result.getContent()).hasSize(1);
+            verify(adminInternalFeignClient, never()).getFeaturedFeedIds(any());
         }
     }
 }

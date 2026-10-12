@@ -17,6 +17,7 @@ import io.pinkspider.leveluptogethermvp.config.ControllerTestConfig;
 import io.pinkspider.leveluptogethermvp.userservice.preference.application.UserUiPreferenceService;
 import io.pinkspider.leveluptogethermvp.userservice.preference.domain.dto.UserUiPreferenceRequest;
 import io.pinkspider.leveluptogethermvp.userservice.preference.domain.dto.UserUiPreferenceResponse;
+import java.util.List;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -62,7 +63,7 @@ class UserPreferenceControllerTest {
     void getPreferencesTest() throws Exception {
         // given
         when(preferenceService.getPreferences(anyString()))
-                .thenReturn(new UserUiPreferenceResponse(true));
+                .thenReturn(new UserUiPreferenceResponse(true, List.of(3L, 7L)));
 
         // when
         ResultActions resultActions =
@@ -97,7 +98,14 @@ class UserPreferenceControllerTest {
                                                                         .description(
                                                                                 "나의 미션 '오늘 완료한 미션'"
                                                                                     + " 섹션 접힘 여부"
-                                                                                    + " (기본 false)"))
+                                                                                    + " (기본 false)"),
+                                                                fieldWithPath(
+                                                                                "value.home_feed_category_ids")
+                                                                        .type(JsonFieldType.ARRAY)
+                                                                        .description(
+                                                                                "홈 피드 카테고리 필터 ID 목록"
+                                                                                    + " — 빈 배열=전체"
+                                                                                    + " (LUT-548)"))
                                                         .build())));
 
         // then
@@ -109,10 +117,13 @@ class UserPreferenceControllerTest {
     void updatePreferencesTest() throws Exception {
         // given
         UserUiPreferenceRequest request =
-                UserUiPreferenceRequest.builder().missionCompletedSectionCollapsed(true).build();
+                UserUiPreferenceRequest.builder()
+                        .missionCompletedSectionCollapsed(true)
+                        .homeFeedCategoryIds(List.of(3L, 7L))
+                        .build();
 
         when(preferenceService.updatePreferences(anyString(), any(UserUiPreferenceRequest.class)))
-                .thenReturn(new UserUiPreferenceResponse(true));
+                .thenReturn(new UserUiPreferenceResponse(true, List.of(3L, 7L)));
 
         // when
         ResultActions resultActions =
@@ -140,6 +151,17 @@ class UserPreferenceControllerTest {
                                                                         .description(
                                                                                 "나의 미션 '오늘 완료한 미션'"
                                                                                     + " 섹션 접힘 여부")
+                                                                        .optional(),
+                                                                fieldWithPath(
+                                                                                "home_feed_category_ids")
+                                                                        .type(JsonFieldType.ARRAY)
+                                                                        .description(
+                                                                                "홈 피드 카테고리 필터 ID 목록"
+                                                                                    + " — null=변경"
+                                                                                    + " 없음, 빈"
+                                                                                    + " 배열=전체, 미존재"
+                                                                                    + " ID 는 무시"
+                                                                                    + " (LUT-548)")
                                                                         .optional())
                                                         .responseFields(
                                                                 fieldWithPath("code")
@@ -157,7 +179,14 @@ class UserPreferenceControllerTest {
                                                                         .type(JsonFieldType.BOOLEAN)
                                                                         .description(
                                                                                 "나의 미션 '오늘 완료한 미션'"
-                                                                                    + " 섹션 접힘 여부"))
+                                                                                    + " 섹션 접힘 여부"),
+                                                                fieldWithPath(
+                                                                                "value.home_feed_category_ids")
+                                                                        .type(JsonFieldType.ARRAY)
+                                                                        .description(
+                                                                                "홈 피드 카테고리 필터 ID 목록"
+                                                                                    + " — 빈 배열=전체"
+                                                                                    + " (LUT-548)"))
                                                         .build())));
 
         // then

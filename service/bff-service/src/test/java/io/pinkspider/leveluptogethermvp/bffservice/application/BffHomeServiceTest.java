@@ -5,6 +5,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -284,6 +285,76 @@ class BffHomeServiceTest {
         }
 
         @Test
+        @DisplayName("LUT-548: 카테고리 2개 이상이면 복수 카테고리 피드 조회 + 전체 공개 길드로 분기한다")
+        void getHomeData_withMultipleCategories() {
+            // given
+            List<Long> categoryIds = List.of(1L, 2L);
+            Page<ActivityFeedResponse> feedPage =
+                    new PageImpl<>(List.of(testFeedResponse), PageRequest.of(0, 20), 1);
+            Page<GuildResponse> guildPage =
+                    new PageImpl<>(List.of(testGuildResponse), PageRequest.of(0, 5), 1);
+
+            when(feedQueryService.getPublicFeedsByCategories(
+                            eq(categoryIds), anyString(), anyInt(), anyInt(), any()))
+                    .thenReturn(feedPage);
+            when(missionCategoryService.getActiveCategories())
+                    .thenReturn(List.of(testCategoryResponse));
+            when(guildQueryService.getMyGuilds(eq(testUserId), any()))
+                    .thenReturn(List.of(testGuildResponse));
+            when(guildQueryService.getPublicGuilds(any(), any(), any())).thenReturn(guildPage);
+            when(noticeService.getActiveNotices()).thenReturn(List.of(testNoticeResponse));
+
+            // when
+            HomeDataResponse response =
+                    bffHomeService.getHomeData(testUserId, categoryIds, null, 0, 20, 5, "en", null);
+
+            // then
+            assertThat(response.getFeeds().getContent()).hasSize(1);
+            assertThat(response.getPublicGuilds().getContent()).hasSize(1);
+            verify(feedQueryService)
+                    .getPublicFeedsByCategories(
+                            eq(categoryIds), eq(testUserId), eq(0), eq(20), eq("en"));
+            verify(guildQueryService, never()).getPublicGuildsByCategory(any(), any(), any());
+        }
+
+        @Test
+        @DisplayName("LUT-548: 카테고리 목록이 1개면 기존 단일 카테고리 경로(카테고리별 길드 포함)를 탄다")
+        void getHomeData_singleCategoryList_usesLegacyPath() {
+            // given
+            Page<ActivityFeedResponse> feedPage =
+                    new PageImpl<>(List.of(testFeedResponse), PageRequest.of(0, 20), 1);
+            when(feedQueryService.getPublicFeedsByCategory(
+                            eq(1L), anyString(), anyInt(), anyInt(), any()))
+                    .thenReturn(feedPage);
+            when(missionCategoryService.getActiveCategories())
+                    .thenReturn(List.of(testCategoryResponse));
+            when(guildQueryService.getMyGuilds(eq(testUserId), any()))
+                    .thenReturn(List.of(testGuildResponse));
+            when(guildQueryService.getPublicGuildsByCategory(anyString(), eq(1L), any()))
+                    .thenReturn(List.of(testGuildResponse));
+            when(noticeService.getActiveNotices()).thenReturn(List.of(testNoticeResponse));
+
+            // when
+            HomeDataResponse response =
+                    bffHomeService.getHomeData(testUserId, List.of(1L), null, 0, 20, 5, null, null);
+
+            // then
+            assertThat(response.getFeeds().getContent()).hasSize(1);
+            assertThat(response.getPublicGuilds().getContent()).hasSize(1);
+        }
+
+        @Test
+        @DisplayName("LUT-548: resolveCategoryIds — 복수 우선, null 원소·중복 제거, 없으면 단일 폴백")
+        void resolveCategoryIds_rules() {
+            assertThat(
+                            BffHomeService.resolveCategoryIds(
+                                    java.util.Arrays.asList(2L, null, 2L, 1L), 9L))
+                    .containsExactly(2L, 1L);
+            assertThat(BffHomeService.resolveCategoryIds(List.of(), 9L)).containsExactly(9L);
+            assertThat(BffHomeService.resolveCategoryIds(null, null)).isEmpty();
+        }
+
+        @Test
         @DisplayName("LUT-273: 전체/카테고리 피드 조회에 locale이 전달된다 (유저 칭호 다국어 치환)")
         void getHomeData_passesLocaleToFeedQueries() {
             // given
@@ -305,7 +376,7 @@ class BffHomeServiceTest {
             when(noticeService.getActiveNotices()).thenReturn(List.of(testNoticeResponse));
 
             // when — 전체 피드 + 카테고리 피드 각각 en locale로 호출
-            bffHomeService.getHomeData(testUserId, null, null, 0, 20, 5, "en", null);
+            bffHomeService.getHomeData(testUserId, (Long) null, null, 0, 20, 5, "en", null);
             bffHomeService.getHomeData(testUserId, 1L, null, 0, 20, 5, "en", null);
 
             // then — locale이 feed 조회까지 전달되어야 localizeUserTitles가 동작한다

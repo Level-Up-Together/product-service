@@ -13,6 +13,7 @@ import io.pinkspider.leveluptogethermvp.bffservice.application.BffHomeService;
 import io.pinkspider.leveluptogethermvp.bffservice.application.BffMissionService;
 import io.pinkspider.leveluptogethermvp.bffservice.application.BffSearchService;
 import io.pinkspider.leveluptogethermvp.feedservice.domain.enums.FeedSearchType;
+import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
@@ -43,7 +44,8 @@ public class BffHomeController {
      * <p>MVP 랭킹 데이터는 {@code GET /api/v1/bff/home/mvp}로 분리되었습니다. (QA-222)
      *
      * @param userId 인증된 사용자 ID
-     * @param categoryId 카테고리 ID (선택적, null이면 전체)
+     * @param categoryIds LUT-548: 복수 카테고리(OR) — 비어 있으면 전체. 있으면 categoryId 는 무시된다.
+     * @param categoryId 카테고리 ID (구버전 호환 단일, null이면 전체)
      * @param feedSearchType 피드 필터 타입 (ALL, FRIENDS, GUILD, MINE). 미지정 시 ALL.
      * @param feedPage 피드 페이지 번호 (기본: 0)
      * @param feedSize 피드 페이지 크기 (기본: 20)
@@ -54,6 +56,7 @@ public class BffHomeController {
     @GetMapping("/home")
     public ResponseEntity<ApiResult<HomeDataResponse>> getHomeData(
             @CurrentUser(required = false) String userId,
+            @RequestParam(required = false) List<Long> categoryIds,
             @RequestParam(required = false) Long categoryId,
             @RequestParam(required = false) FeedSearchType feedSearchType,
             @RequestParam(defaultValue = "0") int feedPage,
@@ -65,7 +68,7 @@ public class BffHomeController {
         HomeDataResponse response =
                 bffHomeService.getHomeData(
                         userId,
-                        categoryId,
+                        BffHomeService.resolveCategoryIds(categoryIds, categoryId),
                         feedSearchType,
                         feedPage,
                         feedSize,

@@ -41,24 +41,29 @@ public class ActivityFeedController {
     private final FeedCommandService feedCommandService;
 
     /**
-     * 피드 조회 - searchType으로 필터, categoryId로 카테고리 필터
+     * 피드 조회 - searchType으로 필터, categoryIds/categoryId로 카테고리 필터
      *
+     * @param categoryIds LUT-548: 복수 카테고리(OR). 비어 있으면 전체. {@code categoryIds=1,2} / 반복 파라미터 모두 허용.
+     * @param categoryId 구버전 앱 호환용 단일 카테고리 — categoryIds 가 있으면 무시된다.
      * @param searchType 필터 타입 (ALL, FRIENDS, GUILD, MINE). 미지정 시 ALL.
      */
     @GetMapping("/public")
     public ResponseEntity<ApiResult<Page<ActivityFeedResponse>>> getPublicFeeds(
             @CurrentUser(required = false) String userId,
+            @RequestParam(required = false) List<Long> categoryIds,
             @RequestParam(required = false) Long categoryId,
             @RequestParam(required = false) FeedSearchType searchType,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size,
             @RequestHeader(value = HttpHeaders.ACCEPT_LANGUAGE, required = false)
                     String acceptLanguage) {
+        List<Long> resolvedCategoryIds = resolveCategoryIds(categoryIds, categoryId);
         Page<ActivityFeedResponse> feeds;
-        if (categoryId != null && (searchType == null || searchType == FeedSearchType.ALL)) {
+        if (!resolvedCategoryIds.isEmpty()
+                && (searchType == null || searchType == FeedSearchType.ALL)) {
             feeds =
-                    feedQueryService.getPublicFeedsByCategory(
-                            categoryId, userId, page, size, acceptLanguage);
+                    feedQueryService.getPublicFeedsByCategories(
+                            resolvedCategoryIds, userId, page, size, acceptLanguage);
         } else if (searchType != null && searchType != FeedSearchType.ALL) {
             feeds =
                     feedQueryService.getFilteredFeeds(
@@ -68,6 +73,14 @@ public class ActivityFeedController {
         }
         return ResponseEntity.ok(
                 ApiResult.<Page<ActivityFeedResponse>>builder().value(feeds).build());
+    }
+
+    /** LUT-548: 복수 파라미터 우선, 없으면 단일(구버전) 폴백. null 원소는 제거한다. */
+    static List<Long> resolveCategoryIds(List<Long> categoryIds, Long categoryId) {
+        if (categoryIds != null && !categoryIds.isEmpty()) {
+            return categoryIds.stream().filter(java.util.Objects::nonNull).distinct().toList();
+        }
+        return categoryId != null ? List.of(categoryId) : List.of();
     }
 
     /** 내 타임라인 피드 조회 (내 피드 + 친구 피드) */

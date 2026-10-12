@@ -6,7 +6,10 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doNothing;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.restdocs.operation.preprocess.Preprocessors.preprocessRequest;
 import static org.springframework.restdocs.operation.preprocess.Preprocessors.preprocessResponse;
@@ -27,6 +30,7 @@ import io.pinkspider.leveluptogethermvp.feedservice.api.dto.FeedCommentUpdateReq
 import io.pinkspider.leveluptogethermvp.feedservice.api.dto.FeedLikeResponse;
 import io.pinkspider.leveluptogethermvp.feedservice.application.FeedCommandService;
 import io.pinkspider.leveluptogethermvp.feedservice.application.FeedQueryService;
+import io.pinkspider.leveluptogethermvp.feedservice.domain.enums.FeedSearchType;
 import io.pinkspider.util.MockUtil;
 import java.util.List;
 import org.junit.jupiter.api.DisplayName;
@@ -103,8 +107,32 @@ class ActivityFeedControllerTest {
                                         resource(
                                                 ResourceSnippetParameters.builder()
                                                         .tag("Activity Feed")
-                                                        .description("전체 공개 피드 조회 (JWT 토큰 인증 필요)")
+                                                        .description(
+                                                                "전체 공개 피드 조회 (비로그인 허용). categoryIds"
+                                                                    + " 로 복수 카테고리(OR) 필터 (LUT-548)")
                                                         .queryParameters(
+                                                                parameterWithName("categoryIds")
+                                                                        .type(SimpleType.STRING)
+                                                                        .description(
+                                                                                "카테고리 ID 목록(쉼표 구분"
+                                                                                    + " 또는 반복). 비어"
+                                                                                    + " 있으면 전체"
+                                                                                    + " (LUT-548)")
+                                                                        .optional(),
+                                                                parameterWithName("categoryId")
+                                                                        .type(SimpleType.NUMBER)
+                                                                        .description(
+                                                                                "단일 카테고리 ID (구버전"
+                                                                                    + " 호환, categoryIds"
+                                                                                    + " 가 있으면 무시)")
+                                                                        .optional(),
+                                                                parameterWithName("searchType")
+                                                                        .type(SimpleType.STRING)
+                                                                        .description(
+                                                                                "필터 (ALL, FRIENDS,"
+                                                                                        + " GUILD,"
+                                                                                        + " MINE)")
+                                                                        .optional(),
                                                                 parameterWithName("page")
                                                                         .type(SimpleType.NUMBER)
                                                                         .description(
@@ -406,6 +434,87 @@ class ActivityFeedControllerTest {
 
         // then
         resultActions.andExpect(MockMvcResultMatchers.status().isOk());
+    }
+
+    @Test
+    @DisplayName("GET /api/v1/feeds/public?categoryIds=1,2 : 복수 카테고리(OR) 필터 — 쉼표 구분 (LUT-548)")
+    void getPublicFeedsByCategoryIdsCsvTest() throws Exception {
+        Page<ActivityFeedResponse> responses = new PageImpl<>(List.of(), PageRequest.of(0, 20), 0);
+        when(feedQueryService.getPublicFeedsByCategories(
+                        eq(List.of(1L, 2L)), anyString(), anyInt(), anyInt(), any()))
+                .thenReturn(responses);
+
+        mockMvc.perform(
+                        RestDocumentationRequestBuilders.get("/api/v1/feeds/public")
+                                .with(user(MOCK_USER_ID))
+                                .param("categoryIds", "1,2")
+                                .param("page", "0")
+                                .param("size", "20"))
+                .andExpect(MockMvcResultMatchers.status().isOk());
+
+        verify(feedQueryService)
+                .getPublicFeedsByCategories(eq(List.of(1L, 2L)), anyString(), eq(0), eq(20), any());
+    }
+
+    @Test
+    @DisplayName(
+            "GET /api/v1/feeds/public?categoryIds=1&categoryIds=2 : 반복 파라미터도 동일하게 동작 (LUT-548)")
+    void getPublicFeedsByCategoryIdsRepeatedTest() throws Exception {
+        Page<ActivityFeedResponse> responses = new PageImpl<>(List.of(), PageRequest.of(0, 20), 0);
+        when(feedQueryService.getPublicFeedsByCategories(
+                        eq(List.of(1L, 2L)), anyString(), anyInt(), anyInt(), any()))
+                .thenReturn(responses);
+
+        mockMvc.perform(
+                        RestDocumentationRequestBuilders.get("/api/v1/feeds/public")
+                                .with(user(MOCK_USER_ID))
+                                .param("categoryIds", "1")
+                                .param("categoryIds", "2"))
+                .andExpect(MockMvcResultMatchers.status().isOk());
+
+        verify(feedQueryService)
+                .getPublicFeedsByCategories(
+                        eq(List.of(1L, 2L)), anyString(), anyInt(), anyInt(), any());
+    }
+
+    @Test
+    @DisplayName("GET /api/v1/feeds/public?categoryId=1 : 구버전 단일 파라미터는 1개짜리 목록으로 위임 (LUT-548)")
+    void getPublicFeedsLegacyCategoryIdTest() throws Exception {
+        Page<ActivityFeedResponse> responses = new PageImpl<>(List.of(), PageRequest.of(0, 20), 0);
+        when(feedQueryService.getPublicFeedsByCategories(
+                        eq(List.of(1L)), anyString(), anyInt(), anyInt(), any()))
+                .thenReturn(responses);
+
+        mockMvc.perform(
+                        RestDocumentationRequestBuilders.get("/api/v1/feeds/public")
+                                .with(user(MOCK_USER_ID))
+                                .param("categoryId", "1"))
+                .andExpect(MockMvcResultMatchers.status().isOk());
+
+        verify(feedQueryService)
+                .getPublicFeedsByCategories(
+                        eq(List.of(1L)), anyString(), anyInt(), anyInt(), any());
+    }
+
+    @Test
+    @DisplayName(
+            "GET /api/v1/feeds/public?categoryIds=1&searchType=FRIENDS : 필터 탭이 ALL 이 아니면 카테고리를"
+                    + " 무시한다")
+    void getPublicFeedsCategoryIgnoredWhenFiltered() throws Exception {
+        Page<ActivityFeedResponse> responses = new PageImpl<>(List.of(), PageRequest.of(0, 20), 0);
+        when(feedQueryService.getFilteredFeeds(
+                        eq(FeedSearchType.FRIENDS), anyString(), anyInt(), anyInt(), any()))
+                .thenReturn(responses);
+
+        mockMvc.perform(
+                        RestDocumentationRequestBuilders.get("/api/v1/feeds/public")
+                                .with(user(MOCK_USER_ID))
+                                .param("categoryIds", "1")
+                                .param("searchType", "FRIENDS"))
+                .andExpect(MockMvcResultMatchers.status().isOk());
+
+        verify(feedQueryService, never())
+                .getPublicFeedsByCategories(any(), anyString(), anyInt(), anyInt(), any());
     }
 
     @Test
