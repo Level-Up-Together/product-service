@@ -270,6 +270,26 @@ Redis Stream `stream:app-push` → `AppPushMessageConsumer` → `FcmPushService`
   COMPLETED/FAILED 상태로 이력에 남고, ALL 대상은 **발송 시점에 재산출**되어 요청 시 `target_count`와 미세하게 다를 수 있다.
   중복 트리거는 PENDING 검사로 무시(재발송 없음). 에러 코드 140101(대상 없음)/140102(활성 유저 없음)/140103(캠페인 없음).
 
+## WebSocket 실시간 전파 — Redis 릴레이 필수 (LUT-263/QA-224/LUT-549)
+
+`WebSocketConfig`는 `enableSimpleBroker("/topic", "/queue")` — **인스턴스 로컬 메모리 브로커**다. prod는 ALB 뒤 2대(스티키 세션 없음)라
+`SimpMessagingTemplate.convertAndSend*`를 직접 호출하면 **발신자가 붙은 인스턴스의 구독자에게만** 전달된다. 증상은 항상 "내 것은 보이고
+상대 것만 안 보이며, 재조회하면 나온다"(LUT-547) — dev(1대)에서는 재현되지 않으니 코드로 막아야 한다.
+
+**모든 STOMP 전송은 Redis pub/sub 퍼블리셔 → 각 인스턴스 릴레이 경로를 탄다.** 신규 토픽/큐를 추가할 때 `SimpMessagingTemplate`을
+컨트롤러·서비스에 주입하지 말 것(릴레이만 가진다).
+
+| 경로 | 퍼블리셔 → 릴레이 | Redis 채널 |
+|---|---|---|
+| 알림 `/user/queue/notifications` | `NotificationRealtimePublisher` → `NotificationRealtimeRelay` | `notification:realtime` |
+| DM `/user/queue/dm*` | `DmRealtimePublisher.publishToUser` → `DmRealtimeRelay` | `chat:dm:realtime` |
+| 길드 채팅 `/topic/guild/{id}/chat`·`/read` | `GuildChatRealtimePublisher.publishToTopic` → `GuildChatRealtimeRelay` | `chat:guild:realtime` |
+
+리스너 컨테이너는 `ChatRealtimeConfig`(chat 2채널)·`NotificationRealtimeConfig`. 퍼블리셔는 활성 트랜잭션이 있으면 afterCommit에
+발행하고, 릴레이는 body를 **JSON 문자열 그대로** `convertAndSend`한다(프론트는 content-type 무관 `JSON.parse`). 브로드캐스트 DTO는
+`@JsonNaming(SnakeCase)`를 붙여야 프론트와 필드가 맞는다(LUT-395). 유일한 직접 전송 허용 예외는 **발신자 본인에게 보내는 에러 에코**
+(`GuildDirectMessageWebSocketController` `/queue/dm/errors`) — 발신자 세션은 반드시 현재 인스턴스에 있다.
+
 ## Redis Caching
 
 캐시 이름별 TTL은 platform `infra`의 `RedisConfig`에서 정의 (역직렬화 오류 시 자동 evict 후 원본 메서드 실행):
