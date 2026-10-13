@@ -59,6 +59,8 @@ class NotificationServiceTest {
                     .NotificationRealtimePublisher
             realtimePublisher;
 
+    @Mock private NotificationCreator notificationCreator;
+
     @InjectMocks private NotificationService notificationService;
 
     private static final String TEST_USER_ID = "test-user-123";
@@ -712,8 +714,8 @@ class NotificationServiceTest {
         }
 
         @Test
-        @DisplayName("중복 방지 타입은 saveAndFlush를 사용한다")
-        void sendNotification_dedupType_usesSaveAndFlush() {
+        @DisplayName("LUT-539: 중복 방지 타입은 크리에이터(REQUIRES_NEW)로 생성하고 id 로 재조회한 managed 행을 쓴다")
+        void sendNotification_dedupType_usesCreatorAndRefetch() {
             // given
             NotificationPreference preference = createTestPreference(1L, TEST_USER_ID);
             Notification savedNotification =
@@ -724,16 +726,37 @@ class NotificationServiceTest {
                     .thenReturn(false);
             when(preferenceRepository.findByUserId(TEST_USER_ID))
                     .thenReturn(Optional.of(preference));
-            when(notificationRepository.saveAndFlush(any(Notification.class)))
-                    .thenReturn(savedNotification);
+            when(notificationCreator.create(
+                            eq(TEST_USER_ID),
+                            eq(NotificationType.TITLE_ACQUIRED),
+                            anyString(),
+                            anyString(),
+                            any(),
+                            eq(1L),
+                            any(),
+                            eq("rarity:COMMON")))
+                    .thenReturn(1L);
+            when(notificationRepository.findById(1L)).thenReturn(Optional.of(savedNotification));
 
             // when
             notificationService.sendNotification(
                     TEST_USER_ID, NotificationType.TITLE_ACQUIRED, 1L, "rarity:COMMON", "초보 모험가");
 
-            // then
-            verify(notificationRepository).saveAndFlush(any(Notification.class));
+            // then — insert 는 크리에이터, 이 트랜잭션에서는 save/saveAndFlush 를 직접 호출하지 않는다
+            verify(notificationCreator)
+                    .create(
+                            eq(TEST_USER_ID),
+                            eq(NotificationType.TITLE_ACQUIRED),
+                            anyString(),
+                            anyString(),
+                            any(),
+                            eq(1L),
+                            any(),
+                            eq("rarity:COMMON"));
             verify(notificationRepository, never()).save(any(Notification.class));
+            verify(notificationRepository, never()).saveAndFlush(any(Notification.class));
+            // 재조회한 행으로 실시간 발행
+            verify(realtimePublisher).publish(eq(TEST_USER_ID), any());
         }
 
         @Test
@@ -750,11 +773,12 @@ class NotificationServiceTest {
 
             // then
             verify(notificationRepository, never()).save(any());
-            verify(notificationRepository, never()).saveAndFlush(any());
+            verify(notificationCreator, never())
+                    .create(any(), any(), any(), any(), any(), any(), any(), any());
         }
 
         @Test
-        @DisplayName("DataIntegrityViolationException 발생 시 무시한다")
+        @DisplayName("LUT-539: 크리에이터의 DataIntegrityViolationException(동시 생성)은 삼키고 실시간/푸시도 보내지 않는다")
         void sendNotification_dataIntegrityViolation_ignored() {
             // given
             when(notificationRepository.existsByUserIdAndNotificationTypeAndReferenceId(
@@ -763,7 +787,15 @@ class NotificationServiceTest {
             NotificationPreference preference = createTestPreference(1L, TEST_USER_ID);
             when(preferenceRepository.findByUserId(TEST_USER_ID))
                     .thenReturn(Optional.of(preference));
-            when(notificationRepository.saveAndFlush(any(Notification.class)))
+            when(notificationCreator.create(
+                            eq(TEST_USER_ID),
+                            eq(NotificationType.TITLE_ACQUIRED),
+                            anyString(),
+                            anyString(),
+                            any(),
+                            eq(1L),
+                            any(),
+                            any()))
                     .thenThrow(new DataIntegrityViolationException("Duplicate entry"));
 
             // when & then - 예외 발생하지 않음
@@ -773,6 +805,32 @@ class NotificationServiceTest {
                     1L,
                     "rarity:LEGENDARY",
                     "전설적인 모험가");
+            verify(realtimePublisher, never()).publish(any(), any());
+            verify(appPushMessageProducer, never()).sendMessage(any());
+        }
+
+        @Test
+        @DisplayName("LUT-539: 생성 후 id 재조회에 행이 없으면 IllegalStateException")
+        void sendNotification_missingAfterCreate_throws() {
+            when(notificationRepository.existsByUserIdAndNotificationTypeAndReferenceId(
+                            TEST_USER_ID, NotificationType.TITLE_ACQUIRED, 1L))
+                    .thenReturn(false);
+            when(preferenceRepository.findByUserId(TEST_USER_ID))
+                    .thenReturn(Optional.of(createTestPreference(1L, TEST_USER_ID)));
+            when(notificationCreator.create(any(), any(), any(), any(), any(), any(), any(), any()))
+                    .thenReturn(42L);
+            when(notificationRepository.findById(42L)).thenReturn(Optional.empty());
+
+            assertThatThrownBy(
+                            () ->
+                                    notificationService.sendNotification(
+                                            TEST_USER_ID,
+                                            NotificationType.TITLE_ACQUIRED,
+                                            1L,
+                                            null,
+                                            "x"))
+                    .isInstanceOf(IllegalStateException.class)
+                    .hasMessageContaining("42");
         }
 
         @Test
@@ -1429,7 +1487,10 @@ class NotificationServiceTest {
                     .thenReturn(false);
             when(preferenceRepository.findByUserId(TEST_USER_ID))
                     .thenReturn(Optional.of(preference));
-            when(notificationRepository.saveAndFlush(any(Notification.class))).thenReturn(saved);
+            // LUT-539: dedup 타입 insert 는 크리에이터(REQUIRES_NEW) → id 재조회
+            when(notificationCreator.create(any(), any(), any(), any(), any(), any(), any(), any()))
+                    .thenReturn(1L);
+            when(notificationRepository.findById(1L)).thenReturn(Optional.of(saved));
             when(messageSource.getMessage(
                             eq("notification.item_purchased.title"),
                             any(),
@@ -1454,12 +1515,23 @@ class NotificationServiceTest {
                                 "ja".equals(locale.getLanguage()) ? "メディックの翼" : "Medic Wings"
                             });
 
-            // then: ja 아이템명이 메시지에 들어가고 actionUrl 은 인벤토리
-            org.mockito.ArgumentCaptor<Notification> captor =
-                    org.mockito.ArgumentCaptor.forClass(Notification.class);
-            verify(notificationRepository).saveAndFlush(captor.capture());
-            assertThat(captor.getValue().getMessage()).isEqualTo("『メディックの翼』アイテムを獲得しました！");
-            assertThat(captor.getValue().getActionUrl()).isEqualTo("/mypage/inventory");
+            // then: ja 아이템명이 메시지에 들어가고 actionUrl 은 인벤토리 (크리에이터에 전달된 인자로 검증)
+            org.mockito.ArgumentCaptor<String> messageCaptor =
+                    org.mockito.ArgumentCaptor.forClass(String.class);
+            org.mockito.ArgumentCaptor<String> actionUrlCaptor =
+                    org.mockito.ArgumentCaptor.forClass(String.class);
+            verify(notificationCreator)
+                    .create(
+                            eq(TEST_USER_ID),
+                            eq(NotificationType.ITEM_PURCHASED),
+                            anyString(),
+                            messageCaptor.capture(),
+                            any(),
+                            eq(3L),
+                            actionUrlCaptor.capture(),
+                            any());
+            assertThat(messageCaptor.getValue()).isEqualTo("『メディックの翼』アイテムを獲得しました！");
+            assertThat(actionUrlCaptor.getValue()).isEqualTo("/mypage/inventory");
         }
     }
 

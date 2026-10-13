@@ -4,6 +4,10 @@ import static io.pinkspider.global.test.TestReflectionUtils.setId;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -41,6 +45,8 @@ class UserItemServiceTest {
     @Mock private ShopItemRepository shopItemRepository;
 
     @Mock private ApplicationEventPublisher eventPublisher;
+
+    @Mock private UserItemCreator userItemCreator;
 
     @InjectMocks private UserItemService userItemService;
 
@@ -82,8 +88,6 @@ class UserItemServiceTest {
             ShopItem defaultItem = createShopItem(2L, "레벨업 사용 설명서", ShopItemType.ETC);
             when(userItemRepository.existsByUserIdAndShopItemId(USER_ID, 2L)).thenReturn(false);
             when(shopItemRepository.findById(2L)).thenReturn(Optional.of(defaultItem));
-            when(userItemRepository.saveAndFlush(any(UserItem.class)))
-                    .thenAnswer(inv -> inv.getArgument(0));
             when(userItemRepository.findByUserIdWithItem(USER_ID))
                     .thenReturn(List.of(createUserItem(1L, defaultItem, false)));
 
@@ -92,7 +96,7 @@ class UserItemServiceTest {
             assertThat(result).hasSize(1);
             assertThat(result.get(0).shopItemId()).isEqualTo(2L);
             assertThat(result.get(0).isEquipped()).isFalse();
-            verify(userItemRepository).saveAndFlush(any(UserItem.class));
+            verify(userItemCreator).create(eq(USER_ID), anyLong());
         }
 
         @Test
@@ -106,7 +110,7 @@ class UserItemServiceTest {
             List<UserItemResponse> result = userItemService.getMyItems(USER_ID);
 
             assertThat(result).hasSize(1);
-            verify(userItemRepository, never()).saveAndFlush(any(UserItem.class));
+            verify(userItemCreator, never()).create(anyString(), anyLong());
         }
     }
 
@@ -273,12 +277,10 @@ class UserItemServiceTest {
             ShopItem item = createShopItem(3L, "메딕의 날개", ShopItemType.EFFECT);
             when(userItemRepository.existsByUserIdAndShopItemId(USER_ID, 3L)).thenReturn(false);
             when(shopItemRepository.findById(3L)).thenReturn(Optional.of(item));
-            when(userItemRepository.saveAndFlush(any(UserItem.class)))
-                    .thenAnswer(inv -> inv.getArgument(0));
 
             ShopItem granted = userItemService.grantItem(USER_ID, 3L);
 
-            verify(userItemRepository).saveAndFlush(any(UserItem.class));
+            verify(userItemCreator).create(eq(USER_ID), anyLong());
             assertThat(granted).isSameAs(item);
         }
 
@@ -290,7 +292,7 @@ class UserItemServiceTest {
             ShopItem granted = userItemService.grantItem(USER_ID, 3L);
 
             assertThat(granted).isNull();
-            verify(userItemRepository, never()).saveAndFlush(any(UserItem.class));
+            verify(userItemCreator, never()).create(anyString(), anyLong());
         }
 
         @Test
@@ -299,8 +301,10 @@ class UserItemServiceTest {
             ShopItem item = createShopItem(3L, "메딕의 날개", ShopItemType.EFFECT);
             when(userItemRepository.existsByUserIdAndShopItemId(USER_ID, 3L)).thenReturn(false);
             when(shopItemRepository.findById(3L)).thenReturn(Optional.of(item));
-            when(userItemRepository.saveAndFlush(any(UserItem.class)))
-                    .thenThrow(new DataIntegrityViolationException("uk_user_item"));
+            // LUT-539: 중복 예외는 크리에이터(REQUIRES_NEW)에서 올라온다 — 호출자 트랜잭션은 오염되지 않는다
+            doThrow(new DataIntegrityViolationException("uk_user_item"))
+                    .when(userItemCreator)
+                    .create(USER_ID, 3L);
 
             ShopItem granted = userItemService.grantItem(USER_ID, 3L); // 예외 전파 없음
 

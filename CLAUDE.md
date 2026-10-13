@@ -576,9 +576,9 @@ uk 멱등) — 쪼개서 수행해도 몰아서 한 것과 같은 점수. "하�
   (`don't flush the Session after an exception occurs`) 트랜잭션이 rollback-only 가 되고, 중복을 잡아 재조회해도
   커밋 시 `UnexpectedRollbackException` → 요청 전체가 500 이 된다. 내부 빈에서 예외를 삼키지도 말 것(같은 이유).
   내부 트랜잭션이 반환한 엔티티는 detached 라 이후 `setXxx` 가 flush 되지 않으므로 **반환값을 쓰지 말고 재조회**한다.
-  ⚠️ `AttendanceService.checkIn` · `GuildPointService.findOrCreateDaily` · `UserItemService.grantItem` ·
-  `NotificationService`(dedup) · `CreateNextPinnedInstanceStep` 은 아직 구 패턴(동일 트랜잭션 흡수)이라 동시 요청 시
-  같은 방식으로 실패할 수 있다 — 손댈 때 위 구조로 전환할 것.
+  LUT-539 로 `AttendanceRecordCreator` · `GuildMemberDailyPointCreator` · `UserItemCreator` · `NotificationCreator`(dedup) ·
+  `DailyMissionInstanceCreator`(`CreateNextPinnedInstanceStep`) 까지 전부 이 구조로 전환됐다 — 새 "없으면 생성" 지점은 같은
+  `*Creator` 빈 패턴을 따를 것. 트레이드오프: 내부 트랜잭션이 먼저 커밋되므로 호출자가 그 뒤에 실패하면 생성된 행은 남는다(빈 행·멱등 행만 둘 것).
 
 ## Image Moderation & Storage
 

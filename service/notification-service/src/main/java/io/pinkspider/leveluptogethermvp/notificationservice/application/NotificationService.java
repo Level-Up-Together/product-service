@@ -46,6 +46,7 @@ public class NotificationService {
     private final MessageSource messageSource;
     private final UserRepository userRepository;
     private final NotificationRealtimePublisher realtimePublisher;
+    private final NotificationCreator notificationCreator;
 
     // 알림 생성
     @Transactional(transactionManager = "notificationTransactionManager")
@@ -148,6 +149,7 @@ public class NotificationService {
                         iconUrl,
                         true);
             } catch (DataIntegrityViolationException e) {
+                // LUT-539: 예외는 NotificationCreator 의 내부 트랜잭션에서 올라온 것 — 이 트랜잭션은 오염되지 않았다
                 log.debug("알림 중복 감지 (DB 제약조건): userId={}, type={}", userId, type);
             }
         } else {
@@ -359,22 +361,43 @@ public class NotificationService {
             return null;
         }
 
-        Notification notification =
-                Notification.builder()
-                        .userId(userId)
-                        .notificationType(type)
-                        .title(title)
-                        .message(message)
-                        .referenceType(referenceType)
-                        .referenceId(referenceId)
-                        .actionUrl(actionUrl)
-                        .iconUrl(iconUrl)
-                        .build();
-
-        Notification saved =
-                flush
-                        ? notificationRepository.saveAndFlush(notification)
-                        : notificationRepository.save(notification);
+        Notification saved;
+        if (flush) {
+            // LUT-539: 중복 방지 타입은 insert 를 REQUIRES_NEW 전용 빈에서 — 제약 위반이 이 트랜잭션의 영속성 컨텍스트를
+            // 오염시키지 않는다. 중복 예외는 호출자(sendLocalizedNotification)가 받아 스킵하고, 성공 시 id 로 재조회해
+            // managed 엔티티를 얻는다 (내부 트랜잭션 반환 엔티티는 detached 라 markAsPushed 가 flush 되지 않는다).
+            Long id =
+                    notificationCreator.create(
+                            userId,
+                            type,
+                            title,
+                            message,
+                            referenceType,
+                            referenceId,
+                            actionUrl,
+                            iconUrl);
+            saved =
+                    notificationRepository
+                            .findById(id)
+                            .orElseThrow(
+                                    () ->
+                                            new IllegalStateException(
+                                                    "Notification not found after creation: id="
+                                                            + id));
+        } else {
+            saved =
+                    notificationRepository.save(
+                            Notification.builder()
+                                    .userId(userId)
+                                    .notificationType(type)
+                                    .title(title)
+                                    .message(message)
+                                    .referenceType(referenceType)
+                                    .referenceId(referenceId)
+                                    .actionUrl(actionUrl)
+                                    .iconUrl(iconUrl)
+                                    .build());
+        }
         log.info("알림 생성: userId={}, type={}, title={}", userId, type, title);
 
         NotificationResponse response = NotificationResponse.from(saved);

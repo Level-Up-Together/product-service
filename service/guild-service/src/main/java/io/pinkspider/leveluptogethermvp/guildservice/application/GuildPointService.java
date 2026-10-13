@@ -5,6 +5,7 @@ import io.pinkspider.leveluptogethermvp.guildservice.domain.entity.GuildMemberDa
 import io.pinkspider.leveluptogethermvp.guildservice.infrastructure.GuildMemberDailyPointRepository;
 import java.time.LocalDate;
 import java.time.ZoneId;
+import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -27,6 +28,7 @@ public class GuildPointService {
     private static final ZoneId POINT_ZONE = ZoneId.of("Asia/Seoul");
 
     private final GuildMemberDailyPointRepository dailyPointRepository;
+    private final GuildMemberDailyPointCreator dailyPointCreator;
     private final GuildPointProperties pointProperties;
 
     /**
@@ -62,26 +64,40 @@ public class GuildPointService {
     }
 
     /**
-     * 유저×일자 행 확보 — 동시 적립 레이스는 uk_guild_member_daily_point 가 방어한다 (saveAndFlush +
-     * DataIntegrityViolationException 재조회 관례).
+     * 유저×일자 행 확보 — 동시 적립 레이스는 uk_guild_member_daily_point 가 방어한다.
+     *
+     * <p>LUT-539: 생성은 {@link GuildMemberDailyPointCreator}(REQUIRES_NEW)에 맡겨 제약 위반이 이 트랜잭션의 영속성
+     * 컨텍스트를 오염시키지 않게 하고(예전 같은 트랜잭션 saveAndFlush+catch 는 길드 미션 EXP 적립 전체를 롤백시켰다), 생성 후에는 **반드시
+     * 재조회**해 managed 엔티티를 쓴다 — 내부 트랜잭션 반환값은 detached 라 accumulate 변경이 flush 되지 않는다.
      */
     private GuildMemberDailyPoint findOrCreateDaily(Long guildId, String userId, LocalDate date) {
+        Optional<GuildMemberDailyPoint> existing =
+                dailyPointRepository.findByGuildIdAndUserIdAndPointDate(guildId, userId, date);
+        if (existing.isPresent()) {
+            return existing.get();
+        }
+
+        try {
+            dailyPointCreator.create(guildId, userId, date);
+        } catch (DataIntegrityViolationException e) {
+            // 다른 요청이 먼저 생성 — 아래 재조회가 그 행을 집는다
+            log.debug(
+                    "길드 일일 포인트 행 중복 감지, 기존 행 조회: guildId={}, userId={}, date={}",
+                    guildId,
+                    userId,
+                    date);
+        }
+
         return dailyPointRepository
                 .findByGuildIdAndUserIdAndPointDate(guildId, userId, date)
-                .orElseGet(
-                        () -> {
-                            try {
-                                return dailyPointRepository.saveAndFlush(
-                                        GuildMemberDailyPoint.builder()
-                                                .guildId(guildId)
-                                                .userId(userId)
-                                                .pointDate(date)
-                                                .build());
-                            } catch (DataIntegrityViolationException e) {
-                                return dailyPointRepository
-                                        .findByGuildIdAndUserIdAndPointDate(guildId, userId, date)
-                                        .orElseThrow(() -> e);
-                            }
-                        });
+                .orElseThrow(
+                        () ->
+                                new IllegalStateException(
+                                        "GuildMemberDailyPoint not found after creation: guildId="
+                                                + guildId
+                                                + ", userId="
+                                                + userId
+                                                + ", date="
+                                                + date));
     }
 }

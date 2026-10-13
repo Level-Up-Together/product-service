@@ -8,7 +8,6 @@ import io.pinkspider.leveluptogethermvp.gamificationservice.shop.domain.entity.S
 import io.pinkspider.leveluptogethermvp.gamificationservice.shop.domain.entity.UserItem;
 import io.pinkspider.leveluptogethermvp.gamificationservice.shop.infrastructure.ShopItemRepository;
 import io.pinkspider.leveluptogethermvp.gamificationservice.shop.infrastructure.UserItemRepository;
-import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -37,6 +36,7 @@ public class UserItemService {
     private final UserItemRepository userItemRepository;
     private final ShopItemRepository shopItemRepository;
     private final ApplicationEventPublisher eventPublisher;
+    private final UserItemCreator userItemCreator;
 
     /** 내 인벤토리 조회 — 기본 아이템 미보유 시 lazy 지급 후 반환 */
     @Transactional(transactionManager = "gamificationTransactionManager")
@@ -102,7 +102,8 @@ public class UserItemService {
 
     /**
      * 아이템 지급 (멱등 — 이미 보유 시 no-op). 동시 지급 race는 uk_user_item 제약 + DataIntegrityViolationException
-     * 흡수로 방어한다.
+     * 흡수로 방어한다. LUT-539: insert 는 {@link UserItemCreator}(REQUIRES_NEW)에서 — 같은 트랜잭션에서 흡수하면 세션 오염으로
+     * 호출자 트랜잭션이 rollback-only 가 되어 "흡수" 의도가 무력화됐다.
      *
      * @return 신규 지급된 경우 해당 ShopItem, 이미 보유·동시 지급 race 로 no-op 이면 null — 호출자가 획득 알림 발행 여부를 판단하는 근거
      *     (LUT-410)
@@ -121,12 +122,7 @@ public class UserItemService {
                                                 "120602", "error.useritem.item_not_found"));
 
         try {
-            userItemRepository.saveAndFlush(
-                    UserItem.builder()
-                            .userId(userId)
-                            .shopItem(shopItem)
-                            .acquiredAt(LocalDateTime.now())
-                            .build());
+            userItemCreator.create(userId, shopItemId);
             log.info("아이템 지급: userId={}, shopItemId={}", userId, shopItemId);
             return shopItem;
         } catch (DataIntegrityViolationException e) {

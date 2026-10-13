@@ -7,6 +7,9 @@ import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -36,6 +39,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.dao.DataIntegrityViolationException;
 
 @ExtendWith(MockitoExtension.class)
 class AttendanceServiceTest {
@@ -51,6 +55,8 @@ class AttendanceServiceTest {
     @Mock private ApplicationEventPublisher eventPublisher;
 
     @Mock private UserRepository userRepository;
+
+    @Mock private AttendanceRecordCreator attendanceRecordCreator;
 
     @InjectMocks private AttendanceService attendanceService;
 
@@ -77,6 +83,28 @@ class AttendanceServiceTest {
         return record;
     }
 
+    /**
+     * LUT-539: 크리에이터(REQUIRES_NEW) 생성 성공을 흉내낸다 — 생성 뒤 서비스가 (userId, date) 로 재조회하므로 그 스텁을 저장된 행으로 바꿔
+     * 둔다. (doReturn 은 mock 메서드를 실제 호출하지 않아 Answer 안에서 재스텁해도 안전)
+     */
+    private void stubCreate(AttendanceRecord saved) {
+        doAnswer(
+                        inv -> {
+                            doReturn(Optional.of(saved))
+                                    .when(attendanceRecordRepository)
+                                    .findByUserIdAndAttendanceDate(
+                                            saved.getUserId(), saved.getAttendanceDate());
+                            return null;
+                        })
+                .when(attendanceRecordCreator)
+                .create(
+                        eq(saved.getUserId()),
+                        eq(saved.getAttendanceDate()),
+                        anyInt(),
+                        anyInt(),
+                        anyInt());
+    }
+
     @Nested
     @DisplayName("checkIn 테스트")
     class CheckInTest {
@@ -99,8 +127,7 @@ class AttendanceServiceTest {
                                     .rewardType(AttendanceRewardType.DAILY)
                                     .rewardExp(10)
                                     .build());
-            when(attendanceRecordRepository.saveAndFlush(any(AttendanceRecord.class)))
-                    .thenReturn(savedRecord);
+            stubCreate(savedRecord);
 
             // when
             AttendanceCheckInResponse result = attendanceService.checkIn(TEST_USER_ID);
@@ -108,7 +135,8 @@ class AttendanceServiceTest {
             // then
             assertThat(result).isNotNull();
             assertThat(result.isAlreadyCheckedIn()).isFalse();
-            verify(attendanceRecordRepository).saveAndFlush(any(AttendanceRecord.class));
+            verify(attendanceRecordCreator)
+                    .create(eq(TEST_USER_ID), any(LocalDate.class), anyInt(), anyInt(), anyInt());
             verify(userExperienceService)
                     .addExperience(
                             eq(TEST_USER_ID),
@@ -124,6 +152,49 @@ class AttendanceServiceTest {
                     .publishEvent(
                             new AchievementCheckRequestedEvent(
                                     TEST_USER_ID, List.of("USER_STATS")));
+        }
+
+        @Test
+        @DisplayName("LUT-539: 동시 요청이 먼저 출석 처리해 중복 키가 나도 500 없이 '이미 출석' 응답을 돌려주고 EXP 는 지급하지 않는다")
+        void checkIn_duplicateRace_returnsAlreadyCheckedIn() {
+            // given — 크리에이터(REQUIRES_NEW)가 중복 예외를 던지고, 상대 요청이 만든 행이 재조회에 잡힌다
+            LocalDate today = today();
+            AttendanceRecord createdByOther =
+                    createTestAttendanceRecord(5L, TEST_USER_ID, today, 1);
+            when(attendanceRecordRepository.findByUserIdAndAttendanceDate(TEST_USER_ID, today))
+                    .thenReturn(Optional.empty(), Optional.of(createdByOther));
+            when(attendanceRecordRepository.findByUserIdAndAttendanceDate(
+                            TEST_USER_ID, today.minusDays(1)))
+                    .thenReturn(Optional.empty());
+            doThrow(new DataIntegrityViolationException("duplicate key"))
+                    .when(attendanceRecordCreator)
+                    .create(eq(TEST_USER_ID), eq(today), anyInt(), anyInt(), anyInt());
+
+            // when
+            AttendanceCheckInResponse result = attendanceService.checkIn(TEST_USER_ID);
+
+            // then
+            assertThat(result.isAlreadyCheckedIn()).isTrue();
+            verify(userExperienceService, never())
+                    .addExperience(
+                            anyString(), anyInt(), any(), anyLong(), anyString(), anyString());
+            verify(userStatsService, never()).recordAttendance(anyString(), any());
+        }
+
+        @Test
+        @DisplayName("LUT-539: 생성 후 재조회에 행이 없으면 IllegalStateException")
+        void checkIn_missingAfterCreate_throws() {
+            LocalDate today = today();
+            when(attendanceRecordRepository.findByUserIdAndAttendanceDate(TEST_USER_ID, today))
+                    .thenReturn(Optional.empty());
+            when(attendanceRecordRepository.findByUserIdAndAttendanceDate(
+                            TEST_USER_ID, today.minusDays(1)))
+                    .thenReturn(Optional.empty());
+
+            org.assertj.core.api.Assertions.assertThatThrownBy(
+                            () -> attendanceService.checkIn(TEST_USER_ID))
+                    .isInstanceOf(IllegalStateException.class)
+                    .hasMessageContaining("after creation");
         }
 
         @Test
@@ -167,8 +238,7 @@ class AttendanceServiceTest {
                                     .rewardType(AttendanceRewardType.DAILY)
                                     .rewardExp(10)
                                     .build());
-            when(attendanceRecordRepository.saveAndFlush(any(AttendanceRecord.class)))
-                    .thenReturn(savedRecord);
+            stubCreate(savedRecord);
 
             // when
             AttendanceCheckInResponse result = attendanceService.checkIn(TEST_USER_ID);
@@ -206,8 +276,7 @@ class AttendanceServiceTest {
                                     .rewardType(AttendanceRewardType.CONSECUTIVE_3)
                                     .rewardExp(20)
                                     .build());
-            when(attendanceRecordRepository.saveAndFlush(any(AttendanceRecord.class)))
-                    .thenReturn(savedRecord);
+            stubCreate(savedRecord);
 
             // when
             AttendanceCheckInResponse result = attendanceService.checkIn(TEST_USER_ID);
@@ -239,8 +308,7 @@ class AttendanceServiceTest {
             when(attendanceRecordRepository.findByUserIdAndAttendanceDate(
                             TEST_USER_ID, today.minusDays(1)))
                     .thenReturn(Optional.of(yesterdayRecord));
-            when(attendanceRecordRepository.saveAndFlush(any(AttendanceRecord.class)))
-                    .thenReturn(savedRecord);
+            stubCreate(savedRecord);
             return savedRecord;
         }
 
@@ -256,8 +324,7 @@ class AttendanceServiceTest {
                     .thenReturn(Optional.empty());
             when(rewardConfigCacheService.getConfigByRewardType(AttendanceRewardType.DAILY))
                     .thenReturn(null);
-            when(attendanceRecordRepository.saveAndFlush(any(AttendanceRecord.class)))
-                    .thenReturn(savedRecord);
+            stubCreate(savedRecord);
 
             AttendanceCheckInResponse result = attendanceService.checkIn(TEST_USER_ID);
 
@@ -284,8 +351,7 @@ class AttendanceServiceTest {
                     .thenReturn(Optional.empty());
             when(rewardConfigCacheService.getConfigByRewardType(AttendanceRewardType.DAILY))
                     .thenReturn(config(AttendanceRewardType.DAILY, 0));
-            when(attendanceRecordRepository.saveAndFlush(any(AttendanceRecord.class)))
-                    .thenReturn(savedRecord);
+            stubCreate(savedRecord);
 
             AttendanceCheckInResponse result = attendanceService.checkIn(TEST_USER_ID);
 

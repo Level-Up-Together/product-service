@@ -44,6 +44,7 @@ public class AttendanceService {
     private final UserStatsService userStatsService;
     private final ApplicationEventPublisher eventPublisher;
     private final UserRepository userRepository;
+    private final AttendanceRecordCreator attendanceRecordCreator;
 
     private static final int DEFAULT_DAILY_EXP = 10;
     private static final Set<Integer> STREAK_MILESTONES = Set.of(7, 14, 30, 60, 90);
@@ -64,23 +65,19 @@ public class AttendanceService {
         // 연속 출석 일수 계산
         int consecutiveDays = calculateConsecutiveDays(userId, today);
 
-        // 출석 기록 생성
-        AttendanceRecord record = AttendanceRecord.create(userId, today, consecutiveDays);
-
         // 기본 보상 경험치
         int baseExp = getBaseRewardExp();
-        record.setRewardExp(baseExp);
 
         // 보너스 경험치 계산
         List<String> bonusReasons = new ArrayList<>();
         int bonusExp = calculateBonusExp(consecutiveDays, bonusReasons);
-        record.setBonusRewardExp(bonusExp);
 
-        AttendanceRecord savedRecord;
+        // 출석 기록 생성 — LUT-539: insert 는 REQUIRES_NEW 전용 빈에서. 같은 트랜잭션에서 saveAndFlush + catch 하면
+        // 제약 위반이 세션을 오염시켜(rollback-only) "이미 출석" 응답을 만들어도 커밋 시 500 이 났다.
         try {
-            savedRecord = attendanceRecordRepository.saveAndFlush(record);
+            attendanceRecordCreator.create(userId, today, consecutiveDays, baseExp, bonusExp);
         } catch (DataIntegrityViolationException e) {
-            // 레이스 컨디션: 다른 요청이 먼저 출석 처리한 경우
+            // 레이스 컨디션: 다른 요청이 먼저 출석 처리한 경우 — 내부 트랜잭션만 롤백됐으므로 여기서 재조회해 응답한다
             log.debug("출석 체크 중복 감지, 기존 레코드 조회: userId={}, date={}", userId, today);
             return attendanceRecordRepository
                     .findByUserIdAndAttendanceDate(userId, today)
@@ -97,6 +94,18 @@ public class AttendanceService {
                                                     + ", date="
                                                     + today));
         }
+
+        // 생성 후 재조회 — 내부 트랜잭션이 만든 행을 이 컨텍스트의 managed 엔티티로 얻는다 (반환값 의존 금지)
+        AttendanceRecord savedRecord =
+                attendanceRecordRepository
+                        .findByUserIdAndAttendanceDate(userId, today)
+                        .orElseThrow(
+                                () ->
+                                        new IllegalStateException(
+                                                "AttendanceRecord not found after creation: userId="
+                                                        + userId
+                                                        + ", date="
+                                                        + today));
 
         // 경험치 지급
         int totalExp = baseExp + bonusExp;
