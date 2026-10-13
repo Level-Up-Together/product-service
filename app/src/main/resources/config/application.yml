@@ -1,4 +1,10 @@
 spring:
+  # LUT-545: @Scheduled 스레드풀 — 기본값 1 이면 9개 잡이 한 스레드에서 직렬화되어 긴 잡이 매분 틱(아이템 푸시)을 지연·유실시킨다
+  task:
+    scheduling:
+      pool:
+        size: 4
+      thread-name-prefix: sched-
   application:
     name: product-service
   jackson:

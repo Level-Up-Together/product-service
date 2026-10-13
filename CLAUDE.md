@@ -297,7 +297,10 @@ Redis Stream `stream:app-push` → `AppPushMessageConsumer` → `FcmPushService`
   유저는 아무 푸시도 못 받는" 상태였다(LUT-541). 아이템을 추가하면 **상태 3종 대사를 모두 채웠는지 확인할 것**.
 - 스킵 사유는 `ItemPushDispatchOutcome`(SENT/SKIP_ALREADY_SENT/SKIP_BACKOFF/SKIP_NO_MESSAGE/SKIP_RACE)으로 반환되고
   로그에 남는다 — 진단은 `grep "장착 아이템 푸시" product-service.log`. 백오프 로그에는 k가 함께 찍혀 다음 발송일을 계산할 수 있다.
-- 슬롯은 1분 폭 **정확 일치**이고 캐치업이 없다 — 그 1분을 놓치면 (아이템 × 타임존 그룹) 하루치가 조용히 유실된다.
+- **슬롯 캐치업** (LUT-545): 유저 로컬 시각이 슬롯 이후 `item.push.catch-up-window-minutes`(기본 30분) 안이면 후보 — 그 1분 틱을 놓쳐도
+  (배포·재시작·스레드 점유·락 경합) 창 안의 다음 틱이 소급 발송한다. 자정을 넘기는 소급은 없다. 틱 시각은 run 진입 시 1회 스냅샷(루프 중 재계산 금지 —
+  앞 아이템이 1분을 넘기면 뒤 아이템 슬롯이 영구 미평가됐던 증폭 요인). 창 안 재평가는 인스턴스 로컬 메모(아이템·유저·로컬날짜)로 막고, 예외로 끝난 유저만
+  다음 틱에 재시도된다. `spring.task.scheduling.pool.size=4`(base yml) — 기본 1 이면 9개 잡이 직렬화돼 매분 틱이 밀린다.
 - 알림 토글은 `notification_preference.item_push_notifications`, 카테고리는 `ITEM_PUSH`.
 
 ## WebSocket 실시간 전파 — Redis 릴레이 필수 (LUT-263/QA-224/LUT-549)
@@ -357,7 +360,7 @@ public void run() { ...}
 | `DailyMissionInstanceScheduler.generateDailyInstances`      | `0 0 0 * * *` KST           | 고정 미션 일일 인스턴스 생성 + 자정 자동완료 |
 | `MissionAutoCompleteScheduler.autoCompleteExpiredMissions`  | 5분 fixedRate                | 만료(4시간) 미션 자동 종료(baseExp 120) + 경고 알림  |
 | `MissionReminderScheduler.sendReminders`                    | 매시 0,30분 (zone 미지정 → JVM 기본 UTC) | 미션 리마인더 푸시 — 설정 요일·시각, 유저 preferred_timezone 기준 (LUT-282) |
-| `ItemPushScheduler.sendEquippedItemPushes`                  | `0 * * * * *` (매분, lock 50s)  | 장착 아이템 푸시 — 유저 로컬 `HH:mm` 정확 일치 슬롯, 상태·백오프 판정 (LUT-516/529, 규칙은 위 "장착 아이템 푸시" 절) |
+| `ItemPushScheduler.sendEquippedItemPushes`                  | `0 * * * * *` (매분, lock 50s)  | 장착 아이템 푸시 — 유저 로컬 `HH:mm` 슬롯 + 30분 캐치업 창(LUT-545), 상태·백오프 판정 (LUT-516/529, 규칙은 위 "장착 아이템 푸시" 절) |
 | `TokenMaintenanceScheduler.cleanupExpiredSessions`          | `0 0 2 * * *` KST           | 만료된 OAuth 세션 정리            |
 | `TokenMaintenanceScheduler.cleanupOrphanedUserSessions`     | `0 30 2 * * *` KST          | 고아 user_sessions 참조 정리     |
 | `DailyMvpHistoryScheduler.saveDailyMvpHistory{Kst,Ast,Utc}` | `0 0 0 * * *` (Asia/Seoul·Asia/Riyadh·UTC) | 타임존별 일간 MVP 기록             |
