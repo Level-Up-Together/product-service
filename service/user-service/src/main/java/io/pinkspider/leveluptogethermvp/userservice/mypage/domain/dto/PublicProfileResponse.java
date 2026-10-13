@@ -41,6 +41,9 @@ public class PublicProfileResponse {
     // LUT-340: 친구 수 (탈퇴 유저 제외 — 친구 목록 개수와 동일)
     private Integer friendsCount;
 
+    // LUT-555: 현재 연속 출석 일수 (attendance_record 체인 — 업적 화면 "현재 n일 출석중"과 동일, 오늘·어제 출석 없으면 0)
+    private Integer consecutiveDays;
+
     // 소속 길드 목록
     private java.util.List<GuildInfo> guilds;
 

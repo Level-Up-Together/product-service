@@ -123,6 +123,9 @@ public class MyPageService {
                 user.getCreatedAt() != null ? user.getCreatedAt().toLocalDate() : LocalDate.now();
         // QA-221: 함께한 일수 = 가입일부터의 경과일이 아니라 실제 출석한 일수
         long daysSinceJoined = gamificationQueryFacadeService.countAttendanceDays(targetUserId);
+        // LUT-555: 연속 출석 일수 — 업적 화면과 같은 출석 체인 (user_stats streak 아님)
+        int consecutiveDays =
+                gamificationQueryFacadeService.getCurrentAttendanceStreak(targetUserId);
 
         // 보유 칭호 수
         long titlesCount = gamificationQueryFacadeService.countUserTitles(targetUserId);
@@ -234,6 +237,7 @@ public class MyPageService {
                 .clearedMissionsCount(stats.totalMissionCompletions())
                 .acquiredTitlesCount((int) titlesCount)
                 .friendsCount(friendsCount)
+                .consecutiveDays(consecutiveDays)
                 .guilds(guilds)
                 .isOwner(isOwner)
                 .isSubscriber(safeIsSubscriber(targetUserId))

@@ -490,6 +490,10 @@ list_price      = COMMON 유저 기준가 = 최대 할증가                    
   파사드 `isSubscriptionEntitled`로 판정하는 유일한 구독 게이팅 읽기 API.
 - **랭킹** `/api/v1/rankings` 14개: 전체·`/missions`·`/streaks`·`/achievements`·`/realtime`·`/level`·`/level/**`는 **비로그인 허용**(LUT-297,
   `SecurityConfig` permitAll + `SecurityConfigPublicEndpointTest`), `/my*`·`/nearby`는 인증 필요.
+- **스트릭 소스는 2종이고 섞으면 안 된다** (LUT-405/555): ① **연속 출석** = `attendance_record.consecutive_days` 체인
+  (`AttendanceService.getCurrentStreak`, 유저 타임존, 오늘·어제 출석 없으면 0) — 업적 화면 "현재 n일 출석중"·공개 프로필
+  `consecutive_days`(파사드 `getCurrentAttendanceStreak`) ② **활동 스트릭** = `user_stats.current_streak/max_streak`
+  (출석+미션 완료 날짜 기준, `UserStats.updateStreak`) — USER_STATS 업적·스트릭 랭킹(`/rankings/streaks`는 max_streak). 같은 유저라도 두 값은 다르다.
 - **UI 환경설정** (LUT-437): `GET/PUT /api/v1/users/me/preferences` — 기기 간 동기화되는 화면 토글(완료 미션 접기 등). 알림 설정
   (`/api/v1/notifications/preferences`)과 별개 테이블(`user_ui_preference`). **홈 피드 카테고리 필터** (LUT-548):
   `home_feed_category_ids: number[]` — **빈 배열 = 전체**, null = 변경 없음(부분 업데이트). 쉼표 구분 VARCHAR(500) 컬럼을

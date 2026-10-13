@@ -281,6 +281,11 @@ public class GamificationQueryFacadeService implements GamificationQueryFacade {
         return attendanceService.countAttendanceDays(userId);
     }
 
+    @Override
+    public int getCurrentAttendanceStreak(String userId) {
+        return attendanceService.getCurrentStreak(userId);
+    }
+
     // ========== 업적 조회 ==========
 
     @Override

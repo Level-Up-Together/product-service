@@ -1464,6 +1464,24 @@ class GamificationQueryFacadeServiceTest {
     }
 
     @Nested
+    @DisplayName("getCurrentAttendanceStreak 테스트 (LUT-555)")
+    class GetCurrentAttendanceStreakTest {
+
+        @Test
+        @DisplayName("AttendanceService 의 현재 연속 출석 일수를 그대로 반환한다")
+        void getCurrentAttendanceStreak_delegatesToAttendanceService() {
+            // given
+            when(attendanceService.getCurrentStreak(TEST_USER_ID)).thenReturn(12);
+
+            // when
+            int result = facadeService.getCurrentAttendanceStreak(TEST_USER_ID);
+
+            // then
+            assertThat(result).isEqualTo(12);
+        }
+    }
+
+    @Nested
     @DisplayName("getEquippedItemsByUserId 테스트 (LUT-296)")
     class GetEquippedItemsByUserIdTest {
 

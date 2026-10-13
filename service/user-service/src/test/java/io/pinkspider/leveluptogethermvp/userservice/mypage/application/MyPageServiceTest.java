@@ -191,6 +191,8 @@ class MyPageServiceTest {
         when(gamificationQueryFacadeService.countUserTitles(userId)).thenReturn(0L);
         // QA-221: 함께한 일수 = 출석일 수
         when(gamificationQueryFacadeService.countAttendanceDays(userId)).thenReturn(1L);
+        // LUT-555: 연속 출석 일수
+        when(gamificationQueryFacadeService.getCurrentAttendanceStreak(userId)).thenReturn(0);
         when(guildQueryFacadeService.getUserGuildMemberships(userId))
                 .thenReturn(Collections.emptyList());
     }
@@ -279,6 +281,26 @@ class MyPageServiceTest {
 
             // then
             assertThat(result.getFriendsCount()).isEqualTo(7);
+        }
+
+        @Test
+        @DisplayName("LUT-555: 연속 출석 일수는 출석 체인(파사드) 값이 프로필 응답에 그대로 실린다")
+        void getPublicProfile_includesConsecutiveDays() {
+            // given
+            Users user = createTestUser(TEST_USER_ID, "테스터");
+
+            when(userRepository.findById(TEST_USER_ID)).thenReturn(Optional.of(user));
+            stubPublicProfileDefaults(TEST_USER_ID);
+            when(gamificationQueryFacadeService.getCurrentAttendanceStreak(TEST_USER_ID))
+                    .thenReturn(23);
+
+            // when
+            PublicProfileResponse result = myPageService.getPublicProfile(TEST_USER_ID, null);
+
+            // then
+            assertThat(result.getConsecutiveDays()).isEqualTo(23);
+            // user_stats 의 streak 이 아니라 출석 체인 전용 파사드를 쓴다
+            verify(gamificationQueryFacadeService).getCurrentAttendanceStreak(TEST_USER_ID);
         }
 
         @Test

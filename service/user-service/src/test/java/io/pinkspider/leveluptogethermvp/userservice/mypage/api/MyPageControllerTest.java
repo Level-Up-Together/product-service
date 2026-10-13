@@ -1009,6 +1009,7 @@ class MyPageControllerTest {
                         .clearedMissionsCount(50)
                         .acquiredTitlesCount(10)
                         .friendsCount(12)
+                        .consecutiveDays(23)
                         .guilds(List.of(guild1))
                         .isOwner(true) // 본인이므로 true
                         .isSubscriber(true)
@@ -1098,6 +1099,15 @@ class MyPageControllerTest {
                                                                         .type(JsonFieldType.NUMBER)
                                                                         .description(
                                                                                 "친구 수 (탈퇴 유저 제외)"),
+                                                                fieldWithPath(
+                                                                                "value.consecutive_days")
+                                                                        .type(JsonFieldType.NUMBER)
+                                                                        .description(
+                                                                                "현재 연속 출석 일수 — 업적"
+                                                                                    + " 화면과 같은 출석"
+                                                                                    + " 체인, 오늘·어제"
+                                                                                    + " 출석 없으면 0"
+                                                                                    + " (LUT-555)"),
                                                                 fieldWithPath("value.guilds")
                                                                         .type(JsonFieldType.ARRAY)
                                                                         .description("소속 길드 목록")
@@ -1213,6 +1223,7 @@ class MyPageControllerTest {
                         .clearedMissionsCount(100)
                         .acquiredTitlesCount(20)
                         .friendsCount(25)
+                        .consecutiveDays(5)
                         .guilds(List.of(guild1))
                         .isOwner(false) // 타인이므로 false
                         .isSubscriber(false)
@@ -1302,6 +1313,15 @@ class MyPageControllerTest {
                                                                         .type(JsonFieldType.NUMBER)
                                                                         .description(
                                                                                 "친구 수 (탈퇴 유저 제외)"),
+                                                                fieldWithPath(
+                                                                                "value.consecutive_days")
+                                                                        .type(JsonFieldType.NUMBER)
+                                                                        .description(
+                                                                                "현재 연속 출석 일수 — 업적"
+                                                                                    + " 화면과 같은 출석"
+                                                                                    + " 체인, 오늘·어제"
+                                                                                    + " 출석 없으면 0"
+                                                                                    + " (LUT-555)"),
                                                                 fieldWithPath("value.guilds")
                                                                         .type(JsonFieldType.ARRAY)
                                                                         .description("소속 길드 목록")
@@ -1413,6 +1433,7 @@ class MyPageControllerTest {
                         .clearedMissionsCount(75)
                         .acquiredTitlesCount(15)
                         .friendsCount(4)
+                        .consecutiveDays(0)
                         .guilds(List.of())
                         .isOwner(false)
                         .isSubscriber(false)
@@ -1503,6 +1524,15 @@ class MyPageControllerTest {
                                                                         .type(JsonFieldType.NUMBER)
                                                                         .description(
                                                                                 "친구 수 (탈퇴 유저 제외)"),
+                                                                fieldWithPath(
+                                                                                "value.consecutive_days")
+                                                                        .type(JsonFieldType.NUMBER)
+                                                                        .description(
+                                                                                "현재 연속 출석 일수 — 업적"
+                                                                                    + " 화면과 같은 출석"
+                                                                                    + " 체인, 오늘·어제"
+                                                                                    + " 출석 없으면 0"
+                                                                                    + " (LUT-555)"),
                                                                 fieldWithPath("value.guilds")
                                                                         .type(JsonFieldType.ARRAY)
                                                                         .description("소속 길드 목록")
@@ -1583,6 +1613,7 @@ class MyPageControllerTest {
                         .clearedMissionsCount(200)
                         .acquiredTitlesCount(30)
                         .friendsCount(31)
+                        .consecutiveDays(101)
                         .guilds(List.of())
                         .isOwner(false)
                         .isSubscriber(false)
@@ -1673,6 +1704,15 @@ class MyPageControllerTest {
                                                                         .type(JsonFieldType.NUMBER)
                                                                         .description(
                                                                                 "친구 수 (탈퇴 유저 제외)"),
+                                                                fieldWithPath(
+                                                                                "value.consecutive_days")
+                                                                        .type(JsonFieldType.NUMBER)
+                                                                        .description(
+                                                                                "현재 연속 출석 일수 — 업적"
+                                                                                    + " 화면과 같은 출석"
+                                                                                    + " 체인, 오늘·어제"
+                                                                                    + " 출석 없으면 0"
+                                                                                    + " (LUT-555)"),
                                                                 fieldWithPath("value.guilds")
                                                                         .type(JsonFieldType.ARRAY)
                                                                         .description("소속 길드 목록")
