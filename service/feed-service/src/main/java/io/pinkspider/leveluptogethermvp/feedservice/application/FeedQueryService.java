@@ -33,6 +33,8 @@ import io.pinkspider.leveluptogethermvp.feedservice.infrastructure.ActivityFeedR
 import io.pinkspider.leveluptogethermvp.feedservice.infrastructure.FeedCommentLikeRepository;
 import io.pinkspider.leveluptogethermvp.feedservice.infrastructure.FeedCommentRepository;
 import io.pinkspider.leveluptogethermvp.feedservice.infrastructure.FeedLikeRepository;
+import io.pinkspider.leveluptogethermvp.metaservice.application.MissionCategoryService;
+import io.pinkspider.leveluptogethermvp.metaservice.domain.dto.MissionCategoryResponse;
 import io.pinkspider.leveluptogethermvp.supportservice.report.application.ReportService;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -41,6 +43,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -71,6 +74,9 @@ public class FeedQueryService {
     private final TranslationService translationService;
     private final ReportService reportService;
     private final FeedAccessChecker feedAccessChecker;
+
+    /** LUT-560: 미션 카테고리명 다국어 — meta 공통 마스터 (MyPageService·UserUiPreferenceService 와 같은 직접 참조) */
+    private final MissionCategoryService missionCategoryService;
 
     /** 전체 공개 피드 조회 시간 필터: 전일 4시 ~ 당일 4시 (24시간 윈도우, 매일 4시에 리셋) */
     public Page<ActivityFeedResponse> getPublicFeeds(String currentUserId, int page, int size) {
@@ -273,7 +279,46 @@ public class FeedQueryService {
         enrichWithImageUrls(result.getContent());
         localizeUserTitles(result.getContent(), targetLocale);
         enrichAuthorLiveInfo(result.getContent());
+        enrichMissionCategoryNames(result.getContent(), targetLocale);
         return result;
+    }
+
+    /**
+     * LUT-560: 미션 공유 피드의 {@code category_id} 를 Accept-Language 기준 카테고리 표시명으로 풀어 {@code
+     * mission_category_name} 에 채운다. 페이지 단위로 ID 를 모아 1회 조회하고, 비미션 피드(category_id null)·미존재 ID 는 null
+     * 로 둔다. 메타 조회 실패는 피드 응답 자체를 막지 않는다 (표시 부가 정보).
+     */
+    private void enrichMissionCategoryNames(List<ActivityFeedResponse> responses, String locale) {
+        List<Long> categoryIds =
+                responses.stream()
+                        .map(ActivityFeedResponse::getCategoryId)
+                        .filter(Objects::nonNull)
+                        .distinct()
+                        .toList();
+        if (categoryIds.isEmpty()) {
+            return;
+        }
+        Map<Long, String> nameById;
+        try {
+            nameById =
+                    missionCategoryService.getCategoriesByIds(categoryIds).stream()
+                            .collect(
+                                    Collectors.toMap(
+                                            MissionCategoryResponse::getId,
+                                            c -> c.getLocalizedName(locale),
+                                            (a, b) -> a));
+        } catch (Exception e) {
+            log.warn(
+                    "미션 카테고리명 조회 실패 - mission_category_name 생략: categoryIds={}, error={}",
+                    categoryIds,
+                    e.getMessage());
+            return;
+        }
+        for (ActivityFeedResponse response : responses) {
+            if (response.getCategoryId() != null) {
+                response.setMissionCategoryName(nameById.get(response.getCategoryId()));
+            }
+        }
     }
 
     /**
@@ -759,6 +804,7 @@ public class FeedQueryService {
         enrichWithImageUrls(List.of(response));
         localizeUserTitles(List.of(response), acceptLanguage);
         enrichAuthorLiveInfo(List.of(response));
+        enrichMissionCategoryNames(List.of(response), targetLocale);
         return response;
     }
 

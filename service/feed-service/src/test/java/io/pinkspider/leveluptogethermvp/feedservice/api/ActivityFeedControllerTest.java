@@ -345,6 +345,16 @@ class ActivityFeedControllerTest {
                                                                         .description("카테고리 ID")
                                                                         .optional(),
                                                                 fieldWithPath(
+                                                                                "value.content[].mission_category_name")
+                                                                        .type(JsonFieldType.STRING)
+                                                                        .description(
+                                                                                "미션 카테고리 표시명 —"
+                                                                                    + " Accept-Language"
+                                                                                    + " 번역, 비미션 피드는"
+                                                                                    + " null"
+                                                                                    + " (LUT-560)")
+                                                                        .optional(),
+                                                                fieldWithPath(
                                                                                 "value.content[].translation")
                                                                         .type(JsonFieldType.OBJECT)
                                                                         .description("번역 정보")
@@ -761,6 +771,16 @@ class ActivityFeedControllerTest {
                                                                         .description("카테고리 ID")
                                                                         .optional(),
                                                                 fieldWithPath(
+                                                                                "value.content[].mission_category_name")
+                                                                        .type(JsonFieldType.STRING)
+                                                                        .description(
+                                                                                "미션 카테고리 표시명 —"
+                                                                                    + " Accept-Language"
+                                                                                    + " 번역, 비미션 피드는"
+                                                                                    + " null"
+                                                                                    + " (LUT-560)")
+                                                                        .optional(),
+                                                                fieldWithPath(
                                                                                 "value.content[].translation")
                                                                         .type(JsonFieldType.OBJECT)
                                                                         .description("번역 정보")
@@ -1058,6 +1078,16 @@ class ActivityFeedControllerTest {
                                                                 fieldWithPath("value.category_id")
                                                                         .type(JsonFieldType.NUMBER)
                                                                         .description("카테고리 ID")
+                                                                        .optional(),
+                                                                fieldWithPath(
+                                                                                "value.mission_category_name")
+                                                                        .type(JsonFieldType.STRING)
+                                                                        .description(
+                                                                                "미션 카테고리 표시명 —"
+                                                                                    + " Accept-Language"
+                                                                                    + " 번역, 비미션 피드는"
+                                                                                    + " null"
+                                                                                    + " (LUT-560)")
                                                                         .optional(),
                                                                 fieldWithPath("value.translation")
                                                                         .type(JsonFieldType.OBJECT)
@@ -2004,6 +2034,16 @@ class ActivityFeedControllerTest {
                                                                         .description("카테고리 ID")
                                                                         .optional(),
                                                                 fieldWithPath(
+                                                                                "value.content[].mission_category_name")
+                                                                        .type(JsonFieldType.STRING)
+                                                                        .description(
+                                                                                "미션 카테고리 표시명 —"
+                                                                                    + " Accept-Language"
+                                                                                    + " 번역, 비미션 피드는"
+                                                                                    + " null"
+                                                                                    + " (LUT-560)")
+                                                                        .optional(),
+                                                                fieldWithPath(
                                                                                 "value.content[].translation")
                                                                         .type(JsonFieldType.OBJECT)
                                                                         .description("번역 정보")
@@ -2342,6 +2382,16 @@ class ActivityFeedControllerTest {
                                                                                 "value.content[].category_id")
                                                                         .type(JsonFieldType.NUMBER)
                                                                         .description("카테고리 ID")
+                                                                        .optional(),
+                                                                fieldWithPath(
+                                                                                "value.content[].mission_category_name")
+                                                                        .type(JsonFieldType.STRING)
+                                                                        .description(
+                                                                                "미션 카테고리 표시명 —"
+                                                                                    + " Accept-Language"
+                                                                                    + " 번역, 비미션 피드는"
+                                                                                    + " null"
+                                                                                    + " (LUT-560)")
                                                                         .optional(),
                                                                 fieldWithPath(
                                                                                 "value.content[].translation")
@@ -2685,6 +2735,16 @@ class ActivityFeedControllerTest {
                                                                                 "value.content[].category_id")
                                                                         .type(JsonFieldType.NUMBER)
                                                                         .description("카테고리 ID")
+                                                                        .optional(),
+                                                                fieldWithPath(
+                                                                                "value.content[].mission_category_name")
+                                                                        .type(JsonFieldType.STRING)
+                                                                        .description(
+                                                                                "미션 카테고리 표시명 —"
+                                                                                    + " Accept-Language"
+                                                                                    + " 번역, 비미션 피드는"
+                                                                                    + " null"
+                                                                                    + " (LUT-560)")
                                                                         .optional(),
                                                                 fieldWithPath(
                                                                                 "value.content[].translation")

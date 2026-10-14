@@ -1951,6 +1951,16 @@ class BffHomeControllerTest {
                                                                         .description("카테고리 ID")
                                                                         .optional(),
                                                                 fieldWithPath(
+                                                                                "value.guild_activity_feeds.content[].mission_category_name")
+                                                                        .type(JsonFieldType.STRING)
+                                                                        .description(
+                                                                                "미션 카테고리 표시명 —"
+                                                                                    + " Accept-Language"
+                                                                                    + " 번역, 비미션 피드는"
+                                                                                    + " null"
+                                                                                    + " (LUT-560)")
+                                                                        .optional(),
+                                                                fieldWithPath(
                                                                                 "value.guild_activity_feeds.content[].translation")
                                                                         .type(JsonFieldType.OBJECT)
                                                                         .description("번역 정보")

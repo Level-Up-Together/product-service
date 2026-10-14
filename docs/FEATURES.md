@@ -65,6 +65,10 @@ SIMPLE  // 수행 여부 — 즉시 완료, 고정 +5 EXP
 - Saga의 `CreateFeedFromMissionStep`은 `context.getFeedVisibility()`를 직접 사용
 - **피드 중복 생성 방지**: `shareExecutionToFeed()`에서 기존 피드가 있으면 업데이트, 없으면 생성
   (`FeedCommandService.updateFeedContentByExecutionId()`)
+- **피드 응답의 미션 카테고리명** (LUT-560): `ActivityFeedResponse.mission_category_name` — 피드의 `category_id` 를 Accept-Language 기준
+  표시명으로 풀어 내린다 (`FeedQueryService.enrichMissionCategoryNames`, 페이지 단위 distinct 1회 조회·메타 실패 시 생략). `category` 는
+  활동 분류(MISSION/ACHIEVEMENT…)라 이름을 분리했다. 비미션 피드는 null. 웹 피드 상세는 이 값을 cyan 칩으로, `visibility` 를
+  공개범위 태그(작성글 목록과 같은 `getFeedVisibilityLabel`)로 열람자 전원에게 노출한다.
 
 ## Feed Search Type (홈피드 필터)
 

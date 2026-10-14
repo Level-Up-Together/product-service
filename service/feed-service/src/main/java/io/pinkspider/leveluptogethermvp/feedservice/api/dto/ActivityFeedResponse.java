@@ -80,6 +80,13 @@ public class ActivityFeedResponse {
     private Integer expEarned;
     private Long categoryId;
 
+    /**
+     * LUT-560: 미션 카테고리 표시명 — Accept-Language 로 번역된 이름 하나. {@code category} 는 활동
+     * 분류(MISSION/ACHIEVEMENT…)라 혼동을 피해 미션 API 와 같은 이름을 쓴다. 미션 공유가 아닌 피드(category_id null)는 null. 값은
+     * FeedQueryService.enrichMissionCategoryNames 가 채운다.
+     */
+    private String missionCategoryName;
+
     // 번역 정보 (다국어 지원)
     private TranslationInfo translation;
 

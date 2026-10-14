@@ -83,6 +83,10 @@ class FeedQueryServiceTest {
 
     @Mock private FeedAccessChecker feedAccessChecker;
 
+    @Mock
+    private io.pinkspider.leveluptogethermvp.metaservice.application.MissionCategoryService
+            missionCategoryService;
+
     @InjectMocks private FeedQueryService feedQueryService;
 
     private static final String TEST_USER_ID = "test-user-123";
@@ -3858,6 +3862,159 @@ class FeedQueryServiceTest {
             // then
             assertThat(result.getContent()).hasSize(1);
             verify(adminInternalFeignClient, never()).getFeaturedFeedIds(any());
+        }
+    }
+
+    @Nested
+    @DisplayName("LUT-560: 미션 카테고리명(mission_category_name) enrich 테스트")
+    class MissionCategoryNameEnrichTest {
+
+        private ActivityFeed createMissionFeed(Long id, Long categoryId) {
+            ActivityFeed feed =
+                    ActivityFeed.builder()
+                            .userId(TEST_USER_ID)
+                            .userNickname("테스트유저")
+                            .userLevel(5)
+                            .activityType(ActivityType.MISSION_COMPLETED)
+                            .title("미션 피드 " + id)
+                            .visibility(FeedVisibility.PUBLIC)
+                            .categoryId(categoryId)
+                            .likeCount(0)
+                            .commentCount(0)
+                            .build();
+            setId(feed, id);
+            return feed;
+        }
+
+        private io.pinkspider.leveluptogethermvp.metaservice.domain.dto.MissionCategoryResponse
+                category(long id, String name, String nameEn, String nameJa) {
+            return io.pinkspider.leveluptogethermvp.metaservice.domain.dto.MissionCategoryResponse
+                    .builder()
+                    .id(id)
+                    .name(name)
+                    .nameEn(nameEn)
+                    .nameJa(nameJa)
+                    .build();
+        }
+
+        private void stubListEnrich(Page<ActivityFeed> feedPage) {
+            when(activityFeedRepository.findPublicFeedsByUserId(
+                            eq(TEST_USER_ID), any(Pageable.class)))
+                    .thenReturn(feedPage);
+            when(feedLikeRepository.findLikedFeedIds(eq(TEST_USER_ID), anyList()))
+                    .thenReturn(Collections.emptyList());
+            when(reportService.isUnderReviewBatch(any(), anyList()))
+                    .thenReturn(Collections.emptyMap());
+        }
+
+        @Test
+        @DisplayName(
+                "목록: 페이지의 category_id 를 중복 제거해 1회 조회하고 Accept-Language 로 번역된 이름을 채운다 — 비미션 피드는"
+                        + " null")
+        void list_enrichesTranslatedNames_onceForDistinctIds() {
+            // given
+            ActivityFeed workout1 = createMissionFeed(1L, 1L);
+            ActivityFeed workout2 = createMissionFeed(2L, 1L);
+            ActivityFeed achievement = createMissionFeed(3L, null);
+            stubListEnrich(new PageImpl<>(List.of(workout1, workout2, achievement)));
+            when(missionCategoryService.getCategoriesByIds(List.of(1L)))
+                    .thenReturn(List.of(category(1L, "운동", "Workout", "運動")));
+
+            // when
+            Page<ActivityFeedResponse> result =
+                    feedQueryService.getFilteredFeeds(
+                            FeedSearchType.MINE, TEST_USER_ID, 0, 10, "en");
+
+            // then
+            assertThat(result.getContent())
+                    .extracting(ActivityFeedResponse::getMissionCategoryName)
+                    .containsExactly("Workout", "Workout", null);
+            verify(missionCategoryService).getCategoriesByIds(List.of(1L));
+        }
+
+        @Test
+        @DisplayName("목록: 미션 피드가 하나도 없으면 카테고리 조회를 하지 않는다")
+        void list_noCategoryIds_skipsLookup() {
+            // given
+            stubListEnrich(new PageImpl<>(List.of(createMissionFeed(1L, null))));
+
+            // when
+            Page<ActivityFeedResponse> result =
+                    feedQueryService.getFilteredFeeds(
+                            FeedSearchType.MINE, TEST_USER_ID, 0, 10, "en");
+
+            // then
+            assertThat(result.getContent().get(0).getMissionCategoryName()).isNull();
+            verify(missionCategoryService, never()).getCategoriesByIds(anyList());
+        }
+
+        @Test
+        @DisplayName("목록: 카테고리 조회가 실패해도 피드 응답은 유지되고 이름만 비운다 (표시 부가 정보)")
+        void list_lookupFails_keepsFeedsWithoutName() {
+            // given
+            stubListEnrich(new PageImpl<>(List.of(createMissionFeed(1L, 1L))));
+            when(missionCategoryService.getCategoriesByIds(anyList()))
+                    .thenThrow(new RuntimeException("meta db down"));
+
+            // when
+            Page<ActivityFeedResponse> result =
+                    feedQueryService.getFilteredFeeds(
+                            FeedSearchType.MINE, TEST_USER_ID, 0, 10, "en");
+
+            // then
+            assertThat(result.getContent()).hasSize(1);
+            assertThat(result.getContent().get(0).getMissionCategoryName()).isNull();
+        }
+
+        @Test
+        @DisplayName("목록: 메타에 없는 category_id 는 null 로 둔다")
+        void list_unknownCategoryId_isNull() {
+            // given
+            stubListEnrich(new PageImpl<>(List.of(createMissionFeed(1L, 999L))));
+            when(missionCategoryService.getCategoriesByIds(List.of(999L))).thenReturn(List.of());
+
+            // when
+            Page<ActivityFeedResponse> result =
+                    feedQueryService.getFilteredFeeds(
+                            FeedSearchType.MINE, TEST_USER_ID, 0, 10, "ko");
+
+            // then
+            assertThat(result.getContent().get(0).getMissionCategoryName()).isNull();
+        }
+
+        @Test
+        @DisplayName("상세: Accept-Language=ja 면 일본어 이름, 없는 언어는 한국어 기본값")
+        void detail_translatedByAcceptLanguage() {
+            // given
+            ActivityFeed feed = createMissionFeed(7L, 2L);
+            when(activityFeedRepository.findById(7L)).thenReturn(Optional.of(feed));
+            when(feedLikeRepository.existsByFeedIdAndUserId(7L, TEST_USER_ID)).thenReturn(false);
+            when(missionCategoryService.getCategoriesByIds(List.of(2L)))
+                    .thenReturn(List.of(category(2L, "공부", "Study", "勉強")));
+
+            // when
+            ActivityFeedResponse ja = feedQueryService.getFeed(7L, TEST_USER_ID, "ja");
+            ActivityFeedResponse ar = feedQueryService.getFeed(7L, TEST_USER_ID, "ar");
+
+            // then
+            assertThat(ja.getMissionCategoryName()).isEqualTo("勉強");
+            assertThat(ar.getMissionCategoryName()).isEqualTo("공부");
+        }
+
+        @Test
+        @DisplayName("상세: 비미션 피드(category_id null)는 조회 없이 null")
+        void detail_nonMissionFeed_isNull() {
+            // given
+            ActivityFeed feed = createMissionFeed(8L, null);
+            when(activityFeedRepository.findById(8L)).thenReturn(Optional.of(feed));
+            when(feedLikeRepository.existsByFeedIdAndUserId(8L, TEST_USER_ID)).thenReturn(false);
+
+            // when
+            ActivityFeedResponse result = feedQueryService.getFeed(8L, TEST_USER_ID, "ko");
+
+            // then
+            assertThat(result.getMissionCategoryName()).isNull();
+            verify(missionCategoryService, never()).getCategoriesByIds(anyList());
         }
     }
 }
