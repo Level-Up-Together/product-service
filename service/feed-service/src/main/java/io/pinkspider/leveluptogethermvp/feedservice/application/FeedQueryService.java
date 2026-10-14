@@ -151,24 +151,33 @@ public class FeedQueryService {
     }
 
     /**
-     * 친구 피드 조회 (PUBLIC + FRIENDS 공개범위)
+     * 친구 피드 조회 (친구의 PUBLIC + FRIENDS 공개범위)
      *
-     * <p>QA-168: 본인이 작성한 친구공개 피드도 친구 탭에서 보여야 한다. friendIds 목록에 본인을 포함시켜 "내가 친구공개로 올린 피드"가 친구 탭에서
-     * 누락되지 않도록 한다.
+     * <p>LUT-559: 친구 탭은 "친구 관계인 유저의 피드"만 보여준다 — 본인 피드는 ALL/MINE 에서만 본다. (QA-168 에서 본인을 friendIds 에
+     * 넣어 "내가 친구공개로 올린 피드"를 친구 탭에도 노출했던 정책을 폐기.) 파사드가 본인 ID 를 돌려주는 경로는 없지만 방어적으로 제거하고, 친구가 없으면 빈 IN
+     * 절을 만들지 않고 즉시 빈 페이지를 돌려준다.
      */
     private Page<ActivityFeedResponse> getFriendsOnlyFeeds(
             String userId, int page, int size, String acceptLanguage) {
         Pageable pageable = PageRequest.of(page, size);
         String targetLocale = SupportedLocale.extractLanguageCode(acceptLanguage);
 
-        List<String> friendIds = new ArrayList<>(userQueryFacadeService.getFriendIds(userId));
-        friendIds.add(userId);
+        List<String> friendIds = new ArrayList<>(resolveFriendIds(userId));
+        friendIds.remove(userId);
+        if (friendIds.isEmpty()) {
+            return Page.empty(pageable);
+        }
 
         Page<ActivityFeed> feeds = activityFeedRepository.findFriendsFeeds(friendIds, pageable);
         return enrichFeeds(feeds, userId, targetLocale);
     }
 
-    /** 내가 속한 길드의 피드 조회 */
+    /**
+     * 내가 속한 길드의 길드공개 피드 조회
+     *
+     * <p>LUT-559: 길드 탭은 "같은 길드의 다른 길드원 피드"만 — 본인은 차단 목록과 함께 NOT IN 으로 제외한다 (WHERE 조건이라 count 쿼리에도
+     * 같이 걸려 total_elements 가 목록과 어긋나지 않는다).
+     */
     private Page<ActivityFeedResponse> getMyGuildFeeds(
             String userId, int page, int size, String acceptLanguage) {
         Pageable pageable = PageRequest.of(page, size);
@@ -183,9 +192,12 @@ public class FeedQueryService {
             return Page.empty(pageable);
         }
 
+        List<String> excludedUserIds = new ArrayList<>(resolveExcludedUserIds(userId));
+        excludedUserIds.add(userId);
+
         Page<ActivityFeed> feeds =
                 activityFeedRepository.findGuildOnlyFeedsByGuildIds(
-                        guildIds, resolveExcludedUserIds(userId), pageable);
+                        guildIds, excludedUserIds, pageable);
         return enrichFeeds(feeds, userId, targetLocale);
     }
 

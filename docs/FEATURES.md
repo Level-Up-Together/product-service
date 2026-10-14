@@ -77,9 +77,14 @@ FeedSearchType { ALL, FRIENDS, GUILD, MINE }
 - `GET /api/v1/feeds/public?searchType=FRIENDS` — 피드 API에 searchType 파라미터
 - `GET /api/v1/bff/home?feedSearchType=GUILD` — BFF에 feedSearchType 파라미터
 - `FeedQueryService.getFilteredFeeds()` — searchType별 분기
-  - FRIENDS: `findFriendsFeeds()` (친구의 PUBLIC+FRIENDS 피드)
-  - GUILD: `findGuildFeedsByGuildIds()` (내 길드들의 PUBLIC+GUILD 피드)
-  - MINE: `findByUserId()` (내 피드 전체)
+  - FRIENDS: `findFriendsFeeds(friendIds)` (친구의 PUBLIC+FRIENDS 피드). 친구가 없으면 빈 페이지
+  - GUILD: `findGuildOnlyFeedsByGuildIds(guildIds, excludedUserIds)` (내 길드들의 GUILD 공개 피드, 차단 유저 제외)
+  - MINE: `findPublicFeedsByUserId()` (내 피드, PRIVATE 제외)
+- **본인 피드 제외** (LUT-559): FRIENDS·GUILD 탭은 **다른 유저의 피드만** — FRIENDS 는 friendIds 에서 본인을 빼고, GUILD 는 본인을
+  `excludedUserIds`(NOT IN) 에 넣어 WHERE 로 제외한다(count 쿼리에도 같이 걸려 `total_elements` 정합). 내 피드는 ALL·MINE 에서만 보인다.
+  QA-168 때 "내가 친구공개로 올린 피드도 친구 탭에 보이게" 본인을 friendIds 에 넣었던 정책은 폐기됐다.
+- **카테고리와의 조합**: `searchType`이 ALL 이 아니면 `categoryIds`는 **무시**된다 (`ActivityFeedController`·`BffHomeService` 모두
+  searchType 분기가 우선). 탭 필터와 카테고리 필터는 동시에 적용되지 않는다.
 
 ## Mission Feed Sync (미션 기록 ↔ 피드 동기화)
 

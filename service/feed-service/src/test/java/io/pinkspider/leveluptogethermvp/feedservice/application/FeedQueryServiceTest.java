@@ -2361,22 +2361,11 @@ class FeedQueryServiceTest {
         }
 
         @Test
-        @DisplayName("searchType=FRIENDS이고 친구가 없어도 본인 친구공개 피드는 노출된다 (QA-168)")
-        void getFilteredFeeds_searchTypeFriends_noFriends_includesOwnFeeds() {
+        @DisplayName("LUT-559: searchType=FRIENDS이고 친구가 없으면 빈 페이지 — 본인 친구공개 피드는 노출되지 않는다")
+        void getFilteredFeeds_searchTypeFriends_noFriends_returnsEmpty() {
             // given
-            ActivityFeed ownFeed = createTestFeed(1L, TEST_USER_ID);
-            Page<ActivityFeed> feedPage = new PageImpl<>(List.of(ownFeed));
-
             when(userQueryFacadeService.getFriendIds(TEST_USER_ID))
                     .thenReturn(Collections.emptyList());
-            when(activityFeedRepository.findFriendsFeeds(
-                            argThat(ids -> ids != null && ids.contains(TEST_USER_ID)),
-                            any(Pageable.class)))
-                    .thenReturn(feedPage);
-            when(feedLikeRepository.findLikedFeedIds(eq(TEST_USER_ID), anyList()))
-                    .thenReturn(Collections.emptyList());
-            when(reportService.isUnderReviewBatch(any(), anyList()))
-                    .thenReturn(Collections.emptyMap());
 
             // when
             Page<ActivityFeedResponse> result =
@@ -2384,29 +2373,22 @@ class FeedQueryServiceTest {
                             FeedSearchType.FRIENDS, TEST_USER_ID, 0, 10, null);
 
             // then
-            assertThat(result.getContent()).hasSize(1);
-            verify(activityFeedRepository)
-                    .findFriendsFeeds(
-                            argThat(ids -> ids != null && ids.contains(TEST_USER_ID)),
-                            any(Pageable.class));
+            assertThat(result.getContent()).isEmpty();
+            assertThat(result.getTotalElements()).isZero();
+            verify(activityFeedRepository, never())
+                    .findFriendsFeeds(anyList(), any(Pageable.class));
         }
 
         @Test
-        @DisplayName("searchType=FRIENDS이고 친구가 있으면 친구+본인 피드를 반환한다 (QA-168)")
-        void getFilteredFeeds_searchTypeFriends_withFriends_includesSelf() {
+        @DisplayName("LUT-559: searchType=FRIENDS이고 친구가 있으면 친구 피드만 — friendIds 에 본인은 없다")
+        void getFilteredFeeds_searchTypeFriends_withFriends_excludesSelf() {
             // given
             List<String> friendIds = List.of("friend-1", "friend-2");
             ActivityFeed feed = createTestFeed(1L, "friend-1");
             Page<ActivityFeed> feedPage = new PageImpl<>(List.of(feed));
 
             when(userQueryFacadeService.getFriendIds(TEST_USER_ID)).thenReturn(friendIds);
-            when(activityFeedRepository.findFriendsFeeds(
-                            argThat(
-                                    ids ->
-                                            ids != null
-                                                    && ids.containsAll(friendIds)
-                                                    && ids.contains(TEST_USER_ID)),
-                            any(Pageable.class)))
+            when(activityFeedRepository.findFriendsFeeds(eq(friendIds), any(Pageable.class)))
                     .thenReturn(feedPage);
             when(feedLikeRepository.findLikedFeedIds(eq(TEST_USER_ID), anyList()))
                     .thenReturn(Collections.emptyList());
@@ -2422,12 +2404,43 @@ class FeedQueryServiceTest {
             assertThat(result.getContent()).hasSize(1);
             verify(activityFeedRepository)
                     .findFriendsFeeds(
-                            argThat(
-                                    ids ->
-                                            ids != null
-                                                    && ids.containsAll(friendIds)
-                                                    && ids.contains(TEST_USER_ID)),
+                            argThat(ids -> ids.equals(friendIds) && !ids.contains(TEST_USER_ID)),
                             any(Pageable.class));
+        }
+
+        @Test
+        @DisplayName("LUT-559: 친구 ID 목록에 본인이 섞여 와도 제거하고 조회한다 (방어)")
+        void getFilteredFeeds_searchTypeFriends_selfInFriendIds_isRemoved() {
+            // given
+            when(userQueryFacadeService.getFriendIds(TEST_USER_ID))
+                    .thenReturn(List.of("friend-1", TEST_USER_ID));
+            when(activityFeedRepository.findFriendsFeeds(anyList(), any(Pageable.class)))
+                    .thenReturn(Page.empty());
+
+            // when
+            feedQueryService.getFilteredFeeds(FeedSearchType.FRIENDS, TEST_USER_ID, 0, 10, null);
+
+            // then
+            verify(activityFeedRepository)
+                    .findFriendsFeeds(eq(List.of("friend-1")), any(Pageable.class));
+        }
+
+        @Test
+        @DisplayName("LUT-559: 친구 ID 목록이 본인만이면 빈 페이지 (조회 생략)")
+        void getFilteredFeeds_searchTypeFriends_onlySelf_returnsEmpty() {
+            // given
+            when(userQueryFacadeService.getFriendIds(TEST_USER_ID))
+                    .thenReturn(List.of(TEST_USER_ID));
+
+            // when
+            Page<ActivityFeedResponse> result =
+                    feedQueryService.getFilteredFeeds(
+                            FeedSearchType.FRIENDS, TEST_USER_ID, 0, 10, null);
+
+            // then
+            assertThat(result.getContent()).isEmpty();
+            verify(activityFeedRepository, never())
+                    .findFriendsFeeds(anyList(), any(Pageable.class));
         }
 
         @Test
@@ -2475,9 +2488,43 @@ class FeedQueryServiceTest {
 
             // then
             assertThat(result.getContent()).hasSize(1);
+            // LUT-559: 본인은 차단 센티널과 함께 NOT IN 제외 목록에 들어간다
             verify(activityFeedRepository)
                     .findGuildOnlyFeedsByGuildIds(
-                            eq(List.of(guildId)), anyList(), any(Pageable.class));
+                            eq(List.of(guildId)),
+                            argThat(
+                                    excluded ->
+                                            excluded.contains(TEST_USER_ID)
+                                                    && excluded.contains("__none__")),
+                            any(Pageable.class));
+        }
+
+        @Test
+        @DisplayName("LUT-559: searchType=GUILD 제외 목록은 차단 유저 + 본인이다")
+        void getFilteredFeeds_searchTypeGuild_excludesBlockedAndSelf() {
+            // given
+            GuildMembershipInfo membership =
+                    new GuildMembershipInfo(10L, "테스트길드", null, 1, false, false);
+            when(guildQueryFacadeService.getUserGuildMemberships(TEST_USER_ID))
+                    .thenReturn(List.of(membership));
+            when(userQueryFacadeService.getBlockedUserIds(TEST_USER_ID))
+                    .thenReturn(List.of("blocked-1"));
+            when(activityFeedRepository.findGuildOnlyFeedsByGuildIds(
+                            anyList(), anyList(), any(Pageable.class)))
+                    .thenReturn(Page.empty());
+
+            // when
+            feedQueryService.getFilteredFeeds(FeedSearchType.GUILD, TEST_USER_ID, 0, 10, null);
+
+            // then
+            verify(activityFeedRepository)
+                    .findGuildOnlyFeedsByGuildIds(
+                            eq(List.of(10L)),
+                            argThat(
+                                    excluded ->
+                                            excluded.containsAll(List.of("blocked-1", TEST_USER_ID))
+                                                    && !excluded.contains("__none__")),
+                            any(Pageable.class));
         }
 
         @Test
@@ -2633,14 +2680,8 @@ class FeedQueryServiceTest {
             Page<ActivityFeed> feedPage = new PageImpl<>(List.of(feed));
 
             when(userQueryFacadeService.getFriendIds(TEST_USER_ID)).thenReturn(friendIds);
-            // QA-168: friendIds에 본인 ID가 추가됨
-            when(activityFeedRepository.findFriendsFeeds(
-                            argThat(
-                                    ids ->
-                                            ids != null
-                                                    && ids.containsAll(friendIds)
-                                                    && ids.contains(TEST_USER_ID)),
-                            any(Pageable.class)))
+            // LUT-559: friendIds 는 친구만 (본인 미포함)
+            when(activityFeedRepository.findFriendsFeeds(eq(friendIds), any(Pageable.class)))
                     .thenReturn(feedPage);
             when(feedLikeRepository.findLikedFeedIds(eq(TEST_USER_ID), anyList()))
                     .thenReturn(Collections.emptyList());
@@ -2776,15 +2817,11 @@ class FeedQueryServiceTest {
     class GetFriendsOnlyFeedsTest {
 
         @Test
-        @DisplayName("QA-168: 친구 목록이 비어있어도 본인 ID를 포함해 Repository를 호출한다")
-        void getFriendsOnlyFeeds_emptyFriendIds_stillQueriesWithSelf() {
+        @DisplayName("LUT-559: 친구 목록이 비어있으면 Repository 를 호출하지 않고 빈 페이지를 돌려준다 (빈 IN 절 방지)")
+        void getFriendsOnlyFeeds_emptyFriendIds_returnsEmptyWithoutQuery() {
             // given
             when(userQueryFacadeService.getFriendIds(TEST_USER_ID))
                     .thenReturn(Collections.emptyList());
-            when(activityFeedRepository.findFriendsFeeds(
-                            argThat(ids -> ids != null && ids.contains(TEST_USER_ID)),
-                            any(Pageable.class)))
-                    .thenReturn(Page.empty());
 
             // when
             Page<ActivityFeedResponse> result =
@@ -2793,28 +2830,37 @@ class FeedQueryServiceTest {
 
             // then
             assertThat(result.getContent()).isEmpty();
-            verify(activityFeedRepository)
-                    .findFriendsFeeds(
-                            argThat(ids -> ids != null && ids.contains(TEST_USER_ID)),
-                            any(Pageable.class));
+            verify(activityFeedRepository, never())
+                    .findFriendsFeeds(anyList(), any(Pageable.class));
         }
 
         @Test
-        @DisplayName("QA-168: 친구 목록이 있으면 친구+본인 ID를 모두 포함해 조회한다")
-        void getFriendsOnlyFeeds_withFriends_fetchesFeedsIncludingSelf() {
+        @DisplayName("LUT-559: 파사드가 null 을 돌려줘도 빈 페이지로 처리한다")
+        void getFriendsOnlyFeeds_nullFriendIds_returnsEmpty() {
+            // given
+            when(userQueryFacadeService.getFriendIds(TEST_USER_ID)).thenReturn(null);
+
+            // when
+            Page<ActivityFeedResponse> result =
+                    feedQueryService.getFilteredFeeds(
+                            FeedSearchType.FRIENDS, TEST_USER_ID, 0, 10, "ko");
+
+            // then
+            assertThat(result.getContent()).isEmpty();
+            verify(activityFeedRepository, never())
+                    .findFriendsFeeds(anyList(), any(Pageable.class));
+        }
+
+        @Test
+        @DisplayName("LUT-559: 친구 목록이 있으면 친구 ID 만으로 조회한다 (본인 미포함)")
+        void getFriendsOnlyFeeds_withFriends_fetchesFeedsWithoutSelf() {
             // given
             List<String> friendIds = List.of("friend-A");
             ActivityFeed feed = createTestFeed(1L, "friend-A");
             Page<ActivityFeed> feedPage = new PageImpl<>(List.of(feed));
 
             when(userQueryFacadeService.getFriendIds(TEST_USER_ID)).thenReturn(friendIds);
-            when(activityFeedRepository.findFriendsFeeds(
-                            argThat(
-                                    ids ->
-                                            ids != null
-                                                    && ids.containsAll(friendIds)
-                                                    && ids.contains(TEST_USER_ID)),
-                            any(Pageable.class)))
+            when(activityFeedRepository.findFriendsFeeds(eq(friendIds), any(Pageable.class)))
                     .thenReturn(feedPage);
             when(feedLikeRepository.findLikedFeedIds(eq(TEST_USER_ID), anyList()))
                     .thenReturn(Collections.emptyList());
@@ -2828,6 +2874,7 @@ class FeedQueryServiceTest {
 
             // then
             assertThat(result.getContent()).hasSize(1);
+            assertThat(result.getContent().get(0).getUserId()).isEqualTo("friend-A");
         }
     }
 
@@ -2880,9 +2927,12 @@ class FeedQueryServiceTest {
 
             // then
             assertThat(result.getContent()).hasSize(1);
+            // LUT-559: 본인 피드는 NOT IN 제외 목록으로 걸러진다
             verify(activityFeedRepository)
                     .findGuildOnlyFeedsByGuildIds(
-                            eq(List.of(guildId)), anyList(), any(Pageable.class));
+                            eq(List.of(guildId)),
+                            argThat(excluded -> excluded.contains(TEST_USER_ID)),
+                            any(Pageable.class));
         }
     }
 
