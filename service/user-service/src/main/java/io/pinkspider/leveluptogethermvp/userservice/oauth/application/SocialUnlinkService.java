@@ -25,6 +25,10 @@ import org.springframework.stereotype.Service;
 @Slf4j
 public class SocialUnlinkService {
 
+    /** 카카오 어드민 키 형식 (32자 소문자 hex). 형식이 다르면 설정 오류일 가능성이 높다. */
+    private static final java.util.regex.Pattern KAKAO_ADMIN_KEY_PATTERN =
+            java.util.regex.Pattern.compile("^[0-9a-f]{32}$");
+
     private final KakaoAdminFeignClient kakaoAdminFeignClient;
     private final OAuth2Properties oAuth2Properties;
     private final AppleTokenService appleTokenService;
@@ -56,6 +60,15 @@ public class SocialUnlinkService {
         if (adminKey == null || adminKey.isBlank()) {
             log.warn("카카오 어드민 키 미설정 — unlink 스킵: userId={}", user.getId());
             return;
+        }
+        // LUT-561: prod 에서 unlink 가 401 "no authentication key!" 로 계속 실패했다(성공 이력 0건). 설정값의 앞뒤
+        // 공백/개행이 Authorization 헤더를 깨뜨리지 않게 정리하고, 형식이 아니면 키 내용 없이 길이만 경고해 설정 오류를 드러낸다.
+        adminKey = adminKey.trim();
+        if (!KAKAO_ADMIN_KEY_PATTERN.matcher(adminKey).matches()) {
+            log.warn(
+                    "카카오 어드민 키 형식 의심(32자 hex 아님, len={}) — config 값 확인 필요: userId={}",
+                    adminKey.length(),
+                    user.getId());
         }
         if (user.getProviderUserId() == null) {
             // 컬럼 신설(LUT-476) 전 가입자 — 로그인 백필 전 탈퇴하면 매핑이 없다
