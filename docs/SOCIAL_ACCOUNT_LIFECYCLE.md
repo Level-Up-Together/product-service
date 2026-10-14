@@ -126,3 +126,15 @@ apple:              # dev/prod 동일 키 (SIWA 키는 팀 소속 — 모든 cli
    다음 apple 로그인 때 code 가 오면 자동 확보
 3. **prod config-server 스테일 가능성**: config push 후 반영 안 되면 클론 fetch 필요 (dev 에서 동일 이슈 확인됨 — 메모리 `dev-config-server-stale-clone` 참조)
 4. Google RISC 는 보안 강화가 필요해지면 별도 티켓으로 도입
+
+## 7. 운영 점검 결과 — 카카오 unlink 는 prod 에서 한 번도 성공한 적이 없다 (LUT-561, 2026-10-14)
+
+prod 로그 기준 `카카오 연결 해제 완료` 0건, 실패는 `[401 Unauthorized] ... {"msg":"no authentication key!","code":-401}`.
+카카오가 `Authorization: KakaoAK …` 헤더를 인식하지 못한다는 뜻이라 **config 의 admin-key 값 자체**(복호화 결과에 `value=` 접두사·개행이
+섞였거나 다른 앱의 키)가 의심된다 — 코드는 `trim()` + 형식(32자 hex) 경고만 추가했고(LUT-561), 값 교정은 config-repository 에서
+재암호화해야 한다(prod 는 SSM 으로 lut-ec2-1 내부 `/encrypt`). 확인 방법: 탈퇴 후 로그에 `카카오 연결 해제 완료` 가 찍히는지.
+
+탈퇴 시 **기기 쪽** 소셜 SDK 세션 정리는 RN 이 맡는다(LUT-561): `useAuth.logout({unlinkSocial})` → `clearSocialSessions` —
+탈퇴면 카카오 `unlink()`, 그 외 로그아웃은 카카오 `logout()`, 구글은 `signOut()`. 카카오 SDK 는 토큰을 기기에 영구 보관하므로 서버 세션만
+지우면 탈퇴 뒤에도 이전 카카오 세션이 남는다. 서버는 어떤 경로로도 WITHDRAWN 유저에게 토큰을 발급하지 않는다
+(`Oauth2Service.findExistingUser` — 활성 계정만 조회, 탈퇴 이력은 cool-down 판정).

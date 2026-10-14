@@ -65,6 +65,17 @@ class SocialUnlinkServiceTest {
     }
 
     @Test
+    @DisplayName("LUT-561: 어드민 키 앞뒤 공백·개행은 제거하고 헤더를 만든다 (형식이 맞으면 경고 없이 호출)")
+    void withdrawal_kakao_trimsAdminKey() {
+        oAuth2Properties.getKakaoWebhook().setAdminKey("  0123456789abcdef0123456789abcdef\n");
+
+        socialUnlinkService.unlinkOnWithdrawal(kakaoUser("987654321"));
+
+        verify(kakaoAdminFeignClient)
+                .unlink("KakaoAK 0123456789abcdef0123456789abcdef", "user_id", 987654321L);
+    }
+
+    @Test
     @DisplayName("provider_user_id 미보유(백필 전) kakao 유저는 unlink 를 건너뛴다")
     void withdrawal_kakaoWithoutProviderUserId_skips() {
         socialUnlinkService.unlinkOnWithdrawal(kakaoUser(null));
