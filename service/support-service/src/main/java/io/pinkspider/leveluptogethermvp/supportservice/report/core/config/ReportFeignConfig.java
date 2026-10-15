@@ -11,12 +11,18 @@ import javax.net.ssl.SSLContext;
 import javax.net.ssl.TrustManager;
 import javax.net.ssl.X509TrustManager;
 import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
 
-/** 신고 상태 확인용 FeignClient 설정 - 짧은 타임아웃 (연결 1초, 읽기 2초) - 재시도 없음 (실패 시 빠르게 fallback) */
-@Configuration
+/**
+ * 신고 상태 확인용 FeignClient 설정 - 짧은 타임아웃 (연결 1초, 읽기 2초) - 재시도 없음 (실패 시 빠르게 fallback)
+ *
+ * <p>Feign 클라이언트 전용 설정. {@code @FeignClient(configuration = ...)} 로만 참조되어 클라이언트별 자식 컨텍스트에 로드된다.
+ *
+ * <p>⚠ {@code @Configuration} 을 붙이지 말 것 — 컴포넌트 스캔으로 부모 컨텍스트에 올라가면 아래 {@code RequestInterceptor}(현재
+ * 요청의 Authorization 전달)와 trust-all {@code Client} 가 Google 번역·카카오 등 모든 Feign 클라이언트에 전역 적용된다. 실제로
+ * prod 에서 유저 JWT 가 Google Translation API 로 전달돼 401 이 났다.
+ */
 public class ReportFeignConfig {
 
     private static final String AUTHORIZATION_HEADER = "Authorization";

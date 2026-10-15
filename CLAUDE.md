@@ -574,6 +574,11 @@ uk 멱등) — 쪼개서 수행해도 몰아서 한 것과 같은 점수. "하�
 ## 자주 발생하는 이슈
 
 - **QueryDSL 빌드 오류** (`Attempt to recreate a file for type Q*`): `./gradlew clean compileJava`
+- **Feign 전용 설정 클래스에 `@Configuration` 금지** (LUT-571): `@FeignClient(configuration = X.class)`의 X는 참조만으로 클라이언트별
+  자식 컨텍스트에 로드된다. `@Configuration`을 붙이면 컴포넌트 스캔으로 부모 컨텍스트에도 올라가 그 안의 `RequestInterceptor`·`Client`·
+  `Retryer`가 **모든 Feign 클라이언트에 전역 적용**된다 — 어드민 패스스루의 Authorization 전달 인터셉터가 Google Translation 호출에
+  섞여 prod에서 유저 JWT가 Google로 나가 401이 났다. `FeignClientConfigIsolationTest`(어노테이션)·`FeignClientConfigScopeIntegrationTest`
+  (실제 컨텍스트)가 회귀를 막는다. 새 Feign 설정 클래스는 두 테스트 목록에 추가할 것.
 - **데이터 미저장/미조회**: `@Transactional`의 트랜잭션 매니저 확인
 - **Integration test 실패**: SSH 터널/외부 서비스 의존, `@ActiveProfiles("test")` 확인
 - **비로그인 API가 401** (LUT-350): 비로그인 허용은 **필터(`SecurityConfig`의 `permitAll`) + resolver(`@CurrentUser(required = false)`)
