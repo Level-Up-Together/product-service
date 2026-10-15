@@ -32,19 +32,24 @@ public class TitleAdminService {
     @Transactional(readOnly = true, transactionManager = "gamificationTransactionManager")
     public List<TitleAdminResponse> getAllTitles() {
         return titleRepository.findAll().stream()
-            .map(TitleAdminResponse::from)
-            .collect(Collectors.toList());
+                .map(TitleAdminResponse::from)
+                .collect(Collectors.toList());
     }
 
     @Transactional(readOnly = true, transactionManager = "gamificationTransactionManager")
-    public TitleAdminPageResponse searchTitles(String keyword, TitlePosition positionType, Pageable pageable) {
+    public TitleAdminPageResponse searchTitles(
+            String keyword, TitlePosition positionType, Pageable pageable) {
         Page<TitleAdminResponse> page;
         if (positionType == null) {
-            page = titleRepository.searchByKeyword(keyword, pageable)
-                .map(this::toResponseWithLinkedAchievement);
+            page =
+                    titleRepository
+                            .searchByKeyword(keyword, pageable)
+                            .map(this::toResponseWithLinkedAchievement);
         } else {
-            page = titleRepository.searchByKeywordAndPosition(keyword, positionType, pageable)
-                .map(this::toResponseWithLinkedAchievement);
+            page =
+                    titleRepository
+                            .searchByKeywordAndPosition(keyword, positionType, pageable)
+                            .map(this::toResponseWithLinkedAchievement);
         }
         return TitleAdminPageResponse.from(page);
     }
@@ -52,29 +57,33 @@ public class TitleAdminService {
     @Transactional(readOnly = true, transactionManager = "gamificationTransactionManager")
     public List<TitleAdminResponse> getActiveTitles() {
         return titleRepository.findByIsActiveTrueOrderByIdAsc().stream()
-            .map(TitleAdminResponse::from)
-            .collect(Collectors.toList());
+                .map(TitleAdminResponse::from)
+                .collect(Collectors.toList());
     }
 
     @Transactional(readOnly = true, transactionManager = "gamificationTransactionManager")
     public TitleAdminResponse getTitle(Long id) {
-        Title title = titleRepository.findById(id)
-            .orElseThrow(() -> new CustomException("404", "error.title.not_found"));
+        Title title =
+                titleRepository
+                        .findById(id)
+                        .orElseThrow(() -> new CustomException("404", "error.title.not_found"));
         return toResponseWithLinkedAchievement(title);
     }
 
     @Transactional(readOnly = true, transactionManager = "gamificationTransactionManager")
     public List<TitleAdminResponse> getTitlesByRarity(TitleRarity rarity) {
         return titleRepository.findByRarity(rarity).stream()
-            .map(TitleAdminResponse::from)
-            .collect(Collectors.toList());
+                .map(TitleAdminResponse::from)
+                .collect(Collectors.toList());
     }
 
     @Transactional(readOnly = true, transactionManager = "gamificationTransactionManager")
     public List<TitleAdminResponse> getTitlesByPosition(TitlePosition positionType) {
-        return titleRepository.findByPositionTypeAndIsActiveTrueOrderByRarityAscIdAsc(positionType).stream()
-            .map(TitleAdminResponse::from)
-            .collect(Collectors.toList());
+        return titleRepository
+                .findByPositionTypeAndIsActiveTrueOrderByRarityAscIdAsc(positionType)
+                .stream()
+                .map(TitleAdminResponse::from)
+                .collect(Collectors.toList());
     }
 
     @Transactional(readOnly = true, transactionManager = "gamificationTransactionManager")
@@ -91,32 +100,39 @@ public class TitleAdminService {
             throw new CustomException("400", "error.title.duplicate_name");
         }
 
-        Title title = Title.builder()
-            .name(request.getName())
-            .nameEn(request.getNameEn())
-            .nameAr(request.getNameAr())
-            .nameJa(request.getNameJa())
-            .description(request.getDescription())
-            .rarity(request.getRarity())
-            .positionType(request.getPositionType())
-            .colorCode(request.getColorCode())
-            .iconUrl(request.getIconUrl())
-            .acquisitionType(request.getAcquisitionType())
-            .acquisitionCondition(request.getAcquisitionCondition())
-            .isActive(request.getIsActive() != null ? request.getIsActive() : true)
-            .build();
+        Title title =
+                Title.builder()
+                        .name(request.getName())
+                        .nameEn(request.getNameEn())
+                        .nameAr(request.getNameAr())
+                        .nameJa(request.getNameJa())
+                        .description(request.getDescription())
+                        .rarity(request.getRarity())
+                        .positionType(request.getPositionType())
+                        .colorCode(request.getColorCode())
+                        .iconUrl(request.getIconUrl())
+                        .acquisitionType(request.getAcquisitionType())
+                        .acquisitionCondition(request.getAcquisitionCondition())
+                        .isActive(request.getIsActive() != null ? request.getIsActive() : true)
+                        .build();
 
         Title saved = titleRepository.save(title);
-        log.info("칭호 생성: id={}, name={}, position={}", saved.getId(), saved.getName(), saved.getPositionType());
+        log.info(
+                "칭호 생성: id={}, name={}, position={}",
+                saved.getId(),
+                saved.getName(),
+                saved.getPositionType());
         return TitleAdminResponse.from(saved);
     }
 
     public TitleAdminResponse updateTitle(Long id, TitleAdminRequest request) {
-        Title title = titleRepository.findById(id)
-            .orElseThrow(() -> new CustomException("404", "error.title.not_found"));
+        Title title =
+                titleRepository
+                        .findById(id)
+                        .orElseThrow(() -> new CustomException("404", "error.title.not_found"));
 
         if (!title.getName().equals(request.getName())
-            && titleRepository.existsByName(request.getName())) {
+                && titleRepository.existsByName(request.getName())) {
             throw new CustomException("400", "error.title.duplicate_name");
         }
 
@@ -134,13 +150,16 @@ public class TitleAdminService {
         title.setIsActive(request.getIsActive());
 
         Title saved = titleRepository.save(title);
-        log.info("칭호 수정: id={}, name={}, position={}", id, saved.getName(), saved.getPositionType());
+        log.info(
+                "칭호 수정: id={}, name={}, position={}", id, saved.getName(), saved.getPositionType());
         return TitleAdminResponse.from(saved);
     }
 
     public TitleAdminResponse toggleActiveStatus(Long id) {
-        Title title = titleRepository.findById(id)
-            .orElseThrow(() -> new CustomException("404", "error.title.not_found"));
+        Title title =
+                titleRepository
+                        .findById(id)
+                        .orElseThrow(() -> new CustomException("404", "error.title.not_found"));
 
         title.setIsActive(!title.getIsActive());
         Title saved = titleRepository.save(title);
@@ -157,7 +176,8 @@ public class TitleAdminService {
     }
 
     private TitleAdminResponse toResponseWithLinkedAchievement(Title title) {
-        List<Achievement> linkedAchievements = achievementRepository.findByRewardTitleId(title.getId());
+        List<Achievement> linkedAchievements =
+                achievementRepository.findByRewardTitleId(title.getId());
         if (!linkedAchievements.isEmpty()) {
             Achievement achievement = linkedAchievements.get(0);
             return TitleAdminResponse.from(title, achievement.getId(), achievement.getName());

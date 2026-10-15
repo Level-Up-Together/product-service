@@ -32,19 +32,19 @@ public class UserStatsResponse {
 
     public static UserStatsResponse from(UserStats stats) {
         return UserStatsResponse.builder()
-            .userId(stats.getUserId())
-            .totalMissionCompletions(stats.getTotalMissionCompletions())
-            .totalMissionFullCompletions(stats.getTotalMissionFullCompletions())
-            .totalGuildMissionCompletions(stats.getTotalGuildMissionCompletions())
-            .currentStreak(stats.getCurrentStreak())
-            .maxStreak(stats.getMaxStreak())
-            .lastActivityDate(stats.getLastActivityDate())
-            .totalAchievementsCompleted(stats.getTotalAchievementsCompleted())
-            .totalTitlesAcquired(stats.getTotalTitlesAcquired())
-            .rankingPoints(stats.getRankingPoints())
-            .maxCompletedMissionDuration(stats.getMaxCompletedMissionDuration())
-            .totalLikesReceived(stats.getTotalLikesReceived())
-            .friendCount(stats.getFriendCount())
-            .build();
+                .userId(stats.getUserId())
+                .totalMissionCompletions(stats.getTotalMissionCompletions())
+                .totalMissionFullCompletions(stats.getTotalMissionFullCompletions())
+                .totalGuildMissionCompletions(stats.getTotalGuildMissionCompletions())
+                .currentStreak(stats.getCurrentStreak())
+                .maxStreak(stats.getMaxStreak())
+                .lastActivityDate(stats.getLastActivityDate())
+                .totalAchievementsCompleted(stats.getTotalAchievementsCompleted())
+                .totalTitlesAcquired(stats.getTotalTitlesAcquired())
+                .rankingPoints(stats.getRankingPoints())
+                .maxCompletedMissionDuration(stats.getMaxCompletedMissionDuration())
+                .totalLikesReceived(stats.getTotalLikesReceived())
+                .friendCount(stats.getFriendCount())
+                .build();
     }
 }

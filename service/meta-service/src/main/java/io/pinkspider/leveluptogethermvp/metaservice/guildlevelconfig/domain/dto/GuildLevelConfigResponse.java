@@ -30,17 +30,17 @@ public class GuildLevelConfigResponse {
 
     public static GuildLevelConfigResponse from(GuildLevelConfig entity) {
         return GuildLevelConfigResponse.builder()
-            .id(entity.getId())
-            .level(entity.getLevel())
-            .requiredExp(entity.getRequiredExp())
-            .cumulativeExp(entity.getCumulativeExp())
-            .requiredPoint(entity.getRequiredPoint())
-            .cumulativePoint(entity.getCumulativePoint())
-            .maxMembers(entity.getMaxMembers())
-            .title(entity.getTitle())
-            .description(entity.getDescription())
-            .createdAt(entity.getCreatedAt())
-            .modifiedAt(entity.getModifiedAt())
-            .build();
+                .id(entity.getId())
+                .level(entity.getLevel())
+                .requiredExp(entity.getRequiredExp())
+                .cumulativeExp(entity.getCumulativeExp())
+                .requiredPoint(entity.getRequiredPoint())
+                .cumulativePoint(entity.getCumulativePoint())
+                .maxMembers(entity.getMaxMembers())
+                .title(entity.getTitle())
+                .description(entity.getDescription())
+                .createdAt(entity.getCreatedAt())
+                .modifiedAt(entity.getModifiedAt())
+                .build();
     }
 }

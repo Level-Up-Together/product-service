@@ -19,20 +19,22 @@ public class NotificationPreferenceResponse {
     private Boolean guildNotifications;
     private Boolean socialNotifications;
     private Boolean systemNotifications;
+    private Boolean itemPushNotifications;
     private Boolean quietHoursEnabled;
     private String quietHoursStart;
     private String quietHoursEnd;
 
     public static NotificationPreferenceResponse from(NotificationPreference pref) {
         return NotificationPreferenceResponse.builder()
-            .pushEnabled(pref.getPushEnabled())
-            .friendNotifications(pref.getFriendNotifications())
-            .guildNotifications(pref.getGuildNotifications())
-            .socialNotifications(pref.getSocialNotifications())
-            .systemNotifications(pref.getSystemNotifications())
-            .quietHoursEnabled(pref.getQuietHoursEnabled())
-            .quietHoursStart(pref.getQuietHoursStart())
-            .quietHoursEnd(pref.getQuietHoursEnd())
-            .build();
+                .pushEnabled(pref.getPushEnabled())
+                .friendNotifications(pref.getFriendNotifications())
+                .guildNotifications(pref.getGuildNotifications())
+                .socialNotifications(pref.getSocialNotifications())
+                .systemNotifications(pref.getSystemNotifications())
+                .itemPushNotifications(pref.getItemPushNotifications())
+                .quietHoursEnabled(pref.getQuietHoursEnabled())
+                .quietHoursStart(pref.getQuietHoursStart())
+                .quietHoursEnd(pref.getQuietHoursEnd())
+                .build();
     }
 }

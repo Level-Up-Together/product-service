@@ -21,23 +21,22 @@ import lombok.Setter;
 import lombok.experimental.SuperBuilder;
 import org.hibernate.annotations.Comment;
 
-/**
- * 미션 실행 이미지 (QA-53). 한 실행당 최대 5장. sort_order 로 노출 순서 보존.
- */
+/** 미션 실행 이미지 (QA-53). 한 실행당 최대 5장. sort_order 로 노출 순서 보존. */
 @Entity
 @Getter
 @Setter
 @SuperBuilder
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @AllArgsConstructor
-@Table(name = "mission_execution_image",
-    uniqueConstraints = @UniqueConstraint(
-        name = "uk_mission_execution_image_sort",
-        columnNames = {"execution_id", "sort_order"}
-    ),
-    indexes = {
-        @Index(name = "idx_mission_execution_image_execution", columnList = "execution_id")
-    })
+@Table(
+        name = "mission_execution_image",
+        uniqueConstraints =
+                @UniqueConstraint(
+                        name = "uk_mission_execution_image_sort",
+                        columnNames = {"execution_id", "sort_order"}),
+        indexes = {
+            @Index(name = "idx_mission_execution_image_execution", columnList = "execution_id")
+        })
 @Comment("미션 실행 이미지")
 public class MissionExecutionImage extends LocalDateTimeBaseEntity {
 

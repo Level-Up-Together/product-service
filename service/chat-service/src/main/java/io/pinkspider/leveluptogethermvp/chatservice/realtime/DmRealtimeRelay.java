@@ -13,9 +13,8 @@ import org.springframework.stereotype.Component;
 /**
  * DM 실시간 릴레이 (LUT-263)
  *
- * <p>Redis pub/sub 채널({@link DmRealtimePublisher#CHANNEL})을 구독하여, 이 인스턴스에 연결된 해당 유저의
- * WebSocket 세션으로 STOMP 메시지를 전달한다. 유저가 이 인스턴스에 연결돼 있지 않으면 세션 미해석으로 조용히
- * 무시된다 (해당 유저가 연결된 다른 인스턴스가 전달).
+ * <p>Redis pub/sub 채널({@link DmRealtimePublisher#CHANNEL})을 구독하여, 이 인스턴스에 연결된 해당 유저의 WebSocket 세션으로
+ * STOMP 메시지를 전달한다. 유저가 이 인스턴스에 연결돼 있지 않으면 세션 미해석으로 조용히 무시된다 (해당 유저가 연결된 다른 인스턴스가 전달).
  */
 @Slf4j
 @Component

@@ -25,24 +25,21 @@ import org.mockito.junit.jupiter.MockitoExtension;
 @DisplayName("FeedAccessChecker 단위 테스트")
 class FeedAccessCheckerTest {
 
-    @Mock
-    private UserQueryFacade userQueryFacadeService;
+    @Mock private UserQueryFacade userQueryFacadeService;
 
-    @Mock
-    private GuildQueryFacade guildQueryFacadeService;
+    @Mock private GuildQueryFacade guildQueryFacadeService;
 
-    @InjectMocks
-    private FeedAccessChecker checker;
+    @InjectMocks private FeedAccessChecker checker;
 
     private static final String OWNER_ID = "owner-123";
     private static final String VIEWER_ID = "viewer-456";
 
     private ActivityFeed feed(FeedVisibility visibility, Long guildId) {
         return ActivityFeed.builder()
-            .userId(OWNER_ID)
-            .visibility(visibility)
-            .guildId(guildId)
-            .build();
+                .userId(OWNER_ID)
+                .visibility(visibility)
+                .guildId(guildId)
+                .build();
     }
 
     @Nested
@@ -113,13 +110,13 @@ class FeedAccessCheckerTest {
         @DisplayName("GUILD + feedGuildId 없음: owner와 viewer의 길드 교집합 있으면 접근 가능")
         void guildWithoutFeedGuildId_intersectAllowed() {
             ActivityFeed f = feed(FeedVisibility.GUILD, null);
-            when(guildQueryFacadeService.getUserGuildMemberships(OWNER_ID)).thenReturn(List.of(
-                new GuildMembershipInfo(1L, "g1", null, 1, true, false),
-                new GuildMembershipInfo(2L, "g2", null, 1, false, false)
-            ));
-            when(guildQueryFacadeService.getUserGuildMemberships(VIEWER_ID)).thenReturn(List.of(
-                new GuildMembershipInfo(2L, "g2", null, 1, false, false)
-            ));
+            when(guildQueryFacadeService.getUserGuildMemberships(OWNER_ID))
+                    .thenReturn(
+                            List.of(
+                                    new GuildMembershipInfo(1L, "g1", null, 1, true, false),
+                                    new GuildMembershipInfo(2L, "g2", null, 1, false, false)));
+            when(guildQueryFacadeService.getUserGuildMemberships(VIEWER_ID))
+                    .thenReturn(List.of(new GuildMembershipInfo(2L, "g2", null, 1, false, false)));
             assertThat(checker.canAccess(f, VIEWER_ID)).isTrue();
         }
 
@@ -136,12 +133,11 @@ class FeedAccessCheckerTest {
         @DisplayName("GUILD + feedGuildId 없음: 길드 교집합 없으면 접근 불가")
         void guildWithoutFeedGuildId_noIntersection_denied() {
             ActivityFeed f = feed(FeedVisibility.GUILD, null);
-            when(guildQueryFacadeService.getUserGuildMemberships(OWNER_ID)).thenReturn(List.of(
-                new GuildMembershipInfo(1L, "g1", null, 1, true, false)
-            ));
-            when(guildQueryFacadeService.getUserGuildMemberships(VIEWER_ID)).thenReturn(List.of(
-                new GuildMembershipInfo(99L, "g99", null, 1, false, false)
-            ));
+            when(guildQueryFacadeService.getUserGuildMemberships(OWNER_ID))
+                    .thenReturn(List.of(new GuildMembershipInfo(1L, "g1", null, 1, true, false)));
+            when(guildQueryFacadeService.getUserGuildMemberships(VIEWER_ID))
+                    .thenReturn(
+                            List.of(new GuildMembershipInfo(99L, "g99", null, 1, false, false)));
             assertThat(checker.canAccess(f, VIEWER_ID)).isFalse();
         }
     }
@@ -162,8 +158,8 @@ class FeedAccessCheckerTest {
         void deniedThrowsCustomException() {
             ActivityFeed f = feed(FeedVisibility.PRIVATE, null);
             assertThatThrownBy(() -> checker.assertAccessible(f, VIEWER_ID))
-                .isInstanceOf(CustomException.class)
-                .hasMessageContaining("error.feed.access_denied");
+                    .isInstanceOf(CustomException.class)
+                    .hasMessageContaining("error.feed.access_denied");
         }
     }
 }

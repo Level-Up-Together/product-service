@@ -13,9 +13,13 @@ public class MissionExecutionStrategyResolver {
     private final PinnedMissionExecutionStrategy pinnedStrategy;
 
     public MissionExecutionStrategy resolve(Long missionId, String userId) {
-        boolean isPinned = participantRepository.findByMissionIdAndUserId(missionId, userId)
-            .map(participant -> Boolean.TRUE.equals(participant.getMission().getIsPinned()))
-            .orElse(false);
+        boolean isPinned =
+                participantRepository
+                        .findByMissionIdAndUserId(missionId, userId)
+                        .map(
+                                participant ->
+                                        Boolean.TRUE.equals(participant.getMission().getIsPinned()))
+                        .orElse(false);
         return isPinned ? pinnedStrategy : regularStrategy;
     }
 }

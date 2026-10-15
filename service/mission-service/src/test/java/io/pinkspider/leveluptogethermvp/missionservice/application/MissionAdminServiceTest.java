@@ -30,7 +30,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -38,49 +37,66 @@ import org.springframework.data.domain.Pageable;
 @ExtendWith(MockitoExtension.class)
 class MissionAdminServiceTest {
 
-    @Mock
-    private MissionRepository missionRepository;
+    @Mock private MissionRepository missionRepository;
 
-    @Mock
-    private MissionExecutionRepository executionRepository;
+    @Mock private MissionExecutionRepository executionRepository;
 
-    @Mock
-    private DailyMissionInstanceRepository dailyMissionInstanceRepository;
+    @Mock private DailyMissionInstanceRepository dailyMissionInstanceRepository;
 
-    @InjectMocks
-    private MissionAdminService service;
+    @InjectMocks private MissionAdminService service;
 
     private Mission createTestMission(Long id) {
-        Mission mission = Mission.builder()
-            .title("테스트 미션")
-            .description("미션 설명")
-            .status(MissionStatus.OPEN)
-            .visibility(MissionVisibility.PUBLIC)
-            .type(MissionType.PERSONAL)
-            .source(MissionSource.SYSTEM)
-            .participationType(MissionParticipationType.DIRECT)
-            .missionInterval(MissionInterval.DAILY)
-            .creatorId("admin-1")
-            .expPerCompletion(10)
-            .bonusExpOnFullCompletion(50)
-            .guildExpPerCompletion(5)
-            .guildBonusExpOnFullCompletion(20)
-            .build();
+        Mission mission =
+                Mission.builder()
+                        .title("테스트 미션")
+                        .description("미션 설명")
+                        .status(MissionStatus.OPEN)
+                        .visibility(MissionVisibility.PUBLIC)
+                        .type(MissionType.PERSONAL)
+                        .source(MissionSource.SYSTEM)
+                        .participationType(MissionParticipationType.DIRECT)
+                        .missionInterval(MissionInterval.DAILY)
+                        .creatorId("admin-1")
+                        .expPerCompletion(10)
+                        .bonusExpOnFullCompletion(50)
+                        .guildExpPerCompletion(5)
+                        .guildBonusExpOnFullCompletion(20)
+                        .build();
         setId(mission, id);
         return mission;
     }
 
     private MissionAdminRequest createTestRequest() {
         return new MissionAdminRequest(
-            "새 미션", "New Mission", null, null,
-            "설명", "Description", null, null,
-            "OPEN", "PUBLIC", "PERSONAL",
-            "SYSTEM", "DIRECT", true,
-            "admin-1", null, 10,
-            null, null, "DAILY",
-            30, null, 10, 50,
-            false, null, null, 5, 20
-        );
+                "새 미션",
+                "New Mission",
+                null,
+                null,
+                "설명",
+                "Description",
+                null,
+                null,
+                "OPEN",
+                "PUBLIC",
+                "PERSONAL",
+                "SYSTEM",
+                "DIRECT",
+                true,
+                "admin-1",
+                null,
+                10,
+                null,
+                null,
+                "DAILY",
+                30,
+                null,
+                10,
+                50,
+                false,
+                null,
+                null,
+                5,
+                20);
     }
 
     @Nested
@@ -93,12 +109,13 @@ class MissionAdminServiceTest {
             // given
             Mission mission = createTestMission(1L);
             Pageable pageable = PageRequest.of(0, 10);
-            when(missionRepository.searchMissionsAdmin(any(), any(), any(), any(), any(), any(), any(), any()))
-                .thenReturn(new PageImpl<>(List.of(mission)));
+            when(missionRepository.searchMissionsAdmin(
+                            any(), any(), any(), any(), any(), any(), any(), any()))
+                    .thenReturn(new PageImpl<>(List.of(mission)));
 
             // when
-            MissionAdminPageResponse result = service.searchMissions(
-                "테스트", null, null, null, null, null, null, pageable);
+            MissionAdminPageResponse result =
+                    service.searchMissions("테스트", null, null, null, null, null, null, pageable);
 
             // then
             assertThat(result).isNotNull();
@@ -111,11 +128,11 @@ class MissionAdminServiceTest {
             Mission mission = createTestMission(1L);
             Pageable pageable = PageRequest.of(0, 10);
             when(missionRepository.findAllByIsDeletedFalseOrderByCreatedAtDesc(pageable))
-                .thenReturn(new PageImpl<>(List.of(mission)));
+                    .thenReturn(new PageImpl<>(List.of(mission)));
 
             // when
-            MissionAdminPageResponse result = service.searchMissions(
-                null, null, null, null, null, null, null, pageable);
+            MissionAdminPageResponse result =
+                    service.searchMissions(null, null, null, null, null, null, null, pageable);
 
             // then
             assertThat(result).isNotNull();
@@ -146,13 +163,37 @@ class MissionAdminServiceTest {
         @DisplayName("source가 null이면 SYSTEM으로 기본 설정된다")
         void defaultSource() {
             // given
-            MissionAdminRequest request = new MissionAdminRequest(
-                "미션", null, null, null, null, null, null, null,
-                "OPEN", "PUBLIC", "PERSONAL",
-                null, null, null, "admin-1", null, null,
-                null, null, null, null, null, null, null,
-                null, null, null, null, null
-            );
+            MissionAdminRequest request =
+                    new MissionAdminRequest(
+                            "미션",
+                            null,
+                            null,
+                            null,
+                            null,
+                            null,
+                            null,
+                            null,
+                            "OPEN",
+                            "PUBLIC",
+                            "PERSONAL",
+                            null,
+                            null,
+                            null,
+                            "admin-1",
+                            null,
+                            null,
+                            null,
+                            null,
+                            null,
+                            null,
+                            null,
+                            null,
+                            null,
+                            null,
+                            null,
+                            null,
+                            null,
+                            null);
             Mission saved = createTestMission(1L);
             when(missionRepository.save(any(Mission.class))).thenReturn(saved);
 
@@ -207,7 +248,7 @@ class MissionAdminServiceTest {
             when(missionRepository.findById(999L)).thenReturn(Optional.empty());
 
             assertThatThrownBy(() -> service.updateMission(999L, createTestRequest()))
-                .isInstanceOf(CustomException.class);
+                    .isInstanceOf(CustomException.class);
         }
     }
 
@@ -249,7 +290,7 @@ class MissionAdminServiceTest {
             when(missionRepository.findById(999L)).thenReturn(Optional.empty());
 
             assertThatThrownBy(() -> service.deleteMission(999L))
-                .isInstanceOf(CustomException.class);
+                    .isInstanceOf(CustomException.class);
         }
 
         @Test
@@ -261,8 +302,8 @@ class MissionAdminServiceTest {
             when(dailyMissionInstanceRepository.existsInProgressByMissionId(1L)).thenReturn(true);
 
             assertThatThrownBy(() -> service.deleteMission(1L))
-                .isInstanceOf(CustomException.class)
-                .hasMessageContaining("error.mission.cannot_delete_in_progress");
+                    .isInstanceOf(CustomException.class)
+                    .hasMessageContaining("error.mission.cannot_delete_in_progress");
         }
 
         @Test
@@ -273,8 +314,8 @@ class MissionAdminServiceTest {
             when(executionRepository.existsInProgressByMissionId(1L)).thenReturn(true);
 
             assertThatThrownBy(() -> service.deleteMission(1L))
-                .isInstanceOf(CustomException.class)
-                .hasMessageContaining("error.mission.cannot_delete_in_progress");
+                    .isInstanceOf(CustomException.class)
+                    .hasMessageContaining("error.mission.cannot_delete_in_progress");
         }
     }
 
@@ -317,7 +358,7 @@ class MissionAdminServiceTest {
         @DisplayName("소스별 미션을 조회한다")
         void getMissionsBySource() {
             when(missionRepository.findBySource(MissionSource.SYSTEM))
-                .thenReturn(List.of(createTestMission(1L)));
+                    .thenReturn(List.of(createTestMission(1L)));
 
             List<MissionAdminResponse> result = service.getMissionsBySource("SYSTEM");
 

@@ -24,11 +24,9 @@ import org.mockito.junit.jupiter.MockitoExtension;
 @ExtendWith(MockitoExtension.class)
 class DailyMvpExclusionAdminInternalServiceTest {
 
-    @Mock
-    private DailyMvpExclusionRepository dailyMvpExclusionRepository;
+    @Mock private DailyMvpExclusionRepository dailyMvpExclusionRepository;
 
-    @InjectMocks
-    private DailyMvpExclusionAdminInternalService service;
+    @InjectMocks private DailyMvpExclusionAdminInternalService service;
 
     private static final LocalDate TEST_DATE = LocalDate.of(2026, 1, 15);
 
@@ -40,14 +38,15 @@ class DailyMvpExclusionAdminInternalServiceTest {
         @DisplayName("날짜별 제외 목록을 반환한다")
         void returnsExclusionsByDate() {
             // given
-            DailyMvpExclusion exclusion = DailyMvpExclusion.builder()
-                .mvpDate(TEST_DATE)
-                .userId("user-1")
-                .reason("테스트")
-                .adminId(1L)
-                .build();
+            DailyMvpExclusion exclusion =
+                    DailyMvpExclusion.builder()
+                            .mvpDate(TEST_DATE)
+                            .userId("user-1")
+                            .reason("테스트")
+                            .adminId(1L)
+                            .build();
             when(dailyMvpExclusionRepository.findAllByMvpDateOrderByCreatedAtDesc(TEST_DATE))
-                .thenReturn(List.of(exclusion));
+                    .thenReturn(List.of(exclusion));
 
             // when
             List<DailyMvpExclusionAdminResponse> result = service.getExclusionsByDate(TEST_DATE);
@@ -60,7 +59,7 @@ class DailyMvpExclusionAdminInternalServiceTest {
         @DisplayName("빈 목록을 반환한다")
         void returnsEmptyList() {
             when(dailyMvpExclusionRepository.findAllByMvpDateOrderByCreatedAtDesc(TEST_DATE))
-                .thenReturn(List.of());
+                    .thenReturn(List.of());
 
             List<DailyMvpExclusionAdminResponse> result = service.getExclusionsByDate(TEST_DATE);
 
@@ -76,16 +75,17 @@ class DailyMvpExclusionAdminInternalServiceTest {
         @DisplayName("제외 항목을 추가한다")
         void addsExclusion() {
             // given
-            DailyMvpExclusionAdminRequest request = new DailyMvpExclusionAdminRequest(
-                TEST_DATE, "user-1", "테스트 제외", 1L);
+            DailyMvpExclusionAdminRequest request =
+                    new DailyMvpExclusionAdminRequest(TEST_DATE, "user-1", "테스트 제외", 1L);
             when(dailyMvpExclusionRepository.existsByMvpDateAndUserId(TEST_DATE, "user-1"))
-                .thenReturn(false);
-            DailyMvpExclusion saved = DailyMvpExclusion.builder()
-                .mvpDate(TEST_DATE)
-                .userId("user-1")
-                .reason("테스트 제외")
-                .adminId(1L)
-                .build();
+                    .thenReturn(false);
+            DailyMvpExclusion saved =
+                    DailyMvpExclusion.builder()
+                            .mvpDate(TEST_DATE)
+                            .userId("user-1")
+                            .reason("테스트 제외")
+                            .adminId(1L)
+                            .build();
             when(dailyMvpExclusionRepository.save(any())).thenReturn(saved);
 
             // when
@@ -99,13 +99,13 @@ class DailyMvpExclusionAdminInternalServiceTest {
         @Test
         @DisplayName("이미 제외된 사용자는 예외를 발생시킨다")
         void throwsWhenAlreadyExcluded() {
-            DailyMvpExclusionAdminRequest request = new DailyMvpExclusionAdminRequest(
-                TEST_DATE, "user-1", "중복", 1L);
+            DailyMvpExclusionAdminRequest request =
+                    new DailyMvpExclusionAdminRequest(TEST_DATE, "user-1", "중복", 1L);
             when(dailyMvpExclusionRepository.existsByMvpDateAndUserId(TEST_DATE, "user-1"))
-                .thenReturn(true);
+                    .thenReturn(true);
 
             assertThatThrownBy(() -> service.addExclusion(request))
-                .isInstanceOf(CustomException.class);
+                    .isInstanceOf(CustomException.class);
         }
     }
 
@@ -117,7 +117,7 @@ class DailyMvpExclusionAdminInternalServiceTest {
         @DisplayName("제외 항목을 삭제한다")
         void removesExclusion() {
             when(dailyMvpExclusionRepository.existsByMvpDateAndUserId(TEST_DATE, "user-1"))
-                .thenReturn(true);
+                    .thenReturn(true);
 
             service.removeExclusion(TEST_DATE, "user-1");
 
@@ -128,10 +128,10 @@ class DailyMvpExclusionAdminInternalServiceTest {
         @DisplayName("존재하지 않는 제외 항목은 예외를 발생시킨다")
         void throwsWhenNotFound() {
             when(dailyMvpExclusionRepository.existsByMvpDateAndUserId(TEST_DATE, "user-1"))
-                .thenReturn(false);
+                    .thenReturn(false);
 
             assertThatThrownBy(() -> service.removeExclusion(TEST_DATE, "user-1"))
-                .isInstanceOf(CustomException.class);
+                    .isInstanceOf(CustomException.class);
         }
     }
 }

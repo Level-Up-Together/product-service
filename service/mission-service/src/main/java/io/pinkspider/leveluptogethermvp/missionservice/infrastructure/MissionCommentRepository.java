@@ -15,26 +15,36 @@ import org.springframework.transaction.annotation.Transactional;
 @Repository
 public interface MissionCommentRepository extends JpaRepository<MissionComment, Long> {
 
-    @Query("SELECT c FROM MissionComment c WHERE c.mission.id = :missionId AND c.isDeleted = false ORDER BY c.createdAt ASC")
+    @Query(
+            "SELECT c FROM MissionComment c WHERE c.mission.id = :missionId AND c.isDeleted = false"
+                    + " ORDER BY c.createdAt ASC")
     Page<MissionComment> findByMissionId(@Param("missionId") Long missionId, Pageable pageable);
 
-    @Query("SELECT c FROM MissionComment c WHERE c.mission.id = :missionId AND c.isDeleted = false ORDER BY c.createdAt ASC")
+    @Query(
+            "SELECT c FROM MissionComment c WHERE c.mission.id = :missionId AND c.isDeleted = false"
+                    + " ORDER BY c.createdAt ASC")
     List<MissionComment> findAllByMissionId(@Param("missionId") Long missionId);
 
-    @Query("SELECT COUNT(c) FROM MissionComment c WHERE c.mission.id = :missionId AND c.isDeleted = false")
+    @Query(
+            "SELECT COUNT(c) FROM MissionComment c WHERE c.mission.id = :missionId AND c.isDeleted"
+                    + " = false")
     int countByMissionId(@Param("missionId") Long missionId);
 
     Optional<MissionComment> findByIdAndIsDeletedFalse(Long id);
 
-    @Query("SELECT c FROM MissionComment c WHERE c.userId = :userId AND c.isDeleted = false ORDER BY c.createdAt DESC")
+    @Query(
+            "SELECT c FROM MissionComment c WHERE c.userId = :userId AND c.isDeleted = false ORDER"
+                    + " BY c.createdAt DESC")
     Page<MissionComment> findByUserId(@Param("userId") String userId, Pageable pageable);
 
     @Modifying
     @Transactional(transactionManager = "missionTransactionManager")
-    @Query("UPDATE MissionComment c SET c.userNickname = :nickname, c.userProfileImageUrl = :profileImageUrl, c.userLevel = :level WHERE c.userId = :userId")
+    @Query(
+            "UPDATE MissionComment c SET c.userNickname = :nickname, c.userProfileImageUrl ="
+                    + " :profileImageUrl, c.userLevel = :level WHERE c.userId = :userId")
     int updateUserProfileByUserId(
-        @Param("userId") String userId,
-        @Param("nickname") String nickname,
-        @Param("profileImageUrl") String profileImageUrl,
-        @Param("level") Integer level);
+            @Param("userId") String userId,
+            @Param("nickname") String nickname,
+            @Param("profileImageUrl") String profileImageUrl,
+            @Param("level") Integer level);
 }

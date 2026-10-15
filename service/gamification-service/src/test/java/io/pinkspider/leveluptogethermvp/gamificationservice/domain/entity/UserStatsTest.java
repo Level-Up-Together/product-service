@@ -12,12 +12,13 @@ class UserStatsTest {
     private static final LocalDate BASE = LocalDate.of(2026, 8, 21);
 
     private UserStats statsWithStreak(int streak, LocalDate lastActivityDate) {
-        UserStats stats = UserStats.builder()
-            .userId("user-1")
-            .currentStreak(streak)
-            .maxStreak(streak)
-            .lastActivityDate(lastActivityDate)
-            .build();
+        UserStats stats =
+                UserStats.builder()
+                        .userId("user-1")
+                        .currentStreak(streak)
+                        .maxStreak(streak)
+                        .lastActivityDate(lastActivityDate)
+                        .build();
         return stats;
     }
 

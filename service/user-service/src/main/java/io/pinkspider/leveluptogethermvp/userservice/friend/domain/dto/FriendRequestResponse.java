@@ -23,27 +23,28 @@ public class FriendRequestResponse {
     private String message;
     private LocalDateTime requestedAt;
 
-    public static FriendRequestResponse from(Friendship friendship,
-                                              String requesterNickname,
-                                              String profileImageUrl,
-                                              Integer level) {
+    public static FriendRequestResponse from(
+            Friendship friendship,
+            String requesterNickname,
+            String profileImageUrl,
+            Integer level) {
         return FriendRequestResponse.builder()
-            .id(friendship.getId())
-            .requesterId(friendship.getUserId())
-            .requesterNickname(requesterNickname)
-            .requesterProfileImageUrl(profileImageUrl)
-            .requesterLevel(level)
-            .message(friendship.getMessage())
-            .requestedAt(friendship.getRequestedAt())
-            .build();
+                .id(friendship.getId())
+                .requesterId(friendship.getUserId())
+                .requesterNickname(requesterNickname)
+                .requesterProfileImageUrl(profileImageUrl)
+                .requesterLevel(level)
+                .message(friendship.getMessage())
+                .requestedAt(friendship.getRequestedAt())
+                .build();
     }
 
     public static FriendRequestResponse simpleFrom(Friendship friendship) {
         return FriendRequestResponse.builder()
-            .id(friendship.getId())
-            .requesterId(friendship.getUserId())
-            .message(friendship.getMessage())
-            .requestedAt(friendship.getRequestedAt())
-            .build();
+                .id(friendship.getId())
+                .requesterId(friendship.getUserId())
+                .message(friendship.getMessage())
+                .requestedAt(friendship.getRequestedAt())
+                .build();
     }
 }

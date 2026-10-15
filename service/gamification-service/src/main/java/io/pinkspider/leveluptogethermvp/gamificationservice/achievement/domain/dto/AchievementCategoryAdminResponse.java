@@ -27,14 +27,14 @@ public class AchievementCategoryAdminResponse {
 
     public static AchievementCategoryAdminResponse from(AchievementCategory entity) {
         return AchievementCategoryAdminResponse.builder()
-            .id(entity.getId())
-            .code(entity.getCode())
-            .name(entity.getName())
-            .description(entity.getDescription())
-            .sortOrder(entity.getSortOrder())
-            .isActive(entity.getIsActive())
-            .createdAt(entity.getCreatedAt())
-            .modifiedAt(entity.getModifiedAt())
-            .build();
+                .id(entity.getId())
+                .code(entity.getCode())
+                .name(entity.getName())
+                .description(entity.getDescription())
+                .sortOrder(entity.getSortOrder())
+                .isActive(entity.getIsActive())
+                .createdAt(entity.getCreatedAt())
+                .modifiedAt(entity.getModifiedAt())
+                .build();
     }
 }

@@ -26,30 +26,29 @@ import org.mockito.junit.jupiter.MockitoExtension;
 @ExtendWith(MockitoExtension.class)
 class DeviceTokenServiceTest {
 
-    @Mock
-    private DeviceTokenRepository deviceTokenRepository;
+    @Mock private DeviceTokenRepository deviceTokenRepository;
 
-    @Mock
-    private FcmPushService fcmPushService;
+    @Mock private FcmPushService fcmPushService;
 
-    @InjectMocks
-    private DeviceTokenService deviceTokenService;
+    @InjectMocks private DeviceTokenService deviceTokenService;
 
     private static final String TEST_USER_ID = "test-user-123";
     private static final String TEST_FCM_TOKEN = "fcm-token-abc123";
     private static final String TEST_DEVICE_ID = "device-id-xyz";
 
-    private DeviceToken createTestDeviceToken(Long id, String userId, String fcmToken, String deviceId) {
-        DeviceToken token = DeviceToken.builder()
-            .userId(userId)
-            .fcmToken(fcmToken)
-            .deviceType(DeviceType.IOS)
-            .deviceId(deviceId)
-            .deviceName("iPhone 15")
-            .appVersion("1.0.0")
-            .isActive(true)
-            .badgeCount(0)
-            .build();
+    private DeviceToken createTestDeviceToken(
+            Long id, String userId, String fcmToken, String deviceId) {
+        DeviceToken token =
+                DeviceToken.builder()
+                        .userId(userId)
+                        .fcmToken(fcmToken)
+                        .deviceType(DeviceType.IOS)
+                        .deviceId(deviceId)
+                        .deviceName("iPhone 15")
+                        .appVersion("1.0.0")
+                        .isActive(true)
+                        .badgeCount(0)
+                        .build();
         setId(token, id);
         return token;
     }
@@ -62,14 +61,15 @@ class DeviceTokenServiceTest {
         @DisplayName("새 토큰을 등록한다")
         void registerToken_newToken_success() {
             // given
-            DeviceTokenRequest request = new DeviceTokenRequest(
-                TEST_FCM_TOKEN, DeviceType.IOS, TEST_DEVICE_ID, "iPhone 15", "1.0.0"
-            );
-            DeviceToken savedToken = createTestDeviceToken(1L, TEST_USER_ID, TEST_FCM_TOKEN, TEST_DEVICE_ID);
+            DeviceTokenRequest request =
+                    new DeviceTokenRequest(
+                            TEST_FCM_TOKEN, DeviceType.IOS, TEST_DEVICE_ID, "iPhone 15", "1.0.0");
+            DeviceToken savedToken =
+                    createTestDeviceToken(1L, TEST_USER_ID, TEST_FCM_TOKEN, TEST_DEVICE_ID);
 
             when(deviceTokenRepository.findByFcmToken(TEST_FCM_TOKEN)).thenReturn(Optional.empty());
             when(deviceTokenRepository.findByUserIdAndDeviceId(TEST_USER_ID, TEST_DEVICE_ID))
-                .thenReturn(Optional.empty());
+                    .thenReturn(Optional.empty());
             when(deviceTokenRepository.save(any(DeviceToken.class))).thenReturn(savedToken);
 
             // when
@@ -84,12 +84,14 @@ class DeviceTokenServiceTest {
         @DisplayName("동일한 FCM 토큰이 같은 사용자에게 있으면 업데이트한다")
         void registerToken_existingTokenSameUser_updates() {
             // given
-            DeviceTokenRequest request = new DeviceTokenRequest(
-                TEST_FCM_TOKEN, DeviceType.IOS, TEST_DEVICE_ID, "iPhone 16", "1.1.0"
-            );
-            DeviceToken existingToken = createTestDeviceToken(1L, TEST_USER_ID, TEST_FCM_TOKEN, TEST_DEVICE_ID);
+            DeviceTokenRequest request =
+                    new DeviceTokenRequest(
+                            TEST_FCM_TOKEN, DeviceType.IOS, TEST_DEVICE_ID, "iPhone 16", "1.1.0");
+            DeviceToken existingToken =
+                    createTestDeviceToken(1L, TEST_USER_ID, TEST_FCM_TOKEN, TEST_DEVICE_ID);
 
-            when(deviceTokenRepository.findByFcmToken(TEST_FCM_TOKEN)).thenReturn(Optional.of(existingToken));
+            when(deviceTokenRepository.findByFcmToken(TEST_FCM_TOKEN))
+                    .thenReturn(Optional.of(existingToken));
             when(deviceTokenRepository.save(any(DeviceToken.class))).thenReturn(existingToken);
 
             // when
@@ -106,19 +108,22 @@ class DeviceTokenServiceTest {
             // given: 앱을 열 때마다 같은 토큰으로 재등록되는 상황.
             // 벌크 UPDATE가 영속성 컨텍스트를 우회하므로, 현재 토큰이 벌크 대상에 포함되면
             // 스테일 스냅샷 때문에 activate()가 dirty로 감지되지 않아 DB에 비활성으로 남는다.
-            DeviceTokenRequest request = new DeviceTokenRequest(
-                TEST_FCM_TOKEN, DeviceType.IOS, TEST_DEVICE_ID, "iPhone 16", "1.1.0"
-            );
-            DeviceToken existingToken = createTestDeviceToken(1L, TEST_USER_ID, TEST_FCM_TOKEN, TEST_DEVICE_ID);
+            DeviceTokenRequest request =
+                    new DeviceTokenRequest(
+                            TEST_FCM_TOKEN, DeviceType.IOS, TEST_DEVICE_ID, "iPhone 16", "1.1.0");
+            DeviceToken existingToken =
+                    createTestDeviceToken(1L, TEST_USER_ID, TEST_FCM_TOKEN, TEST_DEVICE_ID);
 
-            when(deviceTokenRepository.findByFcmToken(TEST_FCM_TOKEN)).thenReturn(Optional.of(existingToken));
+            when(deviceTokenRepository.findByFcmToken(TEST_FCM_TOKEN))
+                    .thenReturn(Optional.of(existingToken));
             when(deviceTokenRepository.save(any(DeviceToken.class))).thenReturn(existingToken);
 
             // when
             deviceTokenService.registerToken(TEST_USER_ID, request);
 
             // then: 현재 토큰을 제외한 벌크 비활성화만 호출되어야 한다
-            verify(deviceTokenRepository).deactivateAllByUserIdExceptToken(TEST_USER_ID, TEST_FCM_TOKEN);
+            verify(deviceTokenRepository)
+                    .deactivateAllByUserIdExceptToken(TEST_USER_ID, TEST_FCM_TOKEN);
             verify(deviceTokenRepository, never()).deactivateAllByUserId(anyString());
             assertThat(existingToken.getIsActive()).isTrue();
         }
@@ -127,12 +132,14 @@ class DeviceTokenServiceTest {
         @DisplayName("동일한 FCM 토큰이 다른 사용자에게 있으면 현재 사용자로 이전한다")
         void registerToken_existingTokenDifferentUser_transfers() {
             // given
-            DeviceTokenRequest request = new DeviceTokenRequest(
-                TEST_FCM_TOKEN, DeviceType.IOS, TEST_DEVICE_ID, "iPhone 15", "1.0.0"
-            );
-            DeviceToken existingToken = createTestDeviceToken(1L, "other-user", TEST_FCM_TOKEN, "other-device");
+            DeviceTokenRequest request =
+                    new DeviceTokenRequest(
+                            TEST_FCM_TOKEN, DeviceType.IOS, TEST_DEVICE_ID, "iPhone 15", "1.0.0");
+            DeviceToken existingToken =
+                    createTestDeviceToken(1L, "other-user", TEST_FCM_TOKEN, "other-device");
 
-            when(deviceTokenRepository.findByFcmToken(TEST_FCM_TOKEN)).thenReturn(Optional.of(existingToken));
+            when(deviceTokenRepository.findByFcmToken(TEST_FCM_TOKEN))
+                    .thenReturn(Optional.of(existingToken));
             when(deviceTokenRepository.save(any(DeviceToken.class))).thenReturn(existingToken);
 
             // when
@@ -143,7 +150,8 @@ class DeviceTokenServiceTest {
             assertThat(existingToken.getUserId()).isEqualTo(TEST_USER_ID);
             assertThat(existingToken.getDeviceId()).isEqualTo(TEST_DEVICE_ID);
             assertThat(existingToken.getIsActive()).isTrue();
-            verify(deviceTokenRepository).deactivateAllByUserIdExceptToken(TEST_USER_ID, TEST_FCM_TOKEN);
+            verify(deviceTokenRepository)
+                    .deactivateAllByUserIdExceptToken(TEST_USER_ID, TEST_FCM_TOKEN);
             verify(deviceTokenRepository).save(existingToken);
         }
 
@@ -151,14 +159,16 @@ class DeviceTokenServiceTest {
         @DisplayName("동일한 디바이스에 기존 토큰이 있으면 토큰을 업데이트한다")
         void registerToken_existingDevice_updatesToken() {
             // given
-            DeviceTokenRequest request = new DeviceTokenRequest(
-                "new-fcm-token", DeviceType.IOS, TEST_DEVICE_ID, "iPhone 15", "1.0.0"
-            );
-            DeviceToken existingByDevice = createTestDeviceToken(1L, TEST_USER_ID, TEST_FCM_TOKEN, TEST_DEVICE_ID);
+            DeviceTokenRequest request =
+                    new DeviceTokenRequest(
+                            "new-fcm-token", DeviceType.IOS, TEST_DEVICE_ID, "iPhone 15", "1.0.0");
+            DeviceToken existingByDevice =
+                    createTestDeviceToken(1L, TEST_USER_ID, TEST_FCM_TOKEN, TEST_DEVICE_ID);
 
-            when(deviceTokenRepository.findByFcmToken("new-fcm-token")).thenReturn(Optional.empty());
+            when(deviceTokenRepository.findByFcmToken("new-fcm-token"))
+                    .thenReturn(Optional.empty());
             when(deviceTokenRepository.findByUserIdAndDeviceId(TEST_USER_ID, TEST_DEVICE_ID))
-                .thenReturn(Optional.of(existingByDevice));
+                    .thenReturn(Optional.of(existingByDevice));
             when(deviceTokenRepository.save(any(DeviceToken.class))).thenReturn(existingByDevice);
 
             // when
@@ -167,7 +177,8 @@ class DeviceTokenServiceTest {
             // then: 벌크 비활성화는 기존 토큰(구 토큰) 기준으로 제외되어야 한다
             assertThat(result).isNotNull();
             assertThat(existingByDevice.getIsActive()).isTrue();
-            verify(deviceTokenRepository).deactivateAllByUserIdExceptToken(TEST_USER_ID, TEST_FCM_TOKEN);
+            verify(deviceTokenRepository)
+                    .deactivateAllByUserIdExceptToken(TEST_USER_ID, TEST_FCM_TOKEN);
             verify(deviceTokenRepository).save(existingByDevice);
         }
     }
@@ -180,9 +191,11 @@ class DeviceTokenServiceTest {
         @DisplayName("토큰을 해제한다")
         void unregisterToken_success() {
             // given
-            DeviceToken existingToken = createTestDeviceToken(1L, TEST_USER_ID, TEST_FCM_TOKEN, TEST_DEVICE_ID);
+            DeviceToken existingToken =
+                    createTestDeviceToken(1L, TEST_USER_ID, TEST_FCM_TOKEN, TEST_DEVICE_ID);
 
-            when(deviceTokenRepository.findByFcmToken(TEST_FCM_TOKEN)).thenReturn(Optional.of(existingToken));
+            when(deviceTokenRepository.findByFcmToken(TEST_FCM_TOKEN))
+                    .thenReturn(Optional.of(existingToken));
 
             // when
             deviceTokenService.unregisterToken(TEST_USER_ID, TEST_FCM_TOKEN);
@@ -195,9 +208,11 @@ class DeviceTokenServiceTest {
         @DisplayName("다른 사용자의 토큰은 해제하지 않는다")
         void unregisterToken_differentUser_doesNotDeactivate() {
             // given
-            DeviceToken existingToken = createTestDeviceToken(1L, "other-user", TEST_FCM_TOKEN, TEST_DEVICE_ID);
+            DeviceToken existingToken =
+                    createTestDeviceToken(1L, "other-user", TEST_FCM_TOKEN, TEST_DEVICE_ID);
 
-            when(deviceTokenRepository.findByFcmToken(TEST_FCM_TOKEN)).thenReturn(Optional.of(existingToken));
+            when(deviceTokenRepository.findByFcmToken(TEST_FCM_TOKEN))
+                    .thenReturn(Optional.of(existingToken));
 
             // when
             deviceTokenService.unregisterToken(TEST_USER_ID, TEST_FCM_TOKEN);
@@ -230,11 +245,12 @@ class DeviceTokenServiceTest {
         @DisplayName("사용자의 활성 토큰 목록을 조회한다")
         void getTokensByUserId_success() {
             // given
-            DeviceToken token1 = createTestDeviceToken(1L, TEST_USER_ID, TEST_FCM_TOKEN, TEST_DEVICE_ID);
+            DeviceToken token1 =
+                    createTestDeviceToken(1L, TEST_USER_ID, TEST_FCM_TOKEN, TEST_DEVICE_ID);
             DeviceToken token2 = createTestDeviceToken(2L, TEST_USER_ID, "fcm-token-2", "device-2");
 
             when(deviceTokenRepository.findByUserIdAndIsActiveTrue(TEST_USER_ID))
-                .thenReturn(List.of(token1, token2));
+                    .thenReturn(List.of(token1, token2));
 
             // when
             List<DeviceTokenResponse> result = deviceTokenService.getTokensByUserId(TEST_USER_ID);
@@ -248,7 +264,7 @@ class DeviceTokenServiceTest {
         void getTokensByUserId_empty() {
             // given
             when(deviceTokenRepository.findByUserIdAndIsActiveTrue(TEST_USER_ID))
-                .thenReturn(List.of());
+                    .thenReturn(List.of());
 
             // when
             List<DeviceTokenResponse> result = deviceTokenService.getTokensByUserId(TEST_USER_ID);

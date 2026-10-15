@@ -8,7 +8,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 # Build
 ./gradlew clean build
 
-# Run ALL tests (4,100+ tests across 5 modules)
+# Run ALL tests (4,900+ tests across 5 modules)
 ./gradlew test
 
 # Run tests by module
@@ -29,7 +29,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 # Generate GraphQL classes from DGS schema
 ./gradlew generateJava
 
-# Test coverage report (minimum 75% — service 모듈 jacocoTestCoverageVerification 이 check/CI 에서 강제)
+# Test coverage report (minimum INSTRUCTION 80% + BRANCH 80% — service 모듈 jacocoTestCoverageVerification 이 check/CI 에서 강제)
 ./gradlew test jacocoTestReport
 # Report: service/build/reports/jacoco/html/index.html
 ```
@@ -145,11 +145,17 @@ All REST endpoints return `ApiResult<T>`:
 
 | Module            | Tests  | Content                                                       |
 |-------------------|--------|---------------------------------------------------------------|
-| `platform:kernel` | 49     | util tests + `NotificationTypeTest`                            |
-| `platform:infra`  | 2      | `RestExceptionHandlerTest` (resolver/profanity/crypto 테스트는 `service`로 이동) |
-| `platform:saga`   | 29     | saga framework tests                                          |
-| `service`         | 4,048  | all service unit + controller tests                           |
+| `platform:kernel` | 204    | util/wrapper/aop/converter/api tests + `NotificationTypeTest`  |
+| `platform:infra`  | 98     | JwtUtil/JwtAuthenticationFilter/RestExceptionHandler/Crypto/Feign 등 (resolver/profanity 테스트는 `service`) |
+| `platform:saga`   | 90     | saga framework tests                                          |
+| `service`         | 4,577  | all service unit + controller tests                           |
 | `app`             | 15     | `@SpringBootTest` (full context) + 벤치마크/통합                  |
+
+**커버리지 게이트** (`service/build.gradle` `jacocoTestCoverageVerification`, `check`에 연결): INSTRUCTION 80% + **BRANCH 80%**
+두 룰. `jacocoExcludes`(config/dto/entity/enums/외부 의존 컴포넌트 등)가 리포트와 게이트에 동일 적용. 2026-09-30 기준 INSTRUCTION 91.8% /
+BRANCH 88.0%. 분기 커버리지는 if/switch의 **모든 경로**를 요구하므로 새 조건 로직에는 양쪽 경로 테스트를 함께 작성할 것.
+분기 공략 시 `jacocoTestReport.xml`의 `<line nr mb cb>`(mb=미커버 분기 수)로 정확한 라인을 찾을 수 있다. app 모듈의 75% 룰은
+`check` 미연결·측정 대상 없음(무효).
 
 **Shared utilities**: `service/shared-test/src/test/java/` (`ControllerTestConfig`, `BaseTestController`, `MockUtil`,
 `TestApplication`). `kernel`의 `TestReflectionUtils`는 `java-test-fixtures` plugin으로 공유.
@@ -190,6 +196,8 @@ All REST endpoints return `ApiResult<T>`:
 ### 코드 포맷팅 (Spotless + google-java-format AOSP)
 
 전 Java 저장소는 Spotless + google-java-format(AOSP, 4-space, 100col)으로 자동 포맷팅 강제. Import 정렬 자동.
+검사 경로는 `src/**` + `*-service/src/**` + `shared-test/src/**` (LUT-532 — 이전엔 `service/src`만 검사되어 서비스 코드 90%가 빠져 있었다.
+새 서비스 디렉토리는 `*-service/` 명명을 따를 것). 일괄 포맷 커밋은 `.git-blame-ignore-revs`에 등록 — `git config blame.ignoreRevsFile .git-blame-ignore-revs`.
 
 ```bash
 ./gradlew spotlessApply  # 적용
@@ -270,6 +278,31 @@ Redis Stream `stream:app-push` → `AppPushMessageConsumer` → `FcmPushService`
   COMPLETED/FAILED 상태로 이력에 남고, ALL 대상은 **발송 시점에 재산출**되어 요청 시 `target_count`와 미세하게 다를 수 있다.
   중복 트리거는 PENDING 검사로 무시(재발송 없음). 에러 코드 140101(대상 없음)/140102(활성 유저 없음)/140103(캠페인 없음).
 
+### 장착 아이템 푸시 (LUT-516/528/529/530/531, `gamificationservice/shop/{scheduler,application}`)
+
+유저가 **장착 중인 HEAD 아이템**이 유저 로컬 시각에 맞춰 말을 거는 푸시(`EQUIPPED_ITEM_PUSH`). 매분 cron(`ItemPushScheduler`)
+→ 아이템별 발송시각(`item_push_setting.send_time`, 아이템 단위 — LUT-528) → 유저 로컬 `HH:mm` **정확 일치** 후보만
+→ `ItemPushDispatchService.trySendForUser`(유저별 짧은 트랜잭션)에서 상태 판정·백오프·대사 선택·선점.
+
+**발송 규칙 (LUT-529) — "하루 1건"이 아니다. QA·기획 혼동이 반복된 지점이니 먼저 읽을 것:**
+
+| 단계 | 규칙 |
+|---|---|
+| 중복방지 | `item_push_send_log` `(user_id, send_date)` 유니크 — **유저·로컬날짜당 1건**(아이템 단위 아님). 장착을 바꿔도 그날 이미 받으면 재발송 없음 |
+| 상태 판정 | 오늘 완료 → `AFTER_COMPLETE` > 전날 미완료 → `INACTIVE` > 그 외 → `BEFORE_ACTIVITY` (미션 완료는 유저 로컬 날짜 기준) |
+| **백오프** | `INACTIVE` 는 **연속 미완료 일수 k ∈ {1,3,7,14} 인 날만** 발송. k는 `BACKOFF_MAX_DAYS(14)` 초과 시 15로 saturate → **15일 이상 미완료·완료 이력 0건 유저는 영구 미발송**(LUT-541 에서 확인된 설계 공백) |
+| 대사 선택 | `trigger_type` 이 상태와 일치하는 풀에서 최근 (후보−1)건 제외 후 랜덤 → 비면 `ANY` 풀 → **그것도 비면 조용히 스킵** |
+
+- **대사 미등록 = 그 상태의 유저는 무음**이다. 실제로 dev 전 아이템에 `AFTER_COMPLETE`·`ANY` 대사가 0건이어서 "당일 미션을 완료한
+  유저는 아무 푸시도 못 받는" 상태였다(LUT-541). 아이템을 추가하면 **상태 3종 대사를 모두 채웠는지 확인할 것**.
+- 스킵 사유는 `ItemPushDispatchOutcome`(SENT/SKIP_ALREADY_SENT/SKIP_BACKOFF/SKIP_NO_MESSAGE/SKIP_RACE)으로 반환되고
+  로그에 남는다 — 진단은 `grep "장착 아이템 푸시" product-service.log`. 백오프 로그에는 k가 함께 찍혀 다음 발송일을 계산할 수 있다.
+- **슬롯 캐치업** (LUT-545): 유저 로컬 시각이 슬롯 이후 `item.push.catch-up-window-minutes`(기본 30분) 안이면 후보 — 그 1분 틱을 놓쳐도
+  (배포·재시작·스레드 점유·락 경합) 창 안의 다음 틱이 소급 발송한다. 자정을 넘기는 소급은 없다. 틱 시각은 run 진입 시 1회 스냅샷(루프 중 재계산 금지 —
+  앞 아이템이 1분을 넘기면 뒤 아이템 슬롯이 영구 미평가됐던 증폭 요인). 창 안 재평가는 인스턴스 로컬 메모(아이템·유저·로컬날짜)로 막고, 예외로 끝난 유저만
+  다음 틱에 재시도된다. `spring.task.scheduling.pool.size=4`(base yml) — 기본 1 이면 9개 잡이 직렬화돼 매분 틱이 밀린다.
+- 알림 토글은 `notification_preference.item_push_notifications`, 카테고리는 `ITEM_PUSH`.
+
 ## WebSocket 실시간 전파 — Redis 릴레이 필수 (LUT-263/QA-224/LUT-549)
 
 `WebSocketConfig`는 `enableSimpleBroker("/topic", "/queue")` — **인스턴스 로컬 메모리 브로커**다. prod는 ALB 뒤 2대(스티키 세션 없음)라
@@ -324,9 +357,10 @@ public void run() { ...}
 
 | 스케줄러                                                        | 주기/Zone                     | 비고                         |
 |-------------------------------------------------------------|-----------------------------|----------------------------|
-| `DailyMissionInstanceScheduler.generateDailyInstances`      | `0 0 0 * * *` KST           | 고정 미션 일일 인스턴스 생성 + 자정 자동완료 |
+| `DailyMissionInstanceScheduler.generateDailyInstances`      | `0 0 0 * * *` KST           | 고정 미션 일일 인스턴스 생성 + 자정 자동완료. 대상 = **활성 미션(DRAFT/OPEN/IN_PROGRESS)의 ACCEPTED·IN_PROGRESS 참여자**(LUT-566 — 예전엔 ACCEPTED만·미션 상태 미확인이라 종료 미션에 매일 MISSED 적립, 첫 완료 뒤엔 생성 중단) |
 | `MissionAutoCompleteScheduler.autoCompleteExpiredMissions`  | 5분 fixedRate                | 만료(4시간) 미션 자동 종료(baseExp 120) + 경고 알림  |
 | `MissionReminderScheduler.sendReminders`                    | 매시 0,30분 (zone 미지정 → JVM 기본 UTC) | 미션 리마인더 푸시 — 설정 요일·시각, 유저 preferred_timezone 기준 (LUT-282) |
+| `ItemPushScheduler.sendEquippedItemPushes`                  | `0 * * * * *` (매분, lock 50s)  | 장착 아이템 푸시 — 유저 로컬 `HH:mm` 슬롯 + 30분 캐치업 창(LUT-545), 상태·백오프 판정 (LUT-516/529, 규칙은 위 "장착 아이템 푸시" 절) |
 | `TokenMaintenanceScheduler.cleanupExpiredSessions`          | `0 0 2 * * *` KST           | 만료된 OAuth 세션 정리            |
 | `TokenMaintenanceScheduler.cleanupOrphanedUserSessions`     | `0 30 2 * * *` KST          | 고아 user_sessions 참조 정리     |
 | `DailyMvpHistoryScheduler.saveDailyMvpHistory{Kst,Ast,Utc}` | `0 0 0 * * *` (Asia/Seoul·Asia/Riyadh·UTC) | 타임존별 일간 MVP 기록             |
@@ -453,11 +487,27 @@ list_price      = COMMON 유저 기준가 = 최대 할증가                    
 
 - **기록 통계** (LUT-454): `GET /api/v1/statistics/summary`(gamification, 누적 달성·최장 스트릭·등급 도달 이력) +
   `GET /api/v1/missions/statistics/monthly`(mission, 월간 리포트). 무료 유저는 **최근 30일 범위의 월만**, 과거 월은 구독 필요 → `050301`.
-  파사드 `isSubscriptionEntitled`로 판정하는 유일한 구독 게이팅 읽기 API.
+  파사드 `isSubscriptionEntitled`로 판정하는 유일한 구독 게이팅 읽기 API. 게이팅은 "조회 월 말일 ≥ 오늘−30일"이라 **매월 31일엔 전월도 잠긴다**(LUT-563).
+  월간 리포트 `scheduled_count`(예정) = 기간 내 `mission_execution`(전 상태) + `daily_mission_instance` 중 **1회차(seq 1) 전 상태 + 2회차 이상은 COMPLETED만**
+  (LUT-566 — 완료 직후 자동 생성되는 seq+1 PENDING이 자정에 MISSED가 되어 완료 1건당 미완료 1건이 붙던 것을 제외). 달성률·완료 수는 **예정일**
+  기준, 카테고리·요일·시간 분포는 **완료 시각 + `X-Timezone`** 기준이라 자정 넘김에서 1~2건 어긋날 수 있다. 종료된 고정 미션의 잔존 MISSED는
+  쿼리가 아니라 **데이터 정리(sql V009)** 로 제거 — 미션 상태로 소급 제외하면 활성이던 달의 정당한 미수행까지 빠진다.
 - **랭킹** `/api/v1/rankings` 14개: 전체·`/missions`·`/streaks`·`/achievements`·`/realtime`·`/level`·`/level/**`는 **비로그인 허용**(LUT-297,
   `SecurityConfig` permitAll + `SecurityConfigPublicEndpointTest`), `/my*`·`/nearby`는 인증 필요.
+- **스트릭 소스는 2종이고 섞으면 안 된다** (LUT-405/555): ① **연속 출석** = `attendance_record.consecutive_days` 체인
+  (`AttendanceService.getCurrentStreak`, 유저 타임존, 오늘·어제 출석 없으면 0) — 업적 화면 "현재 n일 출석중"·공개 프로필
+  `consecutive_days`(파사드 `getCurrentAttendanceStreak`) ② **활동 스트릭** = `user_stats.current_streak/max_streak`
+  (출석+미션 완료 날짜 기준, `UserStats.updateStreak`) — USER_STATS 업적·스트릭 랭킹(`/rankings/streaks`는 max_streak). 같은 유저라도 두 값은 다르다.
 - **UI 환경설정** (LUT-437): `GET/PUT /api/v1/users/me/preferences` — 기기 간 동기화되는 화면 토글(완료 미션 접기 등). 알림 설정
-  (`/api/v1/notifications/preferences`)과 별개 테이블(`user_ui_preference`).
+  (`/api/v1/notifications/preferences`)과 별개 테이블(`user_ui_preference`). **홈 피드 카테고리 필터** (LUT-548):
+  `home_feed_category_ids: number[]` — **빈 배열 = 전체**, null = 변경 없음(부분 업데이트). 쉼표 구분 VARCHAR(500) 컬럼을
+  `LongListConverter`로 변환하며 빈 목록은 NULL 저장. 저장 시 **존재하지 않는 카테고리 ID는 400이 아니라 조용히 제거**(클라이언트
+  카테고리 캐시 30분 지연 대비), 비활성은 저장하고 클라이언트가 적용 시 걸러낸다. 카테고리 조회(meta_db) 실패 시 검증 없이 저장.
+- **홈 피드 카테고리 멀티셀렉트** (LUT-548): `GET /api/v1/feeds/public`·`GET /api/v1/bff/home`에 `categoryIds`(쉼표 구분 또는 반복,
+  OR 조건) 추가. 비어 있으면 전체, 있으면 구버전 단일 `categoryId`는 무시(앱 호환용 유지). Featured 피드는 선택 카테고리 순서대로
+  합쳐 첫 페이지에만 붙인다. BFF 공개 길드 섹션은 카테고리가 **정확히 1개**일 때만 카테고리별 조회. **MVP(`/bff/home/mvp`)는 항상
+  전체 카테고리** — 프론트가 카테고리를 넘기지 않는다. 웹은 로그인 유저의 저장값을 RSC 프리페치(`bff-home-server.ts`)가 먼저 읽어
+  첫 피드를 그 카테고리로 받아와 "전체→필터" 플리커를 없앤다.
 
 ## 길드 활동 포인트 (LUT-483)
 
@@ -537,9 +587,9 @@ uk 멱등) — 쪼개서 수행해도 몰아서 한 것과 같은 점수. "하�
   (`don't flush the Session after an exception occurs`) 트랜잭션이 rollback-only 가 되고, 중복을 잡아 재조회해도
   커밋 시 `UnexpectedRollbackException` → 요청 전체가 500 이 된다. 내부 빈에서 예외를 삼키지도 말 것(같은 이유).
   내부 트랜잭션이 반환한 엔티티는 detached 라 이후 `setXxx` 가 flush 되지 않으므로 **반환값을 쓰지 말고 재조회**한다.
-  ⚠️ `AttendanceService.checkIn` · `GuildPointService.findOrCreateDaily` · `UserItemService.grantItem` ·
-  `NotificationService`(dedup) · `CreateNextPinnedInstanceStep` 은 아직 구 패턴(동일 트랜잭션 흡수)이라 동시 요청 시
-  같은 방식으로 실패할 수 있다 — 손댈 때 위 구조로 전환할 것.
+  LUT-539 로 `AttendanceRecordCreator` · `GuildMemberDailyPointCreator` · `UserItemCreator` · `NotificationCreator`(dedup) ·
+  `DailyMissionInstanceCreator`(`CreateNextPinnedInstanceStep`) 까지 전부 이 구조로 전환됐다 — 새 "없으면 생성" 지점은 같은
+  `*Creator` 빈 패턴을 따를 것. 트레이드오프: 내부 트랜잭션이 먼저 커밋되므로 호출자가 그 뒤에 실패하면 생성된 행은 남는다(빈 행·멱등 행만 둘 것).
 
 ## Image Moderation & Storage
 

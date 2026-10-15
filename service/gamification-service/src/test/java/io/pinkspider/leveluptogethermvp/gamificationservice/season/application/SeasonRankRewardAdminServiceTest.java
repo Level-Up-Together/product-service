@@ -7,9 +7,9 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import io.pinkspider.global.exception.CustomException;
 import io.pinkspider.global.enums.TitlePosition;
 import io.pinkspider.global.enums.TitleRarity;
+import io.pinkspider.global.exception.CustomException;
 import io.pinkspider.leveluptogethermvp.gamificationservice.domain.entity.Title;
 import io.pinkspider.leveluptogethermvp.gamificationservice.domain.enums.TitleAcquisitionType;
 import io.pinkspider.leveluptogethermvp.gamificationservice.infrastructure.TitleRepository;
@@ -46,20 +46,15 @@ import org.springframework.data.domain.PageRequest;
 @DisplayName("SeasonRankRewardAdminService 테스트")
 class SeasonRankRewardAdminServiceTest {
 
-    @Mock
-    private SeasonRepository seasonRepository;
+    @Mock private SeasonRepository seasonRepository;
 
-    @Mock
-    private SeasonRankRewardRepository rankRewardRepository;
+    @Mock private SeasonRankRewardRepository rankRewardRepository;
 
-    @Mock
-    private SeasonRewardHistoryRepository rewardHistoryRepository;
+    @Mock private SeasonRewardHistoryRepository rewardHistoryRepository;
 
-    @Mock
-    private TitleRepository titleRepository;
+    @Mock private TitleRepository titleRepository;
 
-    @InjectMocks
-    private SeasonRankRewardAdminService seasonRankRewardAdminService;
+    @InjectMocks private SeasonRankRewardAdminService seasonRankRewardAdminService;
 
     private Season testSeason;
     private Title testTitle;
@@ -67,34 +62,37 @@ class SeasonRankRewardAdminServiceTest {
 
     @BeforeEach
     void setUp() throws Exception {
-        testSeason = Season.builder()
-            .title("테스트 시즌")
-            .description("설명")
-            .startAt(LocalDateTime.now().minusDays(30))
-            .endAt(LocalDateTime.now().plusDays(30))
-            .isActive(true)
-            .build();
+        testSeason =
+                Season.builder()
+                        .title("테스트 시즌")
+                        .description("설명")
+                        .startAt(LocalDateTime.now().minusDays(30))
+                        .endAt(LocalDateTime.now().plusDays(30))
+                        .isActive(true)
+                        .build();
         setId(testSeason, 1L);
 
-        testTitle = Title.builder()
-            .name("챔피언")
-            .rarity(TitleRarity.LEGENDARY)
-            .positionType(TitlePosition.RIGHT)
-            .acquisitionType(TitleAcquisitionType.SEASON)
-            .isActive(true)
-            .build();
+        testTitle =
+                Title.builder()
+                        .name("챔피언")
+                        .rarity(TitleRarity.LEGENDARY)
+                        .positionType(TitlePosition.RIGHT)
+                        .acquisitionType(TitleAcquisitionType.SEASON)
+                        .isActive(true)
+                        .build();
         setId(testTitle, 100L);
 
-        testReward = SeasonRankReward.builder()
-            .season(testSeason)
-            .rankStart(1)
-            .rankEnd(1)
-            .titleId(100L)
-            .titleName("챔피언")
-            .titleRarity("LEGENDARY")
-            .sortOrder(1)
-            .isActive(true)
-            .build();
+        testReward =
+                SeasonRankReward.builder()
+                        .season(testSeason)
+                        .rankStart(1)
+                        .rankEnd(1)
+                        .titleId(100L)
+                        .titleName("챔피언")
+                        .titleRarity("LEGENDARY")
+                        .sortOrder(1)
+                        .isActive(true)
+                        .build();
         setId(testReward, 1L);
     }
 
@@ -107,12 +105,12 @@ class SeasonRankRewardAdminServiceTest {
         void getSeasonRankRewards_success() {
             // given
             when(rankRewardRepository.findBySeasonIdOrderBySortOrder(1L))
-                .thenReturn(List.of(testReward));
-            when(titleRepository.findAllById(List.of(100L)))
-                .thenReturn(List.of(testTitle));
+                    .thenReturn(List.of(testReward));
+            when(titleRepository.findAllById(List.of(100L))).thenReturn(List.of(testTitle));
 
             // when
-            List<SeasonRankRewardAdminResponse> result = seasonRankRewardAdminService.getSeasonRankRewards(1L);
+            List<SeasonRankRewardAdminResponse> result =
+                    seasonRankRewardAdminService.getSeasonRankRewards(1L);
 
             // then
             assertThat(result).hasSize(1);
@@ -126,13 +124,12 @@ class SeasonRankRewardAdminServiceTest {
         @DisplayName("보상이 없으면 빈 목록을 반환한다")
         void getSeasonRankRewards_empty() {
             // given
-            when(rankRewardRepository.findBySeasonIdOrderBySortOrder(1L))
-                .thenReturn(List.of());
-            when(titleRepository.findAllById(List.of()))
-                .thenReturn(List.of());
+            when(rankRewardRepository.findBySeasonIdOrderBySortOrder(1L)).thenReturn(List.of());
+            when(titleRepository.findAllById(List.of())).thenReturn(List.of());
 
             // when
-            List<SeasonRankRewardAdminResponse> result = seasonRankRewardAdminService.getSeasonRankRewards(1L);
+            List<SeasonRankRewardAdminResponse> result =
+                    seasonRankRewardAdminService.getSeasonRankRewards(1L);
 
             // then
             assertThat(result).isEmpty();
@@ -143,16 +140,16 @@ class SeasonRankRewardAdminServiceTest {
         void getSeasonRankRewards_withMissingTitle() {
             // given
             when(rankRewardRepository.findBySeasonIdOrderBySortOrder(1L))
-                .thenReturn(List.of(testReward));
-            when(titleRepository.findAllById(List.of(100L)))
-                .thenReturn(List.of());  // 칭호가 DB에 없는 경우
+                    .thenReturn(List.of(testReward));
+            when(titleRepository.findAllById(List.of(100L))).thenReturn(List.of()); // 칭호가 DB에 없는 경우
 
             // when
-            List<SeasonRankRewardAdminResponse> result = seasonRankRewardAdminService.getSeasonRankRewards(1L);
+            List<SeasonRankRewardAdminResponse> result =
+                    seasonRankRewardAdminService.getSeasonRankRewards(1L);
 
             // then
             assertThat(result).hasSize(1);
-            assertThat(result.get(0).titleRarity()).isNull();  // 칭호 없으면 null
+            assertThat(result.get(0).titleRarity()).isNull(); // 칭호 없으면 null
         }
     }
 
@@ -164,16 +161,30 @@ class SeasonRankRewardAdminServiceTest {
         @DisplayName("기존 칭호로 순위 보상을 생성한다")
         void createRankReward_withExistingTitle_success() {
             // given
-            CreateSeasonRankRewardAdminRequest request = new CreateSeasonRankRewardAdminRequest(
-                1, 1, null, null, 100L, "챔피언", null, null, null, TitleRarity.LEGENDARY, TitlePosition.RIGHT, null, 1
-            );
+            CreateSeasonRankRewardAdminRequest request =
+                    new CreateSeasonRankRewardAdminRequest(
+                            1,
+                            1,
+                            null,
+                            null,
+                            100L,
+                            "챔피언",
+                            null,
+                            null,
+                            null,
+                            TitleRarity.LEGENDARY,
+                            TitlePosition.RIGHT,
+                            null,
+                            1);
             when(seasonRepository.findById(1L)).thenReturn(Optional.of(testSeason));
-            when(rankRewardRepository.existsOverlappingRangeWithNullCategory(1L, 1, 1, 0L)).thenReturn(false);
+            when(rankRewardRepository.existsOverlappingRangeWithNullCategory(1L, 1, 1, 0L))
+                    .thenReturn(false);
             when(titleRepository.findById(100L)).thenReturn(Optional.of(testTitle));
             when(rankRewardRepository.save(any(SeasonRankReward.class))).thenReturn(testReward);
 
             // when
-            SeasonRankRewardAdminResponse result = seasonRankRewardAdminService.createRankReward(1L, request);
+            SeasonRankRewardAdminResponse result =
+                    seasonRankRewardAdminService.createRankReward(1L, request);
 
             // then
             assertThat(result).isNotNull();
@@ -186,11 +197,24 @@ class SeasonRankRewardAdminServiceTest {
         @DisplayName("기존 칭호 참조 시 칭호 속성을 수정하지 않는다 (LUT-420)")
         void createRankReward_withExistingTitle_doesNotModifyTitle() {
             // given — titleId 지정 + 다른 이름/등급을 보내도 기존 칭호는 그대로여야 한다
-            CreateSeasonRankRewardAdminRequest request = new CreateSeasonRankRewardAdminRequest(
-                1, 1, null, null, 100L, "새 챔피언", null, null, null, TitleRarity.MYTHIC, TitlePosition.LEFT, null, 1
-            );
+            CreateSeasonRankRewardAdminRequest request =
+                    new CreateSeasonRankRewardAdminRequest(
+                            1,
+                            1,
+                            null,
+                            null,
+                            100L,
+                            "새 챔피언",
+                            null,
+                            null,
+                            null,
+                            TitleRarity.MYTHIC,
+                            TitlePosition.LEFT,
+                            null,
+                            1);
             when(seasonRepository.findById(1L)).thenReturn(Optional.of(testSeason));
-            when(rankRewardRepository.existsOverlappingRangeWithNullCategory(1L, 1, 1, 0L)).thenReturn(false);
+            when(rankRewardRepository.existsOverlappingRangeWithNullCategory(1L, 1, 1, 0L))
+                    .thenReturn(false);
             when(titleRepository.findById(100L)).thenReturn(Optional.of(testTitle));
             when(rankRewardRepository.save(any(SeasonRankReward.class))).thenReturn(testReward);
 
@@ -208,17 +232,30 @@ class SeasonRankRewardAdminServiceTest {
         @DisplayName("기존 칭호가 없으면 예외를 던진다")
         void createRankReward_titleNotFound() {
             // given
-            CreateSeasonRankRewardAdminRequest request = new CreateSeasonRankRewardAdminRequest(
-                1, 1, null, null, 999L, "챔피언", null, null, null, TitleRarity.LEGENDARY, TitlePosition.RIGHT, null, 1
-            );
+            CreateSeasonRankRewardAdminRequest request =
+                    new CreateSeasonRankRewardAdminRequest(
+                            1,
+                            1,
+                            null,
+                            null,
+                            999L,
+                            "챔피언",
+                            null,
+                            null,
+                            null,
+                            TitleRarity.LEGENDARY,
+                            TitlePosition.RIGHT,
+                            null,
+                            1);
             when(seasonRepository.findById(1L)).thenReturn(Optional.of(testSeason));
-            when(rankRewardRepository.existsOverlappingRangeWithNullCategory(1L, 1, 1, 0L)).thenReturn(false);
+            when(rankRewardRepository.existsOverlappingRangeWithNullCategory(1L, 1, 1, 0L))
+                    .thenReturn(false);
             when(titleRepository.findById(999L)).thenReturn(Optional.empty());
 
             // when & then
             assertThatThrownBy(() -> seasonRankRewardAdminService.createRankReward(1L, request))
-                .isInstanceOf(CustomException.class)
-                .hasMessageContaining("error.title.not_found");
+                    .isInstanceOf(CustomException.class)
+                    .hasMessageContaining("error.title.not_found");
         }
     }
 
@@ -230,25 +267,40 @@ class SeasonRankRewardAdminServiceTest {
         @DisplayName("새 칭호를 생성하며 순위 보상을 생성한다")
         void createRankReward_withNewTitle_success() {
             // given
-            CreateSeasonRankRewardAdminRequest request = new CreateSeasonRankRewardAdminRequest(
-                1, 3, null, null, null, "새 칭호", null, null, null, TitleRarity.EPIC, TitlePosition.RIGHT, null, 1
-            );
-            Title savedTitle = Title.builder()
-                .name("새 칭호")
-                .rarity(TitleRarity.EPIC)
-                .positionType(TitlePosition.RIGHT)
-                .acquisitionType(TitleAcquisitionType.SEASON)
-                .isActive(true)
-                .build();
+            CreateSeasonRankRewardAdminRequest request =
+                    new CreateSeasonRankRewardAdminRequest(
+                            1,
+                            3,
+                            null,
+                            null,
+                            null,
+                            "새 칭호",
+                            null,
+                            null,
+                            null,
+                            TitleRarity.EPIC,
+                            TitlePosition.RIGHT,
+                            null,
+                            1);
+            Title savedTitle =
+                    Title.builder()
+                            .name("새 칭호")
+                            .rarity(TitleRarity.EPIC)
+                            .positionType(TitlePosition.RIGHT)
+                            .acquisitionType(TitleAcquisitionType.SEASON)
+                            .isActive(true)
+                            .build();
             setId(savedTitle, 200L);
 
             when(seasonRepository.findById(1L)).thenReturn(Optional.of(testSeason));
-            when(rankRewardRepository.existsOverlappingRangeWithNullCategory(1L, 1, 3, 0L)).thenReturn(false);
+            when(rankRewardRepository.existsOverlappingRangeWithNullCategory(1L, 1, 3, 0L))
+                    .thenReturn(false);
             when(titleRepository.save(any(Title.class))).thenReturn(savedTitle);
             when(rankRewardRepository.save(any(SeasonRankReward.class))).thenReturn(testReward);
 
             // when
-            SeasonRankRewardAdminResponse result = seasonRankRewardAdminService.createRankReward(1L, request);
+            SeasonRankRewardAdminResponse result =
+                    seasonRankRewardAdminService.createRankReward(1L, request);
 
             // then
             assertThat(result).isNotNull();
@@ -260,21 +312,34 @@ class SeasonRankRewardAdminServiceTest {
         @DisplayName("새 칭호 생성 시 다국어 칭호명(en/ar/ja)이 저장된다 (LUT-420)")
         void createRankReward_withNewTitle_savesLocalizedNames() {
             // given
-            CreateSeasonRankRewardAdminRequest request = new CreateSeasonRankRewardAdminRequest(
-                1, 3, null, null, null, "시즌 챔피언", "Season Champion", "بطل الموسم", "シーズンチャンピオン",
-                TitleRarity.EPIC, TitlePosition.RIGHT, null, 1
-            );
-            Title savedTitle = Title.builder()
-                .name("시즌 챔피언")
-                .rarity(TitleRarity.EPIC)
-                .positionType(TitlePosition.RIGHT)
-                .acquisitionType(TitleAcquisitionType.SEASON)
-                .isActive(true)
-                .build();
+            CreateSeasonRankRewardAdminRequest request =
+                    new CreateSeasonRankRewardAdminRequest(
+                            1,
+                            3,
+                            null,
+                            null,
+                            null,
+                            "시즌 챔피언",
+                            "Season Champion",
+                            "بطل الموسم",
+                            "シーズンチャンピオン",
+                            TitleRarity.EPIC,
+                            TitlePosition.RIGHT,
+                            null,
+                            1);
+            Title savedTitle =
+                    Title.builder()
+                            .name("시즌 챔피언")
+                            .rarity(TitleRarity.EPIC)
+                            .positionType(TitlePosition.RIGHT)
+                            .acquisitionType(TitleAcquisitionType.SEASON)
+                            .isActive(true)
+                            .build();
             setId(savedTitle, 200L);
 
             when(seasonRepository.findById(1L)).thenReturn(Optional.of(testSeason));
-            when(rankRewardRepository.existsOverlappingRangeWithNullCategory(1L, 1, 3, 0L)).thenReturn(false);
+            when(rankRewardRepository.existsOverlappingRangeWithNullCategory(1L, 1, 3, 0L))
+                    .thenReturn(false);
             when(titleRepository.save(any(Title.class))).thenReturn(savedTitle);
             when(rankRewardRepository.save(any(SeasonRankReward.class))).thenReturn(testReward);
 
@@ -294,37 +359,64 @@ class SeasonRankRewardAdminServiceTest {
         @DisplayName("새 칭호 생성 모드에서 칭호명이 없으면 예외를 던진다 (LUT-420)")
         void createRankReward_withNewTitle_missingName_throws() {
             // given — titleId 도 titleName 도 없는 요청
-            CreateSeasonRankRewardAdminRequest request = new CreateSeasonRankRewardAdminRequest(
-                1, 3, null, null, null, " ", null, null, null, TitleRarity.EPIC, TitlePosition.RIGHT, null, 1
-            );
+            CreateSeasonRankRewardAdminRequest request =
+                    new CreateSeasonRankRewardAdminRequest(
+                            1,
+                            3,
+                            null,
+                            null,
+                            null,
+                            " ",
+                            null,
+                            null,
+                            null,
+                            TitleRarity.EPIC,
+                            TitlePosition.RIGHT,
+                            null,
+                            1);
             when(seasonRepository.findById(1L)).thenReturn(Optional.of(testSeason));
-            when(rankRewardRepository.existsOverlappingRangeWithNullCategory(1L, 1, 3, 0L)).thenReturn(false);
+            when(rankRewardRepository.existsOverlappingRangeWithNullCategory(1L, 1, 3, 0L))
+                    .thenReturn(false);
 
             // when & then
             assertThatThrownBy(() -> seasonRankRewardAdminService.createRankReward(1L, request))
-                .isInstanceOf(CustomException.class)
-                .hasMessageContaining("error.season.reward.title_required");
+                    .isInstanceOf(CustomException.class)
+                    .hasMessageContaining("error.season.reward.title_required");
         }
 
         @Test
         @DisplayName("카테고리명이 있으면 획득 조건에 포함된다")
         void createRankReward_withCategory_buildCondition() {
             // given
-            CreateSeasonRankRewardAdminRequest request = new CreateSeasonRankRewardAdminRequest(
-                1, 1, 1L, "운동", null, "운동 챔피언", null, null, null, TitleRarity.LEGENDARY, TitlePosition.RIGHT, null, 1
-            );
-            Title savedTitle = Title.builder()
-                .name("운동 챔피언")
-                .rarity(TitleRarity.LEGENDARY)
-                .positionType(TitlePosition.RIGHT)
-                .acquisitionType(TitleAcquisitionType.SEASON)
-                .acquisitionCondition("테스트 시즌 운동 랭킹 1위")
-                .isActive(true)
-                .build();
+            CreateSeasonRankRewardAdminRequest request =
+                    new CreateSeasonRankRewardAdminRequest(
+                            1,
+                            1,
+                            1L,
+                            "운동",
+                            null,
+                            "운동 챔피언",
+                            null,
+                            null,
+                            null,
+                            TitleRarity.LEGENDARY,
+                            TitlePosition.RIGHT,
+                            null,
+                            1);
+            Title savedTitle =
+                    Title.builder()
+                            .name("운동 챔피언")
+                            .rarity(TitleRarity.LEGENDARY)
+                            .positionType(TitlePosition.RIGHT)
+                            .acquisitionType(TitleAcquisitionType.SEASON)
+                            .acquisitionCondition("테스트 시즌 운동 랭킹 1위")
+                            .isActive(true)
+                            .build();
             setId(savedTitle, 201L);
 
             when(seasonRepository.findById(1L)).thenReturn(Optional.of(testSeason));
-            when(rankRewardRepository.existsOverlappingRangeWithCategoryId(1L, 1L, 1, 1, 0L)).thenReturn(false);
+            when(rankRewardRepository.existsOverlappingRangeWithCategoryId(1L, 1L, 1, 1, 0L))
+                    .thenReturn(false);
             when(titleRepository.save(any(Title.class))).thenReturn(savedTitle);
             when(rankRewardRepository.save(any(SeasonRankReward.class))).thenReturn(testReward);
 
@@ -344,46 +436,83 @@ class SeasonRankRewardAdminServiceTest {
         @DisplayName("시즌이 없으면 예외를 던진다")
         void createRankReward_seasonNotFound() {
             // given
-            CreateSeasonRankRewardAdminRequest request = new CreateSeasonRankRewardAdminRequest(
-                1, 1, null, null, 100L, "챔피언", null, null, null, TitleRarity.LEGENDARY, TitlePosition.RIGHT, null, 1
-            );
+            CreateSeasonRankRewardAdminRequest request =
+                    new CreateSeasonRankRewardAdminRequest(
+                            1,
+                            1,
+                            null,
+                            null,
+                            100L,
+                            "챔피언",
+                            null,
+                            null,
+                            null,
+                            TitleRarity.LEGENDARY,
+                            TitlePosition.RIGHT,
+                            null,
+                            1);
             when(seasonRepository.findById(99L)).thenReturn(Optional.empty());
 
             // when & then
             assertThatThrownBy(() -> seasonRankRewardAdminService.createRankReward(99L, request))
-                .isInstanceOf(CustomException.class)
-                .hasMessageContaining("error.season.not_found");
+                    .isInstanceOf(CustomException.class)
+                    .hasMessageContaining("error.season.not_found");
         }
 
         @Test
         @DisplayName("시작 순위가 종료 순위보다 크면 예외를 던진다")
         void createRankReward_invalidRankRange() {
             // given
-            CreateSeasonRankRewardAdminRequest request = new CreateSeasonRankRewardAdminRequest(
-                10, 1, null, null, 100L, "챔피언", null, null, null, TitleRarity.LEGENDARY, TitlePosition.RIGHT, null, 1
-            );
+            CreateSeasonRankRewardAdminRequest request =
+                    new CreateSeasonRankRewardAdminRequest(
+                            10,
+                            1,
+                            null,
+                            null,
+                            100L,
+                            "챔피언",
+                            null,
+                            null,
+                            null,
+                            TitleRarity.LEGENDARY,
+                            TitlePosition.RIGHT,
+                            null,
+                            1);
             when(seasonRepository.findById(1L)).thenReturn(Optional.of(testSeason));
 
             // when & then
             assertThatThrownBy(() -> seasonRankRewardAdminService.createRankReward(1L, request))
-                .isInstanceOf(CustomException.class)
-                .hasMessageContaining("error.season.rank.invalid_range");
+                    .isInstanceOf(CustomException.class)
+                    .hasMessageContaining("error.season.rank.invalid_range");
         }
 
         @Test
         @DisplayName("순위 구간이 겹치면 예외를 던진다")
         void createRankReward_overlappingRankRange() {
             // given
-            CreateSeasonRankRewardAdminRequest request = new CreateSeasonRankRewardAdminRequest(
-                1, 5, null, null, 100L, "챔피언", null, null, null, TitleRarity.LEGENDARY, TitlePosition.RIGHT, null, 1
-            );
+            CreateSeasonRankRewardAdminRequest request =
+                    new CreateSeasonRankRewardAdminRequest(
+                            1,
+                            5,
+                            null,
+                            null,
+                            100L,
+                            "챔피언",
+                            null,
+                            null,
+                            null,
+                            TitleRarity.LEGENDARY,
+                            TitlePosition.RIGHT,
+                            null,
+                            1);
             when(seasonRepository.findById(1L)).thenReturn(Optional.of(testSeason));
-            when(rankRewardRepository.existsOverlappingRangeWithNullCategory(1L, 1, 5, 0L)).thenReturn(true);
+            when(rankRewardRepository.existsOverlappingRangeWithNullCategory(1L, 1, 5, 0L))
+                    .thenReturn(true);
 
             // when & then
             assertThatThrownBy(() -> seasonRankRewardAdminService.createRankReward(1L, request))
-                .isInstanceOf(CustomException.class)
-                .hasMessageContaining("error.season.rank.overlap");
+                    .isInstanceOf(CustomException.class)
+                    .hasMessageContaining("error.season.rank.overlap");
         }
     }
 
@@ -395,109 +524,227 @@ class SeasonRankRewardAdminServiceTest {
         @DisplayName("벌크로 순위 보상을 생성한다")
         void createBulkRankRewards_success() throws Exception {
             // given
-            CreateSeasonRankRewardAdminRequest request1 = new CreateSeasonRankRewardAdminRequest(
-                1, 1, null, null, null, "1위 칭호", null, null, null, TitleRarity.LEGENDARY, TitlePosition.RIGHT, null, 1
-            );
-            CreateSeasonRankRewardAdminRequest request2 = new CreateSeasonRankRewardAdminRequest(
-                2, 5, null, null, null, "2-5위 칭호", null, null, null, TitleRarity.EPIC, TitlePosition.RIGHT, null, 2
-            );
+            CreateSeasonRankRewardAdminRequest request1 =
+                    new CreateSeasonRankRewardAdminRequest(
+                            1,
+                            1,
+                            null,
+                            null,
+                            null,
+                            "1위 칭호",
+                            null,
+                            null,
+                            null,
+                            TitleRarity.LEGENDARY,
+                            TitlePosition.RIGHT,
+                            null,
+                            1);
+            CreateSeasonRankRewardAdminRequest request2 =
+                    new CreateSeasonRankRewardAdminRequest(
+                            2,
+                            5,
+                            null,
+                            null,
+                            null,
+                            "2-5위 칭호",
+                            null,
+                            null,
+                            null,
+                            TitleRarity.EPIC,
+                            TitlePosition.RIGHT,
+                            null,
+                            2);
 
-            Title savedTitle1 = Title.builder()
-                .name("1위 칭호").rarity(TitleRarity.LEGENDARY).positionType(TitlePosition.RIGHT)
-                .acquisitionType(TitleAcquisitionType.SEASON).isActive(true).build();
+            Title savedTitle1 =
+                    Title.builder()
+                            .name("1위 칭호")
+                            .rarity(TitleRarity.LEGENDARY)
+                            .positionType(TitlePosition.RIGHT)
+                            .acquisitionType(TitleAcquisitionType.SEASON)
+                            .isActive(true)
+                            .build();
             setId(savedTitle1, 201L);
 
-            Title savedTitle2 = Title.builder()
-                .name("2-5위 칭호").rarity(TitleRarity.EPIC).positionType(TitlePosition.RIGHT)
-                .acquisitionType(TitleAcquisitionType.SEASON).isActive(true).build();
+            Title savedTitle2 =
+                    Title.builder()
+                            .name("2-5위 칭호")
+                            .rarity(TitleRarity.EPIC)
+                            .positionType(TitlePosition.RIGHT)
+                            .acquisitionType(TitleAcquisitionType.SEASON)
+                            .isActive(true)
+                            .build();
             setId(savedTitle2, 202L);
 
-            SeasonRankReward savedReward1 = SeasonRankReward.builder()
-                .season(testSeason).rankStart(1).rankEnd(1).titleId(201L)
-                .titleName("1위 칭호").sortOrder(1).isActive(true).build();
+            SeasonRankReward savedReward1 =
+                    SeasonRankReward.builder()
+                            .season(testSeason)
+                            .rankStart(1)
+                            .rankEnd(1)
+                            .titleId(201L)
+                            .titleName("1위 칭호")
+                            .sortOrder(1)
+                            .isActive(true)
+                            .build();
             setId(savedReward1, 10L);
 
-            SeasonRankReward savedReward2 = SeasonRankReward.builder()
-                .season(testSeason).rankStart(2).rankEnd(5).titleId(202L)
-                .titleName("2-5위 칭호").sortOrder(2).isActive(true).build();
+            SeasonRankReward savedReward2 =
+                    SeasonRankReward.builder()
+                            .season(testSeason)
+                            .rankStart(2)
+                            .rankEnd(5)
+                            .titleId(202L)
+                            .titleName("2-5위 칭호")
+                            .sortOrder(2)
+                            .isActive(true)
+                            .build();
             setId(savedReward2, 11L);
 
             when(seasonRepository.findById(1L)).thenReturn(Optional.of(testSeason));
-            when(rankRewardRepository.existsOverlappingRangeWithNullCategory(1L, 1, 1, 0L)).thenReturn(false);
-            when(rankRewardRepository.existsOverlappingRangeWithNullCategory(1L, 2, 5, 0L)).thenReturn(false);
-            when(titleRepository.save(any(Title.class))).thenReturn(savedTitle1).thenReturn(savedTitle2);
-            when(rankRewardRepository.save(any(SeasonRankReward.class))).thenReturn(savedReward1).thenReturn(savedReward2);
+            when(rankRewardRepository.existsOverlappingRangeWithNullCategory(1L, 1, 1, 0L))
+                    .thenReturn(false);
+            when(rankRewardRepository.existsOverlappingRangeWithNullCategory(1L, 2, 5, 0L))
+                    .thenReturn(false);
+            when(titleRepository.save(any(Title.class)))
+                    .thenReturn(savedTitle1)
+                    .thenReturn(savedTitle2);
+            when(rankRewardRepository.save(any(SeasonRankReward.class)))
+                    .thenReturn(savedReward1)
+                    .thenReturn(savedReward2);
 
             // when
-            List<SeasonRankRewardAdminResponse> result = seasonRankRewardAdminService.createBulkRankRewards(
-                1L, List.of(request1, request2));
+            List<SeasonRankRewardAdminResponse> result =
+                    seasonRankRewardAdminService.createBulkRankRewards(
+                            1L, List.of(request1, request2));
 
             // then
             assertThat(result).hasSize(2);
             verify(titleRepository, org.mockito.Mockito.times(2)).save(any(Title.class));
-            verify(rankRewardRepository, org.mockito.Mockito.times(2)).save(any(SeasonRankReward.class));
+            verify(rankRewardRepository, org.mockito.Mockito.times(2))
+                    .save(any(SeasonRankReward.class));
         }
 
         @Test
         @DisplayName("시즌이 없으면 예외를 던진다")
         void createBulkRankRewards_seasonNotFound() {
             // given
-            CreateSeasonRankRewardAdminRequest request = new CreateSeasonRankRewardAdminRequest(
-                1, 1, null, null, null, "칭호", null, null, null, TitleRarity.LEGENDARY, TitlePosition.RIGHT, null, 1
-            );
+            CreateSeasonRankRewardAdminRequest request =
+                    new CreateSeasonRankRewardAdminRequest(
+                            1,
+                            1,
+                            null,
+                            null,
+                            null,
+                            "칭호",
+                            null,
+                            null,
+                            null,
+                            TitleRarity.LEGENDARY,
+                            TitlePosition.RIGHT,
+                            null,
+                            1);
             when(seasonRepository.findById(99L)).thenReturn(Optional.empty());
 
             // when & then
-            assertThatThrownBy(() -> seasonRankRewardAdminService.createBulkRankRewards(99L, List.of(request)))
-                .isInstanceOf(CustomException.class)
-                .hasMessageContaining("error.season.not_found");
+            assertThatThrownBy(
+                            () ->
+                                    seasonRankRewardAdminService.createBulkRankRewards(
+                                            99L, List.of(request)))
+                    .isInstanceOf(CustomException.class)
+                    .hasMessageContaining("error.season.not_found");
         }
 
         @Test
         @DisplayName("벌크 생성 시 시작 순위가 종료 순위보다 크면 예외를 던진다")
         void createBulkRankRewards_invalidRankRange() {
             // given
-            CreateSeasonRankRewardAdminRequest request = new CreateSeasonRankRewardAdminRequest(
-                10, 1, null, null, null, "칭호", null, null, null, TitleRarity.LEGENDARY, TitlePosition.RIGHT, null, 1
-            );
+            CreateSeasonRankRewardAdminRequest request =
+                    new CreateSeasonRankRewardAdminRequest(
+                            10,
+                            1,
+                            null,
+                            null,
+                            null,
+                            "칭호",
+                            null,
+                            null,
+                            null,
+                            TitleRarity.LEGENDARY,
+                            TitlePosition.RIGHT,
+                            null,
+                            1);
             when(seasonRepository.findById(1L)).thenReturn(Optional.of(testSeason));
 
             // when & then
-            assertThatThrownBy(() -> seasonRankRewardAdminService.createBulkRankRewards(1L, List.of(request)))
-                .isInstanceOf(CustomException.class)
-                .hasMessageContaining("error.season.rank.invalid_range");
+            assertThatThrownBy(
+                            () ->
+                                    seasonRankRewardAdminService.createBulkRankRewards(
+                                            1L, List.of(request)))
+                    .isInstanceOf(CustomException.class)
+                    .hasMessageContaining("error.season.rank.invalid_range");
         }
 
         @Test
         @DisplayName("벌크 생성 시 순위 구간이 겹치면 예외를 던진다")
         void createBulkRankRewards_overlappingRankRange() {
             // given
-            CreateSeasonRankRewardAdminRequest request = new CreateSeasonRankRewardAdminRequest(
-                1, 5, null, null, null, "칭호", null, null, null, TitleRarity.LEGENDARY, TitlePosition.RIGHT, null, 1
-            );
+            CreateSeasonRankRewardAdminRequest request =
+                    new CreateSeasonRankRewardAdminRequest(
+                            1,
+                            5,
+                            null,
+                            null,
+                            null,
+                            "칭호",
+                            null,
+                            null,
+                            null,
+                            TitleRarity.LEGENDARY,
+                            TitlePosition.RIGHT,
+                            null,
+                            1);
             when(seasonRepository.findById(1L)).thenReturn(Optional.of(testSeason));
-            when(rankRewardRepository.existsOverlappingRangeWithNullCategory(1L, 1, 5, 0L)).thenReturn(true);
+            when(rankRewardRepository.existsOverlappingRangeWithNullCategory(1L, 1, 5, 0L))
+                    .thenReturn(true);
 
             // when & then
-            assertThatThrownBy(() -> seasonRankRewardAdminService.createBulkRankRewards(1L, List.of(request)))
-                .isInstanceOf(CustomException.class)
-                .hasMessageContaining("error.season.rank.overlap");
+            assertThatThrownBy(
+                            () ->
+                                    seasonRankRewardAdminService.createBulkRankRewards(
+                                            1L, List.of(request)))
+                    .isInstanceOf(CustomException.class)
+                    .hasMessageContaining("error.season.rank.overlap");
         }
 
         @Test
         @DisplayName("카테고리명이 null이면 오류 메시지에 '전체'로 표시한다")
         void createBulkRankRewards_nullCategoryNameUsesDefault() {
             // given
-            CreateSeasonRankRewardAdminRequest request = new CreateSeasonRankRewardAdminRequest(
-                1, 5, 1L, null, null, "칭호", null, null, null, TitleRarity.LEGENDARY, TitlePosition.RIGHT, null, 1
-            );
+            CreateSeasonRankRewardAdminRequest request =
+                    new CreateSeasonRankRewardAdminRequest(
+                            1,
+                            5,
+                            1L,
+                            null,
+                            null,
+                            "칭호",
+                            null,
+                            null,
+                            null,
+                            TitleRarity.LEGENDARY,
+                            TitlePosition.RIGHT,
+                            null,
+                            1);
             when(seasonRepository.findById(1L)).thenReturn(Optional.of(testSeason));
-            when(rankRewardRepository.existsOverlappingRangeWithCategoryId(1L, 1L, 1, 5, 0L)).thenReturn(true);
+            when(rankRewardRepository.existsOverlappingRangeWithCategoryId(1L, 1L, 1, 5, 0L))
+                    .thenReturn(true);
 
             // when & then
-            assertThatThrownBy(() -> seasonRankRewardAdminService.createBulkRankRewards(1L, List.of(request)))
-                .isInstanceOf(CustomException.class)
-                .hasMessageContaining("error.season.rank.overlap");
+            assertThatThrownBy(
+                            () ->
+                                    seasonRankRewardAdminService.createBulkRankRewards(
+                                            1L, List.of(request)))
+                    .isInstanceOf(CustomException.class)
+                    .hasMessageContaining("error.season.rank.overlap");
         }
     }
 
@@ -509,15 +756,29 @@ class SeasonRankRewardAdminServiceTest {
         @DisplayName("순위 보상을 수정한다")
         void updateRankReward_success() {
             // given
-            UpdateSeasonRankRewardAdminRequest request = new UpdateSeasonRankRewardAdminRequest(
-                1, 3, null, null, 100L, "업데이트 챔피언", null, null, null, TitleRarity.MYTHIC, TitlePosition.RIGHT, null, 2
-            );
+            UpdateSeasonRankRewardAdminRequest request =
+                    new UpdateSeasonRankRewardAdminRequest(
+                            1,
+                            3,
+                            null,
+                            null,
+                            100L,
+                            "업데이트 챔피언",
+                            null,
+                            null,
+                            null,
+                            TitleRarity.MYTHIC,
+                            TitlePosition.RIGHT,
+                            null,
+                            2);
             when(rankRewardRepository.findById(1L)).thenReturn(Optional.of(testReward));
-            when(rankRewardRepository.existsOverlappingRangeWithNullCategory(1L, 1, 3, 1L)).thenReturn(false);
+            when(rankRewardRepository.existsOverlappingRangeWithNullCategory(1L, 1, 3, 1L))
+                    .thenReturn(false);
             when(titleRepository.findById(100L)).thenReturn(Optional.of(testTitle));
 
             // when
-            SeasonRankRewardAdminResponse result = seasonRankRewardAdminService.updateRankReward(1L, request);
+            SeasonRankRewardAdminResponse result =
+                    seasonRankRewardAdminService.updateRankReward(1L, request);
 
             // then
             assertThat(result).isNotNull();
@@ -529,85 +790,148 @@ class SeasonRankRewardAdminServiceTest {
         @DisplayName("보상이 없으면 예외를 던진다")
         void updateRankReward_notFound() {
             // given
-            UpdateSeasonRankRewardAdminRequest request = new UpdateSeasonRankRewardAdminRequest(
-                1, 3, null, null, 100L, "챔피언", null, null, null, TitleRarity.LEGENDARY, TitlePosition.RIGHT, null, 1
-            );
+            UpdateSeasonRankRewardAdminRequest request =
+                    new UpdateSeasonRankRewardAdminRequest(
+                            1,
+                            3,
+                            null,
+                            null,
+                            100L,
+                            "챔피언",
+                            null,
+                            null,
+                            null,
+                            TitleRarity.LEGENDARY,
+                            TitlePosition.RIGHT,
+                            null,
+                            1);
             when(rankRewardRepository.findById(99L)).thenReturn(Optional.empty());
 
             // when & then
             assertThatThrownBy(() -> seasonRankRewardAdminService.updateRankReward(99L, request))
-                .isInstanceOf(CustomException.class)
-                .hasMessageContaining("error.season.reward.not_found");
+                    .isInstanceOf(CustomException.class)
+                    .hasMessageContaining("error.season.reward.not_found");
         }
 
         @Test
         @DisplayName("시작 순위가 종료 순위보다 크면 예외를 던진다")
         void updateRankReward_invalidRankRange() {
             // given
-            UpdateSeasonRankRewardAdminRequest request = new UpdateSeasonRankRewardAdminRequest(
-                10, 1, null, null, 100L, "챔피언", null, null, null, TitleRarity.LEGENDARY, TitlePosition.RIGHT, null, 1
-            );
+            UpdateSeasonRankRewardAdminRequest request =
+                    new UpdateSeasonRankRewardAdminRequest(
+                            10,
+                            1,
+                            null,
+                            null,
+                            100L,
+                            "챔피언",
+                            null,
+                            null,
+                            null,
+                            TitleRarity.LEGENDARY,
+                            TitlePosition.RIGHT,
+                            null,
+                            1);
             when(rankRewardRepository.findById(1L)).thenReturn(Optional.of(testReward));
 
             // when & then
             assertThatThrownBy(() -> seasonRankRewardAdminService.updateRankReward(1L, request))
-                .isInstanceOf(CustomException.class)
-                .hasMessageContaining("error.season.rank.invalid_range");
+                    .isInstanceOf(CustomException.class)
+                    .hasMessageContaining("error.season.rank.invalid_range");
         }
 
         @Test
         @DisplayName("순위 구간이 겹치면 예외를 던진다")
         void updateRankReward_overlappingRankRange() {
             // given
-            UpdateSeasonRankRewardAdminRequest request = new UpdateSeasonRankRewardAdminRequest(
-                1, 5, null, null, 100L, "챔피언", null, null, null, TitleRarity.LEGENDARY, TitlePosition.RIGHT, null, 1
-            );
+            UpdateSeasonRankRewardAdminRequest request =
+                    new UpdateSeasonRankRewardAdminRequest(
+                            1,
+                            5,
+                            null,
+                            null,
+                            100L,
+                            "챔피언",
+                            null,
+                            null,
+                            null,
+                            TitleRarity.LEGENDARY,
+                            TitlePosition.RIGHT,
+                            null,
+                            1);
             when(rankRewardRepository.findById(1L)).thenReturn(Optional.of(testReward));
-            when(rankRewardRepository.existsOverlappingRangeWithNullCategory(1L, 1, 5, 1L)).thenReturn(true);
+            when(rankRewardRepository.existsOverlappingRangeWithNullCategory(1L, 1, 5, 1L))
+                    .thenReturn(true);
 
             // when & then
             assertThatThrownBy(() -> seasonRankRewardAdminService.updateRankReward(1L, request))
-                .isInstanceOf(CustomException.class)
-                .hasMessageContaining("error.season.rank.overlap");
+                    .isInstanceOf(CustomException.class)
+                    .hasMessageContaining("error.season.rank.overlap");
         }
 
         @Test
         @DisplayName("칭호가 없으면 예외를 던진다")
         void updateRankReward_titleNotFound() {
             // given
-            UpdateSeasonRankRewardAdminRequest request = new UpdateSeasonRankRewardAdminRequest(
-                1, 3, null, null, 999L, "챔피언", null, null, null, TitleRarity.LEGENDARY, TitlePosition.RIGHT, null, 1
-            );
+            UpdateSeasonRankRewardAdminRequest request =
+                    new UpdateSeasonRankRewardAdminRequest(
+                            1,
+                            3,
+                            null,
+                            null,
+                            999L,
+                            "챔피언",
+                            null,
+                            null,
+                            null,
+                            TitleRarity.LEGENDARY,
+                            TitlePosition.RIGHT,
+                            null,
+                            1);
             when(rankRewardRepository.findById(1L)).thenReturn(Optional.of(testReward));
-            when(rankRewardRepository.existsOverlappingRangeWithNullCategory(1L, 1, 3, 1L)).thenReturn(false);
+            when(rankRewardRepository.existsOverlappingRangeWithNullCategory(1L, 1, 3, 1L))
+                    .thenReturn(false);
             when(titleRepository.findById(999L)).thenReturn(Optional.empty());
 
             // when & then
             assertThatThrownBy(() -> seasonRankRewardAdminService.updateRankReward(1L, request))
-                .isInstanceOf(CustomException.class)
-                .hasMessageContaining("error.title.not_found");
+                    .isInstanceOf(CustomException.class)
+                    .hasMessageContaining("error.title.not_found");
         }
 
         @Test
         @DisplayName("titleId 없이 수정하면 새 칭호를 생성해 교체한다 (LUT-420)")
         void updateRankReward_withoutTitleId_createsAndReplacesTitle() {
             // given — 수정 요청이 titleId 없이 신규 칭호 정보만 전달
-            UpdateSeasonRankRewardAdminRequest request = new UpdateSeasonRankRewardAdminRequest(
-                1, 3, null, null, null, "교체 칭호", "Replaced Title", null, null,
-                TitleRarity.EPIC, TitlePosition.RIGHT, null, 1
-            );
-            Title newTitle = Title.builder()
-                .name("교체 칭호")
-                .nameEn("Replaced Title")
-                .rarity(TitleRarity.EPIC)
-                .positionType(TitlePosition.RIGHT)
-                .acquisitionType(TitleAcquisitionType.SEASON)
-                .isActive(true)
-                .build();
+            UpdateSeasonRankRewardAdminRequest request =
+                    new UpdateSeasonRankRewardAdminRequest(
+                            1,
+                            3,
+                            null,
+                            null,
+                            null,
+                            "교체 칭호",
+                            "Replaced Title",
+                            null,
+                            null,
+                            TitleRarity.EPIC,
+                            TitlePosition.RIGHT,
+                            null,
+                            1);
+            Title newTitle =
+                    Title.builder()
+                            .name("교체 칭호")
+                            .nameEn("Replaced Title")
+                            .rarity(TitleRarity.EPIC)
+                            .positionType(TitlePosition.RIGHT)
+                            .acquisitionType(TitleAcquisitionType.SEASON)
+                            .isActive(true)
+                            .build();
             setId(newTitle, 300L);
 
             when(rankRewardRepository.findById(1L)).thenReturn(Optional.of(testReward));
-            when(rankRewardRepository.existsOverlappingRangeWithNullCategory(1L, 1, 3, 1L)).thenReturn(false);
+            when(rankRewardRepository.existsOverlappingRangeWithNullCategory(1L, 1, 3, 1L))
+                    .thenReturn(false);
             when(titleRepository.save(any(Title.class))).thenReturn(newTitle);
 
             // when
@@ -624,38 +948,66 @@ class SeasonRankRewardAdminServiceTest {
         @DisplayName("sortOrder가 null이면 변경하지 않는다")
         void updateRankReward_nullSortOrder() {
             // given
-            UpdateSeasonRankRewardAdminRequest request = new UpdateSeasonRankRewardAdminRequest(
-                1, 3, null, null, 100L, "챔피언", null, null, null, TitleRarity.LEGENDARY, TitlePosition.RIGHT, null, null
-            );
+            UpdateSeasonRankRewardAdminRequest request =
+                    new UpdateSeasonRankRewardAdminRequest(
+                            1,
+                            3,
+                            null,
+                            null,
+                            100L,
+                            "챔피언",
+                            null,
+                            null,
+                            null,
+                            TitleRarity.LEGENDARY,
+                            TitlePosition.RIGHT,
+                            null,
+                            null);
             when(rankRewardRepository.findById(1L)).thenReturn(Optional.of(testReward));
-            when(rankRewardRepository.existsOverlappingRangeWithNullCategory(1L, 1, 3, 1L)).thenReturn(false);
+            when(rankRewardRepository.existsOverlappingRangeWithNullCategory(1L, 1, 3, 1L))
+                    .thenReturn(false);
             when(titleRepository.findById(100L)).thenReturn(Optional.of(testTitle));
 
             // when
-            SeasonRankRewardAdminResponse result = seasonRankRewardAdminService.updateRankReward(1L, request);
+            SeasonRankRewardAdminResponse result =
+                    seasonRankRewardAdminService.updateRankReward(1L, request);
 
             // then
             assertThat(result).isNotNull();
-            assertThat(testReward.getSortOrder()).isEqualTo(1);  // 기존 sortOrder 유지
+            assertThat(testReward.getSortOrder()).isEqualTo(1); // 기존 sortOrder 유지
         }
 
         @Test
         @DisplayName("칭호 희귀도가 null이면 titleRarity를 null로 설정한다")
         void updateRankReward_nullRaritySetsTitleRarityNull() {
             // given
-            Title titleWithoutRarity = Title.builder()
-                .name("희귀도없는칭호")
-                .positionType(TitlePosition.RIGHT)
-                .acquisitionType(TitleAcquisitionType.ACHIEVEMENT)
-                .isActive(true)
-                .build();
+            Title titleWithoutRarity =
+                    Title.builder()
+                            .name("희귀도없는칭호")
+                            .positionType(TitlePosition.RIGHT)
+                            .acquisitionType(TitleAcquisitionType.ACHIEVEMENT)
+                            .isActive(true)
+                            .build();
             setId(titleWithoutRarity, 150L);
 
-            UpdateSeasonRankRewardAdminRequest request = new UpdateSeasonRankRewardAdminRequest(
-                1, 1, null, null, 150L, "희귀도없는칭호", null, null, null, null, TitlePosition.RIGHT, null, 1
-            );
+            UpdateSeasonRankRewardAdminRequest request =
+                    new UpdateSeasonRankRewardAdminRequest(
+                            1,
+                            1,
+                            null,
+                            null,
+                            150L,
+                            "희귀도없는칭호",
+                            null,
+                            null,
+                            null,
+                            null,
+                            TitlePosition.RIGHT,
+                            null,
+                            1);
             when(rankRewardRepository.findById(1L)).thenReturn(Optional.of(testReward));
-            when(rankRewardRepository.existsOverlappingRangeWithNullCategory(1L, 1, 1, 1L)).thenReturn(false);
+            when(rankRewardRepository.existsOverlappingRangeWithNullCategory(1L, 1, 1, 1L))
+                    .thenReturn(false);
             when(titleRepository.findById(150L)).thenReturn(Optional.of(titleWithoutRarity));
 
             // when
@@ -691,8 +1043,8 @@ class SeasonRankRewardAdminServiceTest {
 
             // when & then
             assertThatThrownBy(() -> seasonRankRewardAdminService.deleteRankReward(99L))
-                .isInstanceOf(CustomException.class)
-                .hasMessageContaining("error.season.reward.not_found");
+                    .isInstanceOf(CustomException.class)
+                    .hasMessageContaining("error.season.reward.not_found");
         }
     }
 
@@ -704,24 +1056,26 @@ class SeasonRankRewardAdminServiceTest {
         @DisplayName("시즌의 보상 이력을 페이지로 조회한다")
         void getRewardHistory_success() throws Exception {
             // given
-            SeasonRewardHistory history = SeasonRewardHistory.builder()
-                .seasonId(1L)
-                .userId("user1")
-                .finalRank(1)
-                .totalExp(1000L)
-                .titleId(100L)
-                .titleName("챔피언")
-                .status(SeasonRewardStatus.SUCCESS)
-                .build();
+            SeasonRewardHistory history =
+                    SeasonRewardHistory.builder()
+                            .seasonId(1L)
+                            .userId("user1")
+                            .finalRank(1)
+                            .totalExp(1000L)
+                            .titleId(100L)
+                            .titleName("챔피언")
+                            .status(SeasonRewardStatus.SUCCESS)
+                            .build();
             setId(history, 1L);
 
             Page<SeasonRewardHistory> page = new PageImpl<>(List.of(history));
-            when(rewardHistoryRepository.findBySeasonIdOrderByFinalRankAsc(1L, PageRequest.of(0, 10)))
-                .thenReturn(page);
+            when(rewardHistoryRepository.findBySeasonIdOrderByFinalRankAsc(
+                            1L, PageRequest.of(0, 10)))
+                    .thenReturn(page);
 
             // when
             SeasonRewardHistoryAdminPageResponse result =
-                seasonRankRewardAdminService.getRewardHistory(1L, PageRequest.of(0, 10));
+                    seasonRankRewardAdminService.getRewardHistory(1L, PageRequest.of(0, 10));
 
             // then
             assertThat(result.content()).hasSize(1);
@@ -735,12 +1089,13 @@ class SeasonRankRewardAdminServiceTest {
         void getRewardHistory_empty() {
             // given
             Page<SeasonRewardHistory> emptyPage = new PageImpl<>(List.of());
-            when(rewardHistoryRepository.findBySeasonIdOrderByFinalRankAsc(1L, PageRequest.of(0, 10)))
-                .thenReturn(emptyPage);
+            when(rewardHistoryRepository.findBySeasonIdOrderByFinalRankAsc(
+                            1L, PageRequest.of(0, 10)))
+                    .thenReturn(emptyPage);
 
             // when
             SeasonRewardHistoryAdminPageResponse result =
-                seasonRankRewardAdminService.getRewardHistory(1L, PageRequest.of(0, 10));
+                    seasonRankRewardAdminService.getRewardHistory(1L, PageRequest.of(0, 10));
 
             // then
             assertThat(result.content()).isEmpty();
@@ -757,10 +1112,10 @@ class SeasonRankRewardAdminServiceTest {
         void getRewardStats_success() {
             // given
             List<Object[]> stats = new ArrayList<>();
-            stats.add(new Object[]{SeasonRewardStatus.SUCCESS, 10L});
-            stats.add(new Object[]{SeasonRewardStatus.FAILED, 2L});
-            stats.add(new Object[]{SeasonRewardStatus.SKIPPED, 3L});
-            stats.add(new Object[]{SeasonRewardStatus.PENDING, 1L});
+            stats.add(new Object[] {SeasonRewardStatus.SUCCESS, 10L});
+            stats.add(new Object[] {SeasonRewardStatus.FAILED, 2L});
+            stats.add(new Object[] {SeasonRewardStatus.SKIPPED, 3L});
+            stats.add(new Object[] {SeasonRewardStatus.PENDING, 1L});
             when(rewardHistoryRepository.countBySeasonIdGroupByStatus(1L)).thenReturn(stats);
 
             // when
@@ -796,7 +1151,7 @@ class SeasonRankRewardAdminServiceTest {
         void getRewardStats_partialStatuses() {
             // given
             List<Object[]> stats = new ArrayList<>();
-            stats.add(new Object[]{SeasonRewardStatus.SUCCESS, 5L});
+            stats.add(new Object[] {SeasonRewardStatus.SUCCESS, 5L});
             when(rewardHistoryRepository.countBySeasonIdGroupByStatus(1L)).thenReturn(stats);
 
             // when

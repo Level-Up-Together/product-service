@@ -21,17 +21,12 @@ import org.mockito.junit.jupiter.MockitoExtension;
 @ExtendWith(MockitoExtension.class)
 class TermVersionServiceTest {
 
-    @Mock
-    private TermVersionRepository termVersionRepository;
+    @Mock private TermVersionRepository termVersionRepository;
 
-    @InjectMocks
-    private TermVersionService termVersionService;
+    @InjectMocks private TermVersionService termVersionService;
 
     private TermVersion createTestTermVersion(Long id, String version) {
-        TermVersion termVersion = TermVersion.builder()
-            .version(version)
-            .content("약관 내용")
-            .build();
+        TermVersion termVersion = TermVersion.builder().version(version).content("약관 내용").build();
         setId(termVersion, id);
         return termVersion;
     }
@@ -47,7 +42,8 @@ class TermVersionServiceTest {
             Long termVersionId = 1L;
             TermVersion termVersion = createTestTermVersion(termVersionId, "1.0");
 
-            when(termVersionRepository.findById(termVersionId)).thenReturn(Optional.of(termVersion));
+            when(termVersionRepository.findById(termVersionId))
+                    .thenReturn(Optional.of(termVersion));
 
             // when
             TermVersion result = termVersionService.findById(termVersionId);
@@ -68,7 +64,7 @@ class TermVersionServiceTest {
 
             // when & then
             assertThatThrownBy(() -> termVersionService.findById(termVersionId))
-                .isInstanceOf(CustomException.class);
+                    .isInstanceOf(CustomException.class);
         }
     }
 

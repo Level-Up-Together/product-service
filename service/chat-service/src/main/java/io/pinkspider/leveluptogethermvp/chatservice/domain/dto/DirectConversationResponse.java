@@ -64,15 +64,15 @@ public class DirectConversationResponse {
             String otherUserProfileImage,
             int unreadCount) {
         return DirectConversationResponse.builder()
-            .id(conversation.getId())
-            .guildId(conversation.getGuildId())
-            .otherUserId(conversation.getOtherUserId(currentUserId))
-            .otherUserNickname(otherUserNickname)
-            .otherUserProfileImage(otherUserProfileImage)
-            .lastMessage(conversation.getLastMessageContent())
-            .lastMessageAt(conversation.getLastMessageAt())
-            .unreadCount(unreadCount)
-            .createdAt(conversation.getCreatedAt())
-            .build();
+                .id(conversation.getId())
+                .guildId(conversation.getGuildId())
+                .otherUserId(conversation.getOtherUserId(currentUserId))
+                .otherUserNickname(otherUserNickname)
+                .otherUserProfileImage(otherUserProfileImage)
+                .lastMessage(conversation.getLastMessageContent())
+                .lastMessageAt(conversation.getLastMessageAt())
+                .unreadCount(unreadCount)
+                .createdAt(conversation.getCreatedAt())
+                .build();
     }
 }

@@ -22,10 +22,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 
-/**
- * BFF (Backend for Frontend) 서비스 - 길드
- * 길드 관련 화면에 필요한 여러 데이터를 한 번에 조회합니다.
- */
+/** BFF (Backend for Frontend) 서비스 - 길드 길드 관련 화면에 필요한 여러 데이터를 한 번에 조회합니다. */
 @Service
 @Slf4j
 public class BffGuildService {
@@ -55,50 +52,64 @@ public class BffGuildService {
      * @param postSize 게시글 페이지 크기 (기본: 20)
      * @return GuildDetailDataResponse 길드 상세 데이터
      */
-    public GuildDetailDataResponse getGuildDetail(Long guildId, String userId, int postPage, int postSize) {
+    public GuildDetailDataResponse getGuildDetail(
+            Long guildId, String userId, int postPage, int postSize) {
         log.info("BFF getGuildDetail called: guildId={}, userId={}", guildId, userId);
 
         // 병렬로 모든 데이터 조회
-        CompletableFuture<GuildResponse> guildFuture = CompletableFuture.supplyAsync(() -> {
-            try {
-                return guildQueryService.getGuild(guildId, userId);
-            } catch (Exception e) {
-                log.error("Failed to fetch guild", e);
-                return null;
-            }
-        }, bffExecutor);
+        CompletableFuture<GuildResponse> guildFuture =
+                CompletableFuture.supplyAsync(
+                        () -> {
+                            try {
+                                return guildQueryService.getGuild(guildId, userId);
+                            } catch (Exception e) {
+                                log.error("Failed to fetch guild", e);
+                                return null;
+                            }
+                        },
+                        bffExecutor);
 
-        CompletableFuture<List<GuildMemberResponse>> membersFuture = CompletableFuture.supplyAsync(() -> {
-            try {
-                return guildQueryService.getGuildMembers(guildId, userId);
-            } catch (Exception e) {
-                log.error("Failed to fetch guild members", e);
-                return Collections.emptyList();
-            }
-        }, bffExecutor);
+        CompletableFuture<List<GuildMemberResponse>> membersFuture =
+                CompletableFuture.supplyAsync(
+                        () -> {
+                            try {
+                                return guildQueryService.getGuildMembers(guildId, userId);
+                            } catch (Exception e) {
+                                log.error("Failed to fetch guild members", e);
+                                return Collections.emptyList();
+                            }
+                        },
+                        bffExecutor);
 
-        CompletableFuture<PostPageData> postsFuture = CompletableFuture.supplyAsync(() -> {
-            try {
-                Page<GuildPostListResponse> postsPage =
-                        guildPostService.getPosts(guildId, userId, PageRequest.of(postPage, postSize), null);
-                return PostPageData.builder()
-                        .content(postsPage.getContent())
-                        .page(postsPage.getNumber())
-                        .size(postsPage.getSize())
-                        .totalElements(postsPage.getTotalElements())
-                        .totalPages(postsPage.getTotalPages())
-                        .build();
-            } catch (Exception e) {
-                log.error("Failed to fetch guild posts", e);
-                return PostPageData.builder()
-                        .content(Collections.emptyList())
-                        .page(0)
-                        .size(postSize)
-                        .totalElements(0)
-                        .totalPages(0)
-                        .build();
-            }
-        }, bffExecutor);
+        CompletableFuture<PostPageData> postsFuture =
+                CompletableFuture.supplyAsync(
+                        () -> {
+                            try {
+                                Page<GuildPostListResponse> postsPage =
+                                        guildPostService.getPosts(
+                                                guildId,
+                                                userId,
+                                                PageRequest.of(postPage, postSize),
+                                                null);
+                                return PostPageData.builder()
+                                        .content(postsPage.getContent())
+                                        .page(postsPage.getNumber())
+                                        .size(postsPage.getSize())
+                                        .totalElements(postsPage.getTotalElements())
+                                        .totalPages(postsPage.getTotalPages())
+                                        .build();
+                            } catch (Exception e) {
+                                log.error("Failed to fetch guild posts", e);
+                                return PostPageData.builder()
+                                        .content(Collections.emptyList())
+                                        .page(0)
+                                        .size(postSize)
+                                        .totalElements(0)
+                                        .totalPages(0)
+                                        .build();
+                            }
+                        },
+                        bffExecutor);
 
         // 모든 결과 취합
         CompletableFuture.allOf(guildFuture, membersFuture, postsFuture).join();
@@ -109,21 +120,23 @@ public class BffGuildService {
         // 멤버 여부 및 역할 확인 (비인증 시 비멤버)
         boolean isMember =
                 userId != null && members.stream().anyMatch(m -> m.getUserId().equals(userId));
-        String memberRole = userId != null
-                ? members.stream()
-                        .filter(m -> m.getUserId().equals(userId))
-                        .findFirst()
-                        .map(m -> m.getRole().name())
-                        .orElse(null)
-                : null;
+        String memberRole =
+                userId != null
+                        ? members.stream()
+                                .filter(m -> m.getUserId().equals(userId))
+                                .findFirst()
+                                .map(m -> m.getRole().name())
+                                .orElse(null)
+                        : null;
 
-        GuildDetailDataResponse response = GuildDetailDataResponse.builder()
-                .guild(guild)
-                .members(members)
-                .posts(postsFuture.join())
-                .member(isMember)
-                .memberRole(memberRole)
-                .build();
+        GuildDetailDataResponse response =
+                GuildDetailDataResponse.builder()
+                        .guild(guild)
+                        .members(members)
+                        .posts(postsFuture.join())
+                        .member(isMember)
+                        .memberRole(memberRole)
+                        .build();
 
         log.info("BFF getGuildDetail completed: guildId={}", guildId);
         return response;
@@ -137,13 +150,14 @@ public class BffGuildService {
      * @param activityFeedSize 활동 피드 조회 개수 (기본: 10)
      * @return GuildListDataResponse 길드 목록 데이터
      */
-    public GuildListDataResponse getGuildList(String userId, int recommendedGuildSize, int activityFeedSize) {
+    public GuildListDataResponse getGuildList(
+            String userId, int recommendedGuildSize, int activityFeedSize) {
         return getGuildList(userId, recommendedGuildSize, activityFeedSize, null);
     }
 
     /** LUT-277: 길드 홈 카드 카테고리·공지·활동피드에 locale 적용 */
-    public GuildListDataResponse getGuildList(String userId, int recommendedGuildSize, int activityFeedSize,
-                                               String locale) {
+    public GuildListDataResponse getGuildList(
+            String userId, int recommendedGuildSize, int activityFeedSize, String locale) {
         log.info("BFF getGuildList called: userId={}, locale={}", userId, locale);
 
         // 먼저 내 길드 목록 조회 (비인증 시 빈 리스트)
@@ -166,113 +180,153 @@ public class BffGuildService {
         // 병렬로 나머지 데이터 조회
         final List<GuildResponse> finalMyGuilds = myGuilds;
 
-        CompletableFuture<GuildPageData> recommendedGuildsFuture = CompletableFuture.supplyAsync(() -> {
-            try {
-                Page<GuildResponse> guildsPage =
-                        guildQueryService.getPublicGuilds(userId, PageRequest.of(0, recommendedGuildSize), locale);
-                return GuildPageData.builder()
-                        .content(guildsPage.getContent())
-                        .page(guildsPage.getNumber())
-                        .size(guildsPage.getSize())
-                        .totalElements(guildsPage.getTotalElements())
-                        .totalPages(guildsPage.getTotalPages())
-                        .build();
-            } catch (Exception e) {
-                log.error("Failed to fetch recommended guilds", e);
-                return GuildPageData.builder()
-                        .content(Collections.emptyList())
-                        .page(0)
-                        .size(recommendedGuildSize)
-                        .totalElements(0)
-                        .totalPages(0)
-                        .build();
-            }
-        }, bffExecutor);
+        CompletableFuture<GuildPageData> recommendedGuildsFuture =
+                CompletableFuture.supplyAsync(
+                        () -> {
+                            try {
+                                Page<GuildResponse> guildsPage =
+                                        guildQueryService.getPublicGuilds(
+                                                userId,
+                                                PageRequest.of(0, recommendedGuildSize),
+                                                locale);
+                                return GuildPageData.builder()
+                                        .content(guildsPage.getContent())
+                                        .page(guildsPage.getNumber())
+                                        .size(guildsPage.getSize())
+                                        .totalElements(guildsPage.getTotalElements())
+                                        .totalPages(guildsPage.getTotalPages())
+                                        .build();
+                            } catch (Exception e) {
+                                log.error("Failed to fetch recommended guilds", e);
+                                return GuildPageData.builder()
+                                        .content(Collections.emptyList())
+                                        .page(0)
+                                        .size(recommendedGuildSize)
+                                        .totalElements(0)
+                                        .totalPages(0)
+                                        .build();
+                            }
+                        },
+                        bffExecutor);
 
         // 모든 내 길드의 공지사항 병합 조회
-        CompletableFuture<List<GuildPostListResponse>> noticesFuture = CompletableFuture.supplyAsync(() -> {
-            if (myGuildIds.isEmpty()) {
-                return Collections.emptyList();
-            }
-            try {
-                // 모든 내 길드의 공지사항을 병합
-                return myGuildIds.stream()
-                        .flatMap(guildId -> {
-                            try {
-                                return guildPostService.getNotices(guildId, userId, locale).stream();
-                            } catch (Exception e) {
-                                log.warn("Failed to fetch notices for guild {}: {}", guildId, e.getMessage());
-                                return java.util.stream.Stream.empty();
+        CompletableFuture<List<GuildPostListResponse>> noticesFuture =
+                CompletableFuture.supplyAsync(
+                        () -> {
+                            if (myGuildIds.isEmpty()) {
+                                return Collections.emptyList();
                             }
-                        })
-                        .sorted((a, b) -> b.getCreatedAt().compareTo(a.getCreatedAt())) // 최신순 정렬
-                        .limit(10) // 최대 10개
-                        .toList();
-            } catch (Exception e) {
-                log.error("Failed to fetch guild notices", e);
-                return Collections.emptyList();
-            }
-        }, bffExecutor);
+                            try {
+                                // 모든 내 길드의 공지사항을 병합
+                                return myGuildIds.stream()
+                                        .flatMap(
+                                                guildId -> {
+                                                    try {
+                                                        return guildPostService
+                                                                .getNotices(guildId, userId, locale)
+                                                                .stream();
+                                                    } catch (Exception e) {
+                                                        log.warn(
+                                                                "Failed to fetch notices for guild"
+                                                                        + " {}: {}",
+                                                                guildId,
+                                                                e.getMessage());
+                                                        return java.util.stream.Stream.empty();
+                                                    }
+                                                })
+                                        .sorted(
+                                                (a, b) ->
+                                                        b.getCreatedAt()
+                                                                .compareTo(
+                                                                        a.getCreatedAt())) // 최신순 정렬
+                                        .limit(10) // 최대 10개
+                                        .toList();
+                            } catch (Exception e) {
+                                log.error("Failed to fetch guild notices", e);
+                                return Collections.emptyList();
+                            }
+                        },
+                        bffExecutor);
 
         // 모든 내 길드의 활동 피드 병합 조회
-        CompletableFuture<FeedPageData> activityFeedsFuture = CompletableFuture.supplyAsync(() -> {
-            if (myGuildIds.isEmpty()) {
-                return FeedPageData.builder()
-                        .content(Collections.emptyList())
-                        .page(0)
-                        .size(activityFeedSize)
-                        .totalElements(0)
-                        .totalPages(0)
-                        .build();
-            }
-            try {
-                // 모든 내 길드의 활동 피드를 병합
-                List<ActivityFeedResponse> allFeeds = myGuildIds.stream()
-                        .flatMap(guildId -> {
-                            try {
-                                return feedQueryService
-                                        .getGuildFeeds(guildId, userId, 0, activityFeedSize, locale)
-                                        .getContent()
-                                        .stream();
-                            } catch (Exception e) {
-                                log.warn("Failed to fetch feeds for guild {}: {}", guildId, e.getMessage());
-                                return java.util.stream.Stream.empty();
+        CompletableFuture<FeedPageData> activityFeedsFuture =
+                CompletableFuture.supplyAsync(
+                        () -> {
+                            if (myGuildIds.isEmpty()) {
+                                return FeedPageData.builder()
+                                        .content(Collections.emptyList())
+                                        .page(0)
+                                        .size(activityFeedSize)
+                                        .totalElements(0)
+                                        .totalPages(0)
+                                        .build();
                             }
-                        })
-                        .sorted((a, b) -> b.getCreatedAt().compareTo(a.getCreatedAt())) // 최신순 정렬
-                        .limit(activityFeedSize)
-                        .toList();
+                            try {
+                                // 모든 내 길드의 활동 피드를 병합
+                                List<ActivityFeedResponse> allFeeds =
+                                        myGuildIds.stream()
+                                                .flatMap(
+                                                        guildId -> {
+                                                            try {
+                                                                return feedQueryService
+                                                                        .getGuildFeeds(
+                                                                                guildId,
+                                                                                userId,
+                                                                                0,
+                                                                                activityFeedSize,
+                                                                                locale)
+                                                                        .getContent()
+                                                                        .stream();
+                                                            } catch (Exception e) {
+                                                                log.warn(
+                                                                        "Failed to fetch feeds for"
+                                                                                + " guild {}: {}",
+                                                                        guildId,
+                                                                        e.getMessage());
+                                                                return java.util.stream.Stream
+                                                                        .empty();
+                                                            }
+                                                        })
+                                                .sorted(
+                                                        (a, b) ->
+                                                                b.getCreatedAt()
+                                                                        .compareTo(
+                                                                                a
+                                                                                        .getCreatedAt())) // 최신순 정렬
+                                                .limit(activityFeedSize)
+                                                .toList();
 
-                return FeedPageData.builder()
-                        .content(allFeeds)
-                        .page(0)
-                        .size(activityFeedSize)
-                        .totalElements(allFeeds.size())
-                        .totalPages(1)
-                        .build();
-            } catch (Exception e) {
-                log.error("Failed to fetch guild activity feeds", e);
-                return FeedPageData.builder()
-                        .content(Collections.emptyList())
-                        .page(0)
-                        .size(activityFeedSize)
-                        .totalElements(0)
-                        .totalPages(0)
-                        .build();
-            }
-        }, bffExecutor);
+                                return FeedPageData.builder()
+                                        .content(allFeeds)
+                                        .page(0)
+                                        .size(activityFeedSize)
+                                        .totalElements(allFeeds.size())
+                                        .totalPages(1)
+                                        .build();
+                            } catch (Exception e) {
+                                log.error("Failed to fetch guild activity feeds", e);
+                                return FeedPageData.builder()
+                                        .content(Collections.emptyList())
+                                        .page(0)
+                                        .size(activityFeedSize)
+                                        .totalElements(0)
+                                        .totalPages(0)
+                                        .build();
+                            }
+                        },
+                        bffExecutor);
 
         // 모든 결과 취합
-        CompletableFuture.allOf(recommendedGuildsFuture, noticesFuture, activityFeedsFuture)
-                .join();
+        CompletableFuture.allOf(recommendedGuildsFuture, noticesFuture, activityFeedsFuture).join();
 
-        GuildListDataResponse response = GuildListDataResponse.builder()
-                .myGuilds(finalMyGuilds)
-                .recommendedGuilds(recommendedGuildsFuture.join())
-                .guildNotices(noticesFuture.join())
-                .guildActivityFeeds(activityFeedsFuture.join())
-                .guildJoined(hasGuild)
-                .build();
+        GuildListDataResponse response =
+                GuildListDataResponse.builder()
+                        .myGuilds(finalMyGuilds)
+                        .recommendedGuilds(recommendedGuildsFuture.join())
+                        .guildNotices(noticesFuture.join())
+                        .guildActivityFeeds(activityFeedsFuture.join())
+                        .guildJoined(hasGuild)
+                        .build();
 
         log.info("BFF getGuildList completed: userId={}, hasGuild={}", userId, hasGuild);
         return response;

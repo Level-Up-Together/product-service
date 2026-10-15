@@ -10,17 +10,17 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import io.pinkspider.global.enums.TitlePosition;
+import io.pinkspider.global.enums.TitleRarity;
 import io.pinkspider.global.event.TitleAcquiredEvent;
 import io.pinkspider.global.event.TitleEquippedEvent;
+import io.pinkspider.leveluptogethermvp.gamificationservice.achievement.domain.dto.TitleResponse;
+import io.pinkspider.leveluptogethermvp.gamificationservice.achievement.domain.dto.UserTitleResponse;
 import io.pinkspider.leveluptogethermvp.gamificationservice.domain.entity.Title;
 import io.pinkspider.leveluptogethermvp.gamificationservice.domain.entity.UserTitle;
 import io.pinkspider.leveluptogethermvp.gamificationservice.domain.enums.TitleAcquisitionType;
-import io.pinkspider.global.enums.TitlePosition;
-import io.pinkspider.global.enums.TitleRarity;
 import io.pinkspider.leveluptogethermvp.gamificationservice.infrastructure.TitleRepository;
 import io.pinkspider.leveluptogethermvp.gamificationservice.infrastructure.UserTitleRepository;
-import io.pinkspider.leveluptogethermvp.gamificationservice.achievement.domain.dto.TitleResponse;
-import io.pinkspider.leveluptogethermvp.gamificationservice.achievement.domain.dto.UserTitleResponse;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
@@ -36,43 +36,47 @@ import org.springframework.context.ApplicationEventPublisher;
 @ExtendWith(MockitoExtension.class)
 class TitleServiceTest {
 
-    @Mock
-    private TitleRepository titleRepository;
+    @Mock private TitleRepository titleRepository;
 
-    @Mock
-    private UserTitleRepository userTitleRepository;
+    @Mock private UserTitleRepository userTitleRepository;
 
-    @Mock
-    private ApplicationEventPublisher eventPublisher;
+    @Mock private ApplicationEventPublisher eventPublisher;
 
-    @InjectMocks
-    private TitleService titleService;
+    @InjectMocks private TitleService titleService;
 
     private static final String TEST_USER_ID = "test-user-123";
 
-    private Title createTestTitle(Long id, String name, TitlePosition position, TitleRarity rarity) {
-        Title title = Title.builder()
-            .name(name)
-            .description(name + " 설명")
-            .rarity(rarity)
-            .positionType(position)
-            .acquisitionType(TitleAcquisitionType.LEVEL)
-            .acquisitionCondition("레벨 달성")
-            .colorCode(rarity.getColorCode())
-            .isActive(true)
-            .build();
+    private Title createTestTitle(
+            Long id, String name, TitlePosition position, TitleRarity rarity) {
+        Title title =
+                Title.builder()
+                        .name(name)
+                        .description(name + " 설명")
+                        .rarity(rarity)
+                        .positionType(position)
+                        .acquisitionType(TitleAcquisitionType.LEVEL)
+                        .acquisitionCondition("레벨 달성")
+                        .colorCode(rarity.getColorCode())
+                        .isActive(true)
+                        .build();
         setId(title, id);
         return title;
     }
 
-    private UserTitle createTestUserTitle(Long id, String userId, Title title, boolean isEquipped, TitlePosition equippedPosition) {
-        UserTitle userTitle = UserTitle.builder()
-            .userId(userId)
-            .title(title)
-            .acquiredAt(LocalDateTime.now())
-            .isEquipped(isEquipped)
-            .equippedPosition(equippedPosition)
-            .build();
+    private UserTitle createTestUserTitle(
+            Long id,
+            String userId,
+            Title title,
+            boolean isEquipped,
+            TitlePosition equippedPosition) {
+        UserTitle userTitle =
+                UserTitle.builder()
+                        .userId(userId)
+                        .title(title)
+                        .acquiredAt(LocalDateTime.now())
+                        .isEquipped(isEquipped)
+                        .equippedPosition(equippedPosition)
+                        .build();
         setId(userTitle, id);
         return userTitle;
     }
@@ -109,7 +113,7 @@ class TitleServiceTest {
             Title leftTitle = createTestTitle(1L, "신입", TitlePosition.LEFT, TitleRarity.COMMON);
 
             when(titleRepository.findByPositionTypeAndIsActiveTrue(TitlePosition.LEFT))
-                .thenReturn(List.of(leftTitle));
+                    .thenReturn(List.of(leftTitle));
 
             // when
             List<TitleResponse> result = titleService.getTitlesByPosition(TitlePosition.LEFT);
@@ -129,10 +133,11 @@ class TitleServiceTest {
         void getUserTitles_success() {
             // given
             Title title = createTestTitle(1L, "신입", TitlePosition.LEFT, TitleRarity.COMMON);
-            UserTitle userTitle = createTestUserTitle(1L, TEST_USER_ID, title, true, TitlePosition.LEFT);
+            UserTitle userTitle =
+                    createTestUserTitle(1L, TEST_USER_ID, title, true, TitlePosition.LEFT);
 
             when(userTitleRepository.findByUserIdWithTitle(TEST_USER_ID))
-                .thenReturn(List.of(userTitle));
+                    .thenReturn(List.of(userTitle));
 
             // when
             List<UserTitleResponse> result = titleService.getUserTitles(TEST_USER_ID);
@@ -152,11 +157,13 @@ class TitleServiceTest {
             // given
             Title leftTitle = createTestTitle(1L, "신입", TitlePosition.LEFT, TitleRarity.COMMON);
             Title rightTitle = createTestTitle(2L, "모험가", TitlePosition.RIGHT, TitleRarity.COMMON);
-            UserTitle leftUserTitle = createTestUserTitle(1L, TEST_USER_ID, leftTitle, true, TitlePosition.LEFT);
-            UserTitle rightUserTitle = createTestUserTitle(2L, TEST_USER_ID, rightTitle, true, TitlePosition.RIGHT);
+            UserTitle leftUserTitle =
+                    createTestUserTitle(1L, TEST_USER_ID, leftTitle, true, TitlePosition.LEFT);
+            UserTitle rightUserTitle =
+                    createTestUserTitle(2L, TEST_USER_ID, rightTitle, true, TitlePosition.RIGHT);
 
             when(userTitleRepository.findEquippedTitlesByUserId(TEST_USER_ID))
-                .thenReturn(List.of(leftUserTitle, rightUserTitle));
+                    .thenReturn(List.of(leftUserTitle, rightUserTitle));
 
             // when
             List<UserTitleResponse> result = titleService.getEquippedTitles(TEST_USER_ID);
@@ -176,11 +183,13 @@ class TitleServiceTest {
             // given
             Title leftTitle = createTestTitle(1L, "신입", TitlePosition.LEFT, TitleRarity.COMMON);
             Title rightTitle = createTestTitle(2L, "모험가", TitlePosition.RIGHT, TitleRarity.RARE);
-            UserTitle leftUserTitle = createTestUserTitle(1L, TEST_USER_ID, leftTitle, true, TitlePosition.LEFT);
-            UserTitle rightUserTitle = createTestUserTitle(2L, TEST_USER_ID, rightTitle, true, TitlePosition.RIGHT);
+            UserTitle leftUserTitle =
+                    createTestUserTitle(1L, TEST_USER_ID, leftTitle, true, TitlePosition.LEFT);
+            UserTitle rightUserTitle =
+                    createTestUserTitle(2L, TEST_USER_ID, rightTitle, true, TitlePosition.RIGHT);
 
             when(userTitleRepository.findEquippedTitlesByUserId(TEST_USER_ID))
-                .thenReturn(List.of(leftUserTitle, rightUserTitle));
+                    .thenReturn(List.of(leftUserTitle, rightUserTitle));
 
             // when
             TitleService.TitleInfo result = titleService.getCombinedEquippedTitleInfo(TEST_USER_ID);
@@ -195,7 +204,7 @@ class TitleServiceTest {
         void getCombinedEquippedTitleInfo_empty() {
             // given
             when(userTitleRepository.findEquippedTitlesByUserId(TEST_USER_ID))
-                .thenReturn(List.of());
+                    .thenReturn(List.of());
 
             // when
             TitleService.TitleInfo result = titleService.getCombinedEquippedTitleInfo(TEST_USER_ID);
@@ -218,7 +227,8 @@ class TitleServiceTest {
             Title title = createTestTitle(titleId, "전설적인", TitlePosition.LEFT, TitleRarity.EPIC);
             UserTitle savedUserTitle = createTestUserTitle(1L, TEST_USER_ID, title, false, null);
 
-            when(userTitleRepository.existsByUserIdAndTitleId(TEST_USER_ID, titleId)).thenReturn(false);
+            when(userTitleRepository.existsByUserIdAndTitleId(TEST_USER_ID, titleId))
+                    .thenReturn(false);
             when(titleRepository.findById(titleId)).thenReturn(Optional.of(title));
             when(userTitleRepository.save(any(UserTitle.class))).thenReturn(savedUserTitle);
 
@@ -239,9 +249,10 @@ class TitleServiceTest {
             Title title = createTestTitle(titleId, "신입", TitlePosition.LEFT, TitleRarity.COMMON);
             UserTitle existingUserTitle = createTestUserTitle(1L, TEST_USER_ID, title, false, null);
 
-            when(userTitleRepository.existsByUserIdAndTitleId(TEST_USER_ID, titleId)).thenReturn(true);
+            when(userTitleRepository.existsByUserIdAndTitleId(TEST_USER_ID, titleId))
+                    .thenReturn(true);
             when(userTitleRepository.findByUserIdAndTitleId(TEST_USER_ID, titleId))
-                .thenReturn(Optional.of(existingUserTitle));
+                    .thenReturn(Optional.of(existingUserTitle));
 
             // when
             UserTitleResponse result = titleService.grantTitle(TEST_USER_ID, titleId);
@@ -257,13 +268,14 @@ class TitleServiceTest {
             // given
             Long titleId = 999L;
 
-            when(userTitleRepository.existsByUserIdAndTitleId(TEST_USER_ID, titleId)).thenReturn(false);
+            when(userTitleRepository.existsByUserIdAndTitleId(TEST_USER_ID, titleId))
+                    .thenReturn(false);
             when(titleRepository.findById(titleId)).thenReturn(Optional.empty());
 
             // when & then
             assertThatThrownBy(() -> titleService.grantTitle(TEST_USER_ID, titleId))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("칭호를 찾을 수 없습니다");
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessageContaining("칭호를 찾을 수 없습니다");
         }
 
         @Test
@@ -274,7 +286,8 @@ class TitleServiceTest {
             Title title = createTestTitle(titleId, "신입", TitlePosition.LEFT, TitleRarity.COMMON);
             UserTitle savedUserTitle = createTestUserTitle(1L, TEST_USER_ID, title, false, null);
 
-            when(userTitleRepository.existsByUserIdAndTitleId(TEST_USER_ID, titleId)).thenReturn(false);
+            when(userTitleRepository.existsByUserIdAndTitleId(TEST_USER_ID, titleId))
+                    .thenReturn(false);
             when(titleRepository.findById(titleId)).thenReturn(Optional.of(title));
             when(userTitleRepository.save(any(UserTitle.class))).thenReturn(savedUserTitle);
 
@@ -300,8 +313,9 @@ class TitleServiceTest {
             UserTitle userTitle = createTestUserTitle(1L, TEST_USER_ID, title, false, null);
 
             when(userTitleRepository.findByUserIdAndTitleId(TEST_USER_ID, titleId))
-                .thenReturn(Optional.of(userTitle));
-            when(userTitleRepository.findEquippedTitlesByUserId(TEST_USER_ID)).thenReturn(List.of());
+                    .thenReturn(Optional.of(userTitle));
+            when(userTitleRepository.findEquippedTitlesByUserId(TEST_USER_ID))
+                    .thenReturn(List.of());
 
             // when
             UserTitleResponse result = titleService.equipTitle(TEST_USER_ID, titleId);
@@ -309,7 +323,8 @@ class TitleServiceTest {
             // then
             assertThat(result).isNotNull();
             assertThat(userTitle.getIsEquipped()).isTrue();
-            verify(userTitleRepository).unequipByUserIdAndPosition(TEST_USER_ID, TitlePosition.LEFT);
+            verify(userTitleRepository)
+                    .unequipByUserIdAndPosition(TEST_USER_ID, TitlePosition.LEFT);
             // LUT-322: 벌크 해제(clearAutomatically)가 영속성 컨텍스트를 비우므로
             // 재조회 후 명시적 save까지 해야 장착이 유실되지 않는다 (가입 기본 칭호 미장착 회귀 방지)
             verify(userTitleRepository, times(2)).findByUserIdAndTitleId(TEST_USER_ID, titleId);
@@ -323,12 +338,12 @@ class TitleServiceTest {
             Long titleId = 999L;
 
             when(userTitleRepository.findByUserIdAndTitleId(TEST_USER_ID, titleId))
-                .thenReturn(Optional.empty());
+                    .thenReturn(Optional.empty());
 
             // when & then
             assertThatThrownBy(() -> titleService.equipTitle(TEST_USER_ID, titleId))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessage("보유하지 않은 칭호입니다.");
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessage("보유하지 않은 칭호입니다.");
         }
     }
 
@@ -340,13 +355,15 @@ class TitleServiceTest {
         @DisplayName("특정 포지션의 칭호를 해제한다")
         void unequipTitle_success() {
             // given
-            when(userTitleRepository.findEquippedTitlesByUserId(TEST_USER_ID)).thenReturn(List.of());
+            when(userTitleRepository.findEquippedTitlesByUserId(TEST_USER_ID))
+                    .thenReturn(List.of());
 
             // when
             titleService.unequipTitle(TEST_USER_ID, TitlePosition.LEFT);
 
             // then
-            verify(userTitleRepository).unequipByUserIdAndPosition(TEST_USER_ID, TitlePosition.LEFT);
+            verify(userTitleRepository)
+                    .unequipByUserIdAndPosition(TEST_USER_ID, TitlePosition.LEFT);
         }
     }
 
@@ -358,7 +375,8 @@ class TitleServiceTest {
         @DisplayName("모든 칭호를 해제한다")
         void unequipAllTitles_success() {
             // given
-            when(userTitleRepository.findEquippedTitlesByUserId(TEST_USER_ID)).thenReturn(List.of());
+            when(userTitleRepository.findEquippedTitlesByUserId(TEST_USER_ID))
+                    .thenReturn(List.of());
 
             // when
             titleService.unequipAllTitles(TEST_USER_ID);
@@ -381,9 +399,15 @@ class TitleServiceTest {
             when(titleRepository.save(any(Title.class))).thenReturn(savedTitle);
 
             // when
-            TitleResponse result = titleService.createTitle(
-                "테스트 칭호", "설명", TitleRarity.RARE, TitlePosition.LEFT,
-                TitleAcquisitionType.LEVEL, "레벨 10 달성", null);
+            TitleResponse result =
+                    titleService.createTitle(
+                            "테스트 칭호",
+                            "설명",
+                            TitleRarity.RARE,
+                            TitlePosition.LEFT,
+                            TitleAcquisitionType.LEVEL,
+                            "레벨 10 달성",
+                            null);
 
             // then
             assertThat(result).isNotNull();
@@ -401,7 +425,8 @@ class TitleServiceTest {
         void initializeDefaultTitles_success() {
             // given
             when(titleRepository.count()).thenReturn(0L);
-            when(titleRepository.save(any(Title.class))).thenAnswer(invocation -> invocation.getArgument(0));
+            when(titleRepository.save(any(Title.class)))
+                    .thenAnswer(invocation -> invocation.getArgument(0));
 
             // when
             titleService.initializeDefaultTitles();
@@ -436,7 +461,7 @@ class TitleServiceTest {
             Title rareTitle2 = createTestTitle(2L, "영웅", TitlePosition.RIGHT, TitleRarity.RARE);
 
             when(titleRepository.findByRarityAndIsActiveTrue(TitleRarity.RARE))
-                .thenReturn(List.of(rareTitle1, rareTitle2));
+                    .thenReturn(List.of(rareTitle1, rareTitle2));
 
             // when
             List<TitleResponse> result = titleService.getTitlesByRarity(TitleRarity.RARE);
@@ -451,7 +476,7 @@ class TitleServiceTest {
         void getTitlesByRarity_empty() {
             // given
             when(titleRepository.findByRarityAndIsActiveTrue(TitleRarity.LEGENDARY))
-                .thenReturn(List.of());
+                    .thenReturn(List.of());
 
             // when
             List<TitleResponse> result = titleService.getTitlesByRarity(TitleRarity.LEGENDARY);
@@ -478,10 +503,11 @@ class TitleServiceTest {
             UserTitle userTitle3 = createTestUserTitle(3L, TEST_USER_ID, rightTitle, false, null);
 
             when(userTitleRepository.findByUserIdWithTitle(TEST_USER_ID))
-                .thenReturn(List.of(userTitle1, userTitle2, userTitle3));
+                    .thenReturn(List.of(userTitle1, userTitle2, userTitle3));
 
             // when
-            List<UserTitleResponse> result = titleService.getUserTitlesByPosition(TEST_USER_ID, TitlePosition.LEFT);
+            List<UserTitleResponse> result =
+                    titleService.getUserTitlesByPosition(TEST_USER_ID, TitlePosition.LEFT);
 
             // then
             assertThat(result).hasSize(2);
@@ -495,10 +521,11 @@ class TitleServiceTest {
             UserTitle userTitle = createTestUserTitle(1L, TEST_USER_ID, rightTitle, false, null);
 
             when(userTitleRepository.findByUserIdWithTitle(TEST_USER_ID))
-                .thenReturn(List.of(userTitle));
+                    .thenReturn(List.of(userTitle));
 
             // when
-            List<UserTitleResponse> result = titleService.getUserTitlesByPosition(TEST_USER_ID, TitlePosition.LEFT);
+            List<UserTitleResponse> result =
+                    titleService.getUserTitlesByPosition(TEST_USER_ID, TitlePosition.LEFT);
 
             // then
             assertThat(result).isEmpty();
@@ -514,13 +541,16 @@ class TitleServiceTest {
         void getEquippedTitleByPosition_success() {
             // given
             Title leftTitle = createTestTitle(1L, "신입", TitlePosition.LEFT, TitleRarity.COMMON);
-            UserTitle userTitle = createTestUserTitle(1L, TEST_USER_ID, leftTitle, true, TitlePosition.LEFT);
+            UserTitle userTitle =
+                    createTestUserTitle(1L, TEST_USER_ID, leftTitle, true, TitlePosition.LEFT);
 
-            when(userTitleRepository.findEquippedByUserIdAndPosition(TEST_USER_ID, TitlePosition.LEFT))
-                .thenReturn(Optional.of(userTitle));
+            when(userTitleRepository.findEquippedByUserIdAndPosition(
+                            TEST_USER_ID, TitlePosition.LEFT))
+                    .thenReturn(Optional.of(userTitle));
 
             // when
-            Optional<UserTitleResponse> result = titleService.getEquippedTitleByPosition(TEST_USER_ID, TitlePosition.LEFT);
+            Optional<UserTitleResponse> result =
+                    titleService.getEquippedTitleByPosition(TEST_USER_ID, TitlePosition.LEFT);
 
             // then
             assertThat(result).isPresent();
@@ -531,11 +561,13 @@ class TitleServiceTest {
         @DisplayName("장착된 칭호가 없으면 빈 Optional을 반환한다")
         void getEquippedTitleByPosition_empty() {
             // given
-            when(userTitleRepository.findEquippedByUserIdAndPosition(TEST_USER_ID, TitlePosition.RIGHT))
-                .thenReturn(Optional.empty());
+            when(userTitleRepository.findEquippedByUserIdAndPosition(
+                            TEST_USER_ID, TitlePosition.RIGHT))
+                    .thenReturn(Optional.empty());
 
             // when
-            Optional<UserTitleResponse> result = titleService.getEquippedTitleByPosition(TEST_USER_ID, TitlePosition.RIGHT);
+            Optional<UserTitleResponse> result =
+                    titleService.getEquippedTitleByPosition(TEST_USER_ID, TitlePosition.RIGHT);
 
             // then
             assertThat(result).isEmpty();
@@ -552,14 +584,17 @@ class TitleServiceTest {
             // given
             Title leftTitle = createTestTitle(1L, "전설적인", TitlePosition.LEFT, TitleRarity.EPIC);
             Title rightTitle = createTestTitle(2L, "영웅", TitlePosition.RIGHT, TitleRarity.RARE);
-            UserTitle leftUserTitle = createTestUserTitle(1L, TEST_USER_ID, leftTitle, true, TitlePosition.LEFT);
-            UserTitle rightUserTitle = createTestUserTitle(2L, TEST_USER_ID, rightTitle, true, TitlePosition.RIGHT);
+            UserTitle leftUserTitle =
+                    createTestUserTitle(1L, TEST_USER_ID, leftTitle, true, TitlePosition.LEFT);
+            UserTitle rightUserTitle =
+                    createTestUserTitle(2L, TEST_USER_ID, rightTitle, true, TitlePosition.RIGHT);
 
             when(userTitleRepository.findEquippedTitlesByUserId(TEST_USER_ID))
-                .thenReturn(List.of(leftUserTitle, rightUserTitle));
+                    .thenReturn(List.of(leftUserTitle, rightUserTitle));
 
             // when
-            TitleService.DetailedTitleInfo result = titleService.getDetailedEquippedTitleInfo(TEST_USER_ID);
+            TitleService.DetailedTitleInfo result =
+                    titleService.getDetailedEquippedTitleInfo(TEST_USER_ID);
 
             // then
             assertThat(result.combinedName()).isEqualTo("전설적인 영웅");
@@ -575,13 +610,15 @@ class TitleServiceTest {
         void getDetailedEquippedTitleInfo_onlyLeft() {
             // given
             Title leftTitle = createTestTitle(1L, "성실한", TitlePosition.LEFT, TitleRarity.COMMON);
-            UserTitle leftUserTitle = createTestUserTitle(1L, TEST_USER_ID, leftTitle, true, TitlePosition.LEFT);
+            UserTitle leftUserTitle =
+                    createTestUserTitle(1L, TEST_USER_ID, leftTitle, true, TitlePosition.LEFT);
 
             when(userTitleRepository.findEquippedTitlesByUserId(TEST_USER_ID))
-                .thenReturn(List.of(leftUserTitle));
+                    .thenReturn(List.of(leftUserTitle));
 
             // when
-            TitleService.DetailedTitleInfo result = titleService.getDetailedEquippedTitleInfo(TEST_USER_ID);
+            TitleService.DetailedTitleInfo result =
+                    titleService.getDetailedEquippedTitleInfo(TEST_USER_ID);
 
             // then
             assertThat(result.combinedName()).isEqualTo("성실한");
@@ -596,14 +633,17 @@ class TitleServiceTest {
         @DisplayName("RIGHT만 장착되어 있을 때 상세 정보를 반환한다")
         void getDetailedEquippedTitleInfo_onlyRight() {
             // given
-            Title rightTitle = createTestTitle(2L, "모험가", TitlePosition.RIGHT, TitleRarity.UNCOMMON);
-            UserTitle rightUserTitle = createTestUserTitle(2L, TEST_USER_ID, rightTitle, true, TitlePosition.RIGHT);
+            Title rightTitle =
+                    createTestTitle(2L, "모험가", TitlePosition.RIGHT, TitleRarity.UNCOMMON);
+            UserTitle rightUserTitle =
+                    createTestUserTitle(2L, TEST_USER_ID, rightTitle, true, TitlePosition.RIGHT);
 
             when(userTitleRepository.findEquippedTitlesByUserId(TEST_USER_ID))
-                .thenReturn(List.of(rightUserTitle));
+                    .thenReturn(List.of(rightUserTitle));
 
             // when
-            TitleService.DetailedTitleInfo result = titleService.getDetailedEquippedTitleInfo(TEST_USER_ID);
+            TitleService.DetailedTitleInfo result =
+                    titleService.getDetailedEquippedTitleInfo(TEST_USER_ID);
 
             // then
             assertThat(result.combinedName()).isEqualTo("모험가");
@@ -619,10 +659,11 @@ class TitleServiceTest {
         void getDetailedEquippedTitleInfo_empty() {
             // given
             when(userTitleRepository.findEquippedTitlesByUserId(TEST_USER_ID))
-                .thenReturn(List.of());
+                    .thenReturn(List.of());
 
             // when
-            TitleService.DetailedTitleInfo result = titleService.getDetailedEquippedTitleInfo(TEST_USER_ID);
+            TitleService.DetailedTitleInfo result =
+                    titleService.getDetailedEquippedTitleInfo(TEST_USER_ID);
 
             // then
             assertThat(result.combinedName()).isNull();
@@ -642,42 +683,49 @@ class TitleServiceTest {
         @DisplayName("신규 사용자에게 기본 칭호를 부여하고 장착한다")
         void grantAndEquipDefaultTitles_success() {
             // given
-            Long leftTitleId = 77L;  // 신입 (COMMON, LEFT)
+            Long leftTitleId = 77L; // 신입 (COMMON, LEFT)
             Long rightTitleId = 78L; // 수련생 (COMMON, RIGHT)
-            Title leftTitle = createTestTitle(leftTitleId, "신입", TitlePosition.LEFT, TitleRarity.COMMON);
-            Title rightTitle = createTestTitle(rightTitleId, "수련생", TitlePosition.RIGHT, TitleRarity.COMMON);
+            Title leftTitle =
+                    createTestTitle(leftTitleId, "신입", TitlePosition.LEFT, TitleRarity.COMMON);
+            Title rightTitle =
+                    createTestTitle(rightTitleId, "수련생", TitlePosition.RIGHT, TitleRarity.COMMON);
 
             UserTitle leftUserTitle = createTestUserTitle(1L, TEST_USER_ID, leftTitle, false, null);
-            UserTitle rightUserTitle = createTestUserTitle(2L, TEST_USER_ID, rightTitle, false, null);
+            UserTitle rightUserTitle =
+                    createTestUserTitle(2L, TEST_USER_ID, rightTitle, false, null);
 
             // 기본 칭호 존재 확인 설정
             when(titleRepository.existsById(leftTitleId)).thenReturn(true);
             when(titleRepository.existsById(rightTitleId)).thenReturn(true);
 
             // grantTitle 설정
-            when(userTitleRepository.existsByUserIdAndTitleId(TEST_USER_ID, leftTitleId)).thenReturn(false);
-            when(userTitleRepository.existsByUserIdAndTitleId(TEST_USER_ID, rightTitleId)).thenReturn(false);
+            when(userTitleRepository.existsByUserIdAndTitleId(TEST_USER_ID, leftTitleId))
+                    .thenReturn(false);
+            when(userTitleRepository.existsByUserIdAndTitleId(TEST_USER_ID, rightTitleId))
+                    .thenReturn(false);
             when(titleRepository.findById(leftTitleId)).thenReturn(Optional.of(leftTitle));
             when(titleRepository.findById(rightTitleId)).thenReturn(Optional.of(rightTitle));
             when(userTitleRepository.save(any(UserTitle.class)))
-                .thenReturn(leftUserTitle)
-                .thenReturn(rightUserTitle);
+                    .thenReturn(leftUserTitle)
+                    .thenReturn(rightUserTitle);
 
             // equipTitle 설정
             when(userTitleRepository.findByUserIdAndTitleId(TEST_USER_ID, leftTitleId))
-                .thenReturn(Optional.of(leftUserTitle));
+                    .thenReturn(Optional.of(leftUserTitle));
             when(userTitleRepository.findByUserIdAndTitleId(TEST_USER_ID, rightTitleId))
-                .thenReturn(Optional.of(rightUserTitle));
+                    .thenReturn(Optional.of(rightUserTitle));
             when(userTitleRepository.findEquippedTitlesByUserId(TEST_USER_ID))
-                .thenReturn(List.of(leftUserTitle, rightUserTitle));
+                    .thenReturn(List.of(leftUserTitle, rightUserTitle));
 
             // when
             titleService.grantAndEquipDefaultTitles(TEST_USER_ID);
 
             // then
             verify(userTitleRepository, atLeastOnce()).save(any(UserTitle.class));
-            verify(userTitleRepository).unequipByUserIdAndPosition(TEST_USER_ID, TitlePosition.LEFT);
-            verify(userTitleRepository).unequipByUserIdAndPosition(TEST_USER_ID, TitlePosition.RIGHT);
+            verify(userTitleRepository)
+                    .unequipByUserIdAndPosition(TEST_USER_ID, TitlePosition.LEFT);
+            verify(userTitleRepository)
+                    .unequipByUserIdAndPosition(TEST_USER_ID, TitlePosition.RIGHT);
             // 이벤트가 발행되지 않음 확인 (기본 칭호는 notify=false)
             verify(eventPublisher, never()).publishEvent(any(TitleAcquiredEvent.class));
         }
@@ -695,7 +743,7 @@ class TitleServiceTest {
 
             // when & then
             assertThatThrownBy(() -> titleService.changeTitles(TEST_USER_ID, sameId, sameId))
-                .isInstanceOf(io.pinkspider.global.exception.CustomException.class);
+                    .isInstanceOf(io.pinkspider.global.exception.CustomException.class);
         }
 
         @Test
@@ -709,7 +757,7 @@ class TitleServiceTest {
 
             // when & then
             assertThatThrownBy(() -> titleService.changeTitles(TEST_USER_ID, leftId, rightId))
-                .isInstanceOf(io.pinkspider.global.exception.CustomException.class);
+                    .isInstanceOf(io.pinkspider.global.exception.CustomException.class);
         }
 
         @Test
@@ -724,7 +772,7 @@ class TitleServiceTest {
 
             // when & then
             assertThatThrownBy(() -> titleService.changeTitles(TEST_USER_ID, leftId, rightId))
-                .isInstanceOf(io.pinkspider.global.exception.CustomException.class);
+                    .isInstanceOf(io.pinkspider.global.exception.CustomException.class);
         }
 
         @Test
@@ -736,7 +784,8 @@ class TitleServiceTest {
             String otherUserId = "other-user";
 
             Title leftTitle = createTestTitle(leftId, "신입", TitlePosition.LEFT, TitleRarity.COMMON);
-            UserTitle leftUserTitle = createTestUserTitle(leftId, otherUserId, leftTitle, false, null);
+            UserTitle leftUserTitle =
+                    createTestUserTitle(leftId, otherUserId, leftTitle, false, null);
 
             when(userTitleRepository.existsById(leftId)).thenReturn(true);
             when(userTitleRepository.existsById(rightId)).thenReturn(true);
@@ -744,7 +793,7 @@ class TitleServiceTest {
 
             // when & then
             assertThatThrownBy(() -> titleService.changeTitles(TEST_USER_ID, leftId, rightId))
-                .isInstanceOf(io.pinkspider.global.exception.CustomException.class);
+                    .isInstanceOf(io.pinkspider.global.exception.CustomException.class);
         }
 
         @Test
@@ -756,9 +805,12 @@ class TitleServiceTest {
             String otherUserId = "other-user";
 
             Title leftTitle = createTestTitle(leftId, "신입", TitlePosition.LEFT, TitleRarity.COMMON);
-            Title rightTitle = createTestTitle(rightId, "모험가", TitlePosition.RIGHT, TitleRarity.COMMON);
-            UserTitle leftUserTitle = createTestUserTitle(leftId, TEST_USER_ID, leftTitle, false, null);
-            UserTitle rightUserTitle = createTestUserTitle(rightId, otherUserId, rightTitle, false, null);
+            Title rightTitle =
+                    createTestTitle(rightId, "모험가", TitlePosition.RIGHT, TitleRarity.COMMON);
+            UserTitle leftUserTitle =
+                    createTestUserTitle(leftId, TEST_USER_ID, leftTitle, false, null);
+            UserTitle rightUserTitle =
+                    createTestUserTitle(rightId, otherUserId, rightTitle, false, null);
 
             when(userTitleRepository.existsById(leftId)).thenReturn(true);
             when(userTitleRepository.existsById(rightId)).thenReturn(true);
@@ -767,7 +819,7 @@ class TitleServiceTest {
 
             // when & then
             assertThatThrownBy(() -> titleService.changeTitles(TEST_USER_ID, leftId, rightId))
-                .isInstanceOf(io.pinkspider.global.exception.CustomException.class);
+                    .isInstanceOf(io.pinkspider.global.exception.CustomException.class);
         }
 
         @Test
@@ -778,9 +830,12 @@ class TitleServiceTest {
             Long rightId = 2L;
 
             Title leftTitle = createTestTitle(leftId, "신입", TitlePosition.LEFT, TitleRarity.COMMON);
-            Title rightTitle = createTestTitle(rightId, "모험가", TitlePosition.RIGHT, TitleRarity.COMMON);
-            UserTitle leftUserTitle = createTestUserTitle(leftId, TEST_USER_ID, leftTitle, false, null);
-            UserTitle rightUserTitle = createTestUserTitle(rightId, TEST_USER_ID, rightTitle, false, null);
+            Title rightTitle =
+                    createTestTitle(rightId, "모험가", TitlePosition.RIGHT, TitleRarity.COMMON);
+            UserTitle leftUserTitle =
+                    createTestUserTitle(leftId, TEST_USER_ID, leftTitle, false, null);
+            UserTitle rightUserTitle =
+                    createTestUserTitle(rightId, TEST_USER_ID, rightTitle, false, null);
 
             when(userTitleRepository.existsById(leftId)).thenReturn(true);
             when(userTitleRepository.existsById(rightId)).thenReturn(true);
@@ -790,10 +845,11 @@ class TitleServiceTest {
             when(userTitleRepository.save(rightUserTitle)).thenReturn(rightUserTitle);
             // getCombinedEquippedTitleInfo 호출을 위해 findEquippedTitlesByUserId mock
             when(userTitleRepository.findEquippedTitlesByUserId(TEST_USER_ID))
-                .thenReturn(List.of(leftUserTitle, rightUserTitle));
+                    .thenReturn(List.of(leftUserTitle, rightUserTitle));
 
             // when
-            TitleService.TitleChangeResult result = titleService.changeTitles(TEST_USER_ID, leftId, rightId);
+            TitleService.TitleChangeResult result =
+                    titleService.changeTitles(TEST_USER_ID, leftId, rightId);
 
             // then
             assertThat(result).isNotNull();
@@ -817,7 +873,7 @@ class TitleServiceTest {
 
             // when & then
             assertThatThrownBy(() -> titleService.grantAndEquipDefaultTitles(TEST_USER_ID))
-                .isInstanceOf(IllegalStateException.class);
+                    .isInstanceOf(IllegalStateException.class);
         }
 
         @Test
@@ -829,7 +885,7 @@ class TitleServiceTest {
 
             // when & then
             assertThatThrownBy(() -> titleService.grantAndEquipDefaultTitles(TEST_USER_ID))
-                .isInstanceOf(IllegalStateException.class);
+                    .isInstanceOf(IllegalStateException.class);
         }
     }
 
@@ -862,10 +918,11 @@ class TitleServiceTest {
         void getEquippedLeftTitleNameMap_success() {
             // given
             Title leftTitle = createTestTitle(1L, "신입", TitlePosition.LEFT, TitleRarity.COMMON);
-            UserTitle leftUserTitle = createTestUserTitle(1L, TEST_USER_ID, leftTitle, true, TitlePosition.LEFT);
+            UserTitle leftUserTitle =
+                    createTestUserTitle(1L, TEST_USER_ID, leftTitle, true, TitlePosition.LEFT);
 
             when(userTitleRepository.findEquippedTitlesByUserIdIn(List.of(TEST_USER_ID)))
-                .thenReturn(List.of(leftUserTitle));
+                    .thenReturn(List.of(leftUserTitle));
 
             // when
             var result = titleService.getEquippedLeftTitleNameMap(List.of(TEST_USER_ID));
@@ -929,11 +986,13 @@ class TitleServiceTest {
             // given
             Title leftTitle = createTestTitle(1L, "전설적인", TitlePosition.LEFT, TitleRarity.EPIC);
             Title rightTitle = createTestTitle(2L, "영웅", TitlePosition.RIGHT, TitleRarity.RARE);
-            UserTitle leftUserTitle = createTestUserTitle(1L, TEST_USER_ID, leftTitle, true, TitlePosition.LEFT);
-            UserTitle rightUserTitle = createTestUserTitle(2L, TEST_USER_ID, rightTitle, true, TitlePosition.RIGHT);
+            UserTitle leftUserTitle =
+                    createTestUserTitle(1L, TEST_USER_ID, leftTitle, true, TitlePosition.LEFT);
+            UserTitle rightUserTitle =
+                    createTestUserTitle(2L, TEST_USER_ID, rightTitle, true, TitlePosition.RIGHT);
 
             when(userTitleRepository.findEquippedTitlesByUserId(TEST_USER_ID))
-                .thenReturn(List.of(leftUserTitle, rightUserTitle));
+                    .thenReturn(List.of(leftUserTitle, rightUserTitle));
 
             // when
             String result = titleService.getCombinedEquippedTitleName(TEST_USER_ID);
@@ -947,7 +1006,7 @@ class TitleServiceTest {
         void getCombinedEquippedTitleName_empty() {
             // given
             when(userTitleRepository.findEquippedTitlesByUserId(TEST_USER_ID))
-                .thenReturn(List.of());
+                    .thenReturn(List.of());
 
             // when
             String result = titleService.getCombinedEquippedTitleName(TEST_USER_ID);
@@ -966,10 +1025,11 @@ class TitleServiceTest {
         void getCombinedEquippedTitleInfo_onlyLeft() {
             // given
             Title leftTitle = createTestTitle(1L, "전설적인", TitlePosition.LEFT, TitleRarity.EPIC);
-            UserTitle leftUserTitle = createTestUserTitle(1L, TEST_USER_ID, leftTitle, true, TitlePosition.LEFT);
+            UserTitle leftUserTitle =
+                    createTestUserTitle(1L, TEST_USER_ID, leftTitle, true, TitlePosition.LEFT);
 
             when(userTitleRepository.findEquippedTitlesByUserId(TEST_USER_ID))
-                .thenReturn(List.of(leftUserTitle));
+                    .thenReturn(List.of(leftUserTitle));
 
             // when
             TitleService.TitleInfo result = titleService.getCombinedEquippedTitleInfo(TEST_USER_ID);
@@ -984,10 +1044,11 @@ class TitleServiceTest {
         void getCombinedEquippedTitleInfo_onlyRight() {
             // given
             Title rightTitle = createTestTitle(2L, "영웅", TitlePosition.RIGHT, TitleRarity.RARE);
-            UserTitle rightUserTitle = createTestUserTitle(2L, TEST_USER_ID, rightTitle, true, TitlePosition.RIGHT);
+            UserTitle rightUserTitle =
+                    createTestUserTitle(2L, TEST_USER_ID, rightTitle, true, TitlePosition.RIGHT);
 
             when(userTitleRepository.findEquippedTitlesByUserId(TEST_USER_ID))
-                .thenReturn(List.of(rightUserTitle));
+                    .thenReturn(List.of(rightUserTitle));
 
             // when
             TitleService.TitleInfo result = titleService.getCombinedEquippedTitleInfo(TEST_USER_ID);
@@ -1001,13 +1062,16 @@ class TitleServiceTest {
         @DisplayName("LEFT가 더 높은 등급일 때 LEFT의 등급을 반환한다")
         void getCombinedEquippedTitleInfo_leftHigherRarity() {
             // given
-            Title leftTitle = createTestTitle(1L, "전설적인", TitlePosition.LEFT, TitleRarity.LEGENDARY);
+            Title leftTitle =
+                    createTestTitle(1L, "전설적인", TitlePosition.LEFT, TitleRarity.LEGENDARY);
             Title rightTitle = createTestTitle(2L, "모험가", TitlePosition.RIGHT, TitleRarity.COMMON);
-            UserTitle leftUserTitle = createTestUserTitle(1L, TEST_USER_ID, leftTitle, true, TitlePosition.LEFT);
-            UserTitle rightUserTitle = createTestUserTitle(2L, TEST_USER_ID, rightTitle, true, TitlePosition.RIGHT);
+            UserTitle leftUserTitle =
+                    createTestUserTitle(1L, TEST_USER_ID, leftTitle, true, TitlePosition.LEFT);
+            UserTitle rightUserTitle =
+                    createTestUserTitle(2L, TEST_USER_ID, rightTitle, true, TitlePosition.RIGHT);
 
             when(userTitleRepository.findEquippedTitlesByUserId(TEST_USER_ID))
-                .thenReturn(List.of(leftUserTitle, rightUserTitle));
+                    .thenReturn(List.of(leftUserTitle, rightUserTitle));
 
             // when
             TitleService.TitleInfo result = titleService.getCombinedEquippedTitleInfo(TEST_USER_ID);
@@ -1022,20 +1086,27 @@ class TitleServiceTest {
     @DisplayName("LUT-255 다국어")
     class LocaleTest {
 
-        private Title createTestTitleWithEn(Long id, String name, String nameEn, String description,
-                                             String descriptionEn, TitlePosition position, TitleRarity rarity) {
-            Title title = Title.builder()
-                .name(name)
-                .nameEn(nameEn)
-                .description(description)
-                .descriptionEn(descriptionEn)
-                .rarity(rarity)
-                .positionType(position)
-                .acquisitionType(TitleAcquisitionType.LEVEL)
-                .acquisitionCondition("레벨 달성")
-                .colorCode(rarity.getColorCode())
-                .isActive(true)
-                .build();
+        private Title createTestTitleWithEn(
+                Long id,
+                String name,
+                String nameEn,
+                String description,
+                String descriptionEn,
+                TitlePosition position,
+                TitleRarity rarity) {
+            Title title =
+                    Title.builder()
+                            .name(name)
+                            .nameEn(nameEn)
+                            .description(description)
+                            .descriptionEn(descriptionEn)
+                            .rarity(rarity)
+                            .positionType(position)
+                            .acquisitionType(TitleAcquisitionType.LEVEL)
+                            .acquisitionCondition("레벨 달성")
+                            .colorCode(rarity.getColorCode())
+                            .isActive(true)
+                            .build();
             setId(title, id);
             return title;
         }
@@ -1044,12 +1115,20 @@ class TitleServiceTest {
         @DisplayName("locale=en이면 getUserTitles 응답의 이름/설명이 영어로 채워진다")
         void getUserTitles_localeEn_returnsEnglish() {
             // given
-            Title title = createTestTitleWithEn(1L, "신입", "Newbie", "이제 막 시작한", "Just started",
-                TitlePosition.LEFT, TitleRarity.COMMON);
-            UserTitle userTitle = createTestUserTitle(1L, TEST_USER_ID, title, true, TitlePosition.LEFT);
+            Title title =
+                    createTestTitleWithEn(
+                            1L,
+                            "신입",
+                            "Newbie",
+                            "이제 막 시작한",
+                            "Just started",
+                            TitlePosition.LEFT,
+                            TitleRarity.COMMON);
+            UserTitle userTitle =
+                    createTestUserTitle(1L, TEST_USER_ID, title, true, TitlePosition.LEFT);
 
             when(userTitleRepository.findByUserIdWithTitle(TEST_USER_ID))
-                .thenReturn(List.of(userTitle));
+                    .thenReturn(List.of(userTitle));
 
             // when
             List<UserTitleResponse> result = titleService.getUserTitles(TEST_USER_ID, "en");
@@ -1065,12 +1144,20 @@ class TitleServiceTest {
         @DisplayName("locale=null이면 getUserTitles 응답이 한국어로 채워진다")
         void getUserTitles_localeNull_returnsKorean() {
             // given
-            Title title = createTestTitleWithEn(1L, "신입", "Newbie", "이제 막 시작한", "Just started",
-                TitlePosition.LEFT, TitleRarity.COMMON);
-            UserTitle userTitle = createTestUserTitle(1L, TEST_USER_ID, title, true, TitlePosition.LEFT);
+            Title title =
+                    createTestTitleWithEn(
+                            1L,
+                            "신입",
+                            "Newbie",
+                            "이제 막 시작한",
+                            "Just started",
+                            TitlePosition.LEFT,
+                            TitleRarity.COMMON);
+            UserTitle userTitle =
+                    createTestUserTitle(1L, TEST_USER_ID, title, true, TitlePosition.LEFT);
 
             when(userTitleRepository.findByUserIdWithTitle(TEST_USER_ID))
-                .thenReturn(List.of(userTitle));
+                    .thenReturn(List.of(userTitle));
 
             // when
             List<UserTitleResponse> result = titleService.getUserTitles(TEST_USER_ID, null);
@@ -1085,8 +1172,15 @@ class TitleServiceTest {
         @DisplayName("locale=en이면 getAllTitles 응답의 이름이 영어로 채워진다")
         void getAllTitles_localeEn_returnsEnglish() {
             // given
-            Title title = createTestTitleWithEn(2L, "모험가", "Adventurer", "모험을 시작한 자", "One who started an adventure",
-                TitlePosition.RIGHT, TitleRarity.COMMON);
+            Title title =
+                    createTestTitleWithEn(
+                            2L,
+                            "모험가",
+                            "Adventurer",
+                            "모험을 시작한 자",
+                            "One who started an adventure",
+                            TitlePosition.RIGHT,
+                            TitleRarity.COMMON);
 
             when(titleRepository.findByIsActiveTrue()).thenReturn(List.of(title));
 
@@ -1103,16 +1197,25 @@ class TitleServiceTest {
         @DisplayName("locale=en이면 getEquippedTitleByPosition 응답의 이름이 영어로 채워진다")
         void getEquippedTitleByPosition_localeEn_returnsEnglish() {
             // given
-            Title title = createTestTitleWithEn(3L, "전설적인", "Legendary", "전설로 기록될", "To be recorded as a legend",
-                TitlePosition.LEFT, TitleRarity.EPIC);
-            UserTitle userTitle = createTestUserTitle(1L, TEST_USER_ID, title, true, TitlePosition.LEFT);
+            Title title =
+                    createTestTitleWithEn(
+                            3L,
+                            "전설적인",
+                            "Legendary",
+                            "전설로 기록될",
+                            "To be recorded as a legend",
+                            TitlePosition.LEFT,
+                            TitleRarity.EPIC);
+            UserTitle userTitle =
+                    createTestUserTitle(1L, TEST_USER_ID, title, true, TitlePosition.LEFT);
 
-            when(userTitleRepository.findEquippedByUserIdAndPosition(TEST_USER_ID, TitlePosition.LEFT))
-                .thenReturn(Optional.of(userTitle));
+            when(userTitleRepository.findEquippedByUserIdAndPosition(
+                            TEST_USER_ID, TitlePosition.LEFT))
+                    .thenReturn(Optional.of(userTitle));
 
             // when
             Optional<UserTitleResponse> result =
-                titleService.getEquippedTitleByPosition(TEST_USER_ID, TitlePosition.LEFT, "en");
+                    titleService.getEquippedTitleByPosition(TEST_USER_ID, TitlePosition.LEFT, "en");
 
             // then
             assertThat(result).isPresent();

@@ -15,6 +15,7 @@ import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.Mission;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.MissionParticipant;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.ExecutionStatus;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionExecutionMode;
+import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionSource;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionType;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionVisibility;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.ParticipantStatus;
@@ -36,14 +37,11 @@ import org.mockito.junit.jupiter.MockitoExtension;
 @DisplayName("CompletePinnedInstanceStep 단위 테스트")
 class CompletePinnedInstanceStepTest {
 
-    @Mock
-    private DailyMissionInstanceRepository instanceRepository;
+    @Mock private DailyMissionInstanceRepository instanceRepository;
 
-    @Mock
-    private MissionExecutionRepository executionRepository;
+    @Mock private MissionExecutionRepository executionRepository;
 
-    @InjectMocks
-    private CompletePinnedInstanceStep completePinnedInstanceStep;
+    @InjectMocks private CompletePinnedInstanceStep completePinnedInstanceStep;
 
     private static final String TEST_USER_ID = "test-user-pinned";
     private static final Long INSTANCE_ID = 100L;
@@ -55,24 +53,26 @@ class CompletePinnedInstanceStepTest {
 
     @BeforeEach
     void setUp() {
-        mission = Mission.builder()
-            .title("매일 운동")
-            .description("매일 운동하기 (고정 미션)")
-            .creatorId(TEST_USER_ID)
-            .status(MissionStatus.IN_PROGRESS)
-            .visibility(MissionVisibility.PRIVATE)
-            .type(MissionType.PERSONAL)
-            .isPinned(true)
-            .expPerCompletion(10)
-            .build();
+        mission =
+                Mission.builder()
+                        .title("매일 운동")
+                        .description("매일 운동하기 (고정 미션)")
+                        .creatorId(TEST_USER_ID)
+                        .status(MissionStatus.IN_PROGRESS)
+                        .visibility(MissionVisibility.PRIVATE)
+                        .type(MissionType.PERSONAL)
+                        .isPinned(true)
+                        .expPerCompletion(10)
+                        .build();
         setId(mission, 1L);
 
-        participant = MissionParticipant.builder()
-            .mission(mission)
-            .userId(TEST_USER_ID)
-            .status(ParticipantStatus.IN_PROGRESS)
-            .progress(0)
-            .build();
+        participant =
+                MissionParticipant.builder()
+                        .mission(mission)
+                        .userId(TEST_USER_ID)
+                        .status(ParticipantStatus.IN_PROGRESS)
+                        .progress(0)
+                        .build();
         setId(participant, 1L);
 
         instance = DailyMissionInstance.createFrom(participant, LocalDate.now(), 1);
@@ -85,8 +85,8 @@ class CompletePinnedInstanceStepTest {
         context.setParticipant(participant);
         context.setMission(mission);
         context.addCompensationData(
-            MissionCompletionContext.CompensationKeys.INSTANCE_STATUS_BEFORE,
-            ExecutionStatus.IN_PROGRESS);
+                MissionCompletionContext.CompensationKeys.INSTANCE_STATUS_BEFORE,
+                ExecutionStatus.IN_PROGRESS);
     }
 
     @Test
@@ -113,7 +113,7 @@ class CompletePinnedInstanceStepTest {
         void execute_success() {
             // given
             when(instanceRepository.save(any(DailyMissionInstance.class)))
-                .thenAnswer(invocation -> invocation.getArgument(0));
+                    .thenAnswer(invocation -> invocation.getArgument(0));
 
             // when
             SagaStepResult result = completePinnedInstanceStep.execute(context);
@@ -147,11 +147,11 @@ class CompletePinnedInstanceStepTest {
             // given
             mission.setExecutionMode(MissionExecutionMode.SIMPLE);
             when(executionRepository.countSimpleCompletedByUserIdAndDate(eq(TEST_USER_ID), any()))
-                .thenReturn(2L);
+                    .thenReturn(2L);
             when(instanceRepository.countSimpleCompletedByUserIdAndDate(eq(TEST_USER_ID), any()))
-                .thenReturn(3L);
+                    .thenReturn(3L);
             when(instanceRepository.save(any(DailyMissionInstance.class)))
-                .thenAnswer(invocation -> invocation.getArgument(0));
+                    .thenAnswer(invocation -> invocation.getArgument(0));
 
             // when
             SagaStepResult result = completePinnedInstanceStep.execute(context);
@@ -168,11 +168,11 @@ class CompletePinnedInstanceStepTest {
             // given
             mission.setExecutionMode(MissionExecutionMode.SIMPLE);
             when(executionRepository.countSimpleCompletedByUserIdAndDate(eq(TEST_USER_ID), any()))
-                .thenReturn(6L);
+                    .thenReturn(6L);
             when(instanceRepository.countSimpleCompletedByUserIdAndDate(eq(TEST_USER_ID), any()))
-                .thenReturn(4L);
+                    .thenReturn(4L);
             when(instanceRepository.save(any(DailyMissionInstance.class)))
-                .thenAnswer(invocation -> invocation.getArgument(0));
+                    .thenAnswer(invocation -> invocation.getArgument(0));
 
             // when
             SagaStepResult result = completePinnedInstanceStep.execute(context);
@@ -193,7 +193,7 @@ class CompletePinnedInstanceStepTest {
             // 직접 사전 세팅한다 (TIMED 기본 모드, complete() 동작은 다른 테스트에서 검증)
             instance.setExpEarned(42);
             when(instanceRepository.save(any(DailyMissionInstance.class)))
-                .thenAnswer(invocation -> invocation.getArgument(0));
+                    .thenAnswer(invocation -> invocation.getArgument(0));
 
             // when
             SagaStepResult result = completePinnedInstanceStep.execute(context);
@@ -209,7 +209,7 @@ class CompletePinnedInstanceStepTest {
         void execute_personalPinnedMission_doesNotSetGuildExpEarned() {
             // given (default: PERSONAL)
             when(instanceRepository.save(any(DailyMissionInstance.class)))
-                .thenAnswer(invocation -> invocation.getArgument(0));
+                    .thenAnswer(invocation -> invocation.getArgument(0));
 
             // when
             SagaStepResult result = completePinnedInstanceStep.execute(context);
@@ -224,7 +224,7 @@ class CompletePinnedInstanceStepTest {
         void execute_timedMode_skipsSimpleCountQuery() {
             // given (default: TIMED)
             when(instanceRepository.save(any(DailyMissionInstance.class)))
-                .thenAnswer(invocation -> invocation.getArgument(0));
+                    .thenAnswer(invocation -> invocation.getArgument(0));
 
             // when
             SagaStepResult result = completePinnedInstanceStep.execute(context);
@@ -234,6 +234,198 @@ class CompletePinnedInstanceStepTest {
             verify(executionRepository, never()).countSimpleCompletedByUserIdAndDate(any(), any());
             verify(instanceRepository, never()).countSimpleCompletedByUserIdAndDate(any(), any());
             assertThat(context.isDailySimpleExpCapped()).isFalse();
+        }
+
+        @Test
+        @DisplayName("mission이 null이면 SIMPLE 판정·목표시간 판정을 건너뛰고 완료 처리한다")
+        void execute_missionNull_skipsModeChecks() {
+            // given
+            context.setMission(null);
+            when(instanceRepository.save(any(DailyMissionInstance.class)))
+                    .thenAnswer(invocation -> invocation.getArgument(0));
+
+            // when
+            SagaStepResult result = completePinnedInstanceStep.execute(context);
+
+            // then
+            assertThat(result.isSuccess()).isTrue();
+            assertThat(instance.getStatus()).isEqualTo(ExecutionStatus.COMPLETED);
+            assertThat(context.isFullCompletionBonusGranted()).isFalse();
+            verify(executionRepository, never()).countSimpleCompletedByUserIdAndDate(any(), any());
+        }
+
+        @Test
+        @DisplayName("SIMPLE 모드라도 instanceDate가 null이면 일일 한도 카운트를 조회하지 않는다")
+        void execute_simpleMode_instanceDateNull_skipsCountQuery() {
+            // given
+            mission.setExecutionMode(MissionExecutionMode.SIMPLE);
+            instance.setInstanceDate(null);
+            when(instanceRepository.save(any(DailyMissionInstance.class)))
+                    .thenAnswer(invocation -> invocation.getArgument(0));
+
+            // when
+            SagaStepResult result = completePinnedInstanceStep.execute(context);
+
+            // then
+            assertThat(result.isSuccess()).isTrue();
+            assertThat(instance.getExpEarned()).isEqualTo(MissionExecutionMode.SIMPLE_EXP);
+            verify(executionRepository, never()).countSimpleCompletedByUserIdAndDate(any(), any());
+            verify(instanceRepository, never()).countSimpleCompletedByUserIdAndDate(any(), any());
+        }
+
+        @Test
+        @DisplayName("note가 null이면 인스턴스 note를 덮어쓰지 않는다")
+        void execute_noteNull_doesNotOverrideNote() {
+            // given
+            MissionCompletionContext noNoteContext =
+                    MissionCompletionContext.forPinned(INSTANCE_ID, TEST_USER_ID, null, false);
+            noNoteContext.setInstance(instance);
+            noNoteContext.setParticipant(participant);
+            noNoteContext.setMission(mission);
+            instance.setNote("기존 메모");
+            when(instanceRepository.save(any(DailyMissionInstance.class)))
+                    .thenAnswer(invocation -> invocation.getArgument(0));
+
+            // when
+            SagaStepResult result = completePinnedInstanceStep.execute(noNoteContext);
+
+            // then
+            assertThat(result.isSuccess()).isTrue();
+            assertThat(instance.getNote()).isEqualTo("기존 메모");
+        }
+
+        @Test
+        @DisplayName("목표시간 달성 시 fullCompletionBonus 를 context 에 반영한다 (bonus 설정)")
+        void execute_targetDurationReached_setsFullCompletionBonus() {
+            // given — 보너스는 미션북(SYSTEM) 전용 (LUT-551)
+            mission.setSource(MissionSource.SYSTEM);
+            instance.setTargetDurationMinutes(10);
+            instance.setBonusExpOnFullCompletion(7);
+            instance.setStartedAt(LocalDateTime.now().minusMinutes(15));
+            when(instanceRepository.save(any(DailyMissionInstance.class)))
+                    .thenAnswer(invocation -> invocation.getArgument(0));
+
+            // when
+            SagaStepResult result = completePinnedInstanceStep.execute(context);
+
+            // then
+            assertThat(result.isSuccess()).isTrue();
+            assertThat(context.isFullCompletionBonusGranted()).isTrue();
+            assertThat(context.getFullCompletionBonusExp()).isEqualTo(7);
+            assertThat(context.getUserExpEarned()).isEqualTo(17);
+        }
+
+        @Test
+        @DisplayName("목표시간 달성 + bonus 미설정(null)이면 보너스 EXP 0 으로 기록한다")
+        void execute_targetDurationReached_bonusNull_setsZeroBonus() {
+            // given
+            mission.setSource(MissionSource.SYSTEM);
+            instance.setTargetDurationMinutes(10);
+            instance.setBonusExpOnFullCompletion(null);
+            instance.setStartedAt(LocalDateTime.now().minusMinutes(15));
+            when(instanceRepository.save(any(DailyMissionInstance.class)))
+                    .thenAnswer(invocation -> invocation.getArgument(0));
+
+            // when
+            SagaStepResult result = completePinnedInstanceStep.execute(context);
+
+            // then
+            assertThat(result.isSuccess()).isTrue();
+            assertThat(context.isFullCompletionBonusGranted()).isTrue();
+            assertThat(context.getFullCompletionBonusExp()).isEqualTo(0);
+        }
+
+        @Test
+        @DisplayName("LUT-551: 유저 생성(USER) 고정 타이머 미션은 목표 도달 시 보너스 없이 목표분으로 EXP 를 되돌린다")
+        void execute_userPinnedTimerMission_targetReached_noBonus() {
+            // given — 미션에서 인스턴스로 복사된 bonus(7) 가 complete() 에서 가산되지만 USER 미션이라 되돌려야 한다
+            instance.setTargetDurationMinutes(10);
+            instance.setBonusExpOnFullCompletion(7);
+            instance.setStartedAt(LocalDateTime.now().minusMinutes(15));
+            when(instanceRepository.save(any(DailyMissionInstance.class)))
+                    .thenAnswer(invocation -> invocation.getArgument(0));
+
+            // when
+            SagaStepResult result = completePinnedInstanceStep.execute(context);
+
+            // then
+            assertThat(result.isSuccess()).isTrue();
+            assertThat(instance.getExpEarned()).isEqualTo(10);
+            assertThat(context.getUserExpEarned()).isEqualTo(10);
+            assertThat(context.isFullCompletionBonusGranted()).isFalse();
+        }
+
+        @Test
+        @DisplayName("목표시간 미달이면 fullCompletionBonus 를 부여하지 않는다")
+        void execute_targetDurationNotReached_noBonus() {
+            // given
+            instance.setTargetDurationMinutes(60);
+            instance.setBonusExpOnFullCompletion(7);
+            instance.setStartedAt(LocalDateTime.now().minusMinutes(15));
+            when(instanceRepository.save(any(DailyMissionInstance.class)))
+                    .thenAnswer(invocation -> invocation.getArgument(0));
+
+            // when
+            SagaStepResult result = completePinnedInstanceStep.execute(context);
+
+            // then
+            assertThat(result.isSuccess()).isTrue();
+            assertThat(context.isFullCompletionBonusGranted()).isFalse();
+            assertThat(context.getFullCompletionBonusExp()).isEqualTo(0);
+        }
+
+        @Test
+        @DisplayName("목표시간이 0이면 목표시간 판정을 건너뛴다")
+        void execute_targetDurationZero_skipsBonusCheck() {
+            // given
+            instance.setTargetDurationMinutes(0);
+            instance.setBonusExpOnFullCompletion(7);
+            when(instanceRepository.save(any(DailyMissionInstance.class)))
+                    .thenAnswer(invocation -> invocation.getArgument(0));
+
+            // when
+            SagaStepResult result = completePinnedInstanceStep.execute(context);
+
+            // then
+            assertThat(result.isSuccess()).isTrue();
+            assertThat(context.isFullCompletionBonusGranted()).isFalse();
+        }
+
+        @Test
+        @DisplayName("SIMPLE 모드는 목표시간이 설정돼도 fullCompletionBonus 판정을 하지 않는다")
+        void execute_simpleMode_skipsBonusCheckEvenWithTarget() {
+            // given
+            mission.setExecutionMode(MissionExecutionMode.SIMPLE);
+            instance.setTargetDurationMinutes(10);
+            instance.setBonusExpOnFullCompletion(7);
+            when(executionRepository.countSimpleCompletedByUserIdAndDate(eq(TEST_USER_ID), any()))
+                    .thenReturn(0L);
+            when(instanceRepository.countSimpleCompletedByUserIdAndDate(eq(TEST_USER_ID), any()))
+                    .thenReturn(0L);
+            when(instanceRepository.save(any(DailyMissionInstance.class)))
+                    .thenAnswer(invocation -> invocation.getArgument(0));
+
+            // when
+            SagaStepResult result = completePinnedInstanceStep.execute(context);
+
+            // then
+            assertThat(result.isSuccess()).isTrue();
+            assertThat(context.isFullCompletionBonusGranted()).isFalse();
+            assertThat(instance.getExpEarned()).isEqualTo(MissionExecutionMode.SIMPLE_EXP);
+        }
+
+        @Test
+        @DisplayName("이미 완료된 인스턴스는 예외를 잡아 실패 결과를 반환한다")
+        void execute_alreadyCompleted_returnsFailure() {
+            // given
+            instance.setStatus(ExecutionStatus.COMPLETED);
+
+            // when
+            SagaStepResult result = completePinnedInstanceStep.execute(context);
+
+            // then
+            assertThat(result.isSuccess()).isFalse();
+            verify(instanceRepository, never()).save(any());
         }
     }
 
@@ -250,7 +442,7 @@ class CompletePinnedInstanceStepTest {
             instance.setExpEarned(5);
             instance.setNote("완료 메모");
             when(instanceRepository.save(any(DailyMissionInstance.class)))
-                .thenAnswer(invocation -> invocation.getArgument(0));
+                    .thenAnswer(invocation -> invocation.getArgument(0));
 
             // when
             SagaStepResult result = completePinnedInstanceStep.compensate(context);
@@ -276,6 +468,40 @@ class CompletePinnedInstanceStepTest {
             // then
             assertThat(result.isSuccess()).isTrue();
             verify(instanceRepository, never()).save(any());
+        }
+
+        @Test
+        @DisplayName("보상 데이터(이전 상태)가 없으면 복원하지 않고 성공한다")
+        void compensate_noPreviousStatus_skipsRestore() {
+            // given
+            MissionCompletionContext noDataContext =
+                    MissionCompletionContext.forPinned(INSTANCE_ID, TEST_USER_ID, "메모", false);
+            instance.setStatus(ExecutionStatus.COMPLETED);
+            instance.setExpEarned(5);
+            noDataContext.setInstance(instance);
+
+            // when
+            SagaStepResult result = completePinnedInstanceStep.compensate(noDataContext);
+
+            // then
+            assertThat(result.isSuccess()).isTrue();
+            assertThat(instance.getStatus()).isEqualTo(ExecutionStatus.COMPLETED);
+            assertThat(instance.getExpEarned()).isEqualTo(5);
+            verify(instanceRepository, never()).save(any());
+        }
+
+        @Test
+        @DisplayName("복원 중 저장 예외가 발생하면 실패 결과를 반환한다")
+        void compensate_saveThrows_returnsFailure() {
+            // given
+            when(instanceRepository.save(any(DailyMissionInstance.class)))
+                    .thenThrow(new RuntimeException("db down"));
+
+            // when
+            SagaStepResult result = completePinnedInstanceStep.compensate(context);
+
+            // then
+            assertThat(result.isSuccess()).isFalse();
         }
     }
 }

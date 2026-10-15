@@ -10,14 +10,18 @@ import java.nio.charset.StandardCharsets;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
-//@Component
+// @Component
 public class KakaoAuthErrorDecoder implements ErrorDecoder {
 
     @Override
     public Exception decode(String methodKey, Response response) {
         try {
             String body = Util.toString(response.body().asReader(StandardCharsets.UTF_8));
-            log.warn("Kakao API error: methodKey={}, status={}, body={}", methodKey, response.status(), body);
+            log.warn(
+                    "Kakao API error: methodKey={}, status={}, body={}",
+                    methodKey,
+                    response.status(),
+                    body);
 
             if (response.status() >= 400 && response.status() < 500) {
                 return new KakaoAuthClientException("Client Error: " + body);
@@ -31,4 +35,3 @@ public class KakaoAuthErrorDecoder implements ErrorDecoder {
         return new RuntimeException("Unknown Kakao API error");
     }
 }
-

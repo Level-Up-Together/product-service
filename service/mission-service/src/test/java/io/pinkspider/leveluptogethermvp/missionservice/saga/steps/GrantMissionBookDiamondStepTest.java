@@ -27,25 +27,23 @@ import org.mockito.junit.jupiter.MockitoExtension;
 @DisplayName("GrantMissionBookDiamondStep 단위 테스트")
 class GrantMissionBookDiamondStepTest {
 
-    @Mock
-    private GamificationQueryFacade gamificationQueryFacadeService;
+    @Mock private GamificationQueryFacade gamificationQueryFacadeService;
 
-    @InjectMocks
-    private GrantMissionBookDiamondStep step;
+    @InjectMocks private GrantMissionBookDiamondStep step;
 
     private static final String USER_ID = "test-user-123";
 
     private Mission missionBookMission(Long templateId, Integer targetDurationMinutes) {
         return Mission.builder()
-            .title("아침 스트레칭")
-            .creatorId(USER_ID)
-            .status(MissionStatus.IN_PROGRESS)
-            .visibility(MissionVisibility.PRIVATE)
-            .type(MissionType.PERSONAL)
-            .source(MissionSource.SYSTEM)
-            .baseMissionId(templateId)
-            .targetDurationMinutes(targetDurationMinutes)
-            .build();
+                .title("아침 스트레칭")
+                .creatorId(USER_ID)
+                .status(MissionStatus.IN_PROGRESS)
+                .visibility(MissionVisibility.PRIVATE)
+                .type(MissionType.PERSONAL)
+                .source(MissionSource.SYSTEM)
+                .baseMissionId(templateId)
+                .targetDurationMinutes(targetDurationMinutes)
+                .build();
     }
 
     private MissionCompletionContext context(Mission mission, int expEarned) {
@@ -60,7 +58,7 @@ class GrantMissionBookDiamondStepTest {
     void awardsOnTargetAchievement() {
         Mission mission = missionBookMission(77L, 30);
         when(gamificationQueryFacadeService.awardMissionBookDiamond(USER_ID, 77L, "아침 스트레칭"))
-            .thenReturn(true);
+                .thenReturn(true);
 
         SagaStepResult result = step.execute(context(mission, 30));
 
@@ -73,7 +71,7 @@ class GrantMissionBookDiamondStepTest {
     void succeedsWhenAlreadyAwarded() {
         Mission mission = missionBookMission(77L, 30);
         when(gamificationQueryFacadeService.awardMissionBookDiamond(USER_ID, 77L, "아침 스트레칭"))
-            .thenReturn(false);
+                .thenReturn(false);
 
         SagaStepResult result = step.execute(context(mission, 45));
 
@@ -89,7 +87,7 @@ class GrantMissionBookDiamondStepTest {
 
         assertThat(result.isSuccess()).isTrue();
         verify(gamificationQueryFacadeService, never())
-            .awardMissionBookDiamond(anyString(), anyLong(), anyString());
+                .awardMissionBookDiamond(anyString(), anyLong(), anyString());
     }
 
     @Test
@@ -102,7 +100,7 @@ class GrantMissionBookDiamondStepTest {
 
         assertThat(result.isSuccess()).isTrue();
         verify(gamificationQueryFacadeService, never())
-            .awardMissionBookDiamond(anyString(), anyLong(), anyString());
+                .awardMissionBookDiamond(anyString(), anyLong(), anyString());
     }
 
     @Test
@@ -114,7 +112,7 @@ class GrantMissionBookDiamondStepTest {
 
         assertThat(result.isSuccess()).isTrue();
         verify(gamificationQueryFacadeService, never())
-            .awardMissionBookDiamond(anyString(), anyLong(), anyString());
+                .awardMissionBookDiamond(anyString(), anyLong(), anyString());
     }
 
     @Test
@@ -122,7 +120,7 @@ class GrantMissionBookDiamondStepTest {
     void failureIsNonMandatory() {
         Mission mission = missionBookMission(77L, 30);
         when(gamificationQueryFacadeService.awardMissionBookDiamond(any(), any(), any()))
-            .thenThrow(new RuntimeException("boom"));
+                .thenThrow(new RuntimeException("boom"));
 
         SagaStepResult result = step.execute(context(mission, 30));
 

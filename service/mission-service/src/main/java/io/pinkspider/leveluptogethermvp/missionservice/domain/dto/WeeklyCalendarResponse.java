@@ -15,9 +15,8 @@ import lombok.NoArgsConstructor;
 /**
  * LUT-320: 타 유저 프로필 주간 캘린더 응답 DTO.
  *
- * <p>비로그인 포함 누구나 조회할 수 있으므로, 미션 공개범위에 따라 비노출 미션은 미션명/카테고리를
- * null 로 마스킹하고 is_visible=false 로 내린다 (LUT-257 프로필 진행중 미션과 동일 규칙).
- * 시간 필드는 마스킹과 무관하게 유지해 프론트가 시간표 블록을 배치할 수 있게 한다.
+ * <p>비로그인 포함 누구나 조회할 수 있으므로, 미션 공개범위에 따라 비노출 미션은 미션명/카테고리를 null 로 마스킹하고 is_visible=false 로 내린다
+ * (LUT-257 프로필 진행중 미션과 동일 규칙). 시간 필드는 마스킹과 무관하게 유지해 프론트가 시간표 블록을 배치할 수 있게 한다.
  */
 @Getter
 @NoArgsConstructor
@@ -66,8 +65,8 @@ public class WeeklyCalendarResponse {
         private Boolean isVisible;
 
         /**
-         * LUT-434: 미션 유형 (PERSONAL/GUILD) — 캘린더 블록 길드 색상 판별용.
-         * 비노출(is_visible=false) 미션은 식별 정보와 동일하게 null 마스킹 (필드 미포함).
+         * LUT-434: 미션 유형 (PERSONAL/GUILD) — 캘린더 블록 길드 색상 판별용. 비노출(is_visible=false) 미션은 식별 정보와 동일하게
+         * null 마스킹 (필드 미포함).
          */
         @JsonInclude(JsonInclude.Include.NON_NULL)
         private String missionType;

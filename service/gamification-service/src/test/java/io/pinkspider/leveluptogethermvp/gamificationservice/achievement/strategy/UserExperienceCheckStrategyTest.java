@@ -19,31 +19,32 @@ import org.mockito.junit.jupiter.MockitoExtension;
 @ExtendWith(MockitoExtension.class)
 class UserExperienceCheckStrategyTest {
 
-    @Mock
-    private UserExperienceRepository userExperienceRepository;
+    @Mock private UserExperienceRepository userExperienceRepository;
 
-    @InjectMocks
-    private UserExperienceCheckStrategy strategy;
+    @InjectMocks private UserExperienceCheckStrategy strategy;
 
     private static final String TEST_USER_ID = "test-user-123";
 
-    private UserExperience createTestUserExperience(int currentLevel, int currentExp, int totalExp) {
+    private UserExperience createTestUserExperience(
+            int currentLevel, int currentExp, int totalExp) {
         return UserExperience.builder()
-            .userId(TEST_USER_ID)
-            .currentLevel(currentLevel)
-            .currentExp(currentExp)
-            .totalExp(totalExp)
-            .build();
+                .userId(TEST_USER_ID)
+                .currentLevel(currentLevel)
+                .currentExp(currentExp)
+                .totalExp(totalExp)
+                .build();
     }
 
-    private Achievement createTestAchievement(Long id, String dataField, String operator, int requiredCount) {
-        Achievement achievement = Achievement.builder()
-            .name("테스트 업적")
-            .checkLogicDataSource("USER_EXPERIENCE")
-            .checkLogicDataField(dataField)
-            .comparisonOperator(operator)
-            .requiredCount(requiredCount)
-            .build();
+    private Achievement createTestAchievement(
+            Long id, String dataField, String operator, int requiredCount) {
+        Achievement achievement =
+                Achievement.builder()
+                        .name("테스트 업적")
+                        .checkLogicDataSource("USER_EXPERIENCE")
+                        .checkLogicDataField(dataField)
+                        .comparisonOperator(operator)
+                        .requiredCount(requiredCount)
+                        .build();
         setId(achievement, id);
         return achievement;
     }
@@ -72,7 +73,8 @@ class UserExperienceCheckStrategyTest {
         void fetchCurrentValue_currentLevel() {
             // given
             UserExperience userExp = createTestUserExperience(15, 500, 10000);
-            when(userExperienceRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.of(userExp));
+            when(userExperienceRepository.findByUserId(TEST_USER_ID))
+                    .thenReturn(Optional.of(userExp));
 
             // when
             Object result = strategy.fetchCurrentValue(TEST_USER_ID, "currentLevel");
@@ -86,7 +88,8 @@ class UserExperienceCheckStrategyTest {
         void fetchCurrentValue_totalExp() {
             // given
             UserExperience userExp = createTestUserExperience(15, 500, 10000);
-            when(userExperienceRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.of(userExp));
+            when(userExperienceRepository.findByUserId(TEST_USER_ID))
+                    .thenReturn(Optional.of(userExp));
 
             // when
             Object result = strategy.fetchCurrentValue(TEST_USER_ID, "totalExp");
@@ -100,7 +103,8 @@ class UserExperienceCheckStrategyTest {
         void fetchCurrentValue_currentExp() {
             // given
             UserExperience userExp = createTestUserExperience(15, 500, 10000);
-            when(userExperienceRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.of(userExp));
+            when(userExperienceRepository.findByUserId(TEST_USER_ID))
+                    .thenReturn(Optional.of(userExp));
 
             // when
             Object result = strategy.fetchCurrentValue(TEST_USER_ID, "currentExp");
@@ -114,7 +118,8 @@ class UserExperienceCheckStrategyTest {
         void fetchCurrentValue_unknownField_returnsZero() {
             // given
             UserExperience userExp = createTestUserExperience(15, 500, 10000);
-            when(userExperienceRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.of(userExp));
+            when(userExperienceRepository.findByUserId(TEST_USER_ID))
+                    .thenReturn(Optional.of(userExp));
 
             // when
             Object result = strategy.fetchCurrentValue(TEST_USER_ID, "unknownField");
@@ -148,7 +153,8 @@ class UserExperienceCheckStrategyTest {
             UserExperience userExp = createTestUserExperience(15, 500, 10000);
             Achievement achievement = createTestAchievement(1L, "currentLevel", "GTE", 10);
 
-            when(userExperienceRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.of(userExp));
+            when(userExperienceRepository.findByUserId(TEST_USER_ID))
+                    .thenReturn(Optional.of(userExp));
 
             // when
             boolean result = strategy.checkCondition(TEST_USER_ID, achievement);
@@ -164,7 +170,8 @@ class UserExperienceCheckStrategyTest {
             UserExperience userExp = createTestUserExperience(5, 500, 1000);
             Achievement achievement = createTestAchievement(1L, "currentLevel", "GTE", 10);
 
-            when(userExperienceRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.of(userExp));
+            when(userExperienceRepository.findByUserId(TEST_USER_ID))
+                    .thenReturn(Optional.of(userExp));
 
             // when
             boolean result = strategy.checkCondition(TEST_USER_ID, achievement);
@@ -180,7 +187,8 @@ class UserExperienceCheckStrategyTest {
             UserExperience userExp = createTestUserExperience(15, 500, 50000);
             Achievement achievement = createTestAchievement(1L, "totalExp", "GTE", 10000);
 
-            when(userExperienceRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.of(userExp));
+            when(userExperienceRepository.findByUserId(TEST_USER_ID))
+                    .thenReturn(Optional.of(userExp));
 
             // when
             boolean result = strategy.checkCondition(TEST_USER_ID, achievement);

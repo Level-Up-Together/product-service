@@ -96,7 +96,7 @@ class RoleConverterTest {
         void convertToEntityAttribute_unknownString_throwsIllegalArgumentException() {
             // when & then
             assertThatThrownBy(() -> roleConverter.convertToEntityAttribute("UNKNOWN_ROLE"))
-                .isInstanceOf(IllegalArgumentException.class);
+                    .isInstanceOf(IllegalArgumentException.class);
         }
     }
 }

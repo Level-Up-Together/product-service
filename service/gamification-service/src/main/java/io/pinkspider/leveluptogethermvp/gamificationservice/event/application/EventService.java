@@ -16,32 +16,26 @@ public class EventService {
 
     private final EventRepository eventRepository;
 
-    /**
-     * 현재 진행중인 이벤트 목록 조회
-     */
+    /** 현재 진행중인 이벤트 목록 조회 */
     public List<EventResponse> getCurrentEvents(String locale) {
-        return eventRepository.findCurrentEvents(LocalDateTime.now())
-            .stream()
-            .map(event -> EventResponse.from(event, locale))
-            .toList();
+        return eventRepository.findCurrentEvents(LocalDateTime.now()).stream()
+                .map(event -> EventResponse.from(event, locale))
+                .toList();
     }
 
-    /**
-     * 현재 진행중 또는 예정된 이벤트 목록 조회 (Home 표시용)
-     */
+    /** 현재 진행중 또는 예정된 이벤트 목록 조회 (Home 표시용) */
     public List<EventResponse> getActiveOrUpcomingEvents(String locale) {
-        return eventRepository.findActiveOrUpcomingEvents(LocalDateTime.now())
-            .stream()
-            .map(event -> EventResponse.from(event, locale))
-            .toList();
+        return eventRepository.findActiveOrUpcomingEvents(LocalDateTime.now()).stream()
+                .map(event -> EventResponse.from(event, locale))
+                .toList();
     }
 
-    /**
-     * 이벤트 상세 조회
-     */
+    /** 이벤트 상세 조회 */
     public EventResponse getEvent(Long id, String locale) {
-        Event event = eventRepository.findById(id)
-            .orElseThrow(() -> new IllegalArgumentException("이벤트를 찾을 수 없습니다: " + id));
+        Event event =
+                eventRepository
+                        .findById(id)
+                        .orElseThrow(() -> new IllegalArgumentException("이벤트를 찾을 수 없습니다: " + id));
         return EventResponse.from(event, locale);
     }
 }

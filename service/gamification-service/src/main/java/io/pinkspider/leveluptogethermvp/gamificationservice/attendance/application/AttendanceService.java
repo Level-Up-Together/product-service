@@ -2,24 +2,24 @@ package io.pinkspider.leveluptogethermvp.gamificationservice.attendance.applicat
 
 import static io.pinkspider.leveluptogethermvp.metaservice.domain.entity.MissionCategory.DEFAULT_CATEGORY_NAME;
 
+import io.pinkspider.global.enums.ExpSourceType;
 import io.pinkspider.global.event.AttendanceStreakEvent;
 import io.pinkspider.leveluptogethermvp.gamificationservice.achievement.event.AchievementCheckRequestedEvent;
-import io.pinkspider.leveluptogethermvp.gamificationservice.domain.entity.AttendanceRecord;
-import io.pinkspider.leveluptogethermvp.metaservice.attendancerewardconfig.application.AttendanceRewardConfigCacheService;
-import io.pinkspider.global.enums.ExpSourceType;
-import io.pinkspider.leveluptogethermvp.gamificationservice.infrastructure.AttendanceRecordRepository;
-import io.pinkspider.leveluptogethermvp.gamificationservice.stats.application.UserStatsService;
-import io.pinkspider.leveluptogethermvp.metaservice.attendancerewardconfig.domain.entity.AttendanceRewardConfig;
-import io.pinkspider.leveluptogethermvp.metaservice.attendancerewardconfig.domain.enums.AttendanceRewardType;
 import io.pinkspider.leveluptogethermvp.gamificationservice.attendance.domain.dto.AttendanceCheckInResponse;
 import io.pinkspider.leveluptogethermvp.gamificationservice.attendance.domain.dto.AttendanceResponse;
 import io.pinkspider.leveluptogethermvp.gamificationservice.attendance.domain.dto.MonthlyAttendanceResponse;
+import io.pinkspider.leveluptogethermvp.gamificationservice.domain.entity.AttendanceRecord;
 import io.pinkspider.leveluptogethermvp.gamificationservice.experience.application.UserExperienceService;
+import io.pinkspider.leveluptogethermvp.gamificationservice.infrastructure.AttendanceRecordRepository;
+import io.pinkspider.leveluptogethermvp.gamificationservice.stats.application.UserStatsService;
+import io.pinkspider.leveluptogethermvp.metaservice.attendancerewardconfig.application.AttendanceRewardConfigCacheService;
+import io.pinkspider.leveluptogethermvp.metaservice.attendancerewardconfig.domain.entity.AttendanceRewardConfig;
+import io.pinkspider.leveluptogethermvp.metaservice.attendancerewardconfig.domain.enums.AttendanceRewardType;
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.entity.Users;
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.infrastructure.UserRepository;
 import java.time.LocalDate;
-import java.time.ZoneId;
 import java.time.YearMonth;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -44,6 +44,7 @@ public class AttendanceService {
     private final UserStatsService userStatsService;
     private final ApplicationEventPublisher eventPublisher;
     private final UserRepository userRepository;
+    private final AttendanceRecordCreator attendanceRecordCreator;
 
     private static final int DEFAULT_DAILY_EXP = 10;
     private static final Set<Integer> STREAK_MILESTONES = Set.of(7, 14, 30, 60, 90);
@@ -54,76 +55,94 @@ public class AttendanceService {
 
         // 이미 출석했는지 확인
         Optional<AttendanceRecord> existingRecord =
-            attendanceRecordRepository.findByUserIdAndAttendanceDate(userId, today);
+                attendanceRecordRepository.findByUserIdAndAttendanceDate(userId, today);
 
         if (existingRecord.isPresent()) {
             return AttendanceCheckInResponse.alreadyCheckedIn(
-                AttendanceResponse.from(existingRecord.get()));
+                    AttendanceResponse.from(existingRecord.get()));
         }
 
         // 연속 출석 일수 계산
         int consecutiveDays = calculateConsecutiveDays(userId, today);
 
-        // 출석 기록 생성
-        AttendanceRecord record = AttendanceRecord.create(userId, today, consecutiveDays);
-
         // 기본 보상 경험치
         int baseExp = getBaseRewardExp();
-        record.setRewardExp(baseExp);
 
         // 보너스 경험치 계산
         List<String> bonusReasons = new ArrayList<>();
         int bonusExp = calculateBonusExp(consecutiveDays, bonusReasons);
-        record.setBonusRewardExp(bonusExp);
 
-        AttendanceRecord savedRecord;
+        // 출석 기록 생성 — LUT-539: insert 는 REQUIRES_NEW 전용 빈에서. 같은 트랜잭션에서 saveAndFlush + catch 하면
+        // 제약 위반이 세션을 오염시켜(rollback-only) "이미 출석" 응답을 만들어도 커밋 시 500 이 났다.
         try {
-            savedRecord = attendanceRecordRepository.saveAndFlush(record);
+            attendanceRecordCreator.create(userId, today, consecutiveDays, baseExp, bonusExp);
         } catch (DataIntegrityViolationException e) {
-            // 레이스 컨디션: 다른 요청이 먼저 출석 처리한 경우
+            // 레이스 컨디션: 다른 요청이 먼저 출석 처리한 경우 — 내부 트랜잭션만 롤백됐으므로 여기서 재조회해 응답한다
             log.debug("출석 체크 중복 감지, 기존 레코드 조회: userId={}, date={}", userId, today);
-            return attendanceRecordRepository.findByUserIdAndAttendanceDate(userId, today)
-                .map(existing -> AttendanceCheckInResponse.alreadyCheckedIn(AttendanceResponse.from(existing)))
-                .orElseThrow(() -> new IllegalStateException(
-                    "AttendanceRecord not found after duplicate key error: userId=" + userId + ", date=" + today));
+            return attendanceRecordRepository
+                    .findByUserIdAndAttendanceDate(userId, today)
+                    .map(
+                            existing ->
+                                    AttendanceCheckInResponse.alreadyCheckedIn(
+                                            AttendanceResponse.from(existing)))
+                    .orElseThrow(
+                            () ->
+                                    new IllegalStateException(
+                                            "AttendanceRecord not found after duplicate key error:"
+                                                    + " userId="
+                                                    + userId
+                                                    + ", date="
+                                                    + today));
         }
+
+        // 생성 후 재조회 — 내부 트랜잭션이 만든 행을 이 컨텍스트의 managed 엔티티로 얻는다 (반환값 의존 금지)
+        AttendanceRecord savedRecord =
+                attendanceRecordRepository
+                        .findByUserIdAndAttendanceDate(userId, today)
+                        .orElseThrow(
+                                () ->
+                                        new IllegalStateException(
+                                                "AttendanceRecord not found after creation: userId="
+                                                        + userId
+                                                        + ", date="
+                                                        + today));
 
         // 경험치 지급
         int totalExp = baseExp + bonusExp;
         if (totalExp > 0) {
             userExperienceService.addExperience(
-                userId,
-                totalExp,
-                ExpSourceType.EVENT,
-                savedRecord.getId(),
-                "출석 체크 보상" + (consecutiveDays > 1 ? " (" + consecutiveDays + "일 연속)" : ""),
-                DEFAULT_CATEGORY_NAME
-            );
+                    userId,
+                    totalExp,
+                    ExpSourceType.EVENT,
+                    savedRecord.getId(),
+                    "출석 체크 보상" + (consecutiveDays > 1 ? " (" + consecutiveDays + "일 연속)" : ""),
+                    DEFAULT_CATEGORY_NAME);
         }
 
         // QA-113 / B11: user_stats streak 갱신 + USER_STATS 기반 업적 체크.
         // 체크는 AFTER_COMMIT 리스너에서 수행 — 인라인 체크(REQUIRES_NEW)는 방금 갱신된 streak 을 읽지 못한다.
         userStatsService.recordAttendance(userId, today);
-        eventPublisher.publishEvent(new AchievementCheckRequestedEvent(userId, List.of("USER_STATS")));
+        eventPublisher.publishEvent(
+                new AchievementCheckRequestedEvent(userId, List.of("USER_STATS")));
 
         // 연속 출석 마일스톤 달성 시 피드 프로젝션 이벤트 발행
         if (STREAK_MILESTONES.contains(consecutiveDays)) {
             eventPublisher.publishEvent(new AttendanceStreakEvent(userId, consecutiveDays));
         }
 
-        log.info("출석 체크 완료: userId={}, consecutiveDays={}, totalExp={}",
-            userId, consecutiveDays, totalExp);
+        log.info(
+                "출석 체크 완료: userId={}, consecutiveDays={}, totalExp={}",
+                userId,
+                consecutiveDays,
+                totalExp);
 
         return AttendanceCheckInResponse.success(
-            AttendanceResponse.from(savedRecord),
-            baseExp,
-            bonusExp,
-            bonusReasons
-        );
+                AttendanceResponse.from(savedRecord), baseExp, bonusExp, bonusReasons);
     }
 
     public boolean hasCheckedInToday(String userId) {
-        return attendanceRecordRepository.existsByUserIdAndAttendanceDate(userId, LocalDate.now(resolveUserZone(userId)));
+        return attendanceRecordRepository.existsByUserIdAndAttendanceDate(
+                userId, LocalDate.now(resolveUserZone(userId)));
     }
 
     /** QA-221: 가입 후 실제 출석한 총 일수 — 프로필 "함께한 일수" 표기용 */
@@ -133,19 +152,21 @@ public class AttendanceService {
 
     public MonthlyAttendanceResponse getMonthlyAttendance(String userId, String yearMonth) {
         LocalDate userToday = LocalDate.now(resolveUserZone(userId));
-        String targetYearMonth = yearMonth != null ? yearMonth :
-            userToday.getYear() + "-" + String.format("%02d", userToday.getMonthValue());
+        String targetYearMonth =
+                yearMonth != null
+                        ? yearMonth
+                        : userToday.getYear()
+                                + "-"
+                                + String.format("%02d", userToday.getMonthValue());
 
         List<AttendanceRecord> records =
-            attendanceRecordRepository.findByUserIdAndYearMonthOrderByDayOfMonthAsc(userId, targetYearMonth);
+                attendanceRecordRepository.findByUserIdAndYearMonthOrderByDayOfMonthAsc(
+                        userId, targetYearMonth);
 
-        Set<Integer> attendedDays = records.stream()
-            .map(AttendanceRecord::getDayOfMonth)
-            .collect(Collectors.toSet());
+        Set<Integer> attendedDays =
+                records.stream().map(AttendanceRecord::getDayOfMonth).collect(Collectors.toSet());
 
-        int totalExpEarned = records.stream()
-            .mapToInt(AttendanceRecord::getTotalRewardExp)
-            .sum();
+        int totalExpEarned = records.stream().mapToInt(AttendanceRecord::getTotalRewardExp).sum();
 
         // 해당 월의 총 일수
         String[] parts = targetYearMonth.split("-");
@@ -159,20 +180,20 @@ public class AttendanceService {
         int maxStreak = attendanceRecordRepository.findMaxConsecutiveDaysByUserId(userId).orElse(0);
 
         return MonthlyAttendanceResponse.builder()
-            .yearMonth(targetYearMonth)
-            .totalDays(totalDays)
-            .attendedDays(records.size())
-            .currentStreak(currentStreak)
-            .maxStreak(maxStreak)
-            .attendedDayList(attendedDays)
-            .totalExpEarned(totalExpEarned)
-            .records(records.stream().map(AttendanceResponse::from).toList())
-            .build();
+                .yearMonth(targetYearMonth)
+                .totalDays(totalDays)
+                .attendedDays(records.size())
+                .currentStreak(currentStreak)
+                .maxStreak(maxStreak)
+                .attendedDayList(attendedDays)
+                .totalExpEarned(totalExpEarned)
+                .records(records.stream().map(AttendanceResponse::from).toList())
+                .build();
     }
 
     public int getCurrentStreak(String userId) {
         Optional<AttendanceRecord> latestRecord =
-            attendanceRecordRepository.findLatestByUserId(userId);
+                attendanceRecordRepository.findLatestByUserId(userId);
 
         if (latestRecord.isEmpty()) {
             return 0;
@@ -182,8 +203,8 @@ public class AttendanceService {
         LocalDate today = LocalDate.now(resolveUserZone(userId));
 
         // 어제나 오늘 출석했으면 연속 출석 유지
-        if (record.getAttendanceDate().equals(today) ||
-            record.getAttendanceDate().equals(today.minusDays(1))) {
+        if (record.getAttendanceDate().equals(today)
+                || record.getAttendanceDate().equals(today.minusDays(1))) {
             return record.getConsecutiveDays();
         }
 
@@ -192,7 +213,8 @@ public class AttendanceService {
 
     private int calculateConsecutiveDays(String userId, LocalDate today) {
         Optional<AttendanceRecord> yesterdayRecord =
-            attendanceRecordRepository.findByUserIdAndAttendanceDate(userId, today.minusDays(1));
+                attendanceRecordRepository.findByUserIdAndAttendanceDate(
+                        userId, today.minusDays(1));
 
         if (yesterdayRecord.isPresent()) {
             return yesterdayRecord.get().getConsecutiveDays() + 1;
@@ -202,7 +224,8 @@ public class AttendanceService {
     }
 
     private int getBaseRewardExp() {
-        AttendanceRewardConfig config = rewardConfigCacheService.getConfigByRewardType(AttendanceRewardType.DAILY);
+        AttendanceRewardConfig config =
+                rewardConfigCacheService.getConfigByRewardType(AttendanceRewardType.DAILY);
         return config != null ? config.getRewardExp() : DEFAULT_DAILY_EXP;
     }
 
@@ -212,7 +235,8 @@ public class AttendanceService {
         // 연속 출석 보너스 체크
         if (consecutiveDays >= 3) {
             AttendanceRewardConfig bonus3 =
-                rewardConfigCacheService.getConfigByRewardType(AttendanceRewardType.CONSECUTIVE_3);
+                    rewardConfigCacheService.getConfigByRewardType(
+                            AttendanceRewardType.CONSECUTIVE_3);
             if (bonus3 != null && consecutiveDays == 3) {
                 totalBonus += bonus3.getRewardExp();
                 bonusReasons.add("3일 연속 출석 보너스!");
@@ -221,7 +245,8 @@ public class AttendanceService {
 
         if (consecutiveDays >= 7) {
             AttendanceRewardConfig bonus7 =
-                rewardConfigCacheService.getConfigByRewardType(AttendanceRewardType.CONSECUTIVE_7);
+                    rewardConfigCacheService.getConfigByRewardType(
+                            AttendanceRewardType.CONSECUTIVE_7);
             if (bonus7 != null && consecutiveDays == 7) {
                 totalBonus += bonus7.getRewardExp();
                 bonusReasons.add("7일 연속 출석 보너스!");
@@ -230,7 +255,8 @@ public class AttendanceService {
 
         if (consecutiveDays >= 14) {
             AttendanceRewardConfig bonus14 =
-                rewardConfigCacheService.getConfigByRewardType(AttendanceRewardType.CONSECUTIVE_14);
+                    rewardConfigCacheService.getConfigByRewardType(
+                            AttendanceRewardType.CONSECUTIVE_14);
             if (bonus14 != null && consecutiveDays == 14) {
                 totalBonus += bonus14.getRewardExp();
                 bonusReasons.add("14일 연속 출석 보너스!");
@@ -239,7 +265,8 @@ public class AttendanceService {
 
         if (consecutiveDays >= 30) {
             AttendanceRewardConfig bonus30 =
-                rewardConfigCacheService.getConfigByRewardType(AttendanceRewardType.CONSECUTIVE_30);
+                    rewardConfigCacheService.getConfigByRewardType(
+                            AttendanceRewardType.CONSECUTIVE_30);
             if (bonus30 != null && consecutiveDays == 30) {
                 totalBonus += bonus30.getRewardExp();
                 bonusReasons.add("30일 연속 출석 보너스! 대단해요!");
@@ -255,9 +282,11 @@ public class AttendanceService {
 
     private ZoneId resolveUserZone(String userId) {
         try {
-            String timezone = userRepository.findById(userId)
-                .map(Users::getPreferredTimezone)
-                .orElse("Asia/Seoul");
+            String timezone =
+                    userRepository
+                            .findById(userId)
+                            .map(Users::getPreferredTimezone)
+                            .orElse("Asia/Seoul");
             return ZoneId.of(timezone);
         } catch (Exception e) {
             return ZoneId.of("Asia/Seoul");

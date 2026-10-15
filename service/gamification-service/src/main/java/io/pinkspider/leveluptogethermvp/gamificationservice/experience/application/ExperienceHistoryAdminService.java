@@ -20,38 +20,43 @@ public class ExperienceHistoryAdminService {
 
     public List<TopExpGainerAdminResponse> getTopExpGainersByPeriod(
             LocalDateTime startDate, LocalDateTime endDate, int limit) {
-        return experienceHistoryRepository.findTopExpGainersAllByPeriod(
-                startDate, endDate, PageRequest.of(0, limit))
-            .stream()
-            .map(row -> new TopExpGainerAdminResponse(
-                (String) row[0],
-                ((Number) row[1]).longValue()
-            ))
-            .collect(Collectors.toList());
+        return experienceHistoryRepository
+                .findTopExpGainersAllByPeriod(startDate, endDate, PageRequest.of(0, limit))
+                .stream()
+                .map(
+                        row ->
+                                new TopExpGainerAdminResponse(
+                                        (String) row[0], ((Number) row[1]).longValue()))
+                .collect(Collectors.toList());
     }
 
     public List<TopExpGainerAdminResponse> getTopExpGainersByPeriodExcluding(
-            LocalDateTime startDate, LocalDateTime endDate,
-            List<String> excludedUserIds, int limit) {
-        return experienceHistoryRepository.findTopExpGainersAllByPeriodExcluding(
-                startDate, endDate, excludedUserIds, PageRequest.of(0, limit))
-            .stream()
-            .map(row -> new TopExpGainerAdminResponse(
-                (String) row[0],
-                ((Number) row[1]).longValue()
-            ))
-            .collect(Collectors.toList());
+            LocalDateTime startDate,
+            LocalDateTime endDate,
+            List<String> excludedUserIds,
+            int limit) {
+        return experienceHistoryRepository
+                .findTopExpGainersAllByPeriodExcluding(
+                        startDate, endDate, excludedUserIds, PageRequest.of(0, limit))
+                .stream()
+                .map(
+                        row ->
+                                new TopExpGainerAdminResponse(
+                                        (String) row[0], ((Number) row[1]).longValue()))
+                .collect(Collectors.toList());
     }
 
     public List<CategoryMissionStatsAdminResponse> getCategoryMissionStatsByPeriod(
             LocalDateTime startDate, LocalDateTime endDate) {
-        return experienceHistoryRepository.findCategoryMissionStatsByPeriod(startDate, endDate)
-            .stream()
-            .map(row -> new CategoryMissionStatsAdminResponse(
-                (String) row[0],
-                ((Number) row[1]).longValue(),
-                ((Number) row[2]).longValue()
-            ))
-            .collect(Collectors.toList());
+        return experienceHistoryRepository
+                .findCategoryMissionStatsByPeriod(startDate, endDate)
+                .stream()
+                .map(
+                        row ->
+                                new CategoryMissionStatsAdminResponse(
+                                        (String) row[0],
+                                        ((Number) row[1]).longValue(),
+                                        ((Number) row[2]).longValue()))
+                .collect(Collectors.toList());
     }
 }

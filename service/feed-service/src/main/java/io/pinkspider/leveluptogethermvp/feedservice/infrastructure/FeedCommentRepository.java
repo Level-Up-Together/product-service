@@ -14,60 +14,64 @@ import org.springframework.transaction.annotation.Transactional;
 @Repository
 public interface FeedCommentRepository extends JpaRepository<FeedComment, Long> {
 
-    @Query("SELECT c FROM FeedComment c WHERE c.feed.id = :feedId AND c.isDeleted = false " +
-           "ORDER BY c.createdAt ASC")
+    @Query(
+            "SELECT c FROM FeedComment c WHERE c.feed.id = :feedId AND c.isDeleted = false "
+                    + "ORDER BY c.createdAt ASC")
     Page<FeedComment> findByFeedId(@Param("feedId") Long feedId, Pageable pageable);
 
-    @Query("SELECT c FROM FeedComment c WHERE c.feed.id = :feedId AND c.isDeleted = false " +
-           "ORDER BY c.createdAt ASC")
+    @Query(
+            "SELECT c FROM FeedComment c WHERE c.feed.id = :feedId AND c.isDeleted = false "
+                    + "ORDER BY c.createdAt ASC")
     List<FeedComment> findAllByFeedId(@Param("feedId") Long feedId);
 
     @Query("SELECT COUNT(c) FROM FeedComment c WHERE c.feed.id = :feedId AND c.isDeleted = false")
     int countByFeedId(@Param("feedId") Long feedId);
 
     /**
-     * 최상위 댓글만 페이징 (부모가 없는 댓글). 트리 응답에서 부모 단위로 페이징 처리.
-     * 삭제된 댓글도 대댓글 보존을 위해 포함시킨다 (content는 "[삭제된 댓글입니다]"로 표시됨).
+     * 최상위 댓글만 페이징 (부모가 없는 댓글). 트리 응답에서 부모 단위로 페이징 처리. 삭제된 댓글도 대댓글 보존을 위해 포함시킨다 (content는 "[삭제된
+     * 댓글입니다]"로 표시됨).
      */
-    @Query("SELECT c FROM FeedComment c WHERE c.feed.id = :feedId AND c.parent IS NULL " +
-           "ORDER BY c.createdAt ASC")
+    @Query(
+            "SELECT c FROM FeedComment c WHERE c.feed.id = :feedId AND c.parent IS NULL "
+                    + "ORDER BY c.createdAt ASC")
     Page<FeedComment> findRootCommentsByFeedId(@Param("feedId") Long feedId, Pageable pageable);
 
     /** LUT-367: 차단 유저 댓글 제외 버전 — 루트 페이징이 정확하도록 쿼리에서 거른다 */
-    @Query("SELECT c FROM FeedComment c WHERE c.feed.id = :feedId AND c.parent IS NULL " +
-           "AND c.userId NOT IN :excludedUserIds " +
-           "ORDER BY c.createdAt ASC")
+    @Query(
+            "SELECT c FROM FeedComment c WHERE c.feed.id = :feedId AND c.parent IS NULL "
+                    + "AND c.userId NOT IN :excludedUserIds "
+                    + "ORDER BY c.createdAt ASC")
     Page<FeedComment> findRootCommentsByFeedIdExcluding(
-        @Param("feedId") Long feedId,
-        @Param("excludedUserIds") List<String> excludedUserIds,
-        Pageable pageable);
+            @Param("feedId") Long feedId,
+            @Param("excludedUserIds") List<String> excludedUserIds,
+            Pageable pageable);
 
-    /**
-     * 여러 부모 댓글의 대댓글을 한 번에 조회 (N+1 방지).
-     */
-    @Query("SELECT c FROM FeedComment c WHERE c.parent.id IN :parentIds " +
-           "ORDER BY c.createdAt ASC")
+    /** 여러 부모 댓글의 대댓글을 한 번에 조회 (N+1 방지). */
+    @Query(
+            "SELECT c FROM FeedComment c WHERE c.parent.id IN :parentIds "
+                    + "ORDER BY c.createdAt ASC")
     List<FeedComment> findRepliesByParentIds(@Param("parentIds") List<Long> parentIds);
 
-    /**
-     * 특정 부모 댓글의 활성(미삭제) 대댓글 수.
-     * "대댓글이 달린 댓글은 수정 불가" 규칙을 검증할 때 사용.
-     */
-    @Query("SELECT COUNT(c) FROM FeedComment c WHERE c.parent.id = :parentId AND c.isDeleted = false")
+    /** 특정 부모 댓글의 활성(미삭제) 대댓글 수. "대댓글이 달린 댓글은 수정 불가" 규칙을 검증할 때 사용. */
+    @Query(
+            "SELECT COUNT(c) FROM FeedComment c WHERE c.parent.id = :parentId AND c.isDeleted ="
+                    + " false")
     int countActiveRepliesByParentId(@Param("parentId") Long parentId);
 
-    /**
-     * 특정 부모에 대댓글을 남긴 유저 ID 목록 (자기 자신/중복 알림 dedup용).
-     */
-    @Query("SELECT DISTINCT c.userId FROM FeedComment c WHERE c.parent.id = :parentId AND c.isDeleted = false")
+    /** 특정 부모에 대댓글을 남긴 유저 ID 목록 (자기 자신/중복 알림 dedup용). */
+    @Query(
+            "SELECT DISTINCT c.userId FROM FeedComment c WHERE c.parent.id = :parentId AND"
+                    + " c.isDeleted = false")
     List<String> findReplyAuthorsByParentId(@Param("parentId") Long parentId);
 
     // LUT-276: 레벨은 작성 당시 스냅샷을 유지한다 — 닉네임/프로필 사진만 동기화
     @Modifying
     @Transactional(transactionManager = "feedTransactionManager")
-    @Query("UPDATE FeedComment c SET c.userNickname = :nickname, c.userProfileImageUrl = :profileImageUrl WHERE c.userId = :userId")
+    @Query(
+            "UPDATE FeedComment c SET c.userNickname = :nickname, c.userProfileImageUrl ="
+                    + " :profileImageUrl WHERE c.userId = :userId")
     int updateUserProfileByUserId(
-        @Param("userId") String userId,
-        @Param("nickname") String nickname,
-        @Param("profileImageUrl") String profileImageUrl);
+            @Param("userId") String userId,
+            @Param("nickname") String nickname,
+            @Param("profileImageUrl") String profileImageUrl);
 }

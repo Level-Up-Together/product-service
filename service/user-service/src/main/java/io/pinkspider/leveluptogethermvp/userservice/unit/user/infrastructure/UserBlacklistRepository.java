@@ -21,47 +21,52 @@ public interface UserBlacklistRepository extends JpaRepository<UserBlacklist, Lo
     boolean existsByUserIdAndIsActiveTrue(String userId);
 
     @Modifying
-    @Query("UPDATE UserBlacklist b SET b.isActive = false WHERE b.userId = :userId AND b.isActive = true")
+    @Query(
+            "UPDATE UserBlacklist b SET b.isActive = false WHERE b.userId = :userId AND b.isActive"
+                    + " = true")
     int deactivateAllByUserId(@Param("userId") String userId);
 
     Page<UserBlacklist> findAllByIsActiveTrueOrderByCreatedAtDesc(Pageable pageable);
 
     Page<UserBlacklist> findAllByIsActiveTrueAndBlacklistTypeOrderByCreatedAtDesc(
-        BlacklistType blacklistType, Pageable pageable);
+            BlacklistType blacklistType, Pageable pageable);
 
     Page<UserBlacklist> findAllByOrderByCreatedAtDesc(Pageable pageable);
 
-    @Query("""
-        SELECT b FROM UserBlacklist b
-        WHERE b.isActive = true
-        AND b.startedAt >= :startDate AND b.startedAt < :endDate
-        ORDER BY b.createdAt DESC
-        """)
+    @Query(
+            """
+            SELECT b FROM UserBlacklist b
+            WHERE b.isActive = true
+            AND b.startedAt >= :startDate AND b.startedAt < :endDate
+            ORDER BY b.createdAt DESC
+            """)
     Page<UserBlacklist> findByStartedAtBetweenAndIsActiveTrue(
-        @Param("startDate") LocalDateTime startDate,
-        @Param("endDate") LocalDateTime endDate,
-        Pageable pageable);
+            @Param("startDate") LocalDateTime startDate,
+            @Param("endDate") LocalDateTime endDate,
+            Pageable pageable);
 
-    @Query("""
-        SELECT b FROM UserBlacklist b
-        WHERE b.isActive = true
-        AND b.blacklistType = :blacklistType
-        AND b.startedAt >= :startDate AND b.startedAt < :endDate
-        ORDER BY b.createdAt DESC
-        """)
+    @Query(
+            """
+            SELECT b FROM UserBlacklist b
+            WHERE b.isActive = true
+            AND b.blacklistType = :blacklistType
+            AND b.startedAt >= :startDate AND b.startedAt < :endDate
+            ORDER BY b.createdAt DESC
+            """)
     Page<UserBlacklist> findByStartedAtBetweenAndBlacklistTypeAndIsActiveTrue(
-        @Param("startDate") LocalDateTime startDate,
-        @Param("endDate") LocalDateTime endDate,
-        @Param("blacklistType") BlacklistType blacklistType,
-        Pageable pageable);
+            @Param("startDate") LocalDateTime startDate,
+            @Param("endDate") LocalDateTime endDate,
+            @Param("blacklistType") BlacklistType blacklistType,
+            Pageable pageable);
 
-    @Query("""
-        SELECT b FROM UserBlacklist b
-        WHERE b.startedAt >= :startDate AND b.startedAt < :endDate
-        ORDER BY b.createdAt DESC
-        """)
+    @Query(
+            """
+            SELECT b FROM UserBlacklist b
+            WHERE b.startedAt >= :startDate AND b.startedAt < :endDate
+            ORDER BY b.createdAt DESC
+            """)
     Page<UserBlacklist> findByStartedAtBetween(
-        @Param("startDate") LocalDateTime startDate,
-        @Param("endDate") LocalDateTime endDate,
-        Pageable pageable);
+            @Param("startDate") LocalDateTime startDate,
+            @Param("endDate") LocalDateTime endDate,
+            Pageable pageable);
 }

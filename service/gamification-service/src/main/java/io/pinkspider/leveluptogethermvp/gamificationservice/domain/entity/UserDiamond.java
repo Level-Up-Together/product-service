@@ -21,9 +21,8 @@ import org.hibernate.annotations.Comment;
 /**
  * QA-220: 사용자 다이아 잔액 (샵 재화)
  *
- * 레벨업 보상은 "보상이 지급된 최고 레벨"(lastRewardedLevel)을 기록해
- * 경험치 환수로 레벨이 내려갔다가 다시 오르는 경우의 중복 지급을 방지한다.
- * 레벨업 보상 총량 상한 999개 = 레벨 1000까지 지급.
+ * <p>레벨업 보상은 "보상이 지급된 최고 레벨"(lastRewardedLevel)을 기록해 경험치 환수로 레벨이 내려갔다가 다시 오르는 경우의 중복 지급을 방지한다. 레벨업
+ * 보상 총량 상한 999개 = 레벨 1000까지 지급.
  */
 @Entity
 @Getter
@@ -74,18 +73,15 @@ public class UserDiamond extends LocalDateTimeBaseEntity {
     private Long version;
 
     public static UserDiamond create(String userId) {
-        return UserDiamond.builder()
-            .userId(userId)
-            .balance(0)
-            .lastRewardedLevel(1)
-            .build();
+        return UserDiamond.builder().userId(userId).balance(0).lastRewardedLevel(1).build();
     }
 
     /** 다이아 증감 적용 후 잔액 반환. 잔액 부족 시 예외. */
     public int apply(int amount) {
         int newBalance = this.balance + amount;
         if (newBalance < 0) {
-            throw new IllegalStateException("다이아 잔액이 부족합니다. balance=" + this.balance + ", amount=" + amount);
+            throw new IllegalStateException(
+                    "다이아 잔액이 부족합니다. balance=" + this.balance + ", amount=" + amount);
         }
         this.balance = newBalance;
         return newBalance;
@@ -97,8 +93,8 @@ public class UserDiamond extends LocalDateTimeBaseEntity {
     }
 
     /**
-     * LUT-354: 합산 잔액에서 차감 — 블루(무상)를 먼저 소진하고 부족분만 핑크(유상)에서 뺀다.
-     * 무상 우선 소진은 유상 재화 환불 정산을 단순하게 만드는 국내 표준 관행이다.
+     * LUT-354: 합산 잔액에서 차감 — 블루(무상)를 먼저 소진하고 부족분만 핑크(유상)에서 뺀다. 무상 우선 소진은 유상 재화 환불 정산을 단순하게 만드는 국내 표준
+     * 관행이다.
      *
      * @return 핑크에서 소진된 양 (원장 pink_amount 기록용)
      */
@@ -107,8 +103,13 @@ public class UserDiamond extends LocalDateTimeBaseEntity {
             throw new IllegalArgumentException("차감량은 0 이상이어야 합니다. amount=" + amount);
         }
         if (getTotalBalance() < amount) {
-            throw new IllegalStateException("다이아 잔액이 부족합니다. balance=" + this.balance
-                + ", pinkBalance=" + this.pinkBalance + ", amount=" + amount);
+            throw new IllegalStateException(
+                    "다이아 잔액이 부족합니다. balance="
+                            + this.balance
+                            + ", pinkBalance="
+                            + this.pinkBalance
+                            + ", amount="
+                            + amount);
         }
         int fromBlue = Math.min(this.balance, amount);
         int fromPink = amount - fromBlue;

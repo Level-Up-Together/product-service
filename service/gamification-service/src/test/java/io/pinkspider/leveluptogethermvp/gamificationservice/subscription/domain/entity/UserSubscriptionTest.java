@@ -14,13 +14,13 @@ class UserSubscriptionTest {
 
     private UserSubscription.UserSubscriptionBuilder<?, ?> base() {
         return UserSubscription.builder()
-            .userId("user-1")
-            .platform("ios")
-            .productId("membership_1m")
-            .plan(SubscriptionPlan.MONTHLY)
-            .startedAt(NOW.minusMonths(3))
-            .autoRenew(true)
-            .trialUsed(false);
+                .userId("user-1")
+                .platform("ios")
+                .productId("membership_1m")
+                .plan(SubscriptionPlan.MONTHLY)
+                .startedAt(NOW.minusMonths(3))
+                .autoRenew(true)
+                .trialUsed(false);
     }
 
     @Test
@@ -35,10 +35,8 @@ class UserSubscriptionTest {
     @Test
     @DisplayName("만료됐지만 유예기간 내면 GRACE_PERIOD — 권한 유지")
     void gracePeriodAfterExpiry() {
-        UserSubscription subscription = base()
-            .expiresAt(NOW.minusDays(1))
-            .gracePeriodExpiresAt(NOW.plusDays(15))
-            .build();
+        UserSubscription subscription =
+                base().expiresAt(NOW.minusDays(1)).gracePeriodExpiresAt(NOW.plusDays(15)).build();
 
         assertThat(subscription.resolveStatus(NOW)).isEqualTo(SubscriptionStatus.GRACE_PERIOD);
         assertThat(subscription.isEntitled(NOW)).isTrue();
@@ -47,10 +45,8 @@ class UserSubscriptionTest {
     @Test
     @DisplayName("만료 + 유예기간도 지났으면 EXPIRED — 권한 없음")
     void expiredAfterGracePeriod() {
-        UserSubscription subscription = base()
-            .expiresAt(NOW.minusDays(30))
-            .gracePeriodExpiresAt(NOW.minusDays(14))
-            .build();
+        UserSubscription subscription =
+                base().expiresAt(NOW.minusDays(30)).gracePeriodExpiresAt(NOW.minusDays(14)).build();
 
         assertThat(subscription.resolveStatus(NOW)).isEqualTo(SubscriptionStatus.EXPIRED);
         assertThat(subscription.isEntitled(NOW)).isFalse();
@@ -75,10 +71,8 @@ class UserSubscriptionTest {
     @Test
     @DisplayName("renew는 만료를 연장하고 유예기간을 해제한다")
     void renewExtendsAndClearsGrace() {
-        UserSubscription subscription = base()
-            .expiresAt(NOW.minusDays(1))
-            .gracePeriodExpiresAt(NOW.plusDays(15))
-            .build();
+        UserSubscription subscription =
+                base().expiresAt(NOW.minusDays(1)).gracePeriodExpiresAt(NOW.plusDays(15)).build();
 
         subscription.renew(NOW.plusMonths(1));
 

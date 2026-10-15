@@ -25,14 +25,17 @@ import org.hibernate.annotations.Comment;
 @SuperBuilder
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @AllArgsConstructor
-@Table(name = "guild_chat_participant",
-    uniqueConstraints = {
-        @UniqueConstraint(name = "uk_chat_participant_guild_user", columnNames = {"guild_id", "user_id"})
-    },
-    indexes = {
-        @Index(name = "idx_chat_participant_guild", columnList = "guild_id"),
-        @Index(name = "idx_chat_participant_guild_active", columnList = "guild_id, is_active")
-    })
+@Table(
+        name = "guild_chat_participant",
+        uniqueConstraints = {
+            @UniqueConstraint(
+                    name = "uk_chat_participant_guild_user",
+                    columnNames = {"guild_id", "user_id"})
+        },
+        indexes = {
+            @Index(name = "idx_chat_participant_guild", columnList = "guild_id"),
+            @Index(name = "idx_chat_participant_guild_active", columnList = "guild_id, is_active")
+        })
 @Comment("길드 채팅방 참여자")
 public class GuildChatParticipant extends LocalDateTimeBaseEntity {
 
@@ -73,12 +76,12 @@ public class GuildChatParticipant extends LocalDateTimeBaseEntity {
 
     public static GuildChatParticipant create(Long guildId, String userId, String userNickname) {
         return GuildChatParticipant.builder()
-            .guildId(guildId)
-            .userId(userId)
-            .userNickname(userNickname)
-            .joinedAt(LocalDateTime.now())
-            .isActive(true)
-            .build();
+                .guildId(guildId)
+                .userId(userId)
+                .userNickname(userNickname)
+                .joinedAt(LocalDateTime.now())
+                .isActive(true)
+                .build();
     }
 
     public void rejoin(String userNickname) {

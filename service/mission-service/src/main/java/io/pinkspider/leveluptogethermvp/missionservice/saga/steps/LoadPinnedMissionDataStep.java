@@ -15,9 +15,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
-/**
- * Step 1: 고정 미션 인스턴스 데이터 로드 및 검증
- */
+/** Step 1: 고정 미션 인스턴스 데이터 로드 및 검증 */
 @Slf4j
 @Component
 @RequiredArgsConstructor
@@ -36,7 +34,9 @@ public class LoadPinnedMissionDataStep implements SagaStep<MissionCompletionCont
     }
 
     @Override
-    @Transactional(propagation = Propagation.REQUIRES_NEW, transactionManager = "missionTransactionManager")
+    @Transactional(
+            propagation = Propagation.REQUIRES_NEW,
+            transactionManager = "missionTransactionManager")
     public SagaStepResult execute(MissionCompletionContext context) {
         Long instanceId = context.getInstanceId();
         String userId = context.getUserId();
@@ -45,8 +45,13 @@ public class LoadPinnedMissionDataStep implements SagaStep<MissionCompletionCont
 
         try {
             // 인스턴스 조회 (연관 데이터 포함)
-            DailyMissionInstance instance = instanceRepository.findByIdWithParticipantAndMission(instanceId)
-                .orElseThrow(() -> new IllegalArgumentException("인스턴스를 찾을 수 없습니다: " + instanceId));
+            DailyMissionInstance instance =
+                    instanceRepository
+                            .findByIdWithParticipantAndMission(instanceId)
+                            .orElseThrow(
+                                    () ->
+                                            new IllegalArgumentException(
+                                                    "인스턴스를 찾을 수 없습니다: " + instanceId));
 
             // 소유자 검증
             MissionParticipant participant = instance.getParticipant();
@@ -56,7 +61,8 @@ public class LoadPinnedMissionDataStep implements SagaStep<MissionCompletionCont
 
             // 상태 검증
             if (instance.getStatus() != ExecutionStatus.IN_PROGRESS) {
-                return SagaStepResult.failure("진행 중인 인스턴스만 완료할 수 있습니다. 현재 상태: " + instance.getStatus());
+                return SagaStepResult.failure(
+                        "진행 중인 인스턴스만 완료할 수 있습니다. 현재 상태: " + instance.getStatus());
             }
 
             Mission mission = participant.getMission();
@@ -78,11 +84,13 @@ public class LoadPinnedMissionDataStep implements SagaStep<MissionCompletionCont
 
             // 보상용 데이터 저장
             context.addCompensationData(
-                MissionCompletionContext.CompensationKeys.INSTANCE_STATUS_BEFORE,
-                instance.getStatus());
+                    MissionCompletionContext.CompensationKeys.INSTANCE_STATUS_BEFORE,
+                    instance.getStatus());
 
-            log.info("Pinned mission data loaded: instanceId={}, missionTitle={}",
-                instanceId, instance.getMissionTitle());
+            log.info(
+                    "Pinned mission data loaded: instanceId={}, missionTitle={}",
+                    instanceId,
+                    instance.getMissionTitle());
 
             return SagaStepResult.success("고정 미션 데이터 로드 완료");
 

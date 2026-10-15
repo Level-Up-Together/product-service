@@ -28,12 +28,12 @@ import org.hibernate.annotations.Comment;
 @SuperBuilder
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @AllArgsConstructor
-@Table(name = "user_achievement",
-    uniqueConstraints = @UniqueConstraint(
-        name = "uk_user_achievement",
-        columnNames = {"user_id", "achievement_id"}
-    )
-)
+@Table(
+        name = "user_achievement",
+        uniqueConstraints =
+                @UniqueConstraint(
+                        name = "uk_user_achievement",
+                        columnNames = {"user_id", "achievement_id"}))
 @Comment("유저 업적")
 public class UserAchievement extends LocalDateTimeBaseEntity {
 

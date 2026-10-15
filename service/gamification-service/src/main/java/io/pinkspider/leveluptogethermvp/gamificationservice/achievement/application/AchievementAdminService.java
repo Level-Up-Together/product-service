@@ -49,12 +49,13 @@ public class AchievementAdminService {
     @Transactional(readOnly = true, transactionManager = "gamificationTransactionManager")
     public List<AchievementAdminResponse> getAllAchievements() {
         return achievementRepository.findAll().stream()
-            .map(this::toResponseWithEnrichment)
-            .collect(Collectors.toList());
+                .map(this::toResponseWithEnrichment)
+                .collect(Collectors.toList());
     }
 
     @Transactional(readOnly = true, transactionManager = "gamificationTransactionManager")
-    public AchievementAdminPageResponse searchAchievements(String keyword, Long categoryId, Pageable pageable) {
+    public AchievementAdminPageResponse searchAchievements(
+            String keyword, Long categoryId, Pageable pageable) {
         return searchAchievements(keyword, categoryId, null, pageable);
     }
 
@@ -62,90 +63,106 @@ public class AchievementAdminService {
     @Transactional(readOnly = true, transactionManager = "gamificationTransactionManager")
     public AchievementAdminPageResponse searchAchievements(
             String keyword, Long categoryId, java.util.List<Long> categoryIds, Pageable pageable) {
-        java.util.List<Long> effectiveCategoryIds = categoryIds != null && !categoryIds.isEmpty()
-            ? categoryIds
-            : (categoryId != null ? java.util.List.of(categoryId) : java.util.List.of());
+        java.util.List<Long> effectiveCategoryIds =
+                categoryIds != null && !categoryIds.isEmpty()
+                        ? categoryIds
+                        : (categoryId != null
+                                ? java.util.List.of(categoryId)
+                                : java.util.List.of());
         boolean hasCategoryFilter = !effectiveCategoryIds.isEmpty();
 
-        Page<AchievementAdminResponse> page = achievementRepository
-            .searchByKeywordAndCategoryIds(
-                keyword,
-                hasCategoryFilter,
-                hasCategoryFilter ? effectiveCategoryIds : java.util.List.of(-1L),
-                pageable)
-            .map(this::toResponseWithEnrichment);
+        Page<AchievementAdminResponse> page =
+                achievementRepository
+                        .searchByKeywordAndCategoryIds(
+                                keyword,
+                                hasCategoryFilter,
+                                hasCategoryFilter ? effectiveCategoryIds : java.util.List.of(-1L),
+                                pageable)
+                        .map(this::toResponseWithEnrichment);
         return AchievementAdminPageResponse.from(page);
     }
 
     @Transactional(readOnly = true, transactionManager = "gamificationTransactionManager")
     public List<AchievementAdminResponse> getActiveAchievements() {
         return achievementRepository.findByIsActiveTrueOrderByIdAsc().stream()
-            .map(this::toResponseWithEnrichment)
-            .collect(Collectors.toList());
+                .map(this::toResponseWithEnrichment)
+                .collect(Collectors.toList());
     }
 
     @Transactional(readOnly = true, transactionManager = "gamificationTransactionManager")
     public List<AchievementAdminResponse> getVisibleAchievements() {
         return achievementRepository.findVisibleAchievementsOrderByIdAsc().stream()
-            .map(a -> AchievementAdminResponse.from(a))
-            .collect(Collectors.toList());
+                .map(a -> AchievementAdminResponse.from(a))
+                .collect(Collectors.toList());
     }
 
     @Transactional(readOnly = true, transactionManager = "gamificationTransactionManager")
     public AchievementAdminResponse getAchievement(Long id) {
-        Achievement achievement = achievementRepository.findById(id)
-            .orElseThrow(() -> new CustomException("404", "error.achievement.not_found"));
+        Achievement achievement =
+                achievementRepository
+                        .findById(id)
+                        .orElseThrow(
+                                () -> new CustomException("404", "error.achievement.not_found"));
         return toResponseWithEnrichment(achievement);
     }
 
     @Transactional(readOnly = true, transactionManager = "gamificationTransactionManager")
     public List<AchievementAdminResponse> getAchievementsByCategoryCode(String categoryCode) {
         return achievementRepository.findByCategoryCode(categoryCode).stream()
-            .map(AchievementAdminResponse::from)
-            .collect(Collectors.toList());
+                .map(AchievementAdminResponse::from)
+                .collect(Collectors.toList());
     }
 
-    @Caching(evict = {
-        @CacheEvict(value = "achievements", allEntries = true)
-    })
+    @Caching(evict = {@CacheEvict(value = "achievements", allEntries = true)})
     public AchievementAdminResponse createAchievement(AchievementAdminRequest request) {
-        AchievementCategory category = achievementCategoryRepository.findById(request.getCategoryId())
-            .orElseThrow(() -> new CustomException("404", "error.achievement.category.not_found"));
+        AchievementCategory category =
+                achievementCategoryRepository
+                        .findById(request.getCategoryId())
+                        .orElseThrow(
+                                () ->
+                                        new CustomException(
+                                                "404", "error.achievement.category.not_found"));
 
-        CheckLogicType checkLogicType = checkLogicTypeRepository.findById(request.getCheckLogicTypeId())
-            .orElseThrow(() -> new CustomException("404", "error.checklogic.not_found"));
+        CheckLogicType checkLogicType =
+                checkLogicTypeRepository
+                        .findById(request.getCheckLogicTypeId())
+                        .orElseThrow(
+                                () -> new CustomException("404", "error.checklogic.not_found"));
 
         String eventName = null;
         if (request.getEventId() != null) {
-            Event event = eventRepository.findById(request.getEventId())
-                .orElseThrow(() -> new CustomException("404", "error.event.not_found"));
+            Event event =
+                    eventRepository
+                            .findById(request.getEventId())
+                            .orElseThrow(() -> new CustomException("404", "error.event.not_found"));
             eventName = event.getName();
         }
 
-        Achievement achievement = Achievement.builder()
-            .name(request.getName())
-            .nameEn(request.getNameEn())
-            .nameAr(request.getNameAr())
-            .nameJa(request.getNameJa())
-            .description(request.getDescription())
-            .descriptionEn(request.getDescriptionEn())
-            .descriptionAr(request.getDescriptionAr())
-            .descriptionJa(request.getDescriptionJa())
-            .iconUrl(request.getIconUrl())
-            .requiredCount(request.getRequiredCount())
-            .rewardExp(request.getRewardExp() != null ? request.getRewardExp() : 0)
-            .rewardTitleId(request.getRewardTitleId())
-            .missionCategoryId(request.getMissionCategoryId())
-            .missionCategoryName(request.getMissionCategoryName())
-            .checkLogicTypeId(request.getCheckLogicTypeId())
-            .checkLogicDataSource(checkLogicType.getDataSource().getCode())
-            .checkLogicDataField(checkLogicType.getDataField())
-            .comparisonOperator(checkLogicType.getComparisonOperator().getCode())
-            .isHidden(request.getIsHidden() != null ? request.getIsHidden() : false)
-            .isActive(request.getIsActive() != null ? request.getIsActive() : true)
-            .eventId(request.getEventId())
-            .eventName(eventName)
-            .build();
+        Achievement achievement =
+                Achievement.builder()
+                        .name(request.getName())
+                        .nameEn(request.getNameEn())
+                        .nameAr(request.getNameAr())
+                        .nameJa(request.getNameJa())
+                        .description(request.getDescription())
+                        .descriptionEn(request.getDescriptionEn())
+                        .descriptionAr(request.getDescriptionAr())
+                        .descriptionJa(request.getDescriptionJa())
+                        .iconUrl(request.getIconUrl())
+                        .requiredCount(request.getRequiredCount())
+                        .rewardExp(request.getRewardExp() != null ? request.getRewardExp() : 0)
+                        .rewardTitleId(request.getRewardTitleId())
+                        .missionCategoryId(request.getMissionCategoryId())
+                        .missionCategoryName(request.getMissionCategoryName())
+                        .checkLogicTypeId(request.getCheckLogicTypeId())
+                        .checkLogicDataSource(checkLogicType.getDataSource().getCode())
+                        .checkLogicDataField(checkLogicType.getDataField())
+                        .comparisonOperator(checkLogicType.getComparisonOperator().getCode())
+                        .isHidden(request.getIsHidden() != null ? request.getIsHidden() : false)
+                        .isActive(request.getIsActive() != null ? request.getIsActive() : true)
+                        .eventId(request.getEventId())
+                        .eventName(eventName)
+                        .build();
 
         achievement.setCategory(category);
 
@@ -154,23 +171,34 @@ public class AchievementAdminService {
         return toResponseWithEnrichment(saved);
     }
 
-    @Caching(evict = {
-        @CacheEvict(value = "achievements", allEntries = true)
-    })
+    @Caching(evict = {@CacheEvict(value = "achievements", allEntries = true)})
     public AchievementAdminResponse updateAchievement(Long id, AchievementAdminRequest request) {
-        Achievement achievement = achievementRepository.findById(id)
-            .orElseThrow(() -> new CustomException("404", "error.achievement.not_found"));
+        Achievement achievement =
+                achievementRepository
+                        .findById(id)
+                        .orElseThrow(
+                                () -> new CustomException("404", "error.achievement.not_found"));
 
-        AchievementCategory category = achievementCategoryRepository.findById(request.getCategoryId())
-            .orElseThrow(() -> new CustomException("404", "error.achievement.category.not_found"));
+        AchievementCategory category =
+                achievementCategoryRepository
+                        .findById(request.getCategoryId())
+                        .orElseThrow(
+                                () ->
+                                        new CustomException(
+                                                "404", "error.achievement.category.not_found"));
 
-        CheckLogicType checkLogicType = checkLogicTypeRepository.findById(request.getCheckLogicTypeId())
-            .orElseThrow(() -> new CustomException("404", "error.checklogic.not_found"));
+        CheckLogicType checkLogicType =
+                checkLogicTypeRepository
+                        .findById(request.getCheckLogicTypeId())
+                        .orElseThrow(
+                                () -> new CustomException("404", "error.checklogic.not_found"));
 
         String eventName = null;
         if (request.getEventId() != null) {
-            Event event = eventRepository.findById(request.getEventId())
-                .orElseThrow(() -> new CustomException("404", "error.event.not_found"));
+            Event event =
+                    eventRepository
+                            .findById(request.getEventId())
+                            .orElseThrow(() -> new CustomException("404", "error.event.not_found"));
             eventName = event.getName();
         }
 
@@ -212,12 +240,13 @@ public class AchievementAdminService {
         return toResponseWithEnrichment(saved);
     }
 
-    @Caching(evict = {
-        @CacheEvict(value = "achievements", allEntries = true)
-    })
+    @Caching(evict = {@CacheEvict(value = "achievements", allEntries = true)})
     public AchievementAdminResponse toggleActiveStatus(Long id) {
-        Achievement achievement = achievementRepository.findById(id)
-            .orElseThrow(() -> new CustomException("404", "error.achievement.not_found"));
+        Achievement achievement =
+                achievementRepository
+                        .findById(id)
+                        .orElseThrow(
+                                () -> new CustomException("404", "error.achievement.not_found"));
 
         achievement.setIsActive(!achievement.getIsActive());
         Achievement saved = achievementRepository.save(achievement);
@@ -225,9 +254,7 @@ public class AchievementAdminService {
         return AchievementAdminResponse.from(saved);
     }
 
-    @Caching(evict = {
-        @CacheEvict(value = "achievements", allEntries = true)
-    })
+    @Caching(evict = {@CacheEvict(value = "achievements", allEntries = true)})
     public void deleteAchievement(Long id) {
         if (!achievementRepository.existsById(id)) {
             throw new CustomException("404", "error.achievement.not_found");
@@ -244,9 +271,7 @@ public class AchievementAdminService {
         log.info("업적 삭제 및 캐시 갱신: id={}", id);
     }
 
-    /**
-     * 업적을 이미 달성하고 보상을 수령한 사용자들에게 새 칭호를 소급 부여
-     */
+    /** 업적을 이미 달성하고 보상을 수령한 사용자들에게 새 칭호를 소급 부여 */
     private void grantTitleToExistingAchievers(Long achievementId, Long titleId) {
         Title title = titleRepository.findById(titleId).orElse(null);
         if (title == null) {
@@ -254,8 +279,9 @@ public class AchievementAdminService {
             return;
         }
 
-        List<UserAchievement> achievers = userAchievementRepository
-            .findByAchievementIdAndIsCompletedTrueAndIsRewardClaimedTrue(achievementId);
+        List<UserAchievement> achievers =
+                userAchievementRepository
+                        .findByAchievementIdAndIsCompletedTrueAndIsRewardClaimedTrue(achievementId);
 
         int grantedCount = 0;
         for (UserAchievement ua : achievers) {
@@ -265,18 +291,22 @@ public class AchievementAdminService {
                 continue;
             }
 
-            UserTitle userTitle = UserTitle.builder()
-                .userId(userId)
-                .title(title)
-                .acquiredAt(LocalDateTime.now())
-                .isEquipped(false)
-                .build();
+            UserTitle userTitle =
+                    UserTitle.builder()
+                            .userId(userId)
+                            .title(title)
+                            .acquiredAt(LocalDateTime.now())
+                            .isEquipped(false)
+                            .build();
             userTitleRepository.save(userTitle);
             grantedCount++;
         }
 
-        log.info("기존 업적 달성자에게 칭호 소급 부여: achievementId={}, titleId={}, grantedCount={}",
-            achievementId, titleId, grantedCount);
+        log.info(
+                "기존 업적 달성자에게 칭호 소급 부여: achievementId={}, titleId={}, grantedCount={}",
+                achievementId,
+                titleId,
+                grantedCount);
     }
 
     private AchievementAdminResponse toResponseWithEnrichment(Achievement achievement) {
@@ -291,7 +321,8 @@ public class AchievementAdminService {
         }
 
         if (achievement.getCheckLogicTypeId() != null) {
-            Optional<CheckLogicType> checkLogicType = checkLogicTypeRepository.findById(achievement.getCheckLogicTypeId());
+            Optional<CheckLogicType> checkLogicType =
+                    checkLogicTypeRepository.findById(achievement.getCheckLogicTypeId());
             if (checkLogicType.isPresent()) {
                 checkLogicTypeName = checkLogicType.get().getName();
             }

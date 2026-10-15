@@ -4,10 +4,9 @@ import static io.pinkspider.global.test.TestReflectionUtils.setId;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-import io.pinkspider.global.test.TestReflectionUtils;
-
-import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.ExecutionStatus;
 import io.pinkspider.global.enums.MissionStatus;
+import io.pinkspider.global.test.TestReflectionUtils;
+import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.ExecutionStatus;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionType;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionVisibility;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.ParticipantStatus;
@@ -28,25 +27,27 @@ class DailyMissionInstanceTest {
 
     @BeforeEach
     void setUp() {
-        mission = Mission.builder()
-            .title("매일 30분 운동")
-            .description("매일 30분씩 운동하기")
-            .creatorId(TEST_USER_ID)
-            .status(MissionStatus.IN_PROGRESS)
-            .visibility(MissionVisibility.PRIVATE)
-            .type(MissionType.PERSONAL)
-            .categoryId(1L)
-            .categoryName("운동")
-            .expPerCompletion(50)
-            .isPinned(true)
-            .build();
+        mission =
+                Mission.builder()
+                        .title("매일 30분 운동")
+                        .description("매일 30분씩 운동하기")
+                        .creatorId(TEST_USER_ID)
+                        .status(MissionStatus.IN_PROGRESS)
+                        .visibility(MissionVisibility.PRIVATE)
+                        .type(MissionType.PERSONAL)
+                        .categoryId(1L)
+                        .categoryName("운동")
+                        .expPerCompletion(50)
+                        .isPinned(true)
+                        .build();
         setId(mission, 1L);
 
-        participant = MissionParticipant.builder()
-            .mission(mission)
-            .userId(TEST_USER_ID)
-            .status(ParticipantStatus.ACCEPTED)
-            .build();
+        participant =
+                MissionParticipant.builder()
+                        .mission(mission)
+                        .userId(TEST_USER_ID)
+                        .status(ParticipantStatus.ACCEPTED)
+                        .build();
         setId(participant, 1L);
     }
 
@@ -84,32 +85,35 @@ class DailyMissionInstanceTest {
         @DisplayName("카테고리가 없으면 customCategory를 사용한다")
         void createFrom_withCustomCategory() {
             // given
-            Mission missionWithCustomCategory = Mission.builder()
-                .title("커스텀 미션")
-                .description("커스텀 카테고리 미션")
-                .creatorId(TEST_USER_ID)
-                .status(MissionStatus.IN_PROGRESS)
-                .visibility(MissionVisibility.PRIVATE)
-                .type(MissionType.PERSONAL)
-                .categoryId(null)
-                .categoryName(null)
-                .customCategory("나만의 카테고리")
-                .expPerCompletion(30)
-                .isPinned(true)
-                .build();
+            Mission missionWithCustomCategory =
+                    Mission.builder()
+                            .title("커스텀 미션")
+                            .description("커스텀 카테고리 미션")
+                            .creatorId(TEST_USER_ID)
+                            .status(MissionStatus.IN_PROGRESS)
+                            .visibility(MissionVisibility.PRIVATE)
+                            .type(MissionType.PERSONAL)
+                            .categoryId(null)
+                            .categoryName(null)
+                            .customCategory("나만의 카테고리")
+                            .expPerCompletion(30)
+                            .isPinned(true)
+                            .build();
             setId(missionWithCustomCategory, 2L);
 
-            MissionParticipant participantWithCustom = MissionParticipant.builder()
-                .mission(missionWithCustomCategory)
-                .userId(TEST_USER_ID)
-                .status(ParticipantStatus.ACCEPTED)
-                .build();
+            MissionParticipant participantWithCustom =
+                    MissionParticipant.builder()
+                            .mission(missionWithCustomCategory)
+                            .userId(TEST_USER_ID)
+                            .status(ParticipantStatus.ACCEPTED)
+                            .build();
             setId(participantWithCustom, 2L);
 
             LocalDate today = LocalDate.now();
 
             // when
-            DailyMissionInstance instance = DailyMissionInstance.createFrom(participantWithCustom, today);
+            DailyMissionInstance instance =
+                    DailyMissionInstance.createFrom(participantWithCustom, today);
 
             // then
             assertThat(instance.getCategoryName()).isEqualTo("나만의 카테고리");
@@ -141,13 +145,14 @@ class DailyMissionInstanceTest {
             // given
             DailyMissionInstance instance = createInstance(LocalDate.now());
             instance.start();
-            TestReflectionUtils.setField(instance, "startedAt",LocalDateTime.now().minusMinutes(5));
+            TestReflectionUtils.setField(
+                    instance, "startedAt", LocalDateTime.now().minusMinutes(5));
             instance.complete();
 
             // when & then
             assertThatThrownBy(instance::start)
-                .isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining("이미 완료된 수행 기록입니다");
+                    .isInstanceOf(IllegalStateException.class)
+                    .hasMessageContaining("이미 완료된 수행 기록입니다");
         }
 
         @Test
@@ -159,8 +164,8 @@ class DailyMissionInstanceTest {
 
             // when & then
             assertThatThrownBy(instance::start)
-                .isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining("미실행 처리된 수행 기록은 시작할 수 없습니다");
+                    .isInstanceOf(IllegalStateException.class)
+                    .hasMessageContaining("미실행 처리된 수행 기록은 시작할 수 없습니다");
         }
 
         @Test
@@ -172,8 +177,8 @@ class DailyMissionInstanceTest {
 
             // when & then
             assertThatThrownBy(instance::start)
-                .isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining("이미 시작된 수행 기록입니다");
+                    .isInstanceOf(IllegalStateException.class)
+                    .hasMessageContaining("이미 시작된 수행 기록입니다");
         }
     }
 
@@ -188,7 +193,8 @@ class DailyMissionInstanceTest {
             DailyMissionInstance instance = createInstance(LocalDate.now());
             instance.start();
             // 5분 전에 시작했다고 설정
-            TestReflectionUtils.setField(instance, "startedAt",LocalDateTime.now().minusMinutes(5));
+            TestReflectionUtils.setField(
+                    instance, "startedAt", LocalDateTime.now().minusMinutes(5));
 
             // when
             instance.complete();
@@ -205,13 +211,14 @@ class DailyMissionInstanceTest {
             // given
             DailyMissionInstance instance = createInstance(LocalDate.now());
             instance.start();
-            TestReflectionUtils.setField(instance, "startedAt",LocalDateTime.now().minusMinutes(5));
+            TestReflectionUtils.setField(
+                    instance, "startedAt", LocalDateTime.now().minusMinutes(5));
             instance.complete();
 
             // when & then
             assertThatThrownBy(instance::complete)
-                .isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining("이미 완료된 수행 기록입니다");
+                    .isInstanceOf(IllegalStateException.class)
+                    .hasMessageContaining("이미 완료된 수행 기록입니다");
         }
 
         @Test
@@ -223,8 +230,8 @@ class DailyMissionInstanceTest {
 
             // when & then
             assertThatThrownBy(instance::complete)
-                .isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining("미실행 처리된 수행 기록은 완료할 수 없습니다");
+                    .isInstanceOf(IllegalStateException.class)
+                    .hasMessageContaining("미실행 처리된 수행 기록은 완료할 수 없습니다");
         }
 
         @Test
@@ -235,8 +242,8 @@ class DailyMissionInstanceTest {
 
             // when & then
             assertThatThrownBy(instance::complete)
-                .isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining("미션을 먼저 시작해야 합니다");
+                    .isInstanceOf(IllegalStateException.class)
+                    .hasMessageContaining("미션을 먼저 시작해야 합니다");
         }
 
         @Test
@@ -266,7 +273,8 @@ class DailyMissionInstanceTest {
             // given
             DailyMissionInstance instance = createInstance(LocalDate.now());
             instance.start();
-            TestReflectionUtils.setField(instance, "startedAt",LocalDateTime.now().minusMinutes(60));
+            TestReflectionUtils.setField(
+                    instance, "startedAt", LocalDateTime.now().minusMinutes(60));
             instance.complete();
 
             // when
@@ -298,7 +306,8 @@ class DailyMissionInstanceTest {
             TestReflectionUtils.setField(instance, "bonusExpOnFullCompletion", 60);
             TestReflectionUtils.setField(instance, "expPerCompletion", 10);
             instance.start();
-            TestReflectionUtils.setField(instance, "startedAt", LocalDateTime.now().minusMinutes(243));
+            TestReflectionUtils.setField(
+                    instance, "startedAt", LocalDateTime.now().minusMinutes(243));
             instance.complete();
 
             // when
@@ -316,7 +325,8 @@ class DailyMissionInstanceTest {
             TestReflectionUtils.setField(instance, "targetDurationMinutes", 240);
             TestReflectionUtils.setField(instance, "bonusExpOnFullCompletion", 60);
             instance.start();
-            TestReflectionUtils.setField(instance, "startedAt", LocalDateTime.now().minusMinutes(60));
+            TestReflectionUtils.setField(
+                    instance, "startedAt", LocalDateTime.now().minusMinutes(60));
             instance.complete();
 
             // when
@@ -333,7 +343,8 @@ class DailyMissionInstanceTest {
             DailyMissionInstance instance = createInstance(LocalDate.now());
             instance.start();
             // 10시간 전에 시작
-            TestReflectionUtils.setField(instance, "startedAt",LocalDateTime.now().minusMinutes(600));
+            TestReflectionUtils.setField(
+                    instance, "startedAt", LocalDateTime.now().minusMinutes(600));
             instance.complete();
 
             // when
@@ -381,13 +392,14 @@ class DailyMissionInstanceTest {
             // given
             DailyMissionInstance instance = createInstance(LocalDate.now());
             instance.start();
-            TestReflectionUtils.setField(instance, "startedAt",LocalDateTime.now().minusMinutes(5));
+            TestReflectionUtils.setField(
+                    instance, "startedAt", LocalDateTime.now().minusMinutes(5));
             instance.complete();
 
             // when & then
             assertThatThrownBy(instance::markAsMissed)
-                .isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining("완료된 수행 기록은 미실행 처리할 수 없습니다");
+                    .isInstanceOf(IllegalStateException.class)
+                    .hasMessageContaining("완료된 수행 기록은 미실행 처리할 수 없습니다");
         }
     }
 
@@ -416,13 +428,14 @@ class DailyMissionInstanceTest {
             // given
             DailyMissionInstance instance = createInstance(LocalDate.now());
             instance.start();
-            TestReflectionUtils.setField(instance, "startedAt",LocalDateTime.now().minusMinutes(5));
+            TestReflectionUtils.setField(
+                    instance, "startedAt", LocalDateTime.now().minusMinutes(5));
             instance.complete();
 
             // when & then
             assertThatThrownBy(instance::skip)
-                .isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining("완료된 수행 기록은 취소할 수 없습니다");
+                    .isInstanceOf(IllegalStateException.class)
+                    .hasMessageContaining("완료된 수행 기록은 취소할 수 없습니다");
         }
 
         @Test
@@ -434,8 +447,8 @@ class DailyMissionInstanceTest {
 
             // when & then
             assertThatThrownBy(instance::skip)
-                .isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining("미실행 처리된 수행 기록은 취소할 수 없습니다");
+                    .isInstanceOf(IllegalStateException.class)
+                    .hasMessageContaining("미실행 처리된 수행 기록은 취소할 수 없습니다");
         }
     }
 
@@ -481,7 +494,8 @@ class DailyMissionInstanceTest {
             // given
             DailyMissionInstance instance = createInstance(LocalDate.now());
             instance.start();
-            TestReflectionUtils.setField(instance, "startedAt",LocalDateTime.now().minusMinutes(5));
+            TestReflectionUtils.setField(
+                    instance, "startedAt", LocalDateTime.now().minusMinutes(5));
             instance.complete();
 
             // when
@@ -505,8 +519,8 @@ class DailyMissionInstanceTest {
 
             // when & then
             assertThatThrownBy(instance::resetToPending)
-                .isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining("완료 상태의 인스턴스만 리셋할 수 있습니다");
+                    .isInstanceOf(IllegalStateException.class)
+                    .hasMessageContaining("완료 상태의 인스턴스만 리셋할 수 있습니다");
         }
 
         @Test
@@ -518,8 +532,8 @@ class DailyMissionInstanceTest {
 
             // when & then
             assertThatThrownBy(instance::resetToPending)
-                .isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining("완료 상태의 인스턴스만 리셋할 수 있습니다");
+                    .isInstanceOf(IllegalStateException.class)
+                    .hasMessageContaining("완료 상태의 인스턴스만 리셋할 수 있습니다");
         }
 
         @Test
@@ -530,7 +544,8 @@ class DailyMissionInstanceTest {
 
             // 첫 번째 완료
             instance.start();
-            TestReflectionUtils.setField(instance, "startedAt",LocalDateTime.now().minusMinutes(10));
+            TestReflectionUtils.setField(
+                    instance, "startedAt", LocalDateTime.now().minusMinutes(10));
             instance.complete();
             assertThat(instance.getCompletionCount()).isEqualTo(1);
             int firstExpEarned = instance.getTotalExpEarned();
@@ -538,7 +553,8 @@ class DailyMissionInstanceTest {
 
             // 두 번째 완료
             instance.start();
-            TestReflectionUtils.setField(instance, "startedAt",LocalDateTime.now().minusMinutes(20));
+            TestReflectionUtils.setField(
+                    instance, "startedAt", LocalDateTime.now().minusMinutes(20));
             instance.complete();
             assertThat(instance.getCompletionCount()).isEqualTo(2);
             assertThat(instance.getTotalExpEarned()).isGreaterThan(firstExpEarned);
@@ -546,7 +562,8 @@ class DailyMissionInstanceTest {
 
             // 세 번째 완료
             instance.start();
-            TestReflectionUtils.setField(instance, "startedAt",LocalDateTime.now().minusMinutes(15));
+            TestReflectionUtils.setField(
+                    instance, "startedAt", LocalDateTime.now().minusMinutes(15));
             instance.complete();
 
             // then
@@ -560,7 +577,8 @@ class DailyMissionInstanceTest {
             // given
             DailyMissionInstance instance = createInstance(LocalDate.now());
             instance.start();
-            TestReflectionUtils.setField(instance, "startedAt",LocalDateTime.now().minusMinutes(5));
+            TestReflectionUtils.setField(
+                    instance, "startedAt", LocalDateTime.now().minusMinutes(5));
             instance.complete();
             instance.resetToPending();
 
@@ -583,7 +601,8 @@ class DailyMissionInstanceTest {
             // given
             DailyMissionInstance instance = createInstance(LocalDate.now().minusDays(1));
             instance.start();
-            TestReflectionUtils.setField(instance, "startedAt", LocalDateTime.now().minusMinutes(35));
+            TestReflectionUtils.setField(
+                    instance, "startedAt", LocalDateTime.now().minusMinutes(35));
 
             // when
             boolean result = instance.autoCompleteForDateChange(10);
@@ -604,7 +623,8 @@ class DailyMissionInstanceTest {
             // given
             DailyMissionInstance instance = createInstance(LocalDate.now().minusDays(1));
             instance.start();
-            TestReflectionUtils.setField(instance, "startedAt", LocalDateTime.now().minusMinutes(10));
+            TestReflectionUtils.setField(
+                    instance, "startedAt", LocalDateTime.now().minusMinutes(10));
 
             // when
             boolean result = instance.autoCompleteForDateChange(10);
@@ -647,32 +667,36 @@ class DailyMissionInstanceTest {
         @DisplayName("목표시간 설정 미션도 실제 경과 시간으로 경험치를 계산한다")
         void autoCompleteForDateChange_withTargetDuration() {
             // given
-            mission = Mission.builder()
-                .title("운동 30분")
-                .description("30분 운동하기")
-                .creatorId(TEST_USER_ID)
-                .status(MissionStatus.IN_PROGRESS)
-                .visibility(MissionVisibility.PRIVATE)
-                .type(MissionType.PERSONAL)
-                .categoryId(1L)
-                .categoryName("운동")
-                .expPerCompletion(50)
-                .targetDurationMinutes(30)
-                .isPinned(true)
-                .build();
+            mission =
+                    Mission.builder()
+                            .title("운동 30분")
+                            .description("30분 운동하기")
+                            .creatorId(TEST_USER_ID)
+                            .status(MissionStatus.IN_PROGRESS)
+                            .visibility(MissionVisibility.PRIVATE)
+                            .type(MissionType.PERSONAL)
+                            .categoryId(1L)
+                            .categoryName("운동")
+                            .expPerCompletion(50)
+                            .targetDurationMinutes(30)
+                            .isPinned(true)
+                            .build();
             setId(mission, 2L);
 
-            MissionParticipant p = MissionParticipant.builder()
-                .mission(mission)
-                .userId(TEST_USER_ID)
-                .status(ParticipantStatus.ACCEPTED)
-                .build();
+            MissionParticipant p =
+                    MissionParticipant.builder()
+                            .mission(mission)
+                            .userId(TEST_USER_ID)
+                            .status(ParticipantStatus.ACCEPTED)
+                            .build();
             setId(p, 2L);
 
-            DailyMissionInstance instance = DailyMissionInstance.createFrom(p, LocalDate.now().minusDays(1));
+            DailyMissionInstance instance =
+                    DailyMissionInstance.createFrom(p, LocalDate.now().minusDays(1));
             instance.start();
             // 목표시간(30분) 이상 수행
-            TestReflectionUtils.setField(instance, "startedAt", LocalDateTime.now().minusMinutes(40));
+            TestReflectionUtils.setField(
+                    instance, "startedAt", LocalDateTime.now().minusMinutes(40));
 
             // when
             boolean result = instance.autoCompleteForDateChange(10);
@@ -695,7 +719,8 @@ class DailyMissionInstanceTest {
             // given
             DailyMissionInstance instance = createInstance(LocalDate.now());
             instance.start();
-            TestReflectionUtils.setField(instance, "startedAt",LocalDateTime.now().minusMinutes(45));
+            TestReflectionUtils.setField(
+                    instance, "startedAt", LocalDateTime.now().minusMinutes(45));
             instance.complete();
 
             // when

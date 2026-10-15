@@ -20,18 +20,20 @@ import org.hibernate.annotations.Comment;
 /**
  * LUT-483: 길드원 일간 활동 포인트 적립 이력 (유저×일자 멱등 근거).
  *
- * <p>길드 미션으로 획득한 EXP 를 일자(KST) 단위로 누적하고, 사다리(10 EXP = 1점, 상한 60 = 6점)를
- * 누적값에 적용한 점수를 보관한다. 점수 상승분(차분)만 길드 totalPoint 에 더해지므로
- * 쪼개서 수행해도(19→13→30) 몰아서 수행한 것과 같은 점수가 된다.
+ * <p>길드 미션으로 획득한 EXP 를 일자(KST) 단위로 누적하고, 사다리(10 EXP = 1점, 상한 60 = 6점)를 누적값에 적용한 점수를 보관한다. 점수
+ * 상승분(차분)만 길드 totalPoint 에 더해지므로 쪼개서 수행해도(19→13→30) 몰아서 수행한 것과 같은 점수가 된다.
  */
 @Entity
 @Getter
 @Builder
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @AllArgsConstructor(access = AccessLevel.PRIVATE)
-@Table(name = "guild_member_daily_point",
-    uniqueConstraints = @UniqueConstraint(name = "uk_guild_member_daily_point",
-        columnNames = {"guild_id", "user_id", "point_date"}))
+@Table(
+        name = "guild_member_daily_point",
+        uniqueConstraints =
+                @UniqueConstraint(
+                        name = "uk_guild_member_daily_point",
+                        columnNames = {"guild_id", "user_id", "point_date"}))
 @Comment("길드원 일간 활동 포인트")
 public class GuildMemberDailyPoint extends LocalDateTimeBaseEntity {
 

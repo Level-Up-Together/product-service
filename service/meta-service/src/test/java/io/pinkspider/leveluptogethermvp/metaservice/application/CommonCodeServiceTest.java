@@ -1,8 +1,6 @@
 package io.pinkspider.leveluptogethermvp.metaservice.application;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 
 import io.pinkspider.global.domain.dto.CommonCodeDto;
@@ -23,23 +21,20 @@ import org.modelmapper.ModelMapper;
 @ExtendWith(MockitoExtension.class)
 class CommonCodeServiceTest {
 
-    @Mock
-    private CommonCodeRepository commonCodeRepository;
+    @Mock private CommonCodeRepository commonCodeRepository;
 
-    @Mock
-    private ModelMapper modelMapper;
+    @Mock private ModelMapper modelMapper;
 
-    @InjectMocks
-    private CommonCodeService commonCodeService;
+    @InjectMocks private CommonCodeService commonCodeService;
 
     private CommonCode createTestCommonCode(String id, String codeName, String codeTitle) {
         return CommonCode.builder()
-            .id(id)
-            .codeName(codeName)
-            .codeTitle(codeTitle)
-            .description("테스트 설명")
-            .parentId(null)
-            .build();
+                .id(id)
+                .codeName(codeName)
+                .codeTitle(codeTitle)
+                .description("테스트 설명")
+                .parentId(null)
+                .build();
     }
 
     private CommonCodeDto createTestCommonCodeDto(String id, String codeName, String codeTitle) {
@@ -119,21 +114,23 @@ class CommonCodeServiceTest {
         @DisplayName("부모 ID가 있는 공통 코드를 조회한다")
         void retrieveAllCommonCode_withParentId() {
             // given
-            CommonCode parentCode = CommonCode.builder()
-                .id("M000")
-                .codeName("MEMBER")
-                .codeTitle("회원")
-                .description("회원 관련 코드 그룹")
-                .parentId(null)
-                .build();
+            CommonCode parentCode =
+                    CommonCode.builder()
+                            .id("M000")
+                            .codeName("MEMBER")
+                            .codeTitle("회원")
+                            .description("회원 관련 코드 그룹")
+                            .parentId(null)
+                            .build();
 
-            CommonCode childCode = CommonCode.builder()
-                .id("M001")
-                .codeName("MEMBER_STATUS")
-                .codeTitle("회원 상태")
-                .description("회원 상태 코드")
-                .parentId("M000")
-                .build();
+            CommonCode childCode =
+                    CommonCode.builder()
+                            .id("M001")
+                            .codeName("MEMBER_STATUS")
+                            .codeTitle("회원 상태")
+                            .description("회원 상태 코드")
+                            .parentId("M000")
+                            .build();
 
             List<CommonCode> commonCodeList = List.of(parentCode, childCode);
 
@@ -172,39 +169,43 @@ class CommonCodeServiceTest {
         void getCodesByParentId_success() {
             // given
             String parentId = "MS";
-            CommonCode code1 = CommonCode.builder()
-                .id("MS01")
-                .codeName("PENDING")
-                .codeTitle("대기중")
-                .codeTitleEn("Pending")
-                .codeTitleAr("قيد الانتظار")
-                .parentId(parentId)
-                .build();
-            CommonCode code2 = CommonCode.builder()
-                .id("MS02")
-                .codeName("IN_PROGRESS")
-                .codeTitle("진행중")
-                .codeTitleEn("In Progress")
-                .codeTitleAr("قيد التنفيذ")
-                .parentId(parentId)
-                .build();
+            CommonCode code1 =
+                    CommonCode.builder()
+                            .id("MS01")
+                            .codeName("PENDING")
+                            .codeTitle("대기중")
+                            .codeTitleEn("Pending")
+                            .codeTitleAr("قيد الانتظار")
+                            .parentId(parentId)
+                            .build();
+            CommonCode code2 =
+                    CommonCode.builder()
+                            .id("MS02")
+                            .codeName("IN_PROGRESS")
+                            .codeTitle("진행중")
+                            .codeTitleEn("In Progress")
+                            .codeTitleAr("قيد التنفيذ")
+                            .parentId(parentId)
+                            .build();
 
-            CommonCodeDto dto1 = CommonCodeDto.builder()
-                .id("MS01")
-                .codeName("PENDING")
-                .codeTitle("대기중")
-                .codeTitleEn("Pending")
-                .codeTitleAr("قيد الانتظار")
-                .parentId(parentId)
-                .build();
-            CommonCodeDto dto2 = CommonCodeDto.builder()
-                .id("MS02")
-                .codeName("IN_PROGRESS")
-                .codeTitle("진행중")
-                .codeTitleEn("In Progress")
-                .codeTitleAr("قيد التنفيذ")
-                .parentId(parentId)
-                .build();
+            CommonCodeDto dto1 =
+                    CommonCodeDto.builder()
+                            .id("MS01")
+                            .codeName("PENDING")
+                            .codeTitle("대기중")
+                            .codeTitleEn("Pending")
+                            .codeTitleAr("قيد الانتظار")
+                            .parentId(parentId)
+                            .build();
+            CommonCodeDto dto2 =
+                    CommonCodeDto.builder()
+                            .id("MS02")
+                            .codeName("IN_PROGRESS")
+                            .codeTitle("진행중")
+                            .codeTitleEn("In Progress")
+                            .codeTitleAr("قيد التنفيذ")
+                            .parentId(parentId)
+                            .build();
 
             when(commonCodeRepository.findByParentId(parentId)).thenReturn(List.of(code1, code2));
             when(modelMapper.map(code1, CommonCodeDto.class)).thenReturn(dto1);
@@ -244,18 +245,20 @@ class CommonCodeServiceTest {
         void getLocalizedTitle_korean() {
             // given
             String codeId = "MS01";
-            CommonCode code = CommonCode.builder()
-                .id(codeId)
-                .codeTitle("대기중")
-                .codeTitleEn("Pending")
-                .codeTitleAr("قيد الانتظار")
-                .build();
-            CommonCodeDto dto = CommonCodeDto.builder()
-                .id(codeId)
-                .codeTitle("대기중")
-                .codeTitleEn("Pending")
-                .codeTitleAr("قيد الانتظار")
-                .build();
+            CommonCode code =
+                    CommonCode.builder()
+                            .id(codeId)
+                            .codeTitle("대기중")
+                            .codeTitleEn("Pending")
+                            .codeTitleAr("قيد الانتظار")
+                            .build();
+            CommonCodeDto dto =
+                    CommonCodeDto.builder()
+                            .id(codeId)
+                            .codeTitle("대기중")
+                            .codeTitleEn("Pending")
+                            .codeTitleAr("قيد الانتظار")
+                            .build();
 
             when(commonCodeRepository.findById(codeId)).thenReturn(Optional.of(code));
             when(modelMapper.map(code, CommonCodeDto.class)).thenReturn(dto);
@@ -272,18 +275,20 @@ class CommonCodeServiceTest {
         void getLocalizedTitle_english() {
             // given
             String codeId = "MS01";
-            CommonCode code = CommonCode.builder()
-                .id(codeId)
-                .codeTitle("대기중")
-                .codeTitleEn("Pending")
-                .codeTitleAr("قيد الانتظار")
-                .build();
-            CommonCodeDto dto = CommonCodeDto.builder()
-                .id(codeId)
-                .codeTitle("대기중")
-                .codeTitleEn("Pending")
-                .codeTitleAr("قيد الانتظار")
-                .build();
+            CommonCode code =
+                    CommonCode.builder()
+                            .id(codeId)
+                            .codeTitle("대기중")
+                            .codeTitleEn("Pending")
+                            .codeTitleAr("قيد الانتظار")
+                            .build();
+            CommonCodeDto dto =
+                    CommonCodeDto.builder()
+                            .id(codeId)
+                            .codeTitle("대기중")
+                            .codeTitleEn("Pending")
+                            .codeTitleAr("قيد الانتظار")
+                            .build();
 
             when(commonCodeRepository.findById(codeId)).thenReturn(Optional.of(code));
             when(modelMapper.map(code, CommonCodeDto.class)).thenReturn(dto);
@@ -300,18 +305,20 @@ class CommonCodeServiceTest {
         void getLocalizedTitle_arabic() {
             // given
             String codeId = "MS01";
-            CommonCode code = CommonCode.builder()
-                .id(codeId)
-                .codeTitle("대기중")
-                .codeTitleEn("Pending")
-                .codeTitleAr("قيد الانتظار")
-                .build();
-            CommonCodeDto dto = CommonCodeDto.builder()
-                .id(codeId)
-                .codeTitle("대기중")
-                .codeTitleEn("Pending")
-                .codeTitleAr("قيد الانتظار")
-                .build();
+            CommonCode code =
+                    CommonCode.builder()
+                            .id(codeId)
+                            .codeTitle("대기중")
+                            .codeTitleEn("Pending")
+                            .codeTitleAr("قيد الانتظار")
+                            .build();
+            CommonCodeDto dto =
+                    CommonCodeDto.builder()
+                            .id(codeId)
+                            .codeTitle("대기중")
+                            .codeTitleEn("Pending")
+                            .codeTitleAr("قيد الانتظار")
+                            .build();
 
             when(commonCodeRepository.findById(codeId)).thenReturn(Optional.of(code));
             when(modelMapper.map(code, CommonCodeDto.class)).thenReturn(dto);
@@ -342,18 +349,20 @@ class CommonCodeServiceTest {
         void getLocalizedTitle_fallbackToKorean() {
             // given
             String codeId = "MS01";
-            CommonCode code = CommonCode.builder()
-                .id(codeId)
-                .codeTitle("대기중")
-                .codeTitleEn(null)
-                .codeTitleAr(null)
-                .build();
-            CommonCodeDto dto = CommonCodeDto.builder()
-                .id(codeId)
-                .codeTitle("대기중")
-                .codeTitleEn(null)
-                .codeTitleAr(null)
-                .build();
+            CommonCode code =
+                    CommonCode.builder()
+                            .id(codeId)
+                            .codeTitle("대기중")
+                            .codeTitleEn(null)
+                            .codeTitleAr(null)
+                            .build();
+            CommonCodeDto dto =
+                    CommonCodeDto.builder()
+                            .id(codeId)
+                            .codeTitle("대기중")
+                            .codeTitleEn(null)
+                            .codeTitleAr(null)
+                            .build();
 
             when(commonCodeRepository.findById(codeId)).thenReturn(Optional.of(code));
             when(modelMapper.map(code, CommonCodeDto.class)).thenReturn(dto);
@@ -374,35 +383,39 @@ class CommonCodeServiceTest {
         @DisplayName("상위 그룹 코드 목록을 조회한다")
         void getParentCodes_success() {
             // given
-            CommonCode parent1 = CommonCode.builder()
-                .id("MS")
-                .codeName("MISSION_STATUS")
-                .codeTitle("미션 상태")
-                .codeTitleEn("Mission Status")
-                .parentId(null)
-                .build();
-            CommonCode parent2 = CommonCode.builder()
-                .id("EX")
-                .codeName("EXECUTION_STATUS")
-                .codeTitle("실행 상태")
-                .codeTitleEn("Execution Status")
-                .parentId(null)
-                .build();
+            CommonCode parent1 =
+                    CommonCode.builder()
+                            .id("MS")
+                            .codeName("MISSION_STATUS")
+                            .codeTitle("미션 상태")
+                            .codeTitleEn("Mission Status")
+                            .parentId(null)
+                            .build();
+            CommonCode parent2 =
+                    CommonCode.builder()
+                            .id("EX")
+                            .codeName("EXECUTION_STATUS")
+                            .codeTitle("실행 상태")
+                            .codeTitleEn("Execution Status")
+                            .parentId(null)
+                            .build();
 
-            CommonCodeDto dto1 = CommonCodeDto.builder()
-                .id("MS")
-                .codeName("MISSION_STATUS")
-                .codeTitle("미션 상태")
-                .codeTitleEn("Mission Status")
-                .parentId(null)
-                .build();
-            CommonCodeDto dto2 = CommonCodeDto.builder()
-                .id("EX")
-                .codeName("EXECUTION_STATUS")
-                .codeTitle("실행 상태")
-                .codeTitleEn("Execution Status")
-                .parentId(null)
-                .build();
+            CommonCodeDto dto1 =
+                    CommonCodeDto.builder()
+                            .id("MS")
+                            .codeName("MISSION_STATUS")
+                            .codeTitle("미션 상태")
+                            .codeTitleEn("Mission Status")
+                            .parentId(null)
+                            .build();
+            CommonCodeDto dto2 =
+                    CommonCodeDto.builder()
+                            .id("EX")
+                            .codeName("EXECUTION_STATUS")
+                            .codeTitle("실행 상태")
+                            .codeTitleEn("Execution Status")
+                            .parentId(null)
+                            .build();
 
             when(commonCodeRepository.findAllParentCodes()).thenReturn(List.of(parent1, parent2));
             when(modelMapper.map(parent1, CommonCodeDto.class)).thenReturn(dto1);

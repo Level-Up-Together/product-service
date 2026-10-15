@@ -8,10 +8,7 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
-/**
- * 칭호 변경 요청 DTO
- * 좌측, 우측 각각 1개씩 필수 선택
- */
+/** 칭호 변경 요청 DTO 좌측, 우측 각각 1개씩 필수 선택 */
 @Getter
 @NoArgsConstructor
 @AllArgsConstructor

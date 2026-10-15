@@ -4,6 +4,10 @@ import static io.pinkspider.global.test.TestReflectionUtils.setId;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -36,40 +40,40 @@ import org.springframework.dao.DataIntegrityViolationException;
 @ExtendWith(MockitoExtension.class)
 class UserItemServiceTest {
 
-    @Mock
-    private UserItemRepository userItemRepository;
+    @Mock private UserItemRepository userItemRepository;
 
-    @Mock
-    private ShopItemRepository shopItemRepository;
+    @Mock private ShopItemRepository shopItemRepository;
 
-    @Mock
-    private ApplicationEventPublisher eventPublisher;
+    @Mock private ApplicationEventPublisher eventPublisher;
 
-    @InjectMocks
-    private UserItemService userItemService;
+    @Mock private UserItemCreator userItemCreator;
+
+    @InjectMocks private UserItemService userItemService;
 
     private static final String USER_ID = "test-user-123";
 
     private ShopItem createShopItem(Long id, String name, ShopItemType type) {
-        ShopItem item = ShopItem.builder()
-            .name(name)
-            .itemType(type)
-            .rarity(TitleRarity.RARE)
-            .imageUrl("/uploads/shop-items/" + id + ".png")
-            .price(10)
-            .isActive(true)
-            .build();
+        ShopItem item =
+                ShopItem.builder()
+                        .name(name)
+                        .itemType(type)
+                        .rarity(TitleRarity.RARE)
+                        .imageUrl("/uploads/shop-items/" + id + ".png")
+                        .price(10)
+                        .isActive(true)
+                        .build();
         setId(item, id);
         return item;
     }
 
     private UserItem createUserItem(Long id, ShopItem shopItem, boolean equipped) {
-        UserItem userItem = UserItem.builder()
-            .userId(USER_ID)
-            .shopItem(shopItem)
-            .isEquipped(equipped)
-            .acquiredAt(LocalDateTime.of(2026, 7, 1, 0, 0))
-            .build();
+        UserItem userItem =
+                UserItem.builder()
+                        .userId(USER_ID)
+                        .shopItem(shopItem)
+                        .isEquipped(equipped)
+                        .acquiredAt(LocalDateTime.of(2026, 7, 1, 0, 0))
+                        .build();
         setId(userItem, id);
         return userItem;
     }
@@ -84,17 +88,15 @@ class UserItemServiceTest {
             ShopItem defaultItem = createShopItem(2L, "레벨업 사용 설명서", ShopItemType.ETC);
             when(userItemRepository.existsByUserIdAndShopItemId(USER_ID, 2L)).thenReturn(false);
             when(shopItemRepository.findById(2L)).thenReturn(Optional.of(defaultItem));
-            when(userItemRepository.saveAndFlush(any(UserItem.class)))
-                .thenAnswer(inv -> inv.getArgument(0));
             when(userItemRepository.findByUserIdWithItem(USER_ID))
-                .thenReturn(List.of(createUserItem(1L, defaultItem, false)));
+                    .thenReturn(List.of(createUserItem(1L, defaultItem, false)));
 
             List<UserItemResponse> result = userItemService.getMyItems(USER_ID);
 
             assertThat(result).hasSize(1);
             assertThat(result.get(0).shopItemId()).isEqualTo(2L);
             assertThat(result.get(0).isEquipped()).isFalse();
-            verify(userItemRepository).saveAndFlush(any(UserItem.class));
+            verify(userItemCreator).create(eq(USER_ID), anyLong());
         }
 
         @Test
@@ -103,12 +105,12 @@ class UserItemServiceTest {
             ShopItem defaultItem = createShopItem(2L, "레벨업 사용 설명서", ShopItemType.ETC);
             when(userItemRepository.existsByUserIdAndShopItemId(USER_ID, 2L)).thenReturn(true);
             when(userItemRepository.findByUserIdWithItem(USER_ID))
-                .thenReturn(List.of(createUserItem(1L, defaultItem, false)));
+                    .thenReturn(List.of(createUserItem(1L, defaultItem, false)));
 
             List<UserItemResponse> result = userItemService.getMyItems(USER_ID);
 
             assertThat(result).hasSize(1);
-            verify(userItemRepository, never()).saveAndFlush(any(UserItem.class));
+            verify(userItemCreator, never()).create(anyString(), anyLong());
         }
     }
 
@@ -125,10 +127,10 @@ class UserItemServiceTest {
             UserItem equipped = createUserItem(12L, oldWings, true);
 
             when(userItemRepository.findByUserIdAndShopItemId(USER_ID, 3L))
-                .thenReturn(Optional.of(target));
+                    .thenReturn(Optional.of(target));
             when(userItemRepository.findEquippedByUserIdAndItemTypeIn(
-                    USER_ID, List.of(ShopItemType.EFFECT)))
-                .thenReturn(List.of(equipped));
+                            USER_ID, List.of(ShopItemType.EFFECT)))
+                    .thenReturn(List.of(equipped));
 
             UserItemResponse result = userItemService.equipItem(USER_ID, 3L);
 
@@ -137,7 +139,8 @@ class UserItemServiceTest {
             assertThat(equipped.getIsEquipped()).isFalse(); // 같은 타입 기존 장착 해제
 
             // LUT-427: 장착 변경 이벤트 발행 (홈·시즌 캐시 무효화 트리거)
-            ArgumentCaptor<ItemEquippedEvent> captor = ArgumentCaptor.forClass(ItemEquippedEvent.class);
+            ArgumentCaptor<ItemEquippedEvent> captor =
+                    ArgumentCaptor.forClass(ItemEquippedEvent.class);
             verify(eventPublisher).publishEvent(captor.capture());
             assertThat(captor.getValue().userId()).isEqualTo(USER_ID);
             assertThat(captor.getValue().shopItemId()).isEqualTo(3L);
@@ -153,10 +156,10 @@ class UserItemServiceTest {
             UserItem equippedFull = createUserItem(12L, fullWings, true);
 
             when(userItemRepository.findByUserIdAndShopItemId(USER_ID, 3L))
-                .thenReturn(Optional.of(target));
+                    .thenReturn(Optional.of(target));
             when(userItemRepository.findEquippedByUserIdAndItemTypeIn(
-                    USER_ID, List.of(ShopItemType.BASIC, ShopItemType.FULL)))
-                .thenReturn(List.of(equippedFull));
+                            USER_ID, List.of(ShopItemType.BASIC, ShopItemType.FULL)))
+                    .thenReturn(List.of(equippedFull));
 
             UserItemResponse result = userItemService.equipItem(USER_ID, 3L);
 
@@ -172,16 +175,16 @@ class UserItemServiceTest {
             UserItem target = createUserItem(13L, ring, false);
 
             when(userItemRepository.findByUserIdAndShopItemId(USER_ID, 6L))
-                .thenReturn(Optional.of(target));
+                    .thenReturn(Optional.of(target));
             when(userItemRepository.findEquippedByUserIdAndItemTypeIn(
-                    USER_ID, List.of(ShopItemType.HEAD)))
-                .thenReturn(List.of());
+                            USER_ID, List.of(ShopItemType.HEAD)))
+                    .thenReturn(List.of());
 
             UserItemResponse result = userItemService.equipItem(USER_ID, 6L);
 
             assertThat(result.isEquipped()).isTrue();
             verify(userItemRepository)
-                .findEquippedByUserIdAndItemTypeIn(USER_ID, List.of(ShopItemType.HEAD));
+                    .findEquippedByUserIdAndItemTypeIn(USER_ID, List.of(ShopItemType.HEAD));
         }
 
         @Test
@@ -191,23 +194,24 @@ class UserItemServiceTest {
             UserItem target = createUserItem(11L, wings, true);
 
             when(userItemRepository.findByUserIdAndShopItemId(USER_ID, 3L))
-                .thenReturn(Optional.of(target));
+                    .thenReturn(Optional.of(target));
 
             UserItemResponse result = userItemService.equipItem(USER_ID, 3L);
 
             assertThat(result.isEquipped()).isTrue();
             verify(userItemRepository, never()).findEquippedByUserIdAndItemTypeIn(any(), any());
-            verify(eventPublisher, never()).publishEvent(any(ItemEquippedEvent.class)); // 변경 없음 → 미발행
+            verify(eventPublisher, never())
+                    .publishEvent(any(ItemEquippedEvent.class)); // 변경 없음 → 미발행
         }
 
         @Test
         @DisplayName("보유하지 않은 아이템 장착 시 예외")
         void equipItem_notOwned_throws() {
             when(userItemRepository.findByUserIdAndShopItemId(USER_ID, 99L))
-                .thenReturn(Optional.empty());
+                    .thenReturn(Optional.empty());
 
             assertThatThrownBy(() -> userItemService.equipItem(USER_ID, 99L))
-                .isInstanceOf(CustomException.class);
+                    .isInstanceOf(CustomException.class);
         }
     }
 
@@ -222,7 +226,7 @@ class UserItemServiceTest {
             UserItem target = createUserItem(11L, wings, true);
 
             when(userItemRepository.findByUserIdAndShopItemId(USER_ID, 3L))
-                .thenReturn(Optional.of(target));
+                    .thenReturn(Optional.of(target));
 
             UserItemResponse result = userItemService.unequipItem(USER_ID, 3L);
 
@@ -230,7 +234,8 @@ class UserItemServiceTest {
             assertThat(target.getIsEquipped()).isFalse();
 
             // LUT-427: 해제 이벤트 발행 (equipped=false)
-            ArgumentCaptor<ItemEquippedEvent> captor = ArgumentCaptor.forClass(ItemEquippedEvent.class);
+            ArgumentCaptor<ItemEquippedEvent> captor =
+                    ArgumentCaptor.forClass(ItemEquippedEvent.class);
             verify(eventPublisher).publishEvent(captor.capture());
             assertThat(captor.getValue().equipped()).isFalse();
         }
@@ -242,22 +247,23 @@ class UserItemServiceTest {
             UserItem target = createUserItem(11L, wings, false);
 
             when(userItemRepository.findByUserIdAndShopItemId(USER_ID, 3L))
-                .thenReturn(Optional.of(target));
+                    .thenReturn(Optional.of(target));
 
             UserItemResponse result = userItemService.unequipItem(USER_ID, 3L);
 
             assertThat(result.isEquipped()).isFalse();
-            verify(eventPublisher, never()).publishEvent(any(ItemEquippedEvent.class)); // 변경 없음 → 미발행
+            verify(eventPublisher, never())
+                    .publishEvent(any(ItemEquippedEvent.class)); // 변경 없음 → 미발행
         }
 
         @Test
         @DisplayName("보유하지 않은 아이템 장착해제 시 예외")
         void unequipItem_notOwned_throws() {
             when(userItemRepository.findByUserIdAndShopItemId(USER_ID, 99L))
-                .thenReturn(Optional.empty());
+                    .thenReturn(Optional.empty());
 
             assertThatThrownBy(() -> userItemService.unequipItem(USER_ID, 99L))
-                .isInstanceOf(CustomException.class);
+                    .isInstanceOf(CustomException.class);
         }
     }
 
@@ -271,12 +277,10 @@ class UserItemServiceTest {
             ShopItem item = createShopItem(3L, "메딕의 날개", ShopItemType.EFFECT);
             when(userItemRepository.existsByUserIdAndShopItemId(USER_ID, 3L)).thenReturn(false);
             when(shopItemRepository.findById(3L)).thenReturn(Optional.of(item));
-            when(userItemRepository.saveAndFlush(any(UserItem.class)))
-                .thenAnswer(inv -> inv.getArgument(0));
 
             ShopItem granted = userItemService.grantItem(USER_ID, 3L);
 
-            verify(userItemRepository).saveAndFlush(any(UserItem.class));
+            verify(userItemCreator).create(eq(USER_ID), anyLong());
             assertThat(granted).isSameAs(item);
         }
 
@@ -288,7 +292,7 @@ class UserItemServiceTest {
             ShopItem granted = userItemService.grantItem(USER_ID, 3L);
 
             assertThat(granted).isNull();
-            verify(userItemRepository, never()).saveAndFlush(any(UserItem.class));
+            verify(userItemCreator, never()).create(anyString(), anyLong());
         }
 
         @Test
@@ -297,8 +301,10 @@ class UserItemServiceTest {
             ShopItem item = createShopItem(3L, "메딕의 날개", ShopItemType.EFFECT);
             when(userItemRepository.existsByUserIdAndShopItemId(USER_ID, 3L)).thenReturn(false);
             when(shopItemRepository.findById(3L)).thenReturn(Optional.of(item));
-            when(userItemRepository.saveAndFlush(any(UserItem.class)))
-                .thenThrow(new DataIntegrityViolationException("uk_user_item"));
+            // LUT-539: 중복 예외는 크리에이터(REQUIRES_NEW)에서 올라온다 — 호출자 트랜잭션은 오염되지 않는다
+            doThrow(new DataIntegrityViolationException("uk_user_item"))
+                    .when(userItemCreator)
+                    .create(USER_ID, 3L);
 
             ShopItem granted = userItemService.grantItem(USER_ID, 3L); // 예외 전파 없음
 
@@ -312,7 +318,7 @@ class UserItemServiceTest {
             when(shopItemRepository.findById(99L)).thenReturn(Optional.empty());
 
             assertThatThrownBy(() -> userItemService.grantItem(USER_ID, 99L))
-                .isInstanceOf(CustomException.class);
+                    .isInstanceOf(CustomException.class);
         }
 
         @Test
@@ -330,12 +336,13 @@ class UserItemServiceTest {
     class GetEquippedItemRarityMap {
 
         private UserItem equippedItemOf(String userId, ShopItem shopItem) {
-            UserItem userItem = UserItem.builder()
-                .userId(userId)
-                .shopItem(shopItem)
-                .isEquipped(true)
-                .acquiredAt(LocalDateTime.now())
-                .build();
+            UserItem userItem =
+                    UserItem.builder()
+                            .userId(userId)
+                            .shopItem(shopItem)
+                            .isEquipped(true)
+                            .acquiredAt(LocalDateTime.now())
+                            .build();
             setId(userItem, shopItem.getId() * 100);
             return userItem;
         }
@@ -346,18 +353,21 @@ class UserItemServiceTest {
             ShopItem head = createShopItem(1L, "왕관", ShopItemType.HEAD);
             ShopItem wing = createShopItem(2L, "천사의 날개", ShopItemType.BASIC);
             when(userItemRepository.findEquippedByUserIdIn(List.of("user-a", "user-b")))
-                .thenReturn(List.of(
-                    equippedItemOf("user-a", head),
-                    equippedItemOf("user-a", wing),
-                    equippedItemOf("user-b", head)));
+                    .thenReturn(
+                            List.of(
+                                    equippedItemOf("user-a", head),
+                                    equippedItemOf("user-a", wing),
+                                    equippedItemOf("user-b", head)));
 
             Map<String, List<EquippedItemRarityDto>> result =
-                userItemService.getEquippedItemRarityMap(List.of("user-a", "user-b"));
+                    userItemService.getEquippedItemRarityMap(List.of("user-a", "user-b"));
 
-            assertThat(result.get("user-a")).extracting(EquippedItemRarityDto::itemType)
-                .containsExactlyInAnyOrder("HEAD", "BASIC");
-            assertThat(result.get("user-a")).extracting(EquippedItemRarityDto::rarity)
-                .containsOnly(TitleRarity.RARE);
+            assertThat(result.get("user-a"))
+                    .extracting(EquippedItemRarityDto::itemType)
+                    .containsExactlyInAnyOrder("HEAD", "BASIC");
+            assertThat(result.get("user-a"))
+                    .extracting(EquippedItemRarityDto::rarity)
+                    .containsOnly(TitleRarity.RARE);
             assertThat(result.get("user-b")).hasSize(1);
         }
 
@@ -365,10 +375,10 @@ class UserItemServiceTest {
         @DisplayName("장착 아이템이 없는 유저는 키가 없다")
         void getEquippedItemRarityMap_userWithoutEquipped_absent() {
             when(userItemRepository.findEquippedByUserIdIn(List.of("user-a", "user-b")))
-                .thenReturn(List.of());
+                    .thenReturn(List.of());
 
             Map<String, List<EquippedItemRarityDto>> result =
-                userItemService.getEquippedItemRarityMap(List.of("user-a", "user-b"));
+                    userItemService.getEquippedItemRarityMap(List.of("user-a", "user-b"));
 
             assertThat(result).isEmpty();
         }

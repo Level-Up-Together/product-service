@@ -17,51 +17,39 @@ public interface UserExperienceRepository extends JpaRepository<UserExperience, 
 
     boolean existsByUserId(String userId);
 
-    /**
-     * 레벨 기준 랭킹 조회 (레벨 내림차순, 동일 레벨 시 총 경험치 내림차순)
-     */
+    /** 레벨 기준 랭킹 조회 (레벨 내림차순, 동일 레벨 시 총 경험치 내림차순) */
     Page<UserExperience> findAllByOrderByCurrentLevelDescTotalExpDesc(Pageable pageable);
 
-    /**
-     * QA-206: 레벨 기준 전체 랭킹(페이징 없음).
-     * 탈퇴자 제외 + 동점 공동순위를 전체 모수 기준으로 계산하기 위해 사용한다.
-     */
+    /** QA-206: 레벨 기준 전체 랭킹(페이징 없음). 탈퇴자 제외 + 동점 공동순위를 전체 모수 기준으로 계산하기 위해 사용한다. */
     List<UserExperience> findAllByOrderByCurrentLevelDescTotalExpDesc();
 
-    /**
-     * 특정 사용자의 레벨 기준 랭킹 순위 계산
-     */
-    @Query("""
-        SELECT COUNT(ue) + 1 FROM UserExperience ue
-        WHERE ue.currentLevel > :level
-           OR (ue.currentLevel = :level AND ue.totalExp > :totalExp)
-        """)
+    /** 특정 사용자의 레벨 기준 랭킹 순위 계산 */
+    @Query(
+            """
+            SELECT COUNT(ue) + 1 FROM UserExperience ue
+            WHERE ue.currentLevel > :level
+               OR (ue.currentLevel = :level AND ue.totalExp > :totalExp)
+            """)
     long calculateLevelRank(@Param("level") int level, @Param("totalExp") int totalExp);
 
-    /**
-     * 활성 사용자만 대상으로 레벨 기준 랭킹 순위 계산
-     */
-    @Query("""
-        SELECT COUNT(ue) + 1 FROM UserExperience ue
-        WHERE ue.userId IN :activeUserIds
-          AND (ue.currentLevel > :level
-               OR (ue.currentLevel = :level AND ue.totalExp > :totalExp))
-        """)
+    /** 활성 사용자만 대상으로 레벨 기준 랭킹 순위 계산 */
+    @Query(
+            """
+            SELECT COUNT(ue) + 1 FROM UserExperience ue
+            WHERE ue.userId IN :activeUserIds
+              AND (ue.currentLevel > :level
+                   OR (ue.currentLevel = :level AND ue.totalExp > :totalExp))
+            """)
     long calculateLevelRankAmongActiveUsers(
-        @Param("level") int level,
-        @Param("totalExp") int totalExp,
-        @Param("activeUserIds") List<String> activeUserIds
-    );
+            @Param("level") int level,
+            @Param("totalExp") int totalExp,
+            @Param("activeUserIds") List<String> activeUserIds);
 
-    /**
-     * 전체 사용자 수 (경험치 테이블 기준)
-     */
+    /** 전체 사용자 수 (경험치 테이블 기준) */
     @Query("SELECT COUNT(ue) FROM UserExperience ue")
     long countTotalUsers();
 
-    /**
-     * 여러 사용자의 경험치 정보 배치 조회 (N+1 방지)
-     */
+    /** 여러 사용자의 경험치 정보 배치 조회 (N+1 방지) */
     @Query("SELECT ue FROM UserExperience ue WHERE ue.userId IN :userIds")
     List<UserExperience> findByUserIdIn(@Param("userIds") List<String> userIds);
 }

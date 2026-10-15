@@ -45,19 +45,19 @@ public class GuildPostResponse {
 
     public static GuildPostResponse from(GuildPost post, TranslationInfo translation) {
         return GuildPostResponse.builder()
-            .id(post.getId())
-            .guildId(post.getGuild().getId())
-            .authorId(post.getAuthorId())
-            .authorNickname(post.getAuthorNickname())
-            .title(post.getTitle())
-            .content(post.getContent())
-            .postType(post.getPostType())
-            .isPinned(post.getIsPinned())
-            .viewCount(post.getViewCount())
-            .commentCount(post.getCommentCount())
-            .createdAt(post.getCreatedAt())
-            .modifiedAt(post.getModifiedAt())
-            .translation(translation)
-            .build();
+                .id(post.getId())
+                .guildId(post.getGuild().getId())
+                .authorId(post.getAuthorId())
+                .authorNickname(post.getAuthorNickname())
+                .title(post.getTitle())
+                .content(post.getContent())
+                .postType(post.getPostType())
+                .isPinned(post.getIsPinned())
+                .viewCount(post.getViewCount())
+                .commentCount(post.getCommentCount())
+                .createdAt(post.getCreatedAt())
+                .modifiedAt(post.getModifiedAt())
+                .translation(translation)
+                .build();
     }
 }

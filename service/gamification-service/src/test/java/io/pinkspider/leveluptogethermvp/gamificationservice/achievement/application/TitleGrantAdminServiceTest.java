@@ -39,51 +39,47 @@ import org.springframework.data.domain.Pageable;
 @DisplayName("TitleGrantAdminService 테스트")
 class TitleGrantAdminServiceTest {
 
-    @Mock
-    private TitleRepository titleRepository;
+    @Mock private TitleRepository titleRepository;
 
-    @Mock
-    private UserTitleRepository userTitleRepository;
+    @Mock private UserTitleRepository userTitleRepository;
 
-    @Mock
-    private UserRepository userRepository;
+    @Mock private UserRepository userRepository;
 
-    @InjectMocks
-    private TitleGrantAdminService titleGrantAdminService;
+    @InjectMocks private TitleGrantAdminService titleGrantAdminService;
 
     private static final String TEST_USER_ID = "550e8400-e29b-41d4-a716-446655440000";
     private static final Long TEST_ADMIN_ID = 1L;
 
     private Title createTestTitle(Long id) {
-        Title title = Title.builder()
-            .name("운동 초보")
-            .nameEn("Exercise Beginner")
-            .rarity(TitleRarity.COMMON)
-            .positionType(TitlePosition.LEFT)
-            .colorCode("#90EE90")
-            .acquisitionType(TitleAcquisitionType.ACHIEVEMENT)
-            .isActive(true)
-            .build();
+        Title title =
+                Title.builder()
+                        .name("운동 초보")
+                        .nameEn("Exercise Beginner")
+                        .rarity(TitleRarity.COMMON)
+                        .positionType(TitlePosition.LEFT)
+                        .colorCode("#90EE90")
+                        .acquisitionType(TitleAcquisitionType.ACHIEVEMENT)
+                        .isActive(true)
+                        .build();
         setId(title, id);
         return title;
     }
 
     private UserTitle createTestUserTitle(Long id, Title title) {
-        UserTitle userTitle = UserTitle.builder()
-            .userId(TEST_USER_ID)
-            .title(title)
-            .acquiredAt(LocalDateTime.of(2024, 6, 1, 10, 0))
-            .grantedBy(TEST_ADMIN_ID)
-            .grantReason("이벤트 보상으로 칭호 부여")
-            .build();
+        UserTitle userTitle =
+                UserTitle.builder()
+                        .userId(TEST_USER_ID)
+                        .title(title)
+                        .acquiredAt(LocalDateTime.of(2024, 6, 1, 10, 0))
+                        .grantedBy(TEST_ADMIN_ID)
+                        .grantReason("이벤트 보상으로 칭호 부여")
+                        .build();
         setId(userTitle, id);
         return userTitle;
     }
 
     private Users createTestUser() {
-        Users user = Users.builder()
-            .nickname("테스트유저")
-            .build();
+        Users user = Users.builder().nickname("테스트유저").build();
         setId(user, TEST_USER_ID);
         return user;
     }
@@ -97,23 +93,27 @@ class TitleGrantAdminServiceTest {
         void grantTitle_success() {
             // given
             Title title = createTestTitle(1L);
-            TitleGrantAdminRequest request = TitleGrantAdminRequest.builder()
-                .userId(TEST_USER_ID)
-                .titleId(1L)
-                .reason("이벤트 보상으로 칭호 부여")
-                .build();
+            TitleGrantAdminRequest request =
+                    TitleGrantAdminRequest.builder()
+                            .userId(TEST_USER_ID)
+                            .titleId(1L)
+                            .reason("이벤트 보상으로 칭호 부여")
+                            .build();
 
             when(titleRepository.findById(1L)).thenReturn(Optional.of(title));
             when(userTitleRepository.existsByUserIdAndTitleId(TEST_USER_ID, 1L)).thenReturn(false);
-            when(userTitleRepository.save(any(UserTitle.class))).thenAnswer(invocation -> {
-                UserTitle ut = invocation.getArgument(0);
-                setId(ut, 1L);
-                return ut;
-            });
+            when(userTitleRepository.save(any(UserTitle.class)))
+                    .thenAnswer(
+                            invocation -> {
+                                UserTitle ut = invocation.getArgument(0);
+                                setId(ut, 1L);
+                                return ut;
+                            });
             when(userRepository.findById(TEST_USER_ID)).thenReturn(Optional.of(createTestUser()));
 
             // when
-            TitleGrantAdminResponse result = titleGrantAdminService.grantTitle(request, TEST_ADMIN_ID);
+            TitleGrantAdminResponse result =
+                    titleGrantAdminService.grantTitle(request, TEST_ADMIN_ID);
 
             // then
             assertThat(result).isNotNull();
@@ -130,17 +130,15 @@ class TitleGrantAdminServiceTest {
         @DisplayName("존재하지 않는 칭호를 부여하면 예외가 발생한다")
         void grantTitle_titleNotFound() {
             // given
-            TitleGrantAdminRequest request = TitleGrantAdminRequest.builder()
-                .userId(TEST_USER_ID)
-                .titleId(999L)
-                .build();
+            TitleGrantAdminRequest request =
+                    TitleGrantAdminRequest.builder().userId(TEST_USER_ID).titleId(999L).build();
 
             when(titleRepository.findById(999L)).thenReturn(Optional.empty());
 
             // when & then
             assertThatThrownBy(() -> titleGrantAdminService.grantTitle(request, TEST_ADMIN_ID))
-                .isInstanceOf(CustomException.class)
-                .hasMessageContaining("칭호를 찾을 수 없습니다");
+                    .isInstanceOf(CustomException.class)
+                    .hasMessageContaining("칭호를 찾을 수 없습니다");
         }
 
         @Test
@@ -148,18 +146,16 @@ class TitleGrantAdminServiceTest {
         void grantTitle_alreadyOwned() {
             // given
             Title title = createTestTitle(1L);
-            TitleGrantAdminRequest request = TitleGrantAdminRequest.builder()
-                .userId(TEST_USER_ID)
-                .titleId(1L)
-                .build();
+            TitleGrantAdminRequest request =
+                    TitleGrantAdminRequest.builder().userId(TEST_USER_ID).titleId(1L).build();
 
             when(titleRepository.findById(1L)).thenReturn(Optional.of(title));
             when(userTitleRepository.existsByUserIdAndTitleId(TEST_USER_ID, 1L)).thenReturn(true);
 
             // when & then
             assertThatThrownBy(() -> titleGrantAdminService.grantTitle(request, TEST_ADMIN_ID))
-                .isInstanceOf(CustomException.class)
-                .hasMessageContaining("이미 보유한 칭호");
+                    .isInstanceOf(CustomException.class)
+                    .hasMessageContaining("이미 보유한 칭호");
         }
     }
 
@@ -191,8 +187,8 @@ class TitleGrantAdminServiceTest {
 
             // when & then
             assertThatThrownBy(() -> titleGrantAdminService.revokeTitle(999L, TEST_ADMIN_ID))
-                .isInstanceOf(CustomException.class)
-                .hasMessageContaining("부여된 칭호를 찾을 수 없습니다");
+                    .isInstanceOf(CustomException.class)
+                    .hasMessageContaining("부여된 칭호를 찾을 수 없습니다");
         }
     }
 
@@ -208,11 +204,13 @@ class TitleGrantAdminServiceTest {
             UserTitle userTitle = createTestUserTitle(1L, title);
 
             PageImpl<UserTitle> page = new PageImpl<>(List.of(userTitle));
-            when(userTitleRepository.findGrantHistory(eq(null), any(Pageable.class))).thenReturn(page);
+            when(userTitleRepository.findGrantHistory(eq(null), any(Pageable.class)))
+                    .thenReturn(page);
             when(userRepository.findAllByIdIn(anyList())).thenReturn(List.of(createTestUser()));
 
             // when
-            TitleGrantAdminPageResponse result = titleGrantAdminService.getGrantHistory(null, 0, 20);
+            TitleGrantAdminPageResponse result =
+                    titleGrantAdminService.getGrantHistory(null, 0, 20);
 
             // then
             assertThat(result.content()).hasSize(1);
@@ -228,11 +226,13 @@ class TitleGrantAdminServiceTest {
             UserTitle userTitle = createTestUserTitle(1L, title);
 
             PageImpl<UserTitle> page = new PageImpl<>(List.of(userTitle));
-            when(userTitleRepository.findGrantHistory(eq("운동"), any(Pageable.class))).thenReturn(page);
+            when(userTitleRepository.findGrantHistory(eq("운동"), any(Pageable.class)))
+                    .thenReturn(page);
             when(userRepository.findAllByIdIn(anyList())).thenReturn(List.of(createTestUser()));
 
             // when
-            TitleGrantAdminPageResponse result = titleGrantAdminService.getGrantHistory("운동", 0, 20);
+            TitleGrantAdminPageResponse result =
+                    titleGrantAdminService.getGrantHistory("운동", 0, 20);
 
             // then
             assertThat(result.content()).hasSize(1);

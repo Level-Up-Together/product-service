@@ -17,9 +17,7 @@ import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 
-/**
- * S3 + CloudFront CDN에 상점 아이템 이미지를 저장하는 구현체 (QA-225, prod 전용)
- */
+/** S3 + CloudFront CDN에 상점 아이템 이미지를 저장하는 구현체 (QA-225, prod 전용) */
 @Service
 @Profile("prod")
 @Primary
@@ -49,15 +47,17 @@ public class S3ShopItemImageStorageService implements ShopItemImageStorageServic
             String newFilename = UUID.randomUUID().toString() + "." + extension;
             String key = KEY_PREFIX + newFilename;
 
-            PutObjectRequest putRequest = PutObjectRequest.builder()
-                    .bucket(s3Properties.getBucket())
-                    .key(key)
-                    .contentType(file.getContentType())
-                    // LUT-406: UUID 파일명 불변 — CloudFront/브라우저 공격적 캐시 허용
-                    .cacheControl("public, max-age=31536000, immutable")
-                    .build();
+            PutObjectRequest putRequest =
+                    PutObjectRequest.builder()
+                            .bucket(s3Properties.getBucket())
+                            .key(key)
+                            .contentType(file.getContentType())
+                            // LUT-406: UUID 파일명 불변 — CloudFront/브라우저 공격적 캐시 허용
+                            .cacheControl("public, max-age=31536000, immutable")
+                            .build();
 
-            s3Client.putObject(putRequest, RequestBody.fromInputStream(file.getInputStream(), file.getSize()));
+            s3Client.putObject(
+                    putRequest, RequestBody.fromInputStream(file.getInputStream(), file.getSize()));
 
             String cdnUrl = s3Properties.getCdnBaseUrl() + "/" + key;
             log.info("상점 아이템 이미지 S3 저장: key={}", key);
@@ -83,10 +83,11 @@ public class S3ShopItemImageStorageService implements ShopItemImageStorageServic
                 return;
             }
             try {
-                s3Client.deleteObject(DeleteObjectRequest.builder()
-                        .bucket(s3Properties.getBucket())
-                        .key(key)
-                        .build());
+                s3Client.deleteObject(
+                        DeleteObjectRequest.builder()
+                                .bucket(s3Properties.getBucket())
+                                .key(key)
+                                .build());
                 log.info("상점 아이템 이미지 S3 삭제: key={}", key);
             } catch (Exception e) {
                 log.warn("상점 아이템 이미지 S3 삭제 실패: key={}", key, e);
@@ -155,8 +156,14 @@ public class S3ShopItemImageStorageService implements ShopItemImageStorageServic
             }
             // WEBP (RIFF....WEBP)
             return h.length >= 12
-                && h[0] == 'R' && h[1] == 'I' && h[2] == 'F' && h[3] == 'F'
-                && h[8] == 'W' && h[9] == 'E' && h[10] == 'B' && h[11] == 'P';
+                    && h[0] == 'R'
+                    && h[1] == 'I'
+                    && h[2] == 'F'
+                    && h[3] == 'F'
+                    && h[8] == 'W'
+                    && h[9] == 'E'
+                    && h[10] == 'B'
+                    && h[11] == 'P';
         } catch (IOException e) {
             return false;
         }

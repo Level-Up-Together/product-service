@@ -13,10 +13,11 @@ import org.springframework.mock.web.MockMultipartFile;
 
 class LocalShopItemImageStorageServiceTest {
 
-    private static final byte[] PNG_BYTES = {(byte) 0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0, 0, 0, 0};
+    private static final byte[] PNG_BYTES = {
+        (byte) 0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0, 0, 0, 0
+    };
 
-    @TempDir
-    Path tempDir;
+    @TempDir Path tempDir;
 
     private ShopItemImageProperties properties;
     private LocalShopItemImageStorageService service;
@@ -42,8 +43,9 @@ class LocalShopItemImageStorageServiceTest {
     @Test
     @DisplayName("확장자만 png인 가짜 이미지(시그니처 불일치)는 거부한다")
     void isValidImage_fakeImage_rejected() {
-        MockMultipartFile fake = new MockMultipartFile(
-            "file", "evil.png", "image/png", "<script>alert(1)</script>".getBytes());
+        MockMultipartFile fake =
+                new MockMultipartFile(
+                        "file", "evil.png", "image/png", "<script>alert(1)</script>".getBytes());
 
         assertThat(service.isValidImage(fake)).isFalse();
     }

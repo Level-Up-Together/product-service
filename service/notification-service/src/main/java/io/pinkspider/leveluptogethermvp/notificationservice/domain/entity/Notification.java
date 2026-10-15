@@ -28,13 +28,16 @@ import org.hibernate.annotations.Comment;
 @SuperBuilder
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @AllArgsConstructor
-@Table(name = "notification",
-    indexes = {
-        @Index(name = "idx_notification_user", columnList = "user_id"),
-        @Index(name = "idx_notification_user_read", columnList = "user_id, is_read"),
-        @Index(name = "idx_notification_created", columnList = "created_at DESC"),
-        @Index(name = "idx_notification_user_type_ref", columnList = "user_id, notification_type, reference_id")
-    })
+@Table(
+        name = "notification",
+        indexes = {
+            @Index(name = "idx_notification_user", columnList = "user_id"),
+            @Index(name = "idx_notification_user_read", columnList = "user_id, is_read"),
+            @Index(name = "idx_notification_created", columnList = "created_at DESC"),
+            @Index(
+                    name = "idx_notification_user_type_ref",
+                    columnList = "user_id, notification_type, reference_id")
+        })
 @Comment("알림")
 public class Notification extends LocalDateTimeBaseEntity {
 

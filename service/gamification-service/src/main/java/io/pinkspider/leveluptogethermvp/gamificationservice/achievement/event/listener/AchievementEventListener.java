@@ -11,11 +11,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.event.TransactionPhase;
 import org.springframework.transaction.event.TransactionalEventListener;
 
-/**
- * 업적 관련 이벤트 리스너
- * - 길드 관련 이벤트 수신하여 업적 체크 처리
- * - 트랜잭션 커밋 후 비동기로 처리하여 주 트랜잭션에 영향 없음
- */
+/** 업적 관련 이벤트 리스너 - 길드 관련 이벤트 수신하여 업적 체크 처리 - 트랜잭션 커밋 후 비동기로 처리하여 주 트랜잭션에 영향 없음 */
 @Component
 @Slf4j
 @RequiredArgsConstructor
@@ -25,10 +21,7 @@ public class AchievementEventListener {
 
     private final AchievementService achievementService;
 
-    /**
-     * 길드 가입 이벤트 처리
-     * - 동적 Strategy 패턴으로 GUILD_SERVICE 관련 업적 체크
-     */
+    /** 길드 가입 이벤트 처리 - 동적 Strategy 패턴으로 GUILD_SERVICE 관련 업적 체크 */
     @Async(EVENT_EXECUTOR)
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void handleGuildJoined(GuildJoinedEvent event) {
@@ -36,15 +29,15 @@ public class AchievementEventListener {
         try {
             achievementService.checkAchievementsByDataSource(event.userId(), "GUILD_SERVICE");
         } catch (Exception e) {
-            log.warn("길드 가입 업적 체크 실패: userId={}, guildId={}, error={}",
-                event.userId(), event.guildId(), e.getMessage());
+            log.warn(
+                    "길드 가입 업적 체크 실패: userId={}, guildId={}, error={}",
+                    event.userId(),
+                    event.guildId(),
+                    e.getMessage());
         }
     }
 
-    /**
-     * 길드 마스터 할당 이벤트 처리
-     * - 동적 Strategy 패턴으로 GUILD_SERVICE 관련 업적 체크
-     */
+    /** 길드 마스터 할당 이벤트 처리 - 동적 Strategy 패턴으로 GUILD_SERVICE 관련 업적 체크 */
     @Async(EVENT_EXECUTOR)
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void handleGuildMasterAssigned(GuildMasterAssignedEvent event) {
@@ -52,26 +45,31 @@ public class AchievementEventListener {
         try {
             achievementService.checkAchievementsByDataSource(event.userId(), "GUILD_SERVICE");
         } catch (Exception e) {
-            log.warn("길드 마스터 업적 체크 실패: userId={}, guildId={}, error={}",
-                event.userId(), event.guildId(), e.getMessage());
+            log.warn(
+                    "길드 마스터 업적 체크 실패: userId={}, guildId={}, error={}",
+                    event.userId(),
+                    event.guildId(),
+                    e.getMessage());
         }
     }
 
     /**
-     * 커밋 후 업적 체크 요청 처리 (경험치 지급, 출석 등 소스 데이터 갱신 트랜잭션에서 발행)
-     * - 발행 트랜잭션 커밋 후 실행되므로 방금 갱신된 값이 체크에 반영된다
+     * 커밋 후 업적 체크 요청 처리 (경험치 지급, 출석 등 소스 데이터 갱신 트랜잭션에서 발행) - 발행 트랜잭션 커밋 후 실행되므로 방금 갱신된 값이 체크에 반영된다
      */
     @Async(EVENT_EXECUTOR)
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void handleAchievementCheckRequested(AchievementCheckRequestedEvent event) {
-        log.debug("업적 체크 요청 이벤트 수신: userId={}, dataSources={}",
-            event.userId(), event.dataSources());
+        log.debug(
+                "업적 체크 요청 이벤트 수신: userId={}, dataSources={}", event.userId(), event.dataSources());
         for (String dataSource : event.dataSources()) {
             try {
                 achievementService.checkAchievementsByDataSource(event.userId(), dataSource);
             } catch (Exception e) {
-                log.warn("업적 체크 실패: userId={}, dataSource={}, error={}",
-                    event.userId(), dataSource, e.getMessage());
+                log.warn(
+                        "업적 체크 실패: userId={}, dataSource={}, error={}",
+                        event.userId(),
+                        dataSource,
+                        e.getMessage());
             }
         }
     }

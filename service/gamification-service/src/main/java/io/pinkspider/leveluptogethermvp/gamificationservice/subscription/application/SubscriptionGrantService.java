@@ -15,8 +15,8 @@ import org.springframework.stereotype.Service;
 /**
  * LUT-451: 구독 영수증 검증 + 권한 부여 오케스트레이터 — 최초 구매/복원 공용 경로.
  *
- * <p>외부 영수증 검증(HTTP)은 트랜잭션 밖에서 수행하고, 권한 기록만
- * {@link SubscriptionGrantTxService} 한 트랜잭션으로 묶는다 (LUT-354 패턴).
+ * <p>외부 영수증 검증(HTTP)은 트랜잭션 밖에서 수행하고, 권한 기록만 {@link SubscriptionGrantTxService} 한 트랜잭션으로 묶는다
+ * (LUT-354 패턴).
  */
 @Service
 @RequiredArgsConstructor
@@ -43,12 +43,14 @@ public class SubscriptionGrantService {
         UserSubscription subscription;
         try {
             subscription =
-                    grantTxService.upsert(userId, plan, request.getPlatform(), result, expiresAt, now);
+                    grantTxService.upsert(
+                            userId, plan, request.getPlatform(), result, expiresAt, now);
         } catch (DataIntegrityViolationException e) {
             // 같은 유저 동시 요청 race — uk_user_subscription_user 가 이중 insert 를 막았다.
             // 행이 생겼으니 갱신(멱등) 경로로 1회 재시도.
             subscription =
-                    grantTxService.upsert(userId, plan, request.getPlatform(), result, expiresAt, now);
+                    grantTxService.upsert(
+                            userId, plan, request.getPlatform(), result, expiresAt, now);
         }
 
         log.info(

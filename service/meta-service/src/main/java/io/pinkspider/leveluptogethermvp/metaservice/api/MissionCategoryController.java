@@ -25,85 +25,79 @@ public class MissionCategoryController {
 
     private final MissionCategoryService missionCategoryService;
 
-    /**
-     * 활성화된 카테고리 목록 조회 (사용자용)
-     */
+    /** 활성화된 카테고리 목록 조회 (사용자용) */
     @GetMapping
     public ResponseEntity<ApiResult<List<MissionCategoryResponse>>> getActiveCategories() {
         List<MissionCategoryResponse> categories = missionCategoryService.getActiveCategories();
-        return ResponseEntity.ok(ApiResult.<List<MissionCategoryResponse>>builder().value(categories).build());
+        return ResponseEntity.ok(
+                ApiResult.<List<MissionCategoryResponse>>builder().value(categories).build());
     }
 
-    /**
-     * 카테고리 단건 조회
-     */
+    /** 카테고리 단건 조회 */
     @GetMapping("/{categoryId}")
-    public ResponseEntity<ApiResult<MissionCategoryResponse>> getCategory(@PathVariable Long categoryId) {
+    public ResponseEntity<ApiResult<MissionCategoryResponse>> getCategory(
+            @PathVariable Long categoryId) {
         MissionCategoryResponse category = missionCategoryService.getCategory(categoryId);
-        return ResponseEntity.ok(ApiResult.<MissionCategoryResponse>builder().value(category).build());
+        return ResponseEntity.ok(
+                ApiResult.<MissionCategoryResponse>builder().value(category).build());
     }
 
     // ==================== Admin APIs ====================
 
-    /**
-     * 모든 카테고리 목록 조회 (Admin용 - 비활성화 포함)
-     */
+    /** 모든 카테고리 목록 조회 (Admin용 - 비활성화 포함) */
     @GetMapping("/admin/all")
     public ResponseEntity<ApiResult<List<MissionCategoryResponse>>> getAllCategories() {
         List<MissionCategoryResponse> categories = missionCategoryService.getAllCategories();
-        return ResponseEntity.ok(ApiResult.<List<MissionCategoryResponse>>builder().value(categories).build());
+        return ResponseEntity.ok(
+                ApiResult.<List<MissionCategoryResponse>>builder().value(categories).build());
     }
 
-    /**
-     * 카테고리 생성 (Admin용)
-     */
+    /** 카테고리 생성 (Admin용) */
     @PostMapping("/admin")
     public ResponseEntity<ApiResult<MissionCategoryResponse>> createCategory(
-        @Valid @RequestBody MissionCategoryCreateRequest request) {
+            @Valid @RequestBody MissionCategoryCreateRequest request) {
 
         MissionCategoryResponse category = missionCategoryService.createCategory(request);
-        return ResponseEntity.ok(ApiResult.<MissionCategoryResponse>builder().value(category).build());
+        return ResponseEntity.ok(
+                ApiResult.<MissionCategoryResponse>builder().value(category).build());
     }
 
-    /**
-     * 카테고리 수정 (Admin용)
-     */
+    /** 카테고리 수정 (Admin용) */
     @PutMapping("/admin/{categoryId}")
     public ResponseEntity<ApiResult<MissionCategoryResponse>> updateCategory(
-        @PathVariable Long categoryId,
-        @Valid @RequestBody MissionCategoryUpdateRequest request) {
+            @PathVariable Long categoryId,
+            @Valid @RequestBody MissionCategoryUpdateRequest request) {
 
-        MissionCategoryResponse category = missionCategoryService.updateCategory(categoryId, request);
-        return ResponseEntity.ok(ApiResult.<MissionCategoryResponse>builder().value(category).build());
+        MissionCategoryResponse category =
+                missionCategoryService.updateCategory(categoryId, request);
+        return ResponseEntity.ok(
+                ApiResult.<MissionCategoryResponse>builder().value(category).build());
     }
 
-    /**
-     * 카테고리 삭제 (Admin용)
-     */
+    /** 카테고리 삭제 (Admin용) */
     @DeleteMapping("/admin/{categoryId}")
     public ResponseEntity<ApiResult<Void>> deleteCategory(@PathVariable Long categoryId) {
         missionCategoryService.deleteCategory(categoryId);
         return ResponseEntity.ok(ApiResult.getBase());
     }
 
-    /**
-     * 카테고리 비활성화 (Admin용)
-     */
+    /** 카테고리 비활성화 (Admin용) */
     @PostMapping("/admin/{categoryId}/deactivate")
-    public ResponseEntity<ApiResult<MissionCategoryResponse>> deactivateCategory(@PathVariable Long categoryId) {
+    public ResponseEntity<ApiResult<MissionCategoryResponse>> deactivateCategory(
+            @PathVariable Long categoryId) {
         MissionCategoryResponse category = missionCategoryService.deactivateCategory(categoryId);
-        return ResponseEntity.ok(ApiResult.<MissionCategoryResponse>builder().value(category).build());
+        return ResponseEntity.ok(
+                ApiResult.<MissionCategoryResponse>builder().value(category).build());
     }
 
-    /**
-     * Redis 캐시 수동 재로드 (Admin용)
-     * 전체 캐시를 비우고 다시 로드
-     */
+    /** Redis 캐시 수동 재로드 (Admin용) 전체 캐시를 비우고 다시 로드 */
     @PostMapping("/admin/reload-cache")
     public ResponseEntity<ApiResult<String>> reloadCache() {
         missionCategoryService.evictAllCaches();
         List<MissionCategoryResponse> categories = missionCategoryService.getActiveCategories();
-        String message = String.format("Cache reloaded successfully. %d categories loaded.", categories.size());
+        String message =
+                String.format(
+                        "Cache reloaded successfully. %d categories loaded.", categories.size());
         return ResponseEntity.ok(ApiResult.<String>builder().value(message).build());
     }
 }

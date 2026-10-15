@@ -7,16 +7,12 @@ import lombok.Builder;
 
 @Builder
 @JsonNaming(SnakeCaseStrategy.class)
-public record UserBriefAdminResponse(
-    String id,
-    String nickname,
-    String picture
-) {
+public record UserBriefAdminResponse(String id, String nickname, String picture) {
     public static UserBriefAdminResponse from(Users user) {
         return UserBriefAdminResponse.builder()
-            .id(user.getId())
-            .nickname(user.getNickname())
-            .picture(user.getPicture())
-            .build();
+                .id(user.getId())
+                .nickname(user.getNickname())
+                .picture(user.getPicture())
+                .build();
     }
 }

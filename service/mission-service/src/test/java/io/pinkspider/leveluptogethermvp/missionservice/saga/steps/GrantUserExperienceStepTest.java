@@ -7,24 +7,22 @@ import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.doThrow;
-import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import io.pinkspider.global.enums.ExpSourceType;
+import io.pinkspider.global.enums.MissionStatus;
+import io.pinkspider.global.facade.GamificationQueryFacade;
+import io.pinkspider.global.facade.dto.UserExperienceDto;
 import io.pinkspider.global.saga.SagaStepResult;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.Mission;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.MissionExecution;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.MissionParticipant;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.ExecutionStatus;
-import io.pinkspider.global.enums.MissionStatus;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionType;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionVisibility;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.ParticipantStatus;
 import io.pinkspider.leveluptogethermvp.missionservice.saga.MissionCompletionContext;
-import io.pinkspider.global.facade.GamificationQueryFacade;
-
-import io.pinkspider.global.enums.ExpSourceType;
-import io.pinkspider.global.facade.dto.UserExperienceDto;
 import java.time.LocalDate;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -39,11 +37,9 @@ import org.mockito.junit.jupiter.MockitoExtension;
 @DisplayName("GrantUserExperienceStep 단위 테스트")
 class GrantUserExperienceStepTest {
 
-    @Mock
-    private GamificationQueryFacade gamificationQueryFacadeService;
+    @Mock private GamificationQueryFacade gamificationQueryFacadeService;
 
-    @InjectMocks
-    private GrantUserExperienceStep grantUserExperienceStep;
+    @InjectMocks private GrantUserExperienceStep grantUserExperienceStep;
 
     private static final String TEST_USER_ID = "test-user-123";
     private static final Long EXECUTION_ID = 1L;
@@ -57,33 +53,36 @@ class GrantUserExperienceStepTest {
 
     @BeforeEach
     void setUp() {
-        mission = Mission.builder()
-            .title("30일 운동 챌린지")
-            .description("매일 운동하기")
-            .creatorId(TEST_USER_ID)
-            .status(MissionStatus.IN_PROGRESS)
-            .visibility(MissionVisibility.PUBLIC)
-            .type(MissionType.PERSONAL)
-            .categoryId(1L)
-            .categoryName("운동")
-            .expPerCompletion(EXP_TO_GRANT)
-            .build();
+        mission =
+                Mission.builder()
+                        .title("30일 운동 챌린지")
+                        .description("매일 운동하기")
+                        .creatorId(TEST_USER_ID)
+                        .status(MissionStatus.IN_PROGRESS)
+                        .visibility(MissionVisibility.PUBLIC)
+                        .type(MissionType.PERSONAL)
+                        .categoryId(1L)
+                        .categoryName("운동")
+                        .expPerCompletion(EXP_TO_GRANT)
+                        .build();
         setId(mission, 1L);
 
-        participant = MissionParticipant.builder()
-            .mission(mission)
-            .userId(TEST_USER_ID)
-            .status(ParticipantStatus.IN_PROGRESS)
-            .progress(5)
-            .build();
+        participant =
+                MissionParticipant.builder()
+                        .mission(mission)
+                        .userId(TEST_USER_ID)
+                        .status(ParticipantStatus.IN_PROGRESS)
+                        .progress(5)
+                        .build();
         setId(participant, 1L);
 
-        execution = MissionExecution.builder()
-            .participant(participant)
-            .executionDate(LocalDate.now())
-            .status(ExecutionStatus.COMPLETED)
-            .expEarned(EXP_TO_GRANT)
-            .build();
+        execution =
+                MissionExecution.builder()
+                        .participant(participant)
+                        .executionDate(LocalDate.now())
+                        .status(ExecutionStatus.COMPLETED)
+                        .expEarned(EXP_TO_GRANT)
+                        .build();
         setId(execution, EXECUTION_ID);
 
         context = new MissionCompletionContext(EXECUTION_ID, TEST_USER_ID, null);
@@ -121,17 +120,25 @@ class GrantUserExperienceStepTest {
         @DisplayName("정상적으로 사용자 경험치를 지급한다")
         void execute_success() {
             // given
-            UserExperienceDto afterExp = new UserExperienceDto(null, TEST_USER_ID, 6, 50, 550, null, null, null);
+            UserExperienceDto afterExp =
+                    new UserExperienceDto(null, TEST_USER_ID, 6, 50, 550, null, null, null);
 
-            UserExperienceDto mockResponse = new UserExperienceDto(null, TEST_USER_ID, 6, 50, 550, null, null, null);
+            UserExperienceDto mockResponse =
+                    new UserExperienceDto(null, TEST_USER_ID, 6, 50, 550, null, null, null);
 
             when(gamificationQueryFacadeService.getOrCreateUserExperience(TEST_USER_ID))
-                .thenReturn(userExperience)  // 첫 번째 호출 (before)
-                .thenReturn(afterExp);        // 두 번째 호출 (after)
+                    .thenReturn(userExperience) // 첫 번째 호출 (before)
+                    .thenReturn(afterExp); // 두 번째 호출 (after)
 
             when(gamificationQueryFacadeService.addExperience(
-                anyString(), anyInt(), any(ExpSourceType.class), anyLong(), anyString(), any(), anyString()))
-                .thenReturn(mockResponse);
+                            anyString(),
+                            anyInt(),
+                            any(ExpSourceType.class),
+                            anyLong(),
+                            anyString(),
+                            any(),
+                            anyString()))
+                    .thenReturn(mockResponse);
 
             // when
             SagaStepResult result = grantUserExperienceStep.execute(context);
@@ -141,15 +148,15 @@ class GrantUserExperienceStepTest {
             assertThat(context.getUserLevelBefore()).isEqualTo(5);
             assertThat(context.getUserLevelAfter()).isEqualTo(6);
 
-            verify(gamificationQueryFacadeService).addExperience(
-                TEST_USER_ID,
-                EXP_TO_GRANT,
-                ExpSourceType.MISSION_EXECUTION,
-                mission.getId(),
-                "미션 수행 완료: 30일 운동 챌린지",
-                mission.getCategoryId(),
-                "운동"
-            );
+            verify(gamificationQueryFacadeService)
+                    .addExperience(
+                            TEST_USER_ID,
+                            EXP_TO_GRANT,
+                            ExpSourceType.MISSION_EXECUTION,
+                            mission.getId(),
+                            "미션 수행 완료: 30일 운동 챌린지",
+                            mission.getCategoryId(),
+                            "운동");
         }
 
         @Test
@@ -157,11 +164,18 @@ class GrantUserExperienceStepTest {
         void execute_failsWhenServiceThrowsException() {
             // given
             when(gamificationQueryFacadeService.getOrCreateUserExperience(TEST_USER_ID))
-                .thenReturn(userExperience);
+                    .thenReturn(userExperience);
 
             doThrow(new RuntimeException("DB 오류"))
-                .when(gamificationQueryFacadeService).addExperience(
-                    anyString(), anyInt(), any(ExpSourceType.class), anyLong(), anyString(), any(), anyString());
+                    .when(gamificationQueryFacadeService)
+                    .addExperience(
+                            anyString(),
+                            anyInt(),
+                            any(ExpSourceType.class),
+                            anyLong(),
+                            anyString(),
+                            any(),
+                            anyString());
 
             // when
             SagaStepResult result = grantUserExperienceStep.execute(context);
@@ -174,37 +188,44 @@ class GrantUserExperienceStepTest {
         @DisplayName("isPinned=true이면 context의 categoryId/categoryName을 사용한다")
         void execute_pinned_usesPinnedCategoryInfo() {
             // given
-            MissionCompletionContext pinnedContext = MissionCompletionContext.forPinned(
-                1L, TEST_USER_ID, null, false);
+            MissionCompletionContext pinnedContext =
+                    MissionCompletionContext.forPinned(1L, TEST_USER_ID, null, false);
             pinnedContext.setMission(mission);
             pinnedContext.setCategoryId(99L);
             pinnedContext.setCategoryName("독서");
             pinnedContext.setMissionTitle("매일 독서 30분");
             pinnedContext.setUserExpEarned(EXP_TO_GRANT);
 
-            UserExperienceDto afterExp = new UserExperienceDto(null, TEST_USER_ID, 6, 50, 550, null, null, null);
+            UserExperienceDto afterExp =
+                    new UserExperienceDto(null, TEST_USER_ID, 6, 50, 550, null, null, null);
 
             when(gamificationQueryFacadeService.getOrCreateUserExperience(TEST_USER_ID))
-                .thenReturn(userExperience)
-                .thenReturn(afterExp);
+                    .thenReturn(userExperience)
+                    .thenReturn(afterExp);
             when(gamificationQueryFacadeService.addExperience(
-                anyString(), anyInt(), any(ExpSourceType.class), anyLong(), anyString(), any(), anyString()))
-                .thenReturn(afterExp);
+                            anyString(),
+                            anyInt(),
+                            any(ExpSourceType.class),
+                            anyLong(),
+                            anyString(),
+                            any(),
+                            anyString()))
+                    .thenReturn(afterExp);
 
             // when
             SagaStepResult result = grantUserExperienceStep.execute(pinnedContext);
 
             // then
             assertThat(result.isSuccess()).isTrue();
-            verify(gamificationQueryFacadeService).addExperience(
-                TEST_USER_ID,
-                EXP_TO_GRANT,
-                ExpSourceType.MISSION_EXECUTION,
-                mission.getId(),
-                "고정 미션 수행 완료: 매일 독서 30분",
-                99L,
-                "독서"
-            );
+            verify(gamificationQueryFacadeService)
+                    .addExperience(
+                            TEST_USER_ID,
+                            EXP_TO_GRANT,
+                            ExpSourceType.MISSION_EXECUTION,
+                            mission.getId(),
+                            "고정 미션 수행 완료: 매일 독서 30분",
+                            99L,
+                            "독서");
         }
     }
 
@@ -216,26 +237,33 @@ class GrantUserExperienceStepTest {
         @DisplayName("정상적으로 경험치를 환수한다")
         void compensate_success() {
             // given
-            UserExperienceDto mockResponse = new UserExperienceDto(null, TEST_USER_ID, 5, 100, 500, null, null, null);
+            UserExperienceDto mockResponse =
+                    new UserExperienceDto(null, TEST_USER_ID, 5, 100, 500, null, null, null);
 
             when(gamificationQueryFacadeService.subtractExperience(
-                anyString(), anyInt(), any(ExpSourceType.class), anyLong(), anyString(), any(), anyString()))
-                .thenReturn(mockResponse);
+                            anyString(),
+                            anyInt(),
+                            any(ExpSourceType.class),
+                            anyLong(),
+                            anyString(),
+                            any(),
+                            anyString()))
+                    .thenReturn(mockResponse);
 
             // when
             SagaStepResult result = grantUserExperienceStep.compensate(context);
 
             // then
             assertThat(result.isSuccess()).isTrue();
-            verify(gamificationQueryFacadeService).subtractExperience(
-                TEST_USER_ID,
-                EXP_TO_GRANT,
-                ExpSourceType.MISSION_EXECUTION,
-                mission.getId(),
-                "미션 완료 보상 - 경험치 환수",
-                mission.getCategoryId(),
-                "운동"
-            );
+            verify(gamificationQueryFacadeService)
+                    .subtractExperience(
+                            TEST_USER_ID,
+                            EXP_TO_GRANT,
+                            ExpSourceType.MISSION_EXECUTION,
+                            mission.getId(),
+                            "미션 완료 보상 - 경험치 환수",
+                            mission.getCategoryId(),
+                            "운동");
         }
 
         @Test
@@ -243,8 +271,15 @@ class GrantUserExperienceStepTest {
         void compensate_failsWhenServiceThrowsException() {
             // given
             doThrow(new RuntimeException("DB 오류"))
-                .when(gamificationQueryFacadeService).subtractExperience(
-                    anyString(), anyInt(), any(ExpSourceType.class), anyLong(), anyString(), any(), anyString());
+                    .when(gamificationQueryFacadeService)
+                    .subtractExperience(
+                            anyString(),
+                            anyInt(),
+                            any(ExpSourceType.class),
+                            anyLong(),
+                            anyString(),
+                            any(),
+                            anyString());
 
             // when
             SagaStepResult result = grantUserExperienceStep.compensate(context);
@@ -258,32 +293,39 @@ class GrantUserExperienceStepTest {
         @DisplayName("isPinned=true이면 환수 시 context의 categoryId/categoryName을 사용한다")
         void compensate_pinned_usesPinnedCategoryInfo() {
             // given
-            MissionCompletionContext pinnedContext = MissionCompletionContext.forPinned(
-                1L, TEST_USER_ID, null, false);
+            MissionCompletionContext pinnedContext =
+                    MissionCompletionContext.forPinned(1L, TEST_USER_ID, null, false);
             pinnedContext.setMission(mission);
             pinnedContext.setCategoryId(99L);
             pinnedContext.setCategoryName("독서");
             pinnedContext.setUserExpEarned(EXP_TO_GRANT);
 
-            UserExperienceDto mockResponse = new UserExperienceDto(null, TEST_USER_ID, 5, 100, 500, null, null, null);
+            UserExperienceDto mockResponse =
+                    new UserExperienceDto(null, TEST_USER_ID, 5, 100, 500, null, null, null);
             when(gamificationQueryFacadeService.subtractExperience(
-                anyString(), anyInt(), any(ExpSourceType.class), anyLong(), anyString(), any(), anyString()))
-                .thenReturn(mockResponse);
+                            anyString(),
+                            anyInt(),
+                            any(ExpSourceType.class),
+                            anyLong(),
+                            anyString(),
+                            any(),
+                            anyString()))
+                    .thenReturn(mockResponse);
 
             // when
             SagaStepResult result = grantUserExperienceStep.compensate(pinnedContext);
 
             // then
             assertThat(result.isSuccess()).isTrue();
-            verify(gamificationQueryFacadeService).subtractExperience(
-                TEST_USER_ID,
-                EXP_TO_GRANT,
-                ExpSourceType.MISSION_EXECUTION,
-                mission.getId(),
-                "고정 미션 완료 보상 - 경험치 환수",
-                99L,
-                "독서"
-            );
+            verify(gamificationQueryFacadeService)
+                    .subtractExperience(
+                            TEST_USER_ID,
+                            EXP_TO_GRANT,
+                            ExpSourceType.MISSION_EXECUTION,
+                            mission.getId(),
+                            "고정 미션 완료 보상 - 경험치 환수",
+                            99L,
+                            "독서");
         }
     }
 }

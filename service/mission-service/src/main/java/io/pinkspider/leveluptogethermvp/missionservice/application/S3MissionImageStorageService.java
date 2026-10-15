@@ -52,15 +52,26 @@ public class S3MissionImageStorageService implements MissionImageStorageService 
         try {
             String originalFilename = StringUtils.cleanPath(file.getOriginalFilename());
             String extension = getExtension(originalFilename);
-            String newFilename = executionDate + "_" + UUID.randomUUID().toString() + "." + extension;
+            String newFilename =
+                    executionDate + "_" + UUID.randomUUID().toString() + "." + extension;
             String key = "missions/" + userId + "/" + missionId + "/" + newFilename;
             byte[] originalBytes = file.getBytes();
 
             putObject(key, file.getContentType(), originalBytes);
 
-            uploadVariant(key, extension, file.getContentType(), originalBytes, THUMB_SUFFIX,
+            uploadVariant(
+                    key,
+                    extension,
+                    file.getContentType(),
+                    originalBytes,
+                    THUMB_SUFFIX,
                     ImageResizer.THUMBNAIL_MAX_DIMENSION);
-            uploadVariant(key, extension, file.getContentType(), originalBytes, MEDIUM_SUFFIX,
+            uploadVariant(
+                    key,
+                    extension,
+                    file.getContentType(),
+                    originalBytes,
+                    MEDIUM_SUFFIX,
                     ImageResizer.MEDIUM_MAX_DIMENSION);
 
             String cdnUrl = s3Properties.getCdnBaseUrl() + "/" + key;
@@ -74,8 +85,13 @@ public class S3MissionImageStorageService implements MissionImageStorageService 
     }
 
     /** LUT-400: 원본과 같은 디렉터리에 리사이즈 변형(thumb/medium)을 best-effort로 함께 저장한다. */
-    private void uploadVariant(String originalKey, String extension, String contentType,
-            byte[] originalBytes, String suffix, int maxDimension) {
+    private void uploadVariant(
+            String originalKey,
+            String extension,
+            String contentType,
+            byte[] originalBytes,
+            String suffix,
+            int maxDimension) {
         try {
             Optional<byte[]> resized = imageResizer.resize(originalBytes, extension, maxDimension);
             if (resized.isEmpty()) {
@@ -89,13 +105,14 @@ public class S3MissionImageStorageService implements MissionImageStorageService 
     }
 
     private void putObject(String key, String contentType, byte[] bytes) {
-        PutObjectRequest putRequest = PutObjectRequest.builder()
-                .bucket(s3Properties.getBucket())
-                .key(key)
-                .contentType(contentType)
-                // LUT-406: UUID 파일명 불변 — CloudFront/브라우저 공격적 캐시 허용
-                .cacheControl("public, max-age=31536000, immutable")
-                .build();
+        PutObjectRequest putRequest =
+                PutObjectRequest.builder()
+                        .bucket(s3Properties.getBucket())
+                        .key(key)
+                        .contentType(contentType)
+                        // LUT-406: UUID 파일명 불변 — CloudFront/브라우저 공격적 캐시 허용
+                        .cacheControl("public, max-age=31536000, immutable")
+                        .build();
         s3Client.putObject(putRequest, RequestBody.fromBytes(bytes));
     }
 
@@ -108,9 +125,8 @@ public class S3MissionImageStorageService implements MissionImageStorageService 
     }
 
     /**
-     * LUT-409: 변형(thumb/medium)이 없는 과거 업로드 원본에 변형을 생성한다. 멱등 —
-     * 이미 존재하는 변형은 headObject 로 확인해 건너뛰고, 원본은 필요할 때 1회만 내려받는다.
-     * 리사이즈 불가 포맷(GIF 등)은 변형 없이 원본 fallback 을 유지한다 (업로드 경로와 동일 정책).
+     * LUT-409: 변형(thumb/medium)이 없는 과거 업로드 원본에 변형을 생성한다. 멱등 — 이미 존재하는 변형은 headObject 로 확인해 건너뛰고,
+     * 원본은 필요할 때 1회만 내려받는다. 리사이즈 불가 포맷(GIF 등)은 변형 없이 원본 fallback 을 유지한다 (업로드 경로와 동일 정책).
      */
     @Override
     public int backfillVariants(String imageUrl) {
@@ -127,23 +143,26 @@ public class S3MissionImageStorageService implements MissionImageStorageService 
         String contentType = null;
         int created = 0;
 
-        for (Variant variant : List.of(
-                new Variant(THUMB_SUFFIX, ImageResizer.THUMBNAIL_MAX_DIMENSION),
-                new Variant(MEDIUM_SUFFIX, ImageResizer.MEDIUM_MAX_DIMENSION))) {
+        for (Variant variant :
+                List.of(
+                        new Variant(THUMB_SUFFIX, ImageResizer.THUMBNAIL_MAX_DIMENSION),
+                        new Variant(MEDIUM_SUFFIX, ImageResizer.MEDIUM_MAX_DIMENSION))) {
             String variantKey = insertSuffix(key, variant.suffix());
             if (objectExists(variantKey)) {
                 continue;
             }
             if (originalBytes == null) {
-                ResponseBytes<GetObjectResponse> original = s3Client.getObjectAsBytes(
-                        GetObjectRequest.builder()
-                                .bucket(s3Properties.getBucket())
-                                .key(key)
-                                .build());
+                ResponseBytes<GetObjectResponse> original =
+                        s3Client.getObjectAsBytes(
+                                GetObjectRequest.builder()
+                                        .bucket(s3Properties.getBucket())
+                                        .key(key)
+                                        .build());
                 originalBytes = original.asByteArray();
                 contentType = original.response().contentType();
             }
-            Optional<byte[]> resized = imageResizer.resize(originalBytes, extension, variant.maxDimension());
+            Optional<byte[]> resized =
+                    imageResizer.resize(originalBytes, extension, variant.maxDimension());
             if (resized.isEmpty()) {
                 continue;
             }
@@ -163,10 +182,8 @@ public class S3MissionImageStorageService implements MissionImageStorageService 
 
     private boolean objectExists(String key) {
         try {
-            s3Client.headObject(HeadObjectRequest.builder()
-                    .bucket(s3Properties.getBucket())
-                    .key(key)
-                    .build());
+            s3Client.headObject(
+                    HeadObjectRequest.builder().bucket(s3Properties.getBucket()).key(key).build());
             return true;
         } catch (NoSuchKeyException e) {
             return false;
@@ -192,10 +209,11 @@ public class S3MissionImageStorageService implements MissionImageStorageService 
 
     private void deleteObject(String key) {
         try {
-            s3Client.deleteObject(DeleteObjectRequest.builder()
-                    .bucket(s3Properties.getBucket())
-                    .key(key)
-                    .build());
+            s3Client.deleteObject(
+                    DeleteObjectRequest.builder()
+                            .bucket(s3Properties.getBucket())
+                            .key(key)
+                            .build());
             log.info("미션 이미지 S3 삭제: key={}", key);
         } catch (Exception e) {
             log.warn("미션 이미지 S3 삭제 실패: key={}", key, e);

@@ -8,6 +8,7 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
+import java.time.LocalDateTime;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -16,8 +17,6 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 import lombok.experimental.SuperBuilder;
 import org.hibernate.annotations.Comment;
-
-import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "season")
@@ -77,9 +76,7 @@ public class Season extends LocalDateTimeBaseEntity {
     @Comment("수정자")
     private String modifiedBy;
 
-    /**
-     * 현재 시즌인지 확인
-     */
+    /** 현재 시즌인지 확인 */
     public boolean isCurrent() {
         if (!isActive) {
             return false;
@@ -88,9 +85,7 @@ public class Season extends LocalDateTimeBaseEntity {
         return !now.isBefore(startAt) && !now.isAfter(endAt);
     }
 
-    /**
-     * 시즌 상태 반환
-     */
+    /** 시즌 상태 반환 */
     public SeasonStatus getStatus() {
         LocalDateTime now = LocalDateTime.now();
         if (now.isBefore(startAt)) {

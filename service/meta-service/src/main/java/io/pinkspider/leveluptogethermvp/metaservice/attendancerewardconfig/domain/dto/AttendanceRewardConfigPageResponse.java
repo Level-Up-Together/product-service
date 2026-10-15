@@ -7,23 +7,22 @@ import org.springframework.data.domain.Page;
 
 @JsonNaming(SnakeCaseStrategy.class)
 public record AttendanceRewardConfigPageResponse(
-    List<AttendanceRewardConfigResponse> content,
-    int totalPages,
-    long totalElements,
-    int number,
-    int size,
-    boolean first,
-    boolean last
-) {
-    public static AttendanceRewardConfigPageResponse from(Page<AttendanceRewardConfigResponse> page) {
+        List<AttendanceRewardConfigResponse> content,
+        int totalPages,
+        long totalElements,
+        int number,
+        int size,
+        boolean first,
+        boolean last) {
+    public static AttendanceRewardConfigPageResponse from(
+            Page<AttendanceRewardConfigResponse> page) {
         return new AttendanceRewardConfigPageResponse(
-            page.getContent(),
-            page.getTotalPages(),
-            page.getTotalElements(),
-            page.getNumber(),
-            page.getSize(),
-            page.isFirst(),
-            page.isLast()
-        );
+                page.getContent(),
+                page.getTotalPages(),
+                page.getTotalElements(),
+                page.getNumber(),
+                page.getSize(),
+                page.isFirst(),
+                page.isLast());
     }
 }

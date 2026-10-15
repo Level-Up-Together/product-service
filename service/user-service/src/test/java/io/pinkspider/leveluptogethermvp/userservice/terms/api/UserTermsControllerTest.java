@@ -43,72 +43,95 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers;
 
-@WebMvcTest(controllers = UserTermsController.class,
-    excludeAutoConfiguration = {
-        DataSourceAutoConfiguration.class,
-        HibernateJpaAutoConfiguration.class,
-        DataSourceTransactionManagerAutoConfiguration.class
-    }
-)
+@WebMvcTest(
+        controllers = UserTermsController.class,
+        excludeAutoConfiguration = {
+            DataSourceAutoConfiguration.class,
+            HibernateJpaAutoConfiguration.class,
+            DataSourceTransactionManagerAutoConfiguration.class
+        })
 @Import(ControllerTestConfig.class)
 @AutoConfigureRestDocs
 @AutoConfigureMockMvc(addFilters = false)
 @ActiveProfiles("test")
 class UserTermsControllerTest {
 
-    @Autowired
-    protected MockMvc mockMvc;
+    @Autowired protected MockMvc mockMvc;
 
-    @Autowired
-    protected ObjectMapper objectMapper;
+    @Autowired protected ObjectMapper objectMapper;
 
-    @MockitoBean
-    private UserTermsService userTermsService;
-
+    @MockitoBean private UserTermsService userTermsService;
 
     @Test
     @DisplayName("GET /terms/list : 최신버전 약관 전체 읽기")
     void getRecentAllTermsTest() throws Exception {
         // given
-        List<RecentTermsResponseDto> mockRecentTermsResponseDtoList = MockUtil.readJsonFileToClassList(
-            "fixture/userservice/terms/mockRecentTermsResponseDtoList.json",
-            new TypeReference<List<RecentTermsResponseDto>>() {});
+        List<RecentTermsResponseDto> mockRecentTermsResponseDtoList =
+                MockUtil.readJsonFileToClassList(
+                        "fixture/userservice/terms/mockRecentTermsResponseDtoList.json",
+                        new TypeReference<List<RecentTermsResponseDto>>() {});
 
-        when(userTermsService.getRecentAllTerms())
-            .thenReturn(mockRecentTermsResponseDtoList);
+        when(userTermsService.getRecentAllTerms()).thenReturn(mockRecentTermsResponseDtoList);
 
         // then
-        ResultActions resultActions = mockMvc.perform(
-            RestDocumentationRequestBuilders.get("/terms/list")
-                .contentType("application/json;charset=UTF-8")
-        ).andDo(
-            MockMvcRestDocumentationWrapper.document("01. 최신버전 약관 전체 읽기",
-                preprocessRequest(prettyPrint()),
-                preprocessResponse(prettyPrint()),
-                resource(
-                    ResourceSnippetParameters.builder()
-                        .description("01. 최신버전 약관 전체 읽기")
-                        .requestHeaders(
-                            headerWithName(HttpHeaders.CONTENT_TYPE).description("application/json; charset=UTF-8")
-                        )
-                        .responseFields(
-                            fieldWithPath("code").type(JsonFieldType.STRING).description("code"),
-                            fieldWithPath("message").type(JsonFieldType.STRING).description("message"),
-                            fieldWithPath("value[]").type(JsonFieldType.ARRAY).description("value"),
-                            fieldWithPath("value[].term_id").type(JsonFieldType.STRING).description("term_id"),
-                            fieldWithPath("value[].term_title").type(JsonFieldType.STRING).description("term_title"),
-                            fieldWithPath("value[].code").type(JsonFieldType.STRING).description("code"),
-                            fieldWithPath("value[].type").type(JsonFieldType.STRING).description("type"),
-                            fieldWithPath("value[].is_required").type(JsonFieldType.BOOLEAN).description("is_required"),
-                            fieldWithPath("value[].version_id").type(JsonFieldType.STRING).description("version_id"),
-                            fieldWithPath("value[].version").type(JsonFieldType.STRING).description("version"),
-                            fieldWithPath("value[].created_at").type(JsonFieldType.STRING).description("created_at").optional(),
-                            fieldWithPath("value[].content").type(JsonFieldType.STRING).description("content")
-                        )
-                        .build()
-                )
-            )
-        );
+        ResultActions resultActions =
+                mockMvc.perform(
+                                RestDocumentationRequestBuilders.get("/terms/list")
+                                        .contentType("application/json;charset=UTF-8"))
+                        .andDo(
+                                MockMvcRestDocumentationWrapper.document(
+                                        "01. 최신버전 약관 전체 읽기",
+                                        preprocessRequest(prettyPrint()),
+                                        preprocessResponse(prettyPrint()),
+                                        resource(
+                                                ResourceSnippetParameters.builder()
+                                                        .description("01. 최신버전 약관 전체 읽기")
+                                                        .requestHeaders(
+                                                                headerWithName(
+                                                                                HttpHeaders
+                                                                                        .CONTENT_TYPE)
+                                                                        .description(
+                                                                                "application/json;"
+                                                                                    + " charset=UTF-8"))
+                                                        .responseFields(
+                                                                fieldWithPath("code")
+                                                                        .type(JsonFieldType.STRING)
+                                                                        .description("code"),
+                                                                fieldWithPath("message")
+                                                                        .type(JsonFieldType.STRING)
+                                                                        .description("message"),
+                                                                fieldWithPath("value[]")
+                                                                        .type(JsonFieldType.ARRAY)
+                                                                        .description("value"),
+                                                                fieldWithPath("value[].term_id")
+                                                                        .type(JsonFieldType.STRING)
+                                                                        .description("term_id"),
+                                                                fieldWithPath("value[].term_title")
+                                                                        .type(JsonFieldType.STRING)
+                                                                        .description("term_title"),
+                                                                fieldWithPath("value[].code")
+                                                                        .type(JsonFieldType.STRING)
+                                                                        .description("code"),
+                                                                fieldWithPath("value[].type")
+                                                                        .type(JsonFieldType.STRING)
+                                                                        .description("type"),
+                                                                fieldWithPath("value[].is_required")
+                                                                        .type(JsonFieldType.BOOLEAN)
+                                                                        .description("is_required"),
+                                                                fieldWithPath("value[].version_id")
+                                                                        .type(JsonFieldType.STRING)
+                                                                        .description("version_id"),
+                                                                fieldWithPath("value[].version")
+                                                                        .type(JsonFieldType.STRING)
+                                                                        .description("version"),
+                                                                fieldWithPath("value[].created_at")
+                                                                        .type(JsonFieldType.STRING)
+                                                                        .description("created_at")
+                                                                        .optional(),
+                                                                fieldWithPath("value[].content")
+                                                                        .type(JsonFieldType.STRING)
+                                                                        .description("content"))
+                                                        .build())));
 
         // then
         resultActions.andExpect(MockMvcResultMatchers.status().isOk());
@@ -119,46 +142,75 @@ class UserTermsControllerTest {
     void getTermAgreementsByUser() throws Exception {
         // given
         String mockUserId = "mockUserId";
-        List<TermAgreementsByUserResponseDto> mockTermAgreementsByUserResponseDtoList = MockUtil.readJsonFileToClassList(
-            "fixture/userservice/terms/mockTermAgreementsByUserResponseDtoList.json",
-            new TypeReference<List<TermAgreementsByUserResponseDto>>() {});
+        List<TermAgreementsByUserResponseDto> mockTermAgreementsByUserResponseDtoList =
+                MockUtil.readJsonFileToClassList(
+                        "fixture/userservice/terms/mockTermAgreementsByUserResponseDtoList.json",
+                        new TypeReference<List<TermAgreementsByUserResponseDto>>() {});
 
         when(userTermsService.getTermAgreementsByUser(anyString()))
-            .thenReturn(mockTermAgreementsByUserResponseDtoList);
+                .thenReturn(mockTermAgreementsByUserResponseDtoList);
 
         // then
-        ResultActions resultActions = mockMvc.perform(
-            RestDocumentationRequestBuilders.get("/terms/agreements/{userId}", mockUserId)
-                .contentType("application/json;charset=UTF-8")
-        ).andDo(
-            MockMvcRestDocumentationWrapper.document("02. 최신버전 약관에 대하여 약관전체 목록 및 user의 동의 여부",
-                preprocessRequest(prettyPrint()),
-                preprocessResponse(prettyPrint()),
-                resource(
-                    ResourceSnippetParameters.builder()
-                        .description("02. 최신버전 약관에 대하여 약관전체 목록 및 user의 동의 여부")
-                        .requestHeaders(
-                            headerWithName(HttpHeaders.CONTENT_TYPE).description("application/json; charset=UTF-8")
-                        )
-                        .pathParameters(
-                            parameterWithName("userId").type(SimpleType.STRING).description("user id")
-                        )
-                        .responseFields(
-                            fieldWithPath("code").type(JsonFieldType.STRING).description("code"),
-                            fieldWithPath("message").type(JsonFieldType.STRING).description("message"),
-                            fieldWithPath("value[]").type(JsonFieldType.ARRAY).description("value"),
-                            fieldWithPath("value[].term_id").type(JsonFieldType.STRING).description("term_id"),
-                            fieldWithPath("value[].term_title").type(JsonFieldType.STRING).description("term_title"),
-                            fieldWithPath("value[].is_required").type(JsonFieldType.BOOLEAN).description("is_required"),
-                            fieldWithPath("value[].latest_version_id").type(JsonFieldType.STRING).description("latest_version_id"),
-                            fieldWithPath("value[].version").type(JsonFieldType.STRING).description("version"),
-                            fieldWithPath("value[].is_agreed").type(JsonFieldType.BOOLEAN).description("is_agreed"),
-                            fieldWithPath("value[].agreed_at").type(JsonFieldType.STRING).description("agreed_at")
-                        )
-                        .build()
-                )
-            )
-        );
+        ResultActions resultActions =
+                mockMvc.perform(
+                                RestDocumentationRequestBuilders.get(
+                                                "/terms/agreements/{userId}", mockUserId)
+                                        .contentType("application/json;charset=UTF-8"))
+                        .andDo(
+                                MockMvcRestDocumentationWrapper.document(
+                                        "02. 최신버전 약관에 대하여 약관전체 목록 및 user의 동의 여부",
+                                        preprocessRequest(prettyPrint()),
+                                        preprocessResponse(prettyPrint()),
+                                        resource(
+                                                ResourceSnippetParameters.builder()
+                                                        .description(
+                                                                "02. 최신버전 약관에 대하여 약관전체 목록 및 user의"
+                                                                        + " 동의 여부")
+                                                        .requestHeaders(
+                                                                headerWithName(
+                                                                                HttpHeaders
+                                                                                        .CONTENT_TYPE)
+                                                                        .description(
+                                                                                "application/json;"
+                                                                                    + " charset=UTF-8"))
+                                                        .pathParameters(
+                                                                parameterWithName("userId")
+                                                                        .type(SimpleType.STRING)
+                                                                        .description("user id"))
+                                                        .responseFields(
+                                                                fieldWithPath("code")
+                                                                        .type(JsonFieldType.STRING)
+                                                                        .description("code"),
+                                                                fieldWithPath("message")
+                                                                        .type(JsonFieldType.STRING)
+                                                                        .description("message"),
+                                                                fieldWithPath("value[]")
+                                                                        .type(JsonFieldType.ARRAY)
+                                                                        .description("value"),
+                                                                fieldWithPath("value[].term_id")
+                                                                        .type(JsonFieldType.STRING)
+                                                                        .description("term_id"),
+                                                                fieldWithPath("value[].term_title")
+                                                                        .type(JsonFieldType.STRING)
+                                                                        .description("term_title"),
+                                                                fieldWithPath("value[].is_required")
+                                                                        .type(JsonFieldType.BOOLEAN)
+                                                                        .description("is_required"),
+                                                                fieldWithPath(
+                                                                                "value[].latest_version_id")
+                                                                        .type(JsonFieldType.STRING)
+                                                                        .description(
+                                                                                "latest_version_id"),
+                                                                fieldWithPath("value[].version")
+                                                                        .type(JsonFieldType.STRING)
+                                                                        .description("version"),
+                                                                fieldWithPath("value[].is_agreed")
+                                                                        .type(JsonFieldType.BOOLEAN)
+                                                                        .description("is_agreed"),
+                                                                fieldWithPath("value[].agreed_at")
+                                                                        .type(JsonFieldType.STRING)
+                                                                        .description("agreed_at"))
+                                                        .build())));
 
         // then
         resultActions.andExpect(MockMvcResultMatchers.status().isOk());
@@ -170,48 +222,66 @@ class UserTermsControllerTest {
         // given
         String mockUserId = "mockUserId";
 
-        AgreementTermsByUserRequestDto mockAgreementTermsByUserRequestDto = MockUtil.readJsonFileToClass(
-            "fixture/userservice/terms/mockAgreementTermsByUserRequestDto.json", AgreementTermsByUserRequestDto.class);
+        AgreementTermsByUserRequestDto mockAgreementTermsByUserRequestDto =
+                MockUtil.readJsonFileToClass(
+                        "fixture/userservice/terms/mockAgreementTermsByUserRequestDto.json",
+                        AgreementTermsByUserRequestDto.class);
 
-        doNothing()
-            .when(userTermsService)
-            .agreementTermsByUser(anyString(), any());
+        doNothing().when(userTermsService).agreementTermsByUser(anyString(), any());
 
         // then
-        ResultActions resultActions = mockMvc.perform(
-            RestDocumentationRequestBuilders.post("/terms/agreements/{userId}", mockUserId)
-                .contentType("application/json;charset=UTF-8")
-                .content(objectMapper.writeValueAsString(mockAgreementTermsByUserRequestDto))
-        ).andDo(
-            MockMvcRestDocumentationWrapper.document("03. 약관 동의하기",
-                preprocessRequest(prettyPrint()),
-                preprocessResponse(prettyPrint()),
-                resource(
-                    ResourceSnippetParameters.builder()
-                        .description("03. 약관 동의하기")
-                        .requestHeaders(
-                            headerWithName(HttpHeaders.CONTENT_TYPE).description("application/json; charset=UTF-8")
-                        )
-                        .pathParameters(
-                            parameterWithName("userId").type(SimpleType.STRING).description("user id")
-                        )
-                        .requestFields(
-                            fieldWithPath("agreement_terms_list[]").type(JsonFieldType.ARRAY).description("code"),
-                            fieldWithPath("agreement_terms_list[].term_version_id").type(JsonFieldType.NUMBER).description("term_version_id"),
-                            fieldWithPath("agreement_terms_list[].is_agreed").type(JsonFieldType.BOOLEAN).description("is_agreed")
-                        )
-                        .responseFields(
-                            fieldWithPath("code").type(JsonFieldType.STRING).description("code"),
-                            fieldWithPath("message").type(JsonFieldType.STRING).description("message")
-                        )
-                        .build()
-                )
-            )
-        );
+        ResultActions resultActions =
+                mockMvc.perform(
+                                RestDocumentationRequestBuilders.post(
+                                                "/terms/agreements/{userId}", mockUserId)
+                                        .contentType("application/json;charset=UTF-8")
+                                        .content(
+                                                objectMapper.writeValueAsString(
+                                                        mockAgreementTermsByUserRequestDto)))
+                        .andDo(
+                                MockMvcRestDocumentationWrapper.document(
+                                        "03. 약관 동의하기",
+                                        preprocessRequest(prettyPrint()),
+                                        preprocessResponse(prettyPrint()),
+                                        resource(
+                                                ResourceSnippetParameters.builder()
+                                                        .description("03. 약관 동의하기")
+                                                        .requestHeaders(
+                                                                headerWithName(
+                                                                                HttpHeaders
+                                                                                        .CONTENT_TYPE)
+                                                                        .description(
+                                                                                "application/json;"
+                                                                                    + " charset=UTF-8"))
+                                                        .pathParameters(
+                                                                parameterWithName("userId")
+                                                                        .type(SimpleType.STRING)
+                                                                        .description("user id"))
+                                                        .requestFields(
+                                                                fieldWithPath(
+                                                                                "agreement_terms_list[]")
+                                                                        .type(JsonFieldType.ARRAY)
+                                                                        .description("code"),
+                                                                fieldWithPath(
+                                                                                "agreement_terms_list[].term_version_id")
+                                                                        .type(JsonFieldType.NUMBER)
+                                                                        .description(
+                                                                                "term_version_id"),
+                                                                fieldWithPath(
+                                                                                "agreement_terms_list[].is_agreed")
+                                                                        .type(JsonFieldType.BOOLEAN)
+                                                                        .description("is_agreed"))
+                                                        .responseFields(
+                                                                fieldWithPath("code")
+                                                                        .type(JsonFieldType.STRING)
+                                                                        .description("code"),
+                                                                fieldWithPath("message")
+                                                                        .type(JsonFieldType.STRING)
+                                                                        .description("message"))
+                                                        .build())));
 
         // then
         resultActions.andExpect(MockMvcResultMatchers.status().isOk());
-
     }
 
     @Test
@@ -219,46 +289,74 @@ class UserTermsControllerTest {
     void getPendingTermsByUser() throws Exception {
         // given
         String mockUserId = "mockUserId";
-        List<TermAgreementsByUserResponseDto> mockPendingTermsList = MockUtil.readJsonFileToClassList(
-            "fixture/userservice/terms/mockTermAgreementsByUserResponseDtoList.json",
-            new TypeReference<List<TermAgreementsByUserResponseDto>>() {});
+        List<TermAgreementsByUserResponseDto> mockPendingTermsList =
+                MockUtil.readJsonFileToClassList(
+                        "fixture/userservice/terms/mockTermAgreementsByUserResponseDtoList.json",
+                        new TypeReference<List<TermAgreementsByUserResponseDto>>() {});
 
-        when(userTermsService.getPendingTermsByUser(anyString()))
-            .thenReturn(mockPendingTermsList);
+        when(userTermsService.getPendingTermsByUser(anyString())).thenReturn(mockPendingTermsList);
 
         // then
-        ResultActions resultActions = mockMvc.perform(
-            RestDocumentationRequestBuilders.get("/terms/pending/{userId}", mockUserId)
-                .contentType("application/json;charset=UTF-8")
-        ).andDo(
-            MockMvcRestDocumentationWrapper.document("04. 동의가 필요한 미동의 약관 목록 조회",
-                preprocessRequest(prettyPrint()),
-                preprocessResponse(prettyPrint()),
-                resource(
-                    ResourceSnippetParameters.builder()
-                        .description("04. 약관 버전 업데이트 시 새로 동의가 필요한 약관만 반환")
-                        .requestHeaders(
-                            headerWithName(HttpHeaders.CONTENT_TYPE).description("application/json; charset=UTF-8")
-                        )
-                        .pathParameters(
-                            parameterWithName("userId").type(SimpleType.STRING).description("user id")
-                        )
-                        .responseFields(
-                            fieldWithPath("code").type(JsonFieldType.STRING).description("code"),
-                            fieldWithPath("message").type(JsonFieldType.STRING).description("message"),
-                            fieldWithPath("value[]").type(JsonFieldType.ARRAY).description("미동의 약관 목록"),
-                            fieldWithPath("value[].term_id").type(JsonFieldType.STRING).description("term_id"),
-                            fieldWithPath("value[].term_title").type(JsonFieldType.STRING).description("term_title"),
-                            fieldWithPath("value[].is_required").type(JsonFieldType.BOOLEAN).description("is_required"),
-                            fieldWithPath("value[].latest_version_id").type(JsonFieldType.STRING).description("latest_version_id"),
-                            fieldWithPath("value[].version").type(JsonFieldType.STRING).description("version"),
-                            fieldWithPath("value[].is_agreed").type(JsonFieldType.BOOLEAN).description("is_agreed"),
-                            fieldWithPath("value[].agreed_at").type(JsonFieldType.STRING).description("agreed_at")
-                        )
-                        .build()
-                )
-            )
-        );
+        ResultActions resultActions =
+                mockMvc.perform(
+                                RestDocumentationRequestBuilders.get(
+                                                "/terms/pending/{userId}", mockUserId)
+                                        .contentType("application/json;charset=UTF-8"))
+                        .andDo(
+                                MockMvcRestDocumentationWrapper.document(
+                                        "04. 동의가 필요한 미동의 약관 목록 조회",
+                                        preprocessRequest(prettyPrint()),
+                                        preprocessResponse(prettyPrint()),
+                                        resource(
+                                                ResourceSnippetParameters.builder()
+                                                        .description(
+                                                                "04. 약관 버전 업데이트 시 새로 동의가 필요한 약관만"
+                                                                        + " 반환")
+                                                        .requestHeaders(
+                                                                headerWithName(
+                                                                                HttpHeaders
+                                                                                        .CONTENT_TYPE)
+                                                                        .description(
+                                                                                "application/json;"
+                                                                                    + " charset=UTF-8"))
+                                                        .pathParameters(
+                                                                parameterWithName("userId")
+                                                                        .type(SimpleType.STRING)
+                                                                        .description("user id"))
+                                                        .responseFields(
+                                                                fieldWithPath("code")
+                                                                        .type(JsonFieldType.STRING)
+                                                                        .description("code"),
+                                                                fieldWithPath("message")
+                                                                        .type(JsonFieldType.STRING)
+                                                                        .description("message"),
+                                                                fieldWithPath("value[]")
+                                                                        .type(JsonFieldType.ARRAY)
+                                                                        .description("미동의 약관 목록"),
+                                                                fieldWithPath("value[].term_id")
+                                                                        .type(JsonFieldType.STRING)
+                                                                        .description("term_id"),
+                                                                fieldWithPath("value[].term_title")
+                                                                        .type(JsonFieldType.STRING)
+                                                                        .description("term_title"),
+                                                                fieldWithPath("value[].is_required")
+                                                                        .type(JsonFieldType.BOOLEAN)
+                                                                        .description("is_required"),
+                                                                fieldWithPath(
+                                                                                "value[].latest_version_id")
+                                                                        .type(JsonFieldType.STRING)
+                                                                        .description(
+                                                                                "latest_version_id"),
+                                                                fieldWithPath("value[].version")
+                                                                        .type(JsonFieldType.STRING)
+                                                                        .description("version"),
+                                                                fieldWithPath("value[].is_agreed")
+                                                                        .type(JsonFieldType.BOOLEAN)
+                                                                        .description("is_agreed"),
+                                                                fieldWithPath("value[].agreed_at")
+                                                                        .type(JsonFieldType.STRING)
+                                                                        .description("agreed_at"))
+                                                        .build())));
 
         // then
         resultActions.andExpect(MockMvcResultMatchers.status().isOk());

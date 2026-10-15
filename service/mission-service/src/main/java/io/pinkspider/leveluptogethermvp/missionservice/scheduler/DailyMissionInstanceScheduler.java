@@ -13,6 +13,10 @@ import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.ParticipantS
 import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.DailyMissionInstanceRepository;
 import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.MissionExecutionRepository;
 import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.MissionParticipantRepository;
+import java.time.LocalDate;
+import java.time.ZoneId;
+import java.util.ArrayList;
+import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import net.javacrumbs.shedlock.spring.annotation.SchedulerLock;
@@ -20,17 +24,10 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDate;
-import java.time.ZoneId;
-import java.util.ArrayList;
-import java.util.List;
-
 /**
  * 고정 미션 일일 인스턴스 생성 스케줄러
  *
- * 매일 새벽에 실행되어:
- * 1. 지난 날짜의 미완료 인스턴스를 MISSED 처리
- * 2. 오늘 날짜의 인스턴스를 생성
+ * <p>매일 새벽에 실행되어: 1. 지난 날짜의 미완료 인스턴스를 MISSED 처리 2. 오늘 날짜의 인스턴스를 생성
  */
 @Component
 @RequiredArgsConstructor
@@ -47,13 +44,12 @@ public class DailyMissionInstanceScheduler {
 
     private static final int BATCH_SIZE = 100;
 
-    /**
-     * 매일 자정 00:00에 실행
-     * - 지난 날짜 미완료 인스턴스 MISSED 처리
-     * - 오늘 인스턴스 생성
-     */
+    /** 매일 자정 00:00에 실행 - 지난 날짜 미완료 인스턴스 MISSED 처리 - 오늘 인스턴스 생성 */
     @Scheduled(cron = "0 0 0 * * *", zone = "Asia/Seoul")
-    @SchedulerLock(name = "DailyMissionInstanceScheduler_generateDailyInstances", lockAtMostFor = "PT15M", lockAtLeastFor = "PT1M")
+    @SchedulerLock(
+            name = "DailyMissionInstanceScheduler_generateDailyInstances",
+            lockAtMostFor = "PT15M",
+            lockAtLeastFor = "PT1M")
     @Transactional(transactionManager = "missionTransactionManager")
     public void generateDailyInstances() {
         log.info("=== 고정 미션 일일 인스턴스 생성 스케줄러 시작 ===");
@@ -65,8 +61,10 @@ public class DailyMissionInstanceScheduler {
             int autoCompletedInstances = autoCompletePastDayInProgressInstances(today);
             int autoCompletedExecutions = autoCompletePastDayInProgressExecutions(today);
             if (autoCompletedInstances > 0 || autoCompletedExecutions > 0) {
-                log.info("자정 자동 완료 처리: pinnedInstances={}, regularExecutions={}",
-                    autoCompletedInstances, autoCompletedExecutions);
+                log.info(
+                        "자정 자동 완료 처리: pinnedInstances={}, regularExecutions={}",
+                        autoCompletedInstances,
+                        autoCompletedExecutions);
             }
 
             // 2. 지난 날짜의 미완료 인스턴스 MISSED 처리
@@ -89,19 +87,16 @@ public class DailyMissionInstanceScheduler {
         log.info("=== 고정 미션 일일 인스턴스 생성 스케줄러 종료 ===");
     }
 
-    /**
-     * 지난 날짜의 미완료 인스턴스를 MISSED 처리
-     */
+    /** 지난 날짜의 미완료 인스턴스를 MISSED 처리 */
     private int markMissedInstances(LocalDate today) {
         return instanceRepository.markMissedInstances(today);
     }
 
-    /**
-     * 오늘 날짜의 인스턴스를 생성
-     */
+    /** 오늘 날짜의 인스턴스를 생성 */
     private int createTodayInstances(LocalDate today) {
         // 모든 활성 고정 미션 참여자 조회
-        List<MissionParticipant> participants = participantRepository.findAllActivePinnedMissionParticipants();
+        List<MissionParticipant> participants =
+                participantRepository.findAllActivePinnedMissionParticipants();
 
         if (participants.isEmpty()) {
             log.info("활성 고정 미션 참여자 없음");
@@ -115,7 +110,8 @@ public class DailyMissionInstanceScheduler {
 
         for (MissionParticipant participant : participants) {
             // 이미 오늘 인스턴스가 있는지 확인
-            if (instanceRepository.existsByParticipantIdAndInstanceDate(participant.getId(), today)) {
+            if (instanceRepository.existsByParticipantIdAndInstanceDate(
+                    participant.getId(), today)) {
                 skippedCount++;
                 continue;
             }
@@ -155,34 +151,48 @@ public class DailyMissionInstanceScheduler {
         LocalDate today = LocalDate.now(ZoneId.of("Asia/Seoul"));
 
         // PENDING 상태 인스턴스가 있으면 반환, 없으면 새로 생성
-        return instanceRepository.findPendingByParticipantIdAndDate(participant.getId(), today)
-            .stream()
-            .findFirst()
-            .orElseGet(() -> {
-                int nextSequence = instanceRepository.findMaxSequenceNumber(participant.getId(), today) + 1;
-                DailyMissionInstance instance = DailyMissionInstance.createFrom(participant, today, nextSequence);
-                return instanceRepository.save(instance);
-            });
+        return instanceRepository
+                .findPendingByParticipantIdAndDate(participant.getId(), today)
+                .stream()
+                .findFirst()
+                .orElseGet(
+                        () -> {
+                            int nextSequence =
+                                    instanceRepository.findMaxSequenceNumber(
+                                                    participant.getId(), today)
+                                            + 1;
+                            DailyMissionInstance instance =
+                                    DailyMissionInstance.createFrom(
+                                            participant, today, nextSequence);
+                            return instanceRepository.save(instance);
+                        });
     }
 
     /**
      * 지난 날짜의 IN_PROGRESS 고정 미션 인스턴스 자동 완료
      *
-     * 날짜가 바뀌었는데 완료되지 않은 미션을 Saga로 자동 완료하여 경험치를 정상 지급합니다.
-     * Saga 실패 시 엔티티 레벨 직접 완료로 폴백합니다.
+     * <p>날짜가 바뀌었는데 완료되지 않은 미션을 Saga로 자동 완료하여 경험치를 정상 지급합니다. Saga 실패 시 엔티티 레벨 직접 완료로 폴백합니다.
      */
     private int autoCompletePastDayInProgressInstances(LocalDate today) {
-        List<DailyMissionInstance> inProgressInstances = instanceRepository.findInProgressBeforeDate(today);
+        List<DailyMissionInstance> inProgressInstances =
+                instanceRepository.findInProgressBeforeDate(today);
 
         int maxExecutionMinutes = missionExecutionProperties.getMaxExecutionMinutes();
         int count = 0;
         for (DailyMissionInstance instance : inProgressInstances) {
             // 시작 후 maxExecutionMinutes 미경과 미션은 사용자가 직접 종료하도록 유지
             if (instance.getStartedAt() != null) {
-                long elapsedMinutes = java.time.Duration.between(instance.getStartedAt(), java.time.LocalDateTime.now()).toMinutes();
+                long elapsedMinutes =
+                        java.time.Duration.between(
+                                        instance.getStartedAt(), java.time.LocalDateTime.now())
+                                .toMinutes();
                 if (elapsedMinutes < maxExecutionMinutes) {
-                    log.info("자정 자동 완료 스킵 (최대 수행시간 미경과, 고정 미션): instanceId={}, elapsed={}분, threshold={}분",
-                        instance.getId(), elapsedMinutes, maxExecutionMinutes);
+                    log.info(
+                            "자정 자동 완료 스킵 (최대 수행시간 미경과, 고정 미션): instanceId={}, elapsed={}분,"
+                                    + " threshold={}분",
+                            instance.getId(),
+                            elapsedMinutes,
+                            maxExecutionMinutes);
                     continue;
                 }
             }
@@ -191,17 +201,27 @@ public class DailyMissionInstanceScheduler {
             try {
                 dailyMissionInstanceService.completeInstance(instance.getId(), userId, null, false);
                 count++;
-                log.info("자정 자동 완료 (고정 미션): instanceId={}, userId={}, date={}, title={}",
-                    instance.getId(), userId, instance.getInstanceDate(), instance.getMissionTitle());
+                log.info(
+                        "자정 자동 완료 (고정 미션): instanceId={}, userId={}, date={}, title={}",
+                        instance.getId(),
+                        userId,
+                        instance.getInstanceDate(),
+                        instance.getMissionTitle());
             } catch (Exception e) {
                 // Saga 실패 시 엔티티 레벨 직접 완료
-                log.warn("자정 Saga 자동 완료 실패, 직접 완료 처리: instanceId={}, error={}",
-                    instance.getId(), e.getMessage());
+                log.warn(
+                        "자정 Saga 자동 완료 실패, 직접 완료 처리: instanceId={}, error={}",
+                        instance.getId(),
+                        e.getMessage());
                 try {
-                    if (instance.autoCompleteForDateChange(missionExecutionProperties.getBaseExp())) {
+                    if (instance.autoCompleteForDateChange(
+                            missionExecutionProperties.getBaseExp())) {
                         instanceRepository.save(instance);
                         // QA-141: 폴백 시에도 user_experience / experience_history 에 EXP 반영
-                        grantAutoCompleteExp(instance.getParticipant(), instance.getExpEarned(), instance.getId());
+                        grantAutoCompleteExp(
+                                instance.getParticipant(),
+                                instance.getExpEarned(),
+                                instance.getId());
                         count++;
                     }
                 } catch (Exception fallbackError) {
@@ -215,21 +235,28 @@ public class DailyMissionInstanceScheduler {
     /**
      * 지난 날짜의 IN_PROGRESS 일반 미션 실행 자동 완료
      *
-     * 날짜가 바뀌었는데 완료되지 않은 일반 미션을 Saga로 자동 완료하여 경험치를 정상 지급합니다.
-     * Saga 실패 시 엔티티 레벨 직접 완료로 폴백합니다.
+     * <p>날짜가 바뀌었는데 완료되지 않은 일반 미션을 Saga로 자동 완료하여 경험치를 정상 지급합니다. Saga 실패 시 엔티티 레벨 직접 완료로 폴백합니다.
      */
     private int autoCompletePastDayInProgressExecutions(LocalDate today) {
-        List<MissionExecution> inProgressExecutions = executionRepository.findInProgressBeforeDate(today);
+        List<MissionExecution> inProgressExecutions =
+                executionRepository.findInProgressBeforeDate(today);
 
         int maxExecutionMinutes = missionExecutionProperties.getMaxExecutionMinutes();
         int count = 0;
         for (MissionExecution execution : inProgressExecutions) {
             // 시작 후 maxExecutionMinutes 미경과 미션은 사용자가 직접 종료하도록 유지
             if (execution.getStartedAt() != null) {
-                long elapsedMinutes = java.time.Duration.between(execution.getStartedAt(), java.time.LocalDateTime.now()).toMinutes();
+                long elapsedMinutes =
+                        java.time.Duration.between(
+                                        execution.getStartedAt(), java.time.LocalDateTime.now())
+                                .toMinutes();
                 if (elapsedMinutes < maxExecutionMinutes) {
-                    log.info("자정 자동 완료 스킵 (최대 수행시간 미경과, 일반 미션): executionId={}, elapsed={}분, threshold={}분",
-                        execution.getId(), elapsedMinutes, maxExecutionMinutes);
+                    log.info(
+                            "자정 자동 완료 스킵 (최대 수행시간 미경과, 일반 미션): executionId={}, elapsed={}분,"
+                                    + " threshold={}분",
+                            execution.getId(),
+                            elapsedMinutes,
+                            maxExecutionMinutes);
                     continue;
                 }
             }
@@ -238,26 +265,34 @@ public class DailyMissionInstanceScheduler {
             try {
                 missionExecutionService.completeExecution(execution.getId(), userId, null, false);
                 count++;
-                log.info("자정 자동 완료 (일반 미션): executionId={}, userId={}, date={}",
-                    execution.getId(), userId, execution.getExecutionDate());
+                log.info(
+                        "자정 자동 완료 (일반 미션): executionId={}, userId={}, date={}",
+                        execution.getId(),
+                        userId,
+                        execution.getExecutionDate());
             } catch (Exception e) {
                 // Saga 실패 시 엔티티 레벨 직접 완료
-                log.warn("자정 Saga 자동 완료 실패, 직접 완료 처리: executionId={}, error={}",
-                    execution.getId(), e.getMessage());
+                log.warn(
+                        "자정 Saga 자동 완료 실패, 직접 완료 처리: executionId={}, error={}",
+                        execution.getId(),
+                        e.getMessage());
                 try {
-                    if (execution.autoCompleteForDateChange(missionExecutionProperties.getBaseExp())) {
+                    if (execution.autoCompleteForDateChange(
+                            missionExecutionProperties.getBaseExp())) {
                         executionRepository.save(execution);
                         // 일반 미션 participant를 COMPLETED로 변경하여 미션 목록에서 제외
                         MissionParticipant participant = execution.getParticipant();
-                        if (participant != null && !Boolean.TRUE.equals(participant.getMission().getIsPinned())
-                            && participant.getStatus() != ParticipantStatus.COMPLETED) {
+                        if (participant != null
+                                && !Boolean.TRUE.equals(participant.getMission().getIsPinned())
+                                && participant.getStatus() != ParticipantStatus.COMPLETED) {
                             participant.setStatus(ParticipantStatus.COMPLETED);
                             participant.setProgress(100);
                             participant.setCompletedAt(java.time.LocalDateTime.now());
                             participantRepository.save(participant);
                         }
                         // QA-141: 폴백 시에도 user_experience / experience_history 에 EXP 반영
-                        grantAutoCompleteExp(participant, execution.getExpEarned(), execution.getId());
+                        grantAutoCompleteExp(
+                                participant, execution.getExpEarned(), execution.getId());
                         count++;
                     }
                 } catch (Exception fallbackError) {
@@ -271,10 +306,11 @@ public class DailyMissionInstanceScheduler {
     /**
      * QA-141: 자정 Saga 폴백 시에도 user_experience / experience_history 에 EXP 를 반영.
      *
-     * MissionAutoCompleteScheduler.grantAutoCompleteExp 와 동일한 의도 — entity 의 exp_earned 만으로는
-     * "오늘의 MVP" 집계(experience_history 기반) 와 마이페이지 totalExp 가 누락된다.
+     * <p>MissionAutoCompleteScheduler.grantAutoCompleteExp 와 동일한 의도 — entity 의 exp_earned 만으로는 "오늘의
+     * MVP" 집계(experience_history 기반) 와 마이페이지 totalExp 가 누락된다.
      */
-    private void grantAutoCompleteExp(MissionParticipant participant, Integer expEarned, Long sourceId) {
+    private void grantAutoCompleteExp(
+            MissionParticipant participant, Integer expEarned, Long sourceId) {
         if (participant == null || expEarned == null || expEarned <= 0) {
             return;
         }
@@ -284,33 +320,37 @@ public class DailyMissionInstanceScheduler {
         }
         try {
             gamificationQueryFacade.addExperience(
-                participant.getUserId(),
-                expEarned,
-                ExpSourceType.MISSION_EXECUTION,
-                mission.getId(),
-                "미션 자정 자동 종료 폴백 보상: " + mission.getTitle(),
-                mission.getCategoryId(),
-                mission.getCategoryName()
-            );
+                    participant.getUserId(),
+                    expEarned,
+                    ExpSourceType.MISSION_EXECUTION,
+                    mission.getId(),
+                    "미션 자정 자동 종료 폴백 보상: " + mission.getTitle(),
+                    mission.getCategoryId(),
+                    mission.getCategoryName());
         } catch (Exception e) {
-            log.error("자정 폴백 EXP 지급 실패: userId={}, missionId={}, sourceId={}, error={}",
-                participant.getUserId(), mission.getId(), sourceId, e.getMessage(), e);
+            log.error(
+                    "자정 폴백 EXP 지급 실패: userId={}, missionId={}, sourceId={}, error={}",
+                    participant.getUserId(),
+                    mission.getId(),
+                    sourceId,
+                    e.getMessage(),
+                    e);
         }
     }
 
-    /**
-     * 수동 실행: 특정 날짜의 인스턴스 생성 (관리자용)
-     */
+    /** 수동 실행: 특정 날짜의 인스턴스 생성 (관리자용) */
     @Transactional(transactionManager = "missionTransactionManager")
     public int generateInstancesForDate(LocalDate date) {
         log.info("수동 인스턴스 생성 시작: date={}", date);
 
         // 활성 고정 미션 참여자 조회
-        List<MissionParticipant> participants = participantRepository.findAllActivePinnedMissionParticipants();
+        List<MissionParticipant> participants =
+                participantRepository.findAllActivePinnedMissionParticipants();
 
         int createdCount = 0;
         for (MissionParticipant participant : participants) {
-            if (!instanceRepository.existsByParticipantIdAndInstanceDate(participant.getId(), date)) {
+            if (!instanceRepository.existsByParticipantIdAndInstanceDate(
+                    participant.getId(), date)) {
                 DailyMissionInstance instance = DailyMissionInstance.createFrom(participant, date);
                 instanceRepository.save(instance);
                 createdCount++;

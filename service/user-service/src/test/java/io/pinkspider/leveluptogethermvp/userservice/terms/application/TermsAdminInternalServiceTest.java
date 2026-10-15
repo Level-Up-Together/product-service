@@ -46,38 +46,32 @@ import org.springframework.data.domain.Pageable;
 @ExtendWith(MockitoExtension.class)
 class TermsAdminInternalServiceTest {
 
-    @Mock
-    private TermsRepository termsRepository;
+    @Mock private TermsRepository termsRepository;
 
-    @Mock
-    private TermVersionRepository termVersionRepository;
+    @Mock private TermVersionRepository termVersionRepository;
 
-    @Mock
-    private UserTermAgreementsRepository userTermAgreementsRepository;
+    @Mock private UserTermAgreementsRepository userTermAgreementsRepository;
 
-    @InjectMocks
-    private TermsAdminInternalService termsAdminInternalService;
+    @InjectMocks private TermsAdminInternalService termsAdminInternalService;
 
     private static final String TEST_USER_ID = "test-user-123";
 
     private Term createTestTerm(Long id, String code, String title) {
-        Term term = Term.builder()
-            .code(code)
-            .title(title)
-            .description("테스트 약관 설명")
-            .type("REQUIRED")
-            .isRequired(true)
-            .build();
+        Term term =
+                Term.builder()
+                        .code(code)
+                        .title(title)
+                        .description("테스트 약관 설명")
+                        .type("REQUIRED")
+                        .isRequired(true)
+                        .build();
         setId(term, id);
         return term;
     }
 
     private TermVersion createTestTermVersion(Long id, Term term, String version) {
-        TermVersion termVersion = TermVersion.builder()
-            .terms(term)
-            .version(version)
-            .content("약관 내용")
-            .build();
+        TermVersion termVersion =
+                TermVersion.builder().terms(term).version(version).content("약관 내용").build();
         setId(termVersion, id);
         return termVersion;
     }
@@ -89,10 +83,7 @@ class TermsAdminInternalServiceTest {
     }
 
     private Users createTestUser(String userId) {
-        Users user = Users.builder()
-            .nickname("테스트유저")
-            .email(userId + "@test.com")
-            .build();
+        Users user = Users.builder().nickname("테스트유저").email(userId + "@test.com").build();
         setId(user, userId);
         return user;
     }
@@ -189,7 +180,7 @@ class TermsAdminInternalServiceTest {
 
             // when & then
             assertThatThrownBy(() -> termsAdminInternalService.getTerms(999L))
-                .isInstanceOf(CustomException.class);
+                    .isInstanceOf(CustomException.class);
         }
     }
 
@@ -221,7 +212,7 @@ class TermsAdminInternalServiceTest {
 
             // when & then
             assertThatThrownBy(() -> termsAdminInternalService.getTermsByCode("INVALID"))
-                .isInstanceOf(CustomException.class);
+                    .isInstanceOf(CustomException.class);
         }
     }
 
@@ -236,7 +227,8 @@ class TermsAdminInternalServiceTest {
             Term term1 = createTestTerm(1L, "TERMS_001", "이용약관");
             Term term2 = createTestTerm(2L, "TERMS_002", "개인정보처리방침");
 
-            when(termsRepository.findByIsRequiredTrueOrderByIdAsc()).thenReturn(List.of(term1, term2));
+            when(termsRepository.findByIsRequiredTrueOrderByIdAsc())
+                    .thenReturn(List.of(term1, term2));
 
             // when
             List<TermsAdminResponse> result = termsAdminInternalService.getRequiredTerms();
@@ -296,9 +288,8 @@ class TermsAdminInternalServiceTest {
         @DisplayName("새 약관을 생성한다")
         void createTerms_success() {
             // given
-            TermsAdminRequest request = new TermsAdminRequest(
-                "TERMS_NEW", "새로운 약관", "약관 설명", "REQUIRED", true
-            );
+            TermsAdminRequest request =
+                    new TermsAdminRequest("TERMS_NEW", "새로운 약관", "약관 설명", "REQUIRED", true);
             Term savedTerm = createTestTerm(10L, "TERMS_NEW", "새로운 약관");
 
             when(termsRepository.existsByCode("TERMS_NEW")).thenReturn(false);
@@ -318,15 +309,14 @@ class TermsAdminInternalServiceTest {
         @DisplayName("이미 존재하는 코드로 약관 생성 시 예외를 발생시킨다")
         void createTerms_duplicateCode_throwsException() {
             // given
-            TermsAdminRequest request = new TermsAdminRequest(
-                "TERMS_001", "중복 약관", "설명", "REQUIRED", true
-            );
+            TermsAdminRequest request =
+                    new TermsAdminRequest("TERMS_001", "중복 약관", "설명", "REQUIRED", true);
 
             when(termsRepository.existsByCode("TERMS_001")).thenReturn(true);
 
             // when & then
             assertThatThrownBy(() -> termsAdminInternalService.createTerms(request))
-                .isInstanceOf(CustomException.class);
+                    .isInstanceOf(CustomException.class);
             verify(termsRepository).existsByCode("TERMS_001");
         }
 
@@ -334,9 +324,8 @@ class TermsAdminInternalServiceTest {
         @DisplayName("isRequired가 null이면 false로 기본 설정된다")
         void createTerms_nullIsRequired_defaultFalse() {
             // given
-            TermsAdminRequest request = new TermsAdminRequest(
-                "TERMS_OPT", "선택 약관", "설명", "OPTIONAL", null
-            );
+            TermsAdminRequest request =
+                    new TermsAdminRequest("TERMS_OPT", "선택 약관", "설명", "OPTIONAL", null);
             Term savedTerm = createTestTerm(11L, "TERMS_OPT", "선택 약관");
 
             when(termsRepository.existsByCode("TERMS_OPT")).thenReturn(false);
@@ -360,9 +349,8 @@ class TermsAdminInternalServiceTest {
         void updateTerms_success() {
             // given
             Term existingTerm = createTestTerm(1L, "TERMS_001", "이용약관");
-            TermsAdminRequest request = new TermsAdminRequest(
-                "TERMS_001", "이용약관 수정", "수정된 설명", "REQUIRED", true
-            );
+            TermsAdminRequest request =
+                    new TermsAdminRequest("TERMS_001", "이용약관 수정", "수정된 설명", "REQUIRED", true);
 
             when(termsRepository.findById(1L)).thenReturn(Optional.of(existingTerm));
             when(termsRepository.save(any(Term.class))).thenReturn(existingTerm);
@@ -381,31 +369,29 @@ class TermsAdminInternalServiceTest {
         void updateTerms_duplicateNewCode_throwsException() {
             // given
             Term existingTerm = createTestTerm(1L, "TERMS_001", "이용약관");
-            TermsAdminRequest request = new TermsAdminRequest(
-                "TERMS_002", "이용약관 수정", "설명", "REQUIRED", true
-            );
+            TermsAdminRequest request =
+                    new TermsAdminRequest("TERMS_002", "이용약관 수정", "설명", "REQUIRED", true);
 
             when(termsRepository.findById(1L)).thenReturn(Optional.of(existingTerm));
             when(termsRepository.existsByCode("TERMS_002")).thenReturn(true);
 
             // when & then
             assertThatThrownBy(() -> termsAdminInternalService.updateTerms(1L, request))
-                .isInstanceOf(CustomException.class);
+                    .isInstanceOf(CustomException.class);
         }
 
         @Test
         @DisplayName("존재하지 않는 약관 수정 시 예외를 발생시킨다")
         void updateTerms_notFound_throwsException() {
             // given
-            TermsAdminRequest request = new TermsAdminRequest(
-                "TERMS_001", "약관", "설명", "REQUIRED", true
-            );
+            TermsAdminRequest request =
+                    new TermsAdminRequest("TERMS_001", "약관", "설명", "REQUIRED", true);
 
             when(termsRepository.findById(999L)).thenReturn(Optional.empty());
 
             // when & then
             assertThatThrownBy(() -> termsAdminInternalService.updateTerms(999L, request))
-                .isInstanceOf(CustomException.class);
+                    .isInstanceOf(CustomException.class);
         }
     }
 
@@ -419,7 +405,7 @@ class TermsAdminInternalServiceTest {
             // given
             when(termsRepository.existsById(1L)).thenReturn(true);
             when(termVersionRepository.existsByTermsIdAndStatus(1L, TermVersionStatus.PUBLISHED))
-                .thenReturn(false);
+                    .thenReturn(false);
 
             // when
             termsAdminInternalService.deleteTerms(1L);
@@ -437,7 +423,7 @@ class TermsAdminInternalServiceTest {
 
             // when & then
             assertThatThrownBy(() -> termsAdminInternalService.deleteTerms(999L))
-                .isInstanceOf(CustomException.class);
+                    .isInstanceOf(CustomException.class);
         }
 
         @Test
@@ -446,12 +432,12 @@ class TermsAdminInternalServiceTest {
             // given
             when(termsRepository.existsById(1L)).thenReturn(true);
             when(termVersionRepository.existsByTermsIdAndStatus(1L, TermVersionStatus.PUBLISHED))
-                .thenReturn(true);
+                    .thenReturn(true);
 
             // when & then
             assertThatThrownBy(() -> termsAdminInternalService.deleteTerms(1L))
-                .isInstanceOf(CustomException.class)
-                .hasMessageContaining("error.terms.has_published_version");
+                    .isInstanceOf(CustomException.class)
+                    .hasMessageContaining("error.terms.has_published_version");
         }
     }
 
@@ -489,7 +475,7 @@ class TermsAdminInternalServiceTest {
 
             // when & then
             assertThatThrownBy(() -> termsAdminInternalService.getTermVersions(999L))
-                .isInstanceOf(CustomException.class);
+                    .isInstanceOf(CustomException.class);
         }
     }
 
@@ -524,7 +510,7 @@ class TermsAdminInternalServiceTest {
 
             // when & then
             assertThatThrownBy(() -> termsAdminInternalService.getTermVersion(999L))
-                .isInstanceOf(CustomException.class);
+                    .isInstanceOf(CustomException.class);
         }
     }
 
@@ -540,7 +526,7 @@ class TermsAdminInternalServiceTest {
             TermVersion latestVersion = createTestTermVersion(3L, term, "3.0");
 
             when(termVersionRepository.findTopByTermsIdOrderByIdDesc(1L))
-                .thenReturn(Optional.of(latestVersion));
+                    .thenReturn(Optional.of(latestVersion));
 
             // when
             TermVersionAdminResponse result = termsAdminInternalService.getLatestTermVersion(1L);
@@ -556,11 +542,11 @@ class TermsAdminInternalServiceTest {
         void getLatestTermVersion_notFound_throwsException() {
             // given
             when(termVersionRepository.findTopByTermsIdOrderByIdDesc(1L))
-                .thenReturn(Optional.empty());
+                    .thenReturn(Optional.empty());
 
             // when & then
             assertThatThrownBy(() -> termsAdminInternalService.getLatestTermVersion(1L))
-                .isInstanceOf(CustomException.class);
+                    .isInstanceOf(CustomException.class);
         }
     }
 
@@ -581,7 +567,8 @@ class TermsAdminInternalServiceTest {
             when(termVersionRepository.save(any(TermVersion.class))).thenReturn(savedVersion);
 
             // when
-            TermVersionAdminResponse result = termsAdminInternalService.createTermVersion(1L, request);
+            TermVersionAdminResponse result =
+                    termsAdminInternalService.createTermVersion(1L, request);
 
             // then
             assertThat(result).isNotNull();
@@ -604,7 +591,7 @@ class TermsAdminInternalServiceTest {
 
             // when & then
             assertThatThrownBy(() -> termsAdminInternalService.createTermVersion(1L, request))
-                .isInstanceOf(CustomException.class);
+                    .isInstanceOf(CustomException.class);
         }
 
         @Test
@@ -617,7 +604,7 @@ class TermsAdminInternalServiceTest {
 
             // when & then
             assertThatThrownBy(() -> termsAdminInternalService.createTermVersion(999L, request))
-                .isInstanceOf(CustomException.class);
+                    .isInstanceOf(CustomException.class);
         }
     }
 
@@ -633,11 +620,13 @@ class TermsAdminInternalServiceTest {
             TermVersion existingVersion = createTestTermVersion(1L, term, "1.0");
             TermVersionAdminRequest request = new TermVersionAdminRequest("1.0", "수정된 약관 내용");
 
-            when(termVersionRepository.findByIdWithTerms(1L)).thenReturn(Optional.of(existingVersion));
+            when(termVersionRepository.findByIdWithTerms(1L))
+                    .thenReturn(Optional.of(existingVersion));
             when(termVersionRepository.save(any(TermVersion.class))).thenReturn(existingVersion);
 
             // when
-            TermVersionAdminResponse result = termsAdminInternalService.updateTermVersion(1L, request);
+            TermVersionAdminResponse result =
+                    termsAdminInternalService.updateTermVersion(1L, request);
 
             // then
             assertThat(result).isNotNull();
@@ -652,12 +641,13 @@ class TermsAdminInternalServiceTest {
             TermVersion existingVersion = createTestTermVersion(1L, term, "1.0");
             TermVersionAdminRequest request = new TermVersionAdminRequest("2.0", "약관 내용");
 
-            when(termVersionRepository.findByIdWithTerms(1L)).thenReturn(Optional.of(existingVersion));
+            when(termVersionRepository.findByIdWithTerms(1L))
+                    .thenReturn(Optional.of(existingVersion));
             when(termVersionRepository.existsByTermsIdAndVersion(1L, "2.0")).thenReturn(true);
 
             // when & then
             assertThatThrownBy(() -> termsAdminInternalService.updateTermVersion(1L, request))
-                .isInstanceOf(CustomException.class);
+                    .isInstanceOf(CustomException.class);
         }
 
         @Test
@@ -670,7 +660,7 @@ class TermsAdminInternalServiceTest {
 
             // when & then
             assertThatThrownBy(() -> termsAdminInternalService.updateTermVersion(999L, request))
-                .isInstanceOf(CustomException.class);
+                    .isInstanceOf(CustomException.class);
         }
 
         @Test
@@ -681,12 +671,13 @@ class TermsAdminInternalServiceTest {
             TermVersion publishedVersion = createPublishedTermVersion(1L, term, "1.0");
             TermVersionAdminRequest request = new TermVersionAdminRequest("1.0", "수정된 약관 내용");
 
-            when(termVersionRepository.findByIdWithTerms(1L)).thenReturn(Optional.of(publishedVersion));
+            when(termVersionRepository.findByIdWithTerms(1L))
+                    .thenReturn(Optional.of(publishedVersion));
 
             // when & then
             assertThatThrownBy(() -> termsAdminInternalService.updateTermVersion(1L, request))
-                .isInstanceOf(CustomException.class)
-                .hasMessageContaining("error.terms.version.published_immutable");
+                    .isInstanceOf(CustomException.class)
+                    .hasMessageContaining("error.terms.version.published_immutable");
         }
     }
 
@@ -718,7 +709,7 @@ class TermsAdminInternalServiceTest {
 
             // when & then
             assertThatThrownBy(() -> termsAdminInternalService.deleteTermVersion(999L))
-                .isInstanceOf(CustomException.class);
+                    .isInstanceOf(CustomException.class);
         }
 
         @Test
@@ -732,8 +723,8 @@ class TermsAdminInternalServiceTest {
 
             // when & then
             assertThatThrownBy(() -> termsAdminInternalService.deleteTermVersion(1L))
-                .isInstanceOf(CustomException.class)
-                .hasMessageContaining("error.terms.version.published_immutable");
+                    .isInstanceOf(CustomException.class)
+                    .hasMessageContaining("error.terms.version.published_immutable");
         }
     }
 
@@ -769,12 +760,13 @@ class TermsAdminInternalServiceTest {
             Term term = createTestTerm(1L, "TERMS_001", "이용약관");
             TermVersion publishedVersion = createPublishedTermVersion(1L, term, "1.0");
 
-            when(termVersionRepository.findByIdWithTerms(1L)).thenReturn(Optional.of(publishedVersion));
+            when(termVersionRepository.findByIdWithTerms(1L))
+                    .thenReturn(Optional.of(publishedVersion));
 
             // when & then
             assertThatThrownBy(() -> termsAdminInternalService.publishTermVersion(1L))
-                .isInstanceOf(CustomException.class)
-                .hasMessageContaining("error.terms.version.already_published");
+                    .isInstanceOf(CustomException.class)
+                    .hasMessageContaining("error.terms.version.already_published");
         }
 
         @Test
@@ -785,7 +777,7 @@ class TermsAdminInternalServiceTest {
 
             // when & then
             assertThatThrownBy(() -> termsAdminInternalService.publishTermVersion(999L))
-                .isInstanceOf(CustomException.class);
+                    .isInstanceOf(CustomException.class);
         }
     }
 
@@ -802,19 +794,20 @@ class TermsAdminInternalServiceTest {
             Term term = createTestTerm(1L, "TERMS_001", "이용약관");
             TermVersion termVersion = createTestTermVersion(1L, term, "1.0");
             Users user = createTestUser(TEST_USER_ID);
-            UserTermAgreement agreement = UserTermAgreement.builder()
-                .users(user)
-                .termVersion(termVersion)
-                .isAgreed(true)
-                .build();
+            UserTermAgreement agreement =
+                    UserTermAgreement.builder()
+                            .users(user)
+                            .termVersion(termVersion)
+                            .isAgreed(true)
+                            .build();
             setId(agreement, 1L);
 
             when(userTermAgreementsRepository.findByUserIdWithTerms(TEST_USER_ID))
-                .thenReturn(List.of(agreement));
+                    .thenReturn(List.of(agreement));
 
             // when
             List<UserTermAgreementAdminResponse> result =
-                termsAdminInternalService.getUserAgreements(TEST_USER_ID);
+                    termsAdminInternalService.getUserAgreements(TEST_USER_ID);
 
             // then
             assertThat(result).hasSize(1);
@@ -834,20 +827,21 @@ class TermsAdminInternalServiceTest {
             Term term = createTestTerm(1L, "TERMS_001", "이용약관");
             TermVersion termVersion = createTestTermVersion(1L, term, "1.0");
             Users user = createTestUser(TEST_USER_ID);
-            UserTermAgreement agreement = UserTermAgreement.builder()
-                .users(user)
-                .termVersion(termVersion)
-                .isAgreed(true)
-                .build();
+            UserTermAgreement agreement =
+                    UserTermAgreement.builder()
+                            .users(user)
+                            .termVersion(termVersion)
+                            .isAgreed(true)
+                            .build();
             setId(agreement, 1L);
 
             when(termsRepository.existsById(1L)).thenReturn(true);
             when(userTermAgreementsRepository.findByUserIdAndTermsId(TEST_USER_ID, 1L))
-                .thenReturn(List.of(agreement));
+                    .thenReturn(List.of(agreement));
 
             // when
             List<UserTermAgreementAdminResponse> result =
-                termsAdminInternalService.getUserAgreementsByTerms(TEST_USER_ID, 1L);
+                    termsAdminInternalService.getUserAgreementsByTerms(TEST_USER_ID, 1L);
 
             // then
             assertThat(result).hasSize(1);
@@ -862,8 +856,10 @@ class TermsAdminInternalServiceTest {
 
             // when & then
             assertThatThrownBy(
-                () -> termsAdminInternalService.getUserAgreementsByTerms(TEST_USER_ID, 999L))
-                .isInstanceOf(CustomException.class);
+                            () ->
+                                    termsAdminInternalService.getUserAgreementsByTerms(
+                                            TEST_USER_ID, 999L))
+                    .isInstanceOf(CustomException.class);
         }
     }
 
@@ -892,9 +888,8 @@ class TermsAdminInternalServiceTest {
             when(termVersionRepository.existsById(999L)).thenReturn(false);
 
             // when & then
-            assertThatThrownBy(
-                () -> termsAdminInternalService.getAgreementCountByTermVersion(999L))
-                .isInstanceOf(CustomException.class);
+            assertThatThrownBy(() -> termsAdminInternalService.getAgreementCountByTermVersion(999L))
+                    .isInstanceOf(CustomException.class);
         }
     }
 
@@ -907,7 +902,8 @@ class TermsAdminInternalServiceTest {
         void getAgreementCountByTerms_success() {
             // given
             when(termsRepository.existsById(1L)).thenReturn(true);
-            when(userTermAgreementsRepository.countDistinctUsersByTermsIdAndAgreed(1L)).thenReturn(50L);
+            when(userTermAgreementsRepository.countDistinctUsersByTermsIdAndAgreed(1L))
+                    .thenReturn(50L);
 
             // when
             Long result = termsAdminInternalService.getAgreementCountByTerms(1L);
@@ -924,7 +920,7 @@ class TermsAdminInternalServiceTest {
 
             // when & then
             assertThatThrownBy(() -> termsAdminInternalService.getAgreementCountByTerms(999L))
-                .isInstanceOf(CustomException.class);
+                    .isInstanceOf(CustomException.class);
         }
     }
 
@@ -939,28 +935,29 @@ class TermsAdminInternalServiceTest {
             Term term = createTestTerm(1L, "TERMS_001", "이용약관");
             TermVersion termVersion = createTestTermVersion(1L, term, "1.0");
             Users user = createTestUser(TEST_USER_ID);
-            UserTermAgreement agreement = UserTermAgreement.builder()
-                .users(user)
-                .termVersion(termVersion)
-                .isAgreed(true)
-                .build();
+            UserTermAgreement agreement =
+                    UserTermAgreement.builder()
+                            .users(user)
+                            .termVersion(termVersion)
+                            .isAgreed(true)
+                            .build();
             setId(agreement, 1L);
 
             Pageable pageable = PageRequest.of(0, 10);
             Page<UserTermAgreement> page = new PageImpl<>(List.of(agreement), pageable, 1);
 
             when(userTermAgreementsRepository.searchAgreementsWithFetch(
-                eq(TEST_USER_ID), eq(1L), eq(true), eq(pageable)))
-                .thenReturn(page);
+                            eq(TEST_USER_ID), eq(1L), eq(true), eq(pageable)))
+                    .thenReturn(page);
 
             // when
             UserTermAgreementAdminPageResponse result =
-                termsAdminInternalService.searchAllAgreements(TEST_USER_ID, 1L, true, pageable);
+                    termsAdminInternalService.searchAllAgreements(TEST_USER_ID, 1L, true, pageable);
 
             // then
             assertThat(result).isNotNull();
-            verify(userTermAgreementsRepository).searchAgreementsWithFetch(
-                TEST_USER_ID, 1L, true, pageable);
+            verify(userTermAgreementsRepository)
+                    .searchAgreementsWithFetch(TEST_USER_ID, 1L, true, pageable);
         }
     }
 
@@ -976,17 +973,19 @@ class TermsAdminInternalServiceTest {
             Page<String> userIdPage = new PageImpl<>(List.of(TEST_USER_ID), pageable, 1);
 
             when(userTermAgreementsRepository.findDistinctUserIds(anyString(), eq(pageable)))
-                .thenReturn(userIdPage);
+                    .thenReturn(userIdPage);
             when(userTermAgreementsRepository.countByUsersId(TEST_USER_ID)).thenReturn(5L);
             when(userTermAgreementsRepository.countAgreedByUsersId(TEST_USER_ID)).thenReturn(3L);
-            when(userTermAgreementsRepository.countRequiredTermsByUsersId(TEST_USER_ID)).thenReturn(2L);
-            when(userTermAgreementsRepository.countRequiredAgreedByUsersId(TEST_USER_ID)).thenReturn(2L);
+            when(userTermAgreementsRepository.countRequiredTermsByUsersId(TEST_USER_ID))
+                    .thenReturn(2L);
+            when(userTermAgreementsRepository.countRequiredAgreedByUsersId(TEST_USER_ID))
+                    .thenReturn(2L);
             when(userTermAgreementsRepository.findLastAgreedAtByUsersId(TEST_USER_ID))
-                .thenReturn(LocalDateTime.now());
+                    .thenReturn(LocalDateTime.now());
 
             // when
             UserAgreementSummaryAdminPageResponse result =
-                termsAdminInternalService.getUserAgreementSummaries("test", pageable);
+                    termsAdminInternalService.getUserAgreementSummaries("test", pageable);
 
             // then
             assertThat(result).isNotNull();

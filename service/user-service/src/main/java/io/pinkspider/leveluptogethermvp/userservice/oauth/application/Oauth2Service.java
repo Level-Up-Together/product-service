@@ -2,20 +2,26 @@ package io.pinkspider.leveluptogethermvp.userservice.oauth.application;
 
 import com.nimbusds.jwt.JWTClaimsSet;
 import io.pinkspider.global.api.ApiStatus;
+import io.pinkspider.global.enums.NotificationType;
+import io.pinkspider.global.event.UserSignedUpEvent;
 import io.pinkspider.global.exception.CustomException;
+import io.pinkspider.global.security.JwtUtil;
+import io.pinkspider.global.security.OAuth2Properties;
 import io.pinkspider.global.util.CryptoUtils;
+import io.pinkspider.leveluptogethermvp.notificationservice.application.NotificationService;
 import io.pinkspider.leveluptogethermvp.userservice.core.feignclient.google.GoogleOAuth2FeignClient;
 import io.pinkspider.leveluptogethermvp.userservice.core.feignclient.google.GoogleUserInfoFeignClient;
 import io.pinkspider.leveluptogethermvp.userservice.core.feignclient.kakao.KakaoOAuth2FeignClient;
 import io.pinkspider.leveluptogethermvp.userservice.core.feignclient.kakao.KakaoUserInfoFeignClient;
-import io.pinkspider.global.security.OAuth2Properties;
-import io.pinkspider.global.security.JwtUtil;
+import io.pinkspider.leveluptogethermvp.userservice.core.properties.WithdrawalProperties;
+import io.pinkspider.leveluptogethermvp.userservice.geoip.GeoIpService;
+import io.pinkspider.leveluptogethermvp.userservice.geoip.GeoIpService.GeoIpResult;
 import io.pinkspider.leveluptogethermvp.userservice.oauth.components.DeviceIdentifier;
 import io.pinkspider.leveluptogethermvp.userservice.oauth.components.DeviceTypeResolver;
+import io.pinkspider.leveluptogethermvp.userservice.oauth.domain.SignupSessionData;
 import io.pinkspider.leveluptogethermvp.userservice.oauth.domain.dto.OAuth2UserInfo;
 import io.pinkspider.leveluptogethermvp.userservice.oauth.domain.dto.apple.AppleUserInfo;
 import io.pinkspider.leveluptogethermvp.userservice.oauth.domain.dto.google.GoogleUserInfo;
-import io.pinkspider.leveluptogethermvp.userservice.oauth.domain.SignupSessionData;
 import io.pinkspider.leveluptogethermvp.userservice.oauth.domain.dto.jwt.CreateJwtResponseDto;
 import io.pinkspider.leveluptogethermvp.userservice.oauth.domain.dto.jwt.OAuth2LoginUriResponseDto;
 import io.pinkspider.leveluptogethermvp.userservice.oauth.domain.dto.jwt.SocialLoginResponseDto;
@@ -24,29 +30,21 @@ import io.pinkspider.leveluptogethermvp.userservice.oauth.domain.dto.request.Com
 import io.pinkspider.leveluptogethermvp.userservice.terms.application.UserTermsService;
 import io.pinkspider.leveluptogethermvp.userservice.terms.domain.request.AgreementTermsByUserRequestDto;
 import io.pinkspider.leveluptogethermvp.userservice.terms.domain.request.AgreementTermsByUserRequestDto.AgreementTerms;
-import io.pinkspider.global.enums.NotificationType;
-import io.pinkspider.global.event.UserSignedUpEvent;
-import io.pinkspider.leveluptogethermvp.userservice.geoip.GeoIpService;
-import io.pinkspider.leveluptogethermvp.notificationservice.application.NotificationService;
-import io.pinkspider.leveluptogethermvp.userservice.geoip.GeoIpService.GeoIpResult;
-import io.pinkspider.leveluptogethermvp.userservice.core.properties.WithdrawalProperties;
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.entity.Users;
-import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.enums.UserStatus;
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.infrastructure.UserRepository;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.transaction.Transactional;
 import java.text.ParseException;
-import java.util.Date;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.security.oauth2.client.registration.ClientRegistration;
-import org.springframework.security.oauth2.client.registration.ClientRegistrationRepository;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.MessageSource;
 import org.springframework.context.i18n.LocaleContextHolder;
+import org.springframework.security.oauth2.client.registration.ClientRegistration;
+import org.springframework.security.oauth2.client.registration.ClientRegistrationRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.web.util.UriComponentsBuilder;
 
@@ -80,12 +78,17 @@ public class Oauth2Service {
 
     @org.springframework.beans.factory.annotation.Value("${app.jwt.access-token-expiry:86400000}")
     private long accessTokenExpiryMs;
+
     private final ApplicationEventPublisher eventPublisher;
 
-    public OAuth2LoginUriResponseDto getOauth2LoginUri(String provider, HttpServletRequest request) {
-        ClientRegistration clientRegistration = clientRegistrationRepository.findByRegistrationId(provider);
+    public OAuth2LoginUriResponseDto getOauth2LoginUri(
+            String provider, HttpServletRequest request) {
+        ClientRegistration clientRegistration =
+                clientRegistrationRepository.findByRegistrationId(provider);
         if (clientRegistration == null) {
-            throw new CustomException(ApiStatus.SYSTEM_ERROR.getResultCode(), ApiStatus.SYSTEM_ERROR.getResultMessage());
+            throw new CustomException(
+                    ApiStatus.SYSTEM_ERROR.getResultCode(),
+                    ApiStatus.SYSTEM_ERROR.getResultMessage());
         }
 
         // OAuth2 인증 URL 생성
@@ -94,22 +97,22 @@ public class Oauth2Service {
         String redirectUri = resolveRedirectUri(request, provider);
 
         // 최종 OAuth2 인증 URL 구성
-        String authUrl = UriComponentsBuilder.fromUriString(authorizationUri)
-            .queryParam("client_id", clientId)
-            .queryParam("redirect_uri", redirectUri)
-            .queryParam("response_type", "code")
-            .queryParam("scope", String.join(" ", clientRegistration.getScopes()))
-            .build()
-            .toUriString();
+        String authUrl =
+                UriComponentsBuilder.fromUriString(authorizationUri)
+                        .queryParam("client_id", clientId)
+                        .queryParam("redirect_uri", redirectUri)
+                        .queryParam("response_type", "code")
+                        .queryParam("scope", String.join(" ", clientRegistration.getScopes()))
+                        .build()
+                        .toUriString();
 
-        return OAuth2LoginUriResponseDto.builder()
-            .authUrl(authUrl)
-            .build();
+        return OAuth2LoginUriResponseDto.builder().authUrl(authUrl).build();
     }
 
     // Apple의 경우 OAuth Uri 별도 처리
     public OAuth2LoginUriResponseDto getAppleOauthUri(String provider, HttpServletRequest request) {
-        ClientRegistration clientRegistration = clientRegistrationRepository.findByRegistrationId(provider);
+        ClientRegistration clientRegistration =
+                clientRegistrationRepository.findByRegistrationId(provider);
 
         String authorizationUri = clientRegistration.getProviderDetails().getAuthorizationUri();
         String clientId = clientRegistration.getClientId();
@@ -117,24 +120,20 @@ public class Oauth2Service {
 
         String state = UUID.randomUUID().toString(); // CSRF 방지를 위한 랜덤 값
         // Apple authorize 엔드포인트는 grant_type 파라미터를 받지 않음 (token 엔드포인트 전용)
-        String authUrl = UriComponentsBuilder.fromUriString(authorizationUri)
-            .queryParam("client_id", clientId)
-            .queryParam("redirect_uri", redirectUri)
-            .queryParam("response_type", "code id_token")
-            .queryParam("scope", String.join(" ", clientRegistration.getScopes()))
-            .queryParam("state", state)
-            .queryParam("response_mode", "form_post")
-            .toUriString();
+        String authUrl =
+                UriComponentsBuilder.fromUriString(authorizationUri)
+                        .queryParam("client_id", clientId)
+                        .queryParam("redirect_uri", redirectUri)
+                        .queryParam("response_type", "code id_token")
+                        .queryParam("scope", String.join(" ", clientRegistration.getScopes()))
+                        .queryParam("state", state)
+                        .queryParam("response_mode", "form_post")
+                        .toUriString();
 
-        return OAuth2LoginUriResponseDto.builder()
-            .authUrl(authUrl)
-            .build();
+        return OAuth2LoginUriResponseDto.builder().authUrl(authUrl).build();
     }
 
-    /**
-     * Origin 헤더 기반으로 redirect URI를 동적으로 결정합니다.
-     * 허용된 origin이 아닌 경우 설정 파일의 기본 redirect-url을 사용합니다.
-     */
+    /** Origin 헤더 기반으로 redirect URI를 동적으로 결정합니다. 허용된 origin이 아닌 경우 설정 파일의 기본 redirect-url을 사용합니다. */
     private String resolveRedirectUri(HttpServletRequest request, String provider) {
         String origin = request.getHeader("Origin");
         if (origin == null || origin.isBlank()) {
@@ -160,7 +159,8 @@ public class Oauth2Service {
         }
 
         // 허용된 origin이 아니면 기본 설정 사용
-        ClientRegistration clientRegistration = clientRegistrationRepository.findByRegistrationId(provider);
+        ClientRegistration clientRegistration =
+                clientRegistrationRepository.findByRegistrationId(provider);
         String defaultRedirectUri = clientRegistration.getRedirectUri();
         log.info("Using default redirect URI: {}", defaultRedirectUri);
         return defaultRedirectUri;
@@ -170,31 +170,38 @@ public class Oauth2Service {
      * 모바일 앱용 소셜 로그인 (QA-108)
      *
      * <p>기존 사용자: 정상 JWT 발급
+     *
      * <p>신규 사용자: signup token만 발급 (DB INSERT 안 함). 닉네임/약관 입력 후 complete-signup 호출 필요.
      */
-    public SocialLoginResponseDto createJwtFromMobileToken(HttpServletRequest httpRequest,
-                                                            String provider,
-                                                            String providerToken,
-                                                            String deviceType,
-                                                            String deviceId,
-                                                            String preferredLocale,
-                                                            String preferredTimezone,
-                                                            String authorizationCode,
-                                                            String authorizationCodeRedirectUri) {
+    public SocialLoginResponseDto createJwtFromMobileToken(
+            HttpServletRequest httpRequest,
+            String provider,
+            String providerToken,
+            String deviceType,
+            String deviceId,
+            String preferredLocale,
+            String preferredTimezone,
+            String authorizationCode,
+            String authorizationCodeRedirectUri) {
         try {
             OAuth2UserInfo userInfo = getUserInfoFromOAuth2Provider(provider, providerToken);
 
             // LUT-477: apple 은 code 교환으로 refresh token 확보 (탈퇴 revoke 용, best-effort).
             // iOS 네이티브 code 는 redirect_uri 불필요, Android 웹 기반 code 는 발급 시 값과 동일해야 한다.
-            AppleTokenCapture appleTokens = "apple".equals(provider)
-                ? captureAppleTokens(providerToken, authorizationCode, authorizationCodeRedirectUri)
-                : null;
+            AppleTokenCapture appleTokens =
+                    "apple".equals(provider)
+                            ? captureAppleTokens(
+                                    providerToken, authorizationCode, authorizationCodeRedirectUri)
+                            : null;
 
-            Optional<Users> existingUserOpt = findExistingUser(userInfo, preferredLocale, preferredTimezone);
+            Optional<Users> existingUserOpt =
+                    findExistingUser(userInfo, preferredLocale, preferredTimezone);
 
             if (existingUserOpt.isEmpty()) {
                 // 신규 사용자: signup token만 발급 (DB INSERT 보류)
-                String token = prepareSignupSession(userInfo, preferredLocale, preferredTimezone, appleTokens);
+                String token =
+                        prepareSignupSession(
+                                userInfo, preferredLocale, preferredTimezone, appleTokens);
                 String suggested = resolveSuggestedNickname(userInfo);
                 log.info("Mobile login - 신규 사용자 signup session 발급: provider={}", provider);
                 return SocialLoginResponseDto.newUser(token, suggested);
@@ -211,23 +218,29 @@ public class Oauth2Service {
             throw e;
         } catch (Exception e) {
             log.error("Mobile login failed - provider: {}, error: {}", provider, e.getMessage());
-            throw new CustomException(ApiStatus.INVALID_ACCESS.getResultCode(), "소셜 로그인 실패: " + e.getMessage());
+            throw new CustomException(
+                    ApiStatus.INVALID_ACCESS.getResultCode(), "소셜 로그인 실패: " + e.getMessage());
         }
     }
 
     // Kakao, Google, apple User 정보 받아서 처리 (QA-108: 기존 사용자만 JWT 발급, 신규는 signup token)
-    public SocialLoginResponseDto createJwt(HttpServletRequest httpRequest,
-                                             String provider,
-                                             String code,
-                                             String deviceType,
-                                             String deviceId,
-                                             String... idToken) throws Exception {
+    public SocialLoginResponseDto createJwt(
+            HttpServletRequest httpRequest,
+            String provider,
+            String code,
+            String deviceType,
+            String deviceId,
+            String... idToken)
+            throws Exception {
         if (code == null) {
             throw new Exception("Failed get authorization code");
         }
 
         // providerToken는 kakao, google일때는 access token, apple일때는 id token 이다.
-        String providerToken = "apple".equals(provider) ? idToken[0] : getProviderAccessToken(httpRequest, provider, code);
+        String providerToken =
+                "apple".equals(provider)
+                        ? idToken[0]
+                        : getProviderAccessToken(httpRequest, provider, code);
 
         OAuth2UserInfo userInfo = getUserInfoFromOAuth2Provider(provider, providerToken);
 
@@ -236,8 +249,9 @@ public class Oauth2Service {
         AppleTokenCapture appleTokens = null;
         if ("apple".equals(provider)) {
             try {
-                appleTokens = captureAppleTokens(
-                    providerToken, code, resolveRedirectUri(httpRequest, provider));
+                appleTokens =
+                        captureAppleTokens(
+                                providerToken, code, resolveRedirectUri(httpRequest, provider));
             } catch (Exception e) {
                 log.warn("Apple refresh token 확보 실패 (로그인은 계속 진행): {}", e.getMessage());
             }
@@ -263,44 +277,54 @@ public class Oauth2Service {
     }
 
     /**
-     * 기존 사용자만 조회. WITHDRAWN 상태이면 예외, locale/timezone 변경이 있으면 업데이트.
-     * 신규 사용자는 INSERT하지 않고 빈 Optional 반환 (QA-108).
+     * 기존 사용자만 조회. WITHDRAWN 상태이면 예외, locale/timezone 변경이 있으면 업데이트. 신규 사용자는 INSERT하지 않고 빈 Optional
+     * 반환 (QA-108).
      */
     @Transactional
-    protected Optional<Users> findExistingUser(OAuth2UserInfo userInfo, String preferredLocale, String preferredTimezone) {
+    protected Optional<Users> findExistingUser(
+            OAuth2UserInfo userInfo, String preferredLocale, String preferredTimezone) {
         String encryptedEmail = CryptoUtils.encryptAes(userInfo.getEmail());
         // LUT-258: cool-down 만료 재가입 시 WITHDRAWN 구 row 와 ACTIVE 신 row 가 공존하므로,
         // 상태 무관 단건 조회가 아닌 "활성 계정 우선" 조회를 사용한다 (2행 조회 예외 방지).
-        Optional<Users> existingUser = userRepository.findActiveByEncryptedEmailAndProvider(
-            encryptedEmail,
-            userInfo.getProvider()
-        );
+        Optional<Users> existingUser =
+                userRepository.findActiveByEncryptedEmailAndProvider(
+                        encryptedEmail, userInfo.getProvider());
 
         if (existingUser.isEmpty()) {
             // 활성 계정 없음 — 탈퇴 이력이 있으면 최신 탈퇴 기준으로 cool-down 판정 (QA-115)
             java.util.List<Users> withdrawnUsers =
-                userRepository.findWithdrawnByEncryptedEmailAndProvider(
-                    encryptedEmail, userInfo.getProvider());
+                    userRepository.findWithdrawnByEncryptedEmailAndProvider(
+                            encryptedEmail, userInfo.getProvider());
             if (!withdrawnUsers.isEmpty()) {
                 Users withdrawnUser = withdrawnUsers.get(0);
                 int coolDownDays = withdrawalProperties.getCoolDownDays();
                 java.time.LocalDateTime withdrawnAt = withdrawnUser.getWithdrawnAt();
                 // withdrawnAt 이 null 인 레거시 row 는 cool-down 즉시 만료로 취급 (정책상 V007 이전 탈퇴자는 재가입 허용).
-                java.time.LocalDateTime availableAt = withdrawnAt == null
-                    ? java.time.LocalDateTime.now().minusDays(1)
-                    : withdrawnAt.plusDays(coolDownDays);
+                java.time.LocalDateTime availableAt =
+                        withdrawnAt == null
+                                ? java.time.LocalDateTime.now().minusDays(1)
+                                : withdrawnAt.plusDays(coolDownDays);
                 if (java.time.LocalDateTime.now().isBefore(availableAt)) {
-                    log.warn("탈퇴 cool-down 중 재가입 시도: userId={}, provider={}, withdrawnAt={}, availableAt={}",
-                        withdrawnUser.getId(), userInfo.getProvider(), withdrawnAt, availableAt);
+                    log.warn(
+                            "탈퇴 cool-down 중 재가입 시도: userId={}, provider={}, withdrawnAt={},"
+                                    + " availableAt={}",
+                            withdrawnUser.getId(),
+                            userInfo.getProvider(),
+                            withdrawnAt,
+                            availableAt);
                     String availableDate = availableAt.toLocalDate().toString();
-                    String resolved = messageSource.getMessage(
-                        "error.account.withdrawn.cooldown",
-                        new Object[] { availableDate },
-                        LocaleContextHolder.getLocale());
+                    String resolved =
+                            messageSource.getMessage(
+                                    "error.account.withdrawn.cooldown",
+                                    new Object[] {availableDate},
+                                    LocaleContextHolder.getLocale());
                     throw new CustomException("030001", resolved);
                 }
-                log.info("탈퇴 cool-down 만료, 재가입 허용: userId={}, provider={}, withdrawnAt={}",
-                    withdrawnUser.getId(), userInfo.getProvider(), withdrawnAt);
+                log.info(
+                        "탈퇴 cool-down 만료, 재가입 허용: userId={}, provider={}, withdrawnAt={}",
+                        withdrawnUser.getId(),
+                        userInfo.getProvider(),
+                        withdrawnAt);
             }
             return Optional.empty();
         }
@@ -314,12 +338,16 @@ public class Oauth2Service {
         // 유저가 재로그인하면 푸시 언어가 디바이스 언어로 되돌아갔다. locale 은 가입 시점
         // (prepareSignupSession)과 마이페이지 변경으로만 결정된다.
         if (preferredTimezone != null
-            && io.pinkspider.global.translation.enums.SupportedTimezone.isValid(preferredTimezone)
-            && "Asia/Seoul".equals(user.getPreferredTimezone())
-            && !preferredTimezone.equals(user.getPreferredTimezone())) {
+                && io.pinkspider.global.translation.enums.SupportedTimezone.isValid(
+                        preferredTimezone)
+                && "Asia/Seoul".equals(user.getPreferredTimezone())
+                && !preferredTimezone.equals(user.getPreferredTimezone())) {
             user.updatePreferredTimezone(preferredTimezone);
             needsSave = true;
-            log.info("기존 사용자 timezone 업데이트: userId={}, timezone={}", user.getId(), preferredTimezone);
+            log.info(
+                    "기존 사용자 timezone 업데이트: userId={}, timezone={}",
+                    user.getId(),
+                    preferredTimezone);
         }
         // LUT-476: 공급자 사용자 ID 백필 — 소셜 연결 해제 웹훅/탈퇴 unlink 의 유저 매핑 키.
         // 컬럼 신설 전 가입자는 null 이므로 로그인 시점에 채워 커버리지를 수렴시킨다.
@@ -335,36 +363,45 @@ public class Oauth2Service {
     }
 
     /**
-     * 신규 사용자용 signup session을 Redis에 임시 저장하고 token 반환 (QA-108).
-     * 같은 (provider, email)로 이미 진행 중이면 이전 token을 무효화하고 새 token 발급.
+     * 신규 사용자용 signup session을 Redis에 임시 저장하고 token 반환 (QA-108). 같은 (provider, email)로 이미 진행 중이면 이전
+     * token을 무효화하고 새 token 발급.
      */
-    private String prepareSignupSession(OAuth2UserInfo userInfo, String preferredLocale, String preferredTimezone) {
+    private String prepareSignupSession(
+            OAuth2UserInfo userInfo, String preferredLocale, String preferredTimezone) {
         return prepareSignupSession(userInfo, preferredLocale, preferredTimezone, null);
     }
 
-    private String prepareSignupSession(OAuth2UserInfo userInfo, String preferredLocale,
-                                         String preferredTimezone, AppleTokenCapture appleTokens) {
-        boolean localeProvided = preferredLocale != null
-            && io.pinkspider.global.translation.enums.SupportedLocale.isSupported(preferredLocale);
-        String locale = localeProvided
-            ? preferredLocale : io.pinkspider.global.translation.enums.SupportedLocale.DEFAULT.getCode();
+    private String prepareSignupSession(
+            OAuth2UserInfo userInfo,
+            String preferredLocale,
+            String preferredTimezone,
+            AppleTokenCapture appleTokens) {
+        boolean localeProvided =
+                preferredLocale != null
+                        && io.pinkspider.global.translation.enums.SupportedLocale.isSupported(
+                                preferredLocale);
+        String locale =
+                localeProvided
+                        ? preferredLocale
+                        : io.pinkspider.global.translation.enums.SupportedLocale.DEFAULT.getCode();
         // LUT-245: 클라이언트가 locale 미전송 시 기본 'en'이 fromLocale("en")=UTC로 이어져
         // 신규 가입자 전원의 출석 날짜 경계가 KST 09시로 틀어졌다. 명시된 locale만 timezone
         // 추론에 사용하고, 미지정 시 Asia/Seoul(기본)로 두면 로그인 시 GeoIP 추론이 해외 유저를 보정한다.
-        String timezone = io.pinkspider.global.translation.enums.SupportedTimezone.resolve(
-            preferredTimezone, null, localeProvided ? locale : null);
+        String timezone =
+                io.pinkspider.global.translation.enums.SupportedTimezone.resolve(
+                        preferredTimezone, null, localeProvided ? locale : null);
 
-        SignupSessionData session = new SignupSessionData(
-            null,
-            userInfo.getProvider().toLowerCase(),
-            userInfo.getEmail(),
-            resolveSuggestedNickname(userInfo),
-            locale,
-            timezone,
-            userInfo.getId(),
-            appleTokens != null ? appleTokens.encryptedRefreshToken() : null,
-            appleTokens != null ? appleTokens.clientId() : null
-        );
+        SignupSessionData session =
+                new SignupSessionData(
+                        null,
+                        userInfo.getProvider().toLowerCase(),
+                        userInfo.getEmail(),
+                        resolveSuggestedNickname(userInfo),
+                        locale,
+                        timezone,
+                        userInfo.getId(),
+                        appleTokens != null ? appleTokens.encryptedRefreshToken() : null,
+                        appleTokens != null ? appleTokens.clientId() : null);
         return signupTokenService.createOrRefresh(session);
     }
 
@@ -372,11 +409,11 @@ public class Oauth2Service {
     record AppleTokenCapture(String encryptedRefreshToken, String clientId) {}
 
     /**
-     * LUT-477: apple authorization code → refresh token 확보 (탈퇴 revoke 용).
-     * client_id 는 id_token 의 aud 에서 추출 — code 를 발급받은 클라이언트(웹=서비스 ID,
-     * iOS=번들 ID)와 자동으로 일치한다. 실패는 삼킨다 (로그인은 계속 진행).
+     * LUT-477: apple authorization code → refresh token 확보 (탈퇴 revoke 용). client_id 는 id_token 의
+     * aud 에서 추출 — code 를 발급받은 클라이언트(웹=서비스 ID, iOS=번들 ID)와 자동으로 일치한다. 실패는 삼킨다 (로그인은 계속 진행).
      */
-    private AppleTokenCapture captureAppleTokens(String idToken, String authorizationCode, String redirectUri) {
+    private AppleTokenCapture captureAppleTokens(
+            String idToken, String authorizationCode, String redirectUri) {
         if (authorizationCode == null || authorizationCode.isBlank()) {
             return null;
         }
@@ -386,9 +423,13 @@ public class Oauth2Service {
                 return null;
             }
             String clientId = audience.get(0);
-            return appleTokenService.exchangeRefreshToken(authorizationCode, clientId, redirectUri)
-                .map(refreshToken -> new AppleTokenCapture(CryptoUtils.encryptAes(refreshToken), clientId))
-                .orElse(null);
+            return appleTokenService
+                    .exchangeRefreshToken(authorizationCode, clientId, redirectUri)
+                    .map(
+                            refreshToken ->
+                                    new AppleTokenCapture(
+                                            CryptoUtils.encryptAes(refreshToken), clientId))
+                    .orElse(null);
         } catch (Exception e) {
             log.warn("Apple refresh token 확보 실패 (로그인은 계속 진행): {}", e.getMessage());
             return null;
@@ -403,9 +444,7 @@ public class Oauth2Service {
         userRepository.save(user);
     }
 
-    /**
-     * OAuth provider에서 받은 닉네임을 그대로 사용하되 중복이면 유니크 변형. (제안용으로만 사용 — 사용자 미입력 시 INSERT되지 않음)
-     */
+    /** OAuth provider에서 받은 닉네임을 그대로 사용하되 중복이면 유니크 변형. (제안용으로만 사용 — 사용자 미입력 시 INSERT되지 않음) */
     private String resolveSuggestedNickname(OAuth2UserInfo userInfo) {
         String nickname = userInfo.getNickname();
         if (nickname == null || nickname.isBlank()) {
@@ -419,22 +458,23 @@ public class Oauth2Service {
 
     /**
      * 회원가입 최종 완료 처리 (QA-108).
+     *
      * <p>signup token 검증 → users INSERT → user_terms INSERT → 이벤트 발행 → JWT 발급.
      */
     @Transactional
-    public CreateJwtResponseDto completeSignup(String signupToken,
-                                                CompleteSignupRequestDto request,
-                                                HttpServletRequest httpRequest) {
+    public CreateJwtResponseDto completeSignup(
+            String signupToken, CompleteSignupRequestDto request, HttpServletRequest httpRequest) {
         SignupSessionData session = signupTokenService.findByToken(signupToken);
 
         // LUT-366: 필수 약관(만 15세 확인 포함) 전부 동의했는지 서버측 검증 —
         // 화면 게이트만 믿으면 우회 요청으로 미동의 가입이 성립하므로 유저 생성 전에 차단한다
-        java.util.Set<Long> agreedVersionIds = request.getAgreedTerms() == null
-            ? java.util.Set.of()
-            : request.getAgreedTerms().stream()
-                .filter(CompleteSignupRequestDto.TermAgreement::isAgreed)
-                .map(CompleteSignupRequestDto.TermAgreement::getTermVersionId)
-                .collect(java.util.stream.Collectors.toSet());
+        java.util.Set<Long> agreedVersionIds =
+                request.getAgreedTerms() == null
+                        ? java.util.Set.of()
+                        : request.getAgreedTerms().stream()
+                                .filter(CompleteSignupRequestDto.TermAgreement::isAgreed)
+                                .map(CompleteSignupRequestDto.TermAgreement::getTermVersionId)
+                                .collect(java.util.stream.Collectors.toSet());
         userTermsService.validateRequiredTermsAgreed(agreedVersionIds);
 
         // 닉네임 중복 체크 (signup 진행 중 다른 사용자가 같은 닉네임을 선점할 수 있음)
@@ -445,42 +485,52 @@ public class Oauth2Service {
         // 이메일 중복 체크 (같은 (provider, email)이 동시 진행 중 INSERT됐을 가능성 방어)
         // QA-115: WITHDRAWN row 는 cool-down 정책에 따라 findExistingUser 에서 이미 처리되므로 여기선 제외.
         String encryptedEmail = CryptoUtils.encryptAes(session.email());
-        if (userRepository.findActiveByEncryptedEmailAndProvider(encryptedEmail, session.provider()).isPresent()) {
-            throw new CustomException(ApiStatus.INVALID_ACCESS.getResultCode(), "error.signup.already_completed");
+        if (userRepository
+                .findActiveByEncryptedEmailAndProvider(encryptedEmail, session.provider())
+                .isPresent()) {
+            throw new CustomException(
+                    ApiStatus.INVALID_ACCESS.getResultCode(), "error.signup.already_completed");
         }
 
         // QA-207: 클라이언트가 보낸 디바이스 언어를 우선 적용 (없거나 미지원이면 세션 기본값).
         // 가입 경로엔 디바이스 언어 전달 통로가 없어 항상 'en'으로 박혀 신규 유저 알림이 영문으로 가던 문제 해결.
         String preferredLocale =
-            io.pinkspider.global.translation.enums.SupportedLocale.isSupported(request.getPreferredLocale())
-                ? request.getPreferredLocale()
-                : session.preferredLocale();
+                io.pinkspider.global.translation.enums.SupportedLocale.isSupported(
+                                request.getPreferredLocale())
+                        ? request.getPreferredLocale()
+                        : session.preferredLocale();
 
-        Users newUsers = Users.builder()
-            .email(session.email())
-            .nickname(request.getNickname())
-            .provider(session.provider())
-            .providerUserId(session.providerUserId())
-            .appleRefreshToken(session.appleRefreshTokenEnc())
-            .appleClientId(session.appleClientId())
-            .nicknameSet(true)
-            .preferredLocale(preferredLocale)
-            .preferredTimezone(session.preferredTimezone())
-            .build();
+        Users newUsers =
+                Users.builder()
+                        .email(session.email())
+                        .nickname(request.getNickname())
+                        .provider(session.provider())
+                        .providerUserId(session.providerUserId())
+                        .appleRefreshToken(session.appleRefreshTokenEnc())
+                        .appleClientId(session.appleClientId())
+                        .nicknameSet(true)
+                        .preferredLocale(preferredLocale)
+                        .preferredTimezone(session.preferredTimezone())
+                        .build();
 
         Users savedUser = userRepository.save(newUsers);
         log.info("신규 사용자 가입 완료: userId={}, provider={}", savedUser.getId(), session.provider());
 
         // 약관 동의 저장
         if (request.getAgreedTerms() != null && !request.getAgreedTerms().isEmpty()) {
-            AgreementTermsByUserRequestDto termsDto = AgreementTermsByUserRequestDto.builder()
-                .AgreementTermsList(request.getAgreedTerms().stream()
-                    .map(t -> AgreementTerms.builder()
-                        .termVersionId(t.getTermVersionId())
-                        .isAgreed(t.isAgreed())
-                        .build())
-                    .toList())
-                .build();
+            AgreementTermsByUserRequestDto termsDto =
+                    AgreementTermsByUserRequestDto.builder()
+                            .AgreementTermsList(
+                                    request.getAgreedTerms().stream()
+                                            .map(
+                                                    t ->
+                                                            AgreementTerms.builder()
+                                                                    .termVersionId(
+                                                                            t.getTermVersionId())
+                                                                    .isAgreed(t.isAgreed())
+                                                                    .build())
+                                            .toList())
+                            .build();
             userTermsService.agreementTermsByUser(savedUser.getId(), termsDto);
         }
 
@@ -489,8 +539,12 @@ public class Oauth2Service {
 
         // 환영 알림 발송
         try {
-            notificationService.sendNotification(savedUser.getId(),
-                NotificationType.WELCOME, null, null, savedUser.getNickname());
+            notificationService.sendNotification(
+                    savedUser.getId(),
+                    NotificationType.WELCOME,
+                    null,
+                    null,
+                    savedUser.getNickname());
         } catch (Exception e) {
             log.error("환영 알림 발송 실패: userId={}, error={}", savedUser.getId(), e.getMessage(), e);
         }
@@ -505,11 +559,9 @@ public class Oauth2Service {
         return issueJwt(httpRequest, savedUser, request.getDeviceType(), request.getDeviceId());
     }
 
-    /**
-     * 사용자 정보로 JWT를 발급하고 Redis에 저장 (공통 로직).
-     */
-    private CreateJwtResponseDto issueJwt(HttpServletRequest httpRequest, Users users,
-                                          String deviceType, String deviceId) {
+    /** 사용자 정보로 JWT를 발급하고 Redis에 저장 (공통 로직). */
+    private CreateJwtResponseDto issueJwt(
+            HttpServletRequest httpRequest, Users users, String deviceType, String deviceId) {
         // LUT-336: deviceType 정규화를 여기 한 곳으로 모은다. 예전에는 모바일 로그인이 값이 없으면
         // "mobile" 로 고정돼, 같은 기기가 이후 ios 로 재발급하면서 값이 어긋났다.
         String resolvedDeviceType = deviceTypeResolver.resolve(httpRequest, deviceType);
@@ -523,23 +575,21 @@ public class Oauth2Service {
         String accessToken = jwtUtil.generateAccessToken(userId, userEmail, deviceId);
         String refreshToken = jwtUtil.generateRefreshToken(userId, userEmail, deviceId);
 
-        tokenService.saveTokensToRedis(userId, resolvedDeviceType, deviceId, accessToken, refreshToken);
+        tokenService.saveTokensToRedis(
+                userId, resolvedDeviceType, deviceId, accessToken, refreshToken);
 
         return CreateJwtResponseDto.builder()
-            .accessToken(accessToken)
-            .refreshToken(refreshToken)
-            .tokenType("Bearer")
-            .expiresIn((int) (accessTokenExpiryMs / 1000))
-            .userId(userId)
-            .deviceId(deviceId)
-            .nicknameSet(users.isNicknameSet())
-            .build();
+                .accessToken(accessToken)
+                .refreshToken(refreshToken)
+                .tokenType("Bearer")
+                .expiresIn((int) (accessTokenExpiryMs / 1000))
+                .userId(userId)
+                .deviceId(deviceId)
+                .nicknameSet(users.isNicknameSet())
+                .build();
     }
 
-    /**
-     * 중복되지 않는 유니크한 닉네임 생성
-     * 기존 닉네임에 랜덤 숫자를 붙여서 생성
-     */
+    /** 중복되지 않는 유니크한 닉네임 생성 기존 닉네임에 랜덤 숫자를 붙여서 생성 */
     private String generateUniqueNickname(String baseNickname) {
         // 닉네임이 10자 제한이므로 기본 닉네임을 6자로 자르고 4자리 숫자 추가
         String prefix = baseNickname.length() > 6 ? baseNickname.substring(0, 6) : baseNickname;
@@ -561,8 +611,10 @@ public class Oauth2Service {
         return uniqueNickname;
     }
 
-    private String getProviderAccessToken(HttpServletRequest request, String provider, String authorizationCode) {
-        ClientRegistration clientRegistration = clientRegistrationRepository.findByRegistrationId(provider);
+    private String getProviderAccessToken(
+            HttpServletRequest request, String provider, String authorizationCode) {
+        ClientRegistration clientRegistration =
+                clientRegistrationRepository.findByRegistrationId(provider);
         String redirectUri = resolveRedirectUri(request, provider);
 
         String token;
@@ -579,36 +631,40 @@ public class Oauth2Service {
         };
     }
 
-    private String getKakaoAccessToken(ClientRegistration clientRegistration, String redirectUri, String authorizationCode) {
-        Map<String, String> tokenResponse = kakaoOAuth2FeignClient.getAccessToken(
-            "authorization_code",
-            clientRegistration.getClientId(),
-            clientRegistration.getClientSecret(),
-            redirectUri,
-            authorizationCode
-        );
+    private String getKakaoAccessToken(
+            ClientRegistration clientRegistration, String redirectUri, String authorizationCode) {
+        Map<String, String> tokenResponse =
+                kakaoOAuth2FeignClient.getAccessToken(
+                        "authorization_code",
+                        clientRegistration.getClientId(),
+                        clientRegistration.getClientSecret(),
+                        redirectUri,
+                        authorizationCode);
 
         if (!tokenResponse.containsKey("access_token")) {
-//            return ResponseEntity.badRequest().body(Collections.singletonMap("error", "Failed to retrieve access token"));
+            //            return ResponseEntity.badRequest().body(Collections.singletonMap("error",
+            // "Failed to retrieve access token"));
         }
 
         return tokenResponse.get("access_token");
     }
 
-    private String getGoogleAccessToken(ClientRegistration clientRegistration, String redirectUri, String authorizationCode) {
-        Map<String, String> tokenResponse = googleOAuth2FeignClient.getAccessToken(
-            "authorization_code",
-            clientRegistration.getClientId(),
-            clientRegistration.getClientSecret(),
-            redirectUri,
-            authorizationCode
-        );
+    private String getGoogleAccessToken(
+            ClientRegistration clientRegistration, String redirectUri, String authorizationCode) {
+        Map<String, String> tokenResponse =
+                googleOAuth2FeignClient.getAccessToken(
+                        "authorization_code",
+                        clientRegistration.getClientId(),
+                        clientRegistration.getClientSecret(),
+                        redirectUri,
+                        authorizationCode);
 
         return tokenResponse.get("access_token");
     }
 
     // kakao, google providerToken = accessToken, apple은 idToken이다.
-    private OAuth2UserInfo getUserInfoFromOAuth2Provider(String provider, String providerToken) throws ParseException {
+    private OAuth2UserInfo getUserInfoFromOAuth2Provider(String provider, String providerToken)
+            throws ParseException {
         Map<String, Object> userInfo;
         return switch (provider) {
             case "google" -> {
@@ -627,36 +683,38 @@ public class Oauth2Service {
         };
     }
 
-    /**
-     * 로그인 시 IP와 국가 정보를 업데이트합니다.
-     */
+    /** 로그인 시 IP와 국가 정보를 업데이트합니다. */
     @Transactional
     protected void updateLoginInfo(HttpServletRequest request, Users users) {
         try {
             String clientIp = geoIpService.extractClientIp(request);
             GeoIpResult geoResult = geoIpService.lookupCountry(clientIp);
 
-            users.updateLastLoginInfo(
-                clientIp,
-                geoResult.country(),
-                geoResult.countryCode()
-            );
+            users.updateLastLoginInfo(clientIp, geoResult.country(), geoResult.countryCode());
 
             // 타임존이 기본값이면 GeoIP 국가코드로 추론하여 업데이트
-            if ("Asia/Seoul".equals(users.getPreferredTimezone()) && geoResult.countryCode() != null) {
-                String inferred = io.pinkspider.global.translation.enums.SupportedTimezone.fromCountryCode(
-                    geoResult.countryCode());
+            if ("Asia/Seoul".equals(users.getPreferredTimezone())
+                    && geoResult.countryCode() != null) {
+                String inferred =
+                        io.pinkspider.global.translation.enums.SupportedTimezone.fromCountryCode(
+                                geoResult.countryCode());
                 if (!inferred.equals(users.getPreferredTimezone())) {
                     users.updatePreferredTimezone(inferred);
-                    log.info("GeoIP 기반 타임존 추론: userId={}, country={}, timezone={}",
-                        users.getId(), geoResult.countryCode(), inferred);
+                    log.info(
+                            "GeoIP 기반 타임존 추론: userId={}, country={}, timezone={}",
+                            users.getId(),
+                            geoResult.countryCode(),
+                            inferred);
                 }
             }
 
             userRepository.save(users);
 
-            log.info("로그인 정보 업데이트 - userId: {}, IP: {}, country: {}",
-                users.getId(), clientIp, geoResult.country());
+            log.info(
+                    "로그인 정보 업데이트 - userId: {}, IP: {}, country: {}",
+                    users.getId(),
+                    clientIp,
+                    geoResult.country());
         } catch (Exception e) {
             log.warn("로그인 정보 업데이트 실패 - userId: {}, error: {}", users.getId(), e.getMessage());
             // 로그인 정보 업데이트 실패가 로그인 자체를 실패시키지 않도록 함

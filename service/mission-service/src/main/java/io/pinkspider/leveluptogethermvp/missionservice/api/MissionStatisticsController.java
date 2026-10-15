@@ -17,8 +17,8 @@ import org.springframework.web.bind.annotation.RestController;
 /**
  * LUT-454: 미션 기록 통계 API — 월간 리포트.
  *
- * <p>전체 기간 요약은 gamificationservice 의 {@code GET /api/v1/statistics/summary} 가 담당.
- * 무료 유저는 최근 30일 범위의 월(실질 당월·전월)만 조회 가능 — 과거 월은 구독 필요(050301).
+ * <p>전체 기간 요약은 gamificationservice 의 {@code GET /api/v1/statistics/summary} 가 담당. 무료 유저는 최근 30일 범위의
+ * 월(실질 당월·전월)만 조회 가능 — 과거 월은 구독 필요(050301).
  */
 @RestController
 @RequestMapping("/api/v1/missions/statistics")

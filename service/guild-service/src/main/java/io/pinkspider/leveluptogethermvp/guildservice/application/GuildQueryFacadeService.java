@@ -28,10 +28,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-/**
- * 외부 서비스용 길드 읽기 전용 Facade
- * guildservice 외부에서 guild_db에 직접 접근하지 않고 이 서비스를 통해 조회한다.
- */
+/** 외부 서비스용 길드 읽기 전용 Facade guildservice 외부에서 guild_db에 직접 접근하지 않고 이 서비스를 통해 조회한다. */
 @Service
 @RequiredArgsConstructor
 @Transactional(transactionManager = "guildTransactionManager", readOnly = true)
@@ -52,37 +49,42 @@ public class GuildQueryFacadeService implements GuildQueryFacade {
 
     @Override
     public String getGuildName(Long guildId) {
-        return guildRepository.findById(guildId)
-            .map(Guild::getName)
-            .orElse(null);
+        return guildRepository.findById(guildId).map(Guild::getName).orElse(null);
     }
 
     @Override
     public boolean isGuildPublic(Long guildId) {
-        return guildRepository.findById(guildId)
-            .map(Guild::isPublic)
-            .orElse(false);
+        return guildRepository.findById(guildId).map(Guild::isPublic).orElse(false);
     }
 
     @Override
     public String getGuildMasterId(Long guildId) {
-        return guildRepository.findByIdAndIsActiveTrue(guildId)
-            .map(Guild::getMasterId)
-            .orElse(null);
+        return guildRepository
+                .findByIdAndIsActiveTrue(guildId)
+                .map(Guild::getMasterId)
+                .orElse(null);
     }
 
     @Override
     public boolean isMaster(Long guildId, String userId) {
-        return guildRepository.findByIdAndIsActiveTrue(guildId)
-            .map(guild -> guild.isMaster(userId))
-            .orElse(false);
+        return guildRepository
+                .findByIdAndIsActiveTrue(guildId)
+                .map(guild -> guild.isMaster(userId))
+                .orElse(false);
     }
 
     @Override
     public GuildBasicInfo getGuildBasicInfo(Long guildId) {
-        return guildRepository.findByIdAndIsActiveTrue(guildId)
-            .map(g -> new GuildBasicInfo(g.getId(), g.getName(), g.getImageUrl(), g.getCurrentLevel()))
-            .orElse(null);
+        return guildRepository
+                .findByIdAndIsActiveTrue(guildId)
+                .map(
+                        g ->
+                                new GuildBasicInfo(
+                                        g.getId(),
+                                        g.getName(),
+                                        g.getImageUrl(),
+                                        g.getCurrentLevel()))
+                .orElse(null);
     }
 
     // ========== 배치 길드 정보 ==========
@@ -93,24 +95,29 @@ public class GuildQueryFacadeService implements GuildQueryFacade {
             return List.of();
         }
 
-        Map<Long, Guild> guildMap = guildRepository.findByIdInAndIsActiveTrue(guildIds).stream()
-            .collect(Collectors.toMap(Guild::getId, g -> g));
+        Map<Long, Guild> guildMap =
+                guildRepository.findByIdInAndIsActiveTrue(guildIds).stream()
+                        .collect(Collectors.toMap(Guild::getId, g -> g));
 
-        Map<Long, Long> memberCountMap = guildMemberRepository.countActiveMembersByGuildIds(guildIds).stream()
-            .collect(Collectors.toMap(
-                row -> (Long) row[0],
-                row -> (Long) row[1]
-            ));
+        Map<Long, Long> memberCountMap =
+                guildMemberRepository.countActiveMembersByGuildIds(guildIds).stream()
+                        .collect(Collectors.toMap(row -> (Long) row[0], row -> (Long) row[1]));
 
         return guildIds.stream()
-            .map(id -> {
-                Guild g = guildMap.get(id);
-                if (g == null) return null;
-                int count = memberCountMap.getOrDefault(id, 0L).intValue();
-                return new GuildWithMemberCount(g.getId(), g.getName(), g.getImageUrl(), g.getCurrentLevel(), count);
-            })
-            .filter(java.util.Objects::nonNull)
-            .toList();
+                .map(
+                        id -> {
+                            Guild g = guildMap.get(id);
+                            if (g == null) return null;
+                            int count = memberCountMap.getOrDefault(id, 0L).intValue();
+                            return new GuildWithMemberCount(
+                                    g.getId(),
+                                    g.getName(),
+                                    g.getImageUrl(),
+                                    g.getCurrentLevel(),
+                                    count);
+                        })
+                .filter(java.util.Objects::nonNull)
+                .toList();
     }
 
     // ========== 멤버십 조회 ==========
@@ -123,8 +130,8 @@ public class GuildQueryFacadeService implements GuildQueryFacade {
     @Override
     public List<String> getActiveMemberUserIds(Long guildId) {
         return guildMemberRepository.findActiveMembers(guildId).stream()
-            .map(GuildMember::getUserId)
-            .toList();
+                .map(GuildMember::getUserId)
+                .toList();
     }
 
     @Override
@@ -134,27 +141,32 @@ public class GuildQueryFacadeService implements GuildQueryFacade {
 
     @Override
     public GuildPermissionCheck checkPermissions(Long guildId, String userId) {
-        return guildMemberRepository.findByGuildIdAndUserId(guildId, userId)
-            .map(m -> new GuildPermissionCheck(
-                m.isActive(),
-                m.getRole() == GuildMemberRole.MASTER,
-                m.getRole() == GuildMemberRole.SUB_MASTER
-            ))
-            .orElse(new GuildPermissionCheck(false, false, false));
+        return guildMemberRepository
+                .findByGuildIdAndUserId(guildId, userId)
+                .map(
+                        m ->
+                                new GuildPermissionCheck(
+                                        m.isActive(),
+                                        m.getRole() == GuildMemberRole.MASTER,
+                                        m.getRole() == GuildMemberRole.SUB_MASTER))
+                .orElse(new GuildPermissionCheck(false, false, false));
     }
 
     @Override
     public List<GuildMembershipInfo> getUserGuildMemberships(String userId) {
         return guildMemberRepository.findAllActiveGuildMemberships(userId).stream()
-            .map(m -> {
-                Guild g = m.getGuild();
-                return new GuildMembershipInfo(
-                    g.getId(), g.getName(), g.getImageUrl(), g.getCurrentLevel(),
-                    m.getRole() == GuildMemberRole.MASTER,
-                    m.getRole() == GuildMemberRole.SUB_MASTER
-                );
-            })
-            .toList();
+                .map(
+                        m -> {
+                            Guild g = m.getGuild();
+                            return new GuildMembershipInfo(
+                                    g.getId(),
+                                    g.getName(),
+                                    g.getImageUrl(),
+                                    g.getCurrentLevel(),
+                                    m.getRole() == GuildMemberRole.MASTER,
+                                    m.getRole() == GuildMemberRole.SUB_MASTER);
+                        })
+                .toList();
     }
 
     /** LUT-418: 가입해 본 distinct 길드 수 (status 무관). 재가입은 기존 행 재활성화라 중복 집계되지 않는다. */
@@ -163,9 +175,7 @@ public class GuildQueryFacadeService implements GuildQueryFacade {
         return guildMemberRepository.countByUserId(userId);
     }
 
-    /**
-     * Admin Internal API 전용: 사용자 길드 상세 정보 (첫 번째 활성 길드)
-     */
+    /** Admin Internal API 전용: 사용자 길드 상세 정보 (첫 번째 활성 길드) */
     @Override
     public UserGuildAdminInfo getUserGuildInfoForAdmin(String userId) {
         List<GuildMember> memberships = guildMemberRepository.findAllActiveGuildMemberships(userId);
@@ -176,10 +186,14 @@ public class GuildQueryFacadeService implements GuildQueryFacade {
         Guild g = m.getGuild();
         int memberCount = (int) guildMemberRepository.countActiveMembers(g.getId());
         return new UserGuildAdminInfo(
-            g.getId(), g.getName(), g.getImageUrl(), g.getCurrentLevel(),
-            m.getRole() != null ? m.getRole().name() : null,
-            m.getJoinedAt(), memberCount, g.getMaxMembers()
-        );
+                g.getId(),
+                g.getName(),
+                g.getImageUrl(),
+                g.getCurrentLevel(),
+                m.getRole() != null ? m.getRole().name() : null,
+                m.getJoinedAt(),
+                memberCount,
+                g.getMaxMembers());
     }
 
     @Override
@@ -188,15 +202,17 @@ public class GuildQueryFacadeService implements GuildQueryFacade {
             return Map.of();
         }
         Map<Long, Integer> result = new HashMap<>();
-        guildMemberRepository.countActiveMembersByGuildIds(guildIds)
-            .forEach(row -> result.put((Long) row[0], ((Long) row[1]).intValue()));
+        guildMemberRepository
+                .countActiveMembersByGuildIds(guildIds)
+                .forEach(row -> result.put((Long) row[0], ((Long) row[1]).intValue()));
         return result;
     }
 
     // ========== 경험치/랭킹 조회 ==========
 
     @Override
-    public List<Object[]> getTopExpGuildsByPeriod(LocalDateTime startDate, LocalDateTime endDate, Pageable pageable) {
+    public List<Object[]> getTopExpGuildsByPeriod(
+            LocalDateTime startDate, LocalDateTime endDate, Pageable pageable) {
         return guildExpHistoryRepository.findTopExpGuildsByPeriod(startDate, endDate, pageable);
     }
 
@@ -214,49 +230,74 @@ public class GuildQueryFacadeService implements GuildQueryFacade {
 
     @Override
     public String getGuildMasterIdByPostId(Long postId) {
-        return guildPostRepository.findByIdAndIsDeletedFalse(postId)
-            .map(post -> post.getGuild().getMasterId())
-            .orElse(null);
+        return guildPostRepository
+                .findByIdAndIsDeletedFalse(postId)
+                .map(post -> post.getGuild().getMasterId())
+                .orElse(null);
     }
 
     @Override
     public GuildPostInfo getGuildInfoByPostId(Long postId) {
-        return guildPostRepository.findByIdAndIsDeletedFalse(postId)
-            .map(post -> new GuildPostInfo(post.getGuild().getId(), post.getGuild().getMasterId()))
-            .orElse(null);
+        return guildPostRepository
+                .findByIdAndIsDeletedFalse(postId)
+                .map(
+                        post ->
+                                new GuildPostInfo(
+                                        post.getGuild().getId(), post.getGuild().getMasterId()))
+                .orElse(null);
     }
 
     // ========== 경험치 정보 조회 (Saga step 등) ==========
 
     @Override
     public GuildExpInfo getGuildExpInfo(Long guildId) {
-        return guildRepository.findById(guildId)
-            .map(g -> new GuildExpInfo(g.getCurrentExp(), g.getCurrentLevel()))
-            .orElse(null);
+        return guildRepository
+                .findById(guildId)
+                .map(g -> new GuildExpInfo(g.getCurrentExp(), g.getCurrentLevel()))
+                .orElse(null);
     }
 
     // ========== 경험치 WRITE (Saga step용) ==========
 
     @Override
     @Transactional(transactionManager = "guildTransactionManager")
-    public GuildExperienceResultDto addGuildExperience(Long guildId, int expAmount, GuildExpSourceType sourceType,
-                                                       Long sourceId, String contributorId, String description) {
-        GuildExperienceResponse resp = guildExperienceService.addExperience(guildId, expAmount, sourceType, sourceId, contributorId, description);
+    public GuildExperienceResultDto addGuildExperience(
+            Long guildId,
+            int expAmount,
+            GuildExpSourceType sourceType,
+            Long sourceId,
+            String contributorId,
+            String description) {
+        GuildExperienceResponse resp =
+                guildExperienceService.addExperience(
+                        guildId, expAmount, sourceType, sourceId, contributorId, description);
         return toResultDto(resp);
     }
 
     @Override
     @Transactional(transactionManager = "guildTransactionManager")
-    public GuildExperienceResultDto subtractGuildExperience(Long guildId, int expAmount, GuildExpSourceType sourceType,
-                                                            Long sourceId, String contributorId, String description) {
-        GuildExperienceResponse resp = guildExperienceService.subtractExperience(guildId, expAmount, sourceType, sourceId, contributorId, description);
+    public GuildExperienceResultDto subtractGuildExperience(
+            Long guildId,
+            int expAmount,
+            GuildExpSourceType sourceType,
+            Long sourceId,
+            String contributorId,
+            String description) {
+        GuildExperienceResponse resp =
+                guildExperienceService.subtractExperience(
+                        guildId, expAmount, sourceType, sourceId, contributorId, description);
         return toResultDto(resp);
     }
 
     private GuildExperienceResultDto toResultDto(GuildExperienceResponse resp) {
         return new GuildExperienceResultDto(
-            resp.getGuildId(), resp.getGuildName(), resp.getCurrentLevel(), resp.getCurrentExp(),
-            resp.getTotalExp(), resp.getRequiredExpForNextLevel(), resp.getMaxMembers(), resp.getLevelTitle()
-        );
+                resp.getGuildId(),
+                resp.getGuildName(),
+                resp.getCurrentLevel(),
+                resp.getCurrentExp(),
+                resp.getTotalExp(),
+                resp.getRequiredExpForNextLevel(),
+                resp.getMaxMembers(),
+                resp.getLevelTitle());
     }
 }

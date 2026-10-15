@@ -11,10 +11,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
-/**
- * 회원가입 최종 완료 요청 (QA-108)
- * 닉네임 + 약관 동의를 한 번에 받아 처리한다.
- */
+/** 회원가입 최종 완료 요청 (QA-108) 닉네임 + 약관 동의를 한 번에 받아 처리한다. */
 @Getter
 @Setter
 @NoArgsConstructor
@@ -40,8 +37,7 @@ public class CompleteSignupRequestDto {
     @JsonNaming(SnakeCaseStrategy.class)
     public static class TermAgreement {
 
-        @NotNull
-        private Long termVersionId;
+        @NotNull private Long termVersionId;
 
         @JsonProperty("is_agreed")
         private boolean isAgreed;

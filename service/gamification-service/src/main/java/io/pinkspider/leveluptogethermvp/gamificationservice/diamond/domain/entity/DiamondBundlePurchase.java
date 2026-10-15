@@ -27,8 +27,7 @@ import org.hibernate.annotations.Comment;
 /**
  * 핑크다이아 묶음상품 IAP 구매 기록 (LUT-354)
  *
- * <p>스토어 트랜잭션 ID 유니크 제약이 멱등 지급의 핵심 — 같은 영수증으로 재요청(네트워크 재시도,
- * 앱 재시작 후 pending 재처리)해도 지급은 1회만 일어난다.
+ * <p>스토어 트랜잭션 ID 유니크 제약이 멱등 지급의 핵심 — 같은 영수증으로 재요청(네트워크 재시도, 앱 재시작 후 pending 재처리)해도 지급은 1회만 일어난다.
  */
 @Entity
 @Getter
@@ -36,11 +35,13 @@ import org.hibernate.annotations.Comment;
 @SuperBuilder
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @AllArgsConstructor
-@Table(name = "diamond_bundle_purchase",
-    uniqueConstraints = @UniqueConstraint(
-        name = "uk_bundle_purchase_transaction",
-        columnNames = {"store_transaction_id"}),
-    indexes = @Index(name = "idx_bundle_purchase_user", columnList = "user_id, id"))
+@Table(
+        name = "diamond_bundle_purchase",
+        uniqueConstraints =
+                @UniqueConstraint(
+                        name = "uk_bundle_purchase_transaction",
+                        columnNames = {"store_transaction_id"}),
+        indexes = @Index(name = "idx_bundle_purchase_user", columnList = "user_id, id"))
 @Comment("핑크다이아 묶음상품 IAP 구매 기록")
 public class DiamondBundlePurchase extends LocalDateTimeBaseEntity {
 

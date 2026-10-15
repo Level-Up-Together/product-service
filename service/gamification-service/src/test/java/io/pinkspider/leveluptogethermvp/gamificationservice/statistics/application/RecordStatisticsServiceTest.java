@@ -27,17 +27,13 @@ import org.mockito.junit.jupiter.MockitoExtension;
 @DisplayName("RecordStatisticsService 테스트 (LUT-454)")
 class RecordStatisticsServiceTest {
 
-    @Mock
-    private UserStatsRepository userStatsRepository;
+    @Mock private UserStatsRepository userStatsRepository;
 
-    @Mock
-    private UserExperienceRepository userExperienceRepository;
+    @Mock private UserExperienceRepository userExperienceRepository;
 
-    @Mock
-    private ExperienceHistoryRepository experienceHistoryRepository;
+    @Mock private ExperienceHistoryRepository experienceHistoryRepository;
 
-    @InjectMocks
-    private RecordStatisticsService recordStatisticsService;
+    @InjectMocks private RecordStatisticsService recordStatisticsService;
 
     private static final String USER_ID = "user-1";
 
@@ -48,20 +44,21 @@ class RecordStatisticsServiceTest {
     @Test
     @DisplayName("누적 달성·스트릭·현재 등급·등급 도달 이력을 조합한다")
     void buildsSummary() {
-        UserStats stats = UserStats.builder()
-            .userId(USER_ID)
-            .totalMissionCompletions(120)
-            .totalGuildMissionCompletions(30)
-            .currentStreak(5)
-            .maxStreak(21)
-            .build();
+        UserStats stats =
+                UserStats.builder()
+                        .userId(USER_ID)
+                        .totalMissionCompletions(120)
+                        .totalGuildMissionCompletions(30)
+                        .currentStreak(5)
+                        .maxStreak(21)
+                        .build();
         when(userStatsRepository.findByUserId(USER_ID)).thenReturn(Optional.of(stats));
         when(userExperienceRepository.findByUserId(USER_ID))
-            .thenReturn(Optional.of(experience(15)));
+                .thenReturn(Optional.of(experience(15)));
         when(experienceHistoryRepository.findFirstReachedAt(USER_ID, 3))
-            .thenReturn(LocalDateTime.of(2026, 1, 10, 0, 0));
+                .thenReturn(LocalDateTime.of(2026, 1, 10, 0, 0));
         when(experienceHistoryRepository.findFirstReachedAt(USER_ID, 10))
-            .thenReturn(LocalDateTime.of(2026, 5, 2, 0, 0));
+                .thenReturn(LocalDateTime.of(2026, 5, 2, 0, 0));
 
         RecordSummaryResponse response = recordStatisticsService.getRecordSummary(USER_ID);
 
@@ -99,10 +96,10 @@ class RecordStatisticsServiceTest {
     void skipsThresholdWithoutHistory() {
         when(userStatsRepository.findByUserId(USER_ID)).thenReturn(Optional.empty());
         when(userExperienceRepository.findByUserId(USER_ID))
-            .thenReturn(Optional.of(experience(12)));
+                .thenReturn(Optional.of(experience(12)));
         when(experienceHistoryRepository.findFirstReachedAt(USER_ID, 3)).thenReturn(null);
         when(experienceHistoryRepository.findFirstReachedAt(USER_ID, 10))
-            .thenReturn(LocalDateTime.of(2026, 5, 2, 0, 0));
+                .thenReturn(LocalDateTime.of(2026, 5, 2, 0, 0));
 
         RecordSummaryResponse response = recordStatisticsService.getRecordSummary(USER_ID);
 

@@ -26,17 +26,18 @@ public class ShopController {
     // LUT-350: 상점은 하단 네비 탭이라 비로그인 열람을 허용한다. 구매(아래)는 로그인 필수.
     @GetMapping
     public ResponseEntity<ApiResult<List<ShopItemResponse>>> getShopItems(
-        @CurrentUser(required = false) String userId) {
+            @CurrentUser(required = false) String userId) {
         List<ShopItemResponse> responses = shopService.getShopItems(userId);
-        return ResponseEntity.ok(ApiResult.<List<ShopItemResponse>>builder().value(responses).build());
+        return ResponseEntity.ok(
+                ApiResult.<List<ShopItemResponse>>builder().value(responses).build());
     }
 
     // 아이템 구매 (다이아 차감 + 인벤토리 지급)
     @PostMapping("/{shopItemId}/purchase")
     public ResponseEntity<ApiResult<ShopItemPurchaseResponse>> purchaseItem(
-        @CurrentUser String userId,
-        @PathVariable Long shopItemId) {
+            @CurrentUser String userId, @PathVariable Long shopItemId) {
         ShopItemPurchaseResponse response = shopService.purchaseItem(userId, shopItemId);
-        return ResponseEntity.ok(ApiResult.<ShopItemPurchaseResponse>builder().value(response).build());
+        return ResponseEntity.ok(
+                ApiResult.<ShopItemPurchaseResponse>builder().value(response).build());
     }
 }

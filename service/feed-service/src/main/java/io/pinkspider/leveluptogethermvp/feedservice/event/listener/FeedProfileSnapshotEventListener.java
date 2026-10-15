@@ -12,10 +12,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.event.TransactionPhase;
 import org.springframework.transaction.event.TransactionalEventListener;
 
-/**
- * 사용자 프로필 변경 시 Feed DB 스냅샷 동기화
- * MSA 전환 시 Kafka Consumer로 대체 예정
- */
+/** 사용자 프로필 변경 시 Feed DB 스냅샷 동기화 MSA 전환 시 Kafka Consumer로 대체 예정 */
 @Component
 @Slf4j
 @RequiredArgsConstructor
@@ -31,11 +28,17 @@ public class FeedProfileSnapshotEventListener {
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void handleUserProfileChanged(UserProfileChangedEvent event) {
         try {
-            int feedCount = activityFeedRepository.updateUserProfileByUserId(
-                event.userId(), event.nickname(), event.profileImageUrl());
-            int commentCount = feedCommentRepository.updateUserProfileByUserId(
-                event.userId(), event.nickname(), event.profileImageUrl());
-            log.info("Feed 스냅샷 동기화: userId={}, feeds={}, comments={}", event.userId(), feedCount, commentCount);
+            int feedCount =
+                    activityFeedRepository.updateUserProfileByUserId(
+                            event.userId(), event.nickname(), event.profileImageUrl());
+            int commentCount =
+                    feedCommentRepository.updateUserProfileByUserId(
+                            event.userId(), event.nickname(), event.profileImageUrl());
+            log.info(
+                    "Feed 스냅샷 동기화: userId={}, feeds={}, comments={}",
+                    event.userId(),
+                    feedCount,
+                    commentCount);
         } catch (Exception e) {
             log.error("FeedProfileSync 실패: {}", e.getMessage(), e);
         }

@@ -8,9 +8,7 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
-/**
- * 모든 길드 거점 정보 (지도 표시용)
- */
+/** 모든 길드 거점 정보 (지도 표시용) */
 @Getter
 @Builder
 @NoArgsConstructor

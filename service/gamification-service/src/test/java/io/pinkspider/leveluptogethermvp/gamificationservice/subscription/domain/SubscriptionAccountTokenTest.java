@@ -16,7 +16,8 @@ class SubscriptionAccountTokenTest {
 
         assertThat(token).isEqualTo("4f43937f-3c7d-492a-ad0f-49e7b63a9c5c");
         assertThat(SubscriptionAccountToken.resolveUserId(token)).isEqualTo(token);
-        assertThat(SubscriptionAccountToken.matches(token, "4f43937f-3c7d-492a-ad0f-49e7b63a9c5c")).isTrue();
+        assertThat(SubscriptionAccountToken.matches(token, "4f43937f-3c7d-492a-ad0f-49e7b63a9c5c"))
+                .isTrue();
         assertThat(SubscriptionAccountToken.matches(token, "other")).isFalse();
     }
 
@@ -38,6 +39,6 @@ class SubscriptionAccountTokenTest {
         assertThat(SubscriptionAccountToken.resolveUserId(null)).isNull();
         assertThat(SubscriptionAccountToken.matches(null, "user")).isFalse();
         assertThatThrownBy(() -> SubscriptionAccountToken.forUser(" "))
-            .isInstanceOf(IllegalArgumentException.class);
+                .isInstanceOf(IllegalArgumentException.class);
     }
 }

@@ -14,22 +14,32 @@ import org.springframework.stereotype.Repository;
 @Repository
 public interface GuildJoinRequestRepository extends JpaRepository<GuildJoinRequest, Long> {
 
-    @Query("SELECT gjr FROM GuildJoinRequest gjr WHERE gjr.guild.id = :guildId AND gjr.status = :status ORDER BY gjr.createdAt DESC")
-    List<GuildJoinRequest> findByGuildIdAndStatus(@Param("guildId") Long guildId, @Param("status") JoinRequestStatus status);
+    @Query(
+            "SELECT gjr FROM GuildJoinRequest gjr WHERE gjr.guild.id = :guildId AND gjr.status ="
+                    + " :status ORDER BY gjr.createdAt DESC")
+    List<GuildJoinRequest> findByGuildIdAndStatus(
+            @Param("guildId") Long guildId, @Param("status") JoinRequestStatus status);
 
-    @Query("SELECT gjr FROM GuildJoinRequest gjr WHERE gjr.guild.id = :guildId AND gjr.status = 'PENDING' ORDER BY gjr.createdAt DESC")
+    @Query(
+            "SELECT gjr FROM GuildJoinRequest gjr WHERE gjr.guild.id = :guildId AND gjr.status ="
+                    + " 'PENDING' ORDER BY gjr.createdAt DESC")
     Page<GuildJoinRequest> findPendingRequests(@Param("guildId") Long guildId, Pageable pageable);
 
-    Optional<GuildJoinRequest> findByGuildIdAndRequesterIdAndStatus(Long guildId, String requesterId, JoinRequestStatus status);
+    Optional<GuildJoinRequest> findByGuildIdAndRequesterIdAndStatus(
+            Long guildId, String requesterId, JoinRequestStatus status);
 
-    @Query("SELECT gjr FROM GuildJoinRequest gjr WHERE gjr.requesterId = :requesterId ORDER BY gjr.createdAt DESC")
+    @Query(
+            "SELECT gjr FROM GuildJoinRequest gjr WHERE gjr.requesterId = :requesterId ORDER BY"
+                    + " gjr.createdAt DESC")
     List<GuildJoinRequest> findByRequesterId(@Param("requesterId") String requesterId);
 
-    boolean existsByGuildIdAndRequesterIdAndStatus(Long guildId, String requesterId, JoinRequestStatus status);
+    boolean existsByGuildIdAndRequesterIdAndStatus(
+            Long guildId, String requesterId, JoinRequestStatus status);
 
-    /**
-     * 특정 사용자가 여러 길드에 PENDING 상태로 가입 신청한 길드 ID 목록 조회
-     */
-    @Query("SELECT gjr.guild.id FROM GuildJoinRequest gjr WHERE gjr.requesterId = :requesterId AND gjr.guild.id IN :guildIds AND gjr.status = 'PENDING'")
-    List<Long> findPendingGuildIdsByRequesterIdAndGuildIds(@Param("requesterId") String requesterId, @Param("guildIds") List<Long> guildIds);
+    /** 특정 사용자가 여러 길드에 PENDING 상태로 가입 신청한 길드 ID 목록 조회 */
+    @Query(
+            "SELECT gjr.guild.id FROM GuildJoinRequest gjr WHERE gjr.requesterId = :requesterId AND"
+                    + " gjr.guild.id IN :guildIds AND gjr.status = 'PENDING'")
+    List<Long> findPendingGuildIdsByRequesterIdAndGuildIds(
+            @Param("requesterId") String requesterId, @Param("guildIds") List<Long> guildIds);
 }

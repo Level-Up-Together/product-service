@@ -29,7 +29,6 @@ public class MissionImageWebConfig implements WebMvcConfigurer {
         // Spring Security 기본 캐시 억제 헤더(no-store 등)는 붙지 않는다 (기설정 시 미개입).
         registry.addResourceHandler(urlPrefix + "/**")
                 .addResourceLocations(resourceLocation)
-                .setCacheControl(
-                        CacheControl.maxAge(365, TimeUnit.DAYS).cachePublic().immutable());
+                .setCacheControl(CacheControl.maxAge(365, TimeUnit.DAYS).cachePublic().immutable());
     }
 }

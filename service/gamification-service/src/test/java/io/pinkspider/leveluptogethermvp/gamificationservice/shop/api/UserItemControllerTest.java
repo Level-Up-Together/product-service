@@ -42,74 +42,115 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers;
 
-@WebMvcTest(controllers = UserItemController.class,
-    excludeAutoConfiguration = {
-        DataSourceAutoConfiguration.class,
-        HibernateJpaAutoConfiguration.class,
-        DataSourceTransactionManagerAutoConfiguration.class
-    }
-)
+@WebMvcTest(
+        controllers = UserItemController.class,
+        excludeAutoConfiguration = {
+            DataSourceAutoConfiguration.class,
+            HibernateJpaAutoConfiguration.class,
+            DataSourceTransactionManagerAutoConfiguration.class
+        })
 @Import(ControllerTestConfig.class)
 @AutoConfigureRestDocs
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
 class UserItemControllerTest {
 
-    @Autowired
-    protected MockMvc mockMvc;
+    @Autowired protected MockMvc mockMvc;
 
-    @MockitoBean
-    private UserItemService userItemService;
+    @MockitoBean private UserItemService userItemService;
 
     private static final String MOCK_USER_ID = "test-user-123";
 
-    private UserItemResponse createMockUserItem(Long userItemId, Long shopItemId, String name,
-            ShopItemType type, boolean equipped) {
+    private UserItemResponse createMockUserItem(
+            Long userItemId, Long shopItemId, String name, ShopItemType type, boolean equipped) {
         return new UserItemResponse(
-            userItemId,
-            shopItemId,
-            name,
-            name + " (EN)",
-            name + " (AR)",
-            name + " (JA)",
-            "아이템 설명",
-            "Item description",
-            "وصف العنصر",
-            "アイテム説明",
-            type,
-            TitleRarity.RARE,
-            "/uploads/shop-items/" + shopItemId + ".png",
-            ShopItemImagePosition.BACK,
-            type == ShopItemType.EFFECT ? "sparkle_01" : null,
-            equipped,
-            LocalDateTime.of(2026, 7, 1, 0, 0));
+                userItemId,
+                shopItemId,
+                name,
+                name + " (EN)",
+                name + " (AR)",
+                name + " (JA)",
+                "아이템 설명",
+                "Item description",
+                "وصف العنصر",
+                "アイテム説明",
+                type,
+                TitleRarity.RARE,
+                "/uploads/shop-items/" + shopItemId + ".png",
+                ShopItemImagePosition.BACK,
+                type == ShopItemType.EFFECT ? "sparkle_01" : null,
+                equipped,
+                LocalDateTime.of(2026, 7, 1, 0, 0));
     }
 
     /** LUT-296: 인벤토리 아이템 공통 응답 필드 */
     private FieldDescriptor[] userItemFields(String prefix) {
         return new FieldDescriptor[] {
-            fieldWithPath(prefix + "user_item_id").type(JsonFieldType.NUMBER).description("보유 아이템 ID"),
-            fieldWithPath(prefix + "shop_item_id").type(JsonFieldType.NUMBER).description("상점 아이템 ID"),
+            fieldWithPath(prefix + "user_item_id")
+                    .type(JsonFieldType.NUMBER)
+                    .description("보유 아이템 ID"),
+            fieldWithPath(prefix + "shop_item_id")
+                    .type(JsonFieldType.NUMBER)
+                    .description("상점 아이템 ID"),
             fieldWithPath(prefix + "name").type(JsonFieldType.STRING).description("아이템명"),
-            fieldWithPath(prefix + "name_en").type(JsonFieldType.STRING).description("아이템명 (영어)").optional(),
-            fieldWithPath(prefix + "name_ar").type(JsonFieldType.STRING).description("아이템명 (아랍어)").optional(),
-            fieldWithPath(prefix + "name_ja").type(JsonFieldType.STRING).description("아이템명 (일본어)").optional(),
-            fieldWithPath(prefix + "description").type(JsonFieldType.STRING).description("아이템 설명").optional(),
-            fieldWithPath(prefix + "description_en").type(JsonFieldType.STRING).description("아이템 설명 (영어)").optional(),
-            fieldWithPath(prefix + "description_ar").type(JsonFieldType.STRING).description("아이템 설명 (아랍어)").optional(),
-            fieldWithPath(prefix + "description_ja").type(JsonFieldType.STRING).description("아이템 설명 (일본어)").optional(),
-            fieldWithPath(prefix + "item_type").type(JsonFieldType.STRING).description("아이템 타입 (BASIC|FULL|HEAD|EFFECT|ETC)"),
-            fieldWithPath(prefix + "rarity").type(JsonFieldType.STRING).description("희귀도 (COMMON, UNCOMMON, RARE, EPIC, LEGENDARY, MYTHIC)"),
-            fieldWithPath(prefix + "image_url").type(JsonFieldType.STRING).description("아이템 이미지 URL").optional(),
-            fieldWithPath(prefix + "image_position").type(JsonFieldType.STRING).description("이미지 포지션 (FRONT|BACK)").optional(),
-            fieldWithPath(prefix + "effect_code").type(JsonFieldType.STRING).description("LUT-342: 이펙트 코드 (EFFECT 타입 전용, 그 외 null)").optional(),
-            fieldWithPath(prefix + "is_equipped").type(JsonFieldType.BOOLEAN).description("장착 여부 (타입당 최대 1개)"),
-            fieldWithPath(prefix + "acquired_at").type(JsonFieldType.STRING).description("획득 일시").optional()
+            fieldWithPath(prefix + "name_en")
+                    .type(JsonFieldType.STRING)
+                    .description("아이템명 (영어)")
+                    .optional(),
+            fieldWithPath(prefix + "name_ar")
+                    .type(JsonFieldType.STRING)
+                    .description("아이템명 (아랍어)")
+                    .optional(),
+            fieldWithPath(prefix + "name_ja")
+                    .type(JsonFieldType.STRING)
+                    .description("아이템명 (일본어)")
+                    .optional(),
+            fieldWithPath(prefix + "description")
+                    .type(JsonFieldType.STRING)
+                    .description("아이템 설명")
+                    .optional(),
+            fieldWithPath(prefix + "description_en")
+                    .type(JsonFieldType.STRING)
+                    .description("아이템 설명 (영어)")
+                    .optional(),
+            fieldWithPath(prefix + "description_ar")
+                    .type(JsonFieldType.STRING)
+                    .description("아이템 설명 (아랍어)")
+                    .optional(),
+            fieldWithPath(prefix + "description_ja")
+                    .type(JsonFieldType.STRING)
+                    .description("아이템 설명 (일본어)")
+                    .optional(),
+            fieldWithPath(prefix + "item_type")
+                    .type(JsonFieldType.STRING)
+                    .description("아이템 타입 (BASIC|FULL|HEAD|EFFECT|ETC)"),
+            fieldWithPath(prefix + "rarity")
+                    .type(JsonFieldType.STRING)
+                    .description("희귀도 (COMMON, UNCOMMON, RARE, EPIC, LEGENDARY, MYTHIC)"),
+            fieldWithPath(prefix + "image_url")
+                    .type(JsonFieldType.STRING)
+                    .description("아이템 이미지 URL")
+                    .optional(),
+            fieldWithPath(prefix + "image_position")
+                    .type(JsonFieldType.STRING)
+                    .description("이미지 포지션 (FRONT|BACK)")
+                    .optional(),
+            fieldWithPath(prefix + "effect_code")
+                    .type(JsonFieldType.STRING)
+                    .description("LUT-342: 이펙트 코드 (EFFECT 타입 전용, 그 외 null)")
+                    .optional(),
+            fieldWithPath(prefix + "is_equipped")
+                    .type(JsonFieldType.BOOLEAN)
+                    .description("장착 여부 (타입당 최대 1개)"),
+            fieldWithPath(prefix + "acquired_at")
+                    .type(JsonFieldType.STRING)
+                    .description("획득 일시")
+                    .optional()
         };
     }
 
-    private FieldDescriptor[] withEnvelope(FieldDescriptor listDescriptor,
-            FieldDescriptor[] itemFields) {
+    private FieldDescriptor[] withEnvelope(
+            FieldDescriptor listDescriptor, FieldDescriptor[] itemFields) {
         FieldDescriptor[] result = new FieldDescriptor[itemFields.length + 3];
         result[0] = fieldWithPath("code").type(JsonFieldType.STRING).description("응답 코드");
         result[1] = fieldWithPath("message").type(JsonFieldType.STRING).description("응답 메시지");
@@ -122,30 +163,41 @@ class UserItemControllerTest {
     @DisplayName("GET /api/v1/user-items : 내 보유 아이템 목록 조회 (LUT-296)")
     void getMyItemsTest() throws Exception {
         // given — 장착중 1개 + 미장착 1개
-        when(userItemService.getMyItems(anyString())).thenReturn(List.of(
-            createMockUserItem(1L, 2L, "레벨업 사용 설명서", ShopItemType.ETC, false),
-            createMockUserItem(2L, 3L, "메딕의 날개", ShopItemType.EFFECT, true)));
+        when(userItemService.getMyItems(anyString()))
+                .thenReturn(
+                        List.of(
+                                createMockUserItem(1L, 2L, "레벨업 사용 설명서", ShopItemType.ETC, false),
+                                createMockUserItem(2L, 3L, "메딕의 날개", ShopItemType.EFFECT, true)));
 
         // when
-        ResultActions resultActions = mockMvc.perform(
-            RestDocumentationRequestBuilders.get("/api/v1/user-items")
-                .with(user(MOCK_USER_ID))
-                .contentType(MediaType.APPLICATION_JSON)
-        ).andDo(
-            MockMvcRestDocumentationWrapper.document("아이템 인벤토리-01. 내 보유 아이템 목록",
-                preprocessRequest(prettyPrint()),
-                preprocessResponse(prettyPrint()),
-                resource(
-                    ResourceSnippetParameters.builder()
-                        .tag("UserItem")
-                        .description("내 보유 아이템 목록 조회 — 기본 아이템(ID:2) 미보유 시 지급 후 반환 (JWT 토큰 인증 필요, LUT-296)")
-                        .responseFields(withEnvelope(
-                            fieldWithPath("value[]").type(JsonFieldType.ARRAY).description("보유 아이템 목록"),
-                            userItemFields("value[].")))
-                        .build()
-                )
-            )
-        );
+        ResultActions resultActions =
+                mockMvc.perform(
+                                RestDocumentationRequestBuilders.get("/api/v1/user-items")
+                                        .with(user(MOCK_USER_ID))
+                                        .contentType(MediaType.APPLICATION_JSON))
+                        .andDo(
+                                MockMvcRestDocumentationWrapper.document(
+                                        "아이템 인벤토리-01. 내 보유 아이템 목록",
+                                        preprocessRequest(prettyPrint()),
+                                        preprocessResponse(prettyPrint()),
+                                        resource(
+                                                ResourceSnippetParameters.builder()
+                                                        .tag("UserItem")
+                                                        .description(
+                                                                "내 보유 아이템 목록 조회 — 기본 아이템(ID:2) 미보유"
+                                                                    + " 시 지급 후 반환 (JWT 토큰 인증 필요,"
+                                                                    + " LUT-296)")
+                                                        .responseFields(
+                                                                withEnvelope(
+                                                                        fieldWithPath("value[]")
+                                                                                .type(
+                                                                                        JsonFieldType
+                                                                                                .ARRAY)
+                                                                                .description(
+                                                                                        "보유 아이템"
+                                                                                            + " 목록"),
+                                                                        userItemFields("value[].")))
+                                                        .build())));
 
         // then
         resultActions.andExpect(MockMvcResultMatchers.status().isOk());
@@ -156,31 +208,42 @@ class UserItemControllerTest {
     void equipItemTest() throws Exception {
         // given
         when(userItemService.equipItem(anyString(), anyLong()))
-            .thenReturn(createMockUserItem(2L, 3L, "메딕의 날개", ShopItemType.EFFECT, true));
+                .thenReturn(createMockUserItem(2L, 3L, "메딕의 날개", ShopItemType.EFFECT, true));
 
         // when
-        ResultActions resultActions = mockMvc.perform(
-            RestDocumentationRequestBuilders.post("/api/v1/user-items/{shopItemId}/equip", 3L)
-                .with(user(MOCK_USER_ID))
-                .contentType(MediaType.APPLICATION_JSON)
-        ).andDo(
-            MockMvcRestDocumentationWrapper.document("아이템 인벤토리-02. 아이템 장착",
-                preprocessRequest(prettyPrint()),
-                preprocessResponse(prettyPrint()),
-                resource(
-                    ResourceSnippetParameters.builder()
-                        .tag("UserItem")
-                        .description("아이템 장착 — 같은 타입의 기존 장착 아이템은 해제된다 (타입당 1개, JWT 토큰 인증 필요, LUT-296)")
-                        .pathParameters(
-                            parameterWithName("shopItemId").type(SimpleType.NUMBER).description("장착할 상점 아이템 ID")
-                        )
-                        .responseFields(withEnvelope(
-                            fieldWithPath("value").type(JsonFieldType.OBJECT).description("장착된 아이템"),
-                            userItemFields("value.")))
-                        .build()
-                )
-            )
-        );
+        ResultActions resultActions =
+                mockMvc.perform(
+                                RestDocumentationRequestBuilders.post(
+                                                "/api/v1/user-items/{shopItemId}/equip", 3L)
+                                        .with(user(MOCK_USER_ID))
+                                        .contentType(MediaType.APPLICATION_JSON))
+                        .andDo(
+                                MockMvcRestDocumentationWrapper.document(
+                                        "아이템 인벤토리-02. 아이템 장착",
+                                        preprocessRequest(prettyPrint()),
+                                        preprocessResponse(prettyPrint()),
+                                        resource(
+                                                ResourceSnippetParameters.builder()
+                                                        .tag("UserItem")
+                                                        .description(
+                                                                "아이템 장착 — 같은 타입의 기존 장착 아이템은 해제된다"
+                                                                        + " (타입당 1개, JWT 토큰 인증 필요,"
+                                                                        + " LUT-296)")
+                                                        .pathParameters(
+                                                                parameterWithName("shopItemId")
+                                                                        .type(SimpleType.NUMBER)
+                                                                        .description(
+                                                                                "장착할 상점 아이템 ID"))
+                                                        .responseFields(
+                                                                withEnvelope(
+                                                                        fieldWithPath("value")
+                                                                                .type(
+                                                                                        JsonFieldType
+                                                                                                .OBJECT)
+                                                                                .description(
+                                                                                        "장착된 아이템"),
+                                                                        userItemFields("value.")))
+                                                        .build())));
 
         // then
         resultActions.andExpect(MockMvcResultMatchers.status().isOk());
@@ -191,31 +254,42 @@ class UserItemControllerTest {
     void unequipItemTest() throws Exception {
         // given
         when(userItemService.unequipItem(anyString(), anyLong()))
-            .thenReturn(createMockUserItem(2L, 3L, "메딕의 날개", ShopItemType.EFFECT, false));
+                .thenReturn(createMockUserItem(2L, 3L, "메딕의 날개", ShopItemType.EFFECT, false));
 
         // when
-        ResultActions resultActions = mockMvc.perform(
-            RestDocumentationRequestBuilders.post("/api/v1/user-items/{shopItemId}/unequip", 3L)
-                .with(user(MOCK_USER_ID))
-                .contentType(MediaType.APPLICATION_JSON)
-        ).andDo(
-            MockMvcRestDocumentationWrapper.document("아이템 인벤토리-03. 아이템 장착해제",
-                preprocessRequest(prettyPrint()),
-                preprocessResponse(prettyPrint()),
-                resource(
-                    ResourceSnippetParameters.builder()
-                        .tag("UserItem")
-                        .description("아이템 장착해제 — 이미 미장착 상태면 그대로 반환 (멱등, JWT 토큰 인증 필요, LUT-299)")
-                        .pathParameters(
-                            parameterWithName("shopItemId").type(SimpleType.NUMBER).description("장착해제할 상점 아이템 ID")
-                        )
-                        .responseFields(withEnvelope(
-                            fieldWithPath("value").type(JsonFieldType.OBJECT).description("장착해제된 아이템"),
-                            userItemFields("value.")))
-                        .build()
-                )
-            )
-        );
+        ResultActions resultActions =
+                mockMvc.perform(
+                                RestDocumentationRequestBuilders.post(
+                                                "/api/v1/user-items/{shopItemId}/unequip", 3L)
+                                        .with(user(MOCK_USER_ID))
+                                        .contentType(MediaType.APPLICATION_JSON))
+                        .andDo(
+                                MockMvcRestDocumentationWrapper.document(
+                                        "아이템 인벤토리-03. 아이템 장착해제",
+                                        preprocessRequest(prettyPrint()),
+                                        preprocessResponse(prettyPrint()),
+                                        resource(
+                                                ResourceSnippetParameters.builder()
+                                                        .tag("UserItem")
+                                                        .description(
+                                                                "아이템 장착해제 — 이미 미장착 상태면 그대로 반환 (멱등,"
+                                                                        + " JWT 토큰 인증 필요, LUT-299)")
+                                                        .pathParameters(
+                                                                parameterWithName("shopItemId")
+                                                                        .type(SimpleType.NUMBER)
+                                                                        .description(
+                                                                                "장착해제할 상점 아이템 ID"))
+                                                        .responseFields(
+                                                                withEnvelope(
+                                                                        fieldWithPath("value")
+                                                                                .type(
+                                                                                        JsonFieldType
+                                                                                                .OBJECT)
+                                                                                .description(
+                                                                                        "장착해제된"
+                                                                                            + " 아이템"),
+                                                                        userItemFields("value.")))
+                                                        .build())));
 
         // then
         resultActions.andExpect(MockMvcResultMatchers.status().isOk());

@@ -9,9 +9,7 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
-/**
- * 사용자 보유 칭호 목록 응답 DTO
- */
+/** 사용자 보유 칭호 목록 응답 DTO */
 @Getter
 @NoArgsConstructor
 @AllArgsConstructor
@@ -42,7 +40,7 @@ public class UserTitleListResponse {
         private String descriptionAr;
         private String descriptionJa;
         private String rarity;
-        private String positionType;  // 칭호 위치 타입 (LEFT: 형용사, RIGHT: 명사)
+        private String positionType; // 칭호 위치 타입 (LEFT: 형용사, RIGHT: 명사)
         private String colorCode;
         private String iconUrl;
         private Boolean isEquipped;

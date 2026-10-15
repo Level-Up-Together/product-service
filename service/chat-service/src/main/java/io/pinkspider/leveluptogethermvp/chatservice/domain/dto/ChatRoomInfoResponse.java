@@ -22,17 +22,22 @@ public class ChatRoomInfoResponse {
     private Integer unreadMessageCount;
     private Long lastReadMessageId;
 
-    public static ChatRoomInfoResponse of(Long guildId, String guildName, String guildImageUrl,
-                                           int memberCount, int participantCount,
-                                           int unreadMessageCount, Long lastReadMessageId) {
+    public static ChatRoomInfoResponse of(
+            Long guildId,
+            String guildName,
+            String guildImageUrl,
+            int memberCount,
+            int participantCount,
+            int unreadMessageCount,
+            Long lastReadMessageId) {
         return ChatRoomInfoResponse.builder()
-            .guildId(guildId)
-            .guildName(guildName)
-            .guildImageUrl(guildImageUrl)
-            .memberCount(memberCount)
-            .participantCount(participantCount)
-            .unreadMessageCount(unreadMessageCount)
-            .lastReadMessageId(lastReadMessageId)
-            .build();
+                .guildId(guildId)
+                .guildName(guildName)
+                .guildImageUrl(guildImageUrl)
+                .memberCount(memberCount)
+                .participantCount(participantCount)
+                .unreadMessageCount(unreadMessageCount)
+                .lastReadMessageId(lastReadMessageId)
+                .build();
     }
 }

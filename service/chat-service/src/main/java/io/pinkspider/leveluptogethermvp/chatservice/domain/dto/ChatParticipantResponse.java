@@ -28,10 +28,10 @@ public class ChatParticipantResponse {
 
     public static ChatParticipantResponse from(GuildChatParticipant participant) {
         return ChatParticipantResponse.builder()
-            .userId(participant.getUserId())
-            .userNickname(participant.getUserNickname())
-            .joinedAt(participant.getJoinedAt())
-            .isActive(participant.getIsActive())
-            .build();
+                .userId(participant.getUserId())
+                .userNickname(participant.getUserNickname())
+                .joinedAt(participant.getJoinedAt())
+                .isActive(participant.getIsActive())
+                .build();
     }
 }

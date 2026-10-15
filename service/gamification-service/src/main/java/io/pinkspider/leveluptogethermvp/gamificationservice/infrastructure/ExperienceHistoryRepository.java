@@ -1,7 +1,7 @@
 package io.pinkspider.leveluptogethermvp.gamificationservice.infrastructure;
 
-import io.pinkspider.leveluptogethermvp.gamificationservice.domain.entity.ExperienceHistory;
 import io.pinkspider.global.enums.ExpSourceType;
+import io.pinkspider.leveluptogethermvp.gamificationservice.domain.entity.ExperienceHistory;
 import java.time.LocalDateTime;
 import java.util.List;
 import org.springframework.data.domain.Page;
@@ -21,252 +21,246 @@ public interface ExperienceHistoryRepository extends JpaRepository<ExperienceHis
     @Query("SELECT SUM(eh.expAmount) FROM ExperienceHistory eh WHERE eh.userId = :userId")
     Long sumExpByUserId(@Param("userId") String userId);
 
-    @Query("SELECT SUM(eh.expAmount) FROM ExperienceHistory eh WHERE eh.userId = :userId AND eh.sourceType = :sourceType")
-    Long sumExpByUserIdAndSourceType(@Param("userId") String userId, @Param("sourceType") ExpSourceType sourceType);
+    @Query(
+            "SELECT SUM(eh.expAmount) FROM ExperienceHistory eh WHERE eh.userId = :userId AND"
+                    + " eh.sourceType = :sourceType")
+    Long sumExpByUserIdAndSourceType(
+            @Param("userId") String userId, @Param("sourceType") ExpSourceType sourceType);
 
     /**
-     * 특정 기간 동안 가장 많은 경험치를 획득한 사용자 목록 (Top N)
-     * 오늘의 플레이어 기능에 사용 (어제 00:00 ~ 23:59 기준)
-     * categoryName이 있는 경험치만 포함 (모든 카테고리 MVP)
+     * 특정 기간 동안 가장 많은 경험치를 획득한 사용자 목록 (Top N) 오늘의 플레이어 기능에 사용 (어제 00:00 ~ 23:59 기준) categoryName이 있는
+     * 경험치만 포함 (모든 카테고리 MVP)
      */
-    @Query("""
-        SELECT eh.userId, SUM(eh.expAmount) as totalExp
-        FROM ExperienceHistory eh
-        WHERE eh.createdAt >= :startDate AND eh.createdAt < :endDate
-        AND eh.categoryName IS NOT NULL
-        AND eh.expAmount > 0
-        GROUP BY eh.userId
-        ORDER BY totalExp DESC
-        """)
+    @Query(
+            """
+            SELECT eh.userId, SUM(eh.expAmount) as totalExp
+            FROM ExperienceHistory eh
+            WHERE eh.createdAt >= :startDate AND eh.createdAt < :endDate
+            AND eh.categoryName IS NOT NULL
+            AND eh.expAmount > 0
+            GROUP BY eh.userId
+            ORDER BY totalExp DESC
+            """)
     List<Object[]> findTopExpGainersByPeriod(
-        @Param("startDate") LocalDateTime startDate,
-        @Param("endDate") LocalDateTime endDate,
-        Pageable pageable);
+            @Param("startDate") LocalDateTime startDate,
+            @Param("endDate") LocalDateTime endDate,
+            Pageable pageable);
 
-    /**
-     * 카테고리별 경험치 합계로 사용자 랭킹 조회
-     * 카테고리별 레벨 랭킹 기능에 사용
-     */
-    @Query("""
-        SELECT eh.userId, SUM(eh.expAmount) as totalCategoryExp
-        FROM ExperienceHistory eh
-        WHERE eh.categoryName = :categoryName
-        AND eh.expAmount > 0
-        GROUP BY eh.userId
-        ORDER BY totalCategoryExp DESC
-        """)
+    /** 카테고리별 경험치 합계로 사용자 랭킹 조회 카테고리별 레벨 랭킹 기능에 사용 */
+    @Query(
+            """
+            SELECT eh.userId, SUM(eh.expAmount) as totalCategoryExp
+            FROM ExperienceHistory eh
+            WHERE eh.categoryName = :categoryName
+            AND eh.expAmount > 0
+            GROUP BY eh.userId
+            ORDER BY totalCategoryExp DESC
+            """)
     Page<Object[]> findUserExpRankingByCategory(
-        @Param("categoryName") String categoryName,
-        Pageable pageable);
+            @Param("categoryName") String categoryName, Pageable pageable);
 
     /**
-     * LUT-297: 기간 내 획득 경험치 합계로 사용자 랭킹 조회 (주간/월간 랭킹용).
-     * 전체 소스(미션/출석/업적 등) 합산 — 전체 레벨 랭킹(UserExperience.totalExp)과 동일한 범위.
+     * LUT-297: 기간 내 획득 경험치 합계로 사용자 랭킹 조회 (주간/월간 랭킹용). 전체 소스(미션/출석/업적 등) 합산 — 전체 레벨
+     * 랭킹(UserExperience.totalExp)과 동일한 범위.
      */
-    @Query("""
-        SELECT eh.userId, SUM(eh.expAmount) as totalPeriodExp
-        FROM ExperienceHistory eh
-        WHERE eh.createdAt >= :startDate AND eh.createdAt < :endDate
-        AND eh.expAmount > 0
-        GROUP BY eh.userId
-        ORDER BY totalPeriodExp DESC
-        """)
+    @Query(
+            """
+            SELECT eh.userId, SUM(eh.expAmount) as totalPeriodExp
+            FROM ExperienceHistory eh
+            WHERE eh.createdAt >= :startDate AND eh.createdAt < :endDate
+            AND eh.expAmount > 0
+            GROUP BY eh.userId
+            ORDER BY totalPeriodExp DESC
+            """)
     List<Object[]> findUserExpRankingByPeriod(
-        @Param("startDate") LocalDateTime startDate,
-        @Param("endDate") LocalDateTime endDate);
+            @Param("startDate") LocalDateTime startDate, @Param("endDate") LocalDateTime endDate);
 
-    /**
-     * 특정 카테고리의 전체 사용자 수 조회
-     */
-    @Query("""
-        SELECT COUNT(DISTINCT eh.userId)
-        FROM ExperienceHistory eh
-        WHERE eh.categoryName = :categoryName
-        AND eh.expAmount > 0
-        """)
+    /** 특정 카테고리의 전체 사용자 수 조회 */
+    @Query(
+            """
+            SELECT COUNT(DISTINCT eh.userId)
+            FROM ExperienceHistory eh
+            WHERE eh.categoryName = :categoryName
+            AND eh.expAmount > 0
+            """)
     long countUsersByCategory(@Param("categoryName") String categoryName);
 
-    /**
-     * 특정 카테고리 + 기간 동안 가장 많은 경험치를 획득한 사용자 목록 (Top N)
-     * 카테고리별 오늘의 플레이어 기능에 사용
-     */
-    @Query("""
-        SELECT eh.userId, SUM(eh.expAmount) as totalExp
-        FROM ExperienceHistory eh
-        WHERE eh.categoryName = :categoryName
-        AND eh.createdAt >= :startDate AND eh.createdAt < :endDate
-        AND eh.expAmount > 0
-        GROUP BY eh.userId
-        ORDER BY totalExp DESC
-        """)
+    /** 특정 카테고리 + 기간 동안 가장 많은 경험치를 획득한 사용자 목록 (Top N) 카테고리별 오늘의 플레이어 기능에 사용 */
+    @Query(
+            """
+            SELECT eh.userId, SUM(eh.expAmount) as totalExp
+            FROM ExperienceHistory eh
+            WHERE eh.categoryName = :categoryName
+            AND eh.createdAt >= :startDate AND eh.createdAt < :endDate
+            AND eh.expAmount > 0
+            GROUP BY eh.userId
+            ORDER BY totalExp DESC
+            """)
     List<Object[]> findTopExpGainersByCategoryAndPeriod(
-        @Param("categoryName") String categoryName,
-        @Param("startDate") LocalDateTime startDate,
-        @Param("endDate") LocalDateTime endDate,
-        Pageable pageable);
+            @Param("categoryName") String categoryName,
+            @Param("startDate") LocalDateTime startDate,
+            @Param("endDate") LocalDateTime endDate,
+            Pageable pageable);
 
-    /**
-     * 특정 기간 동안 사용자의 총 경험치 합계 조회
-     */
-    @Query("""
-        SELECT COALESCE(SUM(eh.expAmount), 0)
-        FROM ExperienceHistory eh
-        WHERE eh.userId = :userId
-        AND eh.createdAt >= :startDate AND eh.createdAt < :endDate
-        AND eh.expAmount > 0
-        """)
+    /** 특정 기간 동안 사용자의 총 경험치 합계 조회 */
+    @Query(
+            """
+            SELECT COALESCE(SUM(eh.expAmount), 0)
+            FROM ExperienceHistory eh
+            WHERE eh.userId = :userId
+            AND eh.createdAt >= :startDate AND eh.createdAt < :endDate
+            AND eh.expAmount > 0
+            """)
     Long sumExpByUserIdAndPeriod(
-        @Param("userId") String userId,
-        @Param("startDate") LocalDateTime startDate,
-        @Param("endDate") LocalDateTime endDate);
+            @Param("userId") String userId,
+            @Param("startDate") LocalDateTime startDate,
+            @Param("endDate") LocalDateTime endDate);
 
     /**
-     * QA-217: 기간 내 사용자의 일별 획득 경험치 합계 (사용자 타임존 기준 날짜 버킷).
-     * 오늘의 MVP(findTopExpGainersByPeriod)와 동일 필터로 캘린더 표기를 MVP와 일치시킨다.
-     * created_at 은 UTC 저장이므로 타임존 변환 후 날짜로 그룹핑한다.
+     * QA-217: 기간 내 사용자의 일별 획득 경험치 합계 (사용자 타임존 기준 날짜 버킷). 오늘의 MVP(findTopExpGainersByPeriod)와 동일 필터로
+     * 캘린더 표기를 MVP와 일치시킨다. created_at 은 UTC 저장이므로 타임존 변환 후 날짜로 그룹핑한다.
      */
-    @Query(value = """
-        SELECT CAST(eh.created_at AT TIME ZONE 'UTC' AT TIME ZONE :timezone AS DATE) AS day,
-               SUM(eh.exp_amount) AS total_exp
-        FROM experience_history eh
-        WHERE eh.user_id = :userId
-        AND eh.created_at >= :startDate AND eh.created_at < :endDate
-        AND eh.category_name IS NOT NULL
-        AND eh.exp_amount > 0
-        GROUP BY day
-        """, nativeQuery = true)
+    @Query(
+            value =
+                    """
+SELECT CAST(eh.created_at AT TIME ZONE 'UTC' AT TIME ZONE :timezone AS DATE) AS day,
+       SUM(eh.exp_amount) AS total_exp
+FROM experience_history eh
+WHERE eh.user_id = :userId
+AND eh.created_at >= :startDate AND eh.created_at < :endDate
+AND eh.category_name IS NOT NULL
+AND eh.exp_amount > 0
+GROUP BY day
+""",
+            nativeQuery = true)
     List<Object[]> sumDailyExpByUserIdAndPeriod(
-        @Param("userId") String userId,
-        @Param("startDate") LocalDateTime startDate,
-        @Param("endDate") LocalDateTime endDate,
-        @Param("timezone") String timezone);
+            @Param("userId") String userId,
+            @Param("startDate") LocalDateTime startDate,
+            @Param("endDate") LocalDateTime endDate,
+            @Param("timezone") String timezone);
 
-    /**
-     * 특정 기간 동안 사용자보다 경험치가 많은 사용자 수 조회 (순위 계산용)
-     */
-    @Query(value = """
-        SELECT COUNT(*) FROM (
-            SELECT eh.user_id, SUM(eh.exp_amount) as total_exp
-            FROM experience_history eh
-            WHERE eh.created_at >= :startDate AND eh.created_at < :endDate
-            AND eh.category_name IS NOT NULL
-            AND eh.exp_amount > 0
-            GROUP BY eh.user_id
-            HAVING SUM(eh.exp_amount) > :myExp
-        ) sub
-        """, nativeQuery = true)
+    /** 특정 기간 동안 사용자보다 경험치가 많은 사용자 수 조회 (순위 계산용) */
+    @Query(
+            value =
+                    """
+                    SELECT COUNT(*) FROM (
+                        SELECT eh.user_id, SUM(eh.exp_amount) as total_exp
+                        FROM experience_history eh
+                        WHERE eh.created_at >= :startDate AND eh.created_at < :endDate
+                        AND eh.category_name IS NOT NULL
+                        AND eh.exp_amount > 0
+                        GROUP BY eh.user_id
+                        HAVING SUM(eh.exp_amount) > :myExp
+                    ) sub
+                    """,
+            nativeQuery = true)
     Long countUsersWithMoreExpByPeriod(
-        @Param("startDate") LocalDateTime startDate,
-        @Param("endDate") LocalDateTime endDate,
-        @Param("myExp") Long myExp);
+            @Param("startDate") LocalDateTime startDate,
+            @Param("endDate") LocalDateTime endDate,
+            @Param("myExp") Long myExp);
 
-    /**
-     * 특정 기간 + 카테고리 동안 사용자의 총 경험치 합계 조회
-     */
-    @Query("""
-        SELECT COALESCE(SUM(eh.expAmount), 0)
-        FROM ExperienceHistory eh
-        WHERE eh.userId = :userId
-        AND eh.categoryName = :categoryName
-        AND eh.createdAt >= :startDate AND eh.createdAt < :endDate
-        AND eh.expAmount > 0
-        """)
+    /** 특정 기간 + 카테고리 동안 사용자의 총 경험치 합계 조회 */
+    @Query(
+            """
+            SELECT COALESCE(SUM(eh.expAmount), 0)
+            FROM ExperienceHistory eh
+            WHERE eh.userId = :userId
+            AND eh.categoryName = :categoryName
+            AND eh.createdAt >= :startDate AND eh.createdAt < :endDate
+            AND eh.expAmount > 0
+            """)
     Long sumExpByUserIdAndCategoryAndPeriod(
-        @Param("userId") String userId,
-        @Param("categoryName") String categoryName,
-        @Param("startDate") LocalDateTime startDate,
-        @Param("endDate") LocalDateTime endDate);
+            @Param("userId") String userId,
+            @Param("categoryName") String categoryName,
+            @Param("startDate") LocalDateTime startDate,
+            @Param("endDate") LocalDateTime endDate);
 
-    /**
-     * 특정 기간 + 카테고리 동안 사용자보다 경험치가 많은 사용자 수 조회 (순위 계산용)
-     */
-    @Query(value = """
-        SELECT COUNT(*) FROM (
-            SELECT eh.user_id, SUM(eh.exp_amount) as total_exp
-            FROM experience_history eh
-            WHERE eh.category_name = :categoryName
-            AND eh.created_at >= :startDate AND eh.created_at < :endDate
-            AND eh.exp_amount > 0
-            GROUP BY eh.user_id
-            HAVING SUM(eh.exp_amount) > :myExp
-        ) sub
-        """, nativeQuery = true)
+    /** 특정 기간 + 카테고리 동안 사용자보다 경험치가 많은 사용자 수 조회 (순위 계산용) */
+    @Query(
+            value =
+                    """
+                    SELECT COUNT(*) FROM (
+                        SELECT eh.user_id, SUM(eh.exp_amount) as total_exp
+                        FROM experience_history eh
+                        WHERE eh.category_name = :categoryName
+                        AND eh.created_at >= :startDate AND eh.created_at < :endDate
+                        AND eh.exp_amount > 0
+                        GROUP BY eh.user_id
+                        HAVING SUM(eh.exp_amount) > :myExp
+                    ) sub
+                    """,
+            nativeQuery = true)
     Long countUsersWithMoreExpByCategoryAndPeriod(
-        @Param("categoryName") String categoryName,
-        @Param("startDate") LocalDateTime startDate,
-        @Param("endDate") LocalDateTime endDate,
-        @Param("myExp") Long myExp);
+            @Param("categoryName") String categoryName,
+            @Param("startDate") LocalDateTime startDate,
+            @Param("endDate") LocalDateTime endDate,
+            @Param("myExp") Long myExp);
 
-    /**
-     * 특정 사용자의 카테고리별 경험치 통계 (기간)
-     * MVP 히스토리 저장 시 사용
-     */
-    @Query("""
-        SELECT eh.categoryName, eh.categoryName as categoryId,
-               SUM(eh.expAmount) as totalExp, COUNT(eh) as activityCount
-        FROM ExperienceHistory eh
-        WHERE eh.userId = :userId
-        AND eh.createdAt >= :startDate AND eh.createdAt < :endDate
-        AND eh.categoryName IS NOT NULL
-        AND eh.expAmount > 0
-        GROUP BY eh.categoryName
-        ORDER BY totalExp DESC
-        """)
+    /** 특정 사용자의 카테고리별 경험치 통계 (기간) MVP 히스토리 저장 시 사용 */
+    @Query(
+            """
+            SELECT eh.categoryName, eh.categoryName as categoryId,
+                   SUM(eh.expAmount) as totalExp, COUNT(eh) as activityCount
+            FROM ExperienceHistory eh
+            WHERE eh.userId = :userId
+            AND eh.createdAt >= :startDate AND eh.createdAt < :endDate
+            AND eh.categoryName IS NOT NULL
+            AND eh.expAmount > 0
+            GROUP BY eh.categoryName
+            ORDER BY totalExp DESC
+            """)
     List<Object[]> findUserCategoryExpByPeriod(
-        @Param("userId") String userId,
-        @Param("startDate") LocalDateTime startDate,
-        @Param("endDate") LocalDateTime endDate);
+            @Param("userId") String userId,
+            @Param("startDate") LocalDateTime startDate,
+            @Param("endDate") LocalDateTime endDate);
 
-    /**
-     * 경험치 Top N 사용자 (Admin - 전체 경험치, 카테고리 필터 없음)
-     */
-    @Query("""
-        SELECT eh.userId, SUM(eh.expAmount) as totalExp
-        FROM ExperienceHistory eh
-        WHERE eh.createdAt >= :startDate AND eh.createdAt < :endDate
-        GROUP BY eh.userId
-        ORDER BY totalExp DESC
-        """)
+    /** 경험치 Top N 사용자 (Admin - 전체 경험치, 카테고리 필터 없음) */
+    @Query(
+            """
+            SELECT eh.userId, SUM(eh.expAmount) as totalExp
+            FROM ExperienceHistory eh
+            WHERE eh.createdAt >= :startDate AND eh.createdAt < :endDate
+            GROUP BY eh.userId
+            ORDER BY totalExp DESC
+            """)
     List<Object[]> findTopExpGainersAllByPeriod(
-        @Param("startDate") LocalDateTime startDate,
-        @Param("endDate") LocalDateTime endDate,
-        Pageable pageable);
+            @Param("startDate") LocalDateTime startDate,
+            @Param("endDate") LocalDateTime endDate,
+            Pageable pageable);
 
-    /**
-     * 경험치 Top N 사용자 (Admin - 특정 사용자 제외)
-     */
-    @Query("""
-        SELECT eh.userId, SUM(eh.expAmount) as totalExp
-        FROM ExperienceHistory eh
-        WHERE eh.createdAt >= :startDate AND eh.createdAt < :endDate
-        AND eh.userId NOT IN :excludedUserIds
-        GROUP BY eh.userId
-        ORDER BY totalExp DESC
-        """)
+    /** 경험치 Top N 사용자 (Admin - 특정 사용자 제외) */
+    @Query(
+            """
+            SELECT eh.userId, SUM(eh.expAmount) as totalExp
+            FROM ExperienceHistory eh
+            WHERE eh.createdAt >= :startDate AND eh.createdAt < :endDate
+            AND eh.userId NOT IN :excludedUserIds
+            GROUP BY eh.userId
+            ORDER BY totalExp DESC
+            """)
     List<Object[]> findTopExpGainersAllByPeriodExcluding(
-        @Param("startDate") LocalDateTime startDate,
-        @Param("endDate") LocalDateTime endDate,
-        @Param("excludedUserIds") List<String> excludedUserIds,
-        Pageable pageable);
+            @Param("startDate") LocalDateTime startDate,
+            @Param("endDate") LocalDateTime endDate,
+            @Param("excludedUserIds") List<String> excludedUserIds,
+            Pageable pageable);
 
-    /**
-     * 카테고리별 미션 수행 통계 (Admin)
-     */
-    @Query("""
-        SELECT eh.categoryName, COUNT(eh) as executionCount, SUM(eh.expAmount) as totalExp
-        FROM ExperienceHistory eh
-        WHERE eh.createdAt >= :startDate AND eh.createdAt < :endDate
-        AND eh.sourceType = io.pinkspider.global.enums.ExpSourceType.MISSION_EXECUTION
-        AND eh.categoryName IS NOT NULL
-        GROUP BY eh.categoryName
-        ORDER BY executionCount DESC
-        """)
+    /** 카테고리별 미션 수행 통계 (Admin) */
+    @Query(
+            """
+            SELECT eh.categoryName, COUNT(eh) as executionCount, SUM(eh.expAmount) as totalExp
+            FROM ExperienceHistory eh
+            WHERE eh.createdAt >= :startDate AND eh.createdAt < :endDate
+            AND eh.sourceType = io.pinkspider.global.enums.ExpSourceType.MISSION_EXECUTION
+            AND eh.categoryName IS NOT NULL
+            GROUP BY eh.categoryName
+            ORDER BY executionCount DESC
+            """)
     List<Object[]> findCategoryMissionStatsByPeriod(
-        @Param("startDate") LocalDateTime startDate,
-        @Param("endDate") LocalDateTime endDate);
+            @Param("startDate") LocalDateTime startDate, @Param("endDate") LocalDateTime endDate);
 
     /** LUT-454: 특정 레벨(등급 문턱)에 처음 도달한 시각 — 등급 도달 이력용 */
-    @Query("SELECT MIN(eh.createdAt) FROM ExperienceHistory eh "
-        + "WHERE eh.userId = :userId AND eh.levelAfter >= :level")
+    @Query(
+            "SELECT MIN(eh.createdAt) FROM ExperienceHistory eh "
+                    + "WHERE eh.userId = :userId AND eh.levelAfter >= :level")
     LocalDateTime findFirstReachedAt(@Param("userId") String userId, @Param("level") int level);
 }

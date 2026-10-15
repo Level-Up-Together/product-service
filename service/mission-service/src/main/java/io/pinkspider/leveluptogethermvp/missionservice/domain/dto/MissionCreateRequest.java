@@ -2,11 +2,11 @@ package io.pinkspider.leveluptogethermvp.missionservice.domain.dto;
 
 import com.fasterxml.jackson.databind.PropertyNamingStrategies;
 import com.fasterxml.jackson.databind.annotation.JsonNaming;
+import io.pinkspider.global.annotation.NoProfanity;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionExecutionMode;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionInterval;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionType;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionVisibility;
-import io.pinkspider.global.annotation.NoProfanity;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
@@ -52,8 +52,7 @@ public class MissionCreateRequest {
 
     private LocalDateTime endAt;
 
-    @Builder.Default
-    private MissionInterval missionInterval = MissionInterval.DAILY;
+    @Builder.Default private MissionInterval missionInterval = MissionInterval.DAILY;
 
     @Min(value = 1, message = "미션 기간은 최소 1일 이상이어야 합니다.")
     @Max(value = 365, message = "미션 기간은 최대 365일까지 가능합니다.")
@@ -79,16 +78,15 @@ public class MissionCreateRequest {
     private String customCategory;
 
     // 고정 미션 여부 (삭제할 때까지 목록에 유지)
-    @Builder.Default
-    private Boolean isPinned = false;
+    @Builder.Default private Boolean isPinned = false;
 
     // 수행 방식 (TIMED: 시간 측정, SIMPLE: 수행 여부)
-    @Builder.Default
-    private MissionExecutionMode executionMode = MissionExecutionMode.TIMED;
+    @Builder.Default private MissionExecutionMode executionMode = MissionExecutionMode.TIMED;
 
-    // 목표 수행 시간 (분) - 달성 시 보너스 XP
+    // LUT-551: 타이머 미션 최대 목표시간 (분) — 도달 시 자동 종료(+푸시). 유저 미션은 보너스 없이 목표분으로 EXP 캡.
+    // 프론트 선택지는 10분 간격 10~240분(기본 30분). 미션북(SYSTEM)의 목표/보너스는 어드민 DTO 가 별도 관리.
     @Min(value = 1, message = "목표 시간은 최소 1분 이상이어야 합니다.")
-    @Max(value = 480, message = "목표 시간은 최대 480분(8시간)까지 가능합니다.")
+    @Max(value = 240, message = "목표 시간은 최대 240분(4시간)까지 가능합니다.")
     private Integer targetDurationMinutes;
 
     // 하루 수행 횟수 제한 (null이면 무제한)

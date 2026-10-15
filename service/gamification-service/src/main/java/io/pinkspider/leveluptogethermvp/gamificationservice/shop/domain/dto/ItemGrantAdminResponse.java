@@ -34,30 +34,35 @@ public class ItemGrantAdminResponse {
 
     public static ItemGrantAdminResponse from(ItemGrant grant, String userNickname) {
         return ItemGrantAdminResponse.builder()
-            .id(grant.getId())
-            .userId(grant.getUserId())
-            .userNickname(userNickname)
-            .shopItemId(grant.getShopItem().getId())
-            .itemName(grant.getShopItem().getName())
-            .itemType(grant.getShopItem().getItemType() != null
-                ? grant.getShopItem().getItemType().name() : null)
-            .itemRarity(grant.getShopItem().getRarity() != null
-                ? grant.getShopItem().getRarity().name() : null)
-            .reason(grant.getReason())
-            .grantedBy(grant.getGrantedBy())
-            .grantedAt(grant.getGrantedAt())
-            .revokedBy(grant.getRevokedBy())
-            .revokedAt(grant.getRevokedAt())
-            .alreadyOwned(false)
-            .build();
+                .id(grant.getId())
+                .userId(grant.getUserId())
+                .userNickname(userNickname)
+                .shopItemId(grant.getShopItem().getId())
+                .itemName(grant.getShopItem().getName())
+                .itemType(
+                        grant.getShopItem().getItemType() != null
+                                ? grant.getShopItem().getItemType().name()
+                                : null)
+                .itemRarity(
+                        grant.getShopItem().getRarity() != null
+                                ? grant.getShopItem().getRarity().name()
+                                : null)
+                .reason(grant.getReason())
+                .grantedBy(grant.getGrantedBy())
+                .grantedAt(grant.getGrantedAt())
+                .revokedBy(grant.getRevokedBy())
+                .revokedAt(grant.getRevokedAt())
+                .alreadyOwned(false)
+                .build();
     }
 
-    public static ItemGrantAdminResponse alreadyOwned(String userId, String userNickname, Long shopItemId) {
+    public static ItemGrantAdminResponse alreadyOwned(
+            String userId, String userNickname, Long shopItemId) {
         return ItemGrantAdminResponse.builder()
-            .userId(userId)
-            .userNickname(userNickname)
-            .shopItemId(shopItemId)
-            .alreadyOwned(true)
-            .build();
+                .userId(userId)
+                .userNickname(userNickname)
+                .shopItemId(shopItemId)
+                .alreadyOwned(true)
+                .build();
     }
 }

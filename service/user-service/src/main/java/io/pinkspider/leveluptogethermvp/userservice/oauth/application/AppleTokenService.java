@@ -23,13 +23,12 @@ import org.springframework.stereotype.Service;
  * Sign in with Apple 서버 토큰 처리 (LUT-477).
  *
  * <ul>
- *   <li>로그인 시 authorization code 교환 → refresh token 확보 (탈퇴 revoke 용)</li>
- *   <li>탈퇴 시 refresh token revoke — App Store 심사 5.1.1(v) 요건</li>
+ *   <li>로그인 시 authorization code 교환 → refresh token 확보 (탈퇴 revoke 용)
+ *   <li>탈퇴 시 refresh token revoke — App Store 심사 5.1.1(v) 요건
  * </ul>
  *
- * <p>client_id 는 code 를 발급받은 클라이언트와 일치해야 한다 — id_token 의 aud 에서 추출해
- * 전달받는다 (웹=서비스 ID, iOS 네이티브=번들 ID 가 자동으로 맞는 구조).
- * 자격증명(app.oauth2.apple.*) 미설정이면 전부 no-op — 로그인/탈퇴는 정상 진행된다.
+ * <p>client_id 는 code 를 발급받은 클라이언트와 일치해야 한다 — id_token 의 aud 에서 추출해 전달받는다 (웹=서비스 ID, iOS 네이티브=번들 ID
+ * 가 자동으로 맞는 구조). 자격증명(app.oauth2.apple.*) 미설정이면 전부 no-op — 로그인/탈퇴는 정상 진행된다.
  */
 @Service
 @RequiredArgsConstructor
@@ -45,9 +44,9 @@ public class AppleTokenService {
     public boolean isConfigured() {
         OAuth2Properties.Apple apple = oAuth2Properties.getApple();
         return apple != null
-            && isNotBlank(apple.getTeamId())
-            && isNotBlank(apple.getKeyId())
-            && isNotBlank(apple.getPrivateKey());
+                && isNotBlank(apple.getTeamId())
+                && isNotBlank(apple.getKeyId())
+                && isNotBlank(apple.getPrivateKey());
     }
 
     /**
@@ -61,8 +60,13 @@ public class AppleTokenService {
             return Optional.empty();
         }
         try {
-            Map<String, Object> response = appleAuthFeignClient.exchangeToken(
-                clientId, generateClientSecret(clientId), "authorization_code", code, redirectUri);
+            Map<String, Object> response =
+                    appleAuthFeignClient.exchangeToken(
+                            clientId,
+                            generateClientSecret(clientId),
+                            "authorization_code",
+                            code,
+                            redirectUri);
             Object refreshToken = response.get("refresh_token");
             if (refreshToken == null) {
                 log.warn("Apple code 교환 응답에 refresh_token 없음: clientId={}", clientId);
@@ -71,8 +75,10 @@ public class AppleTokenService {
             log.info("Apple refresh token 확보: clientId={}", clientId);
             return Optional.of(refreshToken.toString());
         } catch (Exception e) {
-            log.warn("Apple code 교환 실패 (로그인은 계속 진행): clientId={}, error={}",
-                clientId, e.getMessage());
+            log.warn(
+                    "Apple code 교환 실패 (로그인은 계속 진행): clientId={}, error={}",
+                    clientId,
+                    e.getMessage());
             return Optional.empty();
         }
     }
@@ -85,7 +91,7 @@ public class AppleTokenService {
         }
         try {
             appleAuthFeignClient.revoke(
-                clientId, generateClientSecret(clientId), refreshToken, "refresh_token");
+                    clientId, generateClientSecret(clientId), refreshToken, "refresh_token");
             log.info("Apple token revoke 완료: clientId={}", clientId);
             return true;
         } catch (Exception e) {
@@ -100,32 +106,34 @@ public class AppleTokenService {
         ECPrivateKey privateKey = parsePrivateKey(apple.getPrivateKey());
 
         long now = System.currentTimeMillis();
-        JWTClaimsSet claims = new JWTClaimsSet.Builder()
-            .issuer(apple.getTeamId())
-            .subject(clientId)
-            .audience(APPLE_AUDIENCE)
-            .issueTime(new Date(now))
-            .expirationTime(new Date(now + CLIENT_SECRET_TTL_MS))
-            .build();
+        JWTClaimsSet claims =
+                new JWTClaimsSet.Builder()
+                        .issuer(apple.getTeamId())
+                        .subject(clientId)
+                        .audience(APPLE_AUDIENCE)
+                        .issueTime(new Date(now))
+                        .expirationTime(new Date(now + CLIENT_SECRET_TTL_MS))
+                        .build();
 
-        SignedJWT jwt = new SignedJWT(
-            new JWSHeader.Builder(JWSAlgorithm.ES256)
-                .keyID(apple.getKeyId())
-                .type(JOSEObjectType.JWT)
-                .build(),
-            claims);
+        SignedJWT jwt =
+                new SignedJWT(
+                        new JWSHeader.Builder(JWSAlgorithm.ES256)
+                                .keyID(apple.getKeyId())
+                                .type(JOSEObjectType.JWT)
+                                .build(),
+                        claims);
         jwt.sign(new ECDSASigner(privateKey));
         return jwt.serialize();
     }
 
     private ECPrivateKey parsePrivateKey(String pem) throws Exception {
-        String base64 = pem
-            .replace("-----BEGIN PRIVATE KEY-----", "")
-            .replace("-----END PRIVATE KEY-----", "")
-            .replaceAll("\\s", "");
+        String base64 =
+                pem.replace("-----BEGIN PRIVATE KEY-----", "")
+                        .replace("-----END PRIVATE KEY-----", "")
+                        .replaceAll("\\s", "");
         byte[] der = Base64.getDecoder().decode(base64);
-        return (ECPrivateKey) KeyFactory.getInstance("EC")
-            .generatePrivate(new PKCS8EncodedKeySpec(der));
+        return (ECPrivateKey)
+                KeyFactory.getInstance("EC").generatePrivate(new PKCS8EncodedKeySpec(der));
     }
 
     private boolean isNotBlank(String value) {

@@ -21,10 +21,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-/**
- * Admin 내부 API 컨트롤러 - Season
- * 인증 불필요 (SecurityConfig에서 /api/internal/** permitAll)
- */
+/** Admin 내부 API 컨트롤러 - Season 인증 불필요 (SecurityConfig에서 /api/internal/** permitAll) */
 @RestController
 @RequestMapping("/api/internal/seasons")
 @RequiredArgsConstructor
@@ -38,57 +35,59 @@ public class SeasonAdminInternalController {
             @RequestParam(required = false, defaultValue = "0") int page,
             @RequestParam(required = false, defaultValue = "20") int size,
             @RequestParam(name = "sort_by", required = false, defaultValue = "id") String sortBy,
-            @RequestParam(name = "sort_direction", required = false, defaultValue = "DESC") String sortDirection) {
-        Sort sort = "ASC".equalsIgnoreCase(sortDirection)
-            ? Sort.by(sortBy).ascending()
-            : Sort.by(sortBy).descending();
+            @RequestParam(name = "sort_direction", required = false, defaultValue = "DESC")
+                    String sortDirection) {
+        Sort sort =
+                "ASC".equalsIgnoreCase(sortDirection)
+                        ? Sort.by(sortBy).ascending()
+                        : Sort.by(sortBy).descending();
         return ApiResult.<SeasonAdminPageResponse>builder()
-            .value(seasonAdminService.searchSeasons(keyword, PageRequest.of(page, size, sort)))
-            .build();
+                .value(seasonAdminService.searchSeasons(keyword, PageRequest.of(page, size, sort)))
+                .build();
     }
 
     @GetMapping("/all")
     public ApiResult<List<SeasonAdminResponse>> getAllSeasons() {
         return ApiResult.<List<SeasonAdminResponse>>builder()
-            .value(seasonAdminService.getAllSeasons())
-            .build();
+                .value(seasonAdminService.getAllSeasons())
+                .build();
     }
 
     @GetMapping("/current")
     public ApiResult<SeasonAdminResponse> getCurrentSeason() {
         return ApiResult.<SeasonAdminResponse>builder()
-            .value(seasonAdminService.getCurrentSeason())
-            .build();
+                .value(seasonAdminService.getCurrentSeason())
+                .build();
     }
 
     @GetMapping("/upcoming")
     public ApiResult<List<SeasonAdminResponse>> getUpcomingSeasons() {
         return ApiResult.<List<SeasonAdminResponse>>builder()
-            .value(seasonAdminService.getUpcomingSeasons())
-            .build();
+                .value(seasonAdminService.getUpcomingSeasons())
+                .build();
     }
 
     @GetMapping("/{id}")
     public ApiResult<SeasonAdminResponse> getSeason(@PathVariable Long id) {
         return ApiResult.<SeasonAdminResponse>builder()
-            .value(seasonAdminService.getSeason(id))
-            .build();
+                .value(seasonAdminService.getSeason(id))
+                .build();
     }
 
     @PostMapping
-    public ApiResult<SeasonAdminResponse> createSeason(@Valid @RequestBody SeasonAdminRequest request) {
+    public ApiResult<SeasonAdminResponse> createSeason(
+            @Valid @RequestBody SeasonAdminRequest request) {
         return ApiResult.<SeasonAdminResponse>builder()
-            .value(seasonAdminService.createSeason(request))
-            .build();
+                .value(seasonAdminService.createSeason(request))
+                .build();
     }
 
     @PutMapping("/{id}")
     public ApiResult<SeasonAdminResponse> updateSeason(
-            @PathVariable Long id,
-            @Valid @RequestBody SeasonAdminRequest request) {
+            @PathVariable Long id, @Valid @RequestBody SeasonAdminRequest request) {
         return ApiResult.<SeasonAdminResponse>builder()
-            .value(seasonAdminService.updateSeason(id, request))
-            .build();
+                .value(seasonAdminService.updateSeason(id, request))
+                .build();
     }
 
     @DeleteMapping("/{id}")
@@ -100,7 +99,7 @@ public class SeasonAdminInternalController {
     @PatchMapping("/{id}/toggle")
     public ApiResult<SeasonAdminResponse> toggleActive(@PathVariable Long id) {
         return ApiResult.<SeasonAdminResponse>builder()
-            .value(seasonAdminService.toggleActive(id))
-            .build();
+                .value(seasonAdminService.toggleActive(id))
+                .build();
     }
 }

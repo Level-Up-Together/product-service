@@ -10,9 +10,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
-/**
- * 공개 프로필 응답 DTO (타인이 볼 수 있는 정보)
- */
+/** 공개 프로필 응답 DTO (타인이 볼 수 있는 정보) */
 @Getter
 @Setter
 @NoArgsConstructor
@@ -43,6 +41,9 @@ public class PublicProfileResponse {
     // LUT-340: 친구 수 (탈퇴 유저 제외 — 친구 목록 개수와 동일)
     private Integer friendsCount;
 
+    // LUT-555: 현재 연속 출석 일수 (attendance_record 체인 — 업적 화면 "현재 n일 출석중"과 동일, 오늘·어제 출석 없으면 0)
+    private Integer consecutiveDays;
+
     // 소속 길드 목록
     private java.util.List<GuildInfo> guilds;
 
@@ -70,9 +71,8 @@ public class PublicProfileResponse {
     private java.util.List<EquippedItemInfo> equippedItems;
 
     /**
-     * LUT-257: 현재 진행중인 미션 정보. 조회자에게 비노출(is_visible=false)이면 미션ID/미션명은 null 로
-     * 마스킹되어 내려간다 (프론트는 "비공개 미션 진행중" 표시).
-     * 카테고리(category_id/category_name)는 공개범위와 무관하게 항상 내려간다 (LUT-283).
+     * LUT-257: 현재 진행중인 미션 정보. 조회자에게 비노출(is_visible=false)이면 미션ID/미션명은 null 로 마스킹되어 내려간다 (프론트는 "비공개
+     * 미션 진행중" 표시). 카테고리(category_id/category_name)는 공개범위와 무관하게 항상 내려간다 (LUT-283).
      */
     @Getter
     @NoArgsConstructor
@@ -85,8 +85,10 @@ public class PublicProfileResponse {
         private String categoryName;
         private String title;
         private String visibility;
+
         @JsonProperty("is_visible")
         private Boolean isVisible;
+
         private java.time.LocalDateTime startedAt;
     }
 
@@ -127,6 +129,7 @@ public class PublicProfileResponse {
         private String rarity;
         private String imageUrl;
         private String imagePosition;
+
         /** LUT-342: EFFECT 타입 전용 이펙트 코드 — 웹 이펙트 렌더링 식별자 (그 외 타입은 null) */
         private String effectCode;
     }

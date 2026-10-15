@@ -5,11 +5,10 @@ import com.fasterxml.jackson.databind.annotation.JsonNaming;
 
 @JsonNaming(SnakeCaseStrategy.class)
 public record SeasonRewardStatsAdminResponse(
-    Long seasonId,
-    int pendingCount,
-    int successCount,
-    int failedCount,
-    int skippedCount,
-    int totalCount,
-    boolean isProcessed
-) {}
+        Long seasonId,
+        int pendingCount,
+        int successCount,
+        int failedCount,
+        int skippedCount,
+        int totalCount,
+        boolean isProcessed) {}

@@ -1,7 +1,6 @@
 package io.pinkspider.leveluptogethermvp.userservice.profile.event.listener;
 
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -24,14 +23,11 @@ import org.springframework.context.ApplicationEventPublisher;
 @ExtendWith(MockitoExtension.class)
 class UserLevelUpProfileSyncListenerTest {
 
-    @Mock
-    private UserProfileCacheService userProfileCacheService;
+    @Mock private UserProfileCacheService userProfileCacheService;
 
-    @Mock
-    private ApplicationEventPublisher eventPublisher;
+    @Mock private ApplicationEventPublisher eventPublisher;
 
-    @InjectMocks
-    private UserLevelUpProfileSyncListener listener;
+    @InjectMocks private UserLevelUpProfileSyncListener listener;
 
     private static final String TEST_USER_ID = "test-user-123";
 
@@ -44,10 +40,15 @@ class UserLevelUpProfileSyncListenerTest {
         void handleUserLevelUp_success() {
             // given
             UserLevelUpEvent event = new UserLevelUpEvent(TEST_USER_ID, 5, 5000L);
-            UserProfileInfo profile = new UserProfileInfo(
-                TEST_USER_ID, "테스터", "https://image.url/profile.jpg",
-                5, "초보자", TitleRarity.COMMON, "#FFFFFF"
-            );
+            UserProfileInfo profile =
+                    new UserProfileInfo(
+                            TEST_USER_ID,
+                            "테스터",
+                            "https://image.url/profile.jpg",
+                            5,
+                            "초보자",
+                            TitleRarity.COMMON,
+                            "#FFFFFF");
             when(userProfileCacheService.getUserProfile(TEST_USER_ID)).thenReturn(profile);
 
             // when
@@ -64,10 +65,9 @@ class UserLevelUpProfileSyncListenerTest {
         void handleUserLevelUp_evictCacheFirst() {
             // given
             UserLevelUpEvent event = new UserLevelUpEvent(TEST_USER_ID, 10, 10000L);
-            UserProfileInfo profile = new UserProfileInfo(
-                TEST_USER_ID, "닉네임", "https://image.url/pic.png",
-                10, null, null, null
-            );
+            UserProfileInfo profile =
+                    new UserProfileInfo(
+                            TEST_USER_ID, "닉네임", "https://image.url/pic.png", 10, null, null, null);
             when(userProfileCacheService.getUserProfile(TEST_USER_ID)).thenReturn(profile);
 
             // when
@@ -83,7 +83,7 @@ class UserLevelUpProfileSyncListenerTest {
             // given
             UserLevelUpEvent event = new UserLevelUpEvent(TEST_USER_ID, 3, 3000L);
             when(userProfileCacheService.getUserProfile(TEST_USER_ID))
-                .thenThrow(new RuntimeException("캐시 서버 연결 실패"));
+                    .thenThrow(new RuntimeException("캐시 서버 연결 실패"));
 
             // when (예외 없이 완료되어야 함)
             listener.handleUserLevelUp(event);
@@ -98,13 +98,11 @@ class UserLevelUpProfileSyncListenerTest {
         void handleUserLevelUp_eventPublishFails_doesNotThrow() {
             // given
             UserLevelUpEvent event = new UserLevelUpEvent(TEST_USER_ID, 7, 7000L);
-            UserProfileInfo profile = new UserProfileInfo(
-                TEST_USER_ID, "닉네임", "https://image.url/pic.png",
-                7, null, null, null
-            );
+            UserProfileInfo profile =
+                    new UserProfileInfo(
+                            TEST_USER_ID, "닉네임", "https://image.url/pic.png", 7, null, null, null);
             when(userProfileCacheService.getUserProfile(TEST_USER_ID)).thenReturn(profile);
-            doThrow(new RuntimeException("이벤트 발행 실패"))
-                .when(eventPublisher).publishEvent(any());
+            doThrow(new RuntimeException("이벤트 발행 실패")).when(eventPublisher).publishEvent(any());
 
             // when (예외 없이 완료되어야 함)
             listener.handleUserLevelUp(event);
@@ -119,10 +117,15 @@ class UserLevelUpProfileSyncListenerTest {
             // given
             int newLevel = 15;
             UserLevelUpEvent event = new UserLevelUpEvent(TEST_USER_ID, newLevel, 15000L);
-            UserProfileInfo profile = new UserProfileInfo(
-                TEST_USER_ID, "닉네임", "https://image.url/pic.png",
-                newLevel, "영웅", TitleRarity.RARE, "#GOLD"
-            );
+            UserProfileInfo profile =
+                    new UserProfileInfo(
+                            TEST_USER_ID,
+                            "닉네임",
+                            "https://image.url/pic.png",
+                            newLevel,
+                            "영웅",
+                            TitleRarity.RARE,
+                            "#GOLD");
             when(userProfileCacheService.getUserProfile(TEST_USER_ID)).thenReturn(profile);
 
             // when

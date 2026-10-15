@@ -11,16 +11,11 @@ import java.util.Map;
 /**
  * syncUserAchievements 1회 실행 동안 strategies 가 공유하는 사전 로드 데이터.
  *
- * 기존 구현은 각 Strategy가 achievement 마다 DB를 조회 (~316 업적 × 2회 = 632+ 쿼리).
- * 이 컨텍스트는 1회 sync 시작 시점에 source 테이블을 한 번씩만 로드하여 Strategy 가 in-memory
- * 평가하도록 한다.
+ * <p>기존 구현은 각 Strategy가 achievement 마다 DB를 조회 (~316 업적 × 2회 = 632+ 쿼리). 이 컨텍스트는 1회 sync 시작 시점에
+ * source 테이블을 한 번씩만 로드하여 Strategy 가 in-memory 평가하도록 한다.
  *
- * 캐시되는 데이터:
- *   - UserStats (1행)
- *   - UserExperience (1행)
- *   - UserCategoryExperience (categoryId → totalExp 맵)
- *   - 길드 마스터 여부 (boolean)
- *   - 사용자의 user_achievement 전체 (achievementId → row 맵)
+ * <p>캐시되는 데이터: - UserStats (1행) - UserExperience (1행) - UserCategoryExperience (categoryId →
+ * totalExp 맵) - 길드 마스터 여부 (boolean) - 사용자의 user_achievement 전체 (achievementId → row 맵)
  */
 public final class AchievementSyncContext {
 
@@ -32,13 +27,12 @@ public final class AchievementSyncContext {
     private final Map<Long, UserAchievement> userAchievementsByAchievementId;
 
     public AchievementSyncContext(
-        String userId,
-        UserStats userStats,
-        UserExperience userExperience,
-        List<UserCategoryExperience> categoryExperiences,
-        boolean guildMaster,
-        List<UserAchievement> userAchievements
-    ) {
+            String userId,
+            UserStats userStats,
+            UserExperience userExperience,
+            List<UserCategoryExperience> categoryExperiences,
+            boolean guildMaster,
+            List<UserAchievement> userAchievements) {
         this.userId = userId;
         this.userStats = userStats;
         this.userExperience = userExperience;

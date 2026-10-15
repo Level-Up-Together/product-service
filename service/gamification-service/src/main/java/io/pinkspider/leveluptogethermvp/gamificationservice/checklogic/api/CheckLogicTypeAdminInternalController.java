@@ -23,10 +23,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-/**
- * Admin 내부 API 컨트롤러 - CheckLogicType
- * 인증 불필요 (SecurityConfig에서 /api/internal/** permitAll)
- */
+/** Admin 내부 API 컨트롤러 - CheckLogicType 인증 불필요 (SecurityConfig에서 /api/internal/** permitAll) */
 @RestController
 @RequestMapping("/api/internal/check-logic-types")
 @RequiredArgsConstructor
@@ -39,83 +36,84 @@ public class CheckLogicTypeAdminInternalController {
             @RequestParam(required = false, defaultValue = "0") int page,
             @RequestParam(required = false, defaultValue = "20") int size) {
         return ApiResult.<CheckLogicTypeAdminPageResponse>builder()
-            .value(checkLogicTypeAdminService.searchCheckLogicTypes(
-                PageRequest.of(page, size, Sort.by("sortOrder").ascending())))
-            .build();
+                .value(
+                        checkLogicTypeAdminService.searchCheckLogicTypes(
+                                PageRequest.of(page, size, Sort.by("sortOrder").ascending())))
+                .build();
     }
 
     @GetMapping("/all")
     public ApiResult<List<CheckLogicTypeAdminResponse>> getAllCheckLogicTypes() {
         return ApiResult.<List<CheckLogicTypeAdminResponse>>builder()
-            .value(checkLogicTypeAdminService.getAllCheckLogicTypes())
-            .build();
+                .value(checkLogicTypeAdminService.getAllCheckLogicTypes())
+                .build();
     }
 
     @GetMapping("/active")
     public ApiResult<List<CheckLogicTypeAdminResponse>> getActiveCheckLogicTypes() {
         return ApiResult.<List<CheckLogicTypeAdminResponse>>builder()
-            .value(checkLogicTypeAdminService.getActiveCheckLogicTypes())
-            .build();
+                .value(checkLogicTypeAdminService.getActiveCheckLogicTypes())
+                .build();
     }
 
     @GetMapping("/by-data-source")
     public ApiResult<List<CheckLogicTypeAdminResponse>> getCheckLogicTypesByDataSource(
             @RequestParam(name = "data_source") String dataSource) {
         return ApiResult.<List<CheckLogicTypeAdminResponse>>builder()
-            .value(checkLogicTypeAdminService.getCheckLogicTypesByDataSource(dataSource))
-            .build();
+                .value(checkLogicTypeAdminService.getCheckLogicTypesByDataSource(dataSource))
+                .build();
     }
 
     @GetMapping("/{id}")
     public ApiResult<CheckLogicTypeAdminResponse> getCheckLogicType(@PathVariable Long id) {
         return ApiResult.<CheckLogicTypeAdminResponse>builder()
-            .value(checkLogicTypeAdminService.getCheckLogicType(id))
-            .build();
+                .value(checkLogicTypeAdminService.getCheckLogicType(id))
+                .build();
     }
 
     @GetMapping("/code/{code}")
-    public ApiResult<CheckLogicTypeAdminResponse> getCheckLogicTypeByCode(@PathVariable String code) {
+    public ApiResult<CheckLogicTypeAdminResponse> getCheckLogicTypeByCode(
+            @PathVariable String code) {
         return ApiResult.<CheckLogicTypeAdminResponse>builder()
-            .value(checkLogicTypeAdminService.getCheckLogicTypeByCode(code))
-            .build();
+                .value(checkLogicTypeAdminService.getCheckLogicTypeByCode(code))
+                .build();
     }
 
     @GetMapping("/data-sources")
     public ApiResult<List<DataSourceAdminInfo>> getDataSources() {
         return ApiResult.<List<DataSourceAdminInfo>>builder()
-            .value(checkLogicTypeAdminService.getDataSources())
-            .build();
+                .value(checkLogicTypeAdminService.getDataSources())
+                .build();
     }
 
     @GetMapping("/comparison-operators")
     public ApiResult<List<ComparisonOperatorAdminInfo>> getComparisonOperators() {
         return ApiResult.<List<ComparisonOperatorAdminInfo>>builder()
-            .value(checkLogicTypeAdminService.getComparisonOperators())
-            .build();
+                .value(checkLogicTypeAdminService.getComparisonOperators())
+                .build();
     }
 
     @PostMapping
     public ApiResult<CheckLogicTypeAdminResponse> createCheckLogicType(
             @Valid @RequestBody CheckLogicTypeAdminRequest request) {
         return ApiResult.<CheckLogicTypeAdminResponse>builder()
-            .value(checkLogicTypeAdminService.createCheckLogicType(request))
-            .build();
+                .value(checkLogicTypeAdminService.createCheckLogicType(request))
+                .build();
     }
 
     @PutMapping("/{id}")
     public ApiResult<CheckLogicTypeAdminResponse> updateCheckLogicType(
-            @PathVariable Long id,
-            @Valid @RequestBody CheckLogicTypeAdminRequest request) {
+            @PathVariable Long id, @Valid @RequestBody CheckLogicTypeAdminRequest request) {
         return ApiResult.<CheckLogicTypeAdminResponse>builder()
-            .value(checkLogicTypeAdminService.updateCheckLogicType(id, request))
-            .build();
+                .value(checkLogicTypeAdminService.updateCheckLogicType(id, request))
+                .build();
     }
 
     @PatchMapping("/{id}/toggle-active")
     public ApiResult<CheckLogicTypeAdminResponse> toggleActiveStatus(@PathVariable Long id) {
         return ApiResult.<CheckLogicTypeAdminResponse>builder()
-            .value(checkLogicTypeAdminService.toggleActiveStatus(id))
-            .build();
+                .value(checkLogicTypeAdminService.toggleActiveStatus(id))
+                .build();
     }
 
     @DeleteMapping("/{id}")

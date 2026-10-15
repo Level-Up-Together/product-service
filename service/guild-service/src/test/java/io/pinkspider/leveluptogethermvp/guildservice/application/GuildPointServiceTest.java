@@ -1,15 +1,19 @@
 package io.pinkspider.leveluptogethermvp.guildservice.application;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
+import io.pinkspider.global.test.TestReflectionUtils;
 import io.pinkspider.leveluptogethermvp.guildservice.domain.entity.Guild;
 import io.pinkspider.leveluptogethermvp.guildservice.domain.entity.GuildMemberDailyPoint;
 import io.pinkspider.leveluptogethermvp.guildservice.domain.enums.GuildVisibility;
 import io.pinkspider.leveluptogethermvp.guildservice.infrastructure.GuildMemberDailyPointRepository;
-import io.pinkspider.global.test.TestReflectionUtils;
 import java.time.LocalDate;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
@@ -20,6 +24,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.dao.DataIntegrityViolationException;
 
 @ExtendWith(MockitoExtension.class)
 @DisplayName("GuildPointService 테스트 (LUT-483)")
@@ -27,7 +32,10 @@ class GuildPointServiceTest {
 
     @Mock private GuildMemberDailyPointRepository dailyPointRepository;
 
-    @Spy private GuildPointProperties pointProperties = new GuildPointProperties(); // unit 10 / cap 60
+    @Mock private GuildMemberDailyPointCreator dailyPointCreator;
+
+    @Spy
+    private GuildPointProperties pointProperties = new GuildPointProperties(); // unit 10 / cap 60
 
     @InjectMocks private GuildPointService guildPointService;
 
@@ -36,24 +44,26 @@ class GuildPointServiceTest {
 
     @BeforeEach
     void setUp() {
-        guild = Guild.builder()
-                .name("테스트 길드")
-                .visibility(GuildVisibility.PUBLIC)
-                .masterId(USER)
-                .maxMembers(10)
-                .categoryId(1L)
-                .build();
+        guild =
+                Guild.builder()
+                        .name("테스트 길드")
+                        .visibility(GuildVisibility.PUBLIC)
+                        .masterId(USER)
+                        .maxMembers(10)
+                        .categoryId(1L)
+                        .build();
         TestReflectionUtils.setField(guild, "id", 1L);
     }
 
     private GuildMemberDailyPoint dailyRow(int dailyExp, int points) {
-        GuildMemberDailyPoint row = GuildMemberDailyPoint.builder()
-                .guildId(1L)
-                .userId(USER)
-                .pointDate(LocalDate.now())
-                .dailyExp(dailyExp)
-                .points(points)
-                .build();
+        GuildMemberDailyPoint row =
+                GuildMemberDailyPoint.builder()
+                        .guildId(1L)
+                        .userId(USER)
+                        .pointDate(LocalDate.now())
+                        .dailyExp(dailyExp)
+                        .points(points)
+                        .build();
         return row;
     }
 
@@ -120,17 +130,47 @@ class GuildPointServiceTest {
     }
 
     @Test
-    @DisplayName("유저×일자 행이 없으면 생성 후 적립한다")
+    @DisplayName("유저×일자 행이 없으면 크리에이터(REQUIRES_NEW)로 생성한 뒤 재조회한 managed 행에 적립한다")
     void accrue_createsDailyRow() {
+        GuildMemberDailyPoint created = dailyRow(0, 0);
         when(dailyPointRepository.findByGuildIdAndUserIdAndPointDate(any(), any(), any()))
-                .thenReturn(Optional.empty());
-        when(dailyPointRepository.saveAndFlush(any(GuildMemberDailyPoint.class)))
-                .thenAnswer(inv -> inv.getArgument(0));
+                .thenReturn(Optional.empty(), Optional.of(created));
 
         int diff = guildPointService.accruePoints(guild, USER, 25);
 
         assertThat(diff).isEqualTo(2);
         assertThat(guild.getTotalPoint()).isEqualTo(2);
+        verify(dailyPointCreator).create(eq(1L), eq(USER), any(LocalDate.class));
+        // 재조회된 행에 누적됐다 (내부 트랜잭션 반환값이 아니라)
+        assertThat(created.getDailyExp()).isEqualTo(25);
+        verify(dailyPointRepository).save(created);
+    }
+
+    @Test
+    @DisplayName("LUT-539: 동시 적립로 중복 키가 나도 EXP 적립 트랜잭션이 깨지지 않고 상대가 만든 행에 적립한다")
+    void accrue_duplicateRace_usesOtherRow() {
+        GuildMemberDailyPoint createdByOther = dailyRow(0, 0);
+        when(dailyPointRepository.findByGuildIdAndUserIdAndPointDate(any(), any(), any()))
+                .thenReturn(Optional.empty(), Optional.of(createdByOther));
+        doThrow(new DataIntegrityViolationException("uk_guild_member_daily_point"))
+                .when(dailyPointCreator)
+                .create(eq(1L), eq(USER), any(LocalDate.class));
+
+        int diff = guildPointService.accruePoints(guild, USER, 25);
+
+        assertThat(diff).isEqualTo(2);
+        assertThat(createdByOther.getDailyExp()).isEqualTo(25);
+    }
+
+    @Test
+    @DisplayName("LUT-539: 생성 후 재조회에 행이 없으면 IllegalStateException")
+    void accrue_missingAfterCreate_throws() {
+        when(dailyPointRepository.findByGuildIdAndUserIdAndPointDate(any(), any(), any()))
+                .thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> guildPointService.accruePoints(guild, USER, 25))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("after creation");
     }
 
     @Test

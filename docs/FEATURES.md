@@ -7,8 +7,15 @@
 고정 미션(`isPinned=true`)은 `DailyMissionInstance` 엔티티를 사용:
 
 - 매일 자동 생성 (스케줄러: `DailyMissionInstanceScheduler`, cron: `0 0 0 * * *` KST)
+  - 대상(`findAllActivePinnedMissionParticipants`, LUT-566): **미션 status ∈ DRAFT/OPEN/IN_PROGRESS · is_pinned · 미삭제** 이고 참여자
+    **ACCEPTED 또는 IN_PROGRESS**. 고정 미션 참여자는 완료해도 `IN_PROGRESS` 로 유지되므로(`UpdateParticipantProgressStep`) 두 상태가 곧
+    활성 참여자다. 예전엔 ACCEPTED 만·미션 상태 미확인이라 ① 종료(COMPLETED)/취소된 고정 길드미션에 매일 MISSED 가 쌓이고(LUT-482 로 목록에선
+    숨겨져 수행 불가) ② 첫 완료 뒤엔 미수행일 인스턴스가 생기지 않았다. 종료 미션의 잔존 MISSED 는 sql `V009`(1.1.1) 데이터 정리로 삭제.
+  - 하루 중 수행 시작 시점에 인스턴스가 없으면 on-demand 생성(`createOrGetTodayInstance`) — 스케줄러 실패/가입 당일 대비.
 - 미션 정보 스냅샷 저장 (미션 변경 시 과거 기록 보존)
-- 다중 실행 지원 (시퀀스 번호로 일일 복수 완료 추적)
+- 다중 실행 지원 (시퀀스 번호로 일일 복수 완료 추적) — 완료 saga 의 `CreateNextPinnedInstanceStep` 이 같은 날 seq+1 PENDING 을 자동 생성
+  (`daily_execution_limit` 도달 시 생략). 이 2회차는 자정에 MISSED 가 되므로 **월간 리포트 예정 수에서는 2회차 이상 미완료를 제외**한다
+  (`countScheduledInPeriod`: seq 1 전 상태 + seq≥2 COMPLETED, LUT-566).
 
 API 라우팅 — Strategy Pattern (`MissionExecutionStrategy` 인터페이스):
 
@@ -65,6 +72,10 @@ SIMPLE  // 수행 여부 — 즉시 완료, 고정 +5 EXP
 - Saga의 `CreateFeedFromMissionStep`은 `context.getFeedVisibility()`를 직접 사용
 - **피드 중복 생성 방지**: `shareExecutionToFeed()`에서 기존 피드가 있으면 업데이트, 없으면 생성
   (`FeedCommandService.updateFeedContentByExecutionId()`)
+- **피드 응답의 미션 카테고리명** (LUT-560): `ActivityFeedResponse.mission_category_name` — 피드의 `category_id` 를 Accept-Language 기준
+  표시명으로 풀어 내린다 (`FeedQueryService.enrichMissionCategoryNames`, 페이지 단위 distinct 1회 조회·메타 실패 시 생략). `category` 는
+  활동 분류(MISSION/ACHIEVEMENT…)라 이름을 분리했다. 비미션 피드는 null. 웹 피드 상세는 이 값을 cyan 칩으로, `visibility` 를
+  공개범위 태그(작성글 목록과 같은 `getFeedVisibilityLabel`)로 열람자 전원에게 노출한다.
 
 ## Feed Search Type (홈피드 필터)
 
@@ -77,9 +88,14 @@ FeedSearchType { ALL, FRIENDS, GUILD, MINE }
 - `GET /api/v1/feeds/public?searchType=FRIENDS` — 피드 API에 searchType 파라미터
 - `GET /api/v1/bff/home?feedSearchType=GUILD` — BFF에 feedSearchType 파라미터
 - `FeedQueryService.getFilteredFeeds()` — searchType별 분기
-  - FRIENDS: `findFriendsFeeds()` (친구의 PUBLIC+FRIENDS 피드)
-  - GUILD: `findGuildFeedsByGuildIds()` (내 길드들의 PUBLIC+GUILD 피드)
-  - MINE: `findByUserId()` (내 피드 전체)
+  - FRIENDS: `findFriendsFeeds(friendIds)` (친구의 PUBLIC+FRIENDS 피드). 친구가 없으면 빈 페이지
+  - GUILD: `findGuildOnlyFeedsByGuildIds(guildIds, excludedUserIds)` (내 길드들의 GUILD 공개 피드, 차단 유저 제외)
+  - MINE: `findPublicFeedsByUserId()` (내 피드, PRIVATE 제외)
+- **본인 피드 제외** (LUT-559): FRIENDS·GUILD 탭은 **다른 유저의 피드만** — FRIENDS 는 friendIds 에서 본인을 빼고, GUILD 는 본인을
+  `excludedUserIds`(NOT IN) 에 넣어 WHERE 로 제외한다(count 쿼리에도 같이 걸려 `total_elements` 정합). 내 피드는 ALL·MINE 에서만 보인다.
+  QA-168 때 "내가 친구공개로 올린 피드도 친구 탭에 보이게" 본인을 friendIds 에 넣었던 정책은 폐기됐다.
+- **카테고리와의 조합**: `searchType`이 ALL 이 아니면 `categoryIds`는 **무시**된다 (`ActivityFeedController`·`BffHomeService` 모두
+  searchType 분기가 우선). 탭 필터와 카테고리 필터는 동시에 적용되지 않는다.
 
 ## Mission Feed Sync (미션 기록 ↔ 피드 동기화)
 
@@ -102,6 +118,13 @@ FeedSearchType { ALL, FRIENDS, GUILD, MINE }
 
 - `Mission.isDeleted` (boolean) + `Mission.deletedAt` (LocalDateTime)
 - 목록 조회 시 `isDeleted=false` 필터링
+- **타이머 미션 최대 목표시간 (LUT-551)**: 생성 폼의 TIMED 선택 시 `target_duration_minutes` 를 반드시 보낸다 — 10분 간격 10~240분, 기본 30분
+  (백엔드 `MissionCreateRequest` `@Max(240)`; 미션북 템플릿의 목표시간은 어드민 DTO 가 별도 관리). 폼 기본 선택은 **체크(SIMPLE)**, 순서 체크→타이머.
+  길드 미션 생성 폼(LUT-553)도 같은 `createMission` API·같은 컴포넌트로 동일 규칙을 따른다 — 길드 미션은 `source=USER` 라 보너스 없이 목표분 캡, 길드 EXP 도 동일.
+  - 목표 도달 시 수행 화면이 즉시 `complete?autoEnded=true` 로 완료하고(5분 주기 스케줄러보다 먼저), 서버는 스케줄러 자동 종료와 동일한
+    `MissionAutoEndedEvent`(MISSION_AUTO_ENDED 푸시)를 발행한다. 화면을 닫은 뒤에는 스케줄러가 종료·발송한다. 유저 직접 완료(버튼)는 플래그 없음.
+  - **EXP: 목표 달성 보너스(`bonusExpOnFullCompletion`)는 미션북(`source=SYSTEM`) 전용**. 유저 생성 미션(USER/GUILD)은 목표 도달 시 보너스 없이
+    `expEarned = targetDurationMinutes` 로 캡한다(30분 미션 = 30 EXP). 미션북 다이아(`GrantMissionBookDiamondStep`)도 SYSTEM 게이트라 영향 없음.
 
 ## Mission Auto-Complete (미션 자동 종료)
 

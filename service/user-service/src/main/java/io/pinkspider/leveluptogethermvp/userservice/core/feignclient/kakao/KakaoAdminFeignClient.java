@@ -15,10 +15,9 @@ import org.springframework.web.bind.annotation.RequestParam;
 @FeignClient(name = "kakao-admin-api", url = "https://kapi.kakao.com")
 public interface KakaoAdminFeignClient {
 
-    @PostMapping(value = "/v1/user/unlink",
-        consumes = MediaType.APPLICATION_FORM_URLENCODED_VALUE)
+    @PostMapping(value = "/v1/user/unlink", consumes = MediaType.APPLICATION_FORM_URLENCODED_VALUE)
     Map<String, Object> unlink(
-        @RequestHeader("Authorization") String authorization,
-        @RequestParam("target_id_type") String targetIdType,
-        @RequestParam("target_id") Long targetId);
+            @RequestHeader("Authorization") String authorization,
+            @RequestParam("target_id_type") String targetIdType,
+            @RequestParam("target_id") Long targetId);
 }

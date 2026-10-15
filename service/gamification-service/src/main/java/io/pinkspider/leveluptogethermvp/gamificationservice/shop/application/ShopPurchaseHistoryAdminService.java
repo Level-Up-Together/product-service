@@ -19,9 +19,8 @@ import org.springframework.transaction.annotation.Transactional;
 /**
  * LUT-328: 어드민 아이템 구매이력 조회.
  *
- * <p>원장(diamond_history, type=SHOP)과 shop_item 을 조인해 구매 시점·가격을 내려주고,
- * 구매자 닉네임은 UserQueryFacade 벌크 조회로 채운다 (MissionParticipantAdminService 패턴).
- * keyword 는 아이템명(한/영) OR 구매자 닉네임에 매칭된다.
+ * <p>원장(diamond_history, type=SHOP)과 shop_item 을 조인해 구매 시점·가격을 내려주고, 구매자 닉네임은 UserQueryFacade 벌크
+ * 조회로 채운다 (MissionParticipantAdminService 패턴). keyword 는 아이템명(한/영) OR 구매자 닉네임에 매칭된다.
  */
 @Service
 @RequiredArgsConstructor
@@ -40,31 +39,30 @@ public class ShopPurchaseHistoryAdminService {
         if (trimmed == null) {
             rows = diamondHistoryRepository.searchShopPurchases(DiamondType.SHOP, null, pageable);
         } else {
-            List<String> matchedUserIds =
-                userQueryFacade.findUserIdsByNicknameContaining(trimmed);
+            List<String> matchedUserIds = userQueryFacade.findUserIdsByNicknameContaining(trimmed);
             // IN 빈 리스트는 JPQL 에서 무효라, 닉네임 매칭이 없으면 아이템명 검색만 수행
-            rows = matchedUserIds.isEmpty()
-                ? diamondHistoryRepository.searchShopPurchases(
-                    DiamondType.SHOP, trimmed, pageable)
-                : diamondHistoryRepository.searchShopPurchasesWithUsers(
-                    DiamondType.SHOP, trimmed, matchedUserIds, pageable);
+            rows =
+                    matchedUserIds.isEmpty()
+                            ? diamondHistoryRepository.searchShopPurchases(
+                                    DiamondType.SHOP, trimmed, pageable)
+                            : diamondHistoryRepository.searchShopPurchasesWithUsers(
+                                    DiamondType.SHOP, trimmed, matchedUserIds, pageable);
         }
 
-        List<String> purchaserIds = rows.getContent().stream()
-            .map(ShopPurchaseHistoryRow::userId)
-            .distinct()
-            .toList();
-        Map<String, UserProfileInfo> profiles = purchaserIds.isEmpty()
-            ? Map.of()
-            : userQueryFacade.getUserProfiles(purchaserIds);
+        List<String> purchaserIds =
+                rows.getContent().stream().map(ShopPurchaseHistoryRow::userId).distinct().toList();
+        Map<String, UserProfileInfo> profiles =
+                purchaserIds.isEmpty() ? Map.of() : userQueryFacade.getUserProfiles(purchaserIds);
 
-        List<ShopPurchaseHistoryAdminResponse> content = rows.getContent().stream()
-            .map(row -> {
-                UserProfileInfo profile = profiles.get(row.userId());
-                return ShopPurchaseHistoryAdminResponse.from(
-                    row, profile != null ? profile.nickname() : null);
-            })
-            .toList();
+        List<ShopPurchaseHistoryAdminResponse> content =
+                rows.getContent().stream()
+                        .map(
+                                row -> {
+                                    UserProfileInfo profile = profiles.get(row.userId());
+                                    return ShopPurchaseHistoryAdminResponse.from(
+                                            row, profile != null ? profile.nickname() : null);
+                                })
+                        .toList();
 
         return ShopPurchaseHistoryAdminPageResponse.from(rows, content);
     }

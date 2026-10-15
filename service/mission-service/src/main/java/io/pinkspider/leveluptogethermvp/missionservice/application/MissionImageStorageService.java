@@ -2,10 +2,7 @@ package io.pinkspider.leveluptogethermvp.missionservice.application;
 
 import org.springframework.web.multipart.MultipartFile;
 
-/**
- * 미션 이미지 저장 서비스 인터페이스
- * 로컬 저장소 또는 S3 등 다양한 저장소로 교체 가능하도록 추상화
- */
+/** 미션 이미지 저장 서비스 인터페이스 로컬 저장소 또는 S3 등 다양한 저장소로 교체 가능하도록 추상화 */
 public interface MissionImageStorageService {
 
     /**
@@ -35,8 +32,8 @@ public interface MissionImageStorageService {
     boolean isValidImage(MultipartFile file);
 
     /**
-     * LUT-409: 원본만 있고 리사이즈 변형(thumb/medium)이 없는 이미지에 변형을 생성한다.
-     * LUT-400 이전 업로드분 백필용 — 멱등(이미 존재하는 변형은 건너뜀).
+     * LUT-409: 원본만 있고 리사이즈 변형(thumb/medium)이 없는 이미지에 변형을 생성한다. LUT-400 이전 업로드분 백필용 — 멱등(이미 존재하는 변형은
+     * 건너뜀).
      *
      * @param imageUrl 원본 이미지 URL (이 저장소가 서빙하는 URL 이 아니면 대상 제외)
      * @return 새로 생성한 변형 수 (0 = 이미 완비 또는 대상 아님)

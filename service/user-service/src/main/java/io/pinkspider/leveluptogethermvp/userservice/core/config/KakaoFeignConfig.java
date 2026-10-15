@@ -2,11 +2,10 @@ package io.pinkspider.leveluptogethermvp.userservice.core.config;
 
 import feign.RequestInterceptor;
 import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 
-//@Configuration
+// @Configuration
 public class KakaoFeignConfig {
 
     @Bean
@@ -16,4 +15,3 @@ public class KakaoFeignConfig {
         };
     }
 }
-

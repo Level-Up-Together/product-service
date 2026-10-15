@@ -25,37 +25,41 @@ import org.springframework.context.annotation.Import;
 import org.springframework.test.web.servlet.MockMvc;
 
 @WebMvcTest(
-    excludeFilters = {
-        @ComponentScan.Filter(type = FilterType.REGEX, pattern = "io.pinkspider.global.filter.*"),
-        @ComponentScan.Filter(type = FilterType.REGEX, pattern = ".*SecurityConfig"),  // 추가
-        @ComponentScan.Filter(type = FilterType.REGEX, pattern = ".*WebSecurityConfig")  // 추가
-    },
-    excludeAutoConfiguration = {
-        DataSourceAutoConfiguration.class,
-        HibernateJpaAutoConfiguration.class,
-        DataSourceTransactionManagerAutoConfiguration.class,
-        SecurityAutoConfiguration.class,  // 추가
-        UserDetailsServiceAutoConfiguration.class,  // 추가
-        SecurityFilterAutoConfiguration.class  // 추가
-    }
-)
+        excludeFilters = {
+            @ComponentScan.Filter(
+                    type = FilterType.REGEX,
+                    pattern = "io.pinkspider.global.filter.*"),
+            @ComponentScan.Filter(type = FilterType.REGEX, pattern = ".*SecurityConfig"), // 추가
+            @ComponentScan.Filter(type = FilterType.REGEX, pattern = ".*WebSecurityConfig") // 추가
+        },
+        excludeAutoConfiguration = {
+            DataSourceAutoConfiguration.class,
+            HibernateJpaAutoConfiguration.class,
+            DataSourceTransactionManagerAutoConfiguration.class,
+            SecurityAutoConfiguration.class, // 추가
+            UserDetailsServiceAutoConfiguration.class, // 추가
+            SecurityFilterAutoConfiguration.class // 추가
+        })
 @Import(ControllerTestConfig.class)
 @AutoConfigureRestDocs
 @AutoConfigureMockMvc(addFilters = false)
 public class BaseTestController {
 
-    @Autowired
-    protected MockMvc mockMvc;
+    @Autowired protected MockMvc mockMvc;
 
     protected MockedStatic<CryptoMetaDataLoader> mockedCryptoMetaDataLoader = null;
     protected MockedStatic<CommonCodeHelper> mockStaticCommonCodeHelper = null;
 
     @BeforeEach
     public void setUp() {
-        CryptoMetaData cryptoMetaData = MockUtil.readJsonFileToClass("fixture/core/CryptoMetaData.json", CryptoMetaData.class);
+        CryptoMetaData cryptoMetaData =
+                MockUtil.readJsonFileToClass(
+                        "fixture/core/CryptoMetaData.json", CryptoMetaData.class);
 
         mockedCryptoMetaDataLoader = mockStatic(CryptoMetaDataLoader.class);
-        mockedCryptoMetaDataLoader.when(CryptoMetaDataLoader::getCryptoMetaDataDto).thenReturn(cryptoMetaData);
+        mockedCryptoMetaDataLoader
+                .when(CryptoMetaDataLoader::getCryptoMetaDataDto)
+                .thenReturn(cryptoMetaData);
 
         mockStaticCommonCodeHelper = mockStatic(CommonCodeHelper.class);
     }

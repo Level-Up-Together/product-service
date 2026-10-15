@@ -8,7 +8,7 @@ import feign.httpclient.ApacheHttpClient;
 import org.apache.http.impl.client.HttpClients;
 import org.springframework.context.annotation.Bean;
 
-//@Configuration
+// @Configuration
 public class GoogleFeignConfig {
 
     // 🔥 Apache HttpClient를 Feign의 기본 HTTP 클라이언트로 설정
@@ -23,4 +23,3 @@ public class GoogleFeignConfig {
         return new FormEncoder(new SpringFormEncoder());
     }
 }
-

@@ -16,20 +16,19 @@ import org.springframework.data.redis.stream.StreamListener;
 import org.springframework.stereotype.Component;
 
 /**
- * 푸시 알림 Redis Stream Consumer
- * Redis Stream 메시지를 받아서 FCM으로 실제 푸시 알림 전송 + 일부 타입은 in-app 알림 DB에도 저장.
+ * 푸시 알림 Redis Stream Consumer Redis Stream 메시지를 받아서 FCM으로 실제 푸시 알림 전송 + 일부 타입은 in-app 알림 DB에도 저장.
  */
 @Component
 @Slf4j
 @RequiredArgsConstructor
-public class AppPushMessageConsumer implements StreamListener<String, MapRecord<String, String, String>> {
+public class AppPushMessageConsumer
+        implements StreamListener<String, MapRecord<String, String, String>> {
 
     private static final String NOTIFICATION_TYPE_INQUIRY_REPLIED = "INQUIRY_REPLIED";
 
     /**
-     * 소비 시점에 i18n 재구성이 필요한 외부(admin-service) 발행 타입.
-     * 내부(NotificationService) 발행 푸시는 발행 시점에 이미 사용자 locale로 포맷된 최종 텍스트라
-     * 재구성 대상이 아니다 — 재구성하면 템플릿 인자 불일치로 "{1}" 등이 그대로 노출된다 (LUT-262).
+     * 소비 시점에 i18n 재구성이 필요한 외부(admin-service) 발행 타입. 내부(NotificationService) 발행 푸시는 발행 시점에 이미 사용자
+     * locale로 포맷된 최종 텍스트라 재구성 대상이 아니다 — 재구성하면 템플릿 인자 불일치로 "{1}" 등이 그대로 노출된다 (LUT-262).
      */
     private static final Set<String> EXTERNALLY_PUBLISHED_TYPES =
             Set.of(NOTIFICATION_TYPE_INQUIRY_REPLIED);
@@ -57,13 +56,13 @@ public class AppPushMessageConsumer implements StreamListener<String, MapRecord<
             String title = localizedText != null ? localizedText[0] : message.getTitle();
             String body = localizedText != null ? localizedText[1] : message.getBody();
 
-            PushMessageRequest pushRequest = PushMessageRequest.full(
-                    title,
-                    body,
-                    message.getImageUrl(),
-                    message.getClickAction(),
-                    message.getData()
-            );
+            PushMessageRequest pushRequest =
+                    PushMessageRequest.full(
+                            title,
+                            body,
+                            message.getImageUrl(),
+                            message.getClickAction(),
+                            message.getData());
 
             // 토픽 기반 전송
             if (message.getTopic() != null && !message.getTopic().isEmpty()) {
@@ -89,9 +88,8 @@ public class AppPushMessageConsumer implements StreamListener<String, MapRecord<
     }
 
     /**
-     * notification_type별 in-app DB 저장 등 후속 처리.
-     * NotificationService 자체 흐름(이미 in-app 저장 + push 발행 둘 다 함)과는 별도로,
-     * 외부 서비스에서 stream으로 들어온 것만 여기서 처리한다.
+     * notification_type별 in-app DB 저장 등 후속 처리. NotificationService 자체 흐름(이미 in-app 저장 + push 발행 둘 다
+     * 함)과는 별도로, 외부 서비스에서 stream으로 들어온 것만 여기서 처리한다.
      */
     private void handleExternalNotificationType(AppPushMessageDto message) {
         String type = message.getNotificationType();
@@ -104,7 +102,8 @@ public class AppPushMessageConsumer implements StreamListener<String, MapRecord<
                     Long inquiryId = parseLong(message.getData(), "inquiry_id");
                     String inquiryTitle = message.getBody();
                     if (userId != null && inquiryId != null) {
-                        notificationService.saveInquiryRepliedInApp(userId, inquiryId, inquiryTitle);
+                        notificationService.saveInquiryRepliedInApp(
+                                userId, inquiryId, inquiryTitle);
                     }
                 }
                 default -> {
@@ -117,9 +116,8 @@ public class AppPushMessageConsumer implements StreamListener<String, MapRecord<
     }
 
     /**
-     * INQUIRY_REPLIED 등 외부에서 발행된 알림의 push 텍스트를 사용자 locale로 i18n 재구성.
-     * 외부 발행 타입이 아니거나 NotificationType이 매핑되지 않거나 단일 사용자 대상이 아니면
-     * null 반환 (원본 사용).
+     * INQUIRY_REPLIED 등 외부에서 발행된 알림의 push 텍스트를 사용자 locale로 i18n 재구성. 외부 발행 타입이 아니거나
+     * NotificationType이 매핑되지 않거나 단일 사용자 대상이 아니면 null 반환 (원본 사용).
      */
     private String[] localizePushTextIfNeeded(AppPushMessageDto message) {
         String typeStr = message.getNotificationType();
@@ -143,8 +141,11 @@ public class AppPushMessageConsumer implements StreamListener<String, MapRecord<
             log.debug("Push 텍스트 i18n 재구성: userId={}, type={}", userId, type);
             return result;
         } catch (Exception e) {
-            log.warn("Push 텍스트 i18n 재구성 실패, 원본 사용: userId={}, type={}, error={}",
-                userId, type, e.getMessage());
+            log.warn(
+                    "Push 텍스트 i18n 재구성 실패, 원본 사용: userId={}, type={}, error={}",
+                    userId,
+                    type,
+                    e.getMessage());
             return null;
         }
     }

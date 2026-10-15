@@ -9,23 +9,22 @@ import org.springframework.data.domain.Page;
 @Builder
 @JsonNaming(SnakeCaseStrategy.class)
 public record UserAdminPageResponse(
-    List<UserAdminResponse> content,
-    int page,
-    int size,
-    long totalElements,
-    int totalPages,
-    boolean first,
-    boolean last
-) {
+        List<UserAdminResponse> content,
+        int page,
+        int size,
+        long totalElements,
+        int totalPages,
+        boolean first,
+        boolean last) {
     public static UserAdminPageResponse from(Page<UserAdminResponse> p) {
         return UserAdminPageResponse.builder()
-            .content(p.getContent())
-            .page(p.getNumber())
-            .size(p.getSize())
-            .totalElements(p.getTotalElements())
-            .totalPages(p.getTotalPages())
-            .first(p.isFirst())
-            .last(p.isLast())
-            .build();
+                .content(p.getContent())
+                .page(p.getNumber())
+                .size(p.getSize())
+                .totalElements(p.getTotalElements())
+                .totalPages(p.getTotalPages())
+                .first(p.isFirst())
+                .last(p.isLast())
+                .build();
     }
 }

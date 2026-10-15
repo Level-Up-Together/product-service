@@ -23,17 +23,17 @@ import lombok.experimental.SuperBuilder;
 import org.hibernate.annotations.Comment;
 
 @Entity
-@Table(name = "season_rank_reward",
-    uniqueConstraints = @UniqueConstraint(
-        name = "uk_season_rank_reward",
-        columnNames = {"season_id", "category_id", "rank_start", "rank_end"}
-    ),
-    indexes = {
-        @Index(name = "idx_season_rank_reward_season", columnList = "season_id"),
-        @Index(name = "idx_season_rank_reward_active", columnList = "season_id, is_active"),
-        @Index(name = "idx_season_rank_reward_category", columnList = "season_id, category_id")
-    }
-)
+@Table(
+        name = "season_rank_reward",
+        uniqueConstraints =
+                @UniqueConstraint(
+                        name = "uk_season_rank_reward",
+                        columnNames = {"season_id", "category_id", "rank_start", "rank_end"}),
+        indexes = {
+            @Index(name = "idx_season_rank_reward_season", columnList = "season_id"),
+            @Index(name = "idx_season_rank_reward_active", columnList = "season_id, is_active"),
+            @Index(name = "idx_season_rank_reward_category", columnList = "season_id, category_id")
+        })
 @Getter
 @Setter
 @SuperBuilder
@@ -104,16 +104,12 @@ public class SeasonRankReward extends LocalDateTimeBaseEntity {
     @Builder.Default
     private Boolean isActive = true;
 
-    /**
-     * 주어진 순위가 이 보상 구간에 해당하는지 확인
-     */
+    /** 주어진 순위가 이 보상 구간에 해당하는지 확인 */
     public boolean containsRank(int rank) {
         return rank >= rankStart && rank <= rankEnd;
     }
 
-    /**
-     * 순위 구간 표시 문자열 (예: "1위", "2~5위")
-     */
+    /** 순위 구간 표시 문자열 (예: "1위", "2~5위") */
     public String getRankRangeDisplay() {
         if (rankStart.equals(rankEnd)) {
             return rankStart + "위";
@@ -145,16 +141,12 @@ public class SeasonRankReward extends LocalDateTimeBaseEntity {
         return rankStart + "~" + rankEnd + "位";
     }
 
-    /**
-     * 전체 랭킹 여부 확인
-     */
+    /** 전체 랭킹 여부 확인 */
     public boolean isOverallRanking() {
         return categoryId == null;
     }
 
-    /**
-     * 랭킹 타입 표시 문자열 (예: "전체", "운동")
-     */
+    /** 랭킹 타입 표시 문자열 (예: "전체", "운동") */
     public String getRankingTypeDisplay() {
         return categoryId == null ? "전체" : categoryName;
     }

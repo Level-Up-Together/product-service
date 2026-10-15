@@ -38,5 +38,3 @@ public class AppleUserInfo implements OAuth2UserInfo {
         return "apple";
     }
 }
-
-

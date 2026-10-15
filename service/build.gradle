@@ -183,8 +183,10 @@ jacocoTestReport {
     }
 }
 
-// 커버리지 게이트 (INSTRUCTION 기준 75% 미만이면 build 실패).
+// 커버리지 게이트 — INSTRUCTION 80% + BRANCH 80% 미만이면 build 실패.
 // 이전에는 app 모듈에만 룰이 있어 실코드(service)가 검증되지 않았다 — check 에 연결해 CI(clean build)에서 강제.
+// BRANCH 를 별도 룰로 두는 이유: 명령어 커버리지는 if 의 한쪽 경로만 지나도 채워지지만, 분기 커버리지는
+// 양쪽 경로를 모두 요구해 조건 로직 회귀를 더 잘 잡는다.
 jacocoTestCoverageVerification {
     dependsOn test
     afterEvaluate {
@@ -195,7 +197,14 @@ jacocoTestCoverageVerification {
     violationRules {
         rule {
             limit {
-                minimum = 0.75
+                counter = 'INSTRUCTION'
+                value = 'COVEREDRATIO'
+                minimum = 0.80
+            }
+            limit {
+                counter = 'BRANCH'
+                value = 'COVEREDRATIO'
+                minimum = 0.80
             }
         }
     }

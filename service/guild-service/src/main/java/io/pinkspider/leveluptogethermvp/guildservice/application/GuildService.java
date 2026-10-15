@@ -1,32 +1,30 @@
 package io.pinkspider.leveluptogethermvp.guildservice.application;
 
+import io.pinkspider.global.event.GuildCreatedEvent;
+import io.pinkspider.global.event.GuildJoinedEvent;
+import io.pinkspider.global.event.GuildMasterAssignedEvent;
+import io.pinkspider.global.event.GuildMemberRemovedEvent;
+import io.pinkspider.global.facade.GamificationQueryFacade;
 import io.pinkspider.global.moderation.annotation.ModerateImage;
 import io.pinkspider.leveluptogethermvp.guildservice.domain.dto.GuildCreateRequest;
 import io.pinkspider.leveluptogethermvp.guildservice.domain.dto.GuildResponse;
 import io.pinkspider.leveluptogethermvp.guildservice.domain.dto.GuildUpdateRequest;
 import io.pinkspider.leveluptogethermvp.guildservice.domain.entity.Guild;
-import io.pinkspider.leveluptogethermvp.metaservice.guildlevelconfig.application.GuildLevelConfigCacheService;
-import io.pinkspider.leveluptogethermvp.metaservice.guildlevelconfig.domain.entity.GuildLevelConfig;
 import io.pinkspider.leveluptogethermvp.guildservice.domain.entity.GuildMember;
 import io.pinkspider.leveluptogethermvp.guildservice.domain.enums.GuildJoinType;
 import io.pinkspider.leveluptogethermvp.guildservice.domain.enums.GuildMemberRole;
 import io.pinkspider.leveluptogethermvp.guildservice.domain.enums.GuildMemberStatus;
 import io.pinkspider.leveluptogethermvp.guildservice.infrastructure.GuildMemberRepository;
 import io.pinkspider.leveluptogethermvp.guildservice.infrastructure.GuildRepository;
-import io.pinkspider.global.event.GuildCreatedEvent;
-import io.pinkspider.global.event.GuildJoinedEvent;
-import io.pinkspider.global.event.GuildMasterAssignedEvent;
-import io.pinkspider.global.event.GuildMemberRemovedEvent;
 import io.pinkspider.leveluptogethermvp.metaservice.application.MissionCategoryService;
 import io.pinkspider.leveluptogethermvp.metaservice.domain.dto.MissionCategoryResponse;
-import io.pinkspider.global.facade.GamificationQueryFacade;
-import org.springframework.web.multipart.MultipartFile;
 import java.time.LocalDateTime;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
 @Service
 @Slf4j
@@ -42,7 +40,6 @@ public class GuildService {
 
     private final GuildRepository guildRepository;
     private final GuildMemberRepository guildMemberRepository;
-    private final GuildLevelConfigCacheService guildLevelConfigCacheService;
     private final MissionCategoryService missionCategoryService;
     private final ApplicationEventPublisher eventPublisher;
     private final GuildHeadquartersService guildHeadquartersService;
@@ -53,29 +50,26 @@ public class GuildService {
     @Transactional(transactionManager = "guildTransactionManager")
     public GuildResponse createGuild(String userId, GuildCreateRequest request) {
         // 레벨 체크: 길드 창설은 GUILD_CREATION_MIN_LEVEL 이상부터 가능
-        int userLevel = gamificationQueryFacadeService.getOrCreateUserExperience(userId).currentLevel();
+        int userLevel =
+                gamificationQueryFacadeService.getOrCreateUserExperience(userId).currentLevel();
         if (userLevel < GUILD_CREATION_MIN_LEVEL) {
             throw new IllegalStateException(
-                String.format("길드 창설은 레벨 %d 이상부터 가능합니다. (현재 레벨: %d)",
-                    GUILD_CREATION_MIN_LEVEL, userLevel));
+                    String.format(
+                            "길드 창설은 레벨 %d 이상부터 가능합니다. (현재 레벨: %d)",
+                            GUILD_CREATION_MIN_LEVEL, userLevel));
         }
 
         // 길드 마스터 1인 1길드 정책: 이미 다른 길드의 마스터인지 확인
         if (guildMemberRepository.isGuildMaster(userId)) {
             throw new IllegalStateException(
-                "이미 다른 길드의 마스터입니다. 새 길드를 창설하려면 기존 길드를 폐쇄하거나 마스터를 위임해주세요.");
+                    "이미 다른 길드의 마스터입니다. 새 길드를 창설하려면 기존 길드를 폐쇄하거나 마스터를 위임해주세요.");
         }
 
         // 카테고리 유효성 검증
-        MissionCategoryResponse category = missionCategoryService.getCategory(request.getCategoryId());
+        MissionCategoryResponse category =
+                missionCategoryService.getCategory(request.getCategoryId());
         if (category == null || !category.getIsActive()) {
             throw new IllegalArgumentException("유효하지 않은 카테고리입니다.");
-        }
-
-        // 카테고리당 1개 길드 정책: 해당 카테고리에서 이미 다른 길드에 가입되어 있는지 확인
-        if (guildMemberRepository.hasActiveGuildMembershipInCategory(userId, request.getCategoryId())) {
-            throw new IllegalStateException(
-                "이미 해당 카테고리('" + category.getName() + "')의 다른 길드에 가입되어 있습니다. 탈퇴 후 다시 시도해주세요.");
         }
 
         if (guildRepository.existsByNameAndIsActiveTrue(request.getName())) {
@@ -88,33 +82,36 @@ public class GuildService {
                     null, request.getBaseLatitude(), request.getBaseLongitude());
         }
 
-        // 레벨 1 설정에서 maxMembers 가져오기 (Admin에서 설정한 값 사용)
-        GuildLevelConfig level1Config = guildLevelConfigCacheService.getLevelConfigByLevel(1);
-        int defaultMaxMembers = level1Config != null ? level1Config.getMaxMembers() : 10; // 설정이 없으면 기본값 10
-
-        Guild guild = Guild.builder()
-            .name(request.getName())
-            .description(request.getDescription())
-            .visibility(request.getVisibility())
-            .joinType(request.getJoinType() != null ? request.getJoinType() : GuildJoinType.OPEN)
-            .masterId(userId)
-            .categoryId(request.getCategoryId())
-            .maxMembers(request.getMaxMembers() != null ? request.getMaxMembers() : defaultMaxMembers)
-            .imageUrl(request.getImageUrl())
-            .baseAddress(request.getBaseAddress())
-            .baseLatitude(request.getBaseLatitude())
-            .baseLongitude(request.getBaseLongitude())
-            .build();
+        // LUT-526: 최대 정원 = 기본 인원(10) + (길드 레벨 - 1). 신생 길드는 레벨 1 → 10.
+        // 요청/관리자 값으로 임의 지정하지 않고 공식으로 결정한다.
+        Guild guild =
+                Guild.builder()
+                        .name(request.getName())
+                        .description(request.getDescription())
+                        .visibility(request.getVisibility())
+                        .joinType(
+                                request.getJoinType() != null
+                                        ? request.getJoinType()
+                                        : GuildJoinType.OPEN)
+                        .masterId(userId)
+                        .categoryId(request.getCategoryId())
+                        .maxMembers(Guild.maxMembersForLevel(1))
+                        .imageUrl(request.getImageUrl())
+                        .baseAddress(request.getBaseAddress())
+                        .baseLatitude(request.getBaseLatitude())
+                        .baseLongitude(request.getBaseLongitude())
+                        .build();
 
         Guild savedGuild = guildRepository.save(guild);
 
-        GuildMember masterMember = GuildMember.builder()
-            .guild(savedGuild)
-            .userId(userId)
-            .role(GuildMemberRole.MASTER)
-            .status(GuildMemberStatus.ACTIVE)
-            .joinedAt(LocalDateTime.now())
-            .build();
+        GuildMember masterMember =
+                GuildMember.builder()
+                        .guild(savedGuild)
+                        .userId(userId)
+                        .role(GuildMemberRole.MASTER)
+                        .status(GuildMemberStatus.ACTIVE)
+                        .joinedAt(LocalDateTime.now())
+                        .build();
 
         guildMemberRepository.save(masterMember);
 
@@ -122,9 +119,16 @@ public class GuildService {
         publishGuildAchievementEvents(userId, savedGuild, true, true);
 
         // 길드 창설 피드 프로젝션 이벤트 발행
-        eventPublisher.publishEvent(new GuildCreatedEvent(userId, savedGuild.getId(), savedGuild.getName()));
+        // LUT-517: 비공개 길드는 홈 활동 피드(GUILD_CREATED) 생성 제외 — isPublic 전달
+        eventPublisher.publishEvent(
+                new GuildCreatedEvent(
+                        userId, savedGuild.getId(), savedGuild.getName(), savedGuild.isPublic()));
 
-        log.info("길드 생성 완료: id={}, name={}, master={}", savedGuild.getId(), savedGuild.getName(), userId);
+        log.info(
+                "길드 생성 완료: id={}, name={}, master={}",
+                savedGuild.getId(),
+                savedGuild.getName(),
+                userId);
 
         return guildHelper.buildGuildResponseWithCategory(savedGuild, 1);
     }
@@ -149,9 +153,7 @@ public class GuildService {
         if (request.getJoinType() != null) {
             guild.setJoinType(request.getJoinType());
         }
-        if (request.getMaxMembers() != null) {
-            guild.setMaxMembers(request.getMaxMembers());
-        }
+        // LUT-526: 최대 정원은 길드 레벨로 결정(10 + 레벨)되므로 수동 지정하지 않는다.
         if (request.getImageUrl() != null) {
             guild.setImageUrl(request.getImageUrl());
         }
@@ -175,9 +177,7 @@ public class GuildService {
         return guildHelper.buildGuildResponseWithCategory(guild, memberCount);
     }
 
-    /**
-     * 길드 이미지 업로드
-     */
+    /** 길드 이미지 업로드 */
     @ModerateImage
     @Transactional(transactionManager = "guildTransactionManager")
     public GuildResponse uploadGuildImage(Long guildId, String userId, MultipartFile imageFile) {
@@ -186,7 +186,8 @@ public class GuildService {
 
         // 유효성 검증
         if (!guildImageStorageService.isValidImage(imageFile)) {
-            throw new IllegalArgumentException("유효하지 않은 이미지 파일입니다. (허용 확장자: jpg, jpeg, png, gif, webp / 최대 10MB)");
+            throw new IllegalArgumentException(
+                    "유효하지 않은 이미지 파일입니다. (허용 확장자: jpg, jpeg, png, gif, webp / 최대 10MB)");
         }
 
         // 기존 이미지 삭제
@@ -205,10 +206,7 @@ public class GuildService {
         return guildHelper.buildGuildResponseWithCategory(guild, memberCount);
     }
 
-    /**
-     * 길드 해체
-     * 길드 마스터만 해체할 수 있으며, 자신을 제외한 다른 멤버가 없어야 함
-     */
+    /** 길드 해체 길드 마스터만 해체할 수 있으며, 자신을 제외한 다른 멤버가 없어야 함 */
     @Transactional(transactionManager = "guildTransactionManager")
     public void dissolveGuild(Long guildId, String userId) {
         Guild guild = guildHelper.findActiveGuildById(guildId);
@@ -219,18 +217,21 @@ public class GuildService {
         }
 
         // 활성 멤버 수 확인 (마스터 제외)
-        java.util.List<GuildMember> activeMembers = guildMemberRepository.findByGuildIdAndStatus(guildId, GuildMemberStatus.ACTIVE);
-        long otherMemberCount = activeMembers.stream()
-            .filter(m -> !m.getUserId().equals(userId))
-            .count();
+        java.util.List<GuildMember> activeMembers =
+                guildMemberRepository.findByGuildIdAndStatus(guildId, GuildMemberStatus.ACTIVE);
+        long otherMemberCount =
+                activeMembers.stream().filter(m -> !m.getUserId().equals(userId)).count();
 
         if (otherMemberCount > 0) {
-            throw new IllegalStateException("길드를 해체하려면 먼저 모든 길드원을 내보내야 합니다. 현재 " + otherMemberCount + "명의 길드원이 있습니다.");
+            throw new IllegalStateException(
+                    "길드를 해체하려면 먼저 모든 길드원을 내보내야 합니다. 현재 " + otherMemberCount + "명의 길드원이 있습니다.");
         }
 
         // 마스터 멤버 상태 변경
-        GuildMember masterMember = guildMemberRepository.findByGuildIdAndUserId(guildId, userId)
-            .orElseThrow(() -> new IllegalStateException("길드 멤버 정보를 찾을 수 없습니다."));
+        GuildMember masterMember =
+                guildMemberRepository
+                        .findByGuildIdAndUserId(guildId, userId)
+                        .orElseThrow(() -> new IllegalStateException("길드 멤버 정보를 찾을 수 없습니다."));
         masterMember.leave();
 
         // QA-213: 추방/탈퇴와 동일하게 길드장 본인의 길드 미션 참여도 정리되도록 이벤트 발행한다.
@@ -243,18 +244,17 @@ public class GuildService {
         log.info("길드 해체: guildId={}, masterId={}, guildName={}", guildId, userId, guild.getName());
     }
 
-    /**
-     * 길드 업적 관련 이벤트 발행
-     * - 길드 가입 시: GuildJoinedEvent 발행
-     * - 길드 마스터 할당 시: GuildMasterAssignedEvent 발행
-     */
-    private void publishGuildAchievementEvents(String userId, Guild guild, boolean isJoin, boolean isMaster) {
+    /** 길드 업적 관련 이벤트 발행 - 길드 가입 시: GuildJoinedEvent 발행 - 길드 마스터 할당 시: GuildMasterAssignedEvent 발행 */
+    private void publishGuildAchievementEvents(
+            String userId, Guild guild, boolean isJoin, boolean isMaster) {
         if (isJoin) {
-            eventPublisher.publishEvent(new GuildJoinedEvent(userId, guild.getId(), guild.getName()));
+            eventPublisher.publishEvent(
+                    new GuildJoinedEvent(userId, guild.getId(), guild.getName()));
             log.debug("길드 가입 이벤트 발행: userId={}, guildId={}", userId, guild.getId());
         }
         if (isMaster) {
-            eventPublisher.publishEvent(new GuildMasterAssignedEvent(userId, guild.getId(), guild.getName()));
+            eventPublisher.publishEvent(
+                    new GuildMasterAssignedEvent(userId, guild.getId(), guild.getName()));
             log.debug("길드 마스터 할당 이벤트 발행: userId={}, guildId={}", userId, guild.getId());
         }
     }

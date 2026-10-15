@@ -1,7 +1,6 @@
 package io.pinkspider.leveluptogethermvp.userservice.friend.application;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -19,11 +18,9 @@ import org.mockito.junit.jupiter.MockitoExtension;
 @DisplayName("FriendCacheService 테스트")
 class FriendCacheServiceTest {
 
-    @Mock
-    private FriendshipRepository friendshipRepository;
+    @Mock private FriendshipRepository friendshipRepository;
 
-    @InjectMocks
-    private FriendCacheService friendCacheService;
+    @InjectMocks private FriendCacheService friendCacheService;
 
     @Test
     @DisplayName("getFriendIds - 친구 목록 조회 시 Repository 호출")

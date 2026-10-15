@@ -31,23 +31,20 @@ import org.springframework.data.domain.Pageable;
 @ExtendWith(MockitoExtension.class)
 class DiamondServiceTest {
 
-    @Mock
-    private UserDiamondRepository userDiamondRepository;
+    @Mock private UserDiamondRepository userDiamondRepository;
 
-    @Mock
-    private DiamondHistoryRepository diamondHistoryRepository;
+    @Mock private DiamondHistoryRepository diamondHistoryRepository;
 
-    @InjectMocks
-    private DiamondService diamondService;
+    @InjectMocks private DiamondService diamondService;
 
     private static final String USER_ID = "user-1";
 
     private UserDiamond diamond(int balance, int lastRewardedLevel) {
         return UserDiamond.builder()
-            .userId(USER_ID)
-            .balance(balance)
-            .lastRewardedLevel(lastRewardedLevel)
-            .build();
+                .userId(USER_ID)
+                .balance(balance)
+                .lastRewardedLevel(lastRewardedLevel)
+                .build();
     }
 
     @Nested
@@ -119,7 +116,7 @@ class DiamondServiceTest {
         void createsUserDiamondIfAbsent() {
             when(userDiamondRepository.findByUserId(USER_ID)).thenReturn(Optional.empty());
             when(userDiamondRepository.save(any(UserDiamond.class)))
-                .thenAnswer(inv -> inv.getArgument(0));
+                    .thenAnswer(inv -> inv.getArgument(0));
 
             int granted = diamondService.awardLevelUpDiamonds(USER_ID, 2);
 
@@ -183,7 +180,8 @@ class DiamondServiceTest {
         @DisplayName("최초 목표달성 시 1개 지급하고 '{미션명} 목표달성' 설명을 기록한다")
         void awardsFirstAchievement() {
             when(diamondHistoryRepository.existsByUserIdAndTypeAndSourceId(
-                USER_ID, DiamondType.MISSION_BOOK, 77L)).thenReturn(false);
+                            USER_ID, DiamondType.MISSION_BOOK, 77L))
+                    .thenReturn(false);
             UserDiamond diamond = diamond(3, 5);
             when(userDiamondRepository.findByUserId(USER_ID)).thenReturn(Optional.of(diamond));
 
@@ -204,7 +202,8 @@ class DiamondServiceTest {
         @DisplayName("이미 지급된 템플릿에는 재지급하지 않는다")
         void skipsAlreadyAwardedTemplate() {
             when(diamondHistoryRepository.existsByUserIdAndTypeAndSourceId(
-                USER_ID, DiamondType.MISSION_BOOK, 77L)).thenReturn(true);
+                            USER_ID, DiamondType.MISSION_BOOK, 77L))
+                    .thenReturn(true);
 
             boolean awarded = diamondService.awardMissionBookDiamond(USER_ID, 77L, "아침 스트레칭");
 
@@ -252,7 +251,7 @@ class DiamondServiceTest {
         void createsUserDiamondIfAbsent() {
             when(userDiamondRepository.findByUserId(USER_ID)).thenReturn(Optional.empty());
             when(userDiamondRepository.save(any(UserDiamond.class)))
-                .thenAnswer(inv -> inv.getArgument(0));
+                    .thenAnswer(inv -> inv.getArgument(0));
 
             int balanceAfter = diamondService.awardSubscriptionStipend(USER_ID, 77L, 1);
 
@@ -290,7 +289,7 @@ class DiamondServiceTest {
             when(userDiamondRepository.findByUserId(USER_ID)).thenReturn(Optional.of(diamond));
 
             assertThatThrownBy(() -> diamondService.spendDiamonds(USER_ID, 3, 9L, "프로필 테두리"))
-                .isInstanceOf(IllegalStateException.class);
+                    .isInstanceOf(IllegalStateException.class);
         }
 
         @Test
@@ -314,7 +313,7 @@ class DiamondServiceTest {
         @DisplayName("음수 차감량은 예외가 발생한다")
         void failsOnNegativeAmount() {
             assertThatThrownBy(() -> diamondService.spendDiamonds(USER_ID, -1, 9L, "프로필 테두리"))
-                .isInstanceOf(IllegalArgumentException.class);
+                    .isInstanceOf(IllegalArgumentException.class);
         }
     }
 
@@ -325,21 +324,22 @@ class DiamondServiceTest {
         @Test
         @DisplayName("이력과 현재 잔액을 함께 반환한다")
         void returnsHistoryWithBalance() {
-            DiamondHistory history = DiamondHistory.builder()
-                .userId(USER_ID)
-                .type(DiamondType.LEVEL_UP)
-                .sourceId(2L)
-                .amount(1)
-                .balanceAfter(1)
-                .description("Lv.2 레벨업 보상")
-                .build();
+            DiamondHistory history =
+                    DiamondHistory.builder()
+                            .userId(USER_ID)
+                            .type(DiamondType.LEVEL_UP)
+                            .sourceId(2L)
+                            .amount(1)
+                            .balanceAfter(1)
+                            .description("Lv.2 레벨업 보상")
+                            .build();
             when(diamondHistoryRepository.findByUserIdOrderByIdDesc(USER_ID, PageRequest.of(0, 10)))
-                .thenReturn(new PageImpl<>(List.of(history)));
+                    .thenReturn(new PageImpl<>(List.of(history)));
             when(userDiamondRepository.findByUserId(USER_ID))
-                .thenReturn(Optional.of(diamond(1, 2)));
+                    .thenReturn(Optional.of(diamond(1, 2)));
 
             UserDiamondHistoryAdminPageResponse result =
-                diamondService.getUserDiamondHistory(USER_ID, PageRequest.of(0, 10));
+                    diamondService.getUserDiamondHistory(USER_ID, PageRequest.of(0, 10));
 
             assertThat(result.content()).hasSize(1);
             assertThat(result.content().get(0).type()).isEqualTo("LEVEL_UP");
@@ -353,11 +353,11 @@ class DiamondServiceTest {
         void returnsEmptyForNoHistory() {
             Pageable pageable = PageRequest.of(0, 10);
             when(diamondHistoryRepository.findByUserIdOrderByIdDesc(USER_ID, pageable))
-                .thenReturn(new PageImpl<>(List.of()));
+                    .thenReturn(new PageImpl<>(List.of()));
             when(userDiamondRepository.findByUserId(USER_ID)).thenReturn(Optional.empty());
 
             UserDiamondHistoryAdminPageResponse result =
-                diamondService.getUserDiamondHistory(USER_ID, pageable);
+                    diamondService.getUserDiamondHistory(USER_ID, pageable);
 
             assertThat(result.content()).isEmpty();
             assertThat(result.currentBalance()).isZero();
@@ -372,7 +372,7 @@ class DiamondServiceTest {
         @DisplayName("현재 보유 다이아 잔액을 반환한다")
         void returnsBalance() {
             when(userDiamondRepository.findByUserId(USER_ID))
-                .thenReturn(Optional.of(diamond(42, 42)));
+                    .thenReturn(Optional.of(diamond(42, 42)));
 
             assertThat(diamondService.getBalance(USER_ID)).isEqualTo(42);
         }
@@ -437,7 +437,7 @@ class DiamondServiceTest {
             when(userDiamondRepository.findByUserId(USER_ID)).thenReturn(Optional.of(d));
 
             assertThatThrownBy(() -> diamondService.spendDiamonds(USER_ID, 80, 1L, "날개"))
-                .isInstanceOf(IllegalStateException.class);
+                    .isInstanceOf(IllegalStateException.class);
             assertThat(d.getBalance()).isEqualTo(30);
             assertThat(d.getPinkBalance()).isEqualTo(20);
             verify(diamondHistoryRepository, never()).save(any());

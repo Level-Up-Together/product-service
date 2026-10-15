@@ -36,8 +36,8 @@ public class TermsAdminInternalController {
     @GetMapping
     public ApiResult<List<TermsAdminResponse>> getAllTerms() {
         return ApiResult.<List<TermsAdminResponse>>builder()
-            .value(termsAdminInternalService.getAllTerms())
-            .build();
+                .value(termsAdminInternalService.getAllTerms())
+                .build();
     }
 
     @GetMapping("/search")
@@ -46,57 +46,58 @@ public class TermsAdminInternalController {
             @RequestParam(required = false, defaultValue = "0") int page,
             @RequestParam(required = false, defaultValue = "20") int size) {
         return ApiResult.<TermsAdminPageResponse>builder()
-            .value(termsAdminInternalService.searchTerms(keyword, PageRequest.of(page, size)))
-            .build();
+                .value(termsAdminInternalService.searchTerms(keyword, PageRequest.of(page, size)))
+                .build();
     }
 
     @GetMapping("/{id}")
     public ApiResult<TermsAdminResponse> getTerms(@PathVariable Long id) {
         return ApiResult.<TermsAdminResponse>builder()
-            .value(termsAdminInternalService.getTerms(id))
-            .build();
+                .value(termsAdminInternalService.getTerms(id))
+                .build();
     }
 
     @GetMapping("/code/{code}")
     public ApiResult<TermsAdminResponse> getTermsByCode(@PathVariable String code) {
         return ApiResult.<TermsAdminResponse>builder()
-            .value(termsAdminInternalService.getTermsByCode(code))
-            .build();
+                .value(termsAdminInternalService.getTermsByCode(code))
+                .build();
     }
 
     @GetMapping("/required")
     public ApiResult<List<TermsAdminResponse>> getRequiredTerms() {
         return ApiResult.<List<TermsAdminResponse>>builder()
-            .value(termsAdminInternalService.getRequiredTerms())
-            .build();
+                .value(termsAdminInternalService.getRequiredTerms())
+                .build();
     }
 
     @GetMapping("/types")
     public ApiResult<List<String>> getAllTermTypes() {
         return ApiResult.<List<String>>builder()
-            .value(termsAdminInternalService.getAllTermTypes())
-            .build();
+                .value(termsAdminInternalService.getAllTermTypes())
+                .build();
     }
 
     @GetMapping("/type/{type}")
     public ApiResult<List<TermsAdminResponse>> getTermsByType(@PathVariable String type) {
         return ApiResult.<List<TermsAdminResponse>>builder()
-            .value(termsAdminInternalService.getTermsByType(type))
-            .build();
+                .value(termsAdminInternalService.getTermsByType(type))
+                .build();
     }
 
     @PostMapping
     public ApiResult<TermsAdminResponse> createTerms(@RequestBody TermsAdminRequest request) {
         return ApiResult.<TermsAdminResponse>builder()
-            .value(termsAdminInternalService.createTerms(request))
-            .build();
+                .value(termsAdminInternalService.createTerms(request))
+                .build();
     }
 
     @PutMapping("/{id}")
-    public ApiResult<TermsAdminResponse> updateTerms(@PathVariable Long id, @RequestBody TermsAdminRequest request) {
+    public ApiResult<TermsAdminResponse> updateTerms(
+            @PathVariable Long id, @RequestBody TermsAdminRequest request) {
         return ApiResult.<TermsAdminResponse>builder()
-            .value(termsAdminInternalService.updateTerms(id, request))
-            .build();
+                .value(termsAdminInternalService.updateTerms(id, request))
+                .build();
     }
 
     @DeleteMapping("/{id}")
@@ -110,38 +111,38 @@ public class TermsAdminInternalController {
     @GetMapping("/{termsId}/versions")
     public ApiResult<List<TermVersionAdminResponse>> getTermVersions(@PathVariable Long termsId) {
         return ApiResult.<List<TermVersionAdminResponse>>builder()
-            .value(termsAdminInternalService.getTermVersions(termsId))
-            .build();
+                .value(termsAdminInternalService.getTermVersions(termsId))
+                .build();
     }
 
     @GetMapping("/{termsId}/versions/latest")
     public ApiResult<TermVersionAdminResponse> getLatestTermVersion(@PathVariable Long termsId) {
         return ApiResult.<TermVersionAdminResponse>builder()
-            .value(termsAdminInternalService.getLatestTermVersion(termsId))
-            .build();
+                .value(termsAdminInternalService.getLatestTermVersion(termsId))
+                .build();
     }
 
     @PostMapping("/{termsId}/versions")
     public ApiResult<TermVersionAdminResponse> createTermVersion(
             @PathVariable Long termsId, @RequestBody TermVersionAdminRequest request) {
         return ApiResult.<TermVersionAdminResponse>builder()
-            .value(termsAdminInternalService.createTermVersion(termsId, request))
-            .build();
+                .value(termsAdminInternalService.createTermVersion(termsId, request))
+                .build();
     }
 
     @GetMapping("/versions/{versionId}")
     public ApiResult<TermVersionAdminResponse> getTermVersion(@PathVariable Long versionId) {
         return ApiResult.<TermVersionAdminResponse>builder()
-            .value(termsAdminInternalService.getTermVersion(versionId))
-            .build();
+                .value(termsAdminInternalService.getTermVersion(versionId))
+                .build();
     }
 
     @PutMapping("/versions/{versionId}")
     public ApiResult<TermVersionAdminResponse> updateTermVersion(
             @PathVariable Long versionId, @RequestBody TermVersionAdminRequest request) {
         return ApiResult.<TermVersionAdminResponse>builder()
-            .value(termsAdminInternalService.updateTermVersion(versionId, request))
-            .build();
+                .value(termsAdminInternalService.updateTermVersion(versionId, request))
+                .build();
     }
 
     @DeleteMapping("/versions/{versionId}")
@@ -153,39 +154,40 @@ public class TermsAdminInternalController {
     @PostMapping("/versions/{versionId}/publish")
     public ApiResult<TermVersionAdminResponse> publishTermVersion(@PathVariable Long versionId) {
         return ApiResult.<TermVersionAdminResponse>builder()
-            .value(termsAdminInternalService.publishTermVersion(versionId))
-            .build();
+                .value(termsAdminInternalService.publishTermVersion(versionId))
+                .build();
     }
 
     // ==================== User Term Agreements ====================
 
     @GetMapping("/agreements/user/{userId}")
-    public ApiResult<List<UserTermAgreementAdminResponse>> getUserAgreements(@PathVariable String userId) {
+    public ApiResult<List<UserTermAgreementAdminResponse>> getUserAgreements(
+            @PathVariable String userId) {
         return ApiResult.<List<UserTermAgreementAdminResponse>>builder()
-            .value(termsAdminInternalService.getUserAgreements(userId))
-            .build();
+                .value(termsAdminInternalService.getUserAgreements(userId))
+                .build();
     }
 
     @GetMapping("/agreements/user/{userId}/terms/{termsId}")
     public ApiResult<List<UserTermAgreementAdminResponse>> getUserAgreementsByTerms(
             @PathVariable String userId, @PathVariable Long termsId) {
         return ApiResult.<List<UserTermAgreementAdminResponse>>builder()
-            .value(termsAdminInternalService.getUserAgreementsByTerms(userId, termsId))
-            .build();
+                .value(termsAdminInternalService.getUserAgreementsByTerms(userId, termsId))
+                .build();
     }
 
     @GetMapping("/agreements/version/{termVersionId}/count")
     public ApiResult<Long> getAgreementCountByTermVersion(@PathVariable Long termVersionId) {
         return ApiResult.<Long>builder()
-            .value(termsAdminInternalService.getAgreementCountByTermVersion(termVersionId))
-            .build();
+                .value(termsAdminInternalService.getAgreementCountByTermVersion(termVersionId))
+                .build();
     }
 
     @GetMapping("/agreements/terms/{termsId}/count")
     public ApiResult<Long> getAgreementCountByTerms(@PathVariable Long termsId) {
         return ApiResult.<Long>builder()
-            .value(termsAdminInternalService.getAgreementCountByTerms(termsId))
-            .build();
+                .value(termsAdminInternalService.getAgreementCountByTerms(termsId))
+                .build();
     }
 
     @GetMapping("/agreements/search")
@@ -196,9 +198,13 @@ public class TermsAdminInternalController {
             @RequestParam(required = false, defaultValue = "0") int page,
             @RequestParam(required = false, defaultValue = "20") int size) {
         return ApiResult.<UserTermAgreementAdminPageResponse>builder()
-            .value(termsAdminInternalService.searchAllAgreements(
-                userId, termsId, isAgreed, PageRequest.of(page, size, Sort.by("id").descending())))
-            .build();
+                .value(
+                        termsAdminInternalService.searchAllAgreements(
+                                userId,
+                                termsId,
+                                isAgreed,
+                                PageRequest.of(page, size, Sort.by("id").descending())))
+                .build();
     }
 
     @GetMapping("/agreements/summaries")
@@ -207,7 +213,9 @@ public class TermsAdminInternalController {
             @RequestParam(required = false, defaultValue = "0") int page,
             @RequestParam(required = false, defaultValue = "20") int size) {
         return ApiResult.<UserAgreementSummaryAdminPageResponse>builder()
-            .value(termsAdminInternalService.getUserAgreementSummaries(keyword, PageRequest.of(page, size)))
-            .build();
+                .value(
+                        termsAdminInternalService.getUserAgreementSummaries(
+                                keyword, PageRequest.of(page, size)))
+                .build();
     }
 }

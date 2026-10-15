@@ -19,9 +19,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
- * LUT-356: 상점 노출용 핑크다이아 묶음상품 API.
- * 목록 GET은 비로그인 허용 (SecurityConfig permitAll — 상점 Browse-First, LUT-350 패턴).
- * 구매 POST는 인증 필요 (LUT-354: IAP 영수증 검증 + 멱등 지급).
+ * LUT-356: 상점 노출용 핑크다이아 묶음상품 API. 목록 GET은 비로그인 허용 (SecurityConfig permitAll — 상점 Browse-First,
+ * LUT-350 패턴). 구매 POST는 인증 필요 (LUT-354: IAP 영수증 검증 + 멱등 지급).
  */
 @RestController
 @RequestMapping("/api/v1/diamond-bundles")

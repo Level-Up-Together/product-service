@@ -44,15 +44,17 @@ public class S3GuildImageStorageService implements GuildImageStorageService {
             String newFilename = UUID.randomUUID().toString() + "." + extension;
             String key = "guild/" + guildId + "/" + newFilename;
 
-            PutObjectRequest putRequest = PutObjectRequest.builder()
-                    .bucket(s3Properties.getBucket())
-                    .key(key)
-                    .contentType(file.getContentType())
-                    // LUT-406: UUID 파일명 불변 — CloudFront/브라우저 공격적 캐시 허용
-                    .cacheControl("public, max-age=31536000, immutable")
-                    .build();
+            PutObjectRequest putRequest =
+                    PutObjectRequest.builder()
+                            .bucket(s3Properties.getBucket())
+                            .key(key)
+                            .contentType(file.getContentType())
+                            // LUT-406: UUID 파일명 불변 — CloudFront/브라우저 공격적 캐시 허용
+                            .cacheControl("public, max-age=31536000, immutable")
+                            .build();
 
-            s3Client.putObject(putRequest, RequestBody.fromInputStream(file.getInputStream(), file.getSize()));
+            s3Client.putObject(
+                    putRequest, RequestBody.fromInputStream(file.getInputStream(), file.getSize()));
 
             String cdnUrl = s3Properties.getCdnBaseUrl() + "/" + key;
             log.info("길드 이미지 S3 저장: guildId={}, key={}", guildId, key);
@@ -73,10 +75,11 @@ public class S3GuildImageStorageService implements GuildImageStorageService {
         if (imageUrl.startsWith(s3Properties.getCdnBaseUrl())) {
             String key = imageUrl.substring(s3Properties.getCdnBaseUrl().length() + 1);
             try {
-                s3Client.deleteObject(DeleteObjectRequest.builder()
-                        .bucket(s3Properties.getBucket())
-                        .key(key)
-                        .build());
+                s3Client.deleteObject(
+                        DeleteObjectRequest.builder()
+                                .bucket(s3Properties.getBucket())
+                                .key(key)
+                                .build());
                 log.info("길드 이미지 S3 삭제: key={}", key);
             } catch (Exception e) {
                 log.warn("길드 이미지 S3 삭제 실패: key={}", key, e);

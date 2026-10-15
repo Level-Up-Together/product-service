@@ -21,23 +21,22 @@ import lombok.Setter;
 import lombok.experimental.SuperBuilder;
 import org.hibernate.annotations.Comment;
 
-/**
- * 고정 미션 일일 인스턴스 이미지 (QA-53). 인스턴스당 최대 5장.
- */
+/** 고정 미션 일일 인스턴스 이미지 (QA-53). 인스턴스당 최대 5장. */
 @Entity
 @Getter
 @Setter
 @SuperBuilder
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @AllArgsConstructor
-@Table(name = "daily_mission_instance_image",
-    uniqueConstraints = @UniqueConstraint(
-        name = "uk_daily_mission_instance_image_sort",
-        columnNames = {"instance_id", "sort_order"}
-    ),
-    indexes = {
-        @Index(name = "idx_daily_mission_instance_image_instance", columnList = "instance_id")
-    })
+@Table(
+        name = "daily_mission_instance_image",
+        uniqueConstraints =
+                @UniqueConstraint(
+                        name = "uk_daily_mission_instance_image_sort",
+                        columnNames = {"instance_id", "sort_order"}),
+        indexes = {
+            @Index(name = "idx_daily_mission_instance_image_instance", columnList = "instance_id")
+        })
 @Comment("고정 미션 일일 인스턴스 이미지")
 public class DailyMissionInstanceImage extends LocalDateTimeBaseEntity {
 

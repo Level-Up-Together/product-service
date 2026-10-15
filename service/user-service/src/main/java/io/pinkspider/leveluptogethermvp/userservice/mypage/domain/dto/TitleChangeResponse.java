@@ -7,9 +7,7 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
-/**
- * 칭호 변경 응답 DTO
- */
+/** 칭호 변경 응답 DTO */
 @Getter
 @NoArgsConstructor
 @AllArgsConstructor

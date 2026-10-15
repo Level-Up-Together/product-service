@@ -6,11 +6,9 @@ import java.time.LocalDateTime;
 
 @JsonNaming(SnakeCaseStrategy.class)
 public record UserAgreementSummaryAdminResponse(
-    String userId,
-    Long totalTermsCount,
-    Long agreedCount,
-    Long requiredTermsCount,
-    Long requiredAgreedCount,
-    LocalDateTime lastAgreedAt
-) {
-}
+        String userId,
+        Long totalTermsCount,
+        Long agreedCount,
+        Long requiredTermsCount,
+        Long requiredAgreedCount,
+        LocalDateTime lastAgreedAt) {}

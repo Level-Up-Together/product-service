@@ -23,12 +23,12 @@ import org.hibernate.annotations.Comment;
 @SuperBuilder
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @AllArgsConstructor
-@Table(name = "guild_level_config",
-    uniqueConstraints = @UniqueConstraint(
-        name = "uk_guild_level_config_level",
-        columnNames = {"level"}
-    )
-)
+@Table(
+        name = "guild_level_config",
+        uniqueConstraints =
+                @UniqueConstraint(
+                        name = "uk_guild_level_config_level",
+                        columnNames = {"level"}))
 @Comment("길드 레벨 설정")
 public class GuildLevelConfig extends LocalDateTimeBaseEntity {
 

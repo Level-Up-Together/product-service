@@ -8,6 +8,7 @@ import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.when;
 
+import io.pinkspider.global.enums.TitleRarity;
 import io.pinkspider.global.exception.CustomException;
 import io.pinkspider.global.facade.GamificationQueryFacade;
 import io.pinkspider.global.facade.dto.SeasonDto;
@@ -16,7 +17,6 @@ import io.pinkspider.global.facade.dto.SeasonMvpPlayerDto;
 import io.pinkspider.global.facade.dto.SeasonMyRankingDto;
 import io.pinkspider.global.facade.dto.SeasonRankRewardDto;
 import io.pinkspider.leveluptogethermvp.bffservice.api.dto.SeasonDetailResponse;
-import io.pinkspider.global.enums.TitleRarity;
 import io.pinkspider.leveluptogethermvp.metaservice.application.MissionCategoryService;
 import io.pinkspider.leveluptogethermvp.metaservice.domain.dto.MissionCategoryResponse;
 import java.time.LocalDateTime;
@@ -35,14 +35,11 @@ import org.mockito.junit.jupiter.MockitoExtension;
 @ExtendWith(MockitoExtension.class)
 class BffSeasonServiceTest {
 
-    @Mock
-    private GamificationQueryFacade gamificationQueryFacade;
+    @Mock private GamificationQueryFacade gamificationQueryFacade;
 
-    @Mock
-    private MissionCategoryService missionCategoryService;
+    @Mock private MissionCategoryService missionCategoryService;
 
-    @InjectMocks
-    private BffSeasonService bffSeasonService;
+    @InjectMocks private BffSeasonService bffSeasonService;
 
     private String testUserId;
     private SeasonDto testSeasonDto;
@@ -56,52 +53,90 @@ class BffSeasonServiceTest {
     void setUp() {
         testUserId = "test-user-id";
 
-        testSeasonDto = new SeasonDto(
-            1L, "2025 윈터 시즌", "겨울 시즌 이벤트입니다.",
-            LocalDateTime.of(2025, 1, 1, 0, 0),
-            LocalDateTime.of(2025, 3, 31, 23, 59),
-            100L, "윈터 챔피언",
-            "ACTIVE", "진행중"
-        );
+        testSeasonDto =
+                new SeasonDto(
+                        1L,
+                        "2025 윈터 시즌",
+                        "겨울 시즌 이벤트입니다.",
+                        LocalDateTime.of(2025, 1, 1, 0, 0),
+                        LocalDateTime.of(2025, 3, 31, 23, 59),
+                        100L,
+                        "윈터 챔피언",
+                        "ACTIVE",
+                        "진행중");
 
-        testRankRewardDto = new SeasonRankRewardDto(
-            1L, 1L, 1, 1,
-            "1위", "Rank 1", "المركز 1", "1位",
-            null, null, null, null, null,
-            "전체 랭킹", "Overall", "الإجمالي", "総合",
-            101L, "골드 챔피언", "Gold Champion", "بطل ذهبي", "ゴールドチャンピオン", "LEGENDARY",
-            1, true,
-            new io.pinkspider.global.facade.dto.SeasonRewardItemDto(
-                11L, "황금 날개", "Golden Wings", "أجنحة ذهبية", "黄金の翼",
-                "시즌 한정 보상", "Season reward", "مكافأة موسمية", "シーズン報酬",
-                "LEGENDARY", "https://example.com/item.png")
-        );
+        testRankRewardDto =
+                new SeasonRankRewardDto(
+                        1L,
+                        1L,
+                        1,
+                        1,
+                        "1위",
+                        "Rank 1",
+                        "المركز 1",
+                        "1位",
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        "전체 랭킹",
+                        "Overall",
+                        "الإجمالي",
+                        "総合",
+                        101L,
+                        "골드 챔피언",
+                        "Gold Champion",
+                        "بطل ذهبي",
+                        "ゴールドチャンピオン",
+                        "LEGENDARY",
+                        1,
+                        true,
+                        new io.pinkspider.global.facade.dto.SeasonRewardItemDto(
+                                11L,
+                                "황금 날개",
+                                "Golden Wings",
+                                "أجنحة ذهبية",
+                                "黄金の翼",
+                                "시즌 한정 보상",
+                                "Season reward",
+                                "مكافأة موسمية",
+                                "シーズン報酬",
+                                "LEGENDARY",
+                                "https://example.com/item.png"));
 
-        testPlayerRanking = new SeasonMvpPlayerDto(
-            "user-1", "플레이어1", "https://example.com/profile.jpg",
-            15, "모험가", TitleRarity.RARE,
-            null, null, null, null,
-            10000L, 1,
-            List.of(new io.pinkspider.global.facade.dto.EquippedItemRarityDto(
-                "HEAD", TitleRarity.EPIC))
-        );
+        testPlayerRanking =
+                new SeasonMvpPlayerDto(
+                        "user-1",
+                        "플레이어1",
+                        "https://example.com/profile.jpg",
+                        15,
+                        "모험가",
+                        TitleRarity.RARE,
+                        null,
+                        null,
+                        null,
+                        null,
+                        10000L,
+                        1,
+                        List.of(
+                                new io.pinkspider.global.facade.dto.EquippedItemRarityDto(
+                                        "HEAD", TitleRarity.EPIC)));
 
-        testGuildRanking = new SeasonMvpGuildDto(
-            1L, "테스트 길드", "https://example.com/guild.jpg",
-            10, 25, 50000L, 1
-        );
+        testGuildRanking =
+                new SeasonMvpGuildDto(
+                        1L, "테스트 길드", "https://example.com/guild.jpg", 10, 25, 50000L, 1);
 
-        testMyRanking = new SeasonMyRankingDto(
-            5, 8500L, 3, 45000L, 1L, "테스트 길드"
-        );
+        testMyRanking = new SeasonMyRankingDto(5, 8500L, 3, 45000L, 1L, "테스트 길드");
 
-        testCategory = MissionCategoryResponse.builder()
-            .id(1L)
-            .name("운동")
-            .nameEn("Exercise")
-            .icon("\uD83C\uDFC3")
-            .isActive(true)
-            .build();
+        testCategory =
+                MissionCategoryResponse.builder()
+                        .id(1L)
+                        .name("운동")
+                        .nameEn("Exercise")
+                        .icon("\uD83C\uDFC3")
+                        .isActive(true)
+                        .build();
     }
 
     @Nested
@@ -114,18 +149,18 @@ class BffSeasonServiceTest {
             // given
             when(gamificationQueryFacade.getSeasonById(1L)).thenReturn(Optional.of(testSeasonDto));
             when(gamificationQueryFacade.getSeasonRankRewards(1L))
-                .thenReturn(List.of(testRankRewardDto));
+                    .thenReturn(List.of(testRankRewardDto));
             when(gamificationQueryFacade.getSeasonPlayerRankings(anyLong(), any(), anyInt(), any()))
-                .thenReturn(List.of(testPlayerRanking));
+                    .thenReturn(List.of(testPlayerRanking));
             when(gamificationQueryFacade.getSeasonGuildRankings(anyLong(), anyInt()))
-                .thenReturn(List.of(testGuildRanking));
+                    .thenReturn(List.of(testGuildRanking));
             when(gamificationQueryFacade.getMySeasonRanking(anyLong(), anyString()))
-                .thenReturn(testMyRanking);
-            when(missionCategoryService.getActiveCategories())
-                .thenReturn(List.of(testCategory));
+                    .thenReturn(testMyRanking);
+            when(missionCategoryService.getActiveCategories()).thenReturn(List.of(testCategory));
 
             // when
-            SeasonDetailResponse response = bffSeasonService.getSeasonDetail(1L, testUserId, null, "ko");
+            SeasonDetailResponse response =
+                    bffSeasonService.getSeasonDetail(1L, testUserId, null, "ko");
 
             // then
             assertThat(response).isNotNull();
@@ -147,18 +182,18 @@ class BffSeasonServiceTest {
             String categoryName = "운동";
             when(gamificationQueryFacade.getSeasonById(1L)).thenReturn(Optional.of(testSeasonDto));
             when(gamificationQueryFacade.getSeasonRankRewards(1L))
-                .thenReturn(List.of(testRankRewardDto));
+                    .thenReturn(List.of(testRankRewardDto));
             when(gamificationQueryFacade.getSeasonPlayerRankings(anyLong(), any(), anyInt(), any()))
-                .thenReturn(List.of(testPlayerRanking));
+                    .thenReturn(List.of(testPlayerRanking));
             when(gamificationQueryFacade.getSeasonGuildRankings(anyLong(), anyInt()))
-                .thenReturn(List.of(testGuildRanking));
+                    .thenReturn(List.of(testGuildRanking));
             when(gamificationQueryFacade.getMySeasonRanking(anyLong(), anyString()))
-                .thenReturn(testMyRanking);
-            when(missionCategoryService.getActiveCategories())
-                .thenReturn(List.of(testCategory));
+                    .thenReturn(testMyRanking);
+            when(missionCategoryService.getActiveCategories()).thenReturn(List.of(testCategory));
 
             // when
-            SeasonDetailResponse response = bffSeasonService.getSeasonDetail(1L, testUserId, categoryName, "ko");
+            SeasonDetailResponse response =
+                    bffSeasonService.getSeasonDetail(1L, testUserId, categoryName, "ko");
 
             // then
             assertThat(response).isNotNull();
@@ -173,8 +208,8 @@ class BffSeasonServiceTest {
 
             // when & then
             assertThatThrownBy(() -> bffSeasonService.getSeasonDetail(999L, testUserId, null, "ko"))
-                .isInstanceOf(CustomException.class)
-                .hasMessageContaining("error.season.not_found");
+                    .isInstanceOf(CustomException.class)
+                    .hasMessageContaining("error.season.not_found");
         }
 
         @Test
@@ -183,18 +218,18 @@ class BffSeasonServiceTest {
             // given
             when(gamificationQueryFacade.getSeasonById(1L)).thenReturn(Optional.of(testSeasonDto));
             when(gamificationQueryFacade.getSeasonRankRewards(1L))
-                .thenThrow(new RuntimeException("DB 오류"));
+                    .thenThrow(new RuntimeException("DB 오류"));
             when(gamificationQueryFacade.getSeasonPlayerRankings(anyLong(), any(), anyInt(), any()))
-                .thenReturn(List.of(testPlayerRanking));
+                    .thenReturn(List.of(testPlayerRanking));
             when(gamificationQueryFacade.getSeasonGuildRankings(anyLong(), anyInt()))
-                .thenReturn(List.of(testGuildRanking));
+                    .thenReturn(List.of(testGuildRanking));
             when(gamificationQueryFacade.getMySeasonRanking(anyLong(), anyString()))
-                .thenReturn(testMyRanking);
-            when(missionCategoryService.getActiveCategories())
-                .thenReturn(List.of(testCategory));
+                    .thenReturn(testMyRanking);
+            when(missionCategoryService.getActiveCategories()).thenReturn(List.of(testCategory));
 
             // when
-            SeasonDetailResponse response = bffSeasonService.getSeasonDetail(1L, testUserId, null, "ko");
+            SeasonDetailResponse response =
+                    bffSeasonService.getSeasonDetail(1L, testUserId, null, "ko");
 
             // then
             assertThat(response).isNotNull();
@@ -207,18 +242,18 @@ class BffSeasonServiceTest {
             // given
             when(gamificationQueryFacade.getSeasonById(1L)).thenReturn(Optional.of(testSeasonDto));
             when(gamificationQueryFacade.getSeasonRankRewards(1L))
-                .thenReturn(List.of(testRankRewardDto));
+                    .thenReturn(List.of(testRankRewardDto));
             when(gamificationQueryFacade.getSeasonPlayerRankings(anyLong(), any(), anyInt(), any()))
-                .thenThrow(new RuntimeException("DB 오류"));
+                    .thenThrow(new RuntimeException("DB 오류"));
             when(gamificationQueryFacade.getSeasonGuildRankings(anyLong(), anyInt()))
-                .thenReturn(List.of(testGuildRanking));
+                    .thenReturn(List.of(testGuildRanking));
             when(gamificationQueryFacade.getMySeasonRanking(anyLong(), anyString()))
-                .thenReturn(testMyRanking);
-            when(missionCategoryService.getActiveCategories())
-                .thenReturn(List.of(testCategory));
+                    .thenReturn(testMyRanking);
+            when(missionCategoryService.getActiveCategories()).thenReturn(List.of(testCategory));
 
             // when
-            SeasonDetailResponse response = bffSeasonService.getSeasonDetail(1L, testUserId, null, "ko");
+            SeasonDetailResponse response =
+                    bffSeasonService.getSeasonDetail(1L, testUserId, null, "ko");
 
             // then
             assertThat(response).isNotNull();
@@ -231,18 +266,18 @@ class BffSeasonServiceTest {
             // given
             when(gamificationQueryFacade.getSeasonById(1L)).thenReturn(Optional.of(testSeasonDto));
             when(gamificationQueryFacade.getSeasonRankRewards(1L))
-                .thenReturn(List.of(testRankRewardDto));
+                    .thenReturn(List.of(testRankRewardDto));
             when(gamificationQueryFacade.getSeasonPlayerRankings(anyLong(), any(), anyInt(), any()))
-                .thenReturn(List.of(testPlayerRanking));
+                    .thenReturn(List.of(testPlayerRanking));
             when(gamificationQueryFacade.getSeasonGuildRankings(anyLong(), anyInt()))
-                .thenThrow(new RuntimeException("DB 오류"));
+                    .thenThrow(new RuntimeException("DB 오류"));
             when(gamificationQueryFacade.getMySeasonRanking(anyLong(), anyString()))
-                .thenReturn(testMyRanking);
-            when(missionCategoryService.getActiveCategories())
-                .thenReturn(List.of(testCategory));
+                    .thenReturn(testMyRanking);
+            when(missionCategoryService.getActiveCategories()).thenReturn(List.of(testCategory));
 
             // when
-            SeasonDetailResponse response = bffSeasonService.getSeasonDetail(1L, testUserId, null, "ko");
+            SeasonDetailResponse response =
+                    bffSeasonService.getSeasonDetail(1L, testUserId, null, "ko");
 
             // then
             assertThat(response).isNotNull();
@@ -255,18 +290,18 @@ class BffSeasonServiceTest {
             // given
             when(gamificationQueryFacade.getSeasonById(1L)).thenReturn(Optional.of(testSeasonDto));
             when(gamificationQueryFacade.getSeasonRankRewards(1L))
-                .thenReturn(List.of(testRankRewardDto));
+                    .thenReturn(List.of(testRankRewardDto));
             when(gamificationQueryFacade.getSeasonPlayerRankings(anyLong(), any(), anyInt(), any()))
-                .thenReturn(List.of(testPlayerRanking));
+                    .thenReturn(List.of(testPlayerRanking));
             when(gamificationQueryFacade.getSeasonGuildRankings(anyLong(), anyInt()))
-                .thenReturn(List.of(testGuildRanking));
+                    .thenReturn(List.of(testGuildRanking));
             when(gamificationQueryFacade.getMySeasonRanking(anyLong(), anyString()))
-                .thenThrow(new RuntimeException("DB 오류"));
-            when(missionCategoryService.getActiveCategories())
-                .thenReturn(List.of(testCategory));
+                    .thenThrow(new RuntimeException("DB 오류"));
+            when(missionCategoryService.getActiveCategories()).thenReturn(List.of(testCategory));
 
             // when
-            SeasonDetailResponse response = bffSeasonService.getSeasonDetail(1L, testUserId, null, "ko");
+            SeasonDetailResponse response =
+                    bffSeasonService.getSeasonDetail(1L, testUserId, null, "ko");
 
             // then
             assertThat(response).isNotNull();
@@ -280,18 +315,19 @@ class BffSeasonServiceTest {
             // given
             when(gamificationQueryFacade.getSeasonById(1L)).thenReturn(Optional.of(testSeasonDto));
             when(gamificationQueryFacade.getSeasonRankRewards(1L))
-                .thenReturn(List.of(testRankRewardDto));
+                    .thenReturn(List.of(testRankRewardDto));
             when(gamificationQueryFacade.getSeasonPlayerRankings(anyLong(), any(), anyInt(), any()))
-                .thenReturn(List.of(testPlayerRanking));
+                    .thenReturn(List.of(testPlayerRanking));
             when(gamificationQueryFacade.getSeasonGuildRankings(anyLong(), anyInt()))
-                .thenReturn(List.of(testGuildRanking));
+                    .thenReturn(List.of(testGuildRanking));
             when(gamificationQueryFacade.getMySeasonRanking(anyLong(), anyString()))
-                .thenReturn(testMyRanking);
+                    .thenReturn(testMyRanking);
             when(missionCategoryService.getActiveCategories())
-                .thenThrow(new RuntimeException("DB 오류"));
+                    .thenThrow(new RuntimeException("DB 오류"));
 
             // when
-            SeasonDetailResponse response = bffSeasonService.getSeasonDetail(1L, testUserId, null, "ko");
+            SeasonDetailResponse response =
+                    bffSeasonService.getSeasonDetail(1L, testUserId, null, "ko");
 
             // then
             assertThat(response).isNotNull();
@@ -310,18 +346,18 @@ class BffSeasonServiceTest {
             when(gamificationQueryFacade.getCurrentSeason()).thenReturn(Optional.of(testSeasonDto));
             when(gamificationQueryFacade.getSeasonById(1L)).thenReturn(Optional.of(testSeasonDto));
             when(gamificationQueryFacade.getSeasonRankRewards(1L))
-                .thenReturn(List.of(testRankRewardDto));
+                    .thenReturn(List.of(testRankRewardDto));
             when(gamificationQueryFacade.getSeasonPlayerRankings(anyLong(), any(), anyInt(), any()))
-                .thenReturn(List.of(testPlayerRanking));
+                    .thenReturn(List.of(testPlayerRanking));
             when(gamificationQueryFacade.getSeasonGuildRankings(anyLong(), anyInt()))
-                .thenReturn(List.of(testGuildRanking));
+                    .thenReturn(List.of(testGuildRanking));
             when(gamificationQueryFacade.getMySeasonRanking(anyLong(), anyString()))
-                .thenReturn(testMyRanking);
-            when(missionCategoryService.getActiveCategories())
-                .thenReturn(List.of(testCategory));
+                    .thenReturn(testMyRanking);
+            when(missionCategoryService.getActiveCategories()).thenReturn(List.of(testCategory));
 
             // when
-            SeasonDetailResponse response = bffSeasonService.getCurrentSeasonDetail(testUserId, null, "ko");
+            SeasonDetailResponse response =
+                    bffSeasonService.getCurrentSeasonDetail(testUserId, null, "ko");
 
             // then
             assertThat(response).isNotNull();
@@ -336,9 +372,10 @@ class BffSeasonServiceTest {
             when(gamificationQueryFacade.getCurrentSeason()).thenReturn(Optional.empty());
 
             // when & then
-            assertThatThrownBy(() -> bffSeasonService.getCurrentSeasonDetail(testUserId, null, "ko"))
-                .isInstanceOf(CustomException.class)
-                .hasMessageContaining("error.season.no_active");
+            assertThatThrownBy(
+                            () -> bffSeasonService.getCurrentSeasonDetail(testUserId, null, "ko"))
+                    .isInstanceOf(CustomException.class)
+                    .hasMessageContaining("error.season.no_active");
         }
     }
 
@@ -366,9 +403,8 @@ class BffSeasonServiceTest {
         @DisplayName("랭킹 정보를 생성한다")
         void constructor_createsRanking() {
             // when
-            SeasonMyRankingDto ranking = new SeasonMyRankingDto(
-                1, 10000L, 2, 50000L, 100L, "최강 길드"
-            );
+            SeasonMyRankingDto ranking =
+                    new SeasonMyRankingDto(1, 10000L, 2, 50000L, 100L, "최강 길드");
 
             // then
             assertThat(ranking.playerRank()).isEqualTo(1);
@@ -388,22 +424,27 @@ class BffSeasonServiceTest {
         @DisplayName("시즌 상세 응답을 생성한다")
         void of_createsResponse() {
             // given
-            SeasonDto seasonDto = new SeasonDto(
-                1L, "테스트 시즌", "설명",
-                LocalDateTime.now(), LocalDateTime.now().plusMonths(3),
-                100L, "보상 칭호",
-                "ACTIVE", "진행중"
-            );
+            SeasonDto seasonDto =
+                    new SeasonDto(
+                            1L,
+                            "테스트 시즌",
+                            "설명",
+                            LocalDateTime.now(),
+                            LocalDateTime.now().plusMonths(3),
+                            100L,
+                            "보상 칭호",
+                            "ACTIVE",
+                            "진행중");
 
             // when
-            SeasonDetailResponse response = SeasonDetailResponse.of(
-                seasonDto,
-                Collections.emptyList(),
-                List.of(testPlayerRanking),
-                List.of(testGuildRanking),
-                testMyRanking,
-                List.of(testCategory)
-            );
+            SeasonDetailResponse response =
+                    SeasonDetailResponse.of(
+                            seasonDto,
+                            Collections.emptyList(),
+                            List.of(testPlayerRanking),
+                            List.of(testGuildRanking),
+                            testMyRanking,
+                            List.of(testCategory));
 
             // then
             assertThat(response).isNotNull();

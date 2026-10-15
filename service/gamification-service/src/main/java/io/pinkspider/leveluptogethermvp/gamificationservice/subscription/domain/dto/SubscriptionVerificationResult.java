@@ -14,8 +14,8 @@ import java.time.LocalDateTime;
  * @param expiresAt 만료 시각 — 검증 비활성 모드면 null (플랜 기본 기간으로 대체)
  * @param autoRenew 자동갱신 여부 (iOS 트랜잭션 payload에는 없어 기본 true — LUT-452 웹훅이 정정)
  * @param trial 무료 체험/introductory offer 사용 구매 여부
- * @param transactionId 이 결제 건의 트랜잭션 ID (iOS transactionId / Android latestOrderId, LUT-499) — 결제 이력 추적용
- *     (LUT-486)
+ * @param transactionId 이 결제 건의 트랜잭션 ID (iOS transactionId / Android latestOrderId, LUT-499) — 결제 이력
+ *     추적용 (LUT-486)
  * @param priceAmount 결제 금액 — iOS JWS payload만 제공, Android/검증 비활성은 null (LUT-486)
  * @param priceCurrency 결제 통화 (ISO 4217) — priceAmount 와 짝
  * @param linkedPurchaseToken LUT-499: Android 재구독·플랜 변경으로 대체된 이전 purchaseToken — 교차 계정 가드가 옛 토큰

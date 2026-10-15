@@ -10,8 +10,8 @@ import org.springframework.context.annotation.Configuration;
 @Data
 public class JwtProperties {
 
-    private int renewalThresholdDays = 3;  // 기본값 3일
-    private int maxLifetimeDays = 30;      // 기본값 30일
+    private int renewalThresholdDays = 3; // 기본값 3일
+    private int maxLifetimeDays = 30; // 기본값 30일
 
     public long getRenewalThresholdMillis() {
         return Duration.ofDays(renewalThresholdDays).toMillis();

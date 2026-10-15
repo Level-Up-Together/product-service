@@ -47,16 +47,16 @@ public class MissionParticipantResponse {
 
     public static MissionParticipantResponse from(MissionParticipant participant) {
         return MissionParticipantResponse.builder()
-            .id(participant.getId())
-            .missionId(participant.getMission().getId())
-            .missionTitle(participant.getMission().getTitle())
-            .userId(participant.getUserId())
-            .status(participant.getStatus())
-            .progress(participant.getProgress())
-            .note(participant.getNote())
-            .joinedAt(participant.getJoinedAt())
-            .completedAt(participant.getCompletedAt())
-            .createdAt(participant.getCreatedAt())
-            .build();
+                .id(participant.getId())
+                .missionId(participant.getMission().getId())
+                .missionTitle(participant.getMission().getTitle())
+                .userId(participant.getUserId())
+                .status(participant.getStatus())
+                .progress(participant.getProgress())
+                .note(participant.getNote())
+                .joinedAt(participant.getJoinedAt())
+                .completedAt(participant.getCompletedAt())
+                .createdAt(participant.getCreatedAt())
+                .build();
     }
 }

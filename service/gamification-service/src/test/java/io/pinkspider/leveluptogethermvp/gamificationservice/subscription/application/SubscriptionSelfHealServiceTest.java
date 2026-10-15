@@ -20,51 +20,46 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-/**
- * LUT-499: 자가 치유 — 만료됐는데 자동갱신 중인 구독만 스토어를 재조회해 웹훅 경로로 반영한다. 실패는 삼킨다.
- */
+/** LUT-499: 자가 치유 — 만료됐는데 자동갱신 중인 구독만 스토어를 재조회해 웹훅 경로로 반영한다. 실패는 삼킨다. */
 @ExtendWith(MockitoExtension.class)
 @DisplayName("SubscriptionSelfHealService 테스트 (LUT-499)")
 class SubscriptionSelfHealServiceTest {
 
-    @Mock
-    private SubscriptionVerificationService verificationService;
+    @Mock private SubscriptionVerificationService verificationService;
 
-    @Mock
-    private SubscriptionWebhookTxService webhookTxService;
+    @Mock private SubscriptionWebhookTxService webhookTxService;
 
-    @InjectMocks
-    private SubscriptionSelfHealService selfHealService;
+    @InjectMocks private SubscriptionSelfHealService selfHealService;
 
     private static final LocalDateTime NOW = LocalDateTime.of(2026, 9, 16, 10, 0, 0);
 
     private UserSubscription android(LocalDateTime expiresAt, boolean autoRenew) {
         return UserSubscription.builder()
-            .userId("user-1")
-            .platform("android")
-            .productId("membership")
-            .basePlanId("1m")
-            .plan(SubscriptionPlan.MONTHLY)
-            .startedAt(NOW.minusMonths(1))
-            .expiresAt(expiresAt)
-            .autoRenew(autoRenew)
-            .trialUsed(false)
-            .purchaseToken("token-001")
-            .build();
+                .userId("user-1")
+                .platform("android")
+                .productId("membership")
+                .basePlanId("1m")
+                .plan(SubscriptionPlan.MONTHLY)
+                .startedAt(NOW.minusMonths(1))
+                .expiresAt(expiresAt)
+                .autoRenew(autoRenew)
+                .trialUsed(false)
+                .purchaseToken("token-001")
+                .build();
     }
 
     private UserSubscription ios(LocalDateTime expiresAt, boolean autoRenew) {
         return UserSubscription.builder()
-            .userId("user-1")
-            .platform("ios")
-            .productId("membership_1m")
-            .plan(SubscriptionPlan.MONTHLY)
-            .startedAt(NOW.minusMonths(1))
-            .expiresAt(expiresAt)
-            .autoRenew(autoRenew)
-            .trialUsed(false)
-            .originalTransactionId("orig-tx-001")
-            .build();
+                .userId("user-1")
+                .platform("ios")
+                .productId("membership_1m")
+                .plan(SubscriptionPlan.MONTHLY)
+                .startedAt(NOW.minusMonths(1))
+                .expiresAt(expiresAt)
+                .autoRenew(autoRenew)
+                .trialUsed(false)
+                .originalTransactionId("orig-tx-001")
+                .build();
     }
 
     @Test
@@ -84,8 +79,15 @@ class SubscriptionSelfHealServiceTest {
     @DisplayName("Android: subscriptionsv2 재조회 결과를 웹훅 경로(applyGoogleState)로 반영하고 true")
     void androidStaleSynced() {
         UserSubscription sub = android(NOW.minusMinutes(5), true);
-        GoogleSubscriptionState state = new GoogleSubscriptionState(
-            "membership", "1m", null, NOW.plusDays(29), true, false, "SUBSCRIPTION_STATE_ACTIVE");
+        GoogleSubscriptionState state =
+                new GoogleSubscriptionState(
+                        "membership",
+                        "1m",
+                        null,
+                        NOW.plusDays(29),
+                        true,
+                        false,
+                        "SUBSCRIPTION_STATE_ACTIVE");
         when(verificationService.fetchGoogleSubscription("token-001")).thenReturn(state);
 
         assertThat(selfHealService.syncIfStale(sub, NOW)).isTrue();
@@ -97,8 +99,10 @@ class SubscriptionSelfHealServiceTest {
     @DisplayName("iOS: Get All Subscription Statuses 스냅샷을 applyAppleSnapshot 으로 반영하고 true")
     void iosStaleSynced() {
         UserSubscription sub = ios(NOW.minusMinutes(5), true);
-        AppleSubscriptionSnapshot snapshot = new AppleSubscriptionSnapshot(
-            new JWSTransactionDecodedPayload().originalTransactionId("orig-tx-001"), null);
+        AppleSubscriptionSnapshot snapshot =
+                new AppleSubscriptionSnapshot(
+                        new JWSTransactionDecodedPayload().originalTransactionId("orig-tx-001"),
+                        null);
         when(verificationService.fetchAppleLatestSubscription("orig-tx-001")).thenReturn(snapshot);
 
         assertThat(selfHealService.syncIfStale(sub, NOW)).isTrue();
@@ -120,7 +124,7 @@ class SubscriptionSelfHealServiceTest {
     void storeFailureSwallowed() {
         UserSubscription sub = android(NOW.minusMinutes(5), true);
         when(verificationService.fetchGoogleSubscription("token-001"))
-            .thenThrow(new CustomException("120702", "error.iap.verification_failed"));
+                .thenThrow(new CustomException("120702", "error.iap.verification_failed"));
 
         assertThat(selfHealService.syncIfStale(sub, NOW)).isFalse();
 

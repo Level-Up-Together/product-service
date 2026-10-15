@@ -6,7 +6,6 @@ import lombok.RequiredArgsConstructor;
 @Getter
 @RequiredArgsConstructor
 public enum ExecutionStatus {
-
     PENDING("대기중"),
     IN_PROGRESS("진행중"),
     COMPLETED("완료"),
@@ -17,10 +16,8 @@ public enum ExecutionStatus {
     /**
      * 상태 전이 유효성 검증
      *
-     * PENDING → IN_PROGRESS, MISSED
-     * IN_PROGRESS → COMPLETED, PENDING(취소), MISSED
-     * COMPLETED → (terminal, resetToPending은 별도 메서드로 처리)
-     * MISSED → (terminal)
+     * <p>PENDING → IN_PROGRESS, MISSED IN_PROGRESS → COMPLETED, PENDING(취소), MISSED COMPLETED →
+     * (terminal, resetToPending은 별도 메서드로 처리) MISSED → (terminal)
      */
     public boolean canTransitTo(ExecutionStatus target) {
         return switch (this) {

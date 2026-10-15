@@ -16,10 +16,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
-/**
- * 핑크다이아 묶음상품 어드민 서비스 (LUT-356)
- * 이미지는 상점 아이템과 같은 저장 전략(ShopItemImageStorageService)을 공유한다.
- */
+/** 핑크다이아 묶음상품 어드민 서비스 (LUT-356) 이미지는 상점 아이템과 같은 저장 전략(ShopItemImageStorageService)을 공유한다. */
 @Service
 @RequiredArgsConstructor
 @Slf4j
@@ -33,9 +30,10 @@ public class DiamondBundleAdminService {
     @Transactional(readOnly = true, transactionManager = "gamificationTransactionManager")
     public DiamondBundleAdminPageResponse searchBundles(
             String keyword, Boolean isActive, Pageable pageable) {
-        Page<DiamondBundleAdminResponse> page = diamondBundleRepository
-            .search(keyword, isActive, pageable)
-            .map(DiamondBundleAdminResponse::from);
+        Page<DiamondBundleAdminResponse> page =
+                diamondBundleRepository
+                        .search(keyword, isActive, pageable)
+                        .map(DiamondBundleAdminResponse::from);
         return DiamondBundleAdminPageResponse.from(page);
     }
 
@@ -49,24 +47,28 @@ public class DiamondBundleAdminService {
             throw new CustomException("400", "error.diamond_bundle.duplicate_name");
         }
 
-        DiamondBundle bundle = DiamondBundle.builder()
-            .name(request.getName())
-            .nameEn(request.getNameEn())
-            .nameAr(request.getNameAr())
-            .nameJa(request.getNameJa())
-            .description(request.getDescription())
-            .descriptionEn(request.getDescriptionEn())
-            .descriptionAr(request.getDescriptionAr())
-            .descriptionJa(request.getDescriptionJa())
-            .diamondCount(request.getDiamondCount())
-            .storeProductId(request.getStoreProductId())
-            .imageUrl(request.getImageUrl())
-            .isActive(request.getIsActive() != null ? request.getIsActive() : true)
-            .build();
+        DiamondBundle bundle =
+                DiamondBundle.builder()
+                        .name(request.getName())
+                        .nameEn(request.getNameEn())
+                        .nameAr(request.getNameAr())
+                        .nameJa(request.getNameJa())
+                        .description(request.getDescription())
+                        .descriptionEn(request.getDescriptionEn())
+                        .descriptionAr(request.getDescriptionAr())
+                        .descriptionJa(request.getDescriptionJa())
+                        .diamondCount(request.getDiamondCount())
+                        .storeProductId(request.getStoreProductId())
+                        .imageUrl(request.getImageUrl())
+                        .isActive(request.getIsActive() != null ? request.getIsActive() : true)
+                        .build();
 
         DiamondBundle saved = diamondBundleRepository.save(bundle);
-        log.info("다이아 묶음상품 생성: id={}, name={}, count={}",
-            saved.getId(), saved.getName(), saved.getDiamondCount());
+        log.info(
+                "다이아 묶음상품 생성: id={}, name={}, count={}",
+                saved.getId(),
+                saved.getName(),
+                saved.getDiamondCount());
         return DiamondBundleAdminResponse.from(saved);
     }
 
@@ -74,7 +76,7 @@ public class DiamondBundleAdminService {
         DiamondBundle bundle = findById(id);
 
         if (!bundle.getName().equals(request.getName())
-            && diamondBundleRepository.existsByName(request.getName())) {
+                && diamondBundleRepository.existsByName(request.getName())) {
             throw new CustomException("400", "error.diamond_bundle.duplicate_name");
         }
 
@@ -130,7 +132,8 @@ public class DiamondBundleAdminService {
     }
 
     private DiamondBundle findById(Long id) {
-        return diamondBundleRepository.findById(id)
-            .orElseThrow(() -> new CustomException("404", "error.diamond_bundle.not_found"));
+        return diamondBundleRepository
+                .findById(id)
+                .orElseThrow(() -> new CustomException("404", "error.diamond_bundle.not_found"));
     }
 }

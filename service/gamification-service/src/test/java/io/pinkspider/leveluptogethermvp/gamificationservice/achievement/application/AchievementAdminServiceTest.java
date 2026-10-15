@@ -5,11 +5,12 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
-import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import io.pinkspider.global.enums.TitlePosition;
+import io.pinkspider.global.enums.TitleRarity;
 import io.pinkspider.global.exception.CustomException;
 import io.pinkspider.leveluptogethermvp.gamificationservice.achievement.domain.dto.AchievementAdminPageResponse;
 import io.pinkspider.leveluptogethermvp.gamificationservice.achievement.domain.dto.AchievementAdminRequest;
@@ -22,6 +23,7 @@ import io.pinkspider.leveluptogethermvp.gamificationservice.domain.entity.UserAc
 import io.pinkspider.leveluptogethermvp.gamificationservice.domain.entity.UserTitle;
 import io.pinkspider.leveluptogethermvp.gamificationservice.domain.enums.CheckLogicComparisonOperator;
 import io.pinkspider.leveluptogethermvp.gamificationservice.domain.enums.CheckLogicDataSource;
+import io.pinkspider.leveluptogethermvp.gamificationservice.domain.enums.TitleAcquisitionType;
 import io.pinkspider.leveluptogethermvp.gamificationservice.event.domain.entity.Event;
 import io.pinkspider.leveluptogethermvp.gamificationservice.event.infrastructure.EventRepository;
 import io.pinkspider.leveluptogethermvp.gamificationservice.infrastructure.AchievementCategoryRepository;
@@ -30,9 +32,6 @@ import io.pinkspider.leveluptogethermvp.gamificationservice.infrastructure.Check
 import io.pinkspider.leveluptogethermvp.gamificationservice.infrastructure.TitleRepository;
 import io.pinkspider.leveluptogethermvp.gamificationservice.infrastructure.UserAchievementRepository;
 import io.pinkspider.leveluptogethermvp.gamificationservice.infrastructure.UserTitleRepository;
-import io.pinkspider.global.enums.TitlePosition;
-import io.pinkspider.global.enums.TitleRarity;
-import io.pinkspider.leveluptogethermvp.gamificationservice.domain.enums.TitleAcquisitionType;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
@@ -51,69 +50,64 @@ import org.springframework.data.domain.Pageable;
 @ExtendWith(MockitoExtension.class)
 class AchievementAdminServiceTest {
 
-    @Mock
-    private AchievementRepository achievementRepository;
+    @Mock private AchievementRepository achievementRepository;
 
-    @Mock
-    private AchievementCategoryRepository achievementCategoryRepository;
+    @Mock private AchievementCategoryRepository achievementCategoryRepository;
 
-    @Mock
-    private CheckLogicTypeRepository checkLogicTypeRepository;
+    @Mock private CheckLogicTypeRepository checkLogicTypeRepository;
 
-    @Mock
-    private EventRepository eventRepository;
+    @Mock private EventRepository eventRepository;
 
-    @Mock
-    private UserAchievementRepository userAchievementRepository;
+    @Mock private UserAchievementRepository userAchievementRepository;
 
-    @Mock
-    private UserTitleRepository userTitleRepository;
+    @Mock private UserTitleRepository userTitleRepository;
 
-    @Mock
-    private TitleRepository titleRepository;
+    @Mock private TitleRepository titleRepository;
 
-    @InjectMocks
-    private AchievementAdminService achievementAdminService;
+    @InjectMocks private AchievementAdminService achievementAdminService;
 
     private AchievementCategory createTestCategory(Long id, String code, String name) {
-        AchievementCategory category = AchievementCategory.builder()
-            .code(code)
-            .name(name)
-            .description(name + " 설명")
-            .sortOrder(1)
-            .isActive(true)
-            .build();
+        AchievementCategory category =
+                AchievementCategory.builder()
+                        .code(code)
+                        .name(name)
+                        .description(name + " 설명")
+                        .sortOrder(1)
+                        .isActive(true)
+                        .build();
         setId(category, id);
         return category;
     }
 
     private CheckLogicType createTestCheckLogicType(Long id, String code) {
-        CheckLogicType checkLogicType = CheckLogicType.builder()
-            .code(code)
-            .name(code + " 체크 로직")
-            .dataSource(CheckLogicDataSource.USER_STATS)
-            .dataField("totalMissionCompletions")
-            .comparisonOperator(CheckLogicComparisonOperator.GTE)
-            .sortOrder(1)
-            .isActive(true)
-            .build();
+        CheckLogicType checkLogicType =
+                CheckLogicType.builder()
+                        .code(code)
+                        .name(code + " 체크 로직")
+                        .dataSource(CheckLogicDataSource.USER_STATS)
+                        .dataField("totalMissionCompletions")
+                        .comparisonOperator(CheckLogicComparisonOperator.GTE)
+                        .sortOrder(1)
+                        .isActive(true)
+                        .build();
         setId(checkLogicType, id);
         return checkLogicType;
     }
 
     private Achievement createTestAchievement(Long id, String name, AchievementCategory category) {
-        Achievement achievement = Achievement.builder()
-            .name(name)
-            .description(name + " 설명")
-            .categoryCode(category != null ? category.getCode() : "MISSION")
-            .requiredCount(10)
-            .rewardExp(100)
-            .isActive(true)
-            .isHidden(false)
-            .checkLogicDataSource("USER_STATS")
-            .checkLogicDataField("totalMissionCompletions")
-            .comparisonOperator("GTE")
-            .build();
+        Achievement achievement =
+                Achievement.builder()
+                        .name(name)
+                        .description(name + " 설명")
+                        .categoryCode(category != null ? category.getCode() : "MISSION")
+                        .requiredCount(10)
+                        .rewardExp(100)
+                        .isActive(true)
+                        .isHidden(false)
+                        .checkLogicDataSource("USER_STATS")
+                        .checkLogicDataField("totalMissionCompletions")
+                        .comparisonOperator("GTE")
+                        .build();
         if (category != null) {
             achievement.setCategory(category);
         }
@@ -122,30 +116,31 @@ class AchievementAdminServiceTest {
     }
 
     private Title createTestTitle(Long id, String name) {
-        Title title = Title.builder()
-            .name(name)
-            .description(name + " 설명")
-            .rarity(TitleRarity.RARE)
-            .positionType(TitlePosition.LEFT)
-            .acquisitionType(TitleAcquisitionType.ACHIEVEMENT)
-            .isActive(true)
-            .build();
+        Title title =
+                Title.builder()
+                        .name(name)
+                        .description(name + " 설명")
+                        .rarity(TitleRarity.RARE)
+                        .positionType(TitlePosition.LEFT)
+                        .acquisitionType(TitleAcquisitionType.ACHIEVEMENT)
+                        .isActive(true)
+                        .build();
         setId(title, id);
         return title;
     }
 
     private AchievementAdminRequest createTestRequest(Long categoryId, Long checkLogicTypeId) {
         return AchievementAdminRequest.builder()
-            .name("테스트 업적")
-            .nameEn("Test Achievement")
-            .description("테스트 업적 설명")
-            .categoryId(categoryId)
-            .checkLogicTypeId(checkLogicTypeId)
-            .requiredCount(10)
-            .rewardExp(100)
-            .isHidden(false)
-            .isActive(true)
-            .build();
+                .name("테스트 업적")
+                .nameEn("Test Achievement")
+                .description("테스트 업적 설명")
+                .categoryId(categoryId)
+                .checkLogicTypeId(checkLogicTypeId)
+                .requiredCount(10)
+                .rewardExp(100)
+                .isHidden(false)
+                .isActive(true)
+                .build();
     }
 
     @Nested
@@ -203,7 +198,8 @@ class AchievementAdminServiceTest {
                     .thenReturn(page);
 
             // when
-            AchievementAdminPageResponse result = achievementAdminService.searchAchievements("미션", 1L, pageable);
+            AchievementAdminPageResponse result =
+                    achievementAdminService.searchAchievements("미션", 1L, pageable);
 
             // then
             assertThat(result).isNotNull();
@@ -223,7 +219,8 @@ class AchievementAdminServiceTest {
             AchievementCategory category = createTestCategory(1L, "MISSION", "미션");
             Achievement achievement = createTestAchievement(1L, "미션 달성", category);
 
-            when(achievementRepository.findByIsActiveTrueOrderByIdAsc()).thenReturn(List.of(achievement));
+            when(achievementRepository.findByIsActiveTrueOrderByIdAsc())
+                    .thenReturn(List.of(achievement));
 
             // when
             List<AchievementAdminResponse> result = achievementAdminService.getActiveAchievements();
@@ -245,10 +242,12 @@ class AchievementAdminServiceTest {
             AchievementCategory category = createTestCategory(1L, "MISSION", "미션");
             Achievement achievement = createTestAchievement(1L, "미션 달성", category);
 
-            when(achievementRepository.findVisibleAchievementsOrderByIdAsc()).thenReturn(List.of(achievement));
+            when(achievementRepository.findVisibleAchievementsOrderByIdAsc())
+                    .thenReturn(List.of(achievement));
 
             // when
-            List<AchievementAdminResponse> result = achievementAdminService.getVisibleAchievements();
+            List<AchievementAdminResponse> result =
+                    achievementAdminService.getVisibleAchievements();
 
             // then
             assertThat(result).hasSize(1);
@@ -289,8 +288,8 @@ class AchievementAdminServiceTest {
 
             // when & then
             assertThatThrownBy(() -> achievementAdminService.getAchievement(999L))
-                .isInstanceOf(CustomException.class)
-                .hasMessageContaining("error.achievement.not_found");
+                    .isInstanceOf(CustomException.class)
+                    .hasMessageContaining("error.achievement.not_found");
         }
     }
 
@@ -305,10 +304,12 @@ class AchievementAdminServiceTest {
             AchievementCategory category = createTestCategory(1L, "MISSION", "미션");
             Achievement achievement = createTestAchievement(1L, "미션 달성", category);
 
-            when(achievementRepository.findByCategoryCode("MISSION")).thenReturn(List.of(achievement));
+            when(achievementRepository.findByCategoryCode("MISSION"))
+                    .thenReturn(List.of(achievement));
 
             // when
-            List<AchievementAdminResponse> result = achievementAdminService.getAchievementsByCategoryCode("MISSION");
+            List<AchievementAdminResponse> result =
+                    achievementAdminService.getAchievementsByCategoryCode("MISSION");
 
             // then
             assertThat(result).hasSize(1);
@@ -328,7 +329,8 @@ class AchievementAdminServiceTest {
             CheckLogicType checkLogicType = createTestCheckLogicType(1L, "MISSION_COUNT");
             AchievementAdminRequest request = createTestRequest(1L, 1L);
 
-            // savedAchievement: rewardTitleId=null, checkLogicTypeId=null → toResponseWithEnrichment에서 findById 호출 없음
+            // savedAchievement: rewardTitleId=null, checkLogicTypeId=null →
+            // toResponseWithEnrichment에서 findById 호출 없음
             Achievement savedAchievement = createTestAchievement(1L, "테스트 업적", category);
 
             when(achievementCategoryRepository.findById(1L)).thenReturn(Optional.of(category));
@@ -351,22 +353,24 @@ class AchievementAdminServiceTest {
             AchievementCategory category = createTestCategory(1L, "MISSION", "미션");
             CheckLogicType checkLogicType = createTestCheckLogicType(1L, "MISSION_COUNT");
 
-            Event event = Event.builder()
-                .name("특별 이벤트")
-                .startAt(LocalDateTime.now().minusDays(1))
-                .endAt(LocalDateTime.now().plusDays(1))
-                .build();
+            Event event =
+                    Event.builder()
+                            .name("특별 이벤트")
+                            .startAt(LocalDateTime.now().minusDays(1))
+                            .endAt(LocalDateTime.now().plusDays(1))
+                            .build();
             setId(event, 10L);
 
-            AchievementAdminRequest request = AchievementAdminRequest.builder()
-                .name("이벤트 업적")
-                .categoryId(1L)
-                .checkLogicTypeId(1L)
-                .requiredCount(5)
-                .rewardExp(50)
-                .eventId(10L)
-                .isActive(true)
-                .build();
+            AchievementAdminRequest request =
+                    AchievementAdminRequest.builder()
+                            .name("이벤트 업적")
+                            .categoryId(1L)
+                            .checkLogicTypeId(1L)
+                            .requiredCount(5)
+                            .rewardExp(50)
+                            .eventId(10L)
+                            .isActive(true)
+                            .build();
 
             Achievement savedAchievement = createTestAchievement(1L, "이벤트 업적", category);
             savedAchievement.setEventId(10L);
@@ -395,8 +399,8 @@ class AchievementAdminServiceTest {
 
             // when & then
             assertThatThrownBy(() -> achievementAdminService.createAchievement(request))
-                .isInstanceOf(CustomException.class)
-                .hasMessageContaining("error.achievement.category.not_found");
+                    .isInstanceOf(CustomException.class)
+                    .hasMessageContaining("error.achievement.category.not_found");
         }
 
         @Test
@@ -411,8 +415,8 @@ class AchievementAdminServiceTest {
 
             // when & then
             assertThatThrownBy(() -> achievementAdminService.createAchievement(request))
-                .isInstanceOf(CustomException.class)
-                .hasMessageContaining("error.checklogic.not_found");
+                    .isInstanceOf(CustomException.class)
+                    .hasMessageContaining("error.checklogic.not_found");
         }
     }
 
@@ -436,7 +440,8 @@ class AchievementAdminServiceTest {
             when(achievementRepository.save(any(Achievement.class))).thenReturn(achievement);
 
             // when
-            AchievementAdminResponse result = achievementAdminService.updateAchievement(1L, request);
+            AchievementAdminResponse result =
+                    achievementAdminService.updateAchievement(1L, request);
 
             // then
             assertThat(result).isNotNull();
@@ -457,13 +462,14 @@ class AchievementAdminServiceTest {
             AchievementAdminRequest request = createTestRequest(1L, 1L);
             request.setRewardTitleId(5L); // 새 칭호 설정
 
-            UserAchievement existingAchiever = UserAchievement.builder()
-                .userId("achiever-user")
-                .achievement(achievement)
-                .currentCount(10)
-                .isCompleted(true)
-                .isRewardClaimed(true)
-                .build();
+            UserAchievement existingAchiever =
+                    UserAchievement.builder()
+                            .userId("achiever-user")
+                            .achievement(achievement)
+                            .currentCount(10)
+                            .isCompleted(true)
+                            .isRewardClaimed(true)
+                            .build();
             setId(existingAchiever, 1L);
 
             when(achievementRepository.findById(1L)).thenReturn(Optional.of(achievement));
@@ -471,9 +477,11 @@ class AchievementAdminServiceTest {
             when(checkLogicTypeRepository.findById(1L)).thenReturn(Optional.of(checkLogicType));
             when(achievementRepository.save(any(Achievement.class))).thenReturn(achievement);
             when(titleRepository.findById(5L)).thenReturn(Optional.of(newTitle));
-            when(userAchievementRepository.findByAchievementIdAndIsCompletedTrueAndIsRewardClaimedTrue(1L))
-                .thenReturn(List.of(existingAchiever));
-            when(userTitleRepository.existsByUserIdAndTitleId("achiever-user", 5L)).thenReturn(false);
+            when(userAchievementRepository
+                            .findByAchievementIdAndIsCompletedTrueAndIsRewardClaimedTrue(1L))
+                    .thenReturn(List.of(existingAchiever));
+            when(userTitleRepository.existsByUserIdAndTitleId("achiever-user", 5L))
+                    .thenReturn(false);
             when(userTitleRepository.save(any(UserTitle.class))).thenReturn(null);
 
             // when
@@ -492,8 +500,8 @@ class AchievementAdminServiceTest {
 
             // when & then
             assertThatThrownBy(() -> achievementAdminService.updateAchievement(999L, request))
-                .isInstanceOf(CustomException.class)
-                .hasMessageContaining("error.achievement.not_found");
+                    .isInstanceOf(CustomException.class)
+                    .hasMessageContaining("error.achievement.not_found");
         }
     }
 
@@ -510,7 +518,8 @@ class AchievementAdminServiceTest {
             achievement.setIsActive(true);
 
             when(achievementRepository.findById(1L)).thenReturn(Optional.of(achievement));
-            when(achievementRepository.save(any(Achievement.class))).thenAnswer(inv -> inv.getArgument(0));
+            when(achievementRepository.save(any(Achievement.class)))
+                    .thenAnswer(inv -> inv.getArgument(0));
 
             // when
             AchievementAdminResponse result = achievementAdminService.toggleActiveStatus(1L);
@@ -529,7 +538,8 @@ class AchievementAdminServiceTest {
             achievement.setIsActive(false);
 
             when(achievementRepository.findById(1L)).thenReturn(Optional.of(achievement));
-            when(achievementRepository.save(any(Achievement.class))).thenAnswer(inv -> inv.getArgument(0));
+            when(achievementRepository.save(any(Achievement.class)))
+                    .thenAnswer(inv -> inv.getArgument(0));
 
             // when
             AchievementAdminResponse result = achievementAdminService.toggleActiveStatus(1L);
@@ -546,8 +556,8 @@ class AchievementAdminServiceTest {
 
             // when & then
             assertThatThrownBy(() -> achievementAdminService.toggleActiveStatus(999L))
-                .isInstanceOf(CustomException.class)
-                .hasMessageContaining("error.achievement.not_found");
+                    .isInstanceOf(CustomException.class)
+                    .hasMessageContaining("error.achievement.not_found");
         }
     }
 
@@ -577,8 +587,8 @@ class AchievementAdminServiceTest {
 
             // when & then
             assertThatThrownBy(() -> achievementAdminService.deleteAchievement(999L))
-                .isInstanceOf(CustomException.class)
-                .hasMessageContaining("error.achievement.not_found");
+                    .isInstanceOf(CustomException.class)
+                    .hasMessageContaining("error.achievement.not_found");
 
             verify(achievementRepository, never()).deleteById(anyLong());
         }
@@ -592,8 +602,8 @@ class AchievementAdminServiceTest {
 
             // when & then
             assertThatThrownBy(() -> achievementAdminService.deleteAchievement(74L))
-                .isInstanceOf(CustomException.class)
-                .hasMessageContaining("error.achievement.in_use");
+                    .isInstanceOf(CustomException.class)
+                    .hasMessageContaining("error.achievement.in_use");
 
             verify(achievementRepository, never()).deleteById(anyLong());
         }
@@ -617,13 +627,14 @@ class AchievementAdminServiceTest {
             AchievementAdminRequest request = createTestRequest(1L, 1L);
             request.setRewardTitleId(5L);
 
-            UserAchievement existingAchiever = UserAchievement.builder()
-                .userId("achiever-user")
-                .achievement(achievement)
-                .currentCount(10)
-                .isCompleted(true)
-                .isRewardClaimed(true)
-                .build();
+            UserAchievement existingAchiever =
+                    UserAchievement.builder()
+                            .userId("achiever-user")
+                            .achievement(achievement)
+                            .currentCount(10)
+                            .isCompleted(true)
+                            .isRewardClaimed(true)
+                            .build();
             setId(existingAchiever, 1L);
 
             when(achievementRepository.findById(1L)).thenReturn(Optional.of(achievement));
@@ -631,9 +642,11 @@ class AchievementAdminServiceTest {
             when(checkLogicTypeRepository.findById(1L)).thenReturn(Optional.of(checkLogicType));
             when(achievementRepository.save(any(Achievement.class))).thenReturn(achievement);
             when(titleRepository.findById(5L)).thenReturn(Optional.of(newTitle));
-            when(userAchievementRepository.findByAchievementIdAndIsCompletedTrueAndIsRewardClaimedTrue(1L))
-                .thenReturn(List.of(existingAchiever));
-            when(userTitleRepository.existsByUserIdAndTitleId("achiever-user", 5L)).thenReturn(true);
+            when(userAchievementRepository
+                            .findByAchievementIdAndIsCompletedTrueAndIsRewardClaimedTrue(1L))
+                    .thenReturn(List.of(existingAchiever));
+            when(userTitleRepository.existsByUserIdAndTitleId("achiever-user", 5L))
+                    .thenReturn(true);
 
             // when
             achievementAdminService.updateAchievement(1L, request);
@@ -664,7 +677,8 @@ class AchievementAdminServiceTest {
             achievementAdminService.updateAchievement(1L, request);
 
             // then
-            verify(userAchievementRepository, never()).findByAchievementIdAndIsCompletedTrueAndIsRewardClaimedTrue(anyLong());
+            verify(userAchievementRepository, never())
+                    .findByAchievementIdAndIsCompletedTrueAndIsRewardClaimedTrue(anyLong());
             verify(userTitleRepository, never()).save(any(UserTitle.class));
         }
     }

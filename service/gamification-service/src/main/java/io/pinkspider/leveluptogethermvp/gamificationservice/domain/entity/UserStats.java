@@ -25,12 +25,12 @@ import org.hibernate.annotations.Comment;
 @SuperBuilder
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @AllArgsConstructor
-@Table(name = "user_stats",
-    uniqueConstraints = @UniqueConstraint(
-        name = "uk_user_stats_user_id",
-        columnNames = {"user_id"}
-    )
-)
+@Table(
+        name = "user_stats",
+        uniqueConstraints =
+                @UniqueConstraint(
+                        name = "uk_user_stats_user_id",
+                        columnNames = {"user_id"}))
 @Comment("유저 통계")
 public class UserStats extends LocalDateTimeBaseEntity {
 
@@ -227,12 +227,12 @@ public class UserStats extends LocalDateTimeBaseEntity {
 
     private void updateRankingPoints() {
         // 랭킹 포인트 계산: 미션완료*10 + 전체완료*50 + 길드미션*15 + 연속일수*5 + 업적*100
-        this.rankingPoints = (long) (
-            totalMissionCompletions * 10 +
-            totalMissionFullCompletions * 50 +
-            totalGuildMissionCompletions * 15 +
-            maxStreak * 5 +
-            totalAchievementsCompleted * 100
-        );
+        this.rankingPoints =
+                (long)
+                        (totalMissionCompletions * 10
+                                + totalMissionFullCompletions * 50
+                                + totalGuildMissionCompletions * 15
+                                + maxStreak * 5
+                                + totalAchievementsCompleted * 100);
     }
 }

@@ -27,9 +27,7 @@ public class GuildPostCreateRequest {
     @NoProfanity(fieldName = "내용")
     private String content;
 
-    @Builder.Default
-    private GuildPostType postType = GuildPostType.NORMAL;
+    @Builder.Default private GuildPostType postType = GuildPostType.NORMAL;
 
-    @Builder.Default
-    private Boolean isPinned = false;
+    @Builder.Default private Boolean isPinned = false;
 }

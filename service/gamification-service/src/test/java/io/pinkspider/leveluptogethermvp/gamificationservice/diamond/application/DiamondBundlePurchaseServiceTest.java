@@ -34,46 +34,42 @@ import org.springframework.orm.ObjectOptimisticLockingFailureException;
 @DisplayName("DiamondBundlePurchaseService 테스트 (LUT-354)")
 class DiamondBundlePurchaseServiceTest {
 
-    @Mock
-    private DiamondBundleRepository diamondBundleRepository;
+    @Mock private DiamondBundleRepository diamondBundleRepository;
 
-    @Mock
-    private DiamondBundlePurchaseRepository purchaseRepository;
+    @Mock private DiamondBundlePurchaseRepository purchaseRepository;
 
-    @Mock
-    private IapVerificationService iapVerificationService;
+    @Mock private IapVerificationService iapVerificationService;
 
-    @Mock
-    private DiamondBundlePurchaseTxService purchaseTxService;
+    @Mock private DiamondBundlePurchaseTxService purchaseTxService;
 
-    @Mock
-    private DiamondService diamondService;
+    @Mock private DiamondService diamondService;
 
-    @InjectMocks
-    private DiamondBundlePurchaseService purchaseService;
+    @InjectMocks private DiamondBundlePurchaseService purchaseService;
 
     private static final String USER_ID = "user-1";
     private static final String TX_ID = "store-tx-001";
-    private static final IapVerificationResult VERIFICATION = IapVerificationResult.withoutPrice(TX_ID);
+    private static final IapVerificationResult VERIFICATION =
+            IapVerificationResult.withoutPrice(TX_ID);
 
     private DiamondBundle bundle(Long id, String productId) {
-        DiamondBundle bundle = DiamondBundle.builder()
-            .name("핑크다이아 100개")
-            .diamondCount(100)
-            .storeProductId(productId)
-            .isActive(true)
-            .build();
+        DiamondBundle bundle =
+                DiamondBundle.builder()
+                        .name("핑크다이아 100개")
+                        .diamondCount(100)
+                        .storeProductId(productId)
+                        .isActive(true)
+                        .build();
         setId(bundle, id);
         return bundle;
     }
 
     private DiamondBundlePurchaseRequest request(String productId) {
         return DiamondBundlePurchaseRequest.builder()
-            .platform("ios")
-            .storeProductId(productId)
-            .transactionId(TX_ID)
-            .receipt("base64-receipt")
-            .build();
+                .platform("ios")
+                .storeProductId(productId)
+                .transactionId(TX_ID)
+                .receipt("base64-receipt")
+                .build();
     }
 
     @Test
@@ -82,12 +78,13 @@ class DiamondBundlePurchaseServiceTest {
         when(diamondBundleRepository.findById(1L)).thenReturn(Optional.of(bundle(1L, "pink_100")));
         when(iapVerificationService.verify(any())).thenReturn(VERIFICATION);
         when(purchaseRepository.findByStoreTransactionId(TX_ID)).thenReturn(Optional.empty());
-        when(purchaseTxService.recordAndGrant(eq(USER_ID), any(), any(), eq(VERIFICATION))).thenReturn(110);
+        when(purchaseTxService.recordAndGrant(eq(USER_ID), any(), any(), eq(VERIFICATION)))
+                .thenReturn(110);
         when(diamondService.getBalances(USER_ID))
-            .thenReturn(UserDiamondBalanceResponse.of(10, 100));
+                .thenReturn(UserDiamondBalanceResponse.of(10, 100));
 
         DiamondBundlePurchaseResponse response =
-            purchaseService.purchase(USER_ID, 1L, request("pink_100"));
+                purchaseService.purchase(USER_ID, 1L, request("pink_100"));
 
         assertThat(response.alreadyProcessed()).isFalse();
         assertThat(response.diamondCount()).isEqualTo(100);
@@ -100,16 +97,21 @@ class DiamondBundlePurchaseServiceTest {
     void purchase_idempotent_alreadyProcessed() {
         when(diamondBundleRepository.findById(1L)).thenReturn(Optional.of(bundle(1L, "pink_100")));
         when(iapVerificationService.verify(any())).thenReturn(VERIFICATION);
-        DiamondBundlePurchase existing = DiamondBundlePurchase.builder()
-            .userId(USER_ID).bundleId(1L).platform("ios")
-            .storeProductId("pink_100").storeTransactionId(TX_ID).diamondCount(100)
-            .build();
+        DiamondBundlePurchase existing =
+                DiamondBundlePurchase.builder()
+                        .userId(USER_ID)
+                        .bundleId(1L)
+                        .platform("ios")
+                        .storeProductId("pink_100")
+                        .storeTransactionId(TX_ID)
+                        .diamondCount(100)
+                        .build();
         when(purchaseRepository.findByStoreTransactionId(TX_ID)).thenReturn(Optional.of(existing));
         when(diamondService.getBalances(USER_ID))
-            .thenReturn(UserDiamondBalanceResponse.of(10, 100));
+                .thenReturn(UserDiamondBalanceResponse.of(10, 100));
 
         DiamondBundlePurchaseResponse response =
-            purchaseService.purchase(USER_ID, 1L, request("pink_100"));
+                purchaseService.purchase(USER_ID, 1L, request("pink_100"));
 
         assertThat(response.alreadyProcessed()).isTrue();
         verify(purchaseTxService, never()).recordAndGrant(anyString(), any(), any(), any());
@@ -121,18 +123,24 @@ class DiamondBundlePurchaseServiceTest {
         when(diamondBundleRepository.findById(1L)).thenReturn(Optional.of(bundle(1L, "pink_100")));
         when(iapVerificationService.verify(any())).thenReturn(VERIFICATION);
         when(purchaseRepository.findByStoreTransactionId(TX_ID))
-            .thenReturn(Optional.empty())
-            .thenReturn(Optional.of(DiamondBundlePurchase.builder()
-                .userId(USER_ID).bundleId(1L).platform("ios")
-                .storeProductId("pink_100").storeTransactionId(TX_ID).diamondCount(100)
-                .build()));
+                .thenReturn(Optional.empty())
+                .thenReturn(
+                        Optional.of(
+                                DiamondBundlePurchase.builder()
+                                        .userId(USER_ID)
+                                        .bundleId(1L)
+                                        .platform("ios")
+                                        .storeProductId("pink_100")
+                                        .storeTransactionId(TX_ID)
+                                        .diamondCount(100)
+                                        .build()));
         when(purchaseTxService.recordAndGrant(eq(USER_ID), any(), any(), eq(VERIFICATION)))
-            .thenThrow(new DataIntegrityViolationException("uk_bundle_purchase_transaction"));
+                .thenThrow(new DataIntegrityViolationException("uk_bundle_purchase_transaction"));
         when(diamondService.getBalances(USER_ID))
-            .thenReturn(UserDiamondBalanceResponse.of(10, 100));
+                .thenReturn(UserDiamondBalanceResponse.of(10, 100));
 
         DiamondBundlePurchaseResponse response =
-            purchaseService.purchase(USER_ID, 1L, request("pink_100"));
+                purchaseService.purchase(USER_ID, 1L, request("pink_100"));
 
         assertThat(response.alreadyProcessed()).isTrue();
     }
@@ -144,18 +152,19 @@ class DiamondBundlePurchaseServiceTest {
         when(iapVerificationService.verify(any())).thenReturn(VERIFICATION);
         when(purchaseRepository.findByStoreTransactionId(TX_ID)).thenReturn(Optional.empty());
         when(purchaseTxService.recordAndGrant(eq(USER_ID), any(), any(), eq(VERIFICATION)))
-            .thenThrow(new ObjectOptimisticLockingFailureException("UserDiamond", 11L))
-            .thenThrow(new ObjectOptimisticLockingFailureException("UserDiamond", 11L))
-            .thenReturn(110);
+                .thenThrow(new ObjectOptimisticLockingFailureException("UserDiamond", 11L))
+                .thenThrow(new ObjectOptimisticLockingFailureException("UserDiamond", 11L))
+                .thenReturn(110);
         when(diamondService.getBalances(USER_ID))
-            .thenReturn(UserDiamondBalanceResponse.of(10, 100));
+                .thenReturn(UserDiamondBalanceResponse.of(10, 100));
 
         DiamondBundlePurchaseResponse response =
-            purchaseService.purchase(USER_ID, 1L, request("pink_100"));
+                purchaseService.purchase(USER_ID, 1L, request("pink_100"));
 
         assertThat(response.alreadyProcessed()).isFalse();
         assertThat(response.balance()).isEqualTo(110);
-        verify(purchaseTxService, times(3)).recordAndGrant(eq(USER_ID), any(), any(), eq(VERIFICATION));
+        verify(purchaseTxService, times(3))
+                .recordAndGrant(eq(USER_ID), any(), any(), eq(VERIFICATION));
     }
 
     @Test
@@ -165,12 +174,12 @@ class DiamondBundlePurchaseServiceTest {
         when(iapVerificationService.verify(any())).thenReturn(VERIFICATION);
         when(purchaseRepository.findByStoreTransactionId(TX_ID)).thenReturn(Optional.empty());
         when(purchaseTxService.recordAndGrant(eq(USER_ID), any(), any(), eq(VERIFICATION)))
-            .thenThrow(new ObjectOptimisticLockingFailureException("UserDiamond", 11L));
+                .thenThrow(new ObjectOptimisticLockingFailureException("UserDiamond", 11L));
 
         assertThatThrownBy(() -> purchaseService.purchase(USER_ID, 1L, request("pink_100")))
-            .isInstanceOf(ObjectOptimisticLockingFailureException.class);
+                .isInstanceOf(ObjectOptimisticLockingFailureException.class);
         verify(purchaseTxService, times(DiamondBundlePurchaseService.OPTIMISTIC_LOCK_MAX_ATTEMPTS))
-            .recordAndGrant(eq(USER_ID), any(), any(), eq(VERIFICATION));
+                .recordAndGrant(eq(USER_ID), any(), any(), eq(VERIFICATION));
     }
 
     @Test
@@ -179,8 +188,8 @@ class DiamondBundlePurchaseServiceTest {
         when(diamondBundleRepository.findById(1L)).thenReturn(Optional.of(bundle(1L, "pink_100")));
 
         assertThatThrownBy(() -> purchaseService.purchase(USER_ID, 1L, request("pink_999")))
-            .isInstanceOf(CustomException.class)
-            .hasMessageContaining("error.iap.product_mismatch");
+                .isInstanceOf(CustomException.class)
+                .hasMessageContaining("error.iap.product_mismatch");
     }
 
     @Test
@@ -189,8 +198,8 @@ class DiamondBundlePurchaseServiceTest {
         when(diamondBundleRepository.findById(1L)).thenReturn(Optional.of(bundle(1L, null)));
 
         assertThatThrownBy(() -> purchaseService.purchase(USER_ID, 1L, request("pink_100")))
-            .isInstanceOf(CustomException.class)
-            .hasMessageContaining("error.iap.product_mismatch");
+                .isInstanceOf(CustomException.class)
+                .hasMessageContaining("error.iap.product_mismatch");
     }
 
     @Test
@@ -201,7 +210,7 @@ class DiamondBundlePurchaseServiceTest {
         when(diamondBundleRepository.findById(1L)).thenReturn(Optional.of(inactive));
 
         assertThatThrownBy(() -> purchaseService.purchase(USER_ID, 1L, request("pink_100")))
-            .isInstanceOf(CustomException.class)
-            .hasMessageContaining("error.iap.bundle_not_available");
+                .isInstanceOf(CustomException.class)
+                .hasMessageContaining("error.iap.bundle_not_available");
     }
 }

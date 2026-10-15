@@ -1,19 +1,19 @@
 package io.pinkspider.leveluptogethermvp.gamificationservice.experience.application;
 
-import io.pinkspider.leveluptogethermvp.metaservice.userlevelconfig.application.UserLevelConfigCacheService;
+import io.pinkspider.global.enums.ExpSourceType;
 import io.pinkspider.global.event.GuildCreationEligibleEvent;
 import io.pinkspider.global.event.UserLevelUpEvent;
-import io.pinkspider.leveluptogethermvp.metaservice.userlevelconfig.domain.entity.UserLevelConfig;
 import io.pinkspider.leveluptogethermvp.gamificationservice.achievement.event.AchievementCheckRequestedEvent;
 import io.pinkspider.leveluptogethermvp.gamificationservice.diamond.application.DiamondService;
-import io.pinkspider.leveluptogethermvp.gamificationservice.experience.domain.dto.UserExperienceResponse;
 import io.pinkspider.leveluptogethermvp.gamificationservice.domain.entity.ExperienceHistory;
 import io.pinkspider.leveluptogethermvp.gamificationservice.domain.entity.UserCategoryExperience;
-import io.pinkspider.global.enums.ExpSourceType;
 import io.pinkspider.leveluptogethermvp.gamificationservice.domain.entity.UserExperience;
+import io.pinkspider.leveluptogethermvp.gamificationservice.experience.domain.dto.UserExperienceResponse;
 import io.pinkspider.leveluptogethermvp.gamificationservice.infrastructure.ExperienceHistoryRepository;
 import io.pinkspider.leveluptogethermvp.gamificationservice.infrastructure.UserCategoryExperienceRepository;
 import io.pinkspider.leveluptogethermvp.gamificationservice.infrastructure.UserExperienceRepository;
+import io.pinkspider.leveluptogethermvp.metaservice.userlevelconfig.application.UserLevelConfigCacheService;
+import io.pinkspider.leveluptogethermvp.metaservice.userlevelconfig.domain.entity.UserLevelConfig;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
@@ -46,20 +46,36 @@ public class UserExperienceService {
     private final ApplicationEventPublisher eventPublisher;
 
     @Transactional(transactionManager = "gamificationTransactionManager")
-    public UserExperienceResponse addExperience(String userId, int expAmount, ExpSourceType sourceType,
-                                                 Long sourceId, String description) {
+    public UserExperienceResponse addExperience(
+            String userId,
+            int expAmount,
+            ExpSourceType sourceType,
+            Long sourceId,
+            String description) {
         return addExperience(userId, expAmount, sourceType, sourceId, description, null, null);
     }
 
     @Transactional(transactionManager = "gamificationTransactionManager")
-    public UserExperienceResponse addExperience(String userId, int expAmount, ExpSourceType sourceType,
-                                                 Long sourceId, String description, String categoryName) {
-        return addExperience(userId, expAmount, sourceType, sourceId, description, null, categoryName);
+    public UserExperienceResponse addExperience(
+            String userId,
+            int expAmount,
+            ExpSourceType sourceType,
+            Long sourceId,
+            String description,
+            String categoryName) {
+        return addExperience(
+                userId, expAmount, sourceType, sourceId, description, null, categoryName);
     }
 
     @Transactional(transactionManager = "gamificationTransactionManager")
-    public UserExperienceResponse addExperience(String userId, int expAmount, ExpSourceType sourceType,
-                                                 Long sourceId, String description, Long categoryId, String categoryName) {
+    public UserExperienceResponse addExperience(
+            String userId,
+            int expAmount,
+            ExpSourceType sourceType,
+            Long sourceId,
+            String description,
+            Long categoryId,
+            String categoryName) {
         UserExperience userExp = getOrCreateUserExperience(userId);
         int levelBefore = userExp.getCurrentLevel();
 
@@ -69,16 +85,17 @@ public class UserExperienceService {
 
         int levelAfter = userExp.getCurrentLevel();
 
-        ExperienceHistory history = ExperienceHistory.builder()
-            .userId(userId)
-            .sourceType(sourceType)
-            .sourceId(sourceId)
-            .expAmount(expAmount)
-            .description(description)
-            .categoryName(categoryName)
-            .levelBefore(levelBefore)
-            .levelAfter(levelAfter)
-            .build();
+        ExperienceHistory history =
+                ExperienceHistory.builder()
+                        .userId(userId)
+                        .sourceType(sourceType)
+                        .sourceId(sourceId)
+                        .expAmount(expAmount)
+                        .description(description)
+                        .categoryName(categoryName)
+                        .levelBefore(levelBefore)
+                        .levelAfter(levelAfter)
+                        .build();
         experienceHistoryRepository.save(history);
 
         // 카테고리별 경험치 업데이트 (categoryId가 있을 때만)
@@ -93,7 +110,8 @@ public class UserExperienceService {
             diamondService.awardLevelUpDiamonds(userId, levelAfter);
 
             // 레벨업 피드 프로젝션 이벤트 발행
-            eventPublisher.publishEvent(new UserLevelUpEvent(userId, levelAfter, userExp.getTotalExp()));
+            eventPublisher.publishEvent(
+                    new UserLevelUpEvent(userId, levelAfter, userExp.getTotalExp()));
 
             // 프로필 캐시 무효화 + 스냅샷 동기화는 UserLevelUpProfileSyncListener에서 처리
 
@@ -106,24 +124,34 @@ public class UserExperienceService {
 
         // 경험치/카테고리 경험치 업적 체크는 AFTER_COMMIT 리스너에서 수행한다.
         // (기존 인라인 체크는 REQUIRES_NEW 라 방금 지급된 경험치를 읽지 못해 판정이 다음 체크까지 지연됐음)
-        List<String> checkDataSources = categoryId != null && expAmount > 0
-            ? List.of("USER_EXPERIENCE", "USER_CATEGORY_EXPERIENCE")
-            : List.of("USER_EXPERIENCE");
+        List<String> checkDataSources =
+                categoryId != null && expAmount > 0
+                        ? List.of("USER_EXPERIENCE", "USER_CATEGORY_EXPERIENCE")
+                        : List.of("USER_EXPERIENCE");
         eventPublisher.publishEvent(new AchievementCheckRequestedEvent(userId, checkDataSources));
 
-        log.info("경험치 획득: userId={}, amount={}, total={}, level={}, categoryId={}",
-            userId, expAmount, userExp.getTotalExp(), userExp.getCurrentLevel(), categoryId);
+        log.info(
+                "경험치 획득: userId={}, amount={}, total={}, level={}, categoryId={}",
+                userId,
+                expAmount,
+                userExp.getTotalExp(),
+                userExp.getCurrentLevel(),
+                categoryId);
 
-        return UserExperienceResponse.from(userExp, getNextLevelRequiredExp(userExp.getCurrentLevel()));
+        return UserExperienceResponse.from(
+                userExp, getNextLevelRequiredExp(userExp.getCurrentLevel()));
     }
 
-    /**
-     * 카테고리별 경험치 업데이트
-     */
-    private void updateCategoryExperience(String userId, Long categoryId, String categoryName, int expAmount) {
-        UserCategoryExperience categoryExp = userCategoryExperienceRepository
-            .findByUserIdAndCategoryId(userId, categoryId)
-            .orElseGet(() -> UserCategoryExperience.create(userId, categoryId, categoryName, 0));
+    /** 카테고리별 경험치 업데이트 */
+    private void updateCategoryExperience(
+            String userId, Long categoryId, String categoryName, int expAmount) {
+        UserCategoryExperience categoryExp =
+                userCategoryExperienceRepository
+                        .findByUserIdAndCategoryId(userId, categoryId)
+                        .orElseGet(
+                                () ->
+                                        UserCategoryExperience.create(
+                                                userId, categoryId, categoryName, 0));
 
         categoryExp.addExperience(expAmount);
 
@@ -133,57 +161,58 @@ public class UserExperienceService {
         }
 
         userCategoryExperienceRepository.save(categoryExp);
-        log.debug("카테고리별 경험치 업데이트: userId={}, categoryId={}, categoryExp={}",
-            userId, categoryId, categoryExp.getTotalExp());
+        log.debug(
+                "카테고리별 경험치 업데이트: userId={}, categoryId={}, categoryExp={}",
+                userId,
+                categoryId,
+                categoryExp.getTotalExp());
     }
 
     @Transactional(transactionManager = "gamificationTransactionManager")
     public UserExperienceResponse getUserExperience(String userId) {
         UserExperience userExp = getOrCreateUserExperience(userId);
-        return UserExperienceResponse.from(userExp, getNextLevelRequiredExp(userExp.getCurrentLevel()));
+        return UserExperienceResponse.from(
+                userExp, getNextLevelRequiredExp(userExp.getCurrentLevel()));
     }
 
-    /**
-     * 사용자 레벨만 조회 (없으면 기본 1)
-     */
+    /** 사용자 레벨만 조회 (없으면 기본 1) */
     public int getUserLevel(String userId) {
-        return userExperienceRepository.findByUserId(userId)
-            .map(UserExperience::getCurrentLevel)
-            .orElse(1);
+        return userExperienceRepository
+                .findByUserId(userId)
+                .map(UserExperience::getCurrentLevel)
+                .orElse(1);
     }
 
-    /**
-     * 여러 사용자 레벨 배치 조회
-     */
+    /** 여러 사용자 레벨 배치 조회 */
     public Map<String, Integer> getUserLevelMap(List<String> userIds) {
         if (userIds == null || userIds.isEmpty()) {
             return Map.of();
         }
         return userExperienceRepository.findByUserIdIn(userIds).stream()
-            .collect(Collectors.toMap(UserExperience::getUserId, UserExperience::getCurrentLevel));
+                .collect(
+                        Collectors.toMap(
+                                UserExperience::getUserId, UserExperience::getCurrentLevel));
     }
 
-    /**
-     * 기간별 경험치 상위 사용자 조회
-     */
-    public List<Object[]> findTopExpGainersByPeriod(LocalDateTime start, LocalDateTime end, Pageable pageable) {
+    /** 기간별 경험치 상위 사용자 조회 */
+    public List<Object[]> findTopExpGainersByPeriod(
+            LocalDateTime start, LocalDateTime end, Pageable pageable) {
         return experienceHistoryRepository.findTopExpGainersByPeriod(start, end, pageable);
     }
 
-    /**
-     * 카테고리 + 기간별 경험치 상위 사용자 조회
-     */
-    public List<Object[]> findTopExpGainersByCategoryAndPeriod(String categoryName, LocalDateTime start,
-                                                                LocalDateTime end, Pageable pageable) {
-        return experienceHistoryRepository.findTopExpGainersByCategoryAndPeriod(categoryName, start, end, pageable);
+    /** 카테고리 + 기간별 경험치 상위 사용자 조회 */
+    public List<Object[]> findTopExpGainersByCategoryAndPeriod(
+            String categoryName, LocalDateTime start, LocalDateTime end, Pageable pageable) {
+        return experienceHistoryRepository.findTopExpGainersByCategoryAndPeriod(
+                categoryName, start, end, pageable);
     }
 
     /**
-     * QA-217: 기간 내 일별 획득 경험치 합계 (사용자 타임존 날짜 버킷).
-     * 미션 캘린더가 출석·업적 보상 등 미션 외 경험치까지 포함해 MVP와 동일한 값을 표시하기 위해 사용.
+     * QA-217: 기간 내 일별 획득 경험치 합계 (사용자 타임존 날짜 버킷). 미션 캘린더가 출석·업적 보상 등 미션 외 경험치까지 포함해 MVP와 동일한 값을 표시하기
+     * 위해 사용.
      */
-    public Map<LocalDate, Long> getDailyExpSummary(String userId, LocalDateTime startUtc,
-                                                    LocalDateTime endUtc, String timezone) {
+    public Map<LocalDate, Long> getDailyExpSummary(
+            String userId, LocalDateTime startUtc, LocalDateTime endUtc, String timezone) {
         String zone = "Asia/Seoul";
         if (timezone != null) {
             try {
@@ -195,10 +224,12 @@ public class UserExperienceService {
         }
 
         return experienceHistoryRepository
-            .sumDailyExpByUserIdAndPeriod(userId, startUtc, endUtc, zone).stream()
-            .collect(Collectors.toMap(
-                row -> ((java.sql.Date) row[0]).toLocalDate(),
-                row -> ((Number) row[1]).longValue()));
+                .sumDailyExpByUserIdAndPeriod(userId, startUtc, endUtc, zone)
+                .stream()
+                .collect(
+                        Collectors.toMap(
+                                row -> ((java.sql.Date) row[0]).toLocalDate(),
+                                row -> ((Number) row[1]).longValue()));
     }
 
     public Page<ExperienceHistory> getExperienceHistory(String userId, Pageable pageable) {
@@ -207,16 +238,19 @@ public class UserExperienceService {
 
     @Transactional(transactionManager = "gamificationTransactionManager")
     public UserExperience getOrCreateUserExperience(String userId) {
-        return userExperienceRepository.findByUserId(userId)
-            .orElseGet(() -> {
-                UserExperience newExp = UserExperience.builder()
-                    .userId(userId)
-                    .currentLevel(1)
-                    .currentExp(0)
-                    .totalExp(0)
-                    .build();
-                return userExperienceRepository.save(newExp);
-            });
+        return userExperienceRepository
+                .findByUserId(userId)
+                .orElseGet(
+                        () -> {
+                            UserExperience newExp =
+                                    UserExperience.builder()
+                                            .userId(userId)
+                                            .currentLevel(1)
+                                            .currentExp(0)
+                                            .totalExp(0)
+                                            .build();
+                            return userExperienceRepository.save(newExp);
+                        });
     }
 
     private void processLevelUp(UserExperience userExp) {
@@ -231,10 +265,11 @@ public class UserExperienceService {
             int nextLevel = currentLevel + 1;
 
             // 다음 레벨의 설정을 조회하여 필요 경험치 확인
-            UserLevelConfig nextLevelConfig = levelConfigs.stream()
-                .filter(lc -> lc.getLevel().equals(nextLevel))
-                .findFirst()
-                .orElse(null);
+            UserLevelConfig nextLevelConfig =
+                    levelConfigs.stream()
+                            .filter(lc -> lc.getLevel().equals(nextLevel))
+                            .findFirst()
+                            .orElse(null);
 
             // 다음 레벨 설정이 없으면 최대 레벨 도달
             if (nextLevelConfig == null) {
@@ -290,20 +325,36 @@ public class UserExperienceService {
      * @return 업데이트된 경험치 정보
      */
     @Transactional(transactionManager = "gamificationTransactionManager")
-    public UserExperienceResponse subtractExperience(String userId, int expAmount, ExpSourceType sourceType,
-                                                      Long sourceId, String description) {
+    public UserExperienceResponse subtractExperience(
+            String userId,
+            int expAmount,
+            ExpSourceType sourceType,
+            Long sourceId,
+            String description) {
         return subtractExperience(userId, expAmount, sourceType, sourceId, description, null, null);
     }
 
     @Transactional(transactionManager = "gamificationTransactionManager")
-    public UserExperienceResponse subtractExperience(String userId, int expAmount, ExpSourceType sourceType,
-                                                      Long sourceId, String description, String categoryName) {
-        return subtractExperience(userId, expAmount, sourceType, sourceId, description, null, categoryName);
+    public UserExperienceResponse subtractExperience(
+            String userId,
+            int expAmount,
+            ExpSourceType sourceType,
+            Long sourceId,
+            String description,
+            String categoryName) {
+        return subtractExperience(
+                userId, expAmount, sourceType, sourceId, description, null, categoryName);
     }
 
     @Transactional(transactionManager = "gamificationTransactionManager")
-    public UserExperienceResponse subtractExperience(String userId, int expAmount, ExpSourceType sourceType,
-                                                      Long sourceId, String description, Long categoryId, String categoryName) {
+    public UserExperienceResponse subtractExperience(
+            String userId,
+            int expAmount,
+            ExpSourceType sourceType,
+            Long sourceId,
+            String description,
+            Long categoryId,
+            String categoryName) {
         UserExperience userExp = getOrCreateUserExperience(userId);
         int levelBefore = userExp.getCurrentLevel();
 
@@ -323,16 +374,17 @@ public class UserExperienceService {
         int levelAfter = userExp.getCurrentLevel();
 
         // 히스토리 기록 (음수 경험치로 기록)
-        ExperienceHistory history = ExperienceHistory.builder()
-            .userId(userId)
-            .sourceType(sourceType)
-            .sourceId(sourceId)
-            .expAmount(-expAmount) // 음수로 기록
-            .description(description)
-            .categoryName(categoryName)
-            .levelBefore(levelBefore)
-            .levelAfter(levelAfter)
-            .build();
+        ExperienceHistory history =
+                ExperienceHistory.builder()
+                        .userId(userId)
+                        .sourceType(sourceType)
+                        .sourceId(sourceId)
+                        .expAmount(-expAmount) // 음수로 기록
+                        .description(description)
+                        .categoryName(categoryName)
+                        .levelBefore(levelBefore)
+                        .levelAfter(levelAfter)
+                        .build();
         experienceHistoryRepository.save(history);
 
         // 카테고리별 경험치 차감 (categoryId가 있을 때만)
@@ -340,29 +392,37 @@ public class UserExperienceService {
             subtractCategoryExperience(userId, categoryId, expAmount);
         }
 
-        log.info("경험치 차감: userId={}, amount={}, total={}, level: {} -> {}, categoryId={}",
-            userId, expAmount, userExp.getTotalExp(), levelBefore, levelAfter, categoryId);
+        log.info(
+                "경험치 차감: userId={}, amount={}, total={}, level: {} -> {}, categoryId={}",
+                userId,
+                expAmount,
+                userExp.getTotalExp(),
+                levelBefore,
+                levelAfter,
+                categoryId);
 
-        return UserExperienceResponse.from(userExp, getNextLevelRequiredExp(userExp.getCurrentLevel()));
+        return UserExperienceResponse.from(
+                userExp, getNextLevelRequiredExp(userExp.getCurrentLevel()));
     }
 
-    /**
-     * 카테고리별 경험치 차감
-     */
+    /** 카테고리별 경험치 차감 */
     private void subtractCategoryExperience(String userId, Long categoryId, int expAmount) {
-        userCategoryExperienceRepository.findByUserIdAndCategoryId(userId, categoryId)
-            .ifPresent(categoryExp -> {
-                long newExp = Math.max(0, categoryExp.getTotalExp() - expAmount);
-                categoryExp.setTotalExp(newExp);
-                userCategoryExperienceRepository.save(categoryExp);
-                log.debug("카테고리별 경험치 차감: userId={}, categoryId={}, categoryExp={}",
-                    userId, categoryId, newExp);
-            });
+        userCategoryExperienceRepository
+                .findByUserIdAndCategoryId(userId, categoryId)
+                .ifPresent(
+                        categoryExp -> {
+                            long newExp = Math.max(0, categoryExp.getTotalExp() - expAmount);
+                            categoryExp.setTotalExp(newExp);
+                            userCategoryExperienceRepository.save(categoryExp);
+                            log.debug(
+                                    "카테고리별 경험치 차감: userId={}, categoryId={}, categoryExp={}",
+                                    userId,
+                                    categoryId,
+                                    newExp);
+                        });
     }
 
-    /**
-     * 레벨 다운 처리 (경험치 차감으로 인한)
-     */
+    /** 레벨 다운 처리 (경험치 차감으로 인한) */
     private void processLevelDown(UserExperience userExp, int targetTotalExp) {
         List<UserLevelConfig> levelConfigs = userLevelConfigCacheService.getAllLevelConfigs();
 
@@ -398,8 +458,9 @@ public class UserExperienceService {
         userExp.setCurrentExp(Math.max(0, remainingExp));
     }
 
-    public UserLevelConfig createOrUpdateLevelConfig(Integer level, Integer requiredExp,
-                                                  Integer cumulativeExp) {
-        return userLevelConfigCacheService.createOrUpdateLevelConfig(level, requiredExp, cumulativeExp);
+    public UserLevelConfig createOrUpdateLevelConfig(
+            Integer level, Integer requiredExp, Integer cumulativeExp) {
+        return userLevelConfigCacheService.createOrUpdateLevelConfig(
+                level, requiredExp, cumulativeExp);
     }
 }

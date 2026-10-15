@@ -33,12 +33,12 @@ import org.hibernate.annotations.Comment;
 @SuperBuilder
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @AllArgsConstructor
-@Table(name = "mission_execution",
-    uniqueConstraints = @UniqueConstraint(
-        name = "uk_execution_participant_date",
-        columnNames = {"participant_id", "execution_date"}
-    )
-)
+@Table(
+        name = "mission_execution",
+        uniqueConstraints =
+                @UniqueConstraint(
+                        name = "uk_execution_participant_date",
+                        columnNames = {"participant_id", "execution_date"}))
 @Comment("미션 수행 기록")
 public class MissionExecution extends LocalDateTimeBaseEntity implements MissionExecutionLifecycle {
 
@@ -115,23 +115,27 @@ public class MissionExecution extends LocalDateTimeBaseEntity implements Mission
     // === MissionExecutionLifecycle 구현 ===
 
     @Override
-    public io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionExecutionMode getExecutionMode() {
+    public io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionExecutionMode
+            getExecutionMode() {
         if (this.participant != null && this.participant.getMission() != null) {
             var mode = this.participant.getMission().getExecutionMode();
-            return mode != null ? mode : io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionExecutionMode.TIMED;
+            return mode != null
+                    ? mode
+                    : io.pinkspider.leveluptogethermvp.missionservice.domain.enums
+                            .MissionExecutionMode.TIMED;
         }
-        return io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionExecutionMode.TIMED;
+        return io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionExecutionMode
+                .TIMED;
     }
 
-    /**
-     * 경험치 계산: 분당 1 EXP, 최소 1분, 최대 480분(8시간)
-     */
+    /** 경험치 계산: 분당 1 EXP, 최소 1분, 최대 480분(8시간) */
     @Override
     public int calculateExpByDuration() {
         if (this.startedAt == null || this.completedAt == null) {
             return 0;
         }
-        long durationMinutes = java.time.Duration.between(this.startedAt, this.completedAt).toMinutes();
+        long durationMinutes =
+                java.time.Duration.between(this.startedAt, this.completedAt).toMinutes();
         return (int) Math.max(1, Math.min(durationMinutes, 480));
     }
 

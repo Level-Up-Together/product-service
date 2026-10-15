@@ -9,14 +9,12 @@ import lombok.Builder;
 @Builder
 @JsonNaming(SnakeCaseStrategy.class)
 public record UserStatisticsAdminResponse(
-    long totalUsers,
-    long newUsersToday,
-    long newUsersThisWeek,
-    long newUsersThisMonth,
-    Map<String, Long> usersByProvider,
-    List<DailyCountDto> dailyNewUsers
-) {
+        long totalUsers,
+        long newUsersToday,
+        long newUsersThisWeek,
+        long newUsersThisMonth,
+        Map<String, Long> usersByProvider,
+        List<DailyCountDto> dailyNewUsers) {
     @Builder
-    public record DailyCountDto(String date, Long count) {
-    }
+    public record DailyCountDto(String date, Long count) {}
 }

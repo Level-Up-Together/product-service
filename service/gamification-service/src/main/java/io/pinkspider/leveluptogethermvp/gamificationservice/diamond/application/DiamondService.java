@@ -19,9 +19,7 @@ import org.springframework.transaction.annotation.Transactional;
 /**
  * QA-220: 다이아 (샵 재화) 지급/차감/조회.
  *
- * 획득처:
- * 1. 레벨업 1회당 1개 (Lv.1000까지, 총 999개 상한)
- * 2. 미션북 템플릿 최초 목표달성 시 1개 (템플릿당 1회)
+ * <p>획득처: 1. 레벨업 1회당 1개 (Lv.1000까지, 총 999개 상한) 2. 미션북 템플릿 최초 목표달성 시 1개 (템플릿당 1회)
  */
 @Slf4j
 @Service
@@ -35,8 +33,8 @@ public class DiamondService {
     /**
      * 레벨업 다이아 지급 — 달성 레벨당 1개.
      *
-     * lastRewardedLevel 초과분만 지급하므로 경험치 환수로 레벨이 내려갔다 다시 올라도 중복 지급되지 않는다.
-     * (레벨다운 시 환수하지 않는 정책과 짝을 이룬다.)
+     * <p>lastRewardedLevel 초과분만 지급하므로 경험치 환수로 레벨이 내려갔다 다시 올라도 중복 지급되지 않는다. (레벨다운 시 환수하지 않는 정책과 짝을
+     * 이룬다.)
      *
      * @return 지급된 다이아 수
      */
@@ -52,20 +50,26 @@ public class DiamondService {
 
         for (int level = fromLevel; level <= toLevel; level++) {
             diamond.apply(1);
-            diamondHistoryRepository.save(DiamondHistory.builder()
-                .userId(userId)
-                .type(DiamondType.LEVEL_UP)
-                .sourceId((long) level)
-                .amount(1)
-                .balanceAfter(diamond.getTotalBalance())
-                .description("Lv." + level + " 레벨업 보상")
-                .build());
+            diamondHistoryRepository.save(
+                    DiamondHistory.builder()
+                            .userId(userId)
+                            .type(DiamondType.LEVEL_UP)
+                            .sourceId((long) level)
+                            .amount(1)
+                            .balanceAfter(diamond.getTotalBalance())
+                            .description("Lv." + level + " 레벨업 보상")
+                            .build());
         }
         diamond.setLastRewardedLevel(toLevel);
 
         int granted = toLevel - fromLevel + 1;
-        log.info("레벨업 다이아 지급: userId={}, Lv.{}~Lv.{}, granted={}, balance={}",
-            userId, fromLevel, toLevel, granted, diamond.getBalance());
+        log.info(
+                "레벨업 다이아 지급: userId={}, Lv.{}~Lv.{}, granted={}, balance={}",
+                userId,
+                fromLevel,
+                toLevel,
+                granted,
+                diamond.getBalance());
         return granted;
     }
 
@@ -86,22 +90,29 @@ public class DiamondService {
 
         int amount = toLevel - fromLevel + 1;
         diamond.apply(amount);
-        String description = fromLevel == toLevel
-            ? "Lv." + toLevel + " 레벨업 보상"
-            : "Lv." + fromLevel + "~Lv." + toLevel + " 레벨업 보상";
+        String description =
+                fromLevel == toLevel
+                        ? "Lv." + toLevel + " 레벨업 보상"
+                        : "Lv." + fromLevel + "~Lv." + toLevel + " 레벨업 보상";
 
-        diamondHistoryRepository.save(DiamondHistory.builder()
-            .userId(userId)
-            .type(DiamondType.LEVEL_UP)
-            .sourceId((long) toLevel)
-            .amount(amount)
-            .balanceAfter(diamond.getTotalBalance())
-            .description(description)
-            .build());
+        diamondHistoryRepository.save(
+                DiamondHistory.builder()
+                        .userId(userId)
+                        .type(DiamondType.LEVEL_UP)
+                        .sourceId((long) toLevel)
+                        .amount(amount)
+                        .balanceAfter(diamond.getTotalBalance())
+                        .description(description)
+                        .build());
         diamond.setLastRewardedLevel(toLevel);
 
-        log.info("레벨업 다이아 일괄 지급: userId={}, Lv.{}~Lv.{}, granted={}, balance={}",
-            userId, fromLevel, toLevel, amount, diamond.getBalance());
+        log.info(
+                "레벨업 다이아 일괄 지급: userId={}, Lv.{}~Lv.{}, granted={}, balance={}",
+                userId,
+                fromLevel,
+                toLevel,
+                amount,
+                diamond.getBalance());
         return amount;
     }
 
@@ -116,34 +127,36 @@ public class DiamondService {
             return false;
         }
         if (diamondHistoryRepository.existsByUserIdAndTypeAndSourceId(
-            userId, DiamondType.MISSION_BOOK, templateId)) {
+                userId, DiamondType.MISSION_BOOK, templateId)) {
             return false;
         }
 
         UserDiamond diamond = getOrCreate(userId);
         diamond.apply(1);
-        diamondHistoryRepository.save(DiamondHistory.builder()
-            .userId(userId)
-            .type(DiamondType.MISSION_BOOK)
-            .sourceId(templateId)
-            .amount(1)
-            .balanceAfter(diamond.getTotalBalance())
-            .description(missionTitle + " 목표달성")
-            .build());
+        diamondHistoryRepository.save(
+                DiamondHistory.builder()
+                        .userId(userId)
+                        .type(DiamondType.MISSION_BOOK)
+                        .sourceId(templateId)
+                        .amount(1)
+                        .balanceAfter(diamond.getTotalBalance())
+                        .description(missionTitle + " 목표달성")
+                        .build());
 
-        log.info("미션북 다이아 지급: userId={}, templateId={}, balance={}",
-            userId, templateId, diamond.getBalance());
+        log.info(
+                "미션북 다이아 지급: userId={}, templateId={}, balance={}",
+                userId,
+                templateId,
+                diamond.getBalance());
         return true;
     }
 
     /**
      * 다이아 차감 (상점 구매용 — LUT-327 상점에서 사용).
      *
-     * <p>LUT-328: 가격 0원 구매도 어드민 구매이력에 남도록 amount 0 을 허용한다
-     * (잔액 변동 없이 SHOP 이력만 기록).
+     * <p>LUT-328: 가격 0원 구매도 어드민 구매이력에 남도록 amount 0 을 허용한다 (잔액 변동 없이 SHOP 이력만 기록).
      *
-     * <p>LUT-354: 블루+핑크 합산에서 차감 — 블루(무상) 우선 소진, 부족분만 핑크(유상).
-     * 원장에 핑크 소진량(pink_amount)을 구분 기록한다.
+     * <p>LUT-354: 블루+핑크 합산에서 차감 — 블루(무상) 우선 소진, 부족분만 핑크(유상). 원장에 핑크 소진량(pink_amount)을 구분 기록한다.
      *
      * @return 차감 후 총잔액 (블루+핑크)
      */
@@ -155,18 +168,23 @@ public class DiamondService {
         UserDiamond diamond = getOrCreate(userId);
         int pinkSpent = diamond.spendCombined(amount);
         int balanceAfter = diamond.getTotalBalance();
-        diamondHistoryRepository.save(DiamondHistory.builder()
-            .userId(userId)
-            .type(DiamondType.SHOP)
-            .sourceId(itemId)
-            .amount(-amount)
-            .pinkAmount(-pinkSpent)
-            .balanceAfter(balanceAfter)
-            .description(itemName + " 구매")
-            .build());
+        diamondHistoryRepository.save(
+                DiamondHistory.builder()
+                        .userId(userId)
+                        .type(DiamondType.SHOP)
+                        .sourceId(itemId)
+                        .amount(-amount)
+                        .pinkAmount(-pinkSpent)
+                        .balanceAfter(balanceAfter)
+                        .description(itemName + " 구매")
+                        .build());
 
-        log.info("다이아 차감: userId={}, amount={}, pinkSpent={}, balance={}",
-            userId, amount, pinkSpent, balanceAfter);
+        log.info(
+                "다이아 차감: userId={}, amount={}, pinkSpent={}, balance={}",
+                userId,
+                amount,
+                pinkSpent,
+                balanceAfter);
         return balanceAfter;
     }
 
@@ -179,26 +197,31 @@ public class DiamondService {
     public int grantPinkDiamonds(String userId, int amount, Long bundleId, String bundleName) {
         UserDiamond diamond = getOrCreate(userId);
         int balanceAfter = diamond.addPink(amount);
-        diamondHistoryRepository.save(DiamondHistory.builder()
-            .userId(userId)
-            .type(DiamondType.PINK_PURCHASE)
-            .sourceId(bundleId)
-            .amount(amount)
-            .pinkAmount(amount)
-            .balanceAfter(balanceAfter)
-            .description(bundleName + " 구매")
-            .build());
+        diamondHistoryRepository.save(
+                DiamondHistory.builder()
+                        .userId(userId)
+                        .type(DiamondType.PINK_PURCHASE)
+                        .sourceId(bundleId)
+                        .amount(amount)
+                        .pinkAmount(amount)
+                        .balanceAfter(balanceAfter)
+                        .description(bundleName + " 구매")
+                        .build());
 
-        log.info("핑크다이아 지급: userId={}, amount={}, bundleId={}, balance={}",
-            userId, amount, bundleId, balanceAfter);
+        log.info(
+                "핑크다이아 지급: userId={}, amount={}, bundleId={}, balance={}",
+                userId,
+                amount,
+                bundleId,
+                balanceAfter);
         return balanceAfter;
     }
 
     /**
      * LUT-453: 구독 일일 스티펜드 지급 — 블루(무상) 다이아. 이월 허용·소멸 없음.
      *
-     * <p>원장에 type=SUBSCRIPTION + sourceId=구독 ID 로 남긴다 — 구독분 발행/소진 집계와 추후 별도
-     * 재화 승격의 근거. 일자 멱등은 호출부(subscription_stipend 유니크)가 보장한다.
+     * <p>원장에 type=SUBSCRIPTION + sourceId=구독 ID 로 남긴다 — 구독분 발행/소진 집계와 추후 별도 재화 승격의 근거. 일자 멱등은
+     * 호출부(subscription_stipend 유니크)가 보장한다.
      *
      * @return 지급 후 총잔액 (블루+핑크)
      */
@@ -207,17 +230,22 @@ public class DiamondService {
         UserDiamond diamond = getOrCreate(userId);
         diamond.apply(amount);
         int balanceAfter = diamond.getTotalBalance();
-        diamondHistoryRepository.save(DiamondHistory.builder()
-            .userId(userId)
-            .type(DiamondType.SUBSCRIPTION)
-            .sourceId(subscriptionId)
-            .amount(amount)
-            .balanceAfter(balanceAfter)
-            .description("구독 일일 스티펜드")
-            .build());
+        diamondHistoryRepository.save(
+                DiamondHistory.builder()
+                        .userId(userId)
+                        .type(DiamondType.SUBSCRIPTION)
+                        .sourceId(subscriptionId)
+                        .amount(amount)
+                        .balanceAfter(balanceAfter)
+                        .description("구독 일일 스티펜드")
+                        .build());
 
-        log.info("구독 스티펜드 지급: userId={}, subscriptionId={}, amount={}, balance={}",
-            userId, subscriptionId, amount, balanceAfter);
+        log.info(
+                "구독 스티펜드 지급: userId={}, subscriptionId={}, amount={}, balance={}",
+                userId,
+                subscriptionId,
+                amount,
+                balanceAfter);
         return balanceAfter;
     }
 
@@ -228,25 +256,27 @@ public class DiamondService {
 
     /** LUT-356: 블루/핑크 분리 잔액 조회. 응답의 balance는 합계(하위호환). */
     public UserDiamondBalanceResponse getBalances(String userId) {
-        return userDiamondRepository.findByUserId(userId)
-            .map(d -> UserDiamondBalanceResponse.of(d.getBalance(), d.getPinkBalance()))
-            .orElseGet(() -> UserDiamondBalanceResponse.of(0, 0));
+        return userDiamondRepository
+                .findByUserId(userId)
+                .map(d -> UserDiamondBalanceResponse.of(d.getBalance(), d.getPinkBalance()))
+                .orElseGet(() -> UserDiamondBalanceResponse.of(0, 0));
     }
 
     /** 어드민 다이아 탭용 이력 조회 (현재 잔액 포함) */
-    public UserDiamondHistoryAdminPageResponse getUserDiamondHistory(String userId, Pageable pageable) {
-        Page<DiamondHistory> page = diamondHistoryRepository.findByUserIdOrderByIdDesc(userId, pageable);
-        List<UserDiamondHistoryAdminResponse> content = page.getContent().stream()
-            .map(UserDiamondHistoryAdminResponse::from)
-            .toList();
-        int balance = userDiamondRepository.findByUserId(userId)
-            .map(UserDiamond::getBalance)
-            .orElse(0);
+    public UserDiamondHistoryAdminPageResponse getUserDiamondHistory(
+            String userId, Pageable pageable) {
+        Page<DiamondHistory> page =
+                diamondHistoryRepository.findByUserIdOrderByIdDesc(userId, pageable);
+        List<UserDiamondHistoryAdminResponse> content =
+                page.getContent().stream().map(UserDiamondHistoryAdminResponse::from).toList();
+        int balance =
+                userDiamondRepository.findByUserId(userId).map(UserDiamond::getBalance).orElse(0);
         return UserDiamondHistoryAdminPageResponse.from(page, content, balance);
     }
 
     private UserDiamond getOrCreate(String userId) {
-        return userDiamondRepository.findByUserId(userId)
-            .orElseGet(() -> userDiamondRepository.save(UserDiamond.create(userId)));
+        return userDiamondRepository
+                .findByUserId(userId)
+                .orElseGet(() -> userDiamondRepository.save(UserDiamond.create(userId)));
     }
 }

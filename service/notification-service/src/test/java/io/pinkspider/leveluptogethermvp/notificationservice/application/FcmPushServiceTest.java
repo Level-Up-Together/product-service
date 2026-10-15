@@ -12,7 +12,6 @@ import com.google.firebase.messaging.BatchResponse;
 import com.google.firebase.messaging.FirebaseMessaging;
 import com.google.firebase.messaging.FirebaseMessagingException;
 import com.google.firebase.messaging.Message;
-import com.google.firebase.messaging.MessagingErrorCode;
 import com.google.firebase.messaging.TopicManagementResponse;
 import io.pinkspider.leveluptogethermvp.notificationservice.domain.dto.PushMessageRequest;
 import io.pinkspider.leveluptogethermvp.notificationservice.domain.entity.DeviceToken;
@@ -32,14 +31,11 @@ import org.mockito.junit.jupiter.MockitoExtension;
 @ExtendWith(MockitoExtension.class)
 class FcmPushServiceTest {
 
-    @Mock
-    private FirebaseMessaging firebaseMessaging;
+    @Mock private FirebaseMessaging firebaseMessaging;
 
-    @Mock
-    private DeviceTokenRepository deviceTokenRepository;
+    @Mock private DeviceTokenRepository deviceTokenRepository;
 
-    @InjectMocks
-    private FcmPushService fcmPushService;
+    @InjectMocks private FcmPushService fcmPushService;
 
     private String testUserId;
     private DeviceToken testDeviceToken;
@@ -49,19 +45,16 @@ class FcmPushServiceTest {
     void setUp() {
         testUserId = "test-user-id";
 
-        testDeviceToken = DeviceToken.builder()
-            .userId(testUserId)
-            .fcmToken("test-fcm-token")
-            .deviceType(DeviceType.ANDROID)
-            .isActive(true)
-            .build();
+        testDeviceToken =
+                DeviceToken.builder()
+                        .userId(testUserId)
+                        .fcmToken("test-fcm-token")
+                        .deviceType(DeviceType.ANDROID)
+                        .isActive(true)
+                        .build();
         setId(testDeviceToken, 1L);
 
-        testRequest = PushMessageRequest.of(
-            "테스트 알림",
-            "테스트 메시지 내용",
-            Map.of("type", "TEST")
-        );
+        testRequest = PushMessageRequest.of("테스트 알림", "테스트 메시지 내용", Map.of("type", "TEST"));
     }
 
     @Nested
@@ -73,9 +66,9 @@ class FcmPushServiceTest {
         void sendToUser_success() throws FirebaseMessagingException {
             // given
             when(deviceTokenRepository.findByUserIdAndIsActiveTrue(testUserId))
-                .thenReturn(List.of(testDeviceToken));
+                    .thenReturn(List.of(testDeviceToken));
             when(firebaseMessaging.send(any(Message.class)))
-                .thenReturn("projects/test/messages/12345");
+                    .thenReturn("projects/test/messages/12345");
 
             // when
             fcmPushService.sendToUser(testUserId, testRequest);
@@ -90,7 +83,7 @@ class FcmPushServiceTest {
         void sendToUser_noActiveTokens() throws FirebaseMessagingException {
             // given
             when(deviceTokenRepository.findByUserIdAndIsActiveTrue(testUserId))
-                .thenReturn(List.of());
+                    .thenReturn(List.of());
 
             // when
             fcmPushService.sendToUser(testUserId, testRequest);
@@ -103,18 +96,19 @@ class FcmPushServiceTest {
         @DisplayName("여러 토큰이 있으면 모든 토큰에 전송한다")
         void sendToUser_multipleTokens() throws FirebaseMessagingException {
             // given
-            DeviceToken secondToken = DeviceToken.builder()
-                .userId(testUserId)
-                .fcmToken("second-fcm-token")
-                .deviceType(DeviceType.IOS)
-                .isActive(true)
-                .build();
+            DeviceToken secondToken =
+                    DeviceToken.builder()
+                            .userId(testUserId)
+                            .fcmToken("second-fcm-token")
+                            .deviceType(DeviceType.IOS)
+                            .isActive(true)
+                            .build();
             setId(secondToken, 2L);
 
             when(deviceTokenRepository.findByUserIdAndIsActiveTrue(testUserId))
-                .thenReturn(List.of(testDeviceToken, secondToken));
+                    .thenReturn(List.of(testDeviceToken, secondToken));
             when(firebaseMessaging.send(any(Message.class)))
-                .thenReturn("projects/test/messages/12345");
+                    .thenReturn("projects/test/messages/12345");
 
             // when
             fcmPushService.sendToUser(testUserId, testRequest);
@@ -132,18 +126,19 @@ class FcmPushServiceTest {
         @DisplayName("iOS 토큰에 badge-only push를 전송한다")
         void sendBadgeUpdate_iosToken_sends() throws FirebaseMessagingException {
             // given
-            DeviceToken iosToken = DeviceToken.builder()
-                .userId(testUserId)
-                .fcmToken("ios-fcm-token")
-                .deviceType(DeviceType.IOS)
-                .isActive(true)
-                .build();
+            DeviceToken iosToken =
+                    DeviceToken.builder()
+                            .userId(testUserId)
+                            .fcmToken("ios-fcm-token")
+                            .deviceType(DeviceType.IOS)
+                            .isActive(true)
+                            .build();
             setId(iosToken, 2L);
 
             when(deviceTokenRepository.findByUserIdAndIsActiveTrue(testUserId))
-                .thenReturn(List.of(iosToken));
+                    .thenReturn(List.of(iosToken));
             when(firebaseMessaging.send(any(Message.class)))
-                .thenReturn("projects/test/messages/12345");
+                    .thenReturn("projects/test/messages/12345");
 
             // when
             fcmPushService.sendBadgeUpdate(testUserId, 0);
@@ -157,7 +152,7 @@ class FcmPushServiceTest {
         void sendBadgeUpdate_androidOnly_skips() throws FirebaseMessagingException {
             // given (testDeviceToken은 ANDROID)
             when(deviceTokenRepository.findByUserIdAndIsActiveTrue(testUserId))
-                .thenReturn(List.of(testDeviceToken));
+                    .thenReturn(List.of(testDeviceToken));
 
             // when
             fcmPushService.sendBadgeUpdate(testUserId, 0);
@@ -170,18 +165,19 @@ class FcmPushServiceTest {
         @DisplayName("iOS/Android 혼재 시 iOS 토큰에만 전송한다")
         void sendBadgeUpdate_mixedTokens_sendsToIosOnly() throws FirebaseMessagingException {
             // given
-            DeviceToken iosToken = DeviceToken.builder()
-                .userId(testUserId)
-                .fcmToken("ios-fcm-token")
-                .deviceType(DeviceType.IOS)
-                .isActive(true)
-                .build();
+            DeviceToken iosToken =
+                    DeviceToken.builder()
+                            .userId(testUserId)
+                            .fcmToken("ios-fcm-token")
+                            .deviceType(DeviceType.IOS)
+                            .isActive(true)
+                            .build();
             setId(iosToken, 2L);
 
             when(deviceTokenRepository.findByUserIdAndIsActiveTrue(testUserId))
-                .thenReturn(List.of(testDeviceToken, iosToken));
+                    .thenReturn(List.of(testDeviceToken, iosToken));
             when(firebaseMessaging.send(any(Message.class)))
-                .thenReturn("projects/test/messages/12345");
+                    .thenReturn("projects/test/messages/12345");
 
             // when
             fcmPushService.sendBadgeUpdate(testUserId, 3);
@@ -200,19 +196,20 @@ class FcmPushServiceTest {
         void sendToUsers_success() throws FirebaseMessagingException {
             // given
             String secondUserId = "second-user-id";
-            DeviceToken secondUserToken = DeviceToken.builder()
-                .userId(secondUserId)
-                .fcmToken("second-user-token")
-                .deviceType(DeviceType.ANDROID)
-                .isActive(true)
-                .build();
+            DeviceToken secondUserToken =
+                    DeviceToken.builder()
+                            .userId(secondUserId)
+                            .fcmToken("second-user-token")
+                            .deviceType(DeviceType.ANDROID)
+                            .isActive(true)
+                            .build();
             setId(secondUserToken, 2L);
 
             List<String> userIds = List.of(testUserId, secondUserId);
 
             // sendToUsers uses findActiveTokensByUserIds and sendEach (batch)
             when(deviceTokenRepository.findActiveTokensByUserIds(userIds))
-                .thenReturn(List.of(testDeviceToken, secondUserToken));
+                    .thenReturn(List.of(testDeviceToken, secondUserToken));
 
             BatchResponse batchResponse = org.mockito.Mockito.mock(BatchResponse.class);
             when(batchResponse.getSuccessCount()).thenReturn(2);
@@ -234,8 +231,7 @@ class FcmPushServiceTest {
         void sendToUsers_noActiveTokens() throws FirebaseMessagingException {
             // given
             List<String> userIds = List.of(testUserId, "other-user");
-            when(deviceTokenRepository.findActiveTokensByUserIds(userIds))
-                .thenReturn(List.of());
+            when(deviceTokenRepository.findActiveTokensByUserIds(userIds)).thenReturn(List.of());
 
             // when
             fcmPushService.sendToUsers(userIds, testRequest);
@@ -255,7 +251,7 @@ class FcmPushServiceTest {
             // given
             String topic = "guild-123";
             when(firebaseMessaging.send(any(Message.class)))
-                .thenReturn("projects/test/messages/12345");
+                    .thenReturn("projects/test/messages/12345");
 
             // when
             fcmPushService.sendToTopic(topic, testRequest);
@@ -269,14 +265,14 @@ class FcmPushServiceTest {
         void sendToTopic_failure_logsError() throws FirebaseMessagingException {
             // given
             String topic = "guild-123";
-            FirebaseMessagingException mockException = org.mockito.Mockito.mock(FirebaseMessagingException.class);
+            FirebaseMessagingException mockException =
+                    org.mockito.Mockito.mock(FirebaseMessagingException.class);
             when(mockException.getMessage()).thenReturn("FCM 전송 실패");
-            when(firebaseMessaging.send(any(Message.class)))
-                .thenThrow(mockException);
+            when(firebaseMessaging.send(any(Message.class))).thenThrow(mockException);
 
             // when & then - FirebaseMessagingException is caught internally, not rethrown
             assertThatCode(() -> fcmPushService.sendToTopic(topic, testRequest))
-                .doesNotThrowAnyException();
+                    .doesNotThrowAnyException();
         }
     }
 
@@ -289,13 +285,13 @@ class FcmPushServiceTest {
         void subscribeToTopic_success() throws FirebaseMessagingException {
             // given
             String topic = "guild-123";
-            TopicManagementResponse response = org.mockito.Mockito.mock(TopicManagementResponse.class);
+            TopicManagementResponse response =
+                    org.mockito.Mockito.mock(TopicManagementResponse.class);
             when(response.getSuccessCount()).thenReturn(1);
 
             when(deviceTokenRepository.findByUserIdAndIsActiveTrue(testUserId))
-                .thenReturn(List.of(testDeviceToken));
-            when(firebaseMessaging.subscribeToTopic(any(), any()))
-                .thenReturn(response);
+                    .thenReturn(List.of(testDeviceToken));
+            when(firebaseMessaging.subscribeToTopic(any(), any())).thenReturn(response);
 
             // when
             fcmPushService.subscribeToTopic(testUserId, topic);
@@ -310,7 +306,7 @@ class FcmPushServiceTest {
             // given
             String topic = "guild-123";
             when(deviceTokenRepository.findByUserIdAndIsActiveTrue(testUserId))
-                .thenReturn(List.of());
+                    .thenReturn(List.of());
 
             // when
             fcmPushService.subscribeToTopic(testUserId, topic);
@@ -324,13 +320,13 @@ class FcmPushServiceTest {
         void unsubscribeFromTopic_success() throws FirebaseMessagingException {
             // given
             String topic = "guild-123";
-            TopicManagementResponse response = org.mockito.Mockito.mock(TopicManagementResponse.class);
+            TopicManagementResponse response =
+                    org.mockito.Mockito.mock(TopicManagementResponse.class);
             when(response.getSuccessCount()).thenReturn(1);
 
             when(deviceTokenRepository.findByUserIdAndIsActiveTrue(testUserId))
-                .thenReturn(List.of(testDeviceToken));
-            when(firebaseMessaging.unsubscribeFromTopic(any(), any()))
-                .thenReturn(response);
+                    .thenReturn(List.of(testDeviceToken));
+            when(firebaseMessaging.unsubscribeFromTopic(any(), any())).thenReturn(response);
 
             // when
             fcmPushService.unsubscribeFromTopic(testUserId, topic);

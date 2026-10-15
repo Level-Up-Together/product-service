@@ -33,8 +33,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 @DisplayName("AppleTokenService 테스트 (LUT-477)")
 class AppleTokenServiceTest {
 
-    @Mock
-    private AppleAuthFeignClient appleAuthFeignClient;
+    @Mock private AppleAuthFeignClient appleAuthFeignClient;
 
     private OAuth2Properties oAuth2Properties;
     private AppleTokenService appleTokenService;
@@ -47,9 +46,10 @@ class AppleTokenServiceTest {
         generator.initialize(new ECGenParameterSpec("secp256r1"));
         KeyPair keyPair = generator.generateKeyPair();
         testPublicKey = (ECPublicKey) keyPair.getPublic();
-        String pem = "-----BEGIN PRIVATE KEY-----\n"
-            + Base64.getMimeEncoder().encodeToString(keyPair.getPrivate().getEncoded())
-            + "\n-----END PRIVATE KEY-----";
+        String pem =
+                "-----BEGIN PRIVATE KEY-----\n"
+                        + Base64.getMimeEncoder().encodeToString(keyPair.getPrivate().getEncoded())
+                        + "\n-----END PRIVATE KEY-----";
 
         oAuth2Properties = new OAuth2Properties();
         OAuth2Properties.Apple apple = new OAuth2Properties.Apple();
@@ -72,7 +72,7 @@ class AppleTokenServiceTest {
         assertThat(jwt.getJWTClaimsSet().getIssuer()).isEqualTo("TEAM123456");
         assertThat(jwt.getJWTClaimsSet().getSubject()).isEqualTo("io.pinkspider.lut");
         assertThat(jwt.getJWTClaimsSet().getAudience())
-            .containsExactly("https://appleid.apple.com");
+                .containsExactly("https://appleid.apple.com");
         assertThat(jwt.getJWTClaimsSet().getExpirationTime()).isInTheFuture();
         assertThat(jwt.verify(new ECDSAVerifier(testPublicKey))).isTrue();
     }
@@ -81,12 +81,15 @@ class AppleTokenServiceTest {
     @DisplayName("code 교환 성공 시 refresh_token 을 반환한다")
     void exchangeRefreshToken_success() {
         when(appleAuthFeignClient.exchangeToken(
-            eq("io.pinkspider.lut"), anyString(), eq("authorization_code"),
-            eq("auth-code"), isNull()))
-            .thenReturn(Map.of("access_token", "at", "refresh_token", "rt-123"));
+                        eq("io.pinkspider.lut"),
+                        anyString(),
+                        eq("authorization_code"),
+                        eq("auth-code"),
+                        isNull()))
+                .thenReturn(Map.of("access_token", "at", "refresh_token", "rt-123"));
 
         Optional<String> result =
-            appleTokenService.exchangeRefreshToken("auth-code", "io.pinkspider.lut", null);
+                appleTokenService.exchangeRefreshToken("auth-code", "io.pinkspider.lut", null);
 
         assertThat(result).contains("rt-123");
     }
@@ -95,12 +98,18 @@ class AppleTokenServiceTest {
     @DisplayName("웹/Android code 교환은 redirect_uri 를 함께 전달한다")
     void exchangeRefreshToken_passesRedirectUri() {
         when(appleAuthFeignClient.exchangeToken(
-            anyString(), anyString(), anyString(), anyString(),
-            eq("https://dev.level-up-together.com/oauth/callback/apple")))
-            .thenReturn(Map.of("refresh_token", "rt-456"));
+                        anyString(),
+                        anyString(),
+                        anyString(),
+                        anyString(),
+                        eq("https://dev.level-up-together.com/oauth/callback/apple")))
+                .thenReturn(Map.of("refresh_token", "rt-456"));
 
-        Optional<String> result = appleTokenService.exchangeRefreshToken(
-            "auth-code", "com.lut.web", "https://dev.level-up-together.com/oauth/callback/apple");
+        Optional<String> result =
+                appleTokenService.exchangeRefreshToken(
+                        "auth-code",
+                        "com.lut.web",
+                        "https://dev.level-up-together.com/oauth/callback/apple");
 
         assertThat(result).contains("rt-456");
     }
@@ -109,7 +118,7 @@ class AppleTokenServiceTest {
     @DisplayName("응답에 refresh_token 이 없으면 empty 를 반환한다")
     void exchangeRefreshToken_noRefreshToken_returnsEmpty() {
         when(appleAuthFeignClient.exchangeToken(any(), any(), any(), any(), any()))
-            .thenReturn(Map.of("access_token", "at"));
+                .thenReturn(Map.of("access_token", "at"));
 
         assertThat(appleTokenService.exchangeRefreshToken("code", "cid", null)).isEmpty();
     }
@@ -118,7 +127,7 @@ class AppleTokenServiceTest {
     @DisplayName("code 교환 실패는 empty 로 삼켜진다 — 로그인은 계속 진행돼야 한다")
     void exchangeRefreshToken_failure_returnsEmpty() {
         when(appleAuthFeignClient.exchangeToken(any(), any(), any(), any(), any()))
-            .thenThrow(new RuntimeException("invalid_grant"));
+                .thenThrow(new RuntimeException("invalid_grant"));
 
         assertThat(appleTokenService.exchangeRefreshToken("code", "cid", null)).isEmpty();
     }
@@ -138,15 +147,16 @@ class AppleTokenServiceTest {
         boolean result = appleTokenService.revoke("rt-123", "io.pinkspider.lut");
 
         assertThat(result).isTrue();
-        verify(appleAuthFeignClient).revoke(
-            eq("io.pinkspider.lut"), anyString(), eq("rt-123"), eq("refresh_token"));
+        verify(appleAuthFeignClient)
+                .revoke(eq("io.pinkspider.lut"), anyString(), eq("rt-123"), eq("refresh_token"));
     }
 
     @Test
     @DisplayName("revoke 실패는 false 로 삼켜진다 — 탈퇴는 계속 진행돼야 한다")
     void revoke_failure_returnsFalse() {
         doThrow(new RuntimeException("apple down"))
-            .when(appleAuthFeignClient).revoke(any(), any(), any(), any());
+                .when(appleAuthFeignClient)
+                .revoke(any(), any(), any(), any());
 
         assertThat(appleTokenService.revoke("rt-123", "cid")).isFalse();
     }

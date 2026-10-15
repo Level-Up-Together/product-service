@@ -27,18 +27,19 @@ public class GuildExperienceResponse {
     private Integer maxMembers;
     private String levelTitle;
 
-    public static GuildExperienceResponse from(Guild guild, Integer requiredExp, String levelTitle) {
+    public static GuildExperienceResponse from(
+            Guild guild, Integer requiredExp, String levelTitle) {
         return GuildExperienceResponse.builder()
-            .guildId(guild.getId())
-            .guildName(guild.getName())
-            .currentLevel(guild.getCurrentLevel())
-            .currentExp(guild.getCurrentExp())
-            .totalExp(guild.getTotalExp())
-            .totalPoint(guild.getTotalPoint())
-            .currentPoint(guild.getCurrentPoint())
-            .requiredExpForNextLevel(requiredExp)
-            .maxMembers(guild.getMaxMembers())
-            .levelTitle(levelTitle)
-            .build();
+                .guildId(guild.getId())
+                .guildName(guild.getName())
+                .currentLevel(guild.getCurrentLevel())
+                .currentExp(guild.getCurrentExp())
+                .totalExp(guild.getTotalExp())
+                .totalPoint(guild.getTotalPoint())
+                .currentPoint(guild.getCurrentPoint())
+                .requiredExpForNextLevel(requiredExp)
+                .maxMembers(guild.getMaxMembers())
+                .levelTitle(levelTitle)
+                .build();
     }
 }

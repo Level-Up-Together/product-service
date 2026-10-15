@@ -21,8 +21,8 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
- * Admin 내부 API 컨트롤러 (Admin Backend → MVP 서비스 간 통신)
- * 인증 불필요 (SecurityConfig에서 /api/internal/** permitAll)
+ * Admin 내부 API 컨트롤러 (Admin Backend → MVP 서비스 간 통신) 인증 불필요 (SecurityConfig에서 /api/internal/**
+ * permitAll)
  */
 @RestController
 @RequestMapping("/api/internal/guild-level-configs")
@@ -37,51 +37,54 @@ public class GuildLevelConfigInternalController {
             @RequestParam(required = false, defaultValue = "0") int page,
             @RequestParam(required = false, defaultValue = "20") int size,
             @RequestParam(name = "sort_by", required = false, defaultValue = "id") String sortBy,
-            @RequestParam(name = "sort_direction", required = false, defaultValue = "DESC") String sortDirection) {
-        Sort sort = "ASC".equalsIgnoreCase(sortDirection)
-            ? Sort.by(sortBy).ascending()
-            : Sort.by(sortBy).descending();
+            @RequestParam(name = "sort_direction", required = false, defaultValue = "DESC")
+                    String sortDirection) {
+        Sort sort =
+                "ASC".equalsIgnoreCase(sortDirection)
+                        ? Sort.by(sortBy).ascending()
+                        : Sort.by(sortBy).descending();
         return ApiResult.<GuildLevelConfigPageResponse>builder()
-            .value(guildLevelConfigCacheService.searchLevelConfigs(keyword, PageRequest.of(page, size, sort)))
-            .build();
+                .value(
+                        guildLevelConfigCacheService.searchLevelConfigs(
+                                keyword, PageRequest.of(page, size, sort)))
+                .build();
     }
 
     @GetMapping("/all")
     public ApiResult<List<GuildLevelConfigResponse>> getAllLevelConfigs() {
         return ApiResult.<List<GuildLevelConfigResponse>>builder()
-            .value(guildLevelConfigCacheService.getAllLevelConfigResponses())
-            .build();
+                .value(guildLevelConfigCacheService.getAllLevelConfigResponses())
+                .build();
     }
 
     @GetMapping("/{id}")
     public ApiResult<GuildLevelConfigResponse> getLevelConfig(@PathVariable Long id) {
         return ApiResult.<GuildLevelConfigResponse>builder()
-            .value(guildLevelConfigCacheService.getLevelConfigById(id))
-            .build();
+                .value(guildLevelConfigCacheService.getLevelConfigById(id))
+                .build();
     }
 
     @GetMapping("/level/{level}")
     public ApiResult<GuildLevelConfigResponse> getLevelConfigByLevel(@PathVariable Integer level) {
         return ApiResult.<GuildLevelConfigResponse>builder()
-            .value(guildLevelConfigCacheService.getLevelConfigResponseByLevel(level))
-            .build();
+                .value(guildLevelConfigCacheService.getLevelConfigResponseByLevel(level))
+                .build();
     }
 
     @PostMapping
     public ApiResult<GuildLevelConfigResponse> createLevelConfig(
             @Valid @RequestBody GuildLevelConfigRequest request) {
         return ApiResult.<GuildLevelConfigResponse>builder()
-            .value(guildLevelConfigCacheService.createLevelConfig(request))
-            .build();
+                .value(guildLevelConfigCacheService.createLevelConfig(request))
+                .build();
     }
 
     @PutMapping("/{id}")
     public ApiResult<GuildLevelConfigResponse> updateLevelConfig(
-            @PathVariable Long id,
-            @Valid @RequestBody GuildLevelConfigRequest request) {
+            @PathVariable Long id, @Valid @RequestBody GuildLevelConfigRequest request) {
         return ApiResult.<GuildLevelConfigResponse>builder()
-            .value(guildLevelConfigCacheService.updateLevelConfig(id, request))
-            .build();
+                .value(guildLevelConfigCacheService.updateLevelConfig(id, request))
+                .build();
     }
 
     @DeleteMapping("/{id}")

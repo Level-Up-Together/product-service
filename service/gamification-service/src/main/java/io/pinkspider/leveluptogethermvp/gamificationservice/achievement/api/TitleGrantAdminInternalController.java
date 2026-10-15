@@ -17,10 +17,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-/**
- * Admin 내부 API 컨트롤러 - 칭호 부여
- * 인증 불필요 (SecurityConfig에서 /api/internal/** permitAll)
- */
+/** Admin 내부 API 컨트롤러 - 칭호 부여 인증 불필요 (SecurityConfig에서 /api/internal/** permitAll) */
 @RestController
 @RequestMapping("/api/internal/title-grants")
 @RequiredArgsConstructor
@@ -30,28 +27,27 @@ public class TitleGrantAdminInternalController {
 
     @PostMapping
     public ApiResult<TitleGrantAdminResponse> grantTitle(
-        @Valid @RequestBody TitleGrantAdminRequest request,
-        @RequestHeader("X-Admin-Id") Long adminId) {
+            @Valid @RequestBody TitleGrantAdminRequest request,
+            @RequestHeader("X-Admin-Id") Long adminId) {
         return ApiResult.<TitleGrantAdminResponse>builder()
-            .value(titleGrantAdminService.grantTitle(request, adminId))
-            .build();
+                .value(titleGrantAdminService.grantTitle(request, adminId))
+                .build();
     }
 
     @DeleteMapping("/{userTitleId}")
     public ApiResult<Void> revokeTitle(
-        @PathVariable Long userTitleId,
-        @RequestHeader("X-Admin-Id") Long adminId) {
+            @PathVariable Long userTitleId, @RequestHeader("X-Admin-Id") Long adminId) {
         titleGrantAdminService.revokeTitle(userTitleId, adminId);
         return ApiResult.<Void>builder().build();
     }
 
     @GetMapping
     public ApiResult<TitleGrantAdminPageResponse> getGrantHistory(
-        @RequestParam(required = false) String keyword,
-        @RequestParam(required = false, defaultValue = "0") int page,
-        @RequestParam(required = false, defaultValue = "20") int size) {
+            @RequestParam(required = false) String keyword,
+            @RequestParam(required = false, defaultValue = "0") int page,
+            @RequestParam(required = false, defaultValue = "20") int size) {
         return ApiResult.<TitleGrantAdminPageResponse>builder()
-            .value(titleGrantAdminService.getGrantHistory(keyword, page, size))
-            .build();
+                .value(titleGrantAdminService.getGrantHistory(keyword, page, size))
+                .build();
     }
 }

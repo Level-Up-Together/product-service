@@ -23,8 +23,7 @@ import org.springframework.data.redis.core.StringRedisTemplate;
 @ExtendWith(MockitoExtension.class)
 class NotificationRealtimePublisherTest {
 
-    @Mock
-    private StringRedisTemplate stringRedisTemplate;
+    @Mock private StringRedisTemplate stringRedisTemplate;
 
     private NotificationRealtimePublisher publisher;
 
@@ -36,13 +35,13 @@ class NotificationRealtimePublisherTest {
 
     private NotificationResponse createResponse() {
         return NotificationResponse.builder()
-            .id(1L)
-            .notificationType(NotificationType.CONTENT_REPORTED)
-            .title("테스트 알림")
-            .message("테스트 메시지")
-            .isRead(false)
-            .createdAt(LocalDateTime.of(2026, 7, 10, 2, 0, 0))
-            .build();
+                .id(1L)
+                .notificationType(NotificationType.CONTENT_REPORTED)
+                .title("테스트 알림")
+                .message("테스트 메시지")
+                .isRead(false)
+                .createdAt(LocalDateTime.of(2026, 7, 10, 2, 0, 0))
+                .build();
     }
 
     @Test
@@ -54,7 +53,7 @@ class NotificationRealtimePublisherTest {
         // then
         ArgumentCaptor<String> payloadCaptor = ArgumentCaptor.forClass(String.class);
         verify(stringRedisTemplate)
-            .convertAndSend(eq(NotificationRealtimePublisher.CHANNEL), payloadCaptor.capture());
+                .convertAndSend(eq(NotificationRealtimePublisher.CHANNEL), payloadCaptor.capture());
         assertThat(payloadCaptor.getValue()).contains("\"user_id\":\"user-1\"");
         assertThat(payloadCaptor.getValue()).contains("테스트 알림");
     }

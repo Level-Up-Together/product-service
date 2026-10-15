@@ -12,6 +12,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import io.pinkspider.global.enums.TitleRarity;
+import io.pinkspider.global.event.ShopItemPurchasedEvent;
 import io.pinkspider.global.exception.CustomException;
 import io.pinkspider.leveluptogethermvp.gamificationservice.diamond.application.DiamondService;
 import io.pinkspider.leveluptogethermvp.gamificationservice.experience.application.UserExperienceService;
@@ -30,7 +31,6 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import io.pinkspider.global.event.ShopItemPurchasedEvent;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
@@ -41,23 +41,17 @@ import org.springframework.dao.DataIntegrityViolationException;
 @ExtendWith(MockitoExtension.class)
 class ShopServiceTest {
 
-    @Mock
-    private ShopItemRepository shopItemRepository;
+    @Mock private ShopItemRepository shopItemRepository;
 
-    @Mock
-    private UserItemRepository userItemRepository;
+    @Mock private UserItemRepository userItemRepository;
 
-    @Mock
-    private DiamondService diamondService;
+    @Mock private DiamondService diamondService;
 
-    @Mock
-    private UserExperienceService userExperienceService;
+    @Mock private UserExperienceService userExperienceService;
 
-    @Mock
-    private ApplicationEventPublisher eventPublisher;
+    @Mock private ApplicationEventPublisher eventPublisher;
 
-    @InjectMocks
-    private ShopService shopService;
+    @InjectMocks private ShopService shopService;
 
     private static final String USER_ID = "test-user-123";
 
@@ -73,15 +67,16 @@ class ShopServiceTest {
 
     /** LUT-349: 해금 슬롯이 탭(날개=BASIC·FULL / 기타=그 외)마다 따로라 타입 지정이 필요하다 */
     private ShopItem createTypedShopItem(
-        Long id, String name, TitleRarity rarity, int price, ShopItemType itemType) {
-        ShopItem item = ShopItem.builder()
-            .name(name)
-            .itemType(itemType)
-            .rarity(rarity)
-            .imageUrl("/uploads/shop-items/" + id + ".png")
-            .price(price)
-            .isActive(true)
-            .build();
+            Long id, String name, TitleRarity rarity, int price, ShopItemType itemType) {
+        ShopItem item =
+                ShopItem.builder()
+                        .name(name)
+                        .itemType(itemType)
+                        .rarity(rarity)
+                        .imageUrl("/uploads/shop-items/" + id + ".png")
+                        .price(price)
+                        .isActive(true)
+                        .build();
         setId(item, id);
         return item;
     }
@@ -98,14 +93,15 @@ class ShopServiceTest {
             ShopItem commonCheapLateId = createShopItem(9L, "시작의 날개", TitleRarity.COMMON, 100);
             ShopItem commonCheap = createShopItem(3L, "나뭇가지 날개", TitleRarity.COMMON, 100);
             when(shopItemRepository.findByIsActiveTrue())
-                .thenReturn(List.of(mythic, commonExpensive, commonCheapLateId, commonCheap));
+                    .thenReturn(List.of(mythic, commonExpensive, commonCheapLateId, commonCheap));
             when(userItemRepository.findShopItemIdsByUserId(USER_ID)).thenReturn(List.of());
             when(userExperienceService.getUserLevel(USER_ID)).thenReturn(LEVEL_COMMON);
 
             List<ShopItemResponse> result = shopService.getShopItems(USER_ID);
 
-            assertThat(result).extracting(ShopItemResponse::shopItemId)
-                .containsExactly(3L, 9L, 2L, 1L);
+            assertThat(result)
+                    .extracting(ShopItemResponse::shopItemId)
+                    .containsExactly(3L, 9L, 2L, 1L);
         }
 
         @Test
@@ -184,13 +180,14 @@ class ShopServiceTest {
         @DisplayName("LUT-349: 상위 등급은 가격이 낮은 3개만 해금하고 나머지는 잠근다")
         void getShopItems_locksAllButCheapestThreeInHigherRarity() {
             // RARE 유저가 보는 EPIC 6개 — 가격 오름차순 A<B<C<D<E<F
-            List<ShopItem> epics = List.of(
-                createShopItem(6L, "F", TitleRarity.EPIC, 600),
-                createShopItem(1L, "A", TitleRarity.EPIC, 100),
-                createShopItem(4L, "D", TitleRarity.EPIC, 400),
-                createShopItem(2L, "B", TitleRarity.EPIC, 200),
-                createShopItem(5L, "E", TitleRarity.EPIC, 500),
-                createShopItem(3L, "C", TitleRarity.EPIC, 300));
+            List<ShopItem> epics =
+                    List.of(
+                            createShopItem(6L, "F", TitleRarity.EPIC, 600),
+                            createShopItem(1L, "A", TitleRarity.EPIC, 100),
+                            createShopItem(4L, "D", TitleRarity.EPIC, 400),
+                            createShopItem(2L, "B", TitleRarity.EPIC, 200),
+                            createShopItem(5L, "E", TitleRarity.EPIC, 500),
+                            createShopItem(3L, "C", TitleRarity.EPIC, 300));
             when(shopItemRepository.findByIsActiveTrue()).thenReturn(epics);
             when(userItemRepository.findShopItemIdsByUserId(USER_ID)).thenReturn(List.of());
             when(userExperienceService.getUserLevel(USER_ID)).thenReturn(LEVEL_RARE);
@@ -198,26 +195,30 @@ class ShopServiceTest {
             List<ShopItemResponse> result = shopService.getShopItems(USER_ID);
 
             // 입력 순서와 무관하게 가격 오름차순으로 정렬된 뒤 앞 3개만 열린다
-            assertThat(result).extracting(ShopItemResponse::name)
-                .containsExactly("A", "B", "C", "D", "E", "F");
-            assertThat(result).extracting(ShopItemResponse::locked)
-                .containsExactly(false, false, false, true, true, true);
+            assertThat(result)
+                    .extracting(ShopItemResponse::name)
+                    .containsExactly("A", "B", "C", "D", "E", "F");
+            assertThat(result)
+                    .extracting(ShopItemResponse::locked)
+                    .containsExactly(false, false, false, true, true, true);
         }
 
         @Test
         @DisplayName("LUT-349: 자기 등급 이하는 개수 제한 없이 전부 해금된다")
         void getShopItems_ownRarityFullyUnlocked() {
-            List<ShopItem> rares = List.of(
-                createShopItem(1L, "A", TitleRarity.RARE, 100),
-                createShopItem(2L, "B", TitleRarity.RARE, 200),
-                createShopItem(3L, "C", TitleRarity.RARE, 300),
-                createShopItem(4L, "D", TitleRarity.RARE, 400));
+            List<ShopItem> rares =
+                    List.of(
+                            createShopItem(1L, "A", TitleRarity.RARE, 100),
+                            createShopItem(2L, "B", TitleRarity.RARE, 200),
+                            createShopItem(3L, "C", TitleRarity.RARE, 300),
+                            createShopItem(4L, "D", TitleRarity.RARE, 400));
             when(shopItemRepository.findByIsActiveTrue()).thenReturn(rares);
             when(userItemRepository.findShopItemIdsByUserId(USER_ID)).thenReturn(List.of());
             when(userExperienceService.getUserLevel(USER_ID)).thenReturn(LEVEL_RARE);
 
-            assertThat(shopService.getShopItems(USER_ID)).extracting(ShopItemResponse::locked)
-                .containsOnly(false);
+            assertThat(shopService.getShopItems(USER_ID))
+                    .extracting(ShopItemResponse::locked)
+                    .containsOnly(false);
         }
 
         @Test
@@ -225,53 +226,68 @@ class ShopServiceTest {
         void getShopItems_unlockSlotsArePerTab() {
             // 같은 EPIC 이라도 날개 탭 4개 / 기타 탭 4개는 각각 앞 3개씩 열려야 한다.
             // 희귀도만으로 세면 가격 낮은 날개 3개가 슬롯을 다 가져가 기타 탭 EPIC 이 전멸한다.
-            List<ShopItem> items = List.of(
-                createTypedShopItem(1L, "날개1", TitleRarity.EPIC, 100, ShopItemType.BASIC),
-                createTypedShopItem(2L, "날개2", TitleRarity.EPIC, 200, ShopItemType.FULL),
-                createTypedShopItem(3L, "날개3", TitleRarity.EPIC, 300, ShopItemType.BASIC),
-                createTypedShopItem(4L, "날개4", TitleRarity.EPIC, 400, ShopItemType.FULL),
-                createTypedShopItem(5L, "기타1", TitleRarity.EPIC, 500, ShopItemType.HEAD),
-                createTypedShopItem(6L, "기타2", TitleRarity.EPIC, 600, ShopItemType.EFFECT),
-                createTypedShopItem(7L, "기타3", TitleRarity.EPIC, 700, ShopItemType.ETC),
-                createTypedShopItem(8L, "기타4", TitleRarity.EPIC, 800, ShopItemType.HEAD));
+            List<ShopItem> items =
+                    List.of(
+                            createTypedShopItem(
+                                    1L, "날개1", TitleRarity.EPIC, 100, ShopItemType.BASIC),
+                            createTypedShopItem(
+                                    2L, "날개2", TitleRarity.EPIC, 200, ShopItemType.FULL),
+                            createTypedShopItem(
+                                    3L, "날개3", TitleRarity.EPIC, 300, ShopItemType.BASIC),
+                            createTypedShopItem(
+                                    4L, "날개4", TitleRarity.EPIC, 400, ShopItemType.FULL),
+                            createTypedShopItem(
+                                    5L, "기타1", TitleRarity.EPIC, 500, ShopItemType.HEAD),
+                            createTypedShopItem(
+                                    6L, "기타2", TitleRarity.EPIC, 600, ShopItemType.EFFECT),
+                            createTypedShopItem(7L, "기타3", TitleRarity.EPIC, 700, ShopItemType.ETC),
+                            createTypedShopItem(
+                                    8L, "기타4", TitleRarity.EPIC, 800, ShopItemType.HEAD));
             when(shopItemRepository.findByIsActiveTrue()).thenReturn(items);
             when(userItemRepository.findShopItemIdsByUserId(USER_ID)).thenReturn(List.of());
             when(userExperienceService.getUserLevel(USER_ID)).thenReturn(LEVEL_COMMON);
 
-            Map<String, Boolean> lockedByName = shopService.getShopItems(USER_ID).stream()
-                .collect(Collectors.toMap(ShopItemResponse::name, ShopItemResponse::locked));
+            Map<String, Boolean> lockedByName =
+                    shopService.getShopItems(USER_ID).stream()
+                            .collect(
+                                    Collectors.toMap(
+                                            ShopItemResponse::name, ShopItemResponse::locked));
 
             // 날개 탭: 100·200·300 해금, 400 잠금
-            assertThat(lockedByName).containsEntry("날개1", false)
-                .containsEntry("날개2", false)
-                .containsEntry("날개3", false)
-                .containsEntry("날개4", true);
+            assertThat(lockedByName)
+                    .containsEntry("날개1", false)
+                    .containsEntry("날개2", false)
+                    .containsEntry("날개3", false)
+                    .containsEntry("날개4", true);
             // 기타 탭: 가격이 더 비싸도 자기 탭 안에서 앞 3개는 열린다
-            assertThat(lockedByName).containsEntry("기타1", false)
-                .containsEntry("기타2", false)
-                .containsEntry("기타3", false)
-                .containsEntry("기타4", true);
+            assertThat(lockedByName)
+                    .containsEntry("기타1", false)
+                    .containsEntry("기타2", false)
+                    .containsEntry("기타3", false)
+                    .containsEntry("기타4", true);
         }
 
         @Test
         @DisplayName("LUT-349: 순번은 희귀도 섹션마다 따로 매겨진다")
         void getShopItems_rankIsPerRaritySection() {
             // COMMON 유저 기준 — RARE 4개, MYTHIC 4개가 각각 앞 3개씩 열려야 한다
-            List<ShopItem> items = List.of(
-                createShopItem(1L, "R1", TitleRarity.RARE, 100),
-                createShopItem(2L, "R2", TitleRarity.RARE, 200),
-                createShopItem(3L, "R3", TitleRarity.RARE, 300),
-                createShopItem(4L, "R4", TitleRarity.RARE, 400),
-                createShopItem(5L, "M1", TitleRarity.MYTHIC, 100),
-                createShopItem(6L, "M2", TitleRarity.MYTHIC, 200),
-                createShopItem(7L, "M3", TitleRarity.MYTHIC, 300),
-                createShopItem(8L, "M4", TitleRarity.MYTHIC, 400));
+            List<ShopItem> items =
+                    List.of(
+                            createShopItem(1L, "R1", TitleRarity.RARE, 100),
+                            createShopItem(2L, "R2", TitleRarity.RARE, 200),
+                            createShopItem(3L, "R3", TitleRarity.RARE, 300),
+                            createShopItem(4L, "R4", TitleRarity.RARE, 400),
+                            createShopItem(5L, "M1", TitleRarity.MYTHIC, 100),
+                            createShopItem(6L, "M2", TitleRarity.MYTHIC, 200),
+                            createShopItem(7L, "M3", TitleRarity.MYTHIC, 300),
+                            createShopItem(8L, "M4", TitleRarity.MYTHIC, 400));
             when(shopItemRepository.findByIsActiveTrue()).thenReturn(items);
             when(userItemRepository.findShopItemIdsByUserId(USER_ID)).thenReturn(List.of());
             when(userExperienceService.getUserLevel(USER_ID)).thenReturn(LEVEL_COMMON);
 
-            assertThat(shopService.getShopItems(USER_ID)).extracting(ShopItemResponse::locked)
-                .containsExactly(false, false, false, true, false, false, false, true);
+            assertThat(shopService.getShopItems(USER_ID))
+                    .extracting(ShopItemResponse::locked)
+                    .containsExactly(false, false, false, true, false, false, false, true);
         }
     }
 
@@ -288,7 +304,7 @@ class ShopServiceTest {
             when(userExperienceService.getUserLevel(USER_ID)).thenReturn(LEVEL_RARE);
             when(diamondService.spendDiamonds(USER_ID, 300, 3L, "메딕의 날개")).thenReturn(45);
             when(userItemRepository.saveAndFlush(any(UserItem.class)))
-                .thenAnswer(inv -> inv.getArgument(0));
+                    .thenAnswer(inv -> inv.getArgument(0));
 
             ShopItemPurchaseResponse response = shopService.purchaseItem(USER_ID, 3L);
 
@@ -301,28 +317,29 @@ class ShopServiceTest {
         @Test
         @DisplayName("LUT-410: 구매 성공 시 아이템 획득 이벤트를 4개 언어 아이템명과 함께 발행한다")
         void purchaseItem_publishesItemPurchasedEvent() {
-            ShopItem item = ShopItem.builder()
-                .name("메딕의 날개")
-                .nameEn("Medic Wings")
-                .nameAr("أجنحة المسعف")
-                .nameJa("メディックの翼")
-                .itemType(ShopItemType.BASIC)
-                .rarity(TitleRarity.RARE)
-                .price(300)
-                .isActive(true)
-                .build();
+            ShopItem item =
+                    ShopItem.builder()
+                            .name("메딕의 날개")
+                            .nameEn("Medic Wings")
+                            .nameAr("أجنحة المسعف")
+                            .nameJa("メディックの翼")
+                            .itemType(ShopItemType.BASIC)
+                            .rarity(TitleRarity.RARE)
+                            .price(300)
+                            .isActive(true)
+                            .build();
             setId(item, 3L);
             when(shopItemRepository.findById(3L)).thenReturn(Optional.of(item));
             when(userItemRepository.existsByUserIdAndShopItemId(USER_ID, 3L)).thenReturn(false);
             when(userExperienceService.getUserLevel(USER_ID)).thenReturn(LEVEL_RARE);
             when(diamondService.spendDiamonds(USER_ID, 300, 3L, "메딕의 날개")).thenReturn(45);
             when(userItemRepository.saveAndFlush(any(UserItem.class)))
-                .thenAnswer(inv -> inv.getArgument(0));
+                    .thenAnswer(inv -> inv.getArgument(0));
 
             shopService.purchaseItem(USER_ID, 3L);
 
             ArgumentCaptor<ShopItemPurchasedEvent> captor =
-                ArgumentCaptor.forClass(ShopItemPurchasedEvent.class);
+                    ArgumentCaptor.forClass(ShopItemPurchasedEvent.class);
             verify(eventPublisher).publishEvent(captor.capture());
             ShopItemPurchasedEvent event = captor.getValue();
             assertThat(event.userId()).isEqualTo(USER_ID);
@@ -341,10 +358,10 @@ class ShopServiceTest {
             when(userItemRepository.existsByUserIdAndShopItemId(USER_ID, 3L)).thenReturn(false);
             when(userExperienceService.getUserLevel(USER_ID)).thenReturn(LEVEL_RARE);
             when(diamondService.spendDiamonds(USER_ID, 300, 3L, "메딕의 날개"))
-                .thenThrow(new IllegalStateException("다이아 잔액이 부족합니다"));
+                    .thenThrow(new IllegalStateException("다이아 잔액이 부족합니다"));
 
             assertThatThrownBy(() -> shopService.purchaseItem(USER_ID, 3L))
-                .isInstanceOf(CustomException.class);
+                    .isInstanceOf(CustomException.class);
             verify(eventPublisher, never()).publishEvent(any());
         }
 
@@ -358,7 +375,7 @@ class ShopServiceTest {
             when(userExperienceService.getUserLevel(USER_ID)).thenReturn(LEVEL_COMMON);
             when(diamondService.spendDiamonds(USER_ID, 660, 3L, "메딕의 날개")).thenReturn(40);
             when(userItemRepository.saveAndFlush(any(UserItem.class)))
-                .thenAnswer(inv -> inv.getArgument(0));
+                    .thenAnswer(inv -> inv.getArgument(0));
 
             ShopItemPurchaseResponse response = shopService.purchaseItem(USER_ID, 3L);
 
@@ -377,7 +394,7 @@ class ShopServiceTest {
             when(userExperienceService.getUserLevel(USER_ID)).thenReturn(LEVEL_COMMON);
             when(diamondService.spendDiamonds(USER_ID, 0, 2L, "레벨업 사용 설명서")).thenReturn(345);
             when(userItemRepository.saveAndFlush(any(UserItem.class)))
-                .thenAnswer(inv -> inv.getArgument(0));
+                    .thenAnswer(inv -> inv.getArgument(0));
 
             ShopItemPurchaseResponse response = shopService.purchaseItem(USER_ID, 2L);
 
@@ -393,16 +410,19 @@ class ShopServiceTest {
             when(shopItemRepository.findById(4L)).thenReturn(Optional.of(target));
             when(userItemRepository.existsByUserIdAndShopItemId(USER_ID, 4L)).thenReturn(false);
             when(userExperienceService.getUserLevel(USER_ID)).thenReturn(LEVEL_COMMON);
-            when(shopItemRepository.findByIsActiveTrue()).thenReturn(List.of(
-                createShopItem(1L, "A", TitleRarity.EPIC, 100),
-                createShopItem(2L, "B", TitleRarity.EPIC, 200),
-                createShopItem(3L, "C", TitleRarity.EPIC, 300),
-                target));
+            when(shopItemRepository.findByIsActiveTrue())
+                    .thenReturn(
+                            List.of(
+                                    createShopItem(1L, "A", TitleRarity.EPIC, 100),
+                                    createShopItem(2L, "B", TitleRarity.EPIC, 200),
+                                    createShopItem(3L, "C", TitleRarity.EPIC, 300),
+                                    target));
 
             assertThatThrownBy(() -> shopService.purchaseItem(USER_ID, 4L))
-                .isInstanceOf(CustomException.class)
-                .hasFieldOrPropertyWithValue("code", "120606");
-            verify(diamondService, never()).spendDiamonds(anyString(), anyInt(), anyLong(), anyString());
+                    .isInstanceOf(CustomException.class)
+                    .hasFieldOrPropertyWithValue("code", "120606");
+            verify(diamondService, never())
+                    .spendDiamonds(anyString(), anyInt(), anyLong(), anyString());
             verify(userItemRepository, never()).saveAndFlush(any(UserItem.class));
         }
 
@@ -414,14 +434,16 @@ class ShopServiceTest {
             when(shopItemRepository.findById(3L)).thenReturn(Optional.of(target));
             when(userItemRepository.existsByUserIdAndShopItemId(USER_ID, 3L)).thenReturn(false);
             when(userExperienceService.getUserLevel(USER_ID)).thenReturn(LEVEL_COMMON);
-            when(shopItemRepository.findByIsActiveTrue()).thenReturn(List.of(
-                createShopItem(1L, "A", TitleRarity.EPIC, 100),
-                createShopItem(2L, "B", TitleRarity.EPIC, 200),
-                target,
-                createShopItem(4L, "D", TitleRarity.EPIC, 400)));
+            when(shopItemRepository.findByIsActiveTrue())
+                    .thenReturn(
+                            List.of(
+                                    createShopItem(1L, "A", TitleRarity.EPIC, 100),
+                                    createShopItem(2L, "B", TitleRarity.EPIC, 200),
+                                    target,
+                                    createShopItem(4L, "D", TitleRarity.EPIC, 400)));
             when(diamondService.spendDiamonds(USER_ID, 990, 3L, "C")).thenReturn(10);
             when(userItemRepository.saveAndFlush(any(UserItem.class)))
-                .thenAnswer(inv -> inv.getArgument(0));
+                    .thenAnswer(inv -> inv.getArgument(0));
 
             ShopItemPurchaseResponse response = shopService.purchaseItem(USER_ID, 3L);
 
@@ -435,8 +457,8 @@ class ShopServiceTest {
             when(shopItemRepository.findById(99L)).thenReturn(Optional.empty());
 
             assertThatThrownBy(() -> shopService.purchaseItem(USER_ID, 99L))
-                .isInstanceOf(CustomException.class)
-                .hasFieldOrPropertyWithValue("code", "120603");
+                    .isInstanceOf(CustomException.class)
+                    .hasFieldOrPropertyWithValue("code", "120603");
         }
 
         @Test
@@ -447,8 +469,8 @@ class ShopServiceTest {
             when(shopItemRepository.findById(3L)).thenReturn(Optional.of(item));
 
             assertThatThrownBy(() -> shopService.purchaseItem(USER_ID, 3L))
-                .isInstanceOf(CustomException.class)
-                .hasFieldOrPropertyWithValue("code", "120603");
+                    .isInstanceOf(CustomException.class)
+                    .hasFieldOrPropertyWithValue("code", "120603");
         }
 
         @Test
@@ -459,9 +481,10 @@ class ShopServiceTest {
             when(userItemRepository.existsByUserIdAndShopItemId(USER_ID, 3L)).thenReturn(true);
 
             assertThatThrownBy(() -> shopService.purchaseItem(USER_ID, 3L))
-                .isInstanceOf(CustomException.class)
-                .hasFieldOrPropertyWithValue("code", "120604");
-            verify(diamondService, never()).spendDiamonds(anyString(), anyInt(), anyLong(), anyString());
+                    .isInstanceOf(CustomException.class)
+                    .hasFieldOrPropertyWithValue("code", "120604");
+            verify(diamondService, never())
+                    .spendDiamonds(anyString(), anyInt(), anyLong(), anyString());
         }
 
         @Test
@@ -472,11 +495,11 @@ class ShopServiceTest {
             when(userItemRepository.existsByUserIdAndShopItemId(USER_ID, 3L)).thenReturn(false);
             when(userExperienceService.getUserLevel(USER_ID)).thenReturn(LEVEL_RARE);
             when(diamondService.spendDiamonds(USER_ID, 300, 3L, "메딕의 날개"))
-                .thenThrow(new IllegalStateException("다이아 잔액이 부족합니다"));
+                    .thenThrow(new IllegalStateException("다이아 잔액이 부족합니다"));
 
             assertThatThrownBy(() -> shopService.purchaseItem(USER_ID, 3L))
-                .isInstanceOf(CustomException.class)
-                .hasFieldOrPropertyWithValue("code", "120605");
+                    .isInstanceOf(CustomException.class)
+                    .hasFieldOrPropertyWithValue("code", "120605");
             verify(userItemRepository, never()).saveAndFlush(any(UserItem.class));
         }
 
@@ -489,11 +512,11 @@ class ShopServiceTest {
             when(userExperienceService.getUserLevel(USER_ID)).thenReturn(LEVEL_RARE);
             when(diamondService.spendDiamonds(USER_ID, 300, 3L, "메딕의 날개")).thenReturn(45);
             when(userItemRepository.saveAndFlush(any(UserItem.class)))
-                .thenThrow(new DataIntegrityViolationException("uk_user_item"));
+                    .thenThrow(new DataIntegrityViolationException("uk_user_item"));
 
             assertThatThrownBy(() -> shopService.purchaseItem(USER_ID, 3L))
-                .isInstanceOf(CustomException.class)
-                .hasFieldOrPropertyWithValue("code", "120604");
+                    .isInstanceOf(CustomException.class)
+                    .hasFieldOrPropertyWithValue("code", "120604");
         }
     }
 }

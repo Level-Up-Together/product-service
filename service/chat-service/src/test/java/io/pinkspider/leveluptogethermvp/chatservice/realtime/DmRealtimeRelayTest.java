@@ -20,8 +20,7 @@ import org.springframework.messaging.simp.SimpMessagingTemplate;
 @ExtendWith(MockitoExtension.class)
 class DmRealtimeRelayTest {
 
-    @Mock
-    private SimpMessagingTemplate messagingTemplate;
+    @Mock private SimpMessagingTemplate messagingTemplate;
 
     private DmRealtimeRelay relay;
 
@@ -32,8 +31,8 @@ class DmRealtimeRelayTest {
 
     private Message createMessage(String payload) {
         return new DefaultMessage(
-            DmRealtimePublisher.CHANNEL.getBytes(StandardCharsets.UTF_8),
-            payload.getBytes(StandardCharsets.UTF_8));
+                DmRealtimePublisher.CHANNEL.getBytes(StandardCharsets.UTF_8),
+                payload.getBytes(StandardCharsets.UTF_8));
     }
 
     @Test
@@ -41,14 +40,15 @@ class DmRealtimeRelayTest {
     void onMessage_relaysToDestination() {
         // given
         String payload =
-            "{\"user_id\":\"user-1\",\"destination\":\"/queue/dm\",\"body\":{\"id\":1,\"content\":\"hi\"}}";
+                "{\"user_id\":\"user-1\",\"destination\":\"/queue/dm\",\"body\":{\"id\":1,\"content\":\"hi\"}}";
 
         // when
         relay.onMessage(createMessage(payload), null);
 
         // then
         verify(messagingTemplate)
-            .convertAndSendToUser(eq("user-1"), eq("/queue/dm"), eq("{\"id\":1,\"content\":\"hi\"}"));
+                .convertAndSendToUser(
+                        eq("user-1"), eq("/queue/dm"), eq("{\"id\":1,\"content\":\"hi\"}"));
     }
 
     @Test
@@ -57,7 +57,7 @@ class DmRealtimeRelayTest {
         relay.onMessage(createMessage("{\"destination\":\"/queue/dm\",\"body\":{}}"), null);
 
         verify(messagingTemplate, never())
-            .convertAndSendToUser(anyString(), anyString(), anyString());
+                .convertAndSendToUser(anyString(), anyString(), anyString());
     }
 
     @Test
@@ -66,7 +66,7 @@ class DmRealtimeRelayTest {
         relay.onMessage(createMessage("{\"user_id\":\"user-1\",\"body\":{}}"), null);
 
         verify(messagingTemplate, never())
-            .convertAndSendToUser(anyString(), anyString(), anyString());
+                .convertAndSendToUser(anyString(), anyString(), anyString());
     }
 
     @Test
@@ -75,6 +75,6 @@ class DmRealtimeRelayTest {
         relay.onMessage(createMessage("not-json"), null);
 
         verify(messagingTemplate, never())
-            .convertAndSendToUser(anyString(), anyString(), anyString());
+                .convertAndSendToUser(anyString(), anyString(), anyString());
     }
 }

@@ -28,11 +28,9 @@ public class MissionCommentResponse {
     private Integer userLevel;
     private String content;
 
-    @JsonIgnore
-    private boolean isDeleted;
+    @JsonIgnore private boolean isDeleted;
 
-    @JsonIgnore
-    private boolean isMyComment;
+    @JsonIgnore private boolean isMyComment;
 
     @JsonGetter("is_deleted")
     public boolean getIsDeleted() {
@@ -53,17 +51,17 @@ public class MissionCommentResponse {
 
     public static MissionCommentResponse from(MissionComment comment, String currentUserId) {
         return MissionCommentResponse.builder()
-            .id(comment.getId())
-            .missionId(comment.getMission().getId())
-            .userId(comment.getUserId())
-            .userNickname(comment.getUserNickname())
-            .userProfileImageUrl(comment.getUserProfileImageUrl())
-            .userLevel(comment.getUserLevel())
-            .content(comment.getContent())
-            .isDeleted(comment.getIsDeleted())
-            .isMyComment(currentUserId != null && currentUserId.equals(comment.getUserId()))
-            .createdAt(comment.getCreatedAt())
-            .modifiedAt(comment.getModifiedAt())
-            .build();
+                .id(comment.getId())
+                .missionId(comment.getMission().getId())
+                .userId(comment.getUserId())
+                .userNickname(comment.getUserNickname())
+                .userProfileImageUrl(comment.getUserProfileImageUrl())
+                .userLevel(comment.getUserLevel())
+                .content(comment.getContent())
+                .isDeleted(comment.getIsDeleted())
+                .isMyComment(currentUserId != null && currentUserId.equals(comment.getUserId()))
+                .createdAt(comment.getCreatedAt())
+                .modifiedAt(comment.getModifiedAt())
+                .build();
     }
 }

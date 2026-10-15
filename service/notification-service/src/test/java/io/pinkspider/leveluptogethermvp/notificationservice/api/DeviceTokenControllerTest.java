@@ -33,65 +33,61 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers;
 
-@WebMvcTest(controllers = DeviceTokenController.class,
-    excludeAutoConfiguration = {
-        DataSourceAutoConfiguration.class,
-        HibernateJpaAutoConfiguration.class,
-        DataSourceTransactionManagerAutoConfiguration.class
-    }
-)
+@WebMvcTest(
+        controllers = DeviceTokenController.class,
+        excludeAutoConfiguration = {
+            DataSourceAutoConfiguration.class,
+            HibernateJpaAutoConfiguration.class,
+            DataSourceTransactionManagerAutoConfiguration.class
+        })
 @Import(ControllerTestConfig.class)
 @AutoConfigureRestDocs
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
 class DeviceTokenControllerTest {
 
-    @Autowired
-    protected MockMvc mockMvc;
+    @Autowired protected MockMvc mockMvc;
 
     private final LmObjectMapper objectMapper = new LmObjectMapper();
 
-    @MockitoBean
-    private DeviceTokenService deviceTokenService;
+    @MockitoBean private DeviceTokenService deviceTokenService;
 
-    @MockitoBean
-    private FcmPushService fcmPushService;
+    @MockitoBean private FcmPushService fcmPushService;
 
     private static final String MOCK_USER_ID = "test-user-123";
 
     private DeviceTokenResponse createMockDeviceTokenResponse(Long id) {
         return new DeviceTokenResponse(
-            id,
-            MOCK_USER_ID,
-            DeviceType.IOS,
-            "device-id-123",
-            "iPhone 15",
-            "1.0.0",
-            true,
-            0,
-            LocalDateTime.now()
-        );
+                id,
+                MOCK_USER_ID,
+                DeviceType.IOS,
+                "device-id-123",
+                "iPhone 15",
+                "1.0.0",
+                true,
+                0,
+                LocalDateTime.now());
     }
 
     @Test
     @DisplayName("POST /api/v1/device-tokens : 디바이스 토큰 등록")
     void registerTokenTest() throws Exception {
         // given
-        DeviceTokenRequest request = new DeviceTokenRequest(
-            "fcm-token-xyz", DeviceType.IOS, "device-id-123", "iPhone 15", "1.0.0"
-        );
+        DeviceTokenRequest request =
+                new DeviceTokenRequest(
+                        "fcm-token-xyz", DeviceType.IOS, "device-id-123", "iPhone 15", "1.0.0");
         DeviceTokenResponse response = createMockDeviceTokenResponse(1L);
 
         when(deviceTokenService.registerToken(anyString(), any(DeviceTokenRequest.class)))
-            .thenReturn(response);
+                .thenReturn(response);
 
         // when
-        ResultActions resultActions = mockMvc.perform(
-            RestDocumentationRequestBuilders.post("/api/v1/device-tokens")
-                .with(user(MOCK_USER_ID))
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsString(request))
-        );
+        ResultActions resultActions =
+                mockMvc.perform(
+                        RestDocumentationRequestBuilders.post("/api/v1/device-tokens")
+                                .with(user(MOCK_USER_ID))
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(request)));
 
         // then
         resultActions.andExpect(MockMvcResultMatchers.status().isOk());
@@ -104,12 +100,12 @@ class DeviceTokenControllerTest {
         doNothing().when(deviceTokenService).unregisterToken(anyString(), anyString());
 
         // when
-        ResultActions resultActions = mockMvc.perform(
-            RestDocumentationRequestBuilders.delete("/api/v1/device-tokens")
-                .with(user(MOCK_USER_ID))
-                .param("fcm_token", "fcm-token-xyz")
-                .contentType(MediaType.APPLICATION_JSON)
-        );
+        ResultActions resultActions =
+                mockMvc.perform(
+                        RestDocumentationRequestBuilders.delete("/api/v1/device-tokens")
+                                .with(user(MOCK_USER_ID))
+                                .param("fcm_token", "fcm-token-xyz")
+                                .contentType(MediaType.APPLICATION_JSON));
 
         // then
         resultActions.andExpect(MockMvcResultMatchers.status().isOk());
@@ -122,11 +118,11 @@ class DeviceTokenControllerTest {
         doNothing().when(deviceTokenService).unregisterAllTokens(anyString());
 
         // when
-        ResultActions resultActions = mockMvc.perform(
-            RestDocumentationRequestBuilders.delete("/api/v1/device-tokens/all")
-                .with(user(MOCK_USER_ID))
-                .contentType(MediaType.APPLICATION_JSON)
-        );
+        ResultActions resultActions =
+                mockMvc.perform(
+                        RestDocumentationRequestBuilders.delete("/api/v1/device-tokens/all")
+                                .with(user(MOCK_USER_ID))
+                                .contentType(MediaType.APPLICATION_JSON));
 
         // then
         resultActions.andExpect(MockMvcResultMatchers.status().isOk());
@@ -136,19 +132,17 @@ class DeviceTokenControllerTest {
     @DisplayName("GET /api/v1/device-tokens : 등록된 토큰 목록 조회")
     void getTokensTest() throws Exception {
         // given
-        List<DeviceTokenResponse> tokens = List.of(
-            createMockDeviceTokenResponse(1L),
-            createMockDeviceTokenResponse(2L)
-        );
+        List<DeviceTokenResponse> tokens =
+                List.of(createMockDeviceTokenResponse(1L), createMockDeviceTokenResponse(2L));
 
         when(deviceTokenService.getTokensByUserId(anyString())).thenReturn(tokens);
 
         // when
-        ResultActions resultActions = mockMvc.perform(
-            RestDocumentationRequestBuilders.get("/api/v1/device-tokens")
-                .with(user(MOCK_USER_ID))
-                .contentType(MediaType.APPLICATION_JSON)
-        );
+        ResultActions resultActions =
+                mockMvc.perform(
+                        RestDocumentationRequestBuilders.get("/api/v1/device-tokens")
+                                .with(user(MOCK_USER_ID))
+                                .contentType(MediaType.APPLICATION_JSON));
 
         // then
         resultActions.andExpect(MockMvcResultMatchers.status().isOk());
@@ -161,11 +155,11 @@ class DeviceTokenControllerTest {
         doNothing().when(deviceTokenService).resetBadgeCount(anyString());
 
         // when
-        ResultActions resultActions = mockMvc.perform(
-            RestDocumentationRequestBuilders.post("/api/v1/device-tokens/badge/reset")
-                .with(user(MOCK_USER_ID))
-                .contentType(MediaType.APPLICATION_JSON)
-        );
+        ResultActions resultActions =
+                mockMvc.perform(
+                        RestDocumentationRequestBuilders.post("/api/v1/device-tokens/badge/reset")
+                                .with(user(MOCK_USER_ID))
+                                .contentType(MediaType.APPLICATION_JSON));
 
         // then
         resultActions.andExpect(MockMvcResultMatchers.status().isOk());

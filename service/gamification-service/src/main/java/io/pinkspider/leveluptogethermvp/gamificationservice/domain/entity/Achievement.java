@@ -28,13 +28,13 @@ import org.hibernate.annotations.Comment;
 @SuperBuilder
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @AllArgsConstructor
-@Table(name = "achievement",
-    indexes = {
-        @Index(name = "idx_achievement_category", columnList = "category_id"),
-        @Index(name = "idx_achievement_mission_category", columnList = "mission_category_id"),
-        @Index(name = "idx_achievement_check_logic_type", columnList = "check_logic_type_id")
-    }
-)
+@Table(
+        name = "achievement",
+        indexes = {
+            @Index(name = "idx_achievement_category", columnList = "category_id"),
+            @Index(name = "idx_achievement_mission_category", columnList = "mission_category_id"),
+            @Index(name = "idx_achievement_check_logic_type", columnList = "check_logic_type_id")
+        })
 @Comment("업적")
 public class Achievement extends LocalDateTimeBaseEntity {
 
@@ -150,23 +150,18 @@ public class Achievement extends LocalDateTimeBaseEntity {
     @Builder.Default
     private Boolean isActive = true;
 
-    /**
-     * locale에 따라 업적명을 반환합니다.
-     */
+    /** locale에 따라 업적명을 반환합니다. */
     public String getLocalizedName(String locale) {
         return LocaleUtils.getLocalizedText(name, nameEn, nameAr, nameJa, locale);
     }
 
-    /**
-     * locale에 따라 업적 설명을 반환합니다.
-     */
+    /** locale에 따라 업적 설명을 반환합니다. */
     public String getLocalizedDescription(String locale) {
-        return LocaleUtils.getLocalizedText(description, descriptionEn, descriptionAr, descriptionJa, locale);
+        return LocaleUtils.getLocalizedText(
+                description, descriptionEn, descriptionAr, descriptionJa, locale);
     }
 
-    /**
-     * 카테고리 설정 시 코드도 함께 저장
-     */
+    /** 카테고리 설정 시 코드도 함께 저장 */
     public void setCategory(AchievementCategory category) {
         this.category = category;
         if (category != null) {

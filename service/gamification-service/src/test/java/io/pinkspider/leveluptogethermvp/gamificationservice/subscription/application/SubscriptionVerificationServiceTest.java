@@ -11,9 +11,9 @@ import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.when;
 
 import com.apple.itunes.storekit.model.JWSTransactionDecodedPayload;
+import com.apple.itunes.storekit.model.OfferType;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.apple.itunes.storekit.model.OfferType;
 import io.pinkspider.global.exception.CustomException;
 import io.pinkspider.leveluptogethermvp.gamificationservice.diamond.application.IapAppleProperties;
 import io.pinkspider.leveluptogethermvp.gamificationservice.subscription.domain.dto.GoogleSubscriptionState;
@@ -40,28 +40,28 @@ import org.springframework.web.client.RestTemplate;
 @DisplayName("SubscriptionVerificationService 테스트 (LUT-451)")
 class SubscriptionVerificationServiceTest {
 
-    @TempDir
-    Path tempDir;
+    @TempDir Path tempDir;
 
     private SubscriptionVerificationService service(boolean enabled) {
-        return new SubscriptionVerificationService(enabled, "io.pinkspider.lut", "", new IapAppleProperties());
+        return new SubscriptionVerificationService(
+                enabled, "io.pinkspider.lut", "", new IapAppleProperties());
     }
 
     private SubscriptionVerifyRequest iosRequest() {
         return SubscriptionVerifyRequest.builder()
-            .platform("ios")
-            .productId("membership_1m")
-            .transactionId("tx-001")
-            .build();
+                .platform("ios")
+                .productId("membership_1m")
+                .transactionId("tx-001")
+                .build();
     }
 
     private SubscriptionVerifyRequest androidRequest() {
         return SubscriptionVerifyRequest.builder()
-            .platform("android")
-            .productId("membership")
-            .purchaseToken("token-001")
-            .basePlanId("1y")
-            .build();
+                .platform("android")
+                .productId("membership")
+                .purchaseToken("token-001")
+                .basePlanId("1y")
+                .build();
     }
 
     @Nested
@@ -95,14 +95,15 @@ class SubscriptionVerificationServiceTest {
         @Test
         @DisplayName("트랜잭션 식별자가 없으면 비활성이라도 예외")
         void disabled_missingIdentifier_throws() {
-            SubscriptionVerifyRequest request = SubscriptionVerifyRequest.builder()
-                .platform("android")
-                .productId("membership")
-                .build();
+            SubscriptionVerifyRequest request =
+                    SubscriptionVerifyRequest.builder()
+                            .platform("android")
+                            .productId("membership")
+                            .build();
 
             assertThatThrownBy(() -> service(false).verify(request))
-                .isInstanceOf(CustomException.class)
-                .hasMessageContaining("error.iap.receipt_required");
+                    .isInstanceOf(CustomException.class)
+                    .hasMessageContaining("error.iap.receipt_required");
         }
     }
 
@@ -112,10 +113,10 @@ class SubscriptionVerificationServiceTest {
 
         private JWSTransactionDecodedPayload payload() {
             return new JWSTransactionDecodedPayload()
-                .productId("membership_1m")
-                .originalTransactionId("orig-tx-001")
-                .originalPurchaseDate(1756944000000L) // 2025-09-04T00:00:00Z
-                .expiresDate(1759536000000L); // 2025-10-04T00:00:00Z
+                    .productId("membership_1m")
+                    .originalTransactionId("orig-tx-001")
+                    .originalPurchaseDate(1756944000000L) // 2025-09-04T00:00:00Z
+                    .expiresDate(1759536000000L); // 2025-10-04T00:00:00Z
         }
 
         @Test
@@ -128,10 +129,8 @@ class SubscriptionVerificationServiceTest {
 
             assertThat(result.storeProductId()).isEqualTo("membership_1m");
             assertThat(result.originalTransactionId()).isEqualTo("orig-tx-001");
-            assertThat(result.expiresAt())
-                .isEqualTo(LocalDateTime.of(2025, 10, 4, 0, 0, 0));
-            assertThat(result.startedAt())
-                .isEqualTo(LocalDateTime.of(2025, 9, 4, 0, 0, 0));
+            assertThat(result.expiresAt()).isEqualTo(LocalDateTime.of(2025, 10, 4, 0, 0, 0));
+            assertThat(result.startedAt()).isEqualTo(LocalDateTime.of(2025, 9, 4, 0, 0, 0));
             assertThat(result.autoRenew()).isTrue();
             assertThat(result.trial()).isFalse();
         }
@@ -140,9 +139,13 @@ class SubscriptionVerificationServiceTest {
         @DisplayName("LUT-507: 결제 시 실린 appAccountToken 을 결과로 넘긴다 (없으면 null)")
         void apple_appAccountToken_passedThrough() {
             SubscriptionVerificationService svc = spy(service(true));
-            doReturn(payload().appAccountToken(
-                    java.util.UUID.fromString("4f43937f-3c7d-492a-ad0f-49e7b63a9c5c")))
-                .when(svc).fetchAppleTransaction("tx-001");
+            doReturn(
+                            payload()
+                                    .appAccountToken(
+                                            java.util.UUID.fromString(
+                                                    "4f43937f-3c7d-492a-ad0f-49e7b63a9c5c")))
+                    .when(svc)
+                    .fetchAppleTransaction("tx-001");
 
             SubscriptionVerificationResult result = svc.verify(iosRequest());
 
@@ -154,7 +157,8 @@ class SubscriptionVerificationServiceTest {
         void apple_introductoryOffer_marksTrial() {
             SubscriptionVerificationService svc = spy(service(true));
             doReturn(payload().offerType(OfferType.INTRODUCTORY_OFFER))
-                .when(svc).fetchAppleTransaction("tx-001");
+                    .when(svc)
+                    .fetchAppleTransaction("tx-001");
 
             assertThat(svc.verify(iosRequest()).trial()).isTrue();
         }
@@ -163,11 +167,13 @@ class SubscriptionVerificationServiceTest {
         @DisplayName("요청 상품과 트랜잭션 상품이 다르면 불일치 예외")
         void apple_productMismatch_throws() {
             SubscriptionVerificationService svc = spy(service(true));
-            doReturn(payload().productId("membership_1y")).when(svc).fetchAppleTransaction("tx-001");
+            doReturn(payload().productId("membership_1y"))
+                    .when(svc)
+                    .fetchAppleTransaction("tx-001");
 
             assertThatThrownBy(() -> svc.verify(iosRequest()))
-                .isInstanceOf(CustomException.class)
-                .hasMessageContaining("error.iap.product_mismatch");
+                    .isInstanceOf(CustomException.class)
+                    .hasMessageContaining("error.iap.product_mismatch");
         }
 
         @Test
@@ -177,16 +183,16 @@ class SubscriptionVerificationServiceTest {
             doReturn(payload().expiresDate(null)).when(svc).fetchAppleTransaction("tx-001");
 
             assertThatThrownBy(() -> svc.verify(iosRequest()))
-                .isInstanceOf(CustomException.class)
-                .hasMessageContaining("error.iap.product_mismatch");
+                    .isInstanceOf(CustomException.class)
+                    .hasMessageContaining("error.iap.product_mismatch");
         }
 
         @Test
         @DisplayName("자격증명이 없으면(클라이언트 생성 실패) 검증 실패 예외")
         void apple_missingCredentials_throws() {
             assertThatThrownBy(() -> service(true).verify(iosRequest()))
-                .isInstanceOf(CustomException.class)
-                .hasMessageContaining("error.iap.verification_failed");
+                    .isInstanceOf(CustomException.class)
+                    .hasMessageContaining("error.iap.verification_failed");
         }
     }
 
@@ -194,13 +200,18 @@ class SubscriptionVerificationServiceTest {
     @DisplayName("Google 검증 (subscriptionsv2)")
     class GoogleTest {
 
-        private SubscriptionVerificationService serviceWithGoogle(RestTemplate rest) throws Exception {
-            SubscriptionVerificationService svc = new SubscriptionVerificationService(
-                true, "io.pinkspider.lut", writeFakeServiceAccountJson().toString(),
-                new IapAppleProperties());
+        private SubscriptionVerificationService serviceWithGoogle(RestTemplate rest)
+                throws Exception {
+            SubscriptionVerificationService svc =
+                    new SubscriptionVerificationService(
+                            true,
+                            "io.pinkspider.lut",
+                            writeFakeServiceAccountJson().toString(),
+                            new IapAppleProperties());
             svc.setRestTemplate(rest);
-            when(rest.postForObject(eq("https://oauth2.googleapis.com/token"), any(), eq(String.class)))
-                .thenReturn("{\"access_token\":\"fake-token\"}");
+            when(rest.postForObject(
+                            eq("https://oauth2.googleapis.com/token"), any(), eq(String.class)))
+                    .thenReturn("{\"access_token\":\"fake-token\"}");
             return svc;
         }
 
@@ -210,17 +221,21 @@ class SubscriptionVerificationServiceTest {
             RestTemplate rest = mock(RestTemplate.class);
             SubscriptionVerificationService svc = serviceWithGoogle(rest);
             when(rest.exchange(
-                    contains("/purchases/subscriptionsv2/tokens/token-001"),
-                    eq(HttpMethod.GET), any(), eq(String.class)))
-                .thenReturn(ResponseEntity.ok("{"
-                    + "\"subscriptionState\":\"SUBSCRIPTION_STATE_ACTIVE\","
-                    + "\"startTime\":\"2026-09-04T00:00:00Z\","
-                    + "\"lineItems\":[{"
-                    + "  \"productId\":\"membership\","
-                    + "  \"expiryTime\":\"2027-09-04T00:00:00Z\","
-                    + "  \"autoRenewingPlan\":{\"autoRenewEnabled\":true},"
-                    + "  \"offerDetails\":{\"basePlanId\":\"1y\"}"
-                    + "}]}"));
+                            contains("/purchases/subscriptionsv2/tokens/token-001"),
+                            eq(HttpMethod.GET),
+                            any(),
+                            eq(String.class)))
+                    .thenReturn(
+                            ResponseEntity.ok(
+                                    "{"
+                                            + "\"subscriptionState\":\"SUBSCRIPTION_STATE_ACTIVE\","
+                                            + "\"startTime\":\"2026-09-04T00:00:00Z\","
+                                            + "\"lineItems\":[{"
+                                            + "  \"productId\":\"membership\","
+                                            + "  \"expiryTime\":\"2027-09-04T00:00:00Z\","
+                                            + "  \"autoRenewingPlan\":{\"autoRenewEnabled\":true},"
+                                            + "  \"offerDetails\":{\"basePlanId\":\"1y\"}"
+                                            + "}]}"));
 
             SubscriptionVerificationResult result = svc.verify(androidRequest());
 
@@ -239,17 +254,19 @@ class SubscriptionVerificationServiceTest {
             RestTemplate rest = mock(RestTemplate.class);
             SubscriptionVerificationService svc = serviceWithGoogle(rest);
             when(rest.exchange(
-                    contains("/purchases/subscriptionsv2/tokens/token-001"),
-                    eq(HttpMethod.GET), any(), eq(String.class)))
-                .thenReturn(ResponseEntity.ok("{"
-                    + "\"subscriptionState\":\"SUBSCRIPTION_STATE_CANCELED\","
-                    + "\"latestOrderId\":\"GPA.3385-4794-1007-42420\","
-                    + "\"lineItems\":[{"
-                    + "  \"productId\":\"membership\","
-                    + "  \"expiryTime\":\"2026-10-04T00:00:00Z\","
-                    + "  \"autoRenewingPlan\":{\"autoRenewEnabled\":false},"
-                    + "  \"offerDetails\":{\"basePlanId\":\"1y\",\"offerId\":\"free-trial\"}"
-                    + "}]}"));
+                            contains("/purchases/subscriptionsv2/tokens/token-001"),
+                            eq(HttpMethod.GET),
+                            any(),
+                            eq(String.class)))
+                    .thenReturn(
+                            ResponseEntity.ok(
+                                    "{\"subscriptionState\":\"SUBSCRIPTION_STATE_CANCELED\","
+                                        + "\"latestOrderId\":\"GPA.3385-4794-1007-42420\",\"lineItems\":[{"
+                                        + "  \"productId\":\"membership\", "
+                                        + " \"expiryTime\":\"2026-10-04T00:00:00Z\", "
+                                        + " \"autoRenewingPlan\":{\"autoRenewEnabled\":false}, "
+                                        + " \"offerDetails\":{\"basePlanId\":\"1y\",\"offerId\":\"free-trial\"}"
+                                        + "}]}"));
 
             SubscriptionVerificationResult result = svc.verify(androidRequest());
 
@@ -264,17 +281,19 @@ class SubscriptionVerificationServiceTest {
             SubscriptionVerificationService svc = serviceWithGoogle(rest);
             // 갱신 건: offerDetails.offerId 는 최초 구매 오퍼라 그대로 남지만 latestOrderId 에 ..N 접미사가 붙는다
             when(rest.exchange(
-                    contains("/purchases/subscriptionsv2/tokens/token-001"),
-                    eq(HttpMethod.GET), any(), eq(String.class)))
-                .thenReturn(ResponseEntity.ok("{"
-                    + "\"subscriptionState\":\"SUBSCRIPTION_STATE_ACTIVE\","
-                    + "\"latestOrderId\":\"GPA.3385-4794-1007-42420..0\","
-                    + "\"lineItems\":[{"
-                    + "  \"productId\":\"membership\","
-                    + "  \"expiryTime\":\"2026-10-04T00:00:00Z\","
-                    + "  \"autoRenewingPlan\":{\"autoRenewEnabled\":true},"
-                    + "  \"offerDetails\":{\"basePlanId\":\"1y\",\"offerId\":\"freetrial-7d\"}"
-                    + "}]}"));
+                            contains("/purchases/subscriptionsv2/tokens/token-001"),
+                            eq(HttpMethod.GET),
+                            any(),
+                            eq(String.class)))
+                    .thenReturn(
+                            ResponseEntity.ok(
+                                    "{\"subscriptionState\":\"SUBSCRIPTION_STATE_ACTIVE\","
+                                        + "\"latestOrderId\":\"GPA.3385-4794-1007-42420..0\",\"lineItems\":[{"
+                                        + "  \"productId\":\"membership\", "
+                                        + " \"expiryTime\":\"2026-10-04T00:00:00Z\", "
+                                        + " \"autoRenewingPlan\":{\"autoRenewEnabled\":true}, "
+                                        + " \"offerDetails\":{\"basePlanId\":\"1y\",\"offerId\":\"freetrial-7d\"}"
+                                        + "}]}"));
 
             SubscriptionVerificationResult result = svc.verify(androidRequest());
 
@@ -288,18 +307,22 @@ class SubscriptionVerificationServiceTest {
             RestTemplate rest = mock(RestTemplate.class);
             SubscriptionVerificationService svc = serviceWithGoogle(rest);
             when(rest.exchange(
-                    contains("/purchases/subscriptionsv2/tokens/token-001"),
-                    eq(HttpMethod.GET), any(), eq(String.class)))
-                .thenReturn(ResponseEntity.ok("{"
-                    + "\"subscriptionState\":\"SUBSCRIPTION_STATE_ACTIVE\","
-                    + "\"latestOrderId\":\"GPA.3333-4444-5555-66666\","
-                    + "\"linkedPurchaseToken\":\"token-000\","
-                    + "\"lineItems\":[{"
-                    + "  \"productId\":\"membership\","
-                    + "  \"expiryTime\":\"2027-09-04T00:00:00Z\","
-                    + "  \"autoRenewingPlan\":{\"autoRenewEnabled\":true},"
-                    + "  \"offerDetails\":{\"basePlanId\":\"1y\"}"
-                    + "}]}"));
+                            contains("/purchases/subscriptionsv2/tokens/token-001"),
+                            eq(HttpMethod.GET),
+                            any(),
+                            eq(String.class)))
+                    .thenReturn(
+                            ResponseEntity.ok(
+                                    "{"
+                                            + "\"subscriptionState\":\"SUBSCRIPTION_STATE_ACTIVE\","
+                                            + "\"latestOrderId\":\"GPA.3333-4444-5555-66666\","
+                                            + "\"linkedPurchaseToken\":\"token-000\","
+                                            + "\"lineItems\":[{"
+                                            + "  \"productId\":\"membership\","
+                                            + "  \"expiryTime\":\"2027-09-04T00:00:00Z\","
+                                            + "  \"autoRenewingPlan\":{\"autoRenewEnabled\":true},"
+                                            + "  \"offerDetails\":{\"basePlanId\":\"1y\"}"
+                                            + "}]}"));
 
             SubscriptionVerificationResult result = svc.verify(androidRequest());
 
@@ -319,14 +342,18 @@ class SubscriptionVerificationServiceTest {
             RestTemplate rest = mock(RestTemplate.class);
             SubscriptionVerificationService svc = serviceWithGoogle(rest);
             when(rest.exchange(
-                    contains("/purchases/subscriptionsv2/tokens/token-001"),
-                    eq(HttpMethod.GET), any(), eq(String.class)))
-                .thenReturn(ResponseEntity.ok("{"
-                    + "\"subscriptionState\":\"SUBSCRIPTION_STATE_ACTIVE\","
-                    + "\"lineItems\":[{\"productId\":\"membership\","
-                    + "\"expiryTime\":\"2027-09-04T00:00:00Z\","
-                    + "\"autoRenewingPlan\":{\"autoRenewEnabled\":true},"
-                    + "\"offerDetails\":{\"basePlanId\":\"1y\"}}]}"));
+                            contains("/purchases/subscriptionsv2/tokens/token-001"),
+                            eq(HttpMethod.GET),
+                            any(),
+                            eq(String.class)))
+                    .thenReturn(
+                            ResponseEntity.ok(
+                                    "{"
+                                            + "\"subscriptionState\":\"SUBSCRIPTION_STATE_ACTIVE\","
+                                            + "\"lineItems\":[{\"productId\":\"membership\","
+                                            + "\"expiryTime\":\"2027-09-04T00:00:00Z\","
+                                            + "\"autoRenewingPlan\":{\"autoRenewEnabled\":true},"
+                                            + "\"offerDetails\":{\"basePlanId\":\"1y\"}}]}"));
 
             SubscriptionVerificationResult result = svc.verify(androidRequest());
 
@@ -340,17 +367,19 @@ class SubscriptionVerificationServiceTest {
             RestTemplate rest = mock(RestTemplate.class);
             SubscriptionVerificationService svc = serviceWithGoogle(rest);
             when(rest.exchange(
-                    contains("/purchases/subscriptionsv2/tokens/token-001"),
-                    eq(HttpMethod.GET), any(), eq(String.class)))
-                .thenReturn(ResponseEntity.ok("{"
-                    + "\"subscriptionState\":\"SUBSCRIPTION_STATE_ACTIVE\","
-                    + "\"lineItems\":["
-                    + "{\"productId\":\"membership\",\"expiryTime\":\"2026-10-04T00:00:00Z\","
-                    + " \"offerDetails\":{\"basePlanId\":\"1m\"}},"
-                    + "{\"productId\":\"membership\",\"expiryTime\":\"2027-09-04T00:00:00Z\","
-                    + " \"autoRenewingPlan\":{\"autoRenewEnabled\":true},"
-                    + " \"offerDetails\":{\"basePlanId\":\"1y\"}}"
-                    + "]}"));
+                            contains("/purchases/subscriptionsv2/tokens/token-001"),
+                            eq(HttpMethod.GET),
+                            any(),
+                            eq(String.class)))
+                    .thenReturn(
+                            ResponseEntity.ok(
+                                    "{\"subscriptionState\":\"SUBSCRIPTION_STATE_ACTIVE\","
+                                        + "\"lineItems\":["
+                                        + "{\"productId\":\"membership\",\"expiryTime\":\"2026-10-04T00:00:00Z\","
+                                        + " \"offerDetails\":{\"basePlanId\":\"1m\"}},"
+                                        + "{\"productId\":\"membership\",\"expiryTime\":\"2027-09-04T00:00:00Z\","
+                                        + " \"autoRenewingPlan\":{\"autoRenewEnabled\":true},"
+                                        + " \"offerDetails\":{\"basePlanId\":\"1y\"}}]}"));
 
             SubscriptionVerificationResult result = svc.verify(androidRequest());
 
@@ -364,14 +393,17 @@ class SubscriptionVerificationServiceTest {
             RestTemplate rest = mock(RestTemplate.class);
             SubscriptionVerificationService svc = serviceWithGoogle(rest);
             when(rest.exchange(
-                    contains("/purchases/subscriptionsv2/tokens/token-001"),
-                    eq(HttpMethod.GET), any(), eq(String.class)))
-                .thenReturn(ResponseEntity.ok(
-                    "{\"subscriptionState\":\"SUBSCRIPTION_STATE_PENDING\"}"));
+                            contains("/purchases/subscriptionsv2/tokens/token-001"),
+                            eq(HttpMethod.GET),
+                            any(),
+                            eq(String.class)))
+                    .thenReturn(
+                            ResponseEntity.ok(
+                                    "{\"subscriptionState\":\"SUBSCRIPTION_STATE_PENDING\"}"));
 
             assertThatThrownBy(() -> svc.verify(androidRequest()))
-                .isInstanceOf(CustomException.class)
-                .hasMessageContaining("error.iap.verification_failed");
+                    .isInstanceOf(CustomException.class)
+                    .hasMessageContaining("error.iap.verification_failed");
         }
 
         @Test
@@ -380,24 +412,28 @@ class SubscriptionVerificationServiceTest {
             RestTemplate rest = mock(RestTemplate.class);
             SubscriptionVerificationService svc = serviceWithGoogle(rest);
             when(rest.exchange(
-                    contains("/purchases/subscriptionsv2/tokens/token-001"),
-                    eq(HttpMethod.GET), any(), eq(String.class)))
-                .thenReturn(ResponseEntity.ok("{"
-                    + "\"subscriptionState\":\"SUBSCRIPTION_STATE_ACTIVE\","
-                    + "\"lineItems\":[{\"productId\":\"other_product\","
-                    + "\"expiryTime\":\"2026-10-04T00:00:00Z\"}]}"));
+                            contains("/purchases/subscriptionsv2/tokens/token-001"),
+                            eq(HttpMethod.GET),
+                            any(),
+                            eq(String.class)))
+                    .thenReturn(
+                            ResponseEntity.ok(
+                                    "{"
+                                            + "\"subscriptionState\":\"SUBSCRIPTION_STATE_ACTIVE\","
+                                            + "\"lineItems\":[{\"productId\":\"other_product\","
+                                            + "\"expiryTime\":\"2026-10-04T00:00:00Z\"}]}"));
 
             assertThatThrownBy(() -> svc.verify(androidRequest()))
-                .isInstanceOf(CustomException.class)
-                .hasMessageContaining("error.iap.product_mismatch");
+                    .isInstanceOf(CustomException.class)
+                    .hasMessageContaining("error.iap.product_mismatch");
         }
 
         @Test
         @DisplayName("서비스 계정 설정이 없으면 검증 실패로 처리된다")
         void google_missingServiceAccount_throws() {
             assertThatThrownBy(() -> service(true).verify(androidRequest()))
-                .isInstanceOf(CustomException.class)
-                .hasMessageContaining("error.iap.verification_failed");
+                    .isInstanceOf(CustomException.class)
+                    .hasMessageContaining("error.iap.verification_failed");
         }
 
         @SuppressWarnings("unchecked")
@@ -406,34 +442,45 @@ class SubscriptionVerificationServiceTest {
         void google_assertionAudience_isSingleString() throws Exception {
             RestTemplate rest = mock(RestTemplate.class);
             ArgumentCaptor<HttpEntity<MultiValueMap<String, String>>> tokenRequest =
-                ArgumentCaptor.forClass(HttpEntity.class);
-            SubscriptionVerificationService svc = new SubscriptionVerificationService(
-                true, "io.pinkspider.lut", writeFakeServiceAccountJson().toString(),
-                new IapAppleProperties());
+                    ArgumentCaptor.forClass(HttpEntity.class);
+            SubscriptionVerificationService svc =
+                    new SubscriptionVerificationService(
+                            true,
+                            "io.pinkspider.lut",
+                            writeFakeServiceAccountJson().toString(),
+                            new IapAppleProperties());
             svc.setRestTemplate(rest);
             when(rest.postForObject(
-                    eq("https://oauth2.googleapis.com/token"), tokenRequest.capture(), eq(String.class)))
-                .thenReturn("{\"access_token\":\"fake-token\"}");
+                            eq("https://oauth2.googleapis.com/token"),
+                            tokenRequest.capture(),
+                            eq(String.class)))
+                    .thenReturn("{\"access_token\":\"fake-token\"}");
             when(rest.exchange(
-                    contains("/purchases/subscriptionsv2/tokens/token-001"),
-                    eq(HttpMethod.GET), any(), eq(String.class)))
-                .thenReturn(ResponseEntity.ok("{"
-                    + "\"subscriptionState\":\"SUBSCRIPTION_STATE_ACTIVE\","
-                    + "\"startTime\":\"2026-09-04T00:00:00Z\","
-                    + "\"lineItems\":[{"
-                    + "  \"productId\":\"membership\","
-                    + "  \"expiryTime\":\"2027-09-04T00:00:00Z\","
-                    + "  \"autoRenewingPlan\":{\"autoRenewEnabled\":true},"
-                    + "  \"offerDetails\":{\"basePlanId\":\"1y\"}"
-                    + "}]}"));
+                            contains("/purchases/subscriptionsv2/tokens/token-001"),
+                            eq(HttpMethod.GET),
+                            any(),
+                            eq(String.class)))
+                    .thenReturn(
+                            ResponseEntity.ok(
+                                    "{"
+                                            + "\"subscriptionState\":\"SUBSCRIPTION_STATE_ACTIVE\","
+                                            + "\"startTime\":\"2026-09-04T00:00:00Z\","
+                                            + "\"lineItems\":[{"
+                                            + "  \"productId\":\"membership\","
+                                            + "  \"expiryTime\":\"2027-09-04T00:00:00Z\","
+                                            + "  \"autoRenewingPlan\":{\"autoRenewEnabled\":true},"
+                                            + "  \"offerDetails\":{\"basePlanId\":\"1y\"}"
+                                            + "}]}"));
 
             svc.verify(androidRequest());
 
             // jjwt 0.12 의 audience().add() 는 aud 를 배열로 직렬화한다 — 구글 OAuth2 토큰 엔드포인트는
             // 문자열 aud 만 허용하므로(invalid_grant: Failed audience check) single() 이어야 한다
             String assertion = tokenRequest.getValue().getBody().getFirst("assertion");
-            String payloadJson = new String(
-                Base64.getUrlDecoder().decode(assertion.split("\\.")[1]), StandardCharsets.UTF_8);
+            String payloadJson =
+                    new String(
+                            Base64.getUrlDecoder().decode(assertion.split("\\.")[1]),
+                            StandardCharsets.UTF_8);
             JsonNode aud = new ObjectMapper().readTree(payloadJson).path("aud");
             assertThat(aud.isTextual()).isTrue();
             assertThat(aud.asText()).isEqualTo("https://oauth2.googleapis.com/token");
@@ -444,13 +491,17 @@ class SubscriptionVerificationServiceTest {
             KeyPairGenerator keyGen = KeyPairGenerator.getInstance("RSA");
             keyGen.initialize(2048);
             KeyPair keyPair = keyGen.generateKeyPair();
-            String privateKeyPem = "-----BEGIN PRIVATE KEY-----\n"
-                + Base64.getEncoder().encodeToString(keyPair.getPrivate().getEncoded())
-                + "\n-----END PRIVATE KEY-----\n";
+            String privateKeyPem =
+                    "-----BEGIN PRIVATE KEY-----\n"
+                            + Base64.getEncoder().encodeToString(keyPair.getPrivate().getEncoded())
+                            + "\n-----END PRIVATE KEY-----\n";
 
-            Path serviceAccountFile = tempDir.resolve("service-account-" + System.nanoTime() + ".json");
-            String json = "{\"client_email\":\"svc@example.iam.gserviceaccount.com\",\"private_key\":\""
-                + privateKeyPem.replace("\n", "\\n") + "\"}";
+            Path serviceAccountFile =
+                    tempDir.resolve("service-account-" + System.nanoTime() + ".json");
+            String json =
+                    "{\"client_email\":\"svc@example.iam.gserviceaccount.com\",\"private_key\":\""
+                            + privateKeyPem.replace("\n", "\\n")
+                            + "\"}";
             Files.writeString(serviceAccountFile, json);
             return serviceAccountFile;
         }

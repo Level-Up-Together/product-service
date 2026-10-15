@@ -7,8 +7,8 @@ import java.util.Map;
 /**
  * 스토어 상품 → 내부 플랜 매핑 (LUT-450)
  *
- * <p><b>이 4줄이 두 스토어의 구조 차이를 흡수하는 유일한 지점이다.</b> 이 뒤의 모든 소비자(RN·웹·분석·CS)는
- * {@code MONTHLY}/{@code ANNUAL}만 본다.
+ * <p><b>이 4줄이 두 스토어의 구조 차이를 흡수하는 유일한 지점이다.</b> 이 뒤의 모든 소비자(RN·웹·분석·CS)는 {@code MONTHLY}/{@code
+ * ANNUAL}만 본다.
  *
  * <table border="1">
  *   <tr><th>platform</th><th>product_id</th><th>base_plan_id</th><th>→ 내부 플랜</th></tr>
@@ -18,9 +18,9 @@ import java.util.Map;
  *   <tr><td>android</td><td>membership</td><td>1y</td><td>ANNUAL</td></tr>
  * </table>
  *
- * <p>매핑 키는 반드시 {@code (platform, product_id, base_plan_id)} 3개 — iOS는 상품 ID만으로 플랜이
- * 결정되지만 <b>Android는 두 플랜의 상품 ID가 똑같이 {@code membership}</b>이라 base plan을 봐야 구분된다.
- * {@code product_id} 하나만 키로 잡으면 Android 연간 구독자가 월간으로 기록된다.
+ * <p>매핑 키는 반드시 {@code (platform, product_id, base_plan_id)} 3개 — iOS는 상품 ID만으로 플랜이 결정되지만
+ * <b>Android는 두 플랜의 상품 ID가 똑같이 {@code membership}</b>이라 base plan을 봐야 구분된다. {@code product_id} 하나만
+ * 키로 잡으면 Android 연간 구독자가 월간으로 기록된다.
  */
 public final class SubscriptionPlanMapping {
 

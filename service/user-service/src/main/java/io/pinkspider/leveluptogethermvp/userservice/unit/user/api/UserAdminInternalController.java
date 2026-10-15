@@ -6,16 +6,16 @@ import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.dto.admin.U
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.dto.admin.UserAdminPageResponse;
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.dto.admin.UserAdminResponse;
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.dto.admin.UserBlacklistAdminRequest;
-import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.dto.admin.UserSuspendFromReportRequest;
-import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.dto.admin.UserWarnFromReportRequest;
-import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.dto.admin.UserWarnFromReportResponse;
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.dto.admin.UserBlacklistAdminResponse;
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.dto.admin.UserBlacklistPageAdminResponse;
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.dto.admin.UserBriefAdminResponse;
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.dto.admin.UserDetailAdminResponse;
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.dto.admin.UserGuildInfoAdminResponse;
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.dto.admin.UserStatisticsAdminResponse;
+import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.dto.admin.UserSuspendFromReportRequest;
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.dto.admin.UserTitleAdminResponse;
+import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.dto.admin.UserWarnFromReportRequest;
+import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.dto.admin.UserWarnFromReportResponse;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
@@ -46,93 +46,92 @@ public class UserAdminInternalController {
             @RequestParam(required = false, defaultValue = "createdAt") String sortBy,
             @RequestParam(required = false, defaultValue = "DESC") String sortDirection) {
         return ApiResult.<UserAdminPageResponse>builder()
-            .value(userAdminInternalService.searchUsers(keyword, provider, page, size, sortBy, sortDirection))
-            .build();
+                .value(
+                        userAdminInternalService.searchUsers(
+                                keyword, provider, page, size, sortBy, sortDirection))
+                .build();
     }
 
     @GetMapping("/{userId}")
     public ApiResult<UserAdminResponse> getUser(@PathVariable String userId) {
         return ApiResult.<UserAdminResponse>builder()
-            .value(userAdminInternalService.getUser(userId))
-            .build();
+                .value(userAdminInternalService.getUser(userId))
+                .build();
     }
 
     @GetMapping("/email/{email}")
     public ApiResult<UserAdminResponse> getUserByEmail(@PathVariable String email) {
         return ApiResult.<UserAdminResponse>builder()
-            .value(userAdminInternalService.getUserByEmail(email))
-            .build();
+                .value(userAdminInternalService.getUserByEmail(email))
+                .build();
     }
 
     @GetMapping("/statistics")
     public ApiResult<UserStatisticsAdminResponse> getStatistics() {
         return ApiResult.<UserStatisticsAdminResponse>builder()
-            .value(userAdminInternalService.getStatistics())
-            .build();
+                .value(userAdminInternalService.getStatistics())
+                .build();
     }
 
     @GetMapping("/{userId}/detail")
     public ApiResult<UserDetailAdminResponse> getUserDetail(@PathVariable String userId) {
         return ApiResult.<UserDetailAdminResponse>builder()
-            .value(userAdminInternalService.getUserDetail(userId))
-            .build();
+                .value(userAdminInternalService.getUserDetail(userId))
+                .build();
     }
 
     @GetMapping("/{userId}/titles")
     public ApiResult<List<UserTitleAdminResponse>> getUserTitles(@PathVariable String userId) {
         return ApiResult.<List<UserTitleAdminResponse>>builder()
-            .value(userAdminInternalService.getUserTitles(userId))
-            .build();
+                .value(userAdminInternalService.getUserTitles(userId))
+                .build();
     }
 
     @GetMapping("/{userId}/achievements")
-    public ApiResult<List<UserAchievementAdminResponse>> getUserAchievements(@PathVariable String userId) {
+    public ApiResult<List<UserAchievementAdminResponse>> getUserAchievements(
+            @PathVariable String userId) {
         return ApiResult.<List<UserAchievementAdminResponse>>builder()
-            .value(userAdminInternalService.getUserAchievements(userId))
-            .build();
+                .value(userAdminInternalService.getUserAchievements(userId))
+                .build();
     }
 
     @GetMapping("/{userId}/guild")
     public ApiResult<UserGuildInfoAdminResponse> getUserGuildInfo(@PathVariable String userId) {
         return ApiResult.<UserGuildInfoAdminResponse>builder()
-            .value(userAdminInternalService.getUserGuildInfo(userId))
-            .build();
+                .value(userAdminInternalService.getUserGuildInfo(userId))
+                .build();
     }
 
     @DeleteMapping("/{userId}/profile-image")
     public ApiResult<UserAdminResponse> resetProfileImage(
-            @PathVariable String userId,
-            @RequestParam(required = false) String reason) {
+            @PathVariable String userId, @RequestParam(required = false) String reason) {
         return ApiResult.<UserAdminResponse>builder()
-            .value(userAdminInternalService.resetProfileImage(userId, reason))
-            .build();
+                .value(userAdminInternalService.resetProfileImage(userId, reason))
+                .build();
     }
 
     @PostMapping("/{userId}/blacklist")
     public ApiResult<UserBlacklistAdminResponse> addToBlacklist(
-            @PathVariable String userId,
-            @RequestBody UserBlacklistAdminRequest request) {
+            @PathVariable String userId, @RequestBody UserBlacklistAdminRequest request) {
         return ApiResult.<UserBlacklistAdminResponse>builder()
-            .value(userAdminInternalService.addToBlacklist(userId, request))
-            .build();
+                .value(userAdminInternalService.addToBlacklist(userId, request))
+                .build();
     }
 
     @PostMapping("/{userId}/suspend-from-report")
     public ApiResult<UserBlacklistAdminResponse> suspendFromReport(
-            @PathVariable String userId,
-            @RequestBody UserSuspendFromReportRequest request) {
+            @PathVariable String userId, @RequestBody UserSuspendFromReportRequest request) {
         return ApiResult.<UserBlacklistAdminResponse>builder()
-            .value(userAdminInternalService.suspendFromReport(userId, request))
-            .build();
+                .value(userAdminInternalService.suspendFromReport(userId, request))
+                .build();
     }
 
     @PostMapping("/{userId}/warn-from-report")
     public ApiResult<UserWarnFromReportResponse> warnFromReport(
-            @PathVariable String userId,
-            @RequestBody UserWarnFromReportRequest request) {
+            @PathVariable String userId, @RequestBody UserWarnFromReportRequest request) {
         return ApiResult.<UserWarnFromReportResponse>builder()
-            .value(userAdminInternalService.warnFromReport(userId, request))
-            .build();
+                .value(userAdminInternalService.warnFromReport(userId, request))
+                .build();
     }
 
     @DeleteMapping("/{userId}/blacklist")
@@ -145,29 +144,35 @@ public class UserAdminInternalController {
     }
 
     @GetMapping("/{userId}/blacklist/history")
-    public ApiResult<List<UserBlacklistAdminResponse>> getBlacklistHistory(@PathVariable String userId) {
+    public ApiResult<List<UserBlacklistAdminResponse>> getBlacklistHistory(
+            @PathVariable String userId) {
         return ApiResult.<List<UserBlacklistAdminResponse>>builder()
-            .value(userAdminInternalService.getBlacklistHistory(userId))
-            .build();
+                .value(userAdminInternalService.getBlacklistHistory(userId))
+                .build();
     }
 
     @GetMapping("/blacklist")
     public ApiResult<UserBlacklistPageAdminResponse> getBlacklistList(
             @RequestParam(required = false) String blacklistType,
             @RequestParam(required = false) Boolean activeOnly,
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime startDate,
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime endDate,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
+                    LocalDateTime startDate,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
+                    LocalDateTime endDate,
             @RequestParam(required = false, defaultValue = "0") int page,
             @RequestParam(required = false, defaultValue = "20") int size) {
         return ApiResult.<UserBlacklistPageAdminResponse>builder()
-            .value(userAdminInternalService.getBlacklistList(blacklistType, activeOnly, startDate, endDate, page, size))
-            .build();
+                .value(
+                        userAdminInternalService.getBlacklistList(
+                                blacklistType, activeOnly, startDate, endDate, page, size))
+                .build();
     }
 
     @PostMapping("/batch")
-    public ApiResult<Map<String, UserBriefAdminResponse>> getUsersByIds(@RequestBody List<String> userIds) {
+    public ApiResult<Map<String, UserBriefAdminResponse>> getUsersByIds(
+            @RequestBody List<String> userIds) {
         return ApiResult.<Map<String, UserBriefAdminResponse>>builder()
-            .value(userAdminInternalService.getUsersByIds(userIds))
-            .build();
+                .value(userAdminInternalService.getUsersByIds(userIds))
+                .build();
     }
 }

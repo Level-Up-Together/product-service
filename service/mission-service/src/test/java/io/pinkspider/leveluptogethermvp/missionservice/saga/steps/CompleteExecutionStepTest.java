@@ -9,13 +9,14 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import io.pinkspider.global.enums.MissionStatus;
 import io.pinkspider.global.saga.SagaStepResult;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.Mission;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.MissionExecution;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.MissionParticipant;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.ExecutionStatus;
-import io.pinkspider.global.enums.MissionStatus;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionExecutionMode;
+import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionSource;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionType;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionVisibility;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.ParticipantStatus;
@@ -37,14 +38,11 @@ import org.mockito.junit.jupiter.MockitoExtension;
 @DisplayName("CompleteExecutionStep 단위 테스트")
 class CompleteExecutionStepTest {
 
-    @Mock
-    private MissionExecutionRepository executionRepository;
+    @Mock private MissionExecutionRepository executionRepository;
 
-    @Mock
-    private DailyMissionInstanceRepository dailyMissionInstanceRepository;
+    @Mock private DailyMissionInstanceRepository dailyMissionInstanceRepository;
 
-    @InjectMocks
-    private CompleteExecutionStep completeExecutionStep;
+    @InjectMocks private CompleteExecutionStep completeExecutionStep;
 
     private static final String TEST_USER_ID = "test-user-123";
     private static final Long EXECUTION_ID = 1L;
@@ -56,30 +54,33 @@ class CompleteExecutionStepTest {
 
     @BeforeEach
     void setUp() {
-        mission = Mission.builder()
-            .title("30일 운동 챌린지")
-            .description("매일 운동하기")
-            .creatorId(TEST_USER_ID)
-            .status(MissionStatus.IN_PROGRESS)
-            .visibility(MissionVisibility.PUBLIC)
-            .type(MissionType.PERSONAL)
-            .expPerCompletion(50)
-            .build();
+        mission =
+                Mission.builder()
+                        .title("30일 운동 챌린지")
+                        .description("매일 운동하기")
+                        .creatorId(TEST_USER_ID)
+                        .status(MissionStatus.IN_PROGRESS)
+                        .visibility(MissionVisibility.PUBLIC)
+                        .type(MissionType.PERSONAL)
+                        .expPerCompletion(50)
+                        .build();
         setId(mission, 1L);
 
-        participant = MissionParticipant.builder()
-            .mission(mission)
-            .userId(TEST_USER_ID)
-            .status(ParticipantStatus.IN_PROGRESS)
-            .progress(5)
-            .build();
+        participant =
+                MissionParticipant.builder()
+                        .mission(mission)
+                        .userId(TEST_USER_ID)
+                        .status(ParticipantStatus.IN_PROGRESS)
+                        .progress(5)
+                        .build();
         setId(participant, 1L);
 
-        execution = MissionExecution.builder()
-            .participant(participant)
-            .executionDate(LocalDate.now())
-            .status(ExecutionStatus.IN_PROGRESS)
-            .build();
+        execution =
+                MissionExecution.builder()
+                        .participant(participant)
+                        .executionDate(LocalDate.now())
+                        .status(ExecutionStatus.IN_PROGRESS)
+                        .build();
         setId(execution, EXECUTION_ID);
         // 시작 시간 설정 (complete() 메서드에서 필요)
         execution.setStartedAt(LocalDateTime.now().minusMinutes(30));
@@ -89,8 +90,8 @@ class CompleteExecutionStepTest {
         context.setParticipant(participant);
         context.setMission(mission);
         context.addCompensationData(
-            MissionCompletionContext.CompensationKeys.EXECUTION_STATUS_BEFORE,
-            ExecutionStatus.IN_PROGRESS);
+                MissionCompletionContext.CompensationKeys.EXECUTION_STATUS_BEFORE,
+                ExecutionStatus.IN_PROGRESS);
     }
 
     @Test
@@ -108,7 +109,7 @@ class CompleteExecutionStepTest {
         void execute_success() {
             // given
             when(executionRepository.save(any(MissionExecution.class)))
-                .thenAnswer(invocation -> invocation.getArgument(0));
+                    .thenAnswer(invocation -> invocation.getArgument(0));
 
             // when
             SagaStepResult result = completeExecutionStep.execute(context);
@@ -173,7 +174,7 @@ class CompleteExecutionStepTest {
             // given
             context.setNote(null);
             when(executionRepository.save(any(MissionExecution.class)))
-                .thenAnswer(invocation -> invocation.getArgument(0));
+                    .thenAnswer(invocation -> invocation.getArgument(0));
 
             // when
             SagaStepResult result = completeExecutionStep.execute(context);
@@ -184,47 +185,52 @@ class CompleteExecutionStepTest {
         }
 
         @Test
-        @DisplayName("목표시간 미션에서 경과시간이 목표시간 이상이면 보너스 경험치를 지급한다")
+        @DisplayName("미션북(SYSTEM) 목표시간 미션에서 경과시간이 목표시간 이상이면 보너스 경험치를 지급한다")
         void execute_targetDurationMission_fullBonus() {
             // given
-            Mission targetMission = Mission.builder()
-                .title("30분 러닝")
-                .creatorId(TEST_USER_ID)
-                .status(MissionStatus.IN_PROGRESS)
-                .visibility(MissionVisibility.PUBLIC)
-                .type(MissionType.PERSONAL)
-                .targetDurationMinutes(30)
-                .expPerCompletion(50)
-                .build();
+            Mission targetMission =
+                    Mission.builder()
+                            .title("30분 러닝")
+                            .creatorId(TEST_USER_ID)
+                            .status(MissionStatus.IN_PROGRESS)
+                            .visibility(MissionVisibility.PUBLIC)
+                            .type(MissionType.PERSONAL)
+                            .source(MissionSource.SYSTEM)
+                            .targetDurationMinutes(30)
+                            .expPerCompletion(50)
+                            .build();
             setId(targetMission, 2L);
 
-            MissionParticipant targetParticipant = MissionParticipant.builder()
-                .mission(targetMission)
-                .userId(TEST_USER_ID)
-                .status(ParticipantStatus.IN_PROGRESS)
-                .progress(0)
-                .build();
+            MissionParticipant targetParticipant =
+                    MissionParticipant.builder()
+                            .mission(targetMission)
+                            .userId(TEST_USER_ID)
+                            .status(ParticipantStatus.IN_PROGRESS)
+                            .progress(0)
+                            .build();
             setId(targetParticipant, 2L);
 
-            MissionExecution targetExecution = MissionExecution.builder()
-                .participant(targetParticipant)
-                .executionDate(LocalDate.now())
-                .status(ExecutionStatus.IN_PROGRESS)
-                .build();
+            MissionExecution targetExecution =
+                    MissionExecution.builder()
+                            .participant(targetParticipant)
+                            .executionDate(LocalDate.now())
+                            .status(ExecutionStatus.IN_PROGRESS)
+                            .build();
             setId(targetExecution, 2L);
             // 40분 경과 (목표 30분 이상)
             targetExecution.setStartedAt(LocalDateTime.now().minusMinutes(40));
 
-            MissionCompletionContext targetContext = new MissionCompletionContext(2L, TEST_USER_ID, null);
+            MissionCompletionContext targetContext =
+                    new MissionCompletionContext(2L, TEST_USER_ID, null);
             targetContext.setExecution(targetExecution);
             targetContext.setParticipant(targetParticipant);
             targetContext.setMission(targetMission);
             targetContext.addCompensationData(
-                MissionCompletionContext.CompensationKeys.EXECUTION_STATUS_BEFORE,
-                ExecutionStatus.IN_PROGRESS);
+                    MissionCompletionContext.CompensationKeys.EXECUTION_STATUS_BEFORE,
+                    ExecutionStatus.IN_PROGRESS);
 
             when(executionRepository.save(any(MissionExecution.class)))
-                .thenAnswer(invocation -> invocation.getArgument(0));
+                    .thenAnswer(invocation -> invocation.getArgument(0));
 
             // when
             SagaStepResult result = completeExecutionStep.execute(targetContext);
@@ -236,47 +242,108 @@ class CompleteExecutionStepTest {
         }
 
         @Test
+        @DisplayName("LUT-551: 유저 생성(USER) 타이머 미션은 목표시간 도달 시 보너스 없이 목표분으로 EXP 를 캡한다")
+        void execute_userTimerMission_targetReached_noBonusCappedAtTarget() {
+            // given — source 미지정 = USER (유저 생성 미션), 보너스 50 이 저장돼 있어도 적용되지 않아야 한다
+            Mission userMission =
+                    Mission.builder()
+                            .title("30분 집중")
+                            .creatorId(TEST_USER_ID)
+                            .status(MissionStatus.IN_PROGRESS)
+                            .visibility(MissionVisibility.PUBLIC)
+                            .type(MissionType.PERSONAL)
+                            .targetDurationMinutes(30)
+                            .bonusExpOnFullCompletion(50)
+                            .build();
+            setId(userMission, 9L);
+
+            MissionParticipant userParticipant =
+                    MissionParticipant.builder()
+                            .mission(userMission)
+                            .userId(TEST_USER_ID)
+                            .status(ParticipantStatus.IN_PROGRESS)
+                            .progress(0)
+                            .build();
+            setId(userParticipant, 9L);
+
+            MissionExecution userExecution =
+                    MissionExecution.builder()
+                            .participant(userParticipant)
+                            .executionDate(LocalDate.now())
+                            .status(ExecutionStatus.IN_PROGRESS)
+                            .build();
+            setId(userExecution, 9L);
+            // 40분 경과 (목표 30분 초과 — 스케줄러 지연 등으로 늦게 완료된 상황)
+            userExecution.setStartedAt(LocalDateTime.now().minusMinutes(40));
+
+            MissionCompletionContext userContext =
+                    new MissionCompletionContext(9L, TEST_USER_ID, null);
+            userContext.setExecution(userExecution);
+            userContext.setParticipant(userParticipant);
+            userContext.setMission(userMission);
+            userContext.addCompensationData(
+                    MissionCompletionContext.CompensationKeys.EXECUTION_STATUS_BEFORE,
+                    ExecutionStatus.IN_PROGRESS);
+
+            when(executionRepository.save(any(MissionExecution.class)))
+                    .thenAnswer(invocation -> invocation.getArgument(0));
+
+            // when
+            SagaStepResult result = completeExecutionStep.execute(userContext);
+
+            // then — 목표분(30)으로 캡, 보너스 플래그 없음
+            assertThat(result.isSuccess()).isTrue();
+            assertThat(userExecution.getExpEarned()).isEqualTo(30);
+            assertThat(userContext.isFullCompletionBonusGranted()).isFalse();
+            assertThat(userContext.getUserExpEarned()).isEqualTo(30);
+        }
+
+        @Test
         @DisplayName("목표시간 미션에서 경과시간이 목표시간 미만이면 경과시간 기반 경험치를 지급한다")
         void execute_targetDurationMission_partialTime() {
             // given
-            Mission targetMission = Mission.builder()
-                .title("30분 러닝")
-                .creatorId(TEST_USER_ID)
-                .status(MissionStatus.IN_PROGRESS)
-                .visibility(MissionVisibility.PUBLIC)
-                .type(MissionType.PERSONAL)
-                .targetDurationMinutes(30)
-                .expPerCompletion(50)
-                .build();
+            Mission targetMission =
+                    Mission.builder()
+                            .title("30분 러닝")
+                            .creatorId(TEST_USER_ID)
+                            .status(MissionStatus.IN_PROGRESS)
+                            .visibility(MissionVisibility.PUBLIC)
+                            .type(MissionType.PERSONAL)
+                            .targetDurationMinutes(30)
+                            .expPerCompletion(50)
+                            .build();
             setId(targetMission, 3L);
 
-            MissionParticipant targetParticipant = MissionParticipant.builder()
-                .mission(targetMission)
-                .userId(TEST_USER_ID)
-                .status(ParticipantStatus.IN_PROGRESS)
-                .progress(0)
-                .build();
+            MissionParticipant targetParticipant =
+                    MissionParticipant.builder()
+                            .mission(targetMission)
+                            .userId(TEST_USER_ID)
+                            .status(ParticipantStatus.IN_PROGRESS)
+                            .progress(0)
+                            .build();
             setId(targetParticipant, 3L);
 
-            MissionExecution targetExecution = MissionExecution.builder()
-                .participant(targetParticipant)
-                .executionDate(LocalDate.now())
-                .status(ExecutionStatus.IN_PROGRESS)
-                .build();
+            MissionExecution targetExecution =
+                    MissionExecution.builder()
+                            .participant(targetParticipant)
+                            .executionDate(LocalDate.now())
+                            .status(ExecutionStatus.IN_PROGRESS)
+                            .build();
             setId(targetExecution, 3L);
             // 10분 경과 (목표 30분 미만)
             targetExecution.setStartedAt(LocalDateTime.now().minusMinutes(10));
 
-            MissionCompletionContext targetContext = new MissionCompletionContext(3L, TEST_USER_ID, null);
+            MissionCompletionContext targetContext =
+                    new MissionCompletionContext(3L, TEST_USER_ID, null);
             targetContext.setExecution(targetExecution);
             targetContext.setParticipant(targetParticipant);
             targetContext.setMission(targetMission);
             targetContext.addCompensationData(
-                MissionCompletionContext.CompensationKeys.EXECUTION_STATUS_BEFORE,
-                ExecutionStatus.IN_PROGRESS);
+                    MissionCompletionContext.CompensationKeys.EXECUTION_STATUS_BEFORE,
+                    ExecutionStatus.IN_PROGRESS);
 
             when(executionRepository.save(any(MissionExecution.class)))
-                .thenAnswer(invocation -> invocation.getArgument(0));
+                    .thenAnswer(invocation -> invocation.getArgument(0));
 
             // when
             SagaStepResult result = completeExecutionStep.execute(targetContext);
@@ -291,43 +358,47 @@ class CompleteExecutionStepTest {
         @DisplayName("길드 미션이면 사용자 EXP 와 동일한 시간 기반 길드 EXP 를 컨텍스트에 세팅한다 (QA-174)")
         void execute_guildMission_setsGuildExpEqualToTimeBasedExp() {
             // given
-            Mission guildMission = Mission.builder()
-                .title("길드 미션")
-                .creatorId(TEST_USER_ID)
-                .status(MissionStatus.IN_PROGRESS)
-                .visibility(MissionVisibility.PUBLIC)
-                .type(MissionType.GUILD)
-                .guildId("777")
-                .expPerCompletion(50)
-                .build();
+            Mission guildMission =
+                    Mission.builder()
+                            .title("길드 미션")
+                            .creatorId(TEST_USER_ID)
+                            .status(MissionStatus.IN_PROGRESS)
+                            .visibility(MissionVisibility.PUBLIC)
+                            .type(MissionType.GUILD)
+                            .guildId("777")
+                            .expPerCompletion(50)
+                            .build();
             setId(guildMission, 7L);
 
-            MissionParticipant guildParticipant = MissionParticipant.builder()
-                .mission(guildMission)
-                .userId(TEST_USER_ID)
-                .status(ParticipantStatus.IN_PROGRESS)
-                .build();
+            MissionParticipant guildParticipant =
+                    MissionParticipant.builder()
+                            .mission(guildMission)
+                            .userId(TEST_USER_ID)
+                            .status(ParticipantStatus.IN_PROGRESS)
+                            .build();
             setId(guildParticipant, 7L);
 
-            MissionExecution guildExecution = MissionExecution.builder()
-                .participant(guildParticipant)
-                .executionDate(LocalDate.now())
-                .status(ExecutionStatus.IN_PROGRESS)
-                .build();
+            MissionExecution guildExecution =
+                    MissionExecution.builder()
+                            .participant(guildParticipant)
+                            .executionDate(LocalDate.now())
+                            .status(ExecutionStatus.IN_PROGRESS)
+                            .build();
             setId(guildExecution, 7L);
             guildExecution.setStartedAt(LocalDateTime.now().minusMinutes(45));
 
-            MissionCompletionContext guildContext = new MissionCompletionContext(7L, TEST_USER_ID, null);
+            MissionCompletionContext guildContext =
+                    new MissionCompletionContext(7L, TEST_USER_ID, null);
             guildContext.setExecution(guildExecution);
             guildContext.setParticipant(guildParticipant);
             guildContext.setMission(guildMission);
             guildContext.setGuildId(777L);
             guildContext.addCompensationData(
-                MissionCompletionContext.CompensationKeys.EXECUTION_STATUS_BEFORE,
-                ExecutionStatus.IN_PROGRESS);
+                    MissionCompletionContext.CompensationKeys.EXECUTION_STATUS_BEFORE,
+                    ExecutionStatus.IN_PROGRESS);
 
             when(executionRepository.save(any(MissionExecution.class)))
-                .thenAnswer(invocation -> invocation.getArgument(0));
+                    .thenAnswer(invocation -> invocation.getArgument(0));
 
             // when
             SagaStepResult result = completeExecutionStep.execute(guildContext);
@@ -345,7 +416,7 @@ class CompleteExecutionStepTest {
         void execute_nonGuildMission_keepsGuildExpZero() {
             // given
             when(executionRepository.save(any(MissionExecution.class)))
-                .thenAnswer(invocation -> invocation.getArgument(0));
+                    .thenAnswer(invocation -> invocation.getArgument(0));
 
             // when
             SagaStepResult result = completeExecutionStep.execute(context);
@@ -361,7 +432,7 @@ class CompleteExecutionStepTest {
             // given - 2시간 27분(147분) 수행 후 수동 완료
             execution.setStartedAt(LocalDateTime.now().minusMinutes(147));
             when(executionRepository.save(any(MissionExecution.class)))
-                .thenAnswer(invocation -> invocation.getArgument(0));
+                    .thenAnswer(invocation -> invocation.getArgument(0));
 
             // when
             SagaStepResult result = completeExecutionStep.execute(context);
@@ -376,8 +447,8 @@ class CompleteExecutionStepTest {
         @DisplayName("shouldExecute는 pinned 미션에서 false를 반환한다")
         void shouldExecute_pinned_returnsFalse() {
             // given
-            MissionCompletionContext pinnedContext = MissionCompletionContext.forPinned(
-                1L, TEST_USER_ID, null, false);
+            MissionCompletionContext pinnedContext =
+                    MissionCompletionContext.forPinned(1L, TEST_USER_ID, null, false);
 
             // when
             boolean result = completeExecutionStep.shouldExecute().test(pinnedContext);
@@ -390,7 +461,8 @@ class CompleteExecutionStepTest {
         @DisplayName("shouldExecute는 일반 미션에서 true를 반환한다")
         void shouldExecute_regular_returnsTrue() {
             // given
-            MissionCompletionContext regularContext = new MissionCompletionContext(1L, TEST_USER_ID, null);
+            MissionCompletionContext regularContext =
+                    new MissionCompletionContext(1L, TEST_USER_ID, null);
 
             // when
             boolean result = completeExecutionStep.shouldExecute().test(regularContext);
@@ -404,17 +476,17 @@ class CompleteExecutionStepTest {
         void execute_nonPinnedMission_deletesFuturePendingExecutions() {
             // given
             when(executionRepository.save(any(MissionExecution.class)))
-                .thenAnswer(invocation -> invocation.getArgument(0));
-            when(executionRepository.deleteFuturePendingExecutions(anyLong(), any()))
-                .thenReturn(3);
+                    .thenAnswer(invocation -> invocation.getArgument(0));
+            when(executionRepository.deleteFuturePendingExecutions(anyLong(), any())).thenReturn(3);
 
             // when
             SagaStepResult result = completeExecutionStep.execute(context);
 
             // then
             assertThat(result.isSuccess()).isTrue();
-            verify(executionRepository).deleteFuturePendingExecutions(
-                eq(participant.getId()), eq(execution.getExecutionDate()));
+            verify(executionRepository)
+                    .deleteFuturePendingExecutions(
+                            eq(participant.getId()), eq(execution.getExecutionDate()));
         }
 
         @Test
@@ -423,11 +495,12 @@ class CompleteExecutionStepTest {
             // given
             mission.setExecutionMode(MissionExecutionMode.SIMPLE);
             when(executionRepository.countSimpleCompletedByUserIdAndDate(eq(TEST_USER_ID), any()))
-                .thenReturn(3L);
-            when(dailyMissionInstanceRepository.countSimpleCompletedByUserIdAndDate(eq(TEST_USER_ID), any()))
-                .thenReturn(2L);
+                    .thenReturn(3L);
+            when(dailyMissionInstanceRepository.countSimpleCompletedByUserIdAndDate(
+                            eq(TEST_USER_ID), any()))
+                    .thenReturn(2L);
             when(executionRepository.save(any(MissionExecution.class)))
-                .thenAnswer(invocation -> invocation.getArgument(0));
+                    .thenAnswer(invocation -> invocation.getArgument(0));
 
             // when
             SagaStepResult result = completeExecutionStep.execute(context);
@@ -445,11 +518,12 @@ class CompleteExecutionStepTest {
             // given
             mission.setExecutionMode(MissionExecutionMode.SIMPLE);
             when(executionRepository.countSimpleCompletedByUserIdAndDate(eq(TEST_USER_ID), any()))
-                .thenReturn(7L);
-            when(dailyMissionInstanceRepository.countSimpleCompletedByUserIdAndDate(eq(TEST_USER_ID), any()))
-                .thenReturn(3L);
+                    .thenReturn(7L);
+            when(dailyMissionInstanceRepository.countSimpleCompletedByUserIdAndDate(
+                            eq(TEST_USER_ID), any()))
+                    .thenReturn(3L);
             when(executionRepository.save(any(MissionExecution.class)))
-                .thenAnswer(invocation -> invocation.getArgument(0));
+                    .thenAnswer(invocation -> invocation.getArgument(0));
 
             // when
             SagaStepResult result = completeExecutionStep.execute(context);
@@ -467,11 +541,12 @@ class CompleteExecutionStepTest {
             // given
             mission.setExecutionMode(MissionExecutionMode.SIMPLE);
             when(executionRepository.countSimpleCompletedByUserIdAndDate(eq(TEST_USER_ID), any()))
-                .thenReturn(15L);
-            when(dailyMissionInstanceRepository.countSimpleCompletedByUserIdAndDate(eq(TEST_USER_ID), any()))
-                .thenReturn(0L);
+                    .thenReturn(15L);
+            when(dailyMissionInstanceRepository.countSimpleCompletedByUserIdAndDate(
+                            eq(TEST_USER_ID), any()))
+                    .thenReturn(0L);
             when(executionRepository.save(any(MissionExecution.class)))
-                .thenAnswer(invocation -> invocation.getArgument(0));
+                    .thenAnswer(invocation -> invocation.getArgument(0));
 
             // when
             SagaStepResult result = completeExecutionStep.execute(context);
@@ -487,7 +562,7 @@ class CompleteExecutionStepTest {
         void execute_timedMode_skipsSimpleCountQuery() {
             // given (default: TIMED)
             when(executionRepository.save(any(MissionExecution.class)))
-                .thenAnswer(invocation -> invocation.getArgument(0));
+                    .thenAnswer(invocation -> invocation.getArgument(0));
 
             // when
             SagaStepResult result = completeExecutionStep.execute(context);
@@ -495,7 +570,8 @@ class CompleteExecutionStepTest {
             // then
             assertThat(result.isSuccess()).isTrue();
             verify(executionRepository, never()).countSimpleCompletedByUserIdAndDate(any(), any());
-            verify(dailyMissionInstanceRepository, never()).countSimpleCompletedByUserIdAndDate(any(), any());
+            verify(dailyMissionInstanceRepository, never())
+                    .countSimpleCompletedByUserIdAndDate(any(), any());
             assertThat(context.isDailySimpleExpCapped()).isFalse();
         }
     }
@@ -514,7 +590,7 @@ class CompleteExecutionStepTest {
             execution.setNote("완료 메모");
 
             when(executionRepository.save(any(MissionExecution.class)))
-                .thenAnswer(invocation -> invocation.getArgument(0));
+                    .thenAnswer(invocation -> invocation.getArgument(0));
 
             // when
             SagaStepResult result = completeExecutionStep.compensate(context);

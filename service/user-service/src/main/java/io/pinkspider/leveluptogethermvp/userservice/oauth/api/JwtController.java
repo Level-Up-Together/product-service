@@ -27,22 +27,21 @@ public class JwtController {
     private final JwtService jwtService;
 
     @PostMapping("/reissue")
-    public ApiResult<ReissueJwtResponseDto> reissue(@Valid @RequestBody RefreshTokenRequestDto requestDto) {
+    public ApiResult<ReissueJwtResponseDto> reissue(
+            @Valid @RequestBody RefreshTokenRequestDto requestDto) {
 
-//        String accessToken = headers.getFirst(HttpHeaders.AUTHORIZATION);
-//        String refreshToken = requestDto.getRefreshToken();
-//
-//        assert accessToken != null;
-//        JwtTokenVo jwtTokenVo = jwtService.reissueJwt(accessToken, refreshToken);
-//
-//        return ApiResult.<ReissueJwtResponseDto>builder()
-//            .value(new ReissueJwtResponseDto(jwtTokenVo))
-//            .build();
+        //        String accessToken = headers.getFirst(HttpHeaders.AUTHORIZATION);
+        //        String refreshToken = requestDto.getRefreshToken();
+        //
+        //        assert accessToken != null;
+        //        JwtTokenVo jwtTokenVo = jwtService.reissueJwt(accessToken, refreshToken);
+        //
+        //        return ApiResult.<ReissueJwtResponseDto>builder()
+        //            .value(new ReissueJwtResponseDto(jwtTokenVo))
+        //            .build();
         ReissueJwtResponseDto tokenResponseDto = jwtService.reissue(requestDto);
 
-        return ApiResult.<ReissueJwtResponseDto>builder()
-            .value(tokenResponseDto)
-            .build();
+        return ApiResult.<ReissueJwtResponseDto>builder().value(tokenResponseDto).build();
     }
 
     @PostMapping("/logout")
@@ -61,17 +60,13 @@ public class JwtController {
     public ApiResult<SessionsResponseDto> getActiveSessions(HttpServletRequest request) {
         SessionsResponseDto sessions = jwtService.getActiveSessions(request);
 
-        return ApiResult.<SessionsResponseDto>builder()
-            .value(sessions)
-            .build();
+        return ApiResult.<SessionsResponseDto>builder().value(sessions).build();
     }
 
     @GetMapping("/token-status")
     public ApiResult<TokenStatusResponseDto> getTokenStatus(HttpServletRequest request) {
         TokenStatusResponseDto status = jwtService.getTokenStatus(request);
 
-        return ApiResult.<TokenStatusResponseDto>builder()
-            .value(status)
-            .build();
+        return ApiResult.<TokenStatusResponseDto>builder().value(status).build();
     }
 }

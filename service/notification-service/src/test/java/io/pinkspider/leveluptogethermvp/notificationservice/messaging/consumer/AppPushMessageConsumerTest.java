@@ -104,7 +104,10 @@ class AppPushMessageConsumerTest {
                         .build();
         when(notificationService.localizePushText(
                         USER_ID, NotificationType.INQUIRY_REPLIED, "결제 문의"))
-                .thenReturn(new String[] {"Your inquiry has been answered", "Check the reply to 결제 문의."});
+                .thenReturn(
+                        new String[] {
+                            "Your inquiry has been answered", "Check the reply to 결제 문의."
+                        });
 
         consumer.onMessage(toRecord(message));
 

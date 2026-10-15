@@ -9,6 +9,8 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import io.pinkspider.global.enums.TitlePosition;
+import io.pinkspider.global.enums.TitleRarity;
 import io.pinkspider.global.exception.CustomException;
 import io.pinkspider.leveluptogethermvp.gamificationservice.achievement.domain.dto.TitleAdminPageResponse;
 import io.pinkspider.leveluptogethermvp.gamificationservice.achievement.domain.dto.TitleAdminRequest;
@@ -19,8 +21,6 @@ import io.pinkspider.leveluptogethermvp.gamificationservice.domain.entity.Title;
 import io.pinkspider.leveluptogethermvp.gamificationservice.domain.enums.TitleAcquisitionType;
 import io.pinkspider.leveluptogethermvp.gamificationservice.infrastructure.AchievementRepository;
 import io.pinkspider.leveluptogethermvp.gamificationservice.infrastructure.TitleRepository;
-import io.pinkspider.global.enums.TitlePosition;
-import io.pinkspider.global.enums.TitleRarity;
 import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.DisplayName;
@@ -38,43 +38,43 @@ import org.springframework.data.domain.Pageable;
 @ExtendWith(MockitoExtension.class)
 class TitleAdminServiceTest {
 
-    @Mock
-    private TitleRepository titleRepository;
+    @Mock private TitleRepository titleRepository;
 
-    @Mock
-    private AchievementRepository achievementRepository;
+    @Mock private AchievementRepository achievementRepository;
 
-    @InjectMocks
-    private TitleAdminService titleAdminService;
+    @InjectMocks private TitleAdminService titleAdminService;
 
-    private Title createTestTitle(Long id, String name, TitlePosition positionType, TitleRarity rarity) {
-        Title title = Title.builder()
-            .name(name)
-            .nameEn(name + " EN")
-            .description(name + " 설명")
-            .rarity(rarity)
-            .positionType(positionType)
-            .colorCode(rarity.getColorCode())
-            .acquisitionType(TitleAcquisitionType.ACHIEVEMENT)
-            .acquisitionCondition("업적 달성")
-            .isActive(true)
-            .build();
+    private Title createTestTitle(
+            Long id, String name, TitlePosition positionType, TitleRarity rarity) {
+        Title title =
+                Title.builder()
+                        .name(name)
+                        .nameEn(name + " EN")
+                        .description(name + " 설명")
+                        .rarity(rarity)
+                        .positionType(positionType)
+                        .colorCode(rarity.getColorCode())
+                        .acquisitionType(TitleAcquisitionType.ACHIEVEMENT)
+                        .acquisitionCondition("업적 달성")
+                        .isActive(true)
+                        .build();
         setId(title, id);
         return title;
     }
 
-    private TitleAdminRequest createTestRequest(String name, TitlePosition positionType, TitleRarity rarity) {
+    private TitleAdminRequest createTestRequest(
+            String name, TitlePosition positionType, TitleRarity rarity) {
         return TitleAdminRequest.builder()
-            .name(name)
-            .nameEn(name + " EN")
-            .description(name + " 설명")
-            .rarity(rarity)
-            .positionType(positionType)
-            .colorCode(rarity.getColorCode())
-            .acquisitionType(TitleAcquisitionType.ACHIEVEMENT)
-            .acquisitionCondition("업적 달성")
-            .isActive(true)
-            .build();
+                .name(name)
+                .nameEn(name + " EN")
+                .description(name + " 설명")
+                .rarity(rarity)
+                .positionType(positionType)
+                .colorCode(rarity.getColorCode())
+                .acquisitionType(TitleAcquisitionType.ACHIEVEMENT)
+                .acquisitionCondition("업적 달성")
+                .isActive(true)
+                .build();
     }
 
     @Nested
@@ -145,11 +145,13 @@ class TitleAdminServiceTest {
             Title title = createTestTitle(1L, "용감한", TitlePosition.LEFT, TitleRarity.RARE);
             Page<Title> page = new PageImpl<>(List.of(title), pageable, 1);
 
-            when(titleRepository.searchByKeywordAndPosition("용감한", TitlePosition.LEFT, pageable)).thenReturn(page);
+            when(titleRepository.searchByKeywordAndPosition("용감한", TitlePosition.LEFT, pageable))
+                    .thenReturn(page);
             when(achievementRepository.findByRewardTitleId(anyLong())).thenReturn(List.of());
 
             // when
-            TitleAdminPageResponse result = titleAdminService.searchTitles("용감한", TitlePosition.LEFT, pageable);
+            TitleAdminPageResponse result =
+                    titleAdminService.searchTitles("용감한", TitlePosition.LEFT, pageable);
 
             // then
             assertThat(result).isNotNull();
@@ -187,19 +189,21 @@ class TitleAdminServiceTest {
         void getTitle_success() {
             // given
             Title title = createTestTitle(1L, "용감한", TitlePosition.LEFT, TitleRarity.RARE);
-            Achievement linkedAchievement = Achievement.builder()
-                .name("용기 있는 미션")
-                .categoryCode("MISSION")
-                .requiredCount(10)
-                .rewardExp(100)
-                .rewardTitleId(1L)
-                .isActive(true)
-                .isHidden(false)
-                .build();
+            Achievement linkedAchievement =
+                    Achievement.builder()
+                            .name("용기 있는 미션")
+                            .categoryCode("MISSION")
+                            .requiredCount(10)
+                            .rewardExp(100)
+                            .rewardTitleId(1L)
+                            .isActive(true)
+                            .isHidden(false)
+                            .build();
             setId(linkedAchievement, 1L);
 
             when(titleRepository.findById(1L)).thenReturn(Optional.of(title));
-            when(achievementRepository.findByRewardTitleId(1L)).thenReturn(List.of(linkedAchievement));
+            when(achievementRepository.findByRewardTitleId(1L))
+                    .thenReturn(List.of(linkedAchievement));
 
             // when
             TitleAdminResponse result = titleAdminService.getTitle(1L);
@@ -237,8 +241,8 @@ class TitleAdminServiceTest {
 
             // when & then
             assertThatThrownBy(() -> titleAdminService.getTitle(999L))
-                .isInstanceOf(CustomException.class)
-                .hasMessageContaining("error.title.not_found");
+                    .isInstanceOf(CustomException.class)
+                    .hasMessageContaining("error.title.not_found");
         }
     }
 
@@ -253,7 +257,8 @@ class TitleAdminServiceTest {
             Title rareTile1 = createTestTitle(1L, "용감한", TitlePosition.LEFT, TitleRarity.RARE);
             Title rareTile2 = createTestTitle(2L, "숙련된", TitlePosition.LEFT, TitleRarity.RARE);
 
-            when(titleRepository.findByRarity(TitleRarity.RARE)).thenReturn(List.of(rareTile1, rareTile2));
+            when(titleRepository.findByRarity(TitleRarity.RARE))
+                    .thenReturn(List.of(rareTile1, rareTile2));
 
             // when
             List<TitleAdminResponse> result = titleAdminService.getTitlesByRarity(TitleRarity.RARE);
@@ -270,7 +275,8 @@ class TitleAdminServiceTest {
             when(titleRepository.findByRarity(TitleRarity.LEGENDARY)).thenReturn(List.of());
 
             // when
-            List<TitleAdminResponse> result = titleAdminService.getTitlesByRarity(TitleRarity.LEGENDARY);
+            List<TitleAdminResponse> result =
+                    titleAdminService.getTitlesByRarity(TitleRarity.LEGENDARY);
 
             // then
             assertThat(result).isEmpty();
@@ -288,11 +294,13 @@ class TitleAdminServiceTest {
             Title leftTitle1 = createTestTitle(1L, "용감한", TitlePosition.LEFT, TitleRarity.COMMON);
             Title leftTitle2 = createTestTitle(2L, "성실한", TitlePosition.LEFT, TitleRarity.RARE);
 
-            when(titleRepository.findByPositionTypeAndIsActiveTrueOrderByRarityAscIdAsc(TitlePosition.LEFT))
-                .thenReturn(List.of(leftTitle1, leftTitle2));
+            when(titleRepository.findByPositionTypeAndIsActiveTrueOrderByRarityAscIdAsc(
+                            TitlePosition.LEFT))
+                    .thenReturn(List.of(leftTitle1, leftTitle2));
 
             // when
-            List<TitleAdminResponse> result = titleAdminService.getTitlesByPosition(TitlePosition.LEFT);
+            List<TitleAdminResponse> result =
+                    titleAdminService.getTitlesByPosition(TitlePosition.LEFT);
 
             // then
             assertThat(result).hasSize(2);
@@ -333,7 +341,8 @@ class TitleAdminServiceTest {
         @DisplayName("칭호를 생성한다")
         void createTitle_success() {
             // given
-            TitleAdminRequest request = createTestRequest("새 칭호", TitlePosition.LEFT, TitleRarity.COMMON);
+            TitleAdminRequest request =
+                    createTestRequest("새 칭호", TitlePosition.LEFT, TitleRarity.COMMON);
             Title savedTitle = createTestTitle(1L, "새 칭호", TitlePosition.LEFT, TitleRarity.COMMON);
 
             when(titleRepository.existsByName("새 칭호")).thenReturn(false);
@@ -354,13 +363,14 @@ class TitleAdminServiceTest {
         @DisplayName("isActive가 null이면 기본값 true로 설정된다")
         void createTitle_nullIsActive_defaultsToTrue() {
             // given
-            TitleAdminRequest request = TitleAdminRequest.builder()
-                .name("새 칭호")
-                .rarity(TitleRarity.COMMON)
-                .positionType(TitlePosition.LEFT)
-                .acquisitionType(TitleAcquisitionType.ACHIEVEMENT)
-                .isActive(null)
-                .build();
+            TitleAdminRequest request =
+                    TitleAdminRequest.builder()
+                            .name("새 칭호")
+                            .rarity(TitleRarity.COMMON)
+                            .positionType(TitlePosition.LEFT)
+                            .acquisitionType(TitleAcquisitionType.ACHIEVEMENT)
+                            .isActive(null)
+                            .build();
             Title savedTitle = createTestTitle(1L, "새 칭호", TitlePosition.LEFT, TitleRarity.COMMON);
 
             when(titleRepository.existsByName("새 칭호")).thenReturn(false);
@@ -378,14 +388,15 @@ class TitleAdminServiceTest {
         @DisplayName("이미 존재하는 칭호 이름으로 생성하면 예외가 발생한다")
         void createTitle_duplicateName() {
             // given
-            TitleAdminRequest request = createTestRequest("용감한", TitlePosition.LEFT, TitleRarity.COMMON);
+            TitleAdminRequest request =
+                    createTestRequest("용감한", TitlePosition.LEFT, TitleRarity.COMMON);
 
             when(titleRepository.existsByName("용감한")).thenReturn(true);
 
             // when & then
             assertThatThrownBy(() -> titleAdminService.createTitle(request))
-                .isInstanceOf(CustomException.class)
-                .hasMessageContaining("error.title.duplicate_name");
+                    .isInstanceOf(CustomException.class)
+                    .hasMessageContaining("error.title.duplicate_name");
 
             verify(titleRepository, never()).save(any(Title.class));
         }
@@ -400,7 +411,8 @@ class TitleAdminServiceTest {
         void updateTitle_success() {
             // given
             Title title = createTestTitle(1L, "용감한", TitlePosition.LEFT, TitleRarity.COMMON);
-            TitleAdminRequest request = createTestRequest("수정된 칭호", TitlePosition.LEFT, TitleRarity.RARE);
+            TitleAdminRequest request =
+                    createTestRequest("수정된 칭호", TitlePosition.LEFT, TitleRarity.RARE);
 
             when(titleRepository.findById(1L)).thenReturn(Optional.of(title));
             when(titleRepository.existsByName("수정된 칭호")).thenReturn(false);
@@ -419,7 +431,8 @@ class TitleAdminServiceTest {
         void updateTitle_sameName_noCheck() {
             // given
             Title title = createTestTitle(1L, "용감한", TitlePosition.LEFT, TitleRarity.COMMON);
-            TitleAdminRequest request = createTestRequest("용감한", TitlePosition.RIGHT, TitleRarity.RARE);
+            TitleAdminRequest request =
+                    createTestRequest("용감한", TitlePosition.RIGHT, TitleRarity.RARE);
 
             when(titleRepository.findById(1L)).thenReturn(Optional.of(title));
             when(titleRepository.save(any(Title.class))).thenReturn(title);
@@ -436,28 +449,30 @@ class TitleAdminServiceTest {
         void updateTitle_duplicateName() {
             // given
             Title title = createTestTitle(1L, "용감한", TitlePosition.LEFT, TitleRarity.COMMON);
-            TitleAdminRequest request = createTestRequest("이미있는칭호", TitlePosition.LEFT, TitleRarity.COMMON);
+            TitleAdminRequest request =
+                    createTestRequest("이미있는칭호", TitlePosition.LEFT, TitleRarity.COMMON);
 
             when(titleRepository.findById(1L)).thenReturn(Optional.of(title));
             when(titleRepository.existsByName("이미있는칭호")).thenReturn(true);
 
             // when & then
             assertThatThrownBy(() -> titleAdminService.updateTitle(1L, request))
-                .isInstanceOf(CustomException.class)
-                .hasMessageContaining("error.title.duplicate_name");
+                    .isInstanceOf(CustomException.class)
+                    .hasMessageContaining("error.title.duplicate_name");
         }
 
         @Test
         @DisplayName("존재하지 않는 칭호를 수정하면 예외가 발생한다")
         void updateTitle_notFound() {
             // given
-            TitleAdminRequest request = createTestRequest("새 이름", TitlePosition.LEFT, TitleRarity.COMMON);
+            TitleAdminRequest request =
+                    createTestRequest("새 이름", TitlePosition.LEFT, TitleRarity.COMMON);
             when(titleRepository.findById(999L)).thenReturn(Optional.empty());
 
             // when & then
             assertThatThrownBy(() -> titleAdminService.updateTitle(999L, request))
-                .isInstanceOf(CustomException.class)
-                .hasMessageContaining("error.title.not_found");
+                    .isInstanceOf(CustomException.class)
+                    .hasMessageContaining("error.title.not_found");
         }
     }
 
@@ -508,8 +523,8 @@ class TitleAdminServiceTest {
 
             // when & then
             assertThatThrownBy(() -> titleAdminService.toggleActiveStatus(999L))
-                .isInstanceOf(CustomException.class)
-                .hasMessageContaining("error.title.not_found");
+                    .isInstanceOf(CustomException.class)
+                    .hasMessageContaining("error.title.not_found");
         }
     }
 
@@ -538,8 +553,8 @@ class TitleAdminServiceTest {
 
             // when & then
             assertThatThrownBy(() -> titleAdminService.deleteTitle(999L))
-                .isInstanceOf(CustomException.class)
-                .hasMessageContaining("error.title.not_found");
+                    .isInstanceOf(CustomException.class)
+                    .hasMessageContaining("error.title.not_found");
 
             verify(titleRepository, never()).deleteById(anyLong());
         }

@@ -1,9 +1,9 @@
 package io.pinkspider.leveluptogethermvp.supportservice.report.api;
 
 import io.pinkspider.global.api.ApiResult;
+import io.pinkspider.global.enums.ReportTargetType;
 import io.pinkspider.leveluptogethermvp.supportservice.report.api.dto.ReportCreateRequest;
 import io.pinkspider.leveluptogethermvp.supportservice.report.api.dto.ReportResponse;
-import io.pinkspider.global.enums.ReportTargetType;
 import io.pinkspider.leveluptogethermvp.supportservice.report.application.ReportService;
 import jakarta.validation.Valid;
 import java.security.Principal;
@@ -24,26 +24,20 @@ public class ReportController {
 
     @PostMapping
     public ApiResult<ReportResponse> createReport(
-        Principal principal,
-        @Valid @RequestBody ReportCreateRequest request) {
+            Principal principal, @Valid @RequestBody ReportCreateRequest request) {
 
         String userId = principal.getName();
         ReportResponse response = reportService.createReport(userId, request);
 
-        return ApiResult.<ReportResponse>builder()
-            .value(response)
-            .build();
+        return ApiResult.<ReportResponse>builder().value(response).build();
     }
 
     @GetMapping("/check")
     public ApiResult<Boolean> checkUnderReview(
-        @RequestParam ReportTargetType targetType,
-        @RequestParam String targetId) {
+            @RequestParam ReportTargetType targetType, @RequestParam String targetId) {
 
         boolean underReview = reportService.isUnderReview(targetType, targetId);
 
-        return ApiResult.<Boolean>builder()
-            .value(underReview)
-            .build();
+        return ApiResult.<Boolean>builder().value(underReview).build();
     }
 }

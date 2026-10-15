@@ -17,62 +17,75 @@ public interface GuildChatMessageRepository extends JpaRepository<GuildChatMessa
 
     // LUT-373: 차단한 유저의 메시지를 조회에서 제외한다 (viewer 기준 단방향).
     // 시스템 메시지는 senderId 가 NULL 이라 NOT IN 평가가 NULL 이 되므로 IS NULL 분기를 반드시 둔다.
-    @Query("SELECT m FROM GuildChatMessage m WHERE m.guildId = :guildId " +
-           "AND m.isDeleted = false " +
-           "AND (m.senderId IS NULL OR m.senderId NOT IN :excludedSenderIds) " +
-           "ORDER BY m.createdAt DESC")
+    @Query(
+            "SELECT m FROM GuildChatMessage m WHERE m.guildId = :guildId "
+                    + "AND m.isDeleted = false "
+                    + "AND (m.senderId IS NULL OR m.senderId NOT IN :excludedSenderIds) "
+                    + "ORDER BY m.createdAt DESC")
     Page<GuildChatMessage> findByGuildIdOrderByCreatedAtDesc(
-        @Param("guildId") Long guildId,
-        @Param("excludedSenderIds") List<String> excludedSenderIds,
-        Pageable pageable);
+            @Param("guildId") Long guildId,
+            @Param("excludedSenderIds") List<String> excludedSenderIds,
+            Pageable pageable);
 
-    @Query("SELECT m FROM GuildChatMessage m WHERE m.guildId = :guildId " +
-           "AND m.isDeleted = false AND m.createdAt > :since " +
-           "AND (m.senderId IS NULL OR m.senderId NOT IN :excludedSenderIds) " +
-           "ORDER BY m.createdAt ASC")
+    @Query(
+            "SELECT m FROM GuildChatMessage m WHERE m.guildId = :guildId "
+                    + "AND m.isDeleted = false AND m.createdAt > :since "
+                    + "AND (m.senderId IS NULL OR m.senderId NOT IN :excludedSenderIds) "
+                    + "ORDER BY m.createdAt ASC")
     List<GuildChatMessage> findNewMessages(
-        @Param("guildId") Long guildId, @Param("since") LocalDateTime since,
-        @Param("excludedSenderIds") List<String> excludedSenderIds);
+            @Param("guildId") Long guildId,
+            @Param("since") LocalDateTime since,
+            @Param("excludedSenderIds") List<String> excludedSenderIds);
 
-    @Query("SELECT m FROM GuildChatMessage m WHERE m.guildId = :guildId " +
-           "AND m.isDeleted = false AND m.id > :lastMessageId " +
-           "AND (m.senderId IS NULL OR m.senderId NOT IN :excludedSenderIds) " +
-           "ORDER BY m.createdAt ASC")
+    @Query(
+            "SELECT m FROM GuildChatMessage m WHERE m.guildId = :guildId "
+                    + "AND m.isDeleted = false AND m.id > :lastMessageId "
+                    + "AND (m.senderId IS NULL OR m.senderId NOT IN :excludedSenderIds) "
+                    + "ORDER BY m.createdAt ASC")
     List<GuildChatMessage> findMessagesAfterId(
-        @Param("guildId") Long guildId, @Param("lastMessageId") Long lastMessageId,
-        @Param("excludedSenderIds") List<String> excludedSenderIds);
+            @Param("guildId") Long guildId,
+            @Param("lastMessageId") Long lastMessageId,
+            @Param("excludedSenderIds") List<String> excludedSenderIds);
 
-    @Query("SELECT m FROM GuildChatMessage m WHERE m.guildId = :guildId " +
-           "AND m.isDeleted = false AND m.id < :beforeId " +
-           "AND (m.senderId IS NULL OR m.senderId NOT IN :excludedSenderIds) " +
-           "ORDER BY m.createdAt DESC")
+    @Query(
+            "SELECT m FROM GuildChatMessage m WHERE m.guildId = :guildId "
+                    + "AND m.isDeleted = false AND m.id < :beforeId "
+                    + "AND (m.senderId IS NULL OR m.senderId NOT IN :excludedSenderIds) "
+                    + "ORDER BY m.createdAt DESC")
     Page<GuildChatMessage> findMessagesBeforeId(
-        @Param("guildId") Long guildId, @Param("beforeId") Long beforeId,
-        @Param("excludedSenderIds") List<String> excludedSenderIds, Pageable pageable);
+            @Param("guildId") Long guildId,
+            @Param("beforeId") Long beforeId,
+            @Param("excludedSenderIds") List<String> excludedSenderIds,
+            Pageable pageable);
 
-    @Query("SELECT m FROM GuildChatMessage m WHERE m.guildId = :guildId " +
-           "AND m.senderId = :senderId AND m.isDeleted = false ORDER BY m.createdAt DESC")
+    @Query(
+            "SELECT m FROM GuildChatMessage m WHERE m.guildId = :guildId AND m.senderId = :senderId"
+                    + " AND m.isDeleted = false ORDER BY m.createdAt DESC")
     Page<GuildChatMessage> findBySenderId(
-        @Param("guildId") Long guildId, @Param("senderId") String senderId, Pageable pageable);
+            @Param("guildId") Long guildId, @Param("senderId") String senderId, Pageable pageable);
 
-    @Query("SELECT m FROM GuildChatMessage m WHERE m.guildId = :guildId " +
-           "AND m.isDeleted = false AND LOWER(m.content) LIKE LOWER(CONCAT('%', :keyword, '%')) " +
-           "AND (m.senderId IS NULL OR m.senderId NOT IN :excludedSenderIds) " +
-           "ORDER BY m.createdAt DESC")
+    @Query(
+            "SELECT m FROM GuildChatMessage m WHERE m.guildId = :guildId AND m.isDeleted = false"
+                + " AND LOWER(m.content) LIKE LOWER(CONCAT('%', :keyword, '%')) AND (m.senderId IS"
+                + " NULL OR m.senderId NOT IN :excludedSenderIds) ORDER BY m.createdAt DESC")
     Page<GuildChatMessage> searchMessages(
-        @Param("guildId") Long guildId, @Param("keyword") String keyword,
-        @Param("excludedSenderIds") List<String> excludedSenderIds, Pageable pageable);
+            @Param("guildId") Long guildId,
+            @Param("keyword") String keyword,
+            @Param("excludedSenderIds") List<String> excludedSenderIds,
+            Pageable pageable);
 
     // LUT-384: 읽음 상태가 없는 유저의 전체 안읽음 폴백 — 차단 유저 메시지는 카운트에서 제외
-    @Query("SELECT COUNT(m) FROM GuildChatMessage m WHERE m.guildId = :guildId " +
-           "AND m.isDeleted = false " +
-           "AND (m.senderId IS NULL OR m.senderId NOT IN :excludedSenderIds)")
+    @Query(
+            "SELECT COUNT(m) FROM GuildChatMessage m WHERE m.guildId = :guildId "
+                    + "AND m.isDeleted = false "
+                    + "AND (m.senderId IS NULL OR m.senderId NOT IN :excludedSenderIds)")
     long countByGuildId(
-        @Param("guildId") Long guildId,
-        @Param("excludedSenderIds") List<String> excludedSenderIds);
+            @Param("guildId") Long guildId,
+            @Param("excludedSenderIds") List<String> excludedSenderIds);
 
     @Modifying
     @Transactional(transactionManager = "chatTransactionManager")
     @Query("UPDATE GuildChatMessage m SET m.senderNickname = :nickname WHERE m.senderId = :userId")
-    int updateSenderNicknameByUserId(@Param("userId") String userId, @Param("nickname") String nickname);
+    int updateSenderNicknameByUserId(
+            @Param("userId") String userId, @Param("nickname") String nickname);
 }

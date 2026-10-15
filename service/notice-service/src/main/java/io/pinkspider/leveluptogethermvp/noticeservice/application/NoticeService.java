@@ -4,12 +4,11 @@ import io.pinkspider.leveluptogethermvp.noticeservice.api.dto.NoticeResponse;
 import io.pinkspider.leveluptogethermvp.noticeservice.core.feignclient.AdminNoticeApiResponse;
 import io.pinkspider.leveluptogethermvp.noticeservice.core.feignclient.AdminNoticeFeignClient;
 import io.pinkspider.leveluptogethermvp.noticeservice.core.feignclient.AdminNoticeSingleApiResponse;
+import java.util.Collections;
+import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
-
-import java.util.Collections;
-import java.util.List;
 
 @Service
 @Slf4j
@@ -18,9 +17,7 @@ public class NoticeService {
 
     private final AdminNoticeFeignClient adminNoticeFeignClient;
 
-    /**
-     * 현재 활성화된 공지사항 목록 조회
-     */
+    /** 현재 활성화된 공지사항 목록 조회 */
     public List<NoticeResponse> getActiveNotices() {
         try {
             AdminNoticeApiResponse response = adminNoticeFeignClient.getActiveNotices();
@@ -37,9 +34,7 @@ public class NoticeService {
         }
     }
 
-    /**
-     * 공지사항 상세 조회
-     */
+    /** 공지사항 상세 조회 */
     public NoticeResponse getNoticeById(Long id) {
         try {
             AdminNoticeSingleApiResponse response = adminNoticeFeignClient.getNoticeById(id);

@@ -15,13 +15,13 @@ public interface DiamondBundleRepository extends JpaRepository<DiamondBundle, Lo
     /** LUT-356: 상점 노출용 — 판매중(활성) 묶음상품을 다이아 개수 오름차순으로 */
     List<DiamondBundle> findByIsActiveTrueOrderByDiamondCountAscIdAsc();
 
-    @Query("SELECT b FROM DiamondBundle b "
-        + "WHERE (:keyword IS NULL OR b.name LIKE %:keyword% OR b.nameEn LIKE %:keyword%) "
-        + "AND (:isActive IS NULL OR b.isActive = :isActive)")
+    @Query(
+            "SELECT b FROM DiamondBundle b WHERE (:keyword IS NULL OR b.name LIKE %:keyword% OR"
+                + " b.nameEn LIKE %:keyword%) AND (:isActive IS NULL OR b.isActive = :isActive)")
     Page<DiamondBundle> search(
-        @Param("keyword") String keyword,
-        @Param("isActive") Boolean isActive,
-        Pageable pageable);
+            @Param("keyword") String keyword,
+            @Param("isActive") Boolean isActive,
+            Pageable pageable);
 
     boolean existsByName(String name);
 }

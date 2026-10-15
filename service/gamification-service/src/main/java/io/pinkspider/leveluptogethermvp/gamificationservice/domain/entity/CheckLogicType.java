@@ -29,18 +29,18 @@ import org.hibernate.annotations.Comment;
 @SuperBuilder
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @AllArgsConstructor
-@Table(name = "check_logic_type",
-    uniqueConstraints = @UniqueConstraint(
-        name = "uk_check_logic_type_code",
-        columnNames = {"code"}
-    ),
-    indexes = {
-        @Index(name = "idx_check_logic_type_code", columnList = "code"),
-        @Index(name = "idx_check_logic_type_data_source", columnList = "data_source"),
-        @Index(name = "idx_check_logic_type_active", columnList = "is_active"),
-        @Index(name = "idx_check_logic_type_sort", columnList = "sort_order")
-    }
-)
+@Table(
+        name = "check_logic_type",
+        uniqueConstraints =
+                @UniqueConstraint(
+                        name = "uk_check_logic_type_code",
+                        columnNames = {"code"}),
+        indexes = {
+            @Index(name = "idx_check_logic_type_code", columnList = "code"),
+            @Index(name = "idx_check_logic_type_data_source", columnList = "data_source"),
+            @Index(name = "idx_check_logic_type_active", columnList = "is_active"),
+            @Index(name = "idx_check_logic_type_sort", columnList = "sort_order")
+        })
 @Comment("업적 체크 로직 유형")
 public class CheckLogicType extends LocalDateTimeBaseEntity {
 

@@ -143,6 +143,10 @@ public class Guild extends LocalDateTimeBaseEntity {
     @Comment("거점 경도")
     private Double baseLongitude;
 
+    @Column(name = "invite_code", unique = true, length = 20)
+    @Comment("초대 링크 코드 (추측 불가 랜덤, 길드당 1개·불변, LUT-519)")
+    private String inviteCode;
+
     @Builder.Default
     @OneToMany(mappedBy = "guild")
     private List<GuildMember> members = new ArrayList<>();
@@ -171,9 +175,7 @@ public class Guild extends LocalDateTimeBaseEntity {
         this.masterId = newMasterId;
     }
 
-    /**
-     * 신고 처리로 길드 차단. 후속 멤버/콘텐츠 처리는 운영자 수동.
-     */
+    /** 신고 처리로 길드 차단. 후속 멤버/콘텐츠 처리는 운영자 수동. */
     public void banFromReport(String reason) {
         this.isBanned = true;
         this.bannedAt = java.time.LocalDateTime.now();
@@ -203,5 +205,13 @@ public class Guild extends LocalDateTimeBaseEntity {
 
     public void updateMaxMembersByLevel(int newMaxMembers) {
         this.maxMembers = newMaxMembers;
+    }
+
+    /** LUT-526: 길드 최대 정원 기본 인원(레벨 1 정원) 상수. 최대 정원 = BASE_MAX_MEMBERS + (길드 레벨 - 1). */
+    public static final int BASE_MAX_MEMBERS = 10;
+
+    /** LUT-526: 레벨별 최대 정원 = 기본 인원(10) + (길드 레벨 - 1). 레벨이 1 오를 때마다 +1. 예) 레벨 1 → 10, 레벨 3 → 12. */
+    public static int maxMembersForLevel(int level) {
+        return BASE_MAX_MEMBERS + (level - 1);
     }
 }

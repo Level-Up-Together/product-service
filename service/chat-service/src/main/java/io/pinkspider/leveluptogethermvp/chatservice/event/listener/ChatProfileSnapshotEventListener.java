@@ -13,10 +13,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.event.TransactionPhase;
 import org.springframework.transaction.event.TransactionalEventListener;
 
-/**
- * 사용자 프로필 변경 시 Chat DB 스냅샷 동기화
- * MSA 전환 시 Kafka Consumer로 대체 예정
- */
+/** 사용자 프로필 변경 시 Chat DB 스냅샷 동기화 MSA 전환 시 Kafka Consumer로 대체 예정 */
 @Component
 @Slf4j
 @RequiredArgsConstructor
@@ -30,11 +27,21 @@ public class ChatProfileSnapshotEventListener {
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void handleUserProfileChanged(UserProfileChangedEvent event) {
         try {
-            int chatCount = guildChatMessageRepository.updateSenderNicknameByUserId(event.userId(), event.nickname());
-            int dmCount = guildDirectMessageRepository.updateSenderNicknameByUserId(event.userId(), event.nickname());
-            int participantCount = guildChatParticipantRepository.updateUserNicknameByUserId(event.userId(), event.nickname());
-            log.info("Chat 스냅샷 동기화: userId={}, chats={}, dms={}, participants={}",
-                event.userId(), chatCount, dmCount, participantCount);
+            int chatCount =
+                    guildChatMessageRepository.updateSenderNicknameByUserId(
+                            event.userId(), event.nickname());
+            int dmCount =
+                    guildDirectMessageRepository.updateSenderNicknameByUserId(
+                            event.userId(), event.nickname());
+            int participantCount =
+                    guildChatParticipantRepository.updateUserNicknameByUserId(
+                            event.userId(), event.nickname());
+            log.info(
+                    "Chat 스냅샷 동기화: userId={}, chats={}, dms={}, participants={}",
+                    event.userId(),
+                    chatCount,
+                    dmCount,
+                    participantCount);
         } catch (Exception e) {
             log.error("ChatProfileSync 실패: {}", e.getMessage(), e);
         }

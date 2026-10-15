@@ -11,11 +11,8 @@ import org.springframework.transaction.event.TransactionPhase;
 import org.springframework.transaction.event.TransactionalEventListener;
 
 /**
- * 회원가입 이벤트 수신하여 기본 칭호를 부여.
- * Oauth2Service/TestLoginService(user) → TitleService(gamification) 순환 의존을 제거하기 위해
- * 이벤트 리스너로 분리.
- *
- * @Async: 비동기 실행하여 칭호 부여 실패가 회원가입 응답(JWT)에 영향을 주지 않도록 함 (QA-89)
+ * 회원가입 이벤트 수신하여 기본 칭호를 부여. Oauth2Service/TestLoginService(user) → TitleService(gamification) 순환 의존을
+ * 제거하기 위해 이벤트 리스너로 분리. @Async: 비동기 실행하여 칭호 부여 실패가 회원가입 응답(JWT)에 영향을 주지 않도록 함 (QA-89)
  */
 @Component
 @Slf4j

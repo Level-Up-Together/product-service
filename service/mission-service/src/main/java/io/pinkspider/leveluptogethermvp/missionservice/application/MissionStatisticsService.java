@@ -34,12 +34,11 @@ import org.springframework.transaction.annotation.Transactional;
 /**
  * LUT-454: 월간 기록 리포트 집계 — 달성률·스트릭·카테고리 분포·요일/시간대 분포.
  *
- * <p>날짜 버킷팅은 주간 캘린더(getUserWeeklyCalendarData)와 동일하게 완료 시각(completedAt)의
- * 요청 타임존 날짜 기준. 달성률은 예정일(execution_date/instance_date) 기준 완료/예정.
+ * <p>날짜 버킷팅은 주간 캘린더(getUserWeeklyCalendarData)와 동일하게 완료 시각(completedAt)의 요청 타임존 날짜 기준. 달성률은
+ * 예정일(execution_date/instance_date) 기준 완료/예정.
  *
- * <p><b>무료/구독 게이팅</b>: 프론트가 1차 게이팅하되, 서버도 무료 유저의 과거 월 조회를 차단한다 —
- * 무료는 조회 월의 말일이 오늘(요청 타임존)−30일 이후인 월(실질 당월·전월)만 허용, 그 이전은
- * 구독 필요(050301).
+ * <p><b>무료/구독 게이팅</b>: 프론트가 1차 게이팅하되, 서버도 무료 유저의 과거 월 조회를 차단한다 — 무료는 조회 월의 말일이 오늘(요청 타임존)−30일 이후인
+ * 월(실질 당월·전월)만 허용, 그 이전은 구독 필요(050301).
  */
 @Service
 @RequiredArgsConstructor
@@ -64,10 +63,14 @@ public class MissionStatisticsService {
         LocalDate monthStart = month.atDay(1);
         LocalDate monthEnd = month.atEndOfMonth();
         LocalDateTime startUtc =
-                monthStart.atStartOfDay(userZone).withZoneSameInstant(ZoneOffset.UTC)
+                monthStart
+                        .atStartOfDay(userZone)
+                        .withZoneSameInstant(ZoneOffset.UTC)
                         .toLocalDateTime();
         LocalDateTime endUtc =
-                monthEnd.plusDays(1).atStartOfDay(userZone).withZoneSameInstant(ZoneOffset.UTC)
+                monthEnd.plusDays(1)
+                        .atStartOfDay(userZone)
+                        .withZoneSameInstant(ZoneOffset.UTC)
                         .toLocalDateTime();
 
         // 달성률 — 예정일 기준 (일반 미션 + 고정 미션)
@@ -120,12 +123,16 @@ public class MissionStatisticsService {
         List<CategoryCount> categoryDistribution =
                 categoryCounts.entrySet().stream()
                         .sorted(Map.Entry.<String, Long>comparingByValue().reversed())
-                        .map(e -> new CategoryCount(
-                                e.getKey(), e.getValue(), ratio(e.getValue(), totalCompleted)))
+                        .map(
+                                e ->
+                                        new CategoryCount(
+                                                e.getKey(),
+                                                e.getValue(),
+                                                ratio(e.getValue(), totalCompleted)))
                         .toList();
 
-        List<DayOfWeekStat> dayOfWeekStats = buildDayOfWeekStats(
-                month, dailyCounts.keySet(), dayOfWeekCompleted);
+        List<DayOfWeekStat> dayOfWeekStats =
+                buildDayOfWeekStats(month, dailyCounts.keySet(), dayOfWeekCompleted);
 
         List<HourCount> hourDistribution = new ArrayList<>(24);
         for (int hour = 0; hour < 24; hour++) {
@@ -163,7 +170,8 @@ public class MissionStatisticsService {
     private List<DayOfWeekStat> buildDayOfWeekStats(
             YearMonth month, Set<LocalDate> activeDates, Map<DayOfWeek, Long> completedByDow) {
         Map<DayOfWeek, Integer> occurrences = new EnumMap<>(DayOfWeek.class);
-        for (LocalDate date = month.atDay(1); !date.isAfter(month.atEndOfMonth());
+        for (LocalDate date = month.atDay(1);
+                !date.isAfter(month.atEndOfMonth());
                 date = date.plusDays(1)) {
             occurrences.merge(date.getDayOfWeek(), 1, Integer::sum);
         }
@@ -176,12 +184,13 @@ public class MissionStatisticsService {
         for (DayOfWeek dow : DayOfWeek.values()) {
             int occurrence = occurrences.getOrDefault(dow, 0);
             int activeDays = activeByDow.getOrDefault(dow, 0);
-            stats.add(new DayOfWeekStat(
-                    dow.name(),
-                    completedByDow.getOrDefault(dow, 0L),
-                    activeDays,
-                    occurrence,
-                    ratio(activeDays, occurrence)));
+            stats.add(
+                    new DayOfWeekStat(
+                            dow.name(),
+                            completedByDow.getOrDefault(dow, 0L),
+                            activeDays,
+                            occurrence,
+                            ratio(activeDays, occurrence)));
         }
         return stats;
     }

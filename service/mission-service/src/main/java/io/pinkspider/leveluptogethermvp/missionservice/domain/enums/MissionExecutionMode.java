@@ -6,7 +6,6 @@ import lombok.RequiredArgsConstructor;
 @Getter
 @RequiredArgsConstructor
 public enum MissionExecutionMode {
-
     TIMED("timed", "시간 측정"),
     SIMPLE("simple", "수행 여부");
 

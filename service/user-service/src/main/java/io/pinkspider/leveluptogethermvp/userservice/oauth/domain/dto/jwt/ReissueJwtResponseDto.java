@@ -20,8 +20,7 @@ public class ReissueJwtResponseDto {
 
     private String refreshToken;
 
-    @Builder.Default
-    private String tokenType = "Bearer";
+    @Builder.Default private String tokenType = "Bearer";
 
     private long expiresIn;
 
@@ -29,6 +28,5 @@ public class ReissueJwtResponseDto {
 
     private String deviceId;
 
-    @Builder.Default
-    private boolean refreshTokenRenewed = false;
+    @Builder.Default private boolean refreshTokenRenewed = false;
 }

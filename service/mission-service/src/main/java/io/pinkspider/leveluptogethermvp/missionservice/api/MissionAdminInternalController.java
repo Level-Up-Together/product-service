@@ -20,10 +20,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-/**
- * Admin 내부 API 컨트롤러 - Mission
- * 인증 불필요 (SecurityConfig에서 /api/internal/** permitAll)
- */
+/** Admin 내부 API 컨트롤러 - Mission 인증 불필요 (SecurityConfig에서 /api/internal/** permitAll) */
 @RestController
 @RequestMapping("/api/internal/missions")
 @RequiredArgsConstructor
@@ -42,13 +39,22 @@ public class MissionAdminInternalController {
             @RequestParam(name = "category_id", required = false) Long categoryId,
             @RequestParam(required = false, defaultValue = "0") int page,
             @RequestParam(required = false, defaultValue = "20") int size,
-            @RequestParam(name = "sort_by", required = false, defaultValue = "createdAt") String sortBy,
-            @RequestParam(name = "sort_direction", required = false, defaultValue = "DESC") String sortDirection) {
+            @RequestParam(name = "sort_by", required = false, defaultValue = "createdAt")
+                    String sortBy,
+            @RequestParam(name = "sort_direction", required = false, defaultValue = "DESC")
+                    String sortDirection) {
         return ApiResult.<MissionAdminPageResponse>builder()
-            .value(missionAdminService.searchMissions(
-                keyword, source, status, type, participationType,
-                creatorId, categoryId, PageRequest.of(page, size)))
-            .build();
+                .value(
+                        missionAdminService.searchMissions(
+                                keyword,
+                                source,
+                                status,
+                                type,
+                                participationType,
+                                creatorId,
+                                categoryId,
+                                PageRequest.of(page, size)))
+                .build();
     }
 
     @GetMapping("/all")
@@ -57,48 +63,49 @@ public class MissionAdminInternalController {
             @RequestParam(name = "participation_type", required = false) String participationType) {
         if (source != null && participationType != null) {
             return ApiResult.<List<MissionAdminResponse>>builder()
-                .value(missionAdminService.getMissionsBySourceAndParticipationType(source, participationType))
-                .build();
+                    .value(
+                            missionAdminService.getMissionsBySourceAndParticipationType(
+                                    source, participationType))
+                    .build();
         } else if (source != null) {
             return ApiResult.<List<MissionAdminResponse>>builder()
-                .value(missionAdminService.getMissionsBySource(source))
-                .build();
+                    .value(missionAdminService.getMissionsBySource(source))
+                    .build();
         }
         return ApiResult.<List<MissionAdminResponse>>builder()
-            .value(missionAdminService.getAllMissions())
-            .build();
+                .value(missionAdminService.getAllMissions())
+                .build();
     }
 
     @GetMapping("/{id}")
     public ApiResult<MissionAdminResponse> getMission(@PathVariable Long id) {
         return ApiResult.<MissionAdminResponse>builder()
-            .value(missionAdminService.getMission(id))
-            .build();
+                .value(missionAdminService.getMission(id))
+                .build();
     }
 
     @PostMapping
-    public ApiResult<MissionAdminResponse> createMission(@Valid @RequestBody MissionAdminRequest request) {
+    public ApiResult<MissionAdminResponse> createMission(
+            @Valid @RequestBody MissionAdminRequest request) {
         return ApiResult.<MissionAdminResponse>builder()
-            .value(missionAdminService.createMission(request))
-            .build();
+                .value(missionAdminService.createMission(request))
+                .build();
     }
 
     @PutMapping("/{id}")
     public ApiResult<MissionAdminResponse> updateMission(
-            @PathVariable Long id,
-            @Valid @RequestBody MissionAdminRequest request) {
+            @PathVariable Long id, @Valid @RequestBody MissionAdminRequest request) {
         return ApiResult.<MissionAdminResponse>builder()
-            .value(missionAdminService.updateMission(id, request))
-            .build();
+                .value(missionAdminService.updateMission(id, request))
+                .build();
     }
 
     @PatchMapping("/{id}/status")
     public ApiResult<MissionAdminResponse> updateMissionStatus(
-            @PathVariable Long id,
-            @RequestParam String status) {
+            @PathVariable Long id, @RequestParam String status) {
         return ApiResult.<MissionAdminResponse>builder()
-            .value(missionAdminService.updateMissionStatus(id, status))
-            .build();
+                .value(missionAdminService.updateMissionStatus(id, status))
+                .build();
     }
 
     @DeleteMapping("/{id}")
@@ -114,19 +121,21 @@ public class MissionAdminInternalController {
             @RequestParam(name = "creator_id", required = false) String creatorId) {
         if (source != null && creatorId != null) {
             return ApiResult.<Long>builder()
-                .value(missionAdminService.countBySourceAndCreatorId(source, creatorId))
-                .build();
+                    .value(missionAdminService.countBySourceAndCreatorId(source, creatorId))
+                    .build();
         } else if (source != null && participationType != null) {
             return ApiResult.<Long>builder()
-                .value(missionAdminService.countBySourceAndParticipationType(source, participationType))
-                .build();
+                    .value(
+                            missionAdminService.countBySourceAndParticipationType(
+                                    source, participationType))
+                    .build();
         } else if (source != null) {
             return ApiResult.<Long>builder()
-                .value(missionAdminService.countBySource(source))
-                .build();
+                    .value(missionAdminService.countBySource(source))
+                    .build();
         }
         return ApiResult.<Long>builder()
-            .value((long) missionAdminService.getAllMissions().size())
-            .build();
+                .value((long) missionAdminService.getAllMissions().size())
+                .build();
     }
 }

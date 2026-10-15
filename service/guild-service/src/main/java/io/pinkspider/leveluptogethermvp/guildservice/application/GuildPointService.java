@@ -5,6 +5,7 @@ import io.pinkspider.leveluptogethermvp.guildservice.domain.entity.GuildMemberDa
 import io.pinkspider.leveluptogethermvp.guildservice.infrastructure.GuildMemberDailyPointRepository;
 import java.time.LocalDate;
 import java.time.ZoneId;
+import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -14,9 +15,8 @@ import org.springframework.transaction.annotation.Transactional;
 /**
  * LUT-483: 길드 활동 포인트 적립.
  *
- * <p>길드 미션 EXP 획득 시점에 해당 유저의 그날(KST) 누적 EXP 로 점수를 재계산하고,
- * 직전 점수와의 차분만큼 길드 totalPoint 에 더한다. 유저×일자 단위 멱등이며 단조 증가만 한다.
- * 누적 포인트가 길드 랭킹과 레벨의 기준이다.
+ * <p>길드 미션 EXP 획득 시점에 해당 유저의 그날(KST) 누적 EXP 로 점수를 재계산하고, 직전 점수와의 차분만큼 길드 totalPoint 에 더한다. 유저×일자 단위
+ * 멱등이며 단조 증가만 한다. 누적 포인트가 길드 랭킹과 레벨의 기준이다.
  */
 @Service
 @Slf4j
@@ -28,11 +28,12 @@ public class GuildPointService {
     private static final ZoneId POINT_ZONE = ZoneId.of("Asia/Seoul");
 
     private final GuildMemberDailyPointRepository dailyPointRepository;
+    private final GuildMemberDailyPointCreator dailyPointCreator;
     private final GuildPointProperties pointProperties;
 
     /**
-     * 길드 미션 EXP 획득분을 포인트로 적립한다. 호출자는 guildTransactionManager 트랜잭션 안에서
-     * 관리 상태의 Guild 를 넘겨야 한다 (totalPoint 반영이 같은 트랜잭션에 묶인다).
+     * 길드 미션 EXP 획득분을 포인트로 적립한다. 호출자는 guildTransactionManager 트랜잭션 안에서 관리 상태의 Guild 를 넘겨야 한다
+     * (totalPoint 반영이 같은 트랜잭션에 묶인다).
      *
      * @return 이번 적립으로 오른 포인트 (0 이면 경계 미달)
      */
@@ -44,34 +45,59 @@ public class GuildPointService {
         LocalDate today = LocalDate.now(POINT_ZONE);
         GuildMemberDailyPoint daily = findOrCreateDaily(guild.getId(), userId, today);
 
-        int diff = daily.accumulate(expDelta, pointProperties.getUnitExp(), pointProperties.getDailyCapExp());
+        int diff =
+                daily.accumulate(
+                        expDelta, pointProperties.getUnitExp(), pointProperties.getDailyCapExp());
         dailyPointRepository.save(daily);
 
         if (diff > 0) {
             guild.addPoint(diff);
-            log.info("길드 포인트 적립: guildId={}, userId={}, dailyExp={}, +{}점, totalPoint={}",
-                guild.getId(), userId, daily.getDailyExp(), diff, guild.getTotalPoint());
+            log.info(
+                    "길드 포인트 적립: guildId={}, userId={}, dailyExp={}, +{}점, totalPoint={}",
+                    guild.getId(),
+                    userId,
+                    daily.getDailyExp(),
+                    diff,
+                    guild.getTotalPoint());
         }
         return diff;
     }
 
     /**
-     * 유저×일자 행 확보 — 동시 적립 레이스는 uk_guild_member_daily_point 가 방어한다
-     * (saveAndFlush + DataIntegrityViolationException 재조회 관례).
+     * 유저×일자 행 확보 — 동시 적립 레이스는 uk_guild_member_daily_point 가 방어한다.
+     *
+     * <p>LUT-539: 생성은 {@link GuildMemberDailyPointCreator}(REQUIRES_NEW)에 맡겨 제약 위반이 이 트랜잭션의 영속성
+     * 컨텍스트를 오염시키지 않게 하고(예전 같은 트랜잭션 saveAndFlush+catch 는 길드 미션 EXP 적립 전체를 롤백시켰다), 생성 후에는 **반드시
+     * 재조회**해 managed 엔티티를 쓴다 — 내부 트랜잭션 반환값은 detached 라 accumulate 변경이 flush 되지 않는다.
      */
     private GuildMemberDailyPoint findOrCreateDaily(Long guildId, String userId, LocalDate date) {
-        return dailyPointRepository.findByGuildIdAndUserIdAndPointDate(guildId, userId, date)
-            .orElseGet(() -> {
-                try {
-                    return dailyPointRepository.saveAndFlush(GuildMemberDailyPoint.builder()
-                        .guildId(guildId)
-                        .userId(userId)
-                        .pointDate(date)
-                        .build());
-                } catch (DataIntegrityViolationException e) {
-                    return dailyPointRepository.findByGuildIdAndUserIdAndPointDate(guildId, userId, date)
-                        .orElseThrow(() -> e);
-                }
-            });
+        Optional<GuildMemberDailyPoint> existing =
+                dailyPointRepository.findByGuildIdAndUserIdAndPointDate(guildId, userId, date);
+        if (existing.isPresent()) {
+            return existing.get();
+        }
+
+        try {
+            dailyPointCreator.create(guildId, userId, date);
+        } catch (DataIntegrityViolationException e) {
+            // 다른 요청이 먼저 생성 — 아래 재조회가 그 행을 집는다
+            log.debug(
+                    "길드 일일 포인트 행 중복 감지, 기존 행 조회: guildId={}, userId={}, date={}",
+                    guildId,
+                    userId,
+                    date);
+        }
+
+        return dailyPointRepository
+                .findByGuildIdAndUserIdAndPointDate(guildId, userId, date)
+                .orElseThrow(
+                        () ->
+                                new IllegalStateException(
+                                        "GuildMemberDailyPoint not found after creation: guildId="
+                                                + guildId
+                                                + ", userId="
+                                                + userId
+                                                + ", date="
+                                                + date));
     }
 }

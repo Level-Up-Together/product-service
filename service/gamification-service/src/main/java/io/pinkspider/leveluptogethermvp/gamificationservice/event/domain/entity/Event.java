@@ -89,9 +89,7 @@ public class Event extends LocalDateTimeBaseEntity {
     @Builder.Default
     private Boolean isActive = true;
 
-    /**
-     * 현재 진행중인 이벤트인지 확인
-     */
+    /** 현재 진행중인 이벤트인지 확인 */
     public boolean isCurrent() {
         if (!isActive) {
             return false;
@@ -100,9 +98,7 @@ public class Event extends LocalDateTimeBaseEntity {
         return !now.isBefore(startAt) && !now.isAfter(endAt);
     }
 
-    /**
-     * 이벤트 상태 반환
-     */
+    /** 이벤트 상태 반환 */
     public EventStatus getStatus() {
         LocalDateTime now = LocalDateTime.now();
         if (now.isBefore(startAt)) {
@@ -114,17 +110,14 @@ public class Event extends LocalDateTimeBaseEntity {
         return EventStatus.IN_PROGRESS;
     }
 
-    /**
-     * locale에 따라 이벤트명을 반환합니다.
-     */
+    /** locale에 따라 이벤트명을 반환합니다. */
     public String getLocalizedName(String locale) {
         return LocaleUtils.getLocalizedText(name, nameEn, nameAr, nameJa, locale);
     }
 
-    /**
-     * locale에 따라 설명을 반환합니다.
-     */
+    /** locale에 따라 설명을 반환합니다. */
     public String getLocalizedDescription(String locale) {
-        return LocaleUtils.getLocalizedText(description, descriptionEn, descriptionAr, descriptionJa, locale);
+        return LocaleUtils.getLocalizedText(
+                description, descriptionEn, descriptionAr, descriptionJa, locale);
     }
 }

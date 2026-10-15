@@ -24,8 +24,8 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
 /**
- * Admin 내부 API 컨트롤러 - 핑크다이아 묶음상품 (LUT-356)
- * 인증 불필요 (SecurityConfig에서 /api/internal/** permitAll — InternalApiKeyFilter가 헤더 인증)
+ * Admin 내부 API 컨트롤러 - 핑크다이아 묶음상품 (LUT-356) 인증 불필요 (SecurityConfig에서 /api/internal/** permitAll —
+ * InternalApiKeyFilter가 헤더 인증)
  */
 @RestController
 @RequestMapping("/api/internal/diamond-bundles")
@@ -41,45 +41,47 @@ public class DiamondBundleAdminInternalController {
             @RequestParam(required = false, defaultValue = "0") int page,
             @RequestParam(required = false, defaultValue = "20") int size,
             @RequestParam(name = "sort_by", required = false, defaultValue = "id") String sortBy,
-            @RequestParam(name = "sort_direction", required = false, defaultValue = "DESC") String sortDirection) {
-        Sort sort = "ASC".equalsIgnoreCase(sortDirection)
-            ? Sort.by(sortBy).ascending()
-            : Sort.by(sortBy).descending();
+            @RequestParam(name = "sort_direction", required = false, defaultValue = "DESC")
+                    String sortDirection) {
+        Sort sort =
+                "ASC".equalsIgnoreCase(sortDirection)
+                        ? Sort.by(sortBy).ascending()
+                        : Sort.by(sortBy).descending();
         return ApiResult.<DiamondBundleAdminPageResponse>builder()
-            .value(diamondBundleAdminService.searchBundles(
-                keyword, isActive, PageRequest.of(page, size, sort)))
-            .build();
+                .value(
+                        diamondBundleAdminService.searchBundles(
+                                keyword, isActive, PageRequest.of(page, size, sort)))
+                .build();
     }
 
     @GetMapping("/{id}")
     public ApiResult<DiamondBundleAdminResponse> getBundle(@PathVariable Long id) {
         return ApiResult.<DiamondBundleAdminResponse>builder()
-            .value(diamondBundleAdminService.getBundle(id))
-            .build();
+                .value(diamondBundleAdminService.getBundle(id))
+                .build();
     }
 
     @PostMapping
     public ApiResult<DiamondBundleAdminResponse> createBundle(
             @Valid @RequestBody DiamondBundleAdminRequest request) {
         return ApiResult.<DiamondBundleAdminResponse>builder()
-            .value(diamondBundleAdminService.createBundle(request))
-            .build();
+                .value(diamondBundleAdminService.createBundle(request))
+                .build();
     }
 
     @PutMapping("/{id}")
     public ApiResult<DiamondBundleAdminResponse> updateBundle(
-            @PathVariable Long id,
-            @Valid @RequestBody DiamondBundleAdminRequest request) {
+            @PathVariable Long id, @Valid @RequestBody DiamondBundleAdminRequest request) {
         return ApiResult.<DiamondBundleAdminResponse>builder()
-            .value(diamondBundleAdminService.updateBundle(id, request))
-            .build();
+                .value(diamondBundleAdminService.updateBundle(id, request))
+                .build();
     }
 
     @PatchMapping("/{id}/toggle-active")
     public ApiResult<DiamondBundleAdminResponse> toggleActiveStatus(@PathVariable Long id) {
         return ApiResult.<DiamondBundleAdminResponse>builder()
-            .value(diamondBundleAdminService.toggleActiveStatus(id))
-            .build();
+                .value(diamondBundleAdminService.toggleActiveStatus(id))
+                .build();
     }
 
     @DeleteMapping("/{id}")
@@ -92,7 +94,7 @@ public class DiamondBundleAdminInternalController {
     public ApiResult<ShopItemImageUploadResponse> uploadImage(
             @RequestPart("file") MultipartFile file) {
         return ApiResult.<ShopItemImageUploadResponse>builder()
-            .value(new ShopItemImageUploadResponse(diamondBundleAdminService.uploadImage(file)))
-            .build();
+                .value(new ShopItemImageUploadResponse(diamondBundleAdminService.uploadImage(file)))
+                .build();
     }
 }

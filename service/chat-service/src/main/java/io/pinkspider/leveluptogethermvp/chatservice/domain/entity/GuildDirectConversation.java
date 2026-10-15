@@ -26,16 +26,19 @@ import org.hibernate.annotations.Comment;
 @SuperBuilder
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @AllArgsConstructor
-@Table(name = "guild_direct_conversation",
-    uniqueConstraints = {
-        @UniqueConstraint(name = "uk_dm_conversation", columnNames = {"guild_id", "user_id_1", "user_id_2"})
-    },
-    indexes = {
-        @Index(name = "idx_dm_conv_guild", columnList = "guild_id"),
-        @Index(name = "idx_dm_conv_user1", columnList = "user_id_1"),
-        @Index(name = "idx_dm_conv_user2", columnList = "user_id_2"),
-        @Index(name = "idx_dm_conv_last_message", columnList = "last_message_at DESC")
-    })
+@Table(
+        name = "guild_direct_conversation",
+        uniqueConstraints = {
+            @UniqueConstraint(
+                    name = "uk_dm_conversation",
+                    columnNames = {"guild_id", "user_id_1", "user_id_2"})
+        },
+        indexes = {
+            @Index(name = "idx_dm_conv_guild", columnList = "guild_id"),
+            @Index(name = "idx_dm_conv_user1", columnList = "user_id_1"),
+            @Index(name = "idx_dm_conv_user2", columnList = "user_id_2"),
+            @Index(name = "idx_dm_conv_last_message", columnList = "last_message_at DESC")
+        })
 @Comment("길드 1:1 DM 대화")
 public class GuildDirectConversation extends LocalDateTimeBaseEntity {
 
@@ -78,11 +81,11 @@ public class GuildDirectConversation extends LocalDateTimeBaseEntity {
         String userId2 = userIdA.compareTo(userIdB) < 0 ? userIdB : userIdA;
 
         return GuildDirectConversation.builder()
-            .guildId(guildId)
-            .userId1(userId1)
-            .userId2(userId2)
-            .isActive(true)
-            .build();
+                .guildId(guildId)
+                .userId1(userId1)
+                .userId2(userId2)
+                .isActive(true)
+                .build();
     }
 
     public void updateLastMessage(String content) {

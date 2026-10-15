@@ -19,12 +19,12 @@ public record ShopPurchaseHistoryAdminPageResponse(
     public static ShopPurchaseHistoryAdminPageResponse from(
             Page<?> page, List<ShopPurchaseHistoryAdminResponse> content) {
         return new ShopPurchaseHistoryAdminPageResponse(
-            content,
-            page.getTotalPages(),
-            page.getTotalElements(),
-            page.getNumber(),
-            page.getSize(),
-            page.isFirst(),
-            page.isLast());
+                content,
+                page.getTotalPages(),
+                page.getTotalElements(),
+                page.getNumber(),
+                page.getSize(),
+                page.isFirst(),
+                page.isLast());
     }
 }

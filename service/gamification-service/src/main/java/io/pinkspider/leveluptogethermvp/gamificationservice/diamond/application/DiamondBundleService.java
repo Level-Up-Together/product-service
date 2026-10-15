@@ -18,7 +18,7 @@ public class DiamondBundleService {
     @Transactional(readOnly = true, transactionManager = "gamificationTransactionManager")
     public List<DiamondBundleResponse> getActiveBundles() {
         return diamondBundleRepository.findByIsActiveTrueOrderByDiamondCountAscIdAsc().stream()
-            .map(DiamondBundleResponse::from)
-            .toList();
+                .map(DiamondBundleResponse::from)
+                .toList();
     }
 }

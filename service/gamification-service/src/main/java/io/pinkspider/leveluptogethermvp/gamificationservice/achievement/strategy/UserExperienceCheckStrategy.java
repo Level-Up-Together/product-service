@@ -8,10 +8,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
-/**
- * USER_EXPERIENCE 데이터 소스에 대한 업적 체크 전략
- * 현재 레벨, 총 경험치 등을 체크합니다.
- */
+/** USER_EXPERIENCE 데이터 소스에 대한 업적 체크 전략 현재 레벨, 총 경험치 등을 체크합니다. */
 @Component
 @RequiredArgsConstructor
 @Slf4j
@@ -54,12 +51,20 @@ public class UserExperienceCheckStrategy implements AchievementCheckStrategy {
             return false;
         }
 
-        ComparisonOperator operator = ComparisonOperator.fromCode(achievement.getComparisonOperator());
+        ComparisonOperator operator =
+                ComparisonOperator.fromCode(achievement.getComparisonOperator());
         int requiredCount = achievement.getRequiredCount();
 
         boolean result = operator.compare((Number) currentValue, requiredCount);
-        log.debug("UserExperience 조건 체크: userId={}, field={}, current={}, required={}, operator={}, result={}",
-            userId, dataField, currentValue, requiredCount, operator, result);
+        log.debug(
+                "UserExperience 조건 체크: userId={}, field={}, current={}, required={}, operator={},"
+                        + " result={}",
+                userId,
+                dataField,
+                currentValue,
+                requiredCount,
+                operator,
+                result);
 
         return result;
     }
@@ -88,7 +93,8 @@ public class UserExperienceCheckStrategy implements AchievementCheckStrategy {
         if (!(currentValue instanceof Number)) {
             return false;
         }
-        ComparisonOperator operator = ComparisonOperator.fromCode(achievement.getComparisonOperator());
+        ComparisonOperator operator =
+                ComparisonOperator.fromCode(achievement.getComparisonOperator());
         return operator.compare((Number) currentValue, achievement.getRequiredCount());
     }
 }

@@ -1,11 +1,10 @@
 package io.pinkspider.leveluptogethermvp.gamificationservice.stats.event.listener;
 
-import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.anyString;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.anyString;
 
 import io.pinkspider.global.event.FeedCommentDeletedEvent;
 import io.pinkspider.global.event.FeedLikedEvent;
@@ -27,14 +26,11 @@ import org.mockito.junit.jupiter.MockitoExtension;
 @ExtendWith(MockitoExtension.class)
 class UserStatsCounterEventListenerTest {
 
-    @Mock
-    private UserStatsService userStatsService;
+    @Mock private UserStatsService userStatsService;
 
-    @Mock
-    private AchievementService achievementService;
+    @Mock private AchievementService achievementService;
 
-    @InjectMocks
-    private UserStatsCounterEventListener listener;
+    @InjectMocks private UserStatsCounterEventListener listener;
 
     private static final String LIKER_ID = "liker-user-123";
     private static final String FEED_OWNER_ID = "feed-owner-456";
@@ -65,13 +61,16 @@ class UserStatsCounterEventListenerTest {
         void handleFeedLiked_exceptionHandled() {
             // given
             FeedLikedEvent event = new FeedLikedEvent(LIKER_ID, FEED_OWNER_ID, 1L);
-            doThrow(new RuntimeException("DB error")).when(userStatsService).incrementLikesReceived(FEED_OWNER_ID);
+            doThrow(new RuntimeException("DB error"))
+                    .when(userStatsService)
+                    .incrementLikesReceived(FEED_OWNER_ID);
 
             // when - 예외가 전파되지 않음
             listener.handleFeedLiked(event);
 
             // then
-            verify(achievementService, never()).checkAchievementsByDataSource(anyString(), anyString());
+            verify(achievementService, never())
+                    .checkAchievementsByDataSource(anyString(), anyString());
         }
     }
 
@@ -97,7 +96,9 @@ class UserStatsCounterEventListenerTest {
         void handleFeedUnliked_exceptionHandled() {
             // given
             FeedUnlikedEvent event = new FeedUnlikedEvent(LIKER_ID, FEED_OWNER_ID, 1L);
-            doThrow(new RuntimeException("DB error")).when(userStatsService).decrementLikesReceived(FEED_OWNER_ID);
+            doThrow(new RuntimeException("DB error"))
+                    .when(userStatsService)
+                    .decrementLikesReceived(FEED_OWNER_ID);
 
             // when - 예외가 전파되지 않음
             listener.handleFeedUnliked(event);
@@ -112,9 +113,8 @@ class UserStatsCounterEventListenerTest {
         @DisplayName("양쪽 친구 카운터를 증가시키고 업적을 체크한다")
         void handleFriendAccepted_success() {
             // given
-            FriendRequestAcceptedEvent event = new FriendRequestAcceptedEvent(
-                USER_ID, REQUESTER_ID, "수락자", 1L
-            );
+            FriendRequestAcceptedEvent event =
+                    new FriendRequestAcceptedEvent(USER_ID, REQUESTER_ID, "수락자", 1L);
 
             // when
             listener.handleFriendAccepted(event);
@@ -123,17 +123,19 @@ class UserStatsCounterEventListenerTest {
             verify(userStatsService).incrementFriendCount(USER_ID);
             verify(userStatsService).incrementFriendCount(REQUESTER_ID);
             verify(achievementService).checkAchievementsByDataSource(USER_ID, "FRIEND_SERVICE");
-            verify(achievementService).checkAchievementsByDataSource(REQUESTER_ID, "FRIEND_SERVICE");
+            verify(achievementService)
+                    .checkAchievementsByDataSource(REQUESTER_ID, "FRIEND_SERVICE");
         }
 
         @Test
         @DisplayName("예외 발생 시 로그만 남기고 전파하지 않는다")
         void handleFriendAccepted_exceptionHandled() {
             // given
-            FriendRequestAcceptedEvent event = new FriendRequestAcceptedEvent(
-                USER_ID, REQUESTER_ID, "수락자", 1L
-            );
-            doThrow(new RuntimeException("DB error")).when(userStatsService).incrementFriendCount(USER_ID);
+            FriendRequestAcceptedEvent event =
+                    new FriendRequestAcceptedEvent(USER_ID, REQUESTER_ID, "수락자", 1L);
+            doThrow(new RuntimeException("DB error"))
+                    .when(userStatsService)
+                    .incrementFriendCount(USER_ID);
 
             // when - 예외가 전파되지 않음
             listener.handleFriendAccepted(event);
@@ -178,7 +180,9 @@ class UserStatsCounterEventListenerTest {
         void handleGuildJoined_exceptionHandled() {
             // given
             GuildJoinedEvent event = new GuildJoinedEvent(USER_ID, 1L, "테스트 길드");
-            doThrow(new RuntimeException("DB error")).when(userStatsService).syncGuildJoinCount(USER_ID);
+            doThrow(new RuntimeException("DB error"))
+                    .when(userStatsService)
+                    .syncGuildJoinCount(USER_ID);
 
             // when - 예외가 전파되지 않음
             listener.handleGuildJoined(event);
@@ -208,7 +212,8 @@ class UserStatsCounterEventListenerTest {
             // given
             FeedCommentDeletedEvent event = new FeedCommentDeletedEvent(USER_ID, FEED_OWNER_ID, 1L);
             doThrow(new RuntimeException("DB error"))
-                .when(userStatsService).decrementCommentsReceived(FEED_OWNER_ID);
+                    .when(userStatsService)
+                    .decrementCommentsReceived(FEED_OWNER_ID);
 
             // when - 예외가 전파되지 않음
             listener.handleFeedCommentDeleted(event);
@@ -226,7 +231,7 @@ class UserStatsCounterEventListenerTest {
         void handleMissionCommentDeleted_success() {
             // given
             MissionCommentDeletedEvent event =
-                new MissionCommentDeletedEvent(USER_ID, MISSION_CREATOR_ID, 1L);
+                    new MissionCommentDeletedEvent(USER_ID, MISSION_CREATOR_ID, 1L);
 
             // when
             listener.handleMissionCommentDeleted(event);
@@ -240,9 +245,10 @@ class UserStatsCounterEventListenerTest {
         void handleMissionCommentDeleted_exceptionHandled() {
             // given
             MissionCommentDeletedEvent event =
-                new MissionCommentDeletedEvent(USER_ID, MISSION_CREATOR_ID, 1L);
+                    new MissionCommentDeletedEvent(USER_ID, MISSION_CREATOR_ID, 1L);
             doThrow(new RuntimeException("DB error"))
-                .when(userStatsService).decrementCommentsReceived(MISSION_CREATOR_ID);
+                    .when(userStatsService)
+                    .decrementCommentsReceived(MISSION_CREATOR_ID);
 
             // when - 예외가 전파되지 않음
             listener.handleMissionCommentDeleted(event);
@@ -272,7 +278,9 @@ class UserStatsCounterEventListenerTest {
         void handleFriendRemoved_exceptionHandled() {
             // given
             FriendRemovedEvent event = new FriendRemovedEvent(USER_ID, FRIEND_ID);
-            doThrow(new RuntimeException("DB error")).when(userStatsService).decrementFriendCount(USER_ID);
+            doThrow(new RuntimeException("DB error"))
+                    .when(userStatsService)
+                    .decrementFriendCount(USER_ID);
 
             // when - 예외가 전파되지 않음
             listener.handleFriendRemoved(event);

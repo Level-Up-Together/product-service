@@ -36,21 +36,21 @@ public class SeasonAdminResponse {
     public static SeasonAdminResponse from(Season season) {
         SeasonStatus status = season.getStatus();
         return SeasonAdminResponse.builder()
-            .id(season.getId())
-            .title(season.getTitle())
-            .description(season.getDescription())
-            .startAt(season.getStartAt())
-            .endAt(season.getEndAt())
-            .isActive(season.getIsActive())
-            .rewardTitleId(season.getRewardTitleId())
-            .rewardTitleName(season.getRewardTitleName())
-            .sortOrder(season.getSortOrder())
-            .status(status.name())
-            .statusName(status.getDescription())
-            .createdBy(season.getCreatedBy())
-            .modifiedBy(season.getModifiedBy())
-            .createdAt(season.getCreatedAt())
-            .modifiedAt(season.getModifiedAt())
-            .build();
+                .id(season.getId())
+                .title(season.getTitle())
+                .description(season.getDescription())
+                .startAt(season.getStartAt())
+                .endAt(season.getEndAt())
+                .isActive(season.getIsActive())
+                .rewardTitleId(season.getRewardTitleId())
+                .rewardTitleName(season.getRewardTitleName())
+                .sortOrder(season.getSortOrder())
+                .status(status.name())
+                .statusName(status.getDescription())
+                .createdBy(season.getCreatedBy())
+                .modifiedBy(season.getModifiedBy())
+                .createdAt(season.getCreatedAt())
+                .modifiedAt(season.getModifiedAt())
+                .build();
     }
 }

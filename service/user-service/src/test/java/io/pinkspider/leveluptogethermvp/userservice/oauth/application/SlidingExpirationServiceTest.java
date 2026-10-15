@@ -5,8 +5,8 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import io.jsonwebtoken.Claims;
-import io.pinkspider.leveluptogethermvp.userservice.core.properties.JwtProperties;
 import io.pinkspider.global.security.JwtUtil;
+import io.pinkspider.leveluptogethermvp.userservice.core.properties.JwtProperties;
 import java.util.Date;
 import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
@@ -20,11 +20,9 @@ import org.mockito.junit.jupiter.MockitoExtension;
 @ExtendWith(MockitoExtension.class)
 class SlidingExpirationServiceTest {
 
-    @Mock
-    private JwtProperties jwtProperties;
+    @Mock private JwtProperties jwtProperties;
 
-    @Mock
-    private JwtUtil jwtUtil;
+    @Mock private JwtUtil jwtUtil;
 
     private SlidingExpirationService slidingExpirationService;
 
@@ -52,8 +50,10 @@ class SlidingExpirationServiceTest {
         void aboveThreshold_returnsFalse() {
             when(jwtProperties.getRenewalThresholdMillis()).thenReturn(1000L * 60 * 60 * 24 * 3);
 
-            assertThat(slidingExpirationService.shouldRenewByRemainingMillis(
-                1000L * 60 * 60 * 24 * 10)).isFalse();
+            assertThat(
+                            slidingExpirationService.shouldRenewByRemainingMillis(
+                                    1000L * 60 * 60 * 24 * 10))
+                    .isFalse();
         }
 
         @Test
@@ -162,7 +162,8 @@ class SlidingExpirationServiceTest {
         @DisplayName("예외 발생 시 false를 반환한다")
         void shouldRenewRefreshToken_exception_returnsFalse() {
             // given
-            when(jwtUtil.getRemainingTime(TEST_TOKEN)).thenThrow(new RuntimeException("Token error"));
+            when(jwtUtil.getRemainingTime(TEST_TOKEN))
+                    .thenThrow(new RuntimeException("Token error"));
 
             // when
             boolean result = slidingExpirationService.shouldRenewRefreshToken(TEST_TOKEN);
@@ -181,7 +182,8 @@ class SlidingExpirationServiceTest {
         void isWithinMaxLifetime_withinLimit_returnsTrue() {
             // given
             Claims claims = mock(Claims.class);
-            when(claims.getIssuedAt()).thenReturn(new Date(System.currentTimeMillis() - 1000 * 60 * 60 * 24)); // 1일 전
+            when(claims.getIssuedAt())
+                    .thenReturn(new Date(System.currentTimeMillis() - 1000 * 60 * 60 * 24)); // 1일 전
             when(jwtUtil.getClaimsFromToken(TEST_TOKEN)).thenReturn(claims);
             when(jwtProperties.getMaxLifetimeMillis()).thenReturn(1000L * 60 * 60 * 24 * 30); // 30일
 
@@ -197,7 +199,11 @@ class SlidingExpirationServiceTest {
         void isWithinMaxLifetime_exceedsLimit_returnsFalse() {
             // given
             Claims claims = mock(Claims.class);
-            when(claims.getIssuedAt()).thenReturn(new Date(System.currentTimeMillis() - 1000L * 60 * 60 * 24 * 31)); // 31일 전
+            when(claims.getIssuedAt())
+                    .thenReturn(
+                            new Date(
+                                    System.currentTimeMillis()
+                                            - 1000L * 60 * 60 * 24 * 31)); // 31일 전
             when(jwtUtil.getClaimsFromToken(TEST_TOKEN)).thenReturn(claims);
             when(jwtProperties.getMaxLifetimeMillis()).thenReturn(1000L * 60 * 60 * 24 * 30); // 30일
 
@@ -212,7 +218,8 @@ class SlidingExpirationServiceTest {
         @DisplayName("예외 발생 시 false를 반환한다")
         void isWithinMaxLifetime_exception_returnsFalse() {
             // given
-            when(jwtUtil.getClaimsFromToken(TEST_TOKEN)).thenThrow(new RuntimeException("Token error"));
+            when(jwtUtil.getClaimsFromToken(TEST_TOKEN))
+                    .thenThrow(new RuntimeException("Token error"));
 
             // when
             boolean result = slidingExpirationService.isWithinMaxLifetime(TEST_TOKEN);
@@ -251,7 +258,11 @@ class SlidingExpirationServiceTest {
         void calculateRemainingMaxLifetime_expired_returnsZero() {
             // given
             Claims claims = mock(Claims.class);
-            when(claims.getIssuedAt()).thenReturn(new Date(System.currentTimeMillis() - 1000L * 60 * 60 * 24 * 31)); // 31일 전
+            when(claims.getIssuedAt())
+                    .thenReturn(
+                            new Date(
+                                    System.currentTimeMillis()
+                                            - 1000L * 60 * 60 * 24 * 31)); // 31일 전
             when(jwtUtil.getClaimsFromToken(TEST_TOKEN)).thenReturn(claims);
             when(jwtProperties.getMaxLifetimeMillis()).thenReturn(1000L * 60 * 60 * 24 * 30); // 30일
 
@@ -266,7 +277,8 @@ class SlidingExpirationServiceTest {
         @DisplayName("예외 발생 시 0을 반환한다")
         void calculateRemainingMaxLifetime_exception_returnsZero() {
             // given
-            when(jwtUtil.getClaimsFromToken(TEST_TOKEN)).thenThrow(new RuntimeException("Token error"));
+            when(jwtUtil.getClaimsFromToken(TEST_TOKEN))
+                    .thenThrow(new RuntimeException("Token error"));
 
             // when
             long result = slidingExpirationService.calculateRemainingMaxLifetime(TEST_TOKEN);
@@ -285,12 +297,15 @@ class SlidingExpirationServiceTest {
         void canRenewToken_canRenew_returnsTrue() {
             // given
             Claims claims = mock(Claims.class);
-            when(claims.getIssuedAt()).thenReturn(new Date(System.currentTimeMillis() - 1000 * 60 * 60 * 24)); // 1일 전
+            when(claims.getIssuedAt())
+                    .thenReturn(new Date(System.currentTimeMillis() - 1000 * 60 * 60 * 24)); // 1일 전
             when(jwtUtil.getClaimsFromToken(TEST_TOKEN)).thenReturn(claims);
             when(jwtProperties.getMaxLifetimeMillis()).thenReturn(1000L * 60 * 60 * 24 * 30); // 30일
 
-            when(jwtUtil.getRemainingTime(TEST_TOKEN)).thenReturn(1000L * 60 * 60 * 24 * 2); // 2일 남음
-            when(jwtProperties.getRenewalThresholdMillis()).thenReturn(1000L * 60 * 60 * 24 * 3); // 3일
+            when(jwtUtil.getRemainingTime(TEST_TOKEN))
+                    .thenReturn(1000L * 60 * 60 * 24 * 2); // 2일 남음
+            when(jwtProperties.getRenewalThresholdMillis())
+                    .thenReturn(1000L * 60 * 60 * 24 * 3); // 3일
 
             // when
             boolean result = slidingExpirationService.canRenewToken(TEST_TOKEN);
@@ -304,7 +319,11 @@ class SlidingExpirationServiceTest {
         void canRenewToken_exceedsMaxLifetime_returnsFalse() {
             // given
             Claims claims = mock(Claims.class);
-            when(claims.getIssuedAt()).thenReturn(new Date(System.currentTimeMillis() - 1000L * 60 * 60 * 24 * 31)); // 31일 전
+            when(claims.getIssuedAt())
+                    .thenReturn(
+                            new Date(
+                                    System.currentTimeMillis()
+                                            - 1000L * 60 * 60 * 24 * 31)); // 31일 전
             when(jwtUtil.getClaimsFromToken(TEST_TOKEN)).thenReturn(claims);
             when(jwtProperties.getMaxLifetimeMillis()).thenReturn(1000L * 60 * 60 * 24 * 30); // 30일
 
@@ -327,7 +346,8 @@ class SlidingExpirationServiceTest {
             long remainingTime = 1000L * 60 * 60 * 24 * 2; // 2일
 
             Claims claims = mock(Claims.class);
-            when(claims.getIssuedAt()).thenReturn(new Date(System.currentTimeMillis() - 1000 * 60 * 60 * 24)); // 1일 전
+            when(claims.getIssuedAt())
+                    .thenReturn(new Date(System.currentTimeMillis() - 1000 * 60 * 60 * 24)); // 1일 전
             when(jwtUtil.getClaimsFromToken(TEST_TOKEN)).thenReturn(claims);
             when(jwtUtil.getRemainingTime(TEST_TOKEN)).thenReturn(remainingTime);
             when(jwtProperties.getMaxLifetimeMillis()).thenReturn(1000L * 60 * 60 * 24 * 30);
@@ -349,7 +369,8 @@ class SlidingExpirationServiceTest {
         @DisplayName("예외 발생 시 에러 정보를 반환한다")
         void getTokenRenewalInfo_exception_returnsError() {
             // given
-            when(jwtUtil.getRemainingTime(TEST_TOKEN)).thenThrow(new RuntimeException("Token error"));
+            when(jwtUtil.getRemainingTime(TEST_TOKEN))
+                    .thenThrow(new RuntimeException("Token error"));
 
             // when
             Map<String, Object> result = slidingExpirationService.getTokenRenewalInfo(TEST_TOKEN);

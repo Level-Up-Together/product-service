@@ -56,19 +56,23 @@ public class GeoIpService {
             return GeoIpResult.empty();
         }
 
-        try (WebServiceClient client = new WebServiceClient.Builder(accountId, licenseKey).build()) {
+        try (WebServiceClient client =
+                new WebServiceClient.Builder(accountId, licenseKey).build()) {
             java.net.InetAddress inetAddress = java.net.InetAddress.getByName(ipAddress);
             CountryResponse response = client.country(inetAddress);
 
-            String countryName = Optional.ofNullable(response.getCountry())
-                .map(c -> c.getNames().get("en"))
-                .orElse(null);
+            String countryName =
+                    Optional.ofNullable(response.getCountry())
+                            .map(c -> c.getNames().get("en"))
+                            .orElse(null);
 
-            String countryCode = Optional.ofNullable(response.getCountry())
-                .map(c -> c.getIsoCode())
-                .orElse(null);
+            String countryCode =
+                    Optional.ofNullable(response.getCountry())
+                            .map(c -> c.getIsoCode())
+                            .orElse(null);
 
-            log.info("GeoIP lookup - IP: {}, Country: {} ({})", ipAddress, countryName, countryCode);
+            log.info(
+                    "GeoIP lookup - IP: {}, Country: {} ({})", ipAddress, countryName, countryCode);
             return new GeoIpResult(countryName, countryCode);
 
         } catch (Exception e) {
@@ -83,7 +87,9 @@ public class GeoIpService {
         }
 
         // localhost
-        if ("127.0.0.1".equals(ipAddress) || "::1".equals(ipAddress) || "0:0:0:0:0:0:0:1".equals(ipAddress)) {
+        if ("127.0.0.1".equals(ipAddress)
+                || "::1".equals(ipAddress)
+                || "0:0:0:0:0:0:0:1".equals(ipAddress)) {
             return true;
         }
 

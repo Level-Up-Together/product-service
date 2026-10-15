@@ -19,31 +19,31 @@ import org.mockito.junit.jupiter.MockitoExtension;
 @ExtendWith(MockitoExtension.class)
 class FeedServiceCheckStrategyTest {
 
-    @Mock
-    private UserStatsRepository userStatsRepository;
+    @Mock private UserStatsRepository userStatsRepository;
 
-    @InjectMocks
-    private FeedServiceCheckStrategy strategy;
+    @InjectMocks private FeedServiceCheckStrategy strategy;
 
     private static final String TEST_USER_ID = "test-user-123";
 
-    private Achievement createTestAchievement(Long id, String dataField, String operator, int requiredCount) {
-        Achievement achievement = Achievement.builder()
-            .name("테스트 업적")
-            .checkLogicDataSource("FEED_SERVICE")
-            .checkLogicDataField(dataField)
-            .comparisonOperator(operator)
-            .requiredCount(requiredCount)
-            .build();
+    private Achievement createTestAchievement(
+            Long id, String dataField, String operator, int requiredCount) {
+        Achievement achievement =
+                Achievement.builder()
+                        .name("테스트 업적")
+                        .checkLogicDataSource("FEED_SERVICE")
+                        .checkLogicDataField(dataField)
+                        .comparisonOperator(operator)
+                        .requiredCount(requiredCount)
+                        .build();
         setId(achievement, id);
         return achievement;
     }
 
     private UserStats createTestUserStats(Long totalLikesReceived) {
         return UserStats.builder()
-            .userId(TEST_USER_ID)
-            .totalLikesReceived(totalLikesReceived)
-            .build();
+                .userId(TEST_USER_ID)
+                .totalLikesReceived(totalLikesReceived)
+                .build();
     }
 
     @Nested

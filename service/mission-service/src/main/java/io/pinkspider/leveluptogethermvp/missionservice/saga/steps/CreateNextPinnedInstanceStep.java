@@ -2,11 +2,12 @@ package io.pinkspider.leveluptogethermvp.missionservice.saga.steps;
 
 import io.pinkspider.global.saga.SagaStep;
 import io.pinkspider.global.saga.SagaStepResult;
-import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.DailyMissionInstance;
+import io.pinkspider.leveluptogethermvp.missionservice.application.DailyMissionInstanceCreator;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.Mission;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.MissionParticipant;
 import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.DailyMissionInstanceRepository;
 import io.pinkspider.leveluptogethermvp.missionservice.saga.MissionCompletionContext;
+import java.time.LocalDate;
 import java.util.function.Predicate;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -15,17 +16,14 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDate;
-
-/**
- * Step 6: 다음 수행을 위한 새 인스턴스 생성
- */
+/** Step 6: 다음 수행을 위한 새 인스턴스 생성 */
 @Slf4j
 @Component
 @RequiredArgsConstructor
 public class CreateNextPinnedInstanceStep implements SagaStep<MissionCompletionContext> {
 
     private final DailyMissionInstanceRepository instanceRepository;
+    private final DailyMissionInstanceCreator instanceCreator;
 
     @Override
     public String getName() {
@@ -38,39 +36,52 @@ public class CreateNextPinnedInstanceStep implements SagaStep<MissionCompletionC
     }
 
     @Override
-    @Transactional(propagation = Propagation.REQUIRES_NEW, transactionManager = "missionTransactionManager")
+    @Transactional(
+            propagation = Propagation.REQUIRES_NEW,
+            transactionManager = "missionTransactionManager")
     public SagaStepResult execute(MissionCompletionContext context) {
         MissionParticipant participant = context.getParticipant();
         LocalDate instanceDate = context.getInstanceDate();
 
-        log.debug("Creating next pinned instance: participantId={}, date={}",
-            participant.getId(), instanceDate);
+        log.debug(
+                "Creating next pinned instance: participantId={}, date={}",
+                participant.getId(),
+                instanceDate);
 
         try {
             // 일일 수행 제한 체크
             // QA-120: 동일 템플릿(baseMissionId) 합산으로 미션 삭제 후 재추가 우회 방지
             Mission mission = participant.getMission();
             if (mission.getDailyExecutionLimit() != null) {
-                long todayCompleted = mission.getBaseMissionId() != null
-                    ? instanceRepository.countCompletedByUserIdAndBaseMissionIdAndDate(
-                        participant.getUserId(), mission.getBaseMissionId(), instanceDate)
-                    : instanceRepository.countCompletedByParticipantIdAndDate(participant.getId(), instanceDate);
+                long todayCompleted =
+                        mission.getBaseMissionId() != null
+                                ? instanceRepository.countCompletedByUserIdAndBaseMissionIdAndDate(
+                                        participant.getUserId(),
+                                        mission.getBaseMissionId(),
+                                        instanceDate)
+                                : instanceRepository.countCompletedByParticipantIdAndDate(
+                                        participant.getId(), instanceDate);
                 if (todayCompleted >= mission.getDailyExecutionLimit()) {
-                    log.info("Daily limit reached, skipping next instance creation: participantId={}, limit={}",
-                        participant.getId(), mission.getDailyExecutionLimit());
+                    log.info(
+                            "Daily limit reached, skipping next instance creation:"
+                                    + " participantId={}, limit={}",
+                            participant.getId(),
+                            mission.getDailyExecutionLimit());
                     return SagaStepResult.success("일일 제한 도달 - 인스턴스 생성 스킵");
                 }
             }
 
             // 다음 시퀀스 번호 조회 + 저장 (동시 요청 시 sequence 충돌 방어)
-            DailyMissionInstance newInstance = saveWithRetry(participant, instanceDate);
+            Long newInstanceId = createWithRetry(participant.getId(), instanceDate);
 
-            context.setNextInstanceId(newInstance.getId());
+            context.setNextInstanceId(newInstanceId);
 
-            log.info("Next pinned instance created: instanceId={}, participantId={}, sequenceNumber={}",
-                newInstance.getId(), participant.getId(), newInstance.getSequenceNumber());
+            log.info(
+                    "Next pinned instance created: instanceId={}, participantId={}",
+                    newInstanceId,
+                    participant.getId());
 
-            return SagaStepResult.success("다음 인스턴스 생성 완료", newInstance.getId());
+            return SagaStepResult.success("다음 인스턴스 생성 완료", newInstanceId);
 
         } catch (Exception e) {
             log.error("Failed to create next pinned instance: {}", e.getMessage(), e);
@@ -79,7 +90,9 @@ public class CreateNextPinnedInstanceStep implements SagaStep<MissionCompletionC
     }
 
     @Override
-    @Transactional(propagation = Propagation.REQUIRES_NEW, transactionManager = "missionTransactionManager")
+    @Transactional(
+            propagation = Propagation.REQUIRES_NEW,
+            transactionManager = "missionTransactionManager")
     public SagaStepResult compensate(MissionCompletionContext context) {
         Long nextInstanceId = context.getNextInstanceId();
         if (nextInstanceId == null) {
@@ -93,25 +106,36 @@ public class CreateNextPinnedInstanceStep implements SagaStep<MissionCompletionC
             log.info("Next pinned instance deleted: instanceId={}", nextInstanceId);
             return SagaStepResult.success("다음 인스턴스 삭제 완료");
         } catch (Exception e) {
-            log.warn("Failed to delete next pinned instance: instanceId={}, error={}",
-                nextInstanceId, e.getMessage());
+            log.warn(
+                    "Failed to delete next pinned instance: instanceId={}, error={}",
+                    nextInstanceId,
+                    e.getMessage());
             return SagaStepResult.failure("다음 인스턴스 삭제 실패", e);
         }
     }
 
     /**
-     * 동시 요청으로 sequence 충돌(DataIntegrityViolationException) 시 재조회 후 재시도
+     * 동시 요청으로 sequence 충돌(DataIntegrityViolationException) 시 재조회 후 재시도.
+     *
+     * <p>LUT-539: insert 는 {@link DailyMissionInstanceCreator}(REQUIRES_NEW)에서 수행한다. 예전엔 이 스텝 트랜잭션
+     * 안에서 saveAndFlush + catch 를 돌려 첫 충돌이 세션을 오염시키고(재시도 flush 도 실패, 커밋 시
+     * UnexpectedRollbackException) 재시도 의도가 무력화됐다. 이제 충돌은 내부 트랜잭션만 롤백시키고 이 스텝의 컨텍스트는 깨끗하게 남아
+     * sequence 재조회·재시도가 실제로 동작한다.
      */
-    private DailyMissionInstance saveWithRetry(MissionParticipant participant, LocalDate instanceDate) {
+    private Long createWithRetry(Long participantId, LocalDate instanceDate) {
         int maxRetries = 3;
         for (int attempt = 1; attempt <= maxRetries; attempt++) {
-            int nextSequence = instanceRepository.findMaxSequenceNumber(participant.getId(), instanceDate) + 1;
-            DailyMissionInstance newInstance = DailyMissionInstance.createFrom(participant, instanceDate, nextSequence);
+            int nextSequence =
+                    instanceRepository.findMaxSequenceNumber(participantId, instanceDate) + 1;
             try {
-                return instanceRepository.saveAndFlush(newInstance);
+                return instanceCreator.create(participantId, instanceDate, nextSequence);
             } catch (DataIntegrityViolationException e) {
-                log.warn("Sequence collision on attempt {}/{}: participantId={}, seq={}",
-                    attempt, maxRetries, participant.getId(), nextSequence);
+                log.warn(
+                        "Sequence collision on attempt {}/{}: participantId={}, seq={}",
+                        attempt,
+                        maxRetries,
+                        participantId,
+                        nextSequence);
                 if (attempt == maxRetries) {
                     throw e;
                 }

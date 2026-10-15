@@ -12,11 +12,12 @@ import org.springframework.stereotype.Repository;
 @Repository
 public interface TermVersionRepository extends JpaRepository<TermVersion, Long> {
 
-    @Query("""
-        SELECT tv
-        FROM TermVersion tv
-        WHERE tv.terms.id = :termId
-        """)
+    @Query(
+            """
+            SELECT tv
+            FROM TermVersion tv
+            WHERE tv.terms.id = :termId
+            """)
     Optional<TermVersion> findByTermId(@Param("termId") Long termId);
 
     // ========== Admin Internal API 용 ==========

@@ -3,7 +3,6 @@ package io.pinkspider.leveluptogethermvp.userservice.test.application;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -31,26 +30,19 @@ import org.springframework.context.ApplicationEventPublisher;
 @ExtendWith(MockitoExtension.class)
 class TestLoginServiceTest {
 
-    @Mock
-    private UserRepository userRepository;
+    @Mock private UserRepository userRepository;
 
-    @Mock
-    private JwtUtil jwtUtil;
+    @Mock private JwtUtil jwtUtil;
 
-    @Mock
-    private MultiDeviceTokenService tokenService;
+    @Mock private MultiDeviceTokenService tokenService;
 
-    @Mock
-    private DeviceIdentifier deviceIdentifier;
+    @Mock private DeviceIdentifier deviceIdentifier;
 
-    @Mock
-    private ApplicationEventPublisher eventPublisher;
+    @Mock private ApplicationEventPublisher eventPublisher;
 
-    @Mock
-    private HttpServletRequest httpRequest;
+    @Mock private HttpServletRequest httpRequest;
 
-    @InjectMocks
-    private TestLoginService testLoginService;
+    @InjectMocks private TestLoginService testLoginService;
 
     @Nested
     @DisplayName("loginAsTestUser 테스트")
@@ -61,33 +53,39 @@ class TestLoginServiceTest {
         void loginWithExistingUser() {
             try (MockedStatic<CryptoUtils> mockedCrypto = mockStatic(CryptoUtils.class)) {
                 // given
-                Users existingUser = Users.builder()
-                    .id("existing-user-id")
-                    .email("test@test.com")
-                    .nickname("tester")
-                    .provider("test")
-                    .build();
+                Users existingUser =
+                        Users.builder()
+                                .id("existing-user-id")
+                                .email("test@test.com")
+                                .nickname("tester")
+                                .provider("test")
+                                .build();
 
-                mockedCrypto.when(() -> CryptoUtils.encryptAes("test@test.com"))
-                    .thenReturn("encrypted-email");
-                when(userRepository.findActiveByEncryptedEmailAndProvider("encrypted-email", "test"))
-                    .thenReturn(Optional.of(existingUser));
+                mockedCrypto
+                        .when(() -> CryptoUtils.encryptAes("test@test.com"))
+                        .thenReturn("encrypted-email");
+                when(userRepository.findActiveByEncryptedEmailAndProvider(
+                                "encrypted-email", "test"))
+                        .thenReturn(Optional.of(existingUser));
                 when(jwtUtil.generateAccessToken(anyString(), anyString(), anyString()))
-                    .thenReturn("access-token");
+                        .thenReturn("access-token");
                 when(jwtUtil.generateRefreshToken(anyString(), anyString(), anyString()))
-                    .thenReturn("refresh-token");
+                        .thenReturn("refresh-token");
                 when(deviceIdentifier.generateDeviceId(any(), anyString()))
-                    .thenReturn("device-123");
+                        .thenReturn("device-123");
 
                 // when
-                CreateJwtResponseDto result = testLoginService.loginAsTestUser(
-                    httpRequest, null, "test@test.com", null, null, null);
+                CreateJwtResponseDto result =
+                        testLoginService.loginAsTestUser(
+                                httpRequest, null, "test@test.com", null, null, null);
 
                 // then
                 assertThat(result.getAccessToken()).isEqualTo("access-token");
                 assertThat(result.getRefreshToken()).isEqualTo("refresh-token");
                 assertThat(result.getTokenType()).isEqualTo("Bearer");
-                verify(tokenService).saveTokensToRedis(anyString(), anyString(), anyString(), anyString(), anyString());
+                verify(tokenService)
+                        .saveTokensToRedis(
+                                anyString(), anyString(), anyString(), anyString(), anyString());
             }
         }
 
@@ -96,27 +94,35 @@ class TestLoginServiceTest {
         void loginWithNewUser() {
             try (MockedStatic<CryptoUtils> mockedCrypto = mockStatic(CryptoUtils.class)) {
                 // given
-                Users newUser = Users.builder()
-                    .id("new-user-id")
-                    .email("new@test.com")
-                    .nickname("newuser")
-                    .provider("test")
-                    .build();
+                Users newUser =
+                        Users.builder()
+                                .id("new-user-id")
+                                .email("new@test.com")
+                                .nickname("newuser")
+                                .provider("test")
+                                .build();
 
-                mockedCrypto.when(() -> CryptoUtils.encryptAes("new@test.com"))
-                    .thenReturn("encrypted");
+                mockedCrypto
+                        .when(() -> CryptoUtils.encryptAes("new@test.com"))
+                        .thenReturn("encrypted");
                 when(userRepository.findActiveByEncryptedEmailAndProvider("encrypted", "test"))
-                    .thenReturn(Optional.empty());
+                        .thenReturn(Optional.empty());
                 when(userRepository.existsByNickname(anyString())).thenReturn(false);
                 when(userRepository.save(any(Users.class))).thenReturn(newUser);
                 when(jwtUtil.generateAccessToken(anyString(), anyString(), anyString()))
-                    .thenReturn("access-token");
+                        .thenReturn("access-token");
                 when(jwtUtil.generateRefreshToken(anyString(), anyString(), anyString()))
-                    .thenReturn("refresh-token");
+                        .thenReturn("refresh-token");
 
                 // when
-                CreateJwtResponseDto result = testLoginService.loginAsTestUser(
-                    httpRequest, null, "new@test.com", "newuser", "mobile", "my-device");
+                CreateJwtResponseDto result =
+                        testLoginService.loginAsTestUser(
+                                httpRequest,
+                                null,
+                                "new@test.com",
+                                "newuser",
+                                "mobile",
+                                "my-device");
 
                 // then
                 assertThat(result.getAccessToken()).isEqualTo("access-token");
@@ -130,29 +136,30 @@ class TestLoginServiceTest {
         @DisplayName("testUserId로 기존 사용자를 조회한다 (이메일 조회보다 우선)")
         void loginWithTestUserId() {
             // given
-            Users existingUser = Users.builder()
-                .id("specific-id")
-                .email("spec@test.com")
-                .nickname("spec")
-                .provider("test")
-                .build();
+            Users existingUser =
+                    Users.builder()
+                            .id("specific-id")
+                            .email("spec@test.com")
+                            .nickname("spec")
+                            .provider("test")
+                            .build();
 
-            when(userRepository.findById("specific-id"))
-                .thenReturn(Optional.of(existingUser));
+            when(userRepository.findById("specific-id")).thenReturn(Optional.of(existingUser));
             when(jwtUtil.generateAccessToken(anyString(), anyString(), anyString()))
-                .thenReturn("at");
+                    .thenReturn("at");
             when(jwtUtil.generateRefreshToken(anyString(), anyString(), anyString()))
-                .thenReturn("rt");
-            when(deviceIdentifier.generateDeviceId(any(), anyString()))
-                .thenReturn("dev");
+                    .thenReturn("rt");
+            when(deviceIdentifier.generateDeviceId(any(), anyString())).thenReturn("dev");
 
             // when
-            CreateJwtResponseDto result = testLoginService.loginAsTestUser(
-                httpRequest, "specific-id", "spec@test.com", null, null, null);
+            CreateJwtResponseDto result =
+                    testLoginService.loginAsTestUser(
+                            httpRequest, "specific-id", "spec@test.com", null, null, null);
 
             // then
             assertThat(result.getUserId()).isEqualTo("specific-id");
-            verify(userRepository, never()).findActiveByEncryptedEmailAndProvider(anyString(), anyString());
+            verify(userRepository, never())
+                    .findActiveByEncryptedEmailAndProvider(anyString(), anyString());
         }
 
         @Test
@@ -163,22 +170,30 @@ class TestLoginServiceTest {
                 String testUserId = "e2e00001-0000-0000-0000-000000000001";
                 String email = "e2e-user-001@test.com";
                 String autoId = "generated-uuid";
-                Users savedUser = Users.builder()
-                    .id(autoId).email(email).nickname("e2e-user-").provider("test").build();
+                Users savedUser =
+                        Users.builder()
+                                .id(autoId)
+                                .email(email)
+                                .nickname("e2e-user-")
+                                .provider("test")
+                                .build();
 
                 mockedCrypto.when(() -> CryptoUtils.encryptAes(email)).thenReturn("encrypted");
                 when(userRepository.findById(testUserId)).thenReturn(Optional.empty());
                 when(userRepository.findActiveByEncryptedEmailAndProvider("encrypted", "test"))
-                    .thenReturn(Optional.empty());
+                        .thenReturn(Optional.empty());
                 when(userRepository.existsByNickname(anyString())).thenReturn(false);
                 when(userRepository.save(any(Users.class))).thenReturn(savedUser);
-                when(jwtUtil.generateAccessToken(anyString(), anyString(), anyString())).thenReturn("at");
-                when(jwtUtil.generateRefreshToken(anyString(), anyString(), anyString())).thenReturn("rt");
+                when(jwtUtil.generateAccessToken(anyString(), anyString(), anyString()))
+                        .thenReturn("at");
+                when(jwtUtil.generateRefreshToken(anyString(), anyString(), anyString()))
+                        .thenReturn("rt");
                 when(deviceIdentifier.generateDeviceId(any(), anyString())).thenReturn("dev");
 
                 // when
-                CreateJwtResponseDto result = testLoginService.loginAsTestUser(
-                    httpRequest, testUserId, email, null, null, null);
+                CreateJwtResponseDto result =
+                        testLoginService.loginAsTestUser(
+                                httpRequest, testUserId, email, null, null, null);
 
                 // then: save 호출, 응답 ID = 자동 부여 ID (요청 testUserId 아님)
                 verify(userRepository).save(any(Users.class));
@@ -193,19 +208,27 @@ class TestLoginServiceTest {
             try (MockedStatic<CryptoUtils> mockedCrypto = mockStatic(CryptoUtils.class)) {
                 // given
                 String email = "exist@test.com";
-                Users existing = Users.builder()
-                    .id("existing-id").email(email).nickname("exist").provider("test").build();
+                Users existing =
+                        Users.builder()
+                                .id("existing-id")
+                                .email(email)
+                                .nickname("exist")
+                                .provider("test")
+                                .build();
 
                 mockedCrypto.when(() -> CryptoUtils.encryptAes(email)).thenReturn("encrypted");
                 when(userRepository.findActiveByEncryptedEmailAndProvider("encrypted", "test"))
-                    .thenReturn(Optional.of(existing));
-                when(jwtUtil.generateAccessToken(anyString(), anyString(), anyString())).thenReturn("at");
-                when(jwtUtil.generateRefreshToken(anyString(), anyString(), anyString())).thenReturn("rt");
+                        .thenReturn(Optional.of(existing));
+                when(jwtUtil.generateAccessToken(anyString(), anyString(), anyString()))
+                        .thenReturn("at");
+                when(jwtUtil.generateRefreshToken(anyString(), anyString(), anyString()))
+                        .thenReturn("rt");
                 when(deviceIdentifier.generateDeviceId(any(), anyString())).thenReturn("dev");
 
                 // when
-                CreateJwtResponseDto result = testLoginService.loginAsTestUser(
-                    httpRequest, null, email, null, null, null);
+                CreateJwtResponseDto result =
+                        testLoginService.loginAsTestUser(
+                                httpRequest, null, email, null, null, null);
 
                 // then: 신규 save 미호출
                 verify(userRepository, never()).save(any(Users.class));

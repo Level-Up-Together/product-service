@@ -6,7 +6,6 @@ import lombok.RequiredArgsConstructor;
 @Getter
 @RequiredArgsConstructor
 public enum MissionType {
-
     PERSONAL("personal", "개인 미션"),
     GUILD("guild", "길드 미션");
 

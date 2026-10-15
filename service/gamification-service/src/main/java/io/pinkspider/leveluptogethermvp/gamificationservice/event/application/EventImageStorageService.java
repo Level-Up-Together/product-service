@@ -2,9 +2,7 @@ package io.pinkspider.leveluptogethermvp.gamificationservice.event.application;
 
 import org.springframework.web.multipart.MultipartFile;
 
-/**
- * 이벤트 이미지 저장 서비스 인터페이스
- */
+/** 이벤트 이미지 저장 서비스 인터페이스 */
 public interface EventImageStorageService {
 
     /**

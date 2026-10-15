@@ -5,9 +5,8 @@ import java.util.List;
 /**
  * 월간 기록 리포트 (LUT-454)
  *
- * <p>날짜·요일·시간대 버킷팅은 전부 요청 타임존(X-Timezone) 기준, 완료 시각(completedAt) 기준이다
- * (주간/월간 캘린더와 동일 규칙). 달성률은 예정일(execution_date/instance_date) 기준
- * 완료/예정 비율.
+ * <p>날짜·요일·시간대 버킷팅은 전부 요청 타임존(X-Timezone) 기준, 완료 시각(completedAt) 기준이다 (주간/월간 캘린더와 동일 규칙). 달성률은
+ * 예정일(execution_date/instance_date) 기준 완료/예정 비율.
  *
  * @param yearMonth 조회 월 (yyyy-MM)
  * @param scheduledCount 예정 수행 수 (일반 미션 + 고정 미션)

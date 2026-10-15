@@ -27,35 +27,33 @@ import org.mockito.junit.jupiter.MockitoExtension;
 @DisplayName("DiamondBundlePurchaseTxService 테스트 (LUT-354, LUT-401)")
 class DiamondBundlePurchaseTxServiceTest {
 
-    @Mock
-    private DiamondBundlePurchaseRepository purchaseRepository;
+    @Mock private DiamondBundlePurchaseRepository purchaseRepository;
 
-    @Mock
-    private DiamondService diamondService;
+    @Mock private DiamondService diamondService;
 
-    @InjectMocks
-    private DiamondBundlePurchaseTxService txService;
+    @InjectMocks private DiamondBundlePurchaseTxService txService;
 
     private static final String USER_ID = "user-1";
 
     private DiamondBundle bundle() {
-        DiamondBundle bundle = DiamondBundle.builder()
-            .name("핑크다이아 100개")
-            .diamondCount(100)
-            .storeProductId("pink_100")
-            .isActive(true)
-            .build();
+        DiamondBundle bundle =
+                DiamondBundle.builder()
+                        .name("핑크다이아 100개")
+                        .diamondCount(100)
+                        .storeProductId("pink_100")
+                        .isActive(true)
+                        .build();
         setId(bundle, 1L);
         return bundle;
     }
 
     private DiamondBundlePurchaseRequest request() {
         return DiamondBundlePurchaseRequest.builder()
-            .platform("ios")
-            .storeProductId("pink_100")
-            .transactionId("tx-001")
-            .receipt("base64-receipt")
-            .build();
+                .platform("ios")
+                .storeProductId("pink_100")
+                .transactionId("tx-001")
+                .receipt("base64-receipt")
+                .build();
     }
 
     @Test
@@ -63,13 +61,14 @@ class DiamondBundlePurchaseTxServiceTest {
     void recordAndGrant_persistsPriceAndDefaultStatus() {
         DiamondBundle bundle = bundle();
         IapVerificationResult verification =
-            new IapVerificationResult("tx-001", new BigDecimal("1.99"), "USD");
+                new IapVerificationResult("tx-001", new BigDecimal("1.99"), "USD");
         when(diamondService.grantPinkDiamonds(anyString(), anyInt(), anyLong(), anyString()))
-            .thenReturn(110);
+                .thenReturn(110);
 
         txService.recordAndGrant(USER_ID, bundle, request(), verification);
 
-        ArgumentCaptor<DiamondBundlePurchase> captor = ArgumentCaptor.forClass(DiamondBundlePurchase.class);
+        ArgumentCaptor<DiamondBundlePurchase> captor =
+                ArgumentCaptor.forClass(DiamondBundlePurchase.class);
         verify(purchaseRepository).saveAndFlush(captor.capture());
         DiamondBundlePurchase saved = captor.getValue();
 
@@ -88,11 +87,12 @@ class DiamondBundlePurchaseTxServiceTest {
         DiamondBundle bundle = bundle();
         IapVerificationResult verification = IapVerificationResult.withoutPrice("tx-001");
         when(diamondService.grantPinkDiamonds(anyString(), anyInt(), anyLong(), anyString()))
-            .thenReturn(100);
+                .thenReturn(100);
 
         int balance = txService.recordAndGrant(USER_ID, bundle, request(), verification);
 
-        ArgumentCaptor<DiamondBundlePurchase> captor = ArgumentCaptor.forClass(DiamondBundlePurchase.class);
+        ArgumentCaptor<DiamondBundlePurchase> captor =
+                ArgumentCaptor.forClass(DiamondBundlePurchase.class);
         verify(purchaseRepository).saveAndFlush(captor.capture());
         assertThat(captor.getValue().getPriceAmount()).isNull();
         assertThat(captor.getValue().getPriceCurrency()).isNull();
@@ -105,10 +105,11 @@ class DiamondBundlePurchaseTxServiceTest {
     void recordAndGrant_returnsBalanceAfterGrant() {
         DiamondBundle bundle = bundle();
         when(diamondService.grantPinkDiamonds(anyString(), anyInt(), anyLong(), anyString()))
-            .thenReturn(250);
+                .thenReturn(250);
 
-        int balance = txService.recordAndGrant(
-            USER_ID, bundle, request(), IapVerificationResult.withoutPrice("tx-001"));
+        int balance =
+                txService.recordAndGrant(
+                        USER_ID, bundle, request(), IapVerificationResult.withoutPrice("tx-001"));
 
         assertThat(balance).isEqualTo(250);
         verify(diamondService).grantPinkDiamonds(USER_ID, 100, 1L, "핑크다이아 100개");

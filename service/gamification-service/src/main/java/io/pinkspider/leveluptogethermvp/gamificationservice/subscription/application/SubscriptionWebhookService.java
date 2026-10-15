@@ -14,12 +14,11 @@ import org.springframework.stereotype.Service;
 /**
  * LUT-452: 스토어 구독 웹훅 수신 처리 — ASSN V2 / Google RTDN.
  *
- * <p><b>응답 규약</b>: 영구 실패(서명 불량·파싱 불가·미매칭)는 여기서 삼키고 정상 반환한다 — 스토어가
- * 재전송해도 결과가 같아 재시도가 무의미하기 때문. DB 오류 등 일시 실패만 예외를 전파해 5xx 로 재전송을
- * 받는다. 상태 적용은 전부 수렴형이라 at-least-once 멱등.
+ * <p><b>응답 규약</b>: 영구 실패(서명 불량·파싱 불가·미매칭)는 여기서 삼키고 정상 반환한다 — 스토어가 재전송해도 결과가 같아 재시도가 무의미하기 때문. DB 오류
+ * 등 일시 실패만 예외를 전파해 5xx 로 재전송을 받는다. 상태 적용은 전부 수렴형이라 at-least-once 멱등.
  *
- * <p><b>인증</b>: JWT 없이 열린 경로(permitAll) — Apple 은 signedPayload JWS 서명 검증이 인증이고,
- * Google 은 페이로드를 신뢰하지 않고 purchaseToken 으로 Play API 를 재조회해 위조를 무력화한다.
+ * <p><b>인증</b>: JWT 없이 열린 경로(permitAll) — Apple 은 signedPayload JWS 서명 검증이 인증이고, Google 은 페이로드를
+ * 신뢰하지 않고 purchaseToken 으로 Play API 를 재조회해 위조를 무력화한다.
  */
 @Service
 @RequiredArgsConstructor
@@ -109,7 +108,8 @@ public class SubscriptionWebhookService {
             return null;
         }
         try {
-            String json = new String(Base64.getDecoder().decode(base64Data), StandardCharsets.UTF_8);
+            String json =
+                    new String(Base64.getDecoder().decode(base64Data), StandardCharsets.UTF_8);
             return objectMapper.readTree(json);
         } catch (Exception e) {
             log.error("RTDN 페이로드 파싱 실패 — 폐기: {}", e.getMessage());

@@ -29,16 +29,16 @@ public class TitleGrantAdminResponse {
 
     public static TitleGrantAdminResponse from(UserTitle userTitle, String userNickname) {
         return TitleGrantAdminResponse.builder()
-            .id(userTitle.getId())
-            .userId(userTitle.getUserId())
-            .userNickname(userNickname)
-            .titleId(userTitle.getTitle().getId())
-            .titleName(userTitle.getTitle().getName())
-            .titleRarity(userTitle.getTitle().getRarity().name())
-            .titlePositionType(userTitle.getTitle().getPositionType().name())
-            .reason(userTitle.getGrantReason())
-            .grantedBy(userTitle.getGrantedBy())
-            .grantedAt(userTitle.getAcquiredAt())
-            .build();
+                .id(userTitle.getId())
+                .userId(userTitle.getUserId())
+                .userNickname(userNickname)
+                .titleId(userTitle.getTitle().getId())
+                .titleName(userTitle.getTitle().getName())
+                .titleRarity(userTitle.getTitle().getRarity().name())
+                .titlePositionType(userTitle.getTitle().getPositionType().name())
+                .reason(userTitle.getGrantReason())
+                .grantedBy(userTitle.getGrantedBy())
+                .grantedAt(userTitle.getAcquiredAt())
+                .build();
     }
 }

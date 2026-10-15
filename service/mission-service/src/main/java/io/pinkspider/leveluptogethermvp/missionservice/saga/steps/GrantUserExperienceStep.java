@@ -1,20 +1,18 @@
 package io.pinkspider.leveluptogethermvp.missionservice.saga.steps;
 
+import io.pinkspider.global.enums.ExpSourceType;
+import io.pinkspider.global.facade.GamificationQueryFacade;
+import io.pinkspider.global.facade.dto.UserExperienceDto;
 import io.pinkspider.global.saga.SagaStep;
 import io.pinkspider.global.saga.SagaStepResult;
 import io.pinkspider.leveluptogethermvp.missionservice.saga.MissionCompletionContext;
-import io.pinkspider.global.facade.GamificationQueryFacade;
-import io.pinkspider.global.enums.ExpSourceType;
-import io.pinkspider.global.facade.dto.UserExperienceDto;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
-/**
- * 사용자 경험치 지급 (일반 미션 + 고정 미션 통합)
- */
+/** 사용자 경험치 지급 (일반 미션 + 고정 미션 통합) */
 @Slf4j
 @Component
 @RequiredArgsConstructor
@@ -43,17 +41,22 @@ public class GrantUserExperienceStep implements SagaStep<MissionCompletionContex
         String userId = context.getUserId();
         int expToGrant = context.getUserExpEarned();
 
-        log.debug("Granting user experience: userId={}, exp={}, pinned={}", userId, expToGrant, context.isPinned());
+        log.debug(
+                "Granting user experience: userId={}, exp={}, pinned={}",
+                userId,
+                expToGrant,
+                context.isPinned());
 
         try {
             // 현재 상태 저장 (보상용)
-            UserExperienceDto currentExp = gamificationQueryFacadeService.getOrCreateUserExperience(userId);
+            UserExperienceDto currentExp =
+                    gamificationQueryFacadeService.getOrCreateUserExperience(userId);
             context.addCompensationData(
-                MissionCompletionContext.CompensationKeys.USER_EXP_BEFORE,
-                currentExp.currentExp());
+                    MissionCompletionContext.CompensationKeys.USER_EXP_BEFORE,
+                    currentExp.currentExp());
             context.addCompensationData(
-                MissionCompletionContext.CompensationKeys.USER_LEVEL_BEFORE,
-                currentExp.currentLevel());
+                    MissionCompletionContext.CompensationKeys.USER_LEVEL_BEFORE,
+                    currentExp.currentLevel());
             context.setUserLevelBefore(currentExp.currentLevel());
 
             // 카테고리 정보 및 설명 (일반/고정 분기)
@@ -73,21 +76,26 @@ public class GrantUserExperienceStep implements SagaStep<MissionCompletionContex
 
             // 경험치 지급
             gamificationQueryFacadeService.addExperience(
-                userId,
-                expToGrant,
-                ExpSourceType.MISSION_EXECUTION,
-                context.getMission().getId(),
-                description,
-                categoryId,
-                categoryName
-            );
+                    userId,
+                    expToGrant,
+                    ExpSourceType.MISSION_EXECUTION,
+                    context.getMission().getId(),
+                    description,
+                    categoryId,
+                    categoryName);
 
             // 지급 후 레벨 확인
-            UserExperienceDto afterExp = gamificationQueryFacadeService.getOrCreateUserExperience(userId);
+            UserExperienceDto afterExp =
+                    gamificationQueryFacadeService.getOrCreateUserExperience(userId);
             context.setUserLevelAfter(afterExp.currentLevel());
 
-            log.info("User experience granted: userId={}, exp={}, level: {} -> {}, pinned={}",
-                userId, expToGrant, context.getUserLevelBefore(), context.getUserLevelAfter(), context.isPinned());
+            log.info(
+                    "User experience granted: userId={}, exp={}, level: {} -> {}, pinned={}",
+                    userId,
+                    expToGrant,
+                    context.getUserLevelBefore(),
+                    context.getUserLevelAfter(),
+                    context.isPinned());
 
             return SagaStepResult.success("사용자 경험치 지급 완료", expToGrant);
 
@@ -121,20 +129,22 @@ public class GrantUserExperienceStep implements SagaStep<MissionCompletionContex
             }
 
             gamificationQueryFacadeService.subtractExperience(
-                userId,
-                expGranted,
-                ExpSourceType.MISSION_EXECUTION,
-                context.getMission().getId(),
-                description,
-                categoryId,
-                categoryName
-            );
+                    userId,
+                    expGranted,
+                    ExpSourceType.MISSION_EXECUTION,
+                    context.getMission().getId(),
+                    description,
+                    categoryId,
+                    categoryName);
 
             log.info("User experience compensated: userId={}, exp={}", userId, expGranted);
             return SagaStepResult.success("사용자 경험치 환수 완료");
 
         } catch (Exception e) {
-            log.error("Failed to compensate user experience: userId={}, error={}", userId, e.getMessage());
+            log.error(
+                    "Failed to compensate user experience: userId={}, error={}",
+                    userId,
+                    e.getMessage());
             return SagaStepResult.failure("경험치 환수 실패", e);
         }
     }

@@ -42,48 +42,40 @@ import org.springframework.data.domain.Pageable;
 @DisplayName("ItemGrantAdminService 테스트 (LUT-472)")
 class ItemGrantAdminServiceTest {
 
-    @Mock
-    private ItemGrantRepository itemGrantRepository;
+    @Mock private ItemGrantRepository itemGrantRepository;
 
-    @Mock
-    private ShopItemRepository shopItemRepository;
+    @Mock private ShopItemRepository shopItemRepository;
 
-    @Mock
-    private UserItemRepository userItemRepository;
+    @Mock private UserItemRepository userItemRepository;
 
-    @Mock
-    private UserItemService userItemService;
+    @Mock private UserItemService userItemService;
 
-    @Mock
-    private UserRepository userRepository;
+    @Mock private UserRepository userRepository;
 
-    @Mock
-    private ApplicationEventPublisher eventPublisher;
+    @Mock private ApplicationEventPublisher eventPublisher;
 
-    @InjectMocks
-    private ItemGrantAdminService itemGrantAdminService;
+    @InjectMocks private ItemGrantAdminService itemGrantAdminService;
 
     private static final String TEST_USER_ID = "550e8400-e29b-41d4-a716-446655440000";
     private static final Long TEST_ADMIN_ID = 1L;
     private static final Long TEST_ITEM_ID = 10L;
 
     private ShopItem createTestItem(Long id) {
-        ShopItem item = ShopItem.builder()
-            .name("천사의 날개")
-            .nameEn("Angel Wings")
-            .itemType(ShopItemType.BASIC)
-            .rarity(TitleRarity.EPIC)
-            .price(1000)
-            .isActive(true)
-            .build();
+        ShopItem item =
+                ShopItem.builder()
+                        .name("천사의 날개")
+                        .nameEn("Angel Wings")
+                        .itemType(ShopItemType.BASIC)
+                        .rarity(TitleRarity.EPIC)
+                        .price(1000)
+                        .isActive(true)
+                        .build();
         setId(item, id);
         return item;
     }
 
     private Users createTestUser() {
-        Users user = Users.builder()
-            .nickname("테스트유저")
-            .build();
+        Users user = Users.builder().nickname("테스트유저").build();
         setId(user, TEST_USER_ID);
         return user;
     }
@@ -96,10 +88,10 @@ class ItemGrantAdminServiceTest {
 
     private ItemGrantAdminRequest createRequest() {
         return ItemGrantAdminRequest.builder()
-            .userId(TEST_USER_ID)
-            .shopItemId(TEST_ITEM_ID)
-            .reason("이벤트 보상")
-            .build();
+                .userId(TEST_USER_ID)
+                .shopItemId(TEST_ITEM_ID)
+                .reason("이벤트 보상")
+                .build();
     }
 
     @Nested
@@ -114,15 +106,17 @@ class ItemGrantAdminServiceTest {
             when(userRepository.findById(TEST_USER_ID)).thenReturn(Optional.of(createTestUser()));
             when(shopItemRepository.findById(TEST_ITEM_ID)).thenReturn(Optional.of(item));
             when(userItemService.grantItem(TEST_USER_ID, TEST_ITEM_ID)).thenReturn(item);
-            when(itemGrantRepository.save(any(ItemGrant.class))).thenAnswer(inv -> {
-                ItemGrant grant = inv.getArgument(0);
-                setId(grant, 1L);
-                return grant;
-            });
+            when(itemGrantRepository.save(any(ItemGrant.class)))
+                    .thenAnswer(
+                            inv -> {
+                                ItemGrant grant = inv.getArgument(0);
+                                setId(grant, 1L);
+                                return grant;
+                            });
 
             // when
             ItemGrantAdminResponse response =
-                itemGrantAdminService.grantItem(createRequest(), TEST_ADMIN_ID);
+                    itemGrantAdminService.grantItem(createRequest(), TEST_ADMIN_ID);
 
             // then
             assertThat(response.getAlreadyOwned()).isFalse();
@@ -141,12 +135,12 @@ class ItemGrantAdminServiceTest {
             // given
             when(userRepository.findById(TEST_USER_ID)).thenReturn(Optional.of(createTestUser()));
             when(shopItemRepository.findById(TEST_ITEM_ID))
-                .thenReturn(Optional.of(createTestItem(TEST_ITEM_ID)));
+                    .thenReturn(Optional.of(createTestItem(TEST_ITEM_ID)));
             when(userItemService.grantItem(TEST_USER_ID, TEST_ITEM_ID)).thenReturn(null);
 
             // when
             ItemGrantAdminResponse response =
-                itemGrantAdminService.grantItem(createRequest(), TEST_ADMIN_ID);
+                    itemGrantAdminService.grantItem(createRequest(), TEST_ADMIN_ID);
 
             // then
             assertThat(response.getAlreadyOwned()).isTrue();
@@ -161,9 +155,10 @@ class ItemGrantAdminServiceTest {
             when(userRepository.findById(TEST_USER_ID)).thenReturn(Optional.empty());
 
             // when & then
-            assertThatThrownBy(() -> itemGrantAdminService.grantItem(createRequest(), TEST_ADMIN_ID))
-                .isInstanceOf(CustomException.class)
-                .hasFieldOrPropertyWithValue("code", "120903");
+            assertThatThrownBy(
+                            () -> itemGrantAdminService.grantItem(createRequest(), TEST_ADMIN_ID))
+                    .isInstanceOf(CustomException.class)
+                    .hasFieldOrPropertyWithValue("code", "120903");
         }
 
         @Test
@@ -174,9 +169,10 @@ class ItemGrantAdminServiceTest {
             when(shopItemRepository.findById(TEST_ITEM_ID)).thenReturn(Optional.empty());
 
             // when & then
-            assertThatThrownBy(() -> itemGrantAdminService.grantItem(createRequest(), TEST_ADMIN_ID))
-                .isInstanceOf(CustomException.class)
-                .hasFieldOrPropertyWithValue("code", "120602");
+            assertThatThrownBy(
+                            () -> itemGrantAdminService.grantItem(createRequest(), TEST_ADMIN_ID))
+                    .isInstanceOf(CustomException.class)
+                    .hasFieldOrPropertyWithValue("code", "120602");
         }
     }
 
@@ -190,15 +186,16 @@ class ItemGrantAdminServiceTest {
             // given
             ShopItem item = createTestItem(TEST_ITEM_ID);
             ItemGrant grant = createTestGrant(1L, item);
-            UserItem userItem = UserItem.builder()
-                .userId(TEST_USER_ID)
-                .shopItem(item)
-                .acquiredAt(LocalDateTime.now())
-                .build();
+            UserItem userItem =
+                    UserItem.builder()
+                            .userId(TEST_USER_ID)
+                            .shopItem(item)
+                            .acquiredAt(LocalDateTime.now())
+                            .build();
             setId(userItem, 5L);
             when(itemGrantRepository.findById(1L)).thenReturn(Optional.of(grant));
             when(userItemRepository.findByUserIdAndShopItemId(TEST_USER_ID, TEST_ITEM_ID))
-                .thenReturn(Optional.of(userItem));
+                    .thenReturn(Optional.of(userItem));
 
             // when
             itemGrantAdminService.revokeItem(1L, TEST_ADMIN_ID);
@@ -216,16 +213,17 @@ class ItemGrantAdminServiceTest {
             // given
             ShopItem item = createTestItem(TEST_ITEM_ID);
             ItemGrant grant = createTestGrant(1L, item);
-            UserItem userItem = UserItem.builder()
-                .userId(TEST_USER_ID)
-                .shopItem(item)
-                .isEquipped(true)
-                .acquiredAt(LocalDateTime.now())
-                .build();
+            UserItem userItem =
+                    UserItem.builder()
+                            .userId(TEST_USER_ID)
+                            .shopItem(item)
+                            .isEquipped(true)
+                            .acquiredAt(LocalDateTime.now())
+                            .build();
             setId(userItem, 5L);
             when(itemGrantRepository.findById(1L)).thenReturn(Optional.of(grant));
             when(userItemRepository.findByUserIdAndShopItemId(TEST_USER_ID, TEST_ITEM_ID))
-                .thenReturn(Optional.of(userItem));
+                    .thenReturn(Optional.of(userItem));
 
             // when
             itemGrantAdminService.revokeItem(1L, TEST_ADMIN_ID);
@@ -243,7 +241,7 @@ class ItemGrantAdminServiceTest {
             ItemGrant grant = createTestGrant(1L, createTestItem(TEST_ITEM_ID));
             when(itemGrantRepository.findById(1L)).thenReturn(Optional.of(grant));
             when(userItemRepository.findByUserIdAndShopItemId(TEST_USER_ID, TEST_ITEM_ID))
-                .thenReturn(Optional.empty());
+                    .thenReturn(Optional.empty());
 
             // when
             itemGrantAdminService.revokeItem(1L, TEST_ADMIN_ID);
@@ -261,8 +259,8 @@ class ItemGrantAdminServiceTest {
 
             // when & then
             assertThatThrownBy(() -> itemGrantAdminService.revokeItem(99L, TEST_ADMIN_ID))
-                .isInstanceOf(CustomException.class)
-                .hasFieldOrPropertyWithValue("code", "120904");
+                    .isInstanceOf(CustomException.class)
+                    .hasFieldOrPropertyWithValue("code", "120904");
         }
 
         @Test
@@ -275,8 +273,8 @@ class ItemGrantAdminServiceTest {
 
             // when & then
             assertThatThrownBy(() -> itemGrantAdminService.revokeItem(1L, TEST_ADMIN_ID))
-                .isInstanceOf(CustomException.class)
-                .hasFieldOrPropertyWithValue("code", "120905");
+                    .isInstanceOf(CustomException.class)
+                    .hasFieldOrPropertyWithValue("code", "120905");
         }
     }
 
@@ -290,13 +288,13 @@ class ItemGrantAdminServiceTest {
             // given
             ItemGrant grant = createTestGrant(1L, createTestItem(TEST_ITEM_ID));
             when(itemGrantRepository.findGrantHistory(any(), any(Pageable.class)))
-                .thenReturn(new PageImpl<>(List.of(grant)));
+                    .thenReturn(new PageImpl<>(List.of(grant)));
             when(userRepository.findAllByIdIn(List.of(TEST_USER_ID)))
-                .thenReturn(List.of(createTestUser()));
+                    .thenReturn(List.of(createTestUser()));
 
             // when
             ItemGrantAdminPageResponse response =
-                itemGrantAdminService.getGrantHistory(null, 0, 20);
+                    itemGrantAdminService.getGrantHistory(null, 0, 20);
 
             // then
             assertThat(response.content()).hasSize(1);

@@ -19,13 +19,13 @@ public class CommonCodeController {
 
     // 공통코드 조회의 경우, redis에 올린 데이터를 기반으로 response한다.
     @GetMapping(MetaServiceUriContants.COMMON_CODE_BY_PARENT_ID)
-    public ApiResult<List<CommonCodeDto>> getChildCommonCodeByParentId(@PathVariable("parent-id") String parentId) {
+    public ApiResult<List<CommonCodeDto>> getChildCommonCodeByParentId(
+            @PathVariable("parent-id") String parentId) {
 
-        List<CommonCodeDto> commonCodeDtoList = CommonCodeHelper.getChildCommonCodeByParentId(parentId);
+        List<CommonCodeDto> commonCodeDtoList =
+                CommonCodeHelper.getChildCommonCodeByParentId(parentId);
 
-        return ApiResult.<List<CommonCodeDto>>builder()
-            .value(commonCodeDtoList)
-            .build();
+        return ApiResult.<List<CommonCodeDto>>builder().value(commonCodeDtoList).build();
     }
 
     @GetMapping(MetaServiceUriContants.COMMON_CODE_BY_ID)
@@ -33,9 +33,7 @@ public class CommonCodeController {
 
         CommonCodeDto commonCodeDto = CommonCodeHelper.getCommonCodeById(id);
 
-        return ApiResult.<CommonCodeDto>builder()
-            .value(commonCodeDto)
-            .build();
+        return ApiResult.<CommonCodeDto>builder().value(commonCodeDto).build();
     }
 
     // TODO	-> insert commonCode admin 개발시 진행

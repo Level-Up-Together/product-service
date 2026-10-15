@@ -1,5 +1,6 @@
 package io.pinkspider.leveluptogethermvp.gamificationservice.shop.application;
 
+import io.pinkspider.global.enums.TitleRarity;
 import io.pinkspider.global.event.ShopItemPurchasedEvent;
 import io.pinkspider.global.exception.CustomException;
 import io.pinkspider.global.policy.LevelRarityPolicy;
@@ -12,7 +13,6 @@ import io.pinkspider.leveluptogethermvp.gamificationservice.shop.domain.entity.U
 import io.pinkspider.leveluptogethermvp.gamificationservice.shop.domain.enums.ShopTabGroup;
 import io.pinkspider.leveluptogethermvp.gamificationservice.shop.infrastructure.ShopItemRepository;
 import io.pinkspider.leveluptogethermvp.gamificationservice.shop.infrastructure.UserItemRepository;
-import io.pinkspider.global.enums.TitleRarity;
 import java.time.LocalDateTime;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -30,12 +30,12 @@ import org.springframework.transaction.annotation.Transactional;
 /**
  * LUT-327: 상점 — 판매 아이템 조회/구매.
  *
- * <p>구매는 검증 → 다이아 차감 → 인벤토리 지급이 한 트랜잭션이라 지급 실패 시 차감도 롤백된다.
- * 동시 구매 race는 다이아 쪽은 UserDiamond 낙관적 락(@Version), 지급 쪽은 uk_user_item 제약이 방어한다.
- * UserItemService.grantItem(중복 insert 흡수)과 달리 중복을 실패로 처리해 이중 차감을 막는다.
+ * <p>구매는 검증 → 다이아 차감 → 인벤토리 지급이 한 트랜잭션이라 지급 실패 시 차감도 롤백된다. 동시 구매 race는 다이아 쪽은 UserDiamond 낙관적
+ * 락(@Version), 지급 쪽은 uk_user_item 제약이 방어한다. UserItemService.grantItem(중복 insert 흡수)과 달리 중복을 실패로 처리해
+ * 이중 차감을 막는다.
  *
- * <p>LUT-348: 자기 등급보다 높은 등급의 아이템은 등급 차이만큼 비싸게 산다(LevelRarityPolicy).
- * 프론트도 같은 공식으로 표시하지만 표시는 신뢰하지 않는다 — 차감액은 여기서 유저 레벨로 다시 계산한다.
+ * <p>LUT-348: 자기 등급보다 높은 등급의 아이템은 등급 차이만큼 비싸게 산다(LevelRarityPolicy). 프론트도 같은 공식으로 표시하지만 표시는 신뢰하지
+ * 않는다 — 차감액은 여기서 유저 레벨로 다시 계산한다.
  */
 @Service
 @Slf4j
@@ -49,13 +49,13 @@ public class ShopService {
     /**
      * 상점 노출 순서 — 희귀도(일반→신화) → 가격 → ID 오름차순.
      *
-     * <p>LUT-349: 이 정렬이 곧 해금 기준이다. 희귀도 섹션 안의 앞 N개가 "가격이 가장 낮은 N개"가
-     * 되므로, 목록 조회와 구매 재판정이 반드시 같은 정렬을 써야 한다.
+     * <p>LUT-349: 이 정렬이 곧 해금 기준이다. 희귀도 섹션 안의 앞 N개가 "가격이 가장 낮은 N개"가 되므로, 목록 조회와 구매 재판정이 반드시 같은 정렬을
+     * 써야 한다.
      */
     private static final Comparator<ShopItem> SHOP_ORDER =
-        Comparator.comparingInt((ShopItem item) -> item.getRarity().ordinal())
-            .thenComparing(ShopItem::getPrice)
-            .thenComparing(ShopItem::getId);
+            Comparator.comparingInt((ShopItem item) -> item.getRarity().ordinal())
+                    .thenComparing(ShopItem::getPrice)
+                    .thenComparing(ShopItem::getId);
 
     private final ShopItemRepository shopItemRepository;
     private final UserItemRepository userItemRepository;
@@ -66,34 +66,36 @@ public class ShopService {
     /**
      * 판매중 아이템 전체 — 희귀도(일반→신화) → 가격 → ID 오름차순, 보유 여부/유저별 할증가 포함.
      *
-     * <p>LUT-350: 비로그인(userId == null)도 열람할 수 있다. 보유 아이템은 없는 것으로,
-     * 레벨은 가입 직후와 같은 1(COMMON)로 계산한다 — 화면에 보이는 값이 곧 가입하면 낼 값이라
-     * 로그인 후 가격이 오르지 않는다.
+     * <p>LUT-350: 비로그인(userId == null)도 열람할 수 있다. 보유 아이템은 없는 것으로, 레벨은 가입 직후와 같은 1(COMMON)로 계산한다 —
+     * 화면에 보이는 값이 곧 가입하면 낼 값이라 로그인 후 가격이 오르지 않는다.
      */
     public List<ShopItemResponse> getShopItems(String userId) {
-        Set<Long> ownedItemIds = userId == null
-            ? Set.of()
-            : Set.copyOf(userItemRepository.findShopItemIdsByUserId(userId));
+        Set<Long> ownedItemIds =
+                userId == null
+                        ? Set.of()
+                        : Set.copyOf(userItemRepository.findShopItemIdsByUserId(userId));
         // 아이템마다 조회하지 않도록 레벨은 한 번만 읽는다 (정렬은 기본가 기준 유지)
-        int userLevel = userId == null ? ANONYMOUS_USER_LEVEL : userExperienceService.getUserLevel(userId);
+        int userLevel =
+                userId == null ? ANONYMOUS_USER_LEVEL : userExperienceService.getUserLevel(userId);
 
         // LUT-349: 정렬 기준이 곧 해금 기준 — 정렬된 순서에서 섹션별 순번을 매겨 잠금을 판정한다
         Map<SectionKey, Integer> rankCursor = new HashMap<>();
         return shopItemRepository.findByIsActiveTrue().stream()
-            .sorted(SHOP_ORDER)
-            .map(item -> {
-                int rank = rankCursor.merge(SectionKey.of(item), 1, Integer::sum) - 1;
-                return ShopItemResponse.from(
-                    item, ownedItemIds.contains(item.getId()), userLevel, rank);
-            })
-            .collect(Collectors.toList());
+                .sorted(SHOP_ORDER)
+                .map(
+                        item -> {
+                            int rank = rankCursor.merge(SectionKey.of(item), 1, Integer::sum) - 1;
+                            return ShopItemResponse.from(
+                                    item, ownedItemIds.contains(item.getId()), userLevel, rank);
+                        })
+                .collect(Collectors.toList());
     }
 
     /**
      * LUT-349: 해금 판정 단위 — 화면에 그려지는 섹션 하나(탭 × 희귀도).
      *
-     * <p>희귀도만으로 세면 안 된다. 날개 탭 EPIC 과 기타 탭 EPIC 이 해금 슬롯 3개를 나눠 갖게 되어,
-     * 가격 분포에 따라 한쪽 탭에서는 EPIC 이 통째로 잠겨 보인다.
+     * <p>희귀도만으로 세면 안 된다. 날개 탭 EPIC 과 기타 탭 EPIC 이 해금 슬롯 3개를 나눠 갖게 되어, 가격 분포에 따라 한쪽 탭에서는 EPIC 이 통째로
+     * 잠겨 보인다.
      */
     private record SectionKey(ShopTabGroup tabGroup, TitleRarity rarity) {
 
@@ -109,18 +111,24 @@ public class ShopService {
      */
     private int rankInSection(ShopItem target) {
         SectionKey targetSection = SectionKey.of(target);
-        return (int) shopItemRepository.findByIsActiveTrue().stream()
-            .filter(item -> SectionKey.of(item).equals(targetSection))
-            .filter(item -> SHOP_ORDER.compare(item, target) < 0)
-            .count();
+        return (int)
+                shopItemRepository.findByIsActiveTrue().stream()
+                        .filter(item -> SectionKey.of(item).equals(targetSection))
+                        .filter(item -> SHOP_ORDER.compare(item, target) < 0)
+                        .count();
     }
 
     /** 아이템 구매 — 다이아 차감 + 인벤토리 지급 */
     @Transactional(transactionManager = "gamificationTransactionManager")
     public ShopItemPurchaseResponse purchaseItem(String userId, Long shopItemId) {
-        ShopItem shopItem = shopItemRepository.findById(shopItemId)
-            .filter(ShopItem::getIsActive)
-            .orElseThrow(() -> new CustomException("120603", "error.shop.item_not_available"));
+        ShopItem shopItem =
+                shopItemRepository
+                        .findById(shopItemId)
+                        .filter(ShopItem::getIsActive)
+                        .orElseThrow(
+                                () ->
+                                        new CustomException(
+                                                "120603", "error.shop.item_not_available"));
 
         if (userItemRepository.existsByUserIdAndShopItemId(userId, shopItemId)) {
             throw new CustomException("120604", "error.shop.already_owned");
@@ -131,41 +139,53 @@ public class ShopService {
 
         // LUT-349: 잠긴 아이템 구매 차단 — 프론트 locked 플래그는 표시용이라 신뢰하지 않고
         // 등급·정렬·N 으로 여기서 다시 판정한다
-        if (LevelRarityPolicy.isLocked(
-            userLevel, shopItem.getRarity(), rankInSection(shopItem))) {
+        if (LevelRarityPolicy.isLocked(userLevel, shopItem.getRarity(), rankInSection(shopItem))) {
             throw new CustomException("120606", "error.shop.item_locked");
         }
 
-        int effectivePrice = LevelRarityPolicy.effectivePrice(
-            shopItem.getPrice(), userLevel, shopItem.getRarity());
+        int effectivePrice =
+                LevelRarityPolicy.effectivePrice(
+                        shopItem.getPrice(), userLevel, shopItem.getRarity());
 
         int balance;
         try {
             // LUT-328: 가격 0원 구매도 어드민 구매이력(diamond_history SHOP)에 남도록 항상 기록
-            balance = diamondService.spendDiamonds(
-                userId, effectivePrice, shopItem.getId(), shopItem.getName());
+            balance =
+                    diamondService.spendDiamonds(
+                            userId, effectivePrice, shopItem.getId(), shopItem.getName());
         } catch (IllegalStateException e) {
             throw new CustomException("120605", "error.shop.insufficient_diamond");
         }
 
         try {
-            userItemRepository.saveAndFlush(UserItem.builder()
-                .userId(userId)
-                .shopItem(shopItem)
-                .acquiredAt(LocalDateTime.now())
-                .build());
+            userItemRepository.saveAndFlush(
+                    UserItem.builder()
+                            .userId(userId)
+                            .shopItem(shopItem)
+                            .acquiredAt(LocalDateTime.now())
+                            .build());
         } catch (DataIntegrityViolationException e) {
             // 동시 구매 race — 예외 전파로 트랜잭션이 롤백되어 차감분도 복구된다
             throw new CustomException("120604", "error.shop.already_owned");
         }
 
         // LUT-410: 획득 확정 알림 — AFTER_COMMIT 리스너라 구매 트랜잭션이 롤백되면 발송되지 않는다
-        eventPublisher.publishEvent(new ShopItemPurchasedEvent(
-            userId, shopItem.getId(), shopItem.getName(), shopItem.getNameEn(),
-            shopItem.getNameAr(), shopItem.getNameJa()));
+        eventPublisher.publishEvent(
+                new ShopItemPurchasedEvent(
+                        userId,
+                        shopItem.getId(),
+                        shopItem.getName(),
+                        shopItem.getNameEn(),
+                        shopItem.getNameAr(),
+                        shopItem.getNameJa()));
 
-        log.info("아이템 구매: userId={}, shopItemId={}, basePrice={}, effectivePrice={}, balance={}",
-            userId, shopItemId, shopItem.getPrice(), effectivePrice, balance);
+        log.info(
+                "아이템 구매: userId={}, shopItemId={}, basePrice={}, effectivePrice={}, balance={}",
+                userId,
+                shopItemId,
+                shopItem.getPrice(),
+                effectivePrice,
+                balance);
         return ShopItemPurchaseResponse.of(shopItemId, effectivePrice, balance);
     }
 }

@@ -41,31 +41,35 @@ class AdminPushCampaignServiceTest {
 
     @BeforeEach
     void setUp() {
-        service = new AdminPushCampaignService(
-            campaignRepository, userQueryFacade, eventPublisher, new ObjectMapper());
+        service =
+                new AdminPushCampaignService(
+                        campaignRepository, userQueryFacade, eventPublisher, new ObjectMapper());
     }
 
     private AdminPushCampaignRequest request(AdminPushTargetType type, List<String> userIds) {
         return AdminPushCampaignRequest.builder()
-            .title("  이벤트 안내  ")
-            .body("오늘만 다이아 2배!")
-            .actionUrl(" ")
-            .targetType(type)
-            .userIds(userIds)
-            .build();
+                .title("  이벤트 안내  ")
+                .body("오늘만 다이아 2배!")
+                .actionUrl(" ")
+                .targetType(type)
+                .userIds(userIds)
+                .build();
     }
 
     @Test
     @DisplayName("전체 발송: 활성 유저 전원을 대상으로 이력을 만들고 커밋 후 발송 이벤트를 발행한다")
     void create_all_targetsActiveUsers() {
         when(userQueryFacade.findAllActiveUserIds()).thenReturn(List.of("u1", "u2", "u3"));
-        when(campaignRepository.save(any(AdminPushCampaign.class))).thenAnswer(inv -> {
-            AdminPushCampaign c = inv.getArgument(0);
-            org.springframework.test.util.ReflectionTestUtils.setField(c, "id", 7L);
-            return c;
-        });
+        when(campaignRepository.save(any(AdminPushCampaign.class)))
+                .thenAnswer(
+                        inv -> {
+                            AdminPushCampaign c = inv.getArgument(0);
+                            org.springframework.test.util.ReflectionTestUtils.setField(c, "id", 7L);
+                            return c;
+                        });
 
-        AdminPushCampaignResponse response = service.create(request(AdminPushTargetType.ALL, null), 42L);
+        AdminPushCampaignResponse response =
+                service.create(request(AdminPushTargetType.ALL, null), 42L);
 
         ArgumentCaptor<AdminPushCampaign> captor = ArgumentCaptor.forClass(AdminPushCampaign.class);
         verify(campaignRepository).save(captor.capture());
@@ -86,11 +90,16 @@ class AdminPushCampaignServiceTest {
     @DisplayName("일부 발송: 중복·공백 제거 후 활성 유저만 남기고 JSON 으로 저장한다")
     void create_users_filtersActiveAndStoresJson() {
         when(userQueryFacade.getActiveUserIds(List.of("u1", "u2", "u9")))
-            .thenReturn(List.of("u1", "u2"));
-        when(campaignRepository.save(any(AdminPushCampaign.class))).thenAnswer(inv -> inv.getArgument(0));
+                .thenReturn(List.of("u1", "u2"));
+        when(campaignRepository.save(any(AdminPushCampaign.class)))
+                .thenAnswer(inv -> inv.getArgument(0));
 
-        AdminPushCampaignResponse response = service.create(
-            request(AdminPushTargetType.USERS, Arrays.asList(" u1 ", "u2", "u1", "", null, "u9")), 42L);
+        AdminPushCampaignResponse response =
+                service.create(
+                        request(
+                                AdminPushTargetType.USERS,
+                                Arrays.asList(" u1 ", "u2", "u1", "", null, "u9")),
+                        42L);
 
         ArgumentCaptor<AdminPushCampaign> captor = ArgumentCaptor.forClass(AdminPushCampaign.class);
         verify(campaignRepository).save(captor.capture());
@@ -102,9 +111,10 @@ class AdminPushCampaignServiceTest {
     @Test
     @DisplayName("일부 발송에 유저 ID 가 없으면 140101 — 이력을 만들지 않는다")
     void create_users_empty_throws() {
-        assertThatThrownBy(() -> service.create(request(AdminPushTargetType.USERS, List.of(" ")), 42L))
-            .isInstanceOf(CustomException.class)
-            .hasFieldOrPropertyWithValue("code", "140101");
+        assertThatThrownBy(
+                        () -> service.create(request(AdminPushTargetType.USERS, List.of(" ")), 42L))
+                .isInstanceOf(CustomException.class)
+                .hasFieldOrPropertyWithValue("code", "140101");
         verify(campaignRepository, never()).save(any());
         verify(eventPublisher, never()).publishEvent(any());
     }
@@ -114,9 +124,12 @@ class AdminPushCampaignServiceTest {
     void create_users_noneActive_throws() {
         when(userQueryFacade.getActiveUserIds(List.of("ghost"))).thenReturn(List.of());
 
-        assertThatThrownBy(() -> service.create(request(AdminPushTargetType.USERS, List.of("ghost")), 42L))
-            .isInstanceOf(CustomException.class)
-            .hasFieldOrPropertyWithValue("code", "140102");
+        assertThatThrownBy(
+                        () ->
+                                service.create(
+                                        request(AdminPushTargetType.USERS, List.of("ghost")), 42L))
+                .isInstanceOf(CustomException.class)
+                .hasFieldOrPropertyWithValue("code", "140102");
     }
 
     @Test
@@ -125,15 +138,16 @@ class AdminPushCampaignServiceTest {
         when(userQueryFacade.findAllActiveUserIds()).thenReturn(List.of());
 
         assertThatThrownBy(() -> service.create(request(AdminPushTargetType.ALL, null), 42L))
-            .isInstanceOf(CustomException.class)
-            .hasFieldOrPropertyWithValue("code", "140102");
+                .isInstanceOf(CustomException.class)
+                .hasFieldOrPropertyWithValue("code", "140102");
     }
 
     @Test
     @DisplayName("상세 조회는 저장된 대상 유저 JSON 을 목록으로 풀어 준다")
     void getCampaign_parsesTargetUserIds() {
-        AdminPushCampaign campaign = AdminPushCampaign.create(
-            "t", "b", "/shop", AdminPushTargetType.USERS, "[\"u1\",\"u2\"]", 2, 1L);
+        AdminPushCampaign campaign =
+                AdminPushCampaign.create(
+                        "t", "b", "/shop", AdminPushTargetType.USERS, "[\"u1\",\"u2\"]", 2, 1L);
         when(campaignRepository.findById(5L)).thenReturn(Optional.of(campaign));
 
         AdminPushCampaignResponse response = service.getCampaign(5L);
@@ -148,7 +162,7 @@ class AdminPushCampaignServiceTest {
         when(campaignRepository.findById(99L)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> service.getCampaign(99L))
-            .isInstanceOf(CustomException.class)
-            .hasFieldOrPropertyWithValue("code", "140103");
+                .isInstanceOf(CustomException.class)
+                .hasFieldOrPropertyWithValue("code", "140103");
     }
 }

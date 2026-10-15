@@ -18,11 +18,9 @@ import org.mockito.junit.jupiter.MockitoExtension;
 @ExtendWith(MockitoExtension.class)
 class UserTermAgreementsServiceTest {
 
-    @Mock
-    private UserTermAgreementsRepository userTermAgreementsRepository;
+    @Mock private UserTermAgreementsRepository userTermAgreementsRepository;
 
-    @InjectMocks
-    private UserTermAgreementsService userTermAgreementsService;
+    @InjectMocks private UserTermAgreementsService userTermAgreementsService;
 
     private static final String TEST_USER_ID = "test-user-123";
     private static final Long TERM_VERSION_ID = 1L;
@@ -35,15 +33,16 @@ class UserTermAgreementsServiceTest {
         @DisplayName("사용자와 약관 버전으로 동의 기록을 조회한다")
         void findAllByUserIdAndTermVersionId_found() {
             // given
-            UserTermAgreement agreement = UserTermAgreement.builder()
-                .isAgreed(true)
-                .build();
+            UserTermAgreement agreement = UserTermAgreement.builder().isAgreed(true).build();
 
-            when(userTermAgreementsRepository.findAllByUserIdAndTermVersionId(TEST_USER_ID, TERM_VERSION_ID))
-                .thenReturn(Optional.of(agreement));
+            when(userTermAgreementsRepository.findAllByUserIdAndTermVersionId(
+                            TEST_USER_ID, TERM_VERSION_ID))
+                    .thenReturn(Optional.of(agreement));
 
             // when
-            UserTermAgreement result = userTermAgreementsService.findAllByUserIdAndTermVersionId(TEST_USER_ID, TERM_VERSION_ID);
+            UserTermAgreement result =
+                    userTermAgreementsService.findAllByUserIdAndTermVersionId(
+                            TEST_USER_ID, TERM_VERSION_ID);
 
             // then
             assertThat(result).isNotNull();
@@ -54,11 +53,14 @@ class UserTermAgreementsServiceTest {
         @DisplayName("동의 기록이 없으면 null을 반환한다")
         void findAllByUserIdAndTermVersionId_notFound() {
             // given
-            when(userTermAgreementsRepository.findAllByUserIdAndTermVersionId(TEST_USER_ID, TERM_VERSION_ID))
-                .thenReturn(Optional.empty());
+            when(userTermAgreementsRepository.findAllByUserIdAndTermVersionId(
+                            TEST_USER_ID, TERM_VERSION_ID))
+                    .thenReturn(Optional.empty());
 
             // when
-            UserTermAgreement result = userTermAgreementsService.findAllByUserIdAndTermVersionId(TEST_USER_ID, TERM_VERSION_ID);
+            UserTermAgreement result =
+                    userTermAgreementsService.findAllByUserIdAndTermVersionId(
+                            TEST_USER_ID, TERM_VERSION_ID);
 
             // then
             assertThat(result).isNull();
@@ -73,9 +75,7 @@ class UserTermAgreementsServiceTest {
         @DisplayName("동의 기록을 저장한다")
         void save_success() {
             // given
-            UserTermAgreement agreement = UserTermAgreement.builder()
-                .isAgreed(true)
-                .build();
+            UserTermAgreement agreement = UserTermAgreement.builder().isAgreed(true).build();
 
             // when
             userTermAgreementsService.save(agreement);

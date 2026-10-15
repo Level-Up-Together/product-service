@@ -11,59 +11,61 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 @Repository
-public interface GuildDirectConversationRepository extends JpaRepository<GuildDirectConversation, Long> {
+public interface GuildDirectConversationRepository
+        extends JpaRepository<GuildDirectConversation, Long> {
 
-    @Query("SELECT c FROM GuildDirectConversation c " +
-           "WHERE c.guildId = :guildId " +
-           "AND c.userId1 = :userId1 AND c.userId2 = :userId2 " +
-           "AND c.isActive = true")
+    @Query(
+            "SELECT c FROM GuildDirectConversation c "
+                    + "WHERE c.guildId = :guildId "
+                    + "AND c.userId1 = :userId1 AND c.userId2 = :userId2 "
+                    + "AND c.isActive = true")
     Optional<GuildDirectConversation> findByGuildIdAndUsers(
-        @Param("guildId") Long guildId,
-        @Param("userId1") String userId1,
-        @Param("userId2") String userId2);
+            @Param("guildId") Long guildId,
+            @Param("userId1") String userId1,
+            @Param("userId2") String userId2);
 
-    default Optional<GuildDirectConversation> findConversation(Long guildId, String userIdA, String userIdB) {
+    default Optional<GuildDirectConversation> findConversation(
+            Long guildId, String userIdA, String userIdB) {
         String userId1 = userIdA.compareTo(userIdB) < 0 ? userIdA : userIdB;
         String userId2 = userIdA.compareTo(userIdB) < 0 ? userIdB : userIdA;
         return findByGuildIdAndUsers(guildId, userId1, userId2);
     }
 
-    @Query("SELECT c FROM GuildDirectConversation c " +
-           "WHERE c.guildId = :guildId " +
-           "AND (c.userId1 = :userId OR c.userId2 = :userId) " +
-           "AND c.isActive = true " +
-           "ORDER BY c.lastMessageAt DESC NULLS LAST")
+    @Query(
+            "SELECT c FROM GuildDirectConversation c "
+                    + "WHERE c.guildId = :guildId "
+                    + "AND (c.userId1 = :userId OR c.userId2 = :userId) "
+                    + "AND c.isActive = true "
+                    + "ORDER BY c.lastMessageAt DESC NULLS LAST")
     Page<GuildDirectConversation> findByGuildIdAndUserId(
-        @Param("guildId") Long guildId,
-        @Param("userId") String userId,
-        Pageable pageable);
+            @Param("guildId") Long guildId, @Param("userId") String userId, Pageable pageable);
 
-    @Query("SELECT c FROM GuildDirectConversation c " +
-           "WHERE c.guildId = :guildId " +
-           "AND (c.userId1 = :userId OR c.userId2 = :userId) " +
-           "AND c.isActive = true " +
-           "ORDER BY c.lastMessageAt DESC NULLS LAST")
+    @Query(
+            "SELECT c FROM GuildDirectConversation c "
+                    + "WHERE c.guildId = :guildId "
+                    + "AND (c.userId1 = :userId OR c.userId2 = :userId) "
+                    + "AND c.isActive = true "
+                    + "ORDER BY c.lastMessageAt DESC NULLS LAST")
     List<GuildDirectConversation> findAllByGuildIdAndUserId(
-        @Param("guildId") Long guildId,
-        @Param("userId") String userId);
+            @Param("guildId") Long guildId, @Param("userId") String userId);
 
-    @Query("SELECT COUNT(c) FROM GuildDirectConversation c " +
-           "WHERE c.guildId = :guildId " +
-           "AND (c.userId1 = :userId OR c.userId2 = :userId) " +
-           "AND c.isActive = true")
-    long countByGuildIdAndUserId(
-        @Param("guildId") Long guildId,
-        @Param("userId") String userId);
+    @Query(
+            "SELECT COUNT(c) FROM GuildDirectConversation c "
+                    + "WHERE c.guildId = :guildId "
+                    + "AND (c.userId1 = :userId OR c.userId2 = :userId) "
+                    + "AND c.isActive = true")
+    long countByGuildIdAndUserId(@Param("guildId") Long guildId, @Param("userId") String userId);
 
     // LUT-287: 비활성 대화방 포함 조회 — 재가입 유저의 새 메시지가 기존 방을 재활성화할 때 사용
     // (유니크 (guild_id, user_id_1, user_id_2) 제약상 새 방을 만들 수 없다)
-    @Query("SELECT c FROM GuildDirectConversation c " +
-           "WHERE c.guildId = :guildId " +
-           "AND c.userId1 = :userId1 AND c.userId2 = :userId2")
+    @Query(
+            "SELECT c FROM GuildDirectConversation c "
+                    + "WHERE c.guildId = :guildId "
+                    + "AND c.userId1 = :userId1 AND c.userId2 = :userId2")
     Optional<GuildDirectConversation> findByGuildIdAndUsersIncludingInactive(
-        @Param("guildId") Long guildId,
-        @Param("userId1") String userId1,
-        @Param("userId2") String userId2);
+            @Param("guildId") Long guildId,
+            @Param("userId1") String userId1,
+            @Param("userId2") String userId2);
 
     default Optional<GuildDirectConversation> findConversationIncludingInactive(
             Long guildId, String userIdA, String userIdB) {
@@ -73,8 +75,9 @@ public interface GuildDirectConversationRepository extends JpaRepository<GuildDi
     }
 
     // LUT-287: 회원 탈퇴 시 유저가 참여한 모든 활성 대화방 조회 (전 길드)
-    @Query("SELECT c FROM GuildDirectConversation c " +
-           "WHERE (c.userId1 = :userId OR c.userId2 = :userId) " +
-           "AND c.isActive = true")
+    @Query(
+            "SELECT c FROM GuildDirectConversation c "
+                    + "WHERE (c.userId1 = :userId OR c.userId2 = :userId) "
+                    + "AND c.isActive = true")
     List<GuildDirectConversation> findAllActiveByUserId(@Param("userId") String userId);
 }

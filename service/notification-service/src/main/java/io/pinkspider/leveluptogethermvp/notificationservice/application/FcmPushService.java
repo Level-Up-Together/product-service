@@ -4,19 +4,16 @@ import com.google.firebase.messaging.*;
 import io.pinkspider.leveluptogethermvp.notificationservice.domain.dto.PushMessageRequest;
 import io.pinkspider.leveluptogethermvp.notificationservice.domain.entity.DeviceToken;
 import io.pinkspider.leveluptogethermvp.notificationservice.infrastructure.DeviceTokenRepository;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.stream.Collectors;
-
-/**
- * FCM 푸시 알림 서비스
- */
+/** FCM 푸시 알림 서비스 */
 @Slf4j
 @Service
 public class FcmPushService {
@@ -32,9 +29,7 @@ public class FcmPushService {
         this.deviceTokenRepository = deviceTokenRepository;
     }
 
-    /**
-     * 단일 사용자에게 푸시 알림 전송
-     */
+    /** 단일 사용자에게 푸시 알림 전송 */
     @Transactional(transactionManager = "notificationTransactionManager")
     public void sendToUser(String userId, PushMessageRequest request) {
         if (firebaseMessaging == null) {
@@ -62,9 +57,7 @@ public class FcmPushService {
         }
     }
 
-    /**
-     * 여러 사용자에게 푸시 알림 전송
-     */
+    /** 여러 사용자에게 푸시 알림 전송 */
     @Transactional(transactionManager = "notificationTransactionManager")
     public void sendToUsers(List<String> userIds, PushMessageRequest request) {
         if (firebaseMessaging == null) {
@@ -83,14 +76,17 @@ public class FcmPushService {
             deviceTokenRepository.incrementBadgeCountByUserId(userId);
         }
 
-        List<Message> messages = tokens.stream()
-                .map(token -> buildMessage(token, request))
-                .collect(Collectors.toList());
+        List<Message> messages =
+                tokens.stream()
+                        .map(token -> buildMessage(token, request))
+                        .collect(Collectors.toList());
 
         try {
             BatchResponse batchResponse = firebaseMessaging.sendEach(messages);
-            log.info("Batch send completed. Success: {}, Failure: {}",
-                    batchResponse.getSuccessCount(), batchResponse.getFailureCount());
+            log.info(
+                    "Batch send completed. Success: {}, Failure: {}",
+                    batchResponse.getSuccessCount(),
+                    batchResponse.getFailureCount());
 
             // 실패한 토큰 처리
             handleBatchErrors(tokens, batchResponse);
@@ -99,9 +95,7 @@ public class FcmPushService {
         }
     }
 
-    /**
-     * 토픽으로 푸시 알림 전송 (길드 채팅 등)
-     */
+    /** 토픽으로 푸시 알림 전송 (길드 채팅 등) */
     public void sendToTopic(String topic, PushMessageRequest request) {
         if (firebaseMessaging == null) {
             log.warn("Firebase is not initialized. Skipping push notification.");
@@ -109,15 +103,17 @@ public class FcmPushService {
         }
 
         try {
-            Message message = Message.builder()
-                    .setTopic(topic)
-                    .setNotification(Notification.builder()
-                            .setTitle(request.title())
-                            .setBody(request.body())
-                            .setImage(request.imageUrl())
-                            .build())
-                    .putAllData(request.data() != null ? request.data() : Map.of())
-                    .build();
+            Message message =
+                    Message.builder()
+                            .setTopic(topic)
+                            .setNotification(
+                                    Notification.builder()
+                                            .setTitle(request.title())
+                                            .setBody(request.body())
+                                            .setImage(request.imageUrl())
+                                            .build())
+                            .putAllData(request.data() != null ? request.data() : Map.of())
+                            .build();
 
             String response = firebaseMessaging.send(message);
             log.debug("Successfully sent message to topic {}: {}", topic, response);
@@ -126,18 +122,15 @@ public class FcmPushService {
         }
     }
 
-    /**
-     * 사용자를 토픽에 구독
-     */
+    /** 사용자를 토픽에 구독 */
     public void subscribeToTopic(String userId, String topic) {
         if (firebaseMessaging == null) {
             return;
         }
 
         List<DeviceToken> tokens = deviceTokenRepository.findByUserIdAndIsActiveTrue(userId);
-        List<String> fcmTokens = tokens.stream()
-                .map(DeviceToken::getFcmToken)
-                .collect(Collectors.toList());
+        List<String> fcmTokens =
+                tokens.stream().map(DeviceToken::getFcmToken).collect(Collectors.toList());
 
         if (fcmTokens.isEmpty()) {
             return;
@@ -145,34 +138,40 @@ public class FcmPushService {
 
         try {
             TopicManagementResponse response = firebaseMessaging.subscribeToTopic(fcmTokens, topic);
-            log.debug("Subscribed {} tokens to topic {}. Success: {}, Failure: {}",
-                    fcmTokens.size(), topic, response.getSuccessCount(), response.getFailureCount());
+            log.debug(
+                    "Subscribed {} tokens to topic {}. Success: {}, Failure: {}",
+                    fcmTokens.size(),
+                    topic,
+                    response.getSuccessCount(),
+                    response.getFailureCount());
         } catch (FirebaseMessagingException e) {
             log.error("Failed to subscribe to topic: {}", topic, e);
         }
     }
 
-    /**
-     * 사용자를 토픽에서 구독 해제
-     */
+    /** 사용자를 토픽에서 구독 해제 */
     public void unsubscribeFromTopic(String userId, String topic) {
         if (firebaseMessaging == null) {
             return;
         }
 
         List<DeviceToken> tokens = deviceTokenRepository.findByUserIdAndIsActiveTrue(userId);
-        List<String> fcmTokens = tokens.stream()
-                .map(DeviceToken::getFcmToken)
-                .collect(Collectors.toList());
+        List<String> fcmTokens =
+                tokens.stream().map(DeviceToken::getFcmToken).collect(Collectors.toList());
 
         if (fcmTokens.isEmpty()) {
             return;
         }
 
         try {
-            TopicManagementResponse response = firebaseMessaging.unsubscribeFromTopic(fcmTokens, topic);
-            log.debug("Unsubscribed {} tokens from topic {}. Success: {}, Failure: {}",
-                    fcmTokens.size(), topic, response.getSuccessCount(), response.getFailureCount());
+            TopicManagementResponse response =
+                    firebaseMessaging.unsubscribeFromTopic(fcmTokens, topic);
+            log.debug(
+                    "Unsubscribed {} tokens from topic {}. Success: {}, Failure: {}",
+                    fcmTokens.size(),
+                    topic,
+                    response.getSuccessCount(),
+                    response.getFailureCount());
         } catch (FirebaseMessagingException e) {
             log.error("Failed to unsubscribe from topic: {}", topic, e);
         }
@@ -181,9 +180,8 @@ public class FcmPushService {
     /**
      * 배지 카운트 업데이트 push 전송 (iOS만 해당)
      *
-     * LUT-291: content-available 없이 aps.badge만 실어 보낸다. content-available 이 붙으면
-     * background push 로 분류되어 APNs 스로틀/드랍 대상이 되지만(저전력 모드·강제종료 시
-     * 미전달 가능), badge-only push 는 스로틀 없이 OS 가 뱃지를 즉시 반영한다.
+     * <p>LUT-291: content-available 없이 aps.badge만 실어 보낸다. content-available 이 붙으면 background push 로
+     * 분류되어 APNs 스로틀/드랍 대상이 되지만(저전력 모드·강제종료 시 미전달 가능), badge-only push 는 스로틀 없이 OS 가 뱃지를 즉시 반영한다.
      */
     public void sendBadgeUpdate(String userId, int badgeCount) {
         if (firebaseMessaging == null) {
@@ -194,14 +192,17 @@ public class FcmPushService {
         for (DeviceToken token : tokens) {
             if (token.getDeviceType() == DeviceToken.DeviceType.IOS) {
                 try {
-                    Message message = Message.builder()
-                            .setToken(token.getFcmToken())
-                            .setApnsConfig(ApnsConfig.builder()
-                                    .setAps(Aps.builder()
-                                            .setBadge(badgeCount)
-                                            .build())
-                                    .build())
-                            .build();
+                    Message message =
+                            Message.builder()
+                                    .setToken(token.getFcmToken())
+                                    .setApnsConfig(
+                                            ApnsConfig.builder()
+                                                    .setAps(
+                                                            Aps.builder()
+                                                                    .setBadge(badgeCount)
+                                                                    .build())
+                                                    .build())
+                                    .build();
                     firebaseMessaging.send(message);
                     log.debug("Badge update sent to user {}: badge={}", userId, badgeCount);
                 } catch (FirebaseMessagingException e) {
@@ -211,17 +212,17 @@ public class FcmPushService {
         }
     }
 
-    /**
-     * FCM 메시지 빌드
-     */
+    /** FCM 메시지 빌드 */
     private Message buildMessage(DeviceToken token, PushMessageRequest request) {
-        Message.Builder builder = Message.builder()
-                .setToken(token.getFcmToken())
-                .setNotification(Notification.builder()
-                        .setTitle(request.title())
-                        .setBody(request.body())
-                        .setImage(request.imageUrl())
-                        .build());
+        Message.Builder builder =
+                Message.builder()
+                        .setToken(token.getFcmToken())
+                        .setNotification(
+                                Notification.builder()
+                                        .setTitle(request.title())
+                                        .setBody(request.body())
+                                        .setImage(request.imageUrl())
+                                        .build());
 
         // 데이터 페이로드 추가
         if (request.data() != null && !request.data().isEmpty()) {
@@ -230,39 +231,42 @@ public class FcmPushService {
 
         // 플랫폼별 설정
         if (token.getDeviceType() == DeviceToken.DeviceType.IOS) {
-            builder.setApnsConfig(ApnsConfig.builder()
-                    .setAps(Aps.builder()
-                            .setBadge(token.getBadgeCount() + 1)
-                            .setSound("default")
-                            .build())
-                    .build());
+            builder.setApnsConfig(
+                    ApnsConfig.builder()
+                            .setAps(
+                                    Aps.builder()
+                                            .setBadge(token.getBadgeCount() + 1)
+                                            .setSound("default")
+                                            .build())
+                            .build());
         } else {
             // LUT-329: click_action 은 Intent action 문자열이라 웹 경로를 넣으면 매칭되는
             // 액티비티가 없어 탭해도 앱이 열리지 않는다 (FCM SDK 는 런처 폴백 없음).
             // 미설정 시 런처 인텐트로 앱이 열리고, 앱은 data.action_url 로 네비게이션한다.
-            builder.setAndroidConfig(AndroidConfig.builder()
-                    // QA-224: doze 모드에서 전달이 수 시간 지연되지 않도록 high priority 명시
-                    .setPriority(AndroidConfig.Priority.HIGH)
-                    .setNotification(AndroidNotification.builder()
-                            .setSound("default")
-                            .build())
-                    .build());
+            builder.setAndroidConfig(
+                    AndroidConfig.builder()
+                            // QA-224: doze 모드에서 전달이 수 시간 지연되지 않도록 high priority 명시
+                            .setPriority(AndroidConfig.Priority.HIGH)
+                            .setNotification(
+                                    AndroidNotification.builder().setSound("default").build())
+                            .build());
         }
 
         return builder.build();
     }
 
-    /**
-     * 단일 전송 에러 처리
-     */
+    /** 단일 전송 에러 처리 */
     private void handleSendError(DeviceToken token, FirebaseMessagingException e) {
         MessagingErrorCode errorCode = e.getMessagingErrorCode();
 
-        if (errorCode == MessagingErrorCode.UNREGISTERED ||
-            errorCode == MessagingErrorCode.INVALID_ARGUMENT ||
-            errorCode == MessagingErrorCode.SENDER_ID_MISMATCH) {
+        if (errorCode == MessagingErrorCode.UNREGISTERED
+                || errorCode == MessagingErrorCode.INVALID_ARGUMENT
+                || errorCode == MessagingErrorCode.SENDER_ID_MISMATCH) {
             // 토큰이 더 이상 유효하지 않음 (등록 해제, 잘못된 토큰, 다른 Firebase 프로젝트에서 생성된 토큰)
-            log.warn("Invalid token detected ({}), deactivating: {}", errorCode, token.getFcmToken());
+            log.warn(
+                    "Invalid token detected ({}), deactivating: {}",
+                    errorCode,
+                    token.getFcmToken());
             token.deactivate();
             deviceTokenRepository.save(token);
         } else {
@@ -270,9 +274,7 @@ public class FcmPushService {
         }
     }
 
-    /**
-     * 배치 전송 에러 처리
-     */
+    /** 배치 전송 에러 처리 */
     private void handleBatchErrors(List<DeviceToken> tokens, BatchResponse batchResponse) {
         List<SendResponse> responses = batchResponse.getResponses();
         List<DeviceToken> tokensToDeactivate = new ArrayList<>();
@@ -283,9 +285,9 @@ public class FcmPushService {
                 FirebaseMessagingException exception = response.getException();
                 if (exception != null) {
                     MessagingErrorCode errorCode = exception.getMessagingErrorCode();
-                    if (errorCode == MessagingErrorCode.UNREGISTERED ||
-                        errorCode == MessagingErrorCode.INVALID_ARGUMENT ||
-                        errorCode == MessagingErrorCode.SENDER_ID_MISMATCH) {
+                    if (errorCode == MessagingErrorCode.UNREGISTERED
+                            || errorCode == MessagingErrorCode.INVALID_ARGUMENT
+                            || errorCode == MessagingErrorCode.SENDER_ID_MISMATCH) {
                         tokensToDeactivate.add(tokens.get(i));
                     }
                 }

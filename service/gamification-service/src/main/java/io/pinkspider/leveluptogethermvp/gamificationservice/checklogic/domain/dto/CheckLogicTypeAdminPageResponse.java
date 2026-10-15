@@ -7,23 +7,21 @@ import org.springframework.data.domain.Page;
 
 @JsonNaming(SnakeCaseStrategy.class)
 public record CheckLogicTypeAdminPageResponse(
-    List<CheckLogicTypeAdminResponse> content,
-    int totalPages,
-    long totalElements,
-    int number,
-    int size,
-    boolean first,
-    boolean last
-) {
+        List<CheckLogicTypeAdminResponse> content,
+        int totalPages,
+        long totalElements,
+        int number,
+        int size,
+        boolean first,
+        boolean last) {
     public static CheckLogicTypeAdminPageResponse from(Page<CheckLogicTypeAdminResponse> page) {
         return new CheckLogicTypeAdminPageResponse(
-            page.getContent(),
-            page.getTotalPages(),
-            page.getTotalElements(),
-            page.getNumber(),
-            page.getSize(),
-            page.isFirst(),
-            page.isLast()
-        );
+                page.getContent(),
+                page.getTotalPages(),
+                page.getTotalElements(),
+                page.getNumber(),
+                page.getSize(),
+                page.isFirst(),
+                page.isLast());
     }
 }

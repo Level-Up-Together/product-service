@@ -6,6 +6,7 @@ import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.DailyMissio
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.Mission;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.ExecutionStatus;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionExecutionMode;
+import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionSource;
 import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.DailyMissionInstanceRepository;
 import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.MissionExecutionRepository;
 import io.pinkspider.leveluptogethermvp.missionservice.saga.MissionCompletionContext;
@@ -17,9 +18,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
-/**
- * Step 2: 고정 미션 인스턴스 완료 처리
- */
+/** Step 2: 고정 미션 인스턴스 완료 처리 */
 @Slf4j
 @Component
 @RequiredArgsConstructor
@@ -39,7 +38,9 @@ public class CompletePinnedInstanceStep implements SagaStep<MissionCompletionCon
     }
 
     @Override
-    @Transactional(propagation = Propagation.REQUIRES_NEW, transactionManager = "missionTransactionManager")
+    @Transactional(
+            propagation = Propagation.REQUIRES_NEW,
+            transactionManager = "missionTransactionManager")
     public SagaStepResult execute(MissionCompletionContext context) {
         DailyMissionInstance instance = context.getInstance();
 
@@ -53,12 +54,15 @@ public class CompletePinnedInstanceStep implements SagaStep<MissionCompletionCon
             // SIMPLE 모드: 일일 EXP 한도(10회) 도달 시 EXP=0으로 처리
             Mission mission = context.getMission();
             boolean awardSimpleExp = true;
-            if (mission != null && mission.getExecutionMode() == MissionExecutionMode.SIMPLE
-                && instance.getInstanceDate() != null) {
-                long regular = executionRepository.countSimpleCompletedByUserIdAndDate(
-                    context.getUserId(), instance.getInstanceDate());
-                long pinned = instanceRepository.countSimpleCompletedByUserIdAndDate(
-                    context.getUserId(), instance.getInstanceDate());
+            if (mission != null
+                    && mission.getExecutionMode() == MissionExecutionMode.SIMPLE
+                    && instance.getInstanceDate() != null) {
+                long regular =
+                        executionRepository.countSimpleCompletedByUserIdAndDate(
+                                context.getUserId(), instance.getInstanceDate());
+                long pinned =
+                        instanceRepository.countSimpleCompletedByUserIdAndDate(
+                                context.getUserId(), instance.getInstanceDate());
                 if ((regular + pinned) >= MissionExecutionMode.SIMPLE_DAILY_LIMIT) {
                     awardSimpleExp = false;
                     context.setDailySimpleExpCapped(true);
@@ -76,14 +80,27 @@ public class CompletePinnedInstanceStep implements SagaStep<MissionCompletionCon
                 // QA-212: 목표시간 미설정 고정 미션의 수동 완료는 complete() 의 시간 기반 EXP 를
                 // 그대로 유지한다. baseExp 패널티는 스케줄러 자동종료 전용이어야 한다.
                 // QA-153: 목표 시간 달성 여부 식별 → UpdateUserStatsStep 에서 클리어 미션북 카운트 증가
-                if (instance.getTargetDurationMinutes() != null && instance.getTargetDurationMinutes() > 0
-                    && instance.getStartedAt() != null && instance.getCompletedAt() != null) {
-                    long elapsed = Duration.between(instance.getStartedAt(), instance.getCompletedAt()).toMinutes();
+                if (instance.getTargetDurationMinutes() != null
+                        && instance.getTargetDurationMinutes() > 0
+                        && instance.getStartedAt() != null
+                        && instance.getCompletedAt() != null) {
+                    long elapsed =
+                            Duration.between(instance.getStartedAt(), instance.getCompletedAt())
+                                    .toMinutes();
                     if (elapsed >= instance.getTargetDurationMinutes()) {
-                        int bonus = instance.getBonusExpOnFullCompletion() != null
-                            ? instance.getBonusExpOnFullCompletion() : 0;
-                        context.setFullCompletionBonusGranted(true);
-                        context.setFullCompletionBonusExp(bonus);
+                        if (mission.getSource() == MissionSource.SYSTEM) {
+                            // 미션북(SYSTEM): complete() 가 이미 목표분+보너스로 계산 — 플래그만 기록
+                            int bonus =
+                                    instance.getBonusExpOnFullCompletion() != null
+                                            ? instance.getBonusExpOnFullCompletion()
+                                            : 0;
+                            context.setFullCompletionBonusGranted(true);
+                            context.setFullCompletionBonusExp(bonus);
+                        } else {
+                            // LUT-551: 유저 생성 고정 타이머 미션은 보너스 없음 — 인스턴스에 복사된 bonus 가
+                            // complete() 에서 가산되므로 목표분으로 되돌린다.
+                            instance.setExpEarned(instance.getTargetDurationMinutes());
+                        }
                     }
                 }
             }
@@ -99,8 +116,10 @@ public class CompletePinnedInstanceStep implements SagaStep<MissionCompletionCon
             // DB에 저장
             instanceRepository.save(instance);
 
-            log.info("Pinned instance completed: instanceId={}, expEarned={}",
-                instance.getId(), instance.getExpEarned());
+            log.info(
+                    "Pinned instance completed: instanceId={}, expEarned={}",
+                    instance.getId(),
+                    instance.getExpEarned());
 
             return SagaStepResult.success("고정 미션 인스턴스 완료 처리됨");
 
@@ -111,7 +130,9 @@ public class CompletePinnedInstanceStep implements SagaStep<MissionCompletionCon
     }
 
     @Override
-    @Transactional(propagation = Propagation.REQUIRES_NEW, transactionManager = "missionTransactionManager")
+    @Transactional(
+            propagation = Propagation.REQUIRES_NEW,
+            transactionManager = "missionTransactionManager")
     public SagaStepResult compensate(MissionCompletionContext context) {
         DailyMissionInstance instance = context.getInstance();
 
@@ -123,9 +144,10 @@ public class CompletePinnedInstanceStep implements SagaStep<MissionCompletionCon
 
         try {
             // 이전 상태로 복원
-            ExecutionStatus previousStatus = context.getCompensationData(
-                MissionCompletionContext.CompensationKeys.INSTANCE_STATUS_BEFORE,
-                ExecutionStatus.class);
+            ExecutionStatus previousStatus =
+                    context.getCompensationData(
+                            MissionCompletionContext.CompensationKeys.INSTANCE_STATUS_BEFORE,
+                            ExecutionStatus.class);
 
             if (previousStatus != null) {
                 instance.setStatus(previousStatus);
@@ -133,8 +155,10 @@ public class CompletePinnedInstanceStep implements SagaStep<MissionCompletionCon
                 instance.setExpEarned(0);
                 instance.setNote(null);
                 instanceRepository.save(instance);
-                log.info("Pinned instance compensated: instanceId={}, restoredStatus={}",
-                    instance.getId(), previousStatus);
+                log.info(
+                        "Pinned instance compensated: instanceId={}, restoredStatus={}",
+                        instance.getId(),
+                        previousStatus);
             }
 
             return SagaStepResult.success("고정 미션 인스턴스 완료 보상됨");

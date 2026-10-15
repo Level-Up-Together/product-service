@@ -18,8 +18,7 @@ import lombok.Setter;
 /**
  * 고정 미션 일일 인스턴스 응답 DTO
  *
- * MissionExecutionResponse와 호환되는 구조로 설계하여
- * 기존 프론트엔드 코드 수정 최소화
+ * <p>MissionExecutionResponse와 호환되는 구조로 설계하여 기존 프론트엔드 코드 수정 최소화
  */
 @Getter
 @Setter
@@ -41,9 +40,11 @@ public class DailyMissionInstanceResponse {
     private String missionCategoryName;
     // QA-184: 프론트에서 길드 공개 옵션 노출 여부 판단용 (mission_type)
     private MissionType missionType;
+
     /** QA-194: 길드 미션인 경우 길드명. 일반 미션이면 null. */
     @JsonInclude(JsonInclude.Include.NON_NULL)
     private String guildName;
+
     private Long categoryId;
     private Integer expPerCompletion;
     private Integer targetDurationMinutes;
@@ -86,43 +87,38 @@ public class DailyMissionInstanceResponse {
 
     private LocalDateTime modifiedAt;
 
-    /**
-     * 엔티티를 응답 DTO로 변환
-     */
+    /** 엔티티를 응답 DTO로 변환 */
     public static DailyMissionInstanceResponse from(DailyMissionInstance instance) {
         return DailyMissionInstanceResponse.builder()
-            .id(instance.getId())
-            .participantId(instance.getParticipant().getId())
-            .missionId(instance.getParticipant().getMission().getId())
-            .userId(instance.getParticipant().getUserId())
-            .missionTitle(instance.getMissionTitle())
-            .missionDescription(instance.getMissionDescription())
-            .missionCategoryName(instance.getCategoryName())
-            .missionType(instance.getParticipant().getMission().getType())
-            .guildName(instance.getParticipant().getMission().getGuildName())
-            .categoryId(instance.getCategoryId())
-            .expPerCompletion(instance.getExpPerCompletion())
-            .targetDurationMinutes(instance.getTargetDurationMinutes())
-            .instanceDate(instance.getInstanceDate())
-            .status(instance.getStatus())
-            .startedAt(instance.getStartedAt())
-            .completedAt(instance.getCompletedAt())
-            .durationMinutes(instance.getDurationMinutes())
-            .expEarned(instance.getExpEarned())
-            .completionCount(instance.getCompletionCount())
-            .totalExpEarned(instance.getTotalExpEarned())
-            .note(instance.getNote())
-            .imageUrl(instance.getImageUrl())
-            .isSharedToFeed(Boolean.TRUE.equals(instance.getIsSharedToFeed()))
-            .createdAt(instance.getCreatedAt())
-            .modifiedAt(instance.getModifiedAt())
-            .build();
+                .id(instance.getId())
+                .participantId(instance.getParticipant().getId())
+                .missionId(instance.getParticipant().getMission().getId())
+                .userId(instance.getParticipant().getUserId())
+                .missionTitle(instance.getMissionTitle())
+                .missionDescription(instance.getMissionDescription())
+                .missionCategoryName(instance.getCategoryName())
+                .missionType(instance.getParticipant().getMission().getType())
+                .guildName(instance.getParticipant().getMission().getGuildName())
+                .categoryId(instance.getCategoryId())
+                .expPerCompletion(instance.getExpPerCompletion())
+                .targetDurationMinutes(instance.getTargetDurationMinutes())
+                .instanceDate(instance.getInstanceDate())
+                .status(instance.getStatus())
+                .startedAt(instance.getStartedAt())
+                .completedAt(instance.getCompletedAt())
+                .durationMinutes(instance.getDurationMinutes())
+                .expEarned(instance.getExpEarned())
+                .completionCount(instance.getCompletionCount())
+                .totalExpEarned(instance.getTotalExpEarned())
+                .note(instance.getNote())
+                .imageUrl(instance.getImageUrl())
+                .isSharedToFeed(Boolean.TRUE.equals(instance.getIsSharedToFeed()))
+                .createdAt(instance.getCreatedAt())
+                .modifiedAt(instance.getModifiedAt())
+                .build();
     }
 
-    /**
-     * MissionExecutionResponse 호환 필드명으로 변환
-     * (executionDate 필드를 instanceDate 대신 사용하는 경우)
-     */
+    /** MissionExecutionResponse 호환 필드명으로 변환 (executionDate 필드를 instanceDate 대신 사용하는 경우) */
     public LocalDate getExecutionDate() {
         return this.instanceDate;
     }

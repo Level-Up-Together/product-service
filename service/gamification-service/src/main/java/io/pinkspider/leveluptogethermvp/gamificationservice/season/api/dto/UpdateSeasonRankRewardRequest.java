@@ -7,10 +7,9 @@ import jakarta.validation.constraints.NotNull;
 
 @JsonNaming(SnakeCaseStrategy.class)
 public record UpdateSeasonRankRewardRequest(
-    @NotNull @Min(1) Integer rankStart,
-    @NotNull @Min(1) Integer rankEnd,
-    @NotNull Long titleId,
-    /* LUT-339: 보상 아이템 (shop_item ID, 선택) */
-    Long itemId,
-    Integer sortOrder
-) {}
+        @NotNull @Min(1) Integer rankStart,
+        @NotNull @Min(1) Integer rankEnd,
+        @NotNull Long titleId,
+        /* LUT-339: 보상 아이템 (shop_item ID, 선택) */
+        Long itemId,
+        Integer sortOrder) {}

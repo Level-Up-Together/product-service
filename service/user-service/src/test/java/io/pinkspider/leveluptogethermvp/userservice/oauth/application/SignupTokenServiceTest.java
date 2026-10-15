@@ -31,17 +31,13 @@ import org.springframework.data.redis.core.ValueOperations;
 @DisplayName("SignupTokenService 단위 테스트")
 class SignupTokenServiceTest {
 
-    @Mock
-    private StringRedisTemplate redisTemplate;
+    @Mock private StringRedisTemplate redisTemplate;
 
-    @Mock
-    private ValueOperations<String, String> valueOperations;
+    @Mock private ValueOperations<String, String> valueOperations;
 
-    @Mock
-    private ObjectMapper objectMapper;
+    @Mock private ObjectMapper objectMapper;
 
-    @InjectMocks
-    private SignupTokenService signupTokenService;
+    @InjectMocks private SignupTokenService signupTokenService;
 
     private static final String TEST_PROVIDER = "google";
     private static final String TEST_EMAIL = "test@example.com";
@@ -51,9 +47,13 @@ class SignupTokenServiceTest {
 
     private SignupSessionData buildData(String token) {
         return new SignupSessionData(
-            token, TEST_PROVIDER, TEST_EMAIL, TEST_NICKNAME, TEST_LOCALE, TEST_TIMEZONE,
-            "provider-user-1"
-        );
+                token,
+                TEST_PROVIDER,
+                TEST_EMAIL,
+                TEST_NICKNAME,
+                TEST_LOCALE,
+                TEST_TIMEZONE,
+                "provider-user-1");
     }
 
     @BeforeEach
@@ -72,7 +72,8 @@ class SignupTokenServiceTest {
             // given
             SignupSessionData input = buildData(null);
             when(valueOperations.get(anyString())).thenReturn(null);
-            when(objectMapper.writeValueAsString(any(SignupSessionData.class))).thenReturn("{\"json\":true}");
+            when(objectMapper.writeValueAsString(any(SignupSessionData.class)))
+                    .thenReturn("{\"json\":true}");
 
             // when
             String token = signupTokenService.createOrRefresh(input);
@@ -80,7 +81,8 @@ class SignupTokenServiceTest {
             // then
             assertThat(token).isNotBlank();
             // 세션 키 + 토큰 인덱스 키 두 번 저장
-            verify(valueOperations, times(2)).set(anyString(), anyString(), eq(Duration.ofMinutes(30)));
+            verify(valueOperations, times(2))
+                    .set(anyString(), anyString(), eq(Duration.ofMinutes(30)));
             verify(redisTemplate, never()).delete(anyString());
         }
 
@@ -97,8 +99,10 @@ class SignupTokenServiceTest {
             String sessionKey = "signup:" + TEST_PROVIDER + ":" + emailHash;
 
             when(valueOperations.get(sessionKey)).thenReturn(existingJson);
-            when(objectMapper.readValue(existingJson, SignupSessionData.class)).thenReturn(existing);
-            when(objectMapper.writeValueAsString(any(SignupSessionData.class))).thenReturn("{\"json\":true}");
+            when(objectMapper.readValue(existingJson, SignupSessionData.class))
+                    .thenReturn(existing);
+            when(objectMapper.writeValueAsString(any(SignupSessionData.class)))
+                    .thenReturn("{\"json\":true}");
 
             // when
             String newToken = signupTokenService.createOrRefresh(input);
@@ -106,12 +110,14 @@ class SignupTokenServiceTest {
             // then
             assertThat(newToken).isNotBlank().isNotEqualTo(oldToken);
             verify(redisTemplate).delete("signup-token:" + oldToken);
-            verify(valueOperations, times(2)).set(anyString(), anyString(), eq(Duration.ofMinutes(30)));
+            verify(valueOperations, times(2))
+                    .set(anyString(), anyString(), eq(Duration.ofMinutes(30)));
         }
 
         @Test
         @DisplayName("기존 세션 JSON 파싱 실패 시에도 새 토큰을 발급한다 (이전 토큰 무효화는 스킵)")
-        void createOrRefresh_corruptedExistingSession_continuesWithNewToken() throws JsonProcessingException {
+        void createOrRefresh_corruptedExistingSession_continuesWithNewToken()
+                throws JsonProcessingException {
             // given
             SignupSessionData input = buildData(null);
             String emailHash = SignupTokenService.hashEmail(TEST_PROVIDER, TEST_EMAIL);
@@ -119,15 +125,17 @@ class SignupTokenServiceTest {
 
             when(valueOperations.get(sessionKey)).thenReturn("invalid-json");
             when(objectMapper.readValue(eq("invalid-json"), eq(SignupSessionData.class)))
-                .thenThrow(new JsonProcessingException("parse error") {});
-            when(objectMapper.writeValueAsString(any(SignupSessionData.class))).thenReturn("{\"json\":true}");
+                    .thenThrow(new JsonProcessingException("parse error") {});
+            when(objectMapper.writeValueAsString(any(SignupSessionData.class)))
+                    .thenReturn("{\"json\":true}");
 
             // when
             String token = signupTokenService.createOrRefresh(input);
 
             // then
             assertThat(token).isNotBlank();
-            verify(valueOperations, times(2)).set(anyString(), anyString(), eq(Duration.ofMinutes(30)));
+            verify(valueOperations, times(2))
+                    .set(anyString(), anyString(), eq(Duration.ofMinutes(30)));
         }
 
         @Test
@@ -137,12 +145,12 @@ class SignupTokenServiceTest {
             SignupSessionData input = buildData(null);
             when(valueOperations.get(anyString())).thenReturn(null);
             when(objectMapper.writeValueAsString(any(SignupSessionData.class)))
-                .thenThrow(new JsonProcessingException("serialize error") {});
+                    .thenThrow(new JsonProcessingException("serialize error") {});
 
             // when & then
             assertThatThrownBy(() -> signupTokenService.createOrRefresh(input))
-                .isInstanceOf(CustomException.class)
-                .hasMessageContaining("signup session 직렬화 실패");
+                    .isInstanceOf(CustomException.class)
+                    .hasMessageContaining("signup session 직렬화 실패");
         }
     }
 
@@ -175,12 +183,12 @@ class SignupTokenServiceTest {
         @DisplayName("토큰이 null/빈 문자열이면 INVALID_ACCESS 예외를 던진다")
         void findByToken_blankToken_throwsException() {
             assertThatThrownBy(() -> signupTokenService.findByToken(null))
-                .isInstanceOf(CustomException.class)
-                .hasMessageContaining("error.signup.token_invalid");
+                    .isInstanceOf(CustomException.class)
+                    .hasMessageContaining("error.signup.token_invalid");
 
             assertThatThrownBy(() -> signupTokenService.findByToken("   "))
-                .isInstanceOf(CustomException.class)
-                .hasMessageContaining("error.signup.token_invalid");
+                    .isInstanceOf(CustomException.class)
+                    .hasMessageContaining("error.signup.token_invalid");
         }
 
         @Test
@@ -192,8 +200,8 @@ class SignupTokenServiceTest {
 
             // when & then
             assertThatThrownBy(() -> signupTokenService.findByToken(token))
-                .isInstanceOf(CustomException.class)
-                .hasMessageContaining("error.signup.token_expired");
+                    .isInstanceOf(CustomException.class)
+                    .hasMessageContaining("error.signup.token_expired");
         }
 
         @Test
@@ -208,8 +216,8 @@ class SignupTokenServiceTest {
 
             // when & then
             assertThatThrownBy(() -> signupTokenService.findByToken(token))
-                .isInstanceOf(CustomException.class)
-                .hasMessageContaining("error.signup.token_expired");
+                    .isInstanceOf(CustomException.class)
+                    .hasMessageContaining("error.signup.token_expired");
         }
 
         @Test
@@ -223,12 +231,12 @@ class SignupTokenServiceTest {
             when(valueOperations.get("signup-token:" + token)).thenReturn(sessionKeyValue);
             when(valueOperations.get("signup:" + sessionKeyValue)).thenReturn(sessionJson);
             when(objectMapper.readValue(sessionJson, SignupSessionData.class))
-                .thenThrow(new JsonProcessingException("parse fail") {});
+                    .thenThrow(new JsonProcessingException("parse fail") {});
 
             // when & then
             assertThatThrownBy(() -> signupTokenService.findByToken(token))
-                .isInstanceOf(CustomException.class)
-                .hasMessageContaining("signup session 파싱 실패");
+                    .isInstanceOf(CustomException.class)
+                    .hasMessageContaining("signup session 파싱 실패");
         }
     }
 

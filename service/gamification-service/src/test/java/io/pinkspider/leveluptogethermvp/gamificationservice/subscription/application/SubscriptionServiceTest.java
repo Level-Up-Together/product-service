@@ -20,14 +20,11 @@ import org.mockito.junit.jupiter.MockitoExtension;
 @ExtendWith(MockitoExtension.class)
 class SubscriptionServiceTest {
 
-    @Mock
-    private UserSubscriptionRepository userSubscriptionRepository;
+    @Mock private UserSubscriptionRepository userSubscriptionRepository;
 
-    @Mock
-    private SubscriptionSelfHealService selfHealService;
+    @Mock private SubscriptionSelfHealService selfHealService;
 
-    @InjectMocks
-    private SubscriptionService subscriptionService;
+    @InjectMocks private SubscriptionService subscriptionService;
 
     private static final String USER_ID = "user-1";
 
@@ -35,35 +32,37 @@ class SubscriptionServiceTest {
     @Test
     @DisplayName("LUT-499: 자가 치유가 수행되면 행을 다시 읽어 갱신된 상태로 응답한다")
     void selfHealRefreshesRow() {
-        UserSubscription stale = UserSubscription.builder()
-            .userId(USER_ID)
-            .platform("android")
-            .productId("membership")
-            .basePlanId("1m")
-            .plan(SubscriptionPlan.MONTHLY)
-            .startedAt(LocalDateTime.now().minusMonths(2))
-            .expiresAt(LocalDateTime.now().minusMinutes(10))
-            .autoRenew(true)
-            .trialUsed(true)
-            .purchaseToken("token-001")
-            .build();
-        UserSubscription healed = UserSubscription.builder()
-            .userId(USER_ID)
-            .platform("android")
-            .productId("membership")
-            .basePlanId("1m")
-            .plan(SubscriptionPlan.MONTHLY)
-            .startedAt(stale.getStartedAt())
-            .expiresAt(LocalDateTime.now().plusDays(20))
-            .autoRenew(true)
-            .trialUsed(true)
-            .purchaseToken("token-001")
-            .build();
+        UserSubscription stale =
+                UserSubscription.builder()
+                        .userId(USER_ID)
+                        .platform("android")
+                        .productId("membership")
+                        .basePlanId("1m")
+                        .plan(SubscriptionPlan.MONTHLY)
+                        .startedAt(LocalDateTime.now().minusMonths(2))
+                        .expiresAt(LocalDateTime.now().minusMinutes(10))
+                        .autoRenew(true)
+                        .trialUsed(true)
+                        .purchaseToken("token-001")
+                        .build();
+        UserSubscription healed =
+                UserSubscription.builder()
+                        .userId(USER_ID)
+                        .platform("android")
+                        .productId("membership")
+                        .basePlanId("1m")
+                        .plan(SubscriptionPlan.MONTHLY)
+                        .startedAt(stale.getStartedAt())
+                        .expiresAt(LocalDateTime.now().plusDays(20))
+                        .autoRenew(true)
+                        .trialUsed(true)
+                        .purchaseToken("token-001")
+                        .build();
         when(userSubscriptionRepository.findByUserId(USER_ID))
-            .thenReturn(Optional.of(stale), Optional.of(healed));
-        when(selfHealService.syncIfStale(org.mockito.ArgumentMatchers.eq(stale),
-                org.mockito.ArgumentMatchers.any()))
-            .thenReturn(true);
+                .thenReturn(Optional.of(stale), Optional.of(healed));
+        when(selfHealService.syncIfStale(
+                        org.mockito.ArgumentMatchers.eq(stale), org.mockito.ArgumentMatchers.any()))
+                .thenReturn(true);
 
         SubscriptionEntitlementResponse response = subscriptionService.getMyEntitlement(USER_ID);
 
@@ -75,29 +74,30 @@ class SubscriptionServiceTest {
     @Test
     @DisplayName("LUT-499: 자가 치유 대상이 아니면(또는 실패하면) DB 값 그대로 응답한다")
     void noSelfHealKeepsRow() {
-        UserSubscription expired = UserSubscription.builder()
-            .userId(USER_ID)
-            .platform("android")
-            .productId("membership")
-            .basePlanId("1m")
-            .plan(SubscriptionPlan.MONTHLY)
-            .startedAt(LocalDateTime.now().minusMonths(2))
-            .expiresAt(LocalDateTime.now().minusMinutes(10))
-            .autoRenew(true)
-            .trialUsed(false)
-            .purchaseToken("token-001")
-            .build();
+        UserSubscription expired =
+                UserSubscription.builder()
+                        .userId(USER_ID)
+                        .platform("android")
+                        .productId("membership")
+                        .basePlanId("1m")
+                        .plan(SubscriptionPlan.MONTHLY)
+                        .startedAt(LocalDateTime.now().minusMonths(2))
+                        .expiresAt(LocalDateTime.now().minusMinutes(10))
+                        .autoRenew(true)
+                        .trialUsed(false)
+                        .purchaseToken("token-001")
+                        .build();
         when(userSubscriptionRepository.findByUserId(USER_ID)).thenReturn(Optional.of(expired));
-        when(selfHealService.syncIfStale(org.mockito.ArgumentMatchers.any(),
-                org.mockito.ArgumentMatchers.any()))
-            .thenReturn(false);
+        when(selfHealService.syncIfStale(
+                        org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any()))
+                .thenReturn(false);
 
         SubscriptionEntitlementResponse response = subscriptionService.getMyEntitlement(USER_ID);
 
         assertThat(response.status()).isEqualTo(SubscriptionStatus.EXPIRED);
         assertThat(response.isEntitled()).isFalse();
         org.mockito.Mockito.verify(userSubscriptionRepository, org.mockito.Mockito.times(1))
-            .findByUserId(USER_ID);
+                .findByUserId(USER_ID);
     }
 
     @Test
@@ -120,19 +120,20 @@ class SubscriptionServiceTest {
     @DisplayName("활성 구독이면 ACTIVE + 플랜/만료/자동갱신/체험 여부를 그대로 담는다")
     void activeSubscriptionMapped() {
         LocalDateTime expiresAt = LocalDateTime.now().plusDays(20);
-        UserSubscription subscription = UserSubscription.builder()
-            .userId(USER_ID)
-            .platform("android")
-            .productId("membership")
-            .basePlanId("1y")
-            .plan(SubscriptionPlan.ANNUAL)
-            .startedAt(LocalDateTime.now().minusMonths(1))
-            .expiresAt(expiresAt)
-            .autoRenew(true)
-            .trialUsed(true)
-            .build();
+        UserSubscription subscription =
+                UserSubscription.builder()
+                        .userId(USER_ID)
+                        .platform("android")
+                        .productId("membership")
+                        .basePlanId("1y")
+                        .plan(SubscriptionPlan.ANNUAL)
+                        .startedAt(LocalDateTime.now().minusMonths(1))
+                        .expiresAt(expiresAt)
+                        .autoRenew(true)
+                        .trialUsed(true)
+                        .build();
         when(userSubscriptionRepository.findByUserId(USER_ID))
-            .thenReturn(Optional.of(subscription));
+                .thenReturn(Optional.of(subscription));
 
         SubscriptionEntitlementResponse response = subscriptionService.getMyEntitlement(USER_ID);
 
@@ -147,19 +148,20 @@ class SubscriptionServiceTest {
     @Test
     @DisplayName("만료 + 유예기간 내면 GRACE_PERIOD — 권한 유지")
     void gracePeriodSubscriptionEntitled() {
-        UserSubscription subscription = UserSubscription.builder()
-            .userId(USER_ID)
-            .platform("ios")
-            .productId("membership_1m")
-            .plan(SubscriptionPlan.MONTHLY)
-            .startedAt(LocalDateTime.now().minusMonths(2))
-            .expiresAt(LocalDateTime.now().minusDays(2))
-            .gracePeriodExpiresAt(LocalDateTime.now().plusDays(14))
-            .autoRenew(true)
-            .trialUsed(false)
-            .build();
+        UserSubscription subscription =
+                UserSubscription.builder()
+                        .userId(USER_ID)
+                        .platform("ios")
+                        .productId("membership_1m")
+                        .plan(SubscriptionPlan.MONTHLY)
+                        .startedAt(LocalDateTime.now().minusMonths(2))
+                        .expiresAt(LocalDateTime.now().minusDays(2))
+                        .gracePeriodExpiresAt(LocalDateTime.now().plusDays(14))
+                        .autoRenew(true)
+                        .trialUsed(false)
+                        .build();
         when(userSubscriptionRepository.findByUserId(USER_ID))
-            .thenReturn(Optional.of(subscription));
+                .thenReturn(Optional.of(subscription));
 
         SubscriptionEntitlementResponse response = subscriptionService.getMyEntitlement(USER_ID);
 
@@ -172,12 +174,13 @@ class SubscriptionServiceTest {
     @DisplayName("LUT-455: 권한 보유 유저 ID 배치 조회 — 빈 입력은 쿼리 없이 빈 집합")
     void getEntitledUserIdsBatch() {
         org.mockito.Mockito.when(
-                userSubscriptionRepository.findEntitledUserIds(
-                    org.mockito.ArgumentMatchers.anyList(), org.mockito.ArgumentMatchers.any()))
-            .thenReturn(java.util.List.of("user-1"));
+                        userSubscriptionRepository.findEntitledUserIds(
+                                org.mockito.ArgumentMatchers.anyList(),
+                                org.mockito.ArgumentMatchers.any()))
+                .thenReturn(java.util.List.of("user-1"));
 
         assertThat(subscriptionService.getEntitledUserIds(java.util.List.of("user-1", "user-2")))
-            .containsExactly("user-1");
+                .containsExactly("user-1");
         assertThat(subscriptionService.getEntitledUserIds(java.util.List.of())).isEmpty();
         assertThat(subscriptionService.getEntitledUserIds(null)).isEmpty();
     }
@@ -185,18 +188,19 @@ class SubscriptionServiceTest {
     @Test
     @DisplayName("만료 + 유예기간 종료면 EXPIRED — 권한 없음")
     void expiredSubscriptionNotEntitled() {
-        UserSubscription subscription = UserSubscription.builder()
-            .userId(USER_ID)
-            .platform("ios")
-            .productId("membership_1y")
-            .plan(SubscriptionPlan.ANNUAL)
-            .startedAt(LocalDateTime.now().minusYears(1))
-            .expiresAt(LocalDateTime.now().minusDays(30))
-            .autoRenew(false)
-            .trialUsed(true)
-            .build();
+        UserSubscription subscription =
+                UserSubscription.builder()
+                        .userId(USER_ID)
+                        .platform("ios")
+                        .productId("membership_1y")
+                        .plan(SubscriptionPlan.ANNUAL)
+                        .startedAt(LocalDateTime.now().minusYears(1))
+                        .expiresAt(LocalDateTime.now().minusDays(30))
+                        .autoRenew(false)
+                        .trialUsed(true)
+                        .build();
         when(userSubscriptionRepository.findByUserId(USER_ID))
-            .thenReturn(Optional.of(subscription));
+                .thenReturn(Optional.of(subscription));
 
         SubscriptionEntitlementResponse response = subscriptionService.getMyEntitlement(USER_ID);
 
@@ -212,9 +216,9 @@ class SubscriptionServiceTest {
         String uuidUser = "4f43937f-3c7d-492a-ad0f-49e7b63a9c5c";
 
         assertThat(subscriptionService.getAppAccountToken(uuidUser).appAccountToken())
-            .isEqualTo(uuidUser);
+                .isEqualTo(uuidUser);
         assertThat(subscriptionService.getAppAccountToken(USER_ID).appAccountToken())
-            .isEqualTo(subscriptionService.getAppAccountToken(USER_ID).appAccountToken())
-            .matches("[0-9a-f-]{36}");
+                .isEqualTo(subscriptionService.getAppAccountToken(USER_ID).appAccountToken())
+                .matches("[0-9a-f-]{36}");
     }
 }
