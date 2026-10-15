@@ -459,11 +459,19 @@ public interface DailyMissionInstanceRepository extends JpaRepository<DailyMissi
     List<Object[]> aggregateCompletedStatsByParticipantIds(
             @Param("participantIds") List<Long> participantIds);
 
-    /** LUT-454: 월간 통계 — 기간 내 예정(전 상태) 인스턴스 수 (instanceDate 기준) */
+    /**
+     * LUT-454: 월간 통계 — 기간 내 예정 인스턴스 수 (instanceDate 기준).
+     *
+     * <p>LUT-566: 1회차(sequenceNumber = 1)는 상태 무관(PENDING/MISSED 포함)으로 세고, 2회차 이상은 COMPLETED 만 센다.
+     * 완료 직후 CreateNextPinnedInstanceStep 이 같은 날 seq+1 PENDING 을 자동 생성하고 자정에 MISSED 가 되므로, 이를 포함하면
+     * 완료 1건당 미완료 1건이 따라붙어 달성률 상한이 50% 가 된다. 종료된 미션의 잔존 MISSED 는 V009 데이터 정리로 제거한다 — 쿼리에서 미션 상태로 소급
+     * 제외하면 그 미션이 활성이던 달의 정당한 미수행까지 빠지기 때문.
+     */
     @Query(
             "SELECT COUNT(dmi) FROM DailyMissionInstance dmi "
                     + "WHERE dmi.participant.userId = :userId "
-                    + "AND dmi.instanceDate >= :startDate AND dmi.instanceDate <= :endDate")
+                    + "AND dmi.instanceDate >= :startDate AND dmi.instanceDate <= :endDate "
+                    + "AND (dmi.sequenceNumber = 1 OR dmi.status = 'COMPLETED')")
     long countScheduledInPeriod(
             @Param("userId") String userId,
             @Param("startDate") LocalDate startDate,

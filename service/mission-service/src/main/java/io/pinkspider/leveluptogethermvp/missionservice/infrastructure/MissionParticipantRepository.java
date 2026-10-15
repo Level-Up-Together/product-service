@@ -201,23 +201,40 @@ public interface MissionParticipantRepository extends JpaRepository<MissionParti
 
     long countByUserIdAndStatus(String userId, ParticipantStatus status);
 
-    /** 사용자가 참여 중인 고정 미션(isPinned=true) 참여자 목록 조회 ACCEPTED 상태인 참여자만 조회 */
+    /**
+     * 유저의 활성 고정 미션 참여 목록 (오늘 인스턴스 on-demand 생성용 —
+     * MissionExecutionQueryService.ensurePinnedMissionExecutionsForToday).
+     *
+     * <p>LUT-566: 스케줄러용 {@link #findAllActivePinnedMissionParticipants()} 와 같은 기준(활성 미션 +
+     * ACCEPTED/IN_PROGRESS)이어야 한다. 기준이 다르면 종료된 미션의 인스턴스를 스케줄러는 안 만들고 이 경로는 만들어 V009 정리 뒤에도 다시 쌓인다.
+     */
     @Query(
-            "SELECT mp FROM MissionParticipant mp "
-                    + "JOIN FETCH mp.mission m "
-                    + "WHERE mp.userId = :userId "
-                    + "AND mp.status = 'ACCEPTED' "
-                    + "AND m.isPinned = true "
-                    + "AND m.isDeleted = false")
+            "SELECT mp FROM MissionParticipant mp JOIN FETCH mp.mission m WHERE mp.userId = :userId"
+                + " AND mp.status IN"
+                + " (io.pinkspider.leveluptogethermvp.missionservice.domain.enums.ParticipantStatus.ACCEPTED,"
+                + " io.pinkspider.leveluptogethermvp.missionservice.domain.enums.ParticipantStatus.IN_PROGRESS)"
+                + " AND m.isPinned = true AND m.isDeleted = false AND m.status IN"
+                + " (io.pinkspider.global.enums.MissionStatus.DRAFT,"
+                + " io.pinkspider.global.enums.MissionStatus.OPEN, "
+                + "io.pinkspider.global.enums.MissionStatus.IN_PROGRESS)")
     List<MissionParticipant> findPinnedMissionParticipants(@Param("userId") String userId);
 
-    /** 모든 활성 고정 미션 참여자 조회 (배치 스케줄러용) ACCEPTED 상태이고, 미션이 활성(isPinned=true)이며, 삭제되지 않은 참여자만 조회 */
+    /**
+     * 모든 활성 고정 미션 참여자 조회 (배치 스케줄러용).
+     *
+     * <p>LUT-566: 대상 = 미션이 활성 상태(DRAFT/OPEN/IN_PROGRESS)·고정·미삭제이고, 참여자가 ACCEPTED 또는 IN_PROGRESS.
+     * 예전엔 참여자 ACCEPTED 만 보고 미션 상태를 보지 않아 ① 종료(COMPLETED)·취소된 고정 길드미션에도 매일 MISSED 인스턴스가 쌓였고(목록에서는
+     * LUT-482 로 숨겨져 수행 불가) ② 첫 완료로 IN_PROGRESS 가 된 참여자는 이후 미수행일 인스턴스가 생기지 않아 월간 리포트 예정 수가 비대칭이었다.
+     * 고정 미션 참여자는 완료해도 IN_PROGRESS 로 유지되므로(UpdateParticipantProgressStep) 두 상태가 곧 "활성 참여자"다.
+     */
     @Query(
-            "SELECT mp FROM MissionParticipant mp "
-                    + "JOIN FETCH mp.mission m "
-                    + "WHERE mp.status = 'ACCEPTED' "
-                    + "AND m.isPinned = true "
-                    + "AND m.isDeleted = false")
+            "SELECT mp FROM MissionParticipant mp JOIN FETCH mp.mission m WHERE mp.status IN"
+                + " (io.pinkspider.leveluptogethermvp.missionservice.domain.enums.ParticipantStatus.ACCEPTED,"
+                + " io.pinkspider.leveluptogethermvp.missionservice.domain.enums.ParticipantStatus.IN_PROGRESS)"
+                + " AND m.isPinned = true AND m.isDeleted = false AND m.status IN"
+                + " (io.pinkspider.global.enums.MissionStatus.DRAFT,"
+                + " io.pinkspider.global.enums.MissionStatus.OPEN, "
+                + "io.pinkspider.global.enums.MissionStatus.IN_PROGRESS)")
     List<MissionParticipant> findAllActivePinnedMissionParticipants();
 
     /** 사용자의 특정 길드 미션에서의 활성 참여 목록 조회 (길드 탈퇴/추방 시 정리용) */

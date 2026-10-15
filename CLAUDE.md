@@ -357,7 +357,7 @@ public void run() { ...}
 
 | 스케줄러                                                        | 주기/Zone                     | 비고                         |
 |-------------------------------------------------------------|-----------------------------|----------------------------|
-| `DailyMissionInstanceScheduler.generateDailyInstances`      | `0 0 0 * * *` KST           | 고정 미션 일일 인스턴스 생성 + 자정 자동완료 |
+| `DailyMissionInstanceScheduler.generateDailyInstances`      | `0 0 0 * * *` KST           | 고정 미션 일일 인스턴스 생성 + 자정 자동완료. 대상 = **활성 미션(DRAFT/OPEN/IN_PROGRESS)의 ACCEPTED·IN_PROGRESS 참여자**(LUT-566 — 예전엔 ACCEPTED만·미션 상태 미확인이라 종료 미션에 매일 MISSED 적립, 첫 완료 뒤엔 생성 중단) |
 | `MissionAutoCompleteScheduler.autoCompleteExpiredMissions`  | 5분 fixedRate                | 만료(4시간) 미션 자동 종료(baseExp 120) + 경고 알림  |
 | `MissionReminderScheduler.sendReminders`                    | 매시 0,30분 (zone 미지정 → JVM 기본 UTC) | 미션 리마인더 푸시 — 설정 요일·시각, 유저 preferred_timezone 기준 (LUT-282) |
 | `ItemPushScheduler.sendEquippedItemPushes`                  | `0 * * * * *` (매분, lock 50s)  | 장착 아이템 푸시 — 유저 로컬 `HH:mm` 슬롯 + 30분 캐치업 창(LUT-545), 상태·백오프 판정 (LUT-516/529, 규칙은 위 "장착 아이템 푸시" 절) |
@@ -487,7 +487,11 @@ list_price      = COMMON 유저 기준가 = 최대 할증가                    
 
 - **기록 통계** (LUT-454): `GET /api/v1/statistics/summary`(gamification, 누적 달성·최장 스트릭·등급 도달 이력) +
   `GET /api/v1/missions/statistics/monthly`(mission, 월간 리포트). 무료 유저는 **최근 30일 범위의 월만**, 과거 월은 구독 필요 → `050301`.
-  파사드 `isSubscriptionEntitled`로 판정하는 유일한 구독 게이팅 읽기 API.
+  파사드 `isSubscriptionEntitled`로 판정하는 유일한 구독 게이팅 읽기 API. 게이팅은 "조회 월 말일 ≥ 오늘−30일"이라 **매월 31일엔 전월도 잠긴다**(LUT-563).
+  월간 리포트 `scheduled_count`(예정) = 기간 내 `mission_execution`(전 상태) + `daily_mission_instance` 중 **1회차(seq 1) 전 상태 + 2회차 이상은 COMPLETED만**
+  (LUT-566 — 완료 직후 자동 생성되는 seq+1 PENDING이 자정에 MISSED가 되어 완료 1건당 미완료 1건이 붙던 것을 제외). 달성률·완료 수는 **예정일**
+  기준, 카테고리·요일·시간 분포는 **완료 시각 + `X-Timezone`** 기준이라 자정 넘김에서 1~2건 어긋날 수 있다. 종료된 고정 미션의 잔존 MISSED는
+  쿼리가 아니라 **데이터 정리(sql V009)** 로 제거 — 미션 상태로 소급 제외하면 활성이던 달의 정당한 미수행까지 빠진다.
 - **랭킹** `/api/v1/rankings` 14개: 전체·`/missions`·`/streaks`·`/achievements`·`/realtime`·`/level`·`/level/**`는 **비로그인 허용**(LUT-297,
   `SecurityConfig` permitAll + `SecurityConfigPublicEndpointTest`), `/my*`·`/nearby`는 인증 필요.
 - **스트릭 소스는 2종이고 섞으면 안 된다** (LUT-405/555): ① **연속 출석** = `attendance_record.consecutive_days` 체인

@@ -7,8 +7,15 @@
 고정 미션(`isPinned=true`)은 `DailyMissionInstance` 엔티티를 사용:
 
 - 매일 자동 생성 (스케줄러: `DailyMissionInstanceScheduler`, cron: `0 0 0 * * *` KST)
+  - 대상(`findAllActivePinnedMissionParticipants`, LUT-566): **미션 status ∈ DRAFT/OPEN/IN_PROGRESS · is_pinned · 미삭제** 이고 참여자
+    **ACCEPTED 또는 IN_PROGRESS**. 고정 미션 참여자는 완료해도 `IN_PROGRESS` 로 유지되므로(`UpdateParticipantProgressStep`) 두 상태가 곧
+    활성 참여자다. 예전엔 ACCEPTED 만·미션 상태 미확인이라 ① 종료(COMPLETED)/취소된 고정 길드미션에 매일 MISSED 가 쌓이고(LUT-482 로 목록에선
+    숨겨져 수행 불가) ② 첫 완료 뒤엔 미수행일 인스턴스가 생기지 않았다. 종료 미션의 잔존 MISSED 는 sql `V009`(1.1.1) 데이터 정리로 삭제.
+  - 하루 중 수행 시작 시점에 인스턴스가 없으면 on-demand 생성(`createOrGetTodayInstance`) — 스케줄러 실패/가입 당일 대비.
 - 미션 정보 스냅샷 저장 (미션 변경 시 과거 기록 보존)
-- 다중 실행 지원 (시퀀스 번호로 일일 복수 완료 추적)
+- 다중 실행 지원 (시퀀스 번호로 일일 복수 완료 추적) — 완료 saga 의 `CreateNextPinnedInstanceStep` 이 같은 날 seq+1 PENDING 을 자동 생성
+  (`daily_execution_limit` 도달 시 생략). 이 2회차는 자정에 MISSED 가 되므로 **월간 리포트 예정 수에서는 2회차 이상 미완료를 제외**한다
+  (`countScheduledInPeriod`: seq 1 전 상태 + seq≥2 COMPLETED, LUT-566).
 
 API 라우팅 — Strategy Pattern (`MissionExecutionStrategy` 인터페이스):
 
