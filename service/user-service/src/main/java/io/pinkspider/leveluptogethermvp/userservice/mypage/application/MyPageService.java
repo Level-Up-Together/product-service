@@ -630,6 +630,24 @@ public class MyPageService {
      */
     @Transactional
     public void withdrawUser(String userId) {
+        withdraw(userId, null, null);
+    }
+
+    /**
+     * LUT-584: 어드민 즉시 탈퇴 — 일반 탈퇴와 같은 정리(프로필 이미지 삭제·소셜 연동 해제·토큰 무효화·캐시 evict·탈퇴 이벤트)를 수행하고, 재가입
+     * cool-down(QA-115) 을 면제해 "가입유예 기간 없이" 바로 재가입할 수 있게 한다.
+     *
+     * @param userId 대상 사용자 ID
+     * @param adminId 처리 어드민 ID (로그용)
+     * @param reason 처리 사유 (선택, 로그용)
+     */
+    @Transactional
+    public void withdrawUserByAdmin(String userId, Long adminId, String reason) {
+        withdraw(userId, adminId, reason);
+    }
+
+    private void withdraw(String userId, Long adminId, String reason) {
+        boolean byAdmin = adminId != null;
         Users user = findUserOrThrow(userId);
 
         // 이미 탈퇴한 사용자인지 확인
@@ -647,8 +665,12 @@ public class MyPageService {
         // LUT-476: 소셜 로그인 연동 해제 (kakao unlink 등) — best-effort, 실패해도 탈퇴 진행
         socialUnlinkService.unlinkOnWithdrawal(user);
 
-        // 사용자 상태를 WITHDRAWN으로 변경
-        user.withdraw();
+        // 사용자 상태를 WITHDRAWN으로 변경 (어드민 즉시 탈퇴는 재가입 cool-down 면제 표시 동반)
+        if (byAdmin) {
+            user.withdrawByAdmin();
+        } else {
+            user.withdraw();
+        }
         userRepository.save(user);
 
         // 모든 디바이스의 JWT 토큰 즉시 무효화
@@ -661,7 +683,15 @@ public class MyPageService {
         // LUT-287: 크로스 서비스 정리(길드 멤버십 정리, DM 대화방 비활성화)를 위한 탈퇴 이벤트 발행
         eventPublisher.publishEvent(new UserWithdrawnEvent(userId));
 
-        log.info("회원 탈퇴 처리 완료: userId={}", userId);
+        if (byAdmin) {
+            log.info(
+                    "회원 탈퇴 처리 완료(어드민 즉시 탈퇴, 재가입 cool-down 면제): userId={}, adminId={}, reason={}",
+                    userId,
+                    adminId,
+                    reason);
+        } else {
+            log.info("회원 탈퇴 처리 완료: userId={}", userId);
+        }
     }
 
     // ============== Private Helper Methods ==============

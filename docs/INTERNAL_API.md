@@ -15,7 +15,7 @@
 
 | 도메인          | 베이스 경로                                                                                                                                                     | 용도                                             |
 |--------------|------------------------------------------------------------------------------------------------------------------------------------------------------------|------------------------------------------------|
-| user         | `/api/internal/users`                                                                                                                                      | 유저 검색/조회/통계, blacklist, 신고 처리 (suspend/warn)   |
+| user         | `/api/internal/users`                                                                                                                                      | 유저 검색/조회/통계, blacklist, 신고 처리 (suspend/warn), 즉시 탈퇴(`POST /{userId}/withdraw`, LUT-584) |
 | user         | `/api/internal/daily-mvp-exclusions`                                                                                                                       | MVP 제외 명단 관리                                   |
 | user         | `/api/internal/terms`                                                                                                                                      | 약관 관리                                          |
 | guild        | `/api/internal/guilds`                                                                                                                                     | 길드 검색, 통계, 활성화 토글, **신고 처리 (ban-from-report)** |

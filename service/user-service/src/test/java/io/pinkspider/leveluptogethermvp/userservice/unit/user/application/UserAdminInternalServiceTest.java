@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -13,6 +14,7 @@ import io.pinkspider.global.facade.GamificationQueryFacade;
 import io.pinkspider.global.facade.GuildQueryFacade;
 import io.pinkspider.global.facade.dto.UserGuildAdminInfo;
 import io.pinkspider.global.util.CryptoUtils;
+import io.pinkspider.leveluptogethermvp.userservice.mypage.application.MyPageService;
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.dto.admin.UserAchievementAdminResponse;
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.dto.admin.UserAdminPageResponse;
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.dto.admin.UserAdminResponse;
@@ -22,6 +24,7 @@ import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.dto.admin.U
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.dto.admin.UserDetailAdminResponse;
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.dto.admin.UserGuildInfoAdminResponse;
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.dto.admin.UserTitleAdminResponse;
+import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.dto.admin.UserWithdrawAdminRequest;
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.entity.UserBlacklist;
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.entity.Users;
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.enums.BlacklistType;
@@ -58,6 +61,8 @@ class UserAdminInternalServiceTest {
     @Mock
     private io.pinkspider.leveluptogethermvp.notificationservice.application.NotificationService
             notificationService;
+
+    @Mock private MyPageService myPageService;
 
     @InjectMocks private UserAdminInternalService service;
 
@@ -898,6 +903,39 @@ class UserAdminInternalServiceTest {
             assertThat(result).isNotNull();
             verify(userBlacklistRepository, org.mockito.Mockito.never())
                     .findByStartedAtBetween(any(), any(), any());
+        }
+    }
+
+    @Nested
+    @DisplayName("withdrawUser (LUT-584 어드민 즉시 탈퇴)")
+    class WithdrawUserTest {
+
+        @Test
+        @DisplayName("MyPageService.withdrawUserByAdmin 에 adminId·reason 을 그대로 위임한다")
+        void delegatesToMyPageService() {
+            // given
+            UserWithdrawAdminRequest request = new UserWithdrawAdminRequest(7L, "운영 요청");
+
+            // when
+            service.withdrawUser("user-001", request);
+
+            // then
+            verify(myPageService).withdrawUserByAdmin("user-001", 7L, "운영 요청");
+        }
+
+        @Test
+        @DisplayName("이미 탈퇴한 사용자면 MyPageService 의 USER_002 예외가 그대로 전파된다")
+        void propagatesAlreadyWithdrawn() {
+            // given
+            UserWithdrawAdminRequest request = new UserWithdrawAdminRequest(7L, null);
+            doThrow(new CustomException("USER_002", "error.user.withdrawn"))
+                    .when(myPageService)
+                    .withdrawUserByAdmin("user-001", 7L, null);
+
+            // when & then
+            assertThatThrownBy(() -> service.withdrawUser("user-001", request))
+                    .isInstanceOf(CustomException.class)
+                    .hasFieldOrPropertyWithValue("code", "USER_002");
         }
     }
 }

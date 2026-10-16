@@ -356,6 +356,44 @@ class Oauth2ServiceTest {
         }
 
         @Test
+        @DisplayName("어드민 즉시 탈퇴(cool-down 면제) 계정은 cool-down 기간 내에도 신규 가입 진입을 허용한다 (LUT-584)")
+        void findExistingUser_withdrawnByAdminWithinCoolDown_returnsEmpty() {
+            try (MockedStatic<CryptoUtils> mockedCrypto = mockStatic(CryptoUtils.class)) {
+                // given: 어제 어드민 즉시 탈퇴 — 면제 플래그 true
+                Users withdrawnUser =
+                        Users.builder()
+                                .id(TEST_USER_ID)
+                                .email(TEST_EMAIL)
+                                .nickname("탈퇴한 사용자")
+                                .provider("google")
+                                .status(UserStatus.WITHDRAWN)
+                                .withdrawnAt(java.time.LocalDateTime.now().minusDays(1))
+                                .withdrawalCooldownExempt(true)
+                                .build();
+
+                mockedCrypto
+                        .when(() -> CryptoUtils.encryptAes(TEST_EMAIL))
+                        .thenReturn("encrypted-email");
+                when(userRepository.findActiveByEncryptedEmailAndProvider(
+                                "encrypted-email", "google"))
+                        .thenReturn(Optional.empty());
+                when(userRepository.findWithdrawnByEncryptedEmailAndProvider(
+                                "encrypted-email", "google"))
+                        .thenReturn(java.util.List.of(withdrawnUser));
+
+                io.pinkspider.leveluptogethermvp.userservice.oauth.domain.dto.OAuth2UserInfo
+                        userInfo = createMockUserInfo(TEST_EMAIL, TEST_NICKNAME, "google");
+
+                // when
+                Optional<Users> result = oauth2Service.findExistingUser(userInfo, null, null);
+
+                // then: cool-down 판정 없이 신규 가입 진입(빈 Optional)
+                assertThat(result).isEmpty();
+                verify(withdrawalProperties, never()).getCoolDownDays();
+            }
+        }
+
+        @Test
         @DisplayName("탈퇴 후 cool-down 이 종료되면 신규 가입 진입을 허용한다 (QA-115)")
         void dbProcessOAuth2User_withdrawnUserAfterCoolDown_returnsEmpty() {
             try (MockedStatic<CryptoUtils> mockedCrypto = mockStatic(CryptoUtils.class)) {

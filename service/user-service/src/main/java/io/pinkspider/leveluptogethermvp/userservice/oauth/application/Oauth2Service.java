@@ -295,7 +295,13 @@ public class Oauth2Service {
             java.util.List<Users> withdrawnUsers =
                     userRepository.findWithdrawnByEncryptedEmailAndProvider(
                             encryptedEmail, userInfo.getProvider());
-            if (!withdrawnUsers.isEmpty()) {
+            if (!withdrawnUsers.isEmpty() && withdrawnUsers.get(0).isWithdrawalCooldownExempt()) {
+                // LUT-584: 어드민 즉시 탈퇴 계정은 재가입 cool-down 을 적용하지 않는다
+                log.info(
+                        "어드민 즉시 탈퇴 계정 — 재가입 cool-down 면제: userId={}, provider={}",
+                        withdrawnUsers.get(0).getId(),
+                        userInfo.getProvider());
+            } else if (!withdrawnUsers.isEmpty()) {
                 Users withdrawnUser = withdrawnUsers.get(0);
                 int coolDownDays = withdrawalProperties.getCoolDownDays();
                 java.time.LocalDateTime withdrawnAt = withdrawnUser.getWithdrawnAt();
