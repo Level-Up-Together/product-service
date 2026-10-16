@@ -16,6 +16,7 @@ import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.dto.admin.U
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.dto.admin.UserTitleAdminResponse;
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.dto.admin.UserWarnFromReportRequest;
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.dto.admin.UserWarnFromReportResponse;
+import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.dto.admin.UserWithdrawAdminRequest;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
@@ -108,6 +109,14 @@ public class UserAdminInternalController {
         return ApiResult.<UserAdminResponse>builder()
                 .value(userAdminInternalService.resetProfileImage(userId, reason))
                 .build();
+    }
+
+    /** LUT-584: 어드민 즉시 탈퇴 (가입유예 없이 즉시 WITHDRAWN, 재가입 cool-down 면제) */
+    @PostMapping("/{userId}/withdraw")
+    public ApiResult<Void> withdrawUser(
+            @PathVariable String userId, @RequestBody UserWithdrawAdminRequest request) {
+        userAdminInternalService.withdrawUser(userId, request);
+        return ApiResult.<Void>builder().build();
     }
 
     @PostMapping("/{userId}/blacklist")

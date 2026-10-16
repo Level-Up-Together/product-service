@@ -1483,6 +1483,64 @@ class MyPageServiceTest {
         }
 
         @Test
+        @DisplayName("어드민 즉시 탈퇴는 일반 탈퇴와 같은 정리를 하고 재가입 cool-down 면제를 표시한다 (LUT-584)")
+        void withdrawUserByAdmin_marksCooldownExempt() {
+            // given
+            Users user = createTestUser(TEST_USER_ID, "테스터");
+
+            when(userRepository.findById(TEST_USER_ID)).thenReturn(Optional.of(user));
+            when(userRepository.save(any(Users.class))).thenReturn(user);
+
+            // when
+            myPageService.withdrawUserByAdmin(TEST_USER_ID, 7L, "운영 요청");
+
+            // then
+            assertThat(user.getStatus()).isEqualTo(UserStatus.WITHDRAWN);
+            assertThat(user.isWithdrawalCooldownExempt()).isTrue();
+            assertThat(user.getWithdrawnAt()).isNotNull();
+            verify(socialUnlinkService).unlinkOnWithdrawal(user);
+            verify(multiDeviceTokenService).logoutAllDevices(TEST_USER_ID);
+            verify(userExistsCacheService).evictUserExistsCache(TEST_USER_ID);
+            verify(userProfileCacheService).evictUserProfileCache(TEST_USER_ID);
+            ArgumentCaptor<UserWithdrawnEvent> captor =
+                    ArgumentCaptor.forClass(UserWithdrawnEvent.class);
+            verify(eventPublisher).publishEvent(captor.capture());
+            assertThat(captor.getValue().userId()).isEqualTo(TEST_USER_ID);
+        }
+
+        @Test
+        @DisplayName("일반 탈퇴는 재가입 cool-down 면제를 표시하지 않는다 (LUT-584 회귀)")
+        void withdrawUser_doesNotMarkCooldownExempt() {
+            // given
+            Users user = createTestUser(TEST_USER_ID, "테스터");
+
+            when(userRepository.findById(TEST_USER_ID)).thenReturn(Optional.of(user));
+            when(userRepository.save(any(Users.class))).thenReturn(user);
+
+            // when
+            myPageService.withdrawUser(TEST_USER_ID);
+
+            // then
+            assertThat(user.getStatus()).isEqualTo(UserStatus.WITHDRAWN);
+            assertThat(user.isWithdrawalCooldownExempt()).isFalse();
+        }
+
+        @Test
+        @DisplayName("어드민 즉시 탈퇴도 이미 탈퇴한 사용자면 USER_002 예외 (LUT-584)")
+        void withdrawUserByAdmin_alreadyWithdrawn_throwsException() {
+            // given
+            Users user = createTestUser(TEST_USER_ID, "테스터");
+            TestReflectionUtils.setField(user, "status", UserStatus.WITHDRAWN);
+
+            when(userRepository.findById(TEST_USER_ID)).thenReturn(Optional.of(user));
+
+            // when & then
+            assertThatThrownBy(() -> myPageService.withdrawUserByAdmin(TEST_USER_ID, 7L, null))
+                    .isInstanceOf(CustomException.class)
+                    .hasFieldOrPropertyWithValue("code", "USER_002");
+        }
+
+        @Test
         @DisplayName("탈퇴 시 프로필 이미지가 있으면 삭제한다")
         void withdrawUser_deletesProfileImage() {
             // given
