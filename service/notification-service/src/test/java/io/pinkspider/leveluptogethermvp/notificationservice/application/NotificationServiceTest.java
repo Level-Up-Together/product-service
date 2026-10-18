@@ -23,6 +23,7 @@ import io.pinkspider.leveluptogethermvp.notificationservice.infrastructure.Notif
 import io.pinkspider.leveluptogethermvp.notificationservice.infrastructure.NotificationRepository;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Locale;
 import java.util.Optional;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -1532,6 +1533,51 @@ class NotificationServiceTest {
                             any());
             assertThat(messageCaptor.getValue()).isEqualTo("『メディックの翼』アイテムを獲得しました！");
             assertThat(actionUrlCaptor.getValue()).isEqualTo("/mypage/inventory");
+        }
+    }
+
+    @Nested
+    @DisplayName("actionUrl 서비스 교정 (LUT-580)")
+    class ActionUrlOverrideTest {
+
+        @Test
+        @DisplayName(
+                "GUILD_INVITE 는 kernel 패턴(/guild-invitations/{id}) 대신 /guild 로 저장한다 — 푸시 탭 404 방지")
+        void guildInviteActionUrlIsGuildHome() {
+            // given: GUILD_INVITE 는 dedup 타입이 아니라 notificationRepository.save 경로를 탄다
+            NotificationPreference preference = createTestPreference(1L, TEST_USER_ID);
+            Notification saved =
+                    createTestNotification(1L, TEST_USER_ID, NotificationType.GUILD_INVITE);
+            when(userRepository.findById(TEST_USER_ID)).thenReturn(Optional.empty());
+            when(preferenceRepository.findByUserId(TEST_USER_ID))
+                    .thenReturn(Optional.of(preference));
+            when(notificationRepository.save(any(Notification.class))).thenReturn(saved);
+            when(messageSource.getMessage(anyString(), any(), anyString(), any(Locale.class)))
+                    .thenReturn("길드 초대");
+
+            // when
+            notificationService.sendNotification(
+                    TEST_USER_ID, NotificationType.GUILD_INVITE, 123L, null, "초대자", "길드명");
+
+            // then: 저장되는 알림(= 푸시 data.action_url 의 원천)의 actionUrl 이 /guild
+            org.mockito.ArgumentCaptor<Notification> captor =
+                    org.mockito.ArgumentCaptor.forClass(Notification.class);
+            verify(notificationRepository).save(captor.capture());
+            assertThat(captor.getValue().getActionUrl()).isEqualTo("/guild");
+            assertThat(captor.getValue().getReferenceId()).isEqualTo(123L);
+        }
+
+        @Test
+        @DisplayName("오버라이드가 없는 타입은 kernel 이 해석한 actionUrl 을 그대로 쓴다")
+        void otherTypesKeepResolvedActionUrl() {
+            assertThat(
+                            NotificationService.resolveActionUrlOverride(
+                                    NotificationType.GUILD_JOIN_APPROVED, "/guild/7"))
+                    .isEqualTo("/guild/7");
+            assertThat(
+                            NotificationService.resolveActionUrlOverride(
+                                    NotificationType.GUILD_INVITE, "/guild-invitations/123"))
+                    .isEqualTo("/guild");
         }
     }
 

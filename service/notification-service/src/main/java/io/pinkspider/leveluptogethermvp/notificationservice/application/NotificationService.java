@@ -92,6 +92,20 @@ public class NotificationService {
     }
 
     /**
+     * LUT-580: kernel {@code NotificationType.actionUrlPattern} 이 웹에 없는 경로로 정의된 타입을 서비스에서 교정한다.
+     *
+     * <p>GUILD_INVITE 는 "/guild-invitations/{id}" 로 정의돼 있어 푸시 탭(앱은 action_url 원본으로 이동)이 404 였다. 받은
+     * 초대 섹션이 있는 /guild 로 보낸다(웹 알림 목록의 LUT-519 보정과 동일). kernel 패턴 자체는 platform 1.1.1 을 유지하기로 해 다음
+     * platform 릴리스에서 정정한다 — 그때 이 오버라이드를 제거할 것.
+     */
+    static final Map<NotificationType, String> ACTION_URL_OVERRIDES =
+            Map.of(NotificationType.GUILD_INVITE, "/guild");
+
+    static String resolveActionUrlOverride(NotificationType type, String resolvedActionUrl) {
+        return ACTION_URL_OVERRIDES.getOrDefault(type, resolvedActionUrl);
+    }
+
+    /**
      * NotificationType 메타데이터 기반 알림 생성. 중복 방지 타입(requiresDeduplication=true)은 자동으로 pre-check +
      * saveAndFlush 처리.
      *
@@ -128,7 +142,8 @@ public class NotificationService {
         String message =
                 resolveNotificationMessage(type.getMessageTemplate(), userLocale, messageArgs);
         String referenceType = type.getReferenceType();
-        String actionUrl = type.resolveActionUrl(referenceId, messageArgs);
+        String actionUrl =
+                resolveActionUrlOverride(type, type.resolveActionUrl(referenceId, messageArgs));
 
         if (type.isRequiresDeduplication()) {
             if (notificationRepository.existsByUserIdAndNotificationTypeAndReferenceId(
