@@ -2,6 +2,7 @@ package io.pinkspider.leveluptogethermvp.missionservice.domain.entity;
 
 import io.pinkspider.global.domain.auditentity.LocalDateTimeBaseEntity;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.ExecutionStatus;
+import io.pinkspider.leveluptogethermvp.missionservice.domain.policy.MissionExpPolicy;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -136,7 +137,8 @@ public class MissionExecution extends LocalDateTimeBaseEntity implements Mission
         }
         long durationMinutes =
                 java.time.Duration.between(this.startedAt, this.completedAt).toMinutes();
-        return (int) Math.max(1, Math.min(durationMinutes, 480));
+        // LUT-568: 60분까지 분당 1, 초과 구간 5분당 1 (공식은 MissionExpPolicy)
+        return MissionExpPolicy.timedExp(durationMinutes);
     }
 
     // start(), complete(), skip(), markAsMissed(), shareToFeed(), unshareFromFeed(),

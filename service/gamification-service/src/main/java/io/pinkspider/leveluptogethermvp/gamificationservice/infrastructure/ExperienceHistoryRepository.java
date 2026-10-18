@@ -139,6 +139,32 @@ GROUP BY day
             @Param("endDate") LocalDateTime endDate,
             @Param("timezone") String timezone);
 
+    /**
+     * LUT-568: 기간 내 사용자의 미션 외 보상 행 — (사용자 타임존 날짜, 출처, 출처 ID) 단위 순합. 출석(EVENT)과 일일 체크 미션
+     * 마일스톤(DAILY_MISSION_MILESTONE)만 대상이며, saga 보상으로 환수된 건은 합이 0 이하가 되어 제외된다. 캘린더 날짜별 보상 행 표기용.
+     */
+    @Query(
+            value =
+                    """
+SELECT CAST(eh.created_at AT TIME ZONE 'UTC' AT TIME ZONE :timezone AS DATE) AS day,
+       eh.source_type AS source_type,
+       eh.source_id AS source_id,
+       SUM(eh.exp_amount) AS total_exp
+FROM experience_history eh
+WHERE eh.user_id = :userId
+AND eh.created_at >= :startDate AND eh.created_at < :endDate
+AND eh.source_type IN ('EVENT', 'DAILY_MISSION_MILESTONE')
+GROUP BY day, eh.source_type, eh.source_id
+HAVING SUM(eh.exp_amount) > 0
+ORDER BY day, eh.source_type, eh.source_id
+""",
+            nativeQuery = true)
+    List<Object[]> findDailyRewardsByUserIdAndPeriod(
+            @Param("userId") String userId,
+            @Param("startDate") LocalDateTime startDate,
+            @Param("endDate") LocalDateTime endDate,
+            @Param("timezone") String timezone);
+
     /** 특정 기간 동안 사용자보다 경험치가 많은 사용자 수 조회 (순위 계산용) */
     @Query(
             value =

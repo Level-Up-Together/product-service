@@ -226,6 +226,38 @@ class GamificationQueryFacadeServiceTest {
     // ========== 레벨 조회 테스트 ==========
 
     @Nested
+    @DisplayName("getDailyRewardSummary 테스트 (LUT-568)")
+    class GetDailyRewardSummaryTest {
+
+        @Test
+        @DisplayName("UserExperienceService 에 그대로 위임한다")
+        void delegatesToUserExperienceService() {
+            // given
+            java.time.LocalDateTime start = java.time.LocalDateTime.of(2026, 9, 30, 15, 0);
+            java.time.LocalDateTime end = java.time.LocalDateTime.of(2026, 10, 31, 15, 0);
+            java.util.List<io.pinkspider.global.facade.dto.DailyRewardDto> expected =
+                    java.util.List.of(
+                            new io.pinkspider.global.facade.dto.DailyRewardDto(
+                                    java.time.LocalDate.of(2026, 10, 15),
+                                    io.pinkspider.global.enums.ExpSourceType
+                                            .DAILY_MISSION_MILESTONE,
+                                    3L,
+                                    20L));
+            org.mockito.Mockito.when(
+                            userExperienceService.getDailyRewardSummary(
+                                    TEST_USER_ID, start, end, "Asia/Seoul"))
+                    .thenReturn(expected);
+
+            // when
+            var result =
+                    facadeService.getDailyRewardSummary(TEST_USER_ID, start, end, "Asia/Seoul");
+
+            // then
+            assertThat(result).isSameAs(expected);
+        }
+    }
+
+    @Nested
     @DisplayName("getUserLevel 테스트")
     class GetUserLevelTest {
 

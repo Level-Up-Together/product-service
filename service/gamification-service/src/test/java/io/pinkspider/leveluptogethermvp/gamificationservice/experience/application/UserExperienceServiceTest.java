@@ -950,4 +950,96 @@ class UserExperienceServiceTest {
                     .sumDailyExpByUserIdAndPeriod(TEST_USER_ID, startUtc, endUtc, "Asia/Seoul");
         }
     }
+
+    @Nested
+    @DisplayName("getDailyRewardSummary 테스트 (LUT-568)")
+    class GetDailyRewardSummaryTest {
+
+        @Test
+        @DisplayName("출석·마일스톤 보상 행을 날짜/출처/출처ID/경험치 DTO 로 변환한다")
+        void getDailyRewardSummary_success() {
+            // given
+            LocalDateTime startUtc = LocalDateTime.of(2026, 9, 30, 15, 0);
+            LocalDateTime endUtc = LocalDateTime.of(2026, 10, 31, 15, 0);
+            when(experienceHistoryRepository.findDailyRewardsByUserIdAndPeriod(
+                            TEST_USER_ID, startUtc, endUtc, "Asia/Seoul"))
+                    .thenReturn(
+                            List.of(
+                                    new Object[] {
+                                        java.sql.Date.valueOf("2026-10-15"),
+                                        "EVENT",
+                                        77L,
+                                        java.math.BigDecimal.valueOf(10)
+                                    },
+                                    new Object[] {
+                                        java.sql.Date.valueOf("2026-10-15"),
+                                        "DAILY_MISSION_MILESTONE",
+                                        3L,
+                                        java.math.BigDecimal.valueOf(20)
+                                    },
+                                    new Object[] {
+                                        java.sql.Date.valueOf("2026-10-16"),
+                                        "DAILY_MISSION_MILESTONE",
+                                        null,
+                                        java.math.BigDecimal.valueOf(20)
+                                    }));
+
+            // when
+            List<io.pinkspider.global.facade.dto.DailyRewardDto> result =
+                    userExperienceService.getDailyRewardSummary(
+                            TEST_USER_ID, startUtc, endUtc, "Asia/Seoul");
+
+            // then
+            assertThat(result).hasSize(3);
+            assertThat(result.get(0).date()).isEqualTo(LocalDate.of(2026, 10, 15));
+            assertThat(result.get(0).sourceType()).isEqualTo(ExpSourceType.EVENT);
+            assertThat(result.get(0).sourceId()).isEqualTo(77L);
+            assertThat(result.get(0).exp()).isEqualTo(10L);
+            assertThat(result.get(1).sourceType()).isEqualTo(ExpSourceType.DAILY_MISSION_MILESTONE);
+            assertThat(result.get(1).sourceId()).isEqualTo(3L);
+            assertThat(result.get(2).sourceId()).isNull();
+        }
+
+        @Test
+        @DisplayName("유효하지 않은 타임존이면 Asia/Seoul 로 대체한다")
+        void getDailyRewardSummary_invalidTimezone_fallsBackToSeoul() {
+            // given
+            LocalDateTime startUtc = LocalDateTime.of(2026, 9, 30, 15, 0);
+            LocalDateTime endUtc = LocalDateTime.of(2026, 10, 31, 15, 0);
+            when(experienceHistoryRepository.findDailyRewardsByUserIdAndPeriod(
+                            TEST_USER_ID, startUtc, endUtc, "Asia/Seoul"))
+                    .thenReturn(List.of());
+
+            // when
+            List<io.pinkspider.global.facade.dto.DailyRewardDto> result =
+                    userExperienceService.getDailyRewardSummary(
+                            TEST_USER_ID, startUtc, endUtc, "Invalid/Zone");
+
+            // then
+            assertThat(result).isEmpty();
+            verify(experienceHistoryRepository)
+                    .findDailyRewardsByUserIdAndPeriod(
+                            TEST_USER_ID, startUtc, endUtc, "Asia/Seoul");
+        }
+
+        @Test
+        @DisplayName("유저 타임존이 유효하면 그대로 넘긴다")
+        void getDailyRewardSummary_validTimezone_passedThrough() {
+            // given
+            LocalDateTime startUtc = LocalDateTime.of(2026, 9, 30, 21, 0);
+            LocalDateTime endUtc = LocalDateTime.of(2026, 10, 31, 21, 0);
+            when(experienceHistoryRepository.findDailyRewardsByUserIdAndPeriod(
+                            TEST_USER_ID, startUtc, endUtc, "Asia/Riyadh"))
+                    .thenReturn(List.of());
+
+            // when
+            userExperienceService.getDailyRewardSummary(
+                    TEST_USER_ID, startUtc, endUtc, "Asia/Riyadh");
+
+            // then
+            verify(experienceHistoryRepository)
+                    .findDailyRewardsByUserIdAndPeriod(
+                            TEST_USER_ID, startUtc, endUtc, "Asia/Riyadh");
+        }
+    }
 }

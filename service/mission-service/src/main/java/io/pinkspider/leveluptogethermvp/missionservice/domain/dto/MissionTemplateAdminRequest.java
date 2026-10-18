@@ -2,6 +2,7 @@ package io.pinkspider.leveluptogethermvp.missionservice.domain.dto;
 
 import com.fasterxml.jackson.databind.PropertyNamingStrategies.SnakeCaseStrategy;
 import com.fasterxml.jackson.databind.annotation.JsonNaming;
+import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
@@ -23,7 +24,7 @@ public record MissionTemplateAdminRequest(
         @Min(1) Integer durationMinutes,
         @Min(0) Integer bonusExpOnFullCompletion,
         Boolean isPinned,
-        @Min(1) Integer targetDurationMinutes,
+        @Min(1) @Max(240) Integer targetDurationMinutes,
         @Min(1) Integer dailyExecutionLimit,
         Long categoryId,
         @Size(max = 50) String customCategory) {}

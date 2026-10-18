@@ -15,6 +15,7 @@ import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.Mission;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.MissionExecution;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.MissionParticipant;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.ParticipantStatus;
+import io.pinkspider.leveluptogethermvp.missionservice.domain.policy.MissionExpPolicy;
 import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.DailyMissionInstanceRepository;
 import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.MissionExecutionRepository;
 import java.time.Duration;
@@ -186,7 +187,7 @@ public class MissionAutoCompleteScheduler {
                 continue;
             }
 
-            int baseExp = missionExecutionProperties.getBaseExp();
+            int baseExp = MissionExpPolicy.autoCompleteExp(missionExecutionProperties.getBaseExp());
             if (execution.autoCompleteIfExpired(baseExp)) {
                 // 일반 미션 participant를 COMPLETED로 변경하여 미션 목록에서 제외
                 MissionParticipant participant = execution.getParticipant();
@@ -221,7 +222,7 @@ public class MissionAutoCompleteScheduler {
                 instanceRepository.findExpiredInProgressInstances(expireThreshold);
 
         int count = 0;
-        int baseExp = missionExecutionProperties.getBaseExp();
+        int baseExp = MissionExpPolicy.autoCompleteExp(missionExecutionProperties.getBaseExp());
         for (DailyMissionInstance instance : expiredInstances) {
             if (instance.autoCompleteIfExpired(baseExp)) {
                 // QA-119: 고정 미션 자동 종료도 동일하게 EXP 지급 (categoryName 포함하여 MVP 집계 반영)

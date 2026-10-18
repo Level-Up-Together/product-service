@@ -7,6 +7,7 @@ import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.Mission;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.ExecutionStatus;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionExecutionMode;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionSource;
+import io.pinkspider.leveluptogethermvp.missionservice.domain.policy.MissionExpPolicy;
 import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.DailyMissionInstanceRepository;
 import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.MissionExecutionRepository;
 import io.pinkspider.leveluptogethermvp.missionservice.saga.MissionCompletionContext;
@@ -54,6 +55,7 @@ public class CompletePinnedInstanceStep implements SagaStep<MissionCompletionCon
             // SIMPLE 모드: 일일 EXP 한도(10회) 도달 시 EXP=0으로 처리
             Mission mission = context.getMission();
             boolean awardSimpleExp = true;
+            long simpleCompletedBefore = -1;
             if (mission != null
                     && mission.getExecutionMode() == MissionExecutionMode.SIMPLE
                     && instance.getInstanceDate() != null) {
@@ -63,7 +65,8 @@ public class CompletePinnedInstanceStep implements SagaStep<MissionCompletionCon
                 long pinned =
                         instanceRepository.countSimpleCompletedByUserIdAndDate(
                                 context.getUserId(), instance.getInstanceDate());
-                if ((regular + pinned) >= MissionExecutionMode.SIMPLE_DAILY_LIMIT) {
+                simpleCompletedBefore = regular + pinned;
+                if (simpleCompletedBefore >= MissionExecutionMode.SIMPLE_DAILY_LIMIT) {
                     awardSimpleExp = false;
                     context.setDailySimpleExpCapped(true);
                 }
@@ -73,6 +76,12 @@ public class CompletePinnedInstanceStep implements SagaStep<MissionCompletionCon
             instance.complete(awardSimpleExp);
             if (context.getNote() != null) {
                 instance.setNote(context.getNote());
+            }
+
+            // LUT-568: 체크 일일 마일스톤(3·5개째) — 한도 초과로 EXP 0 인 완료도 횟수에 포함. 일일 한도와 같은
+            // 날짜 경계(instanceDate)를 쓴다.
+            if (simpleCompletedBefore >= 0) {
+                context.markDailyMilestone(simpleCompletedBefore + 1);
             }
 
             // SIMPLE 모드는 complete()에서 이미 고정 EXP(또는 한도 도달 시 0) 설정됨 — 오버라이드 불필요
@@ -98,8 +107,9 @@ public class CompletePinnedInstanceStep implements SagaStep<MissionCompletionCon
                             context.setFullCompletionBonusExp(bonus);
                         } else {
                             // LUT-551: 유저 생성 고정 타이머 미션은 보너스 없음 — 인스턴스에 복사된 bonus 가
-                            // complete() 에서 가산되므로 목표분으로 되돌린다.
-                            instance.setExpEarned(instance.getTargetDurationMinutes());
+                            // complete() 에서 가산되므로 목표분 공식값(LUT-568)으로 되돌린다.
+                            instance.setExpEarned(
+                                    MissionExpPolicy.timedExp(instance.getTargetDurationMinutes()));
                         }
                     }
                 }

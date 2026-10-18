@@ -3,6 +3,7 @@ package io.pinkspider.leveluptogethermvp.gamificationservice.experience.applicat
 import io.pinkspider.global.enums.ExpSourceType;
 import io.pinkspider.global.event.GuildCreationEligibleEvent;
 import io.pinkspider.global.event.UserLevelUpEvent;
+import io.pinkspider.global.facade.dto.DailyRewardDto;
 import io.pinkspider.leveluptogethermvp.gamificationservice.achievement.event.AchievementCheckRequestedEvent;
 import io.pinkspider.leveluptogethermvp.gamificationservice.diamond.application.DiamondService;
 import io.pinkspider.leveluptogethermvp.gamificationservice.domain.entity.ExperienceHistory;
@@ -230,6 +231,36 @@ public class UserExperienceService {
                         Collectors.toMap(
                                 row -> ((java.sql.Date) row[0]).toLocalDate(),
                                 row -> ((Number) row[1]).longValue()));
+    }
+
+    /** LUT-568: 기간 내 미션 외 보상 행(출석·일일 체크 미션 마일스톤) — 사용자 타임존 날짜·출처·출처 ID 단위 순합. 캘린더 날짜별 보상 행 표기용. */
+    public List<DailyRewardDto> getDailyRewardSummary(
+            String userId, LocalDateTime startUtc, LocalDateTime endUtc, String timezone) {
+        String zone = resolveZone(timezone);
+
+        return experienceHistoryRepository
+                .findDailyRewardsByUserIdAndPeriod(userId, startUtc, endUtc, zone)
+                .stream()
+                .map(
+                        row ->
+                                new DailyRewardDto(
+                                        ((java.sql.Date) row[0]).toLocalDate(),
+                                        ExpSourceType.valueOf((String) row[1]),
+                                        row[2] != null ? ((Number) row[2]).longValue() : null,
+                                        ((Number) row[3]).longValue()))
+                .toList();
+    }
+
+    private String resolveZone(String timezone) {
+        if (timezone != null) {
+            try {
+                ZoneId.of(timezone);
+                return timezone;
+            } catch (Exception e) {
+                log.warn("유효하지 않은 타임존, 기본값 사용: timezone={}", timezone);
+            }
+        }
+        return "Asia/Seoul";
     }
 
     public Page<ExperienceHistory> getExperienceHistory(String userId, Pageable pageable) {

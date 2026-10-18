@@ -8,6 +8,7 @@ import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.MissionPart
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.ExecutionStatus;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionExecutionMode;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionSource;
+import io.pinkspider.leveluptogethermvp.missionservice.domain.policy.MissionExpPolicy;
 import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.DailyMissionInstanceRepository;
 import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.MissionExecutionRepository;
 import io.pinkspider.leveluptogethermvp.missionservice.saga.MissionCompletionContext;
@@ -62,6 +63,7 @@ public class CompleteExecutionStep implements SagaStep<MissionCompletionContext>
             // SIMPLE 모드: 일일 EXP 한도(10회) 도달 시 EXP=0으로 처리
             Mission mission = context.getMission();
             boolean awardSimpleExp = true;
+            long simpleCompletedBefore = -1;
             if (mission != null && mission.getExecutionMode() == MissionExecutionMode.SIMPLE) {
                 long regular =
                         executionRepository.countSimpleCompletedByUserIdAndDate(
@@ -69,7 +71,8 @@ public class CompleteExecutionStep implements SagaStep<MissionCompletionContext>
                 long pinned =
                         dailyMissionInstanceRepository.countSimpleCompletedByUserIdAndDate(
                                 context.getUserId(), execution.getExecutionDate());
-                if ((regular + pinned) >= MissionExecutionMode.SIMPLE_DAILY_LIMIT) {
+                simpleCompletedBefore = regular + pinned;
+                if (simpleCompletedBefore >= MissionExecutionMode.SIMPLE_DAILY_LIMIT) {
                     awardSimpleExp = false;
                     context.setDailySimpleExpCapped(true);
                 }
@@ -81,6 +84,12 @@ public class CompleteExecutionStep implements SagaStep<MissionCompletionContext>
                 execution.setNote(context.getNote());
             }
 
+            // LUT-568: 체크 일일 마일스톤(3·5개째) — 한도 초과로 EXP 0 인 완료도 횟수에 포함. 일일 한도와 같은
+            // 날짜 경계(executionDate)를 쓴다.
+            if (simpleCompletedBefore >= 0) {
+                context.markDailyMilestone(simpleCompletedBefore + 1);
+            }
+
             // SIMPLE 모드는 complete()에서 이미 고정 EXP(또는 한도 도달 시 0) 설정됨 — 오버라이드 불필요
             if (mission != null && mission.getExecutionMode() != MissionExecutionMode.SIMPLE) {
                 long elapsed =
@@ -90,7 +99,10 @@ public class CompleteExecutionStep implements SagaStep<MissionCompletionContext>
                 if (mission.getTargetDurationMinutes() != null
                         && mission.getTargetDurationMinutes() > 0) {
                     // 목표시간 설정 미션: 목표시간 기반 XP (2시간 제한 미적용)
-                    if (elapsed >= mission.getTargetDurationMinutes()) {
+                    // LUT-568: 타이머 공식(60분까지 분당 1, 초과 5분당 1)을 목표분·실제분 모두에 적용
+                    int target = mission.getTargetDurationMinutes();
+                    if (elapsed >= target) {
+                        int targetExp = MissionExpPolicy.timedExp(target);
                         if (mission.getSource() == MissionSource.SYSTEM) {
                             // 미션북(SYSTEM): 목표 달성 보너스 지급
                             // QA-153: 추가 보상은 bonusExpOnFullCompletion. 이전엔 expPerCompletion 을 잘못
@@ -99,16 +111,16 @@ public class CompleteExecutionStep implements SagaStep<MissionCompletionContext>
                                     mission.getBonusExpOnFullCompletion() != null
                                             ? mission.getBonusExpOnFullCompletion()
                                             : 0;
-                            execution.setExpEarned(mission.getTargetDurationMinutes() + bonus);
+                            execution.setExpEarned(targetExp + bonus);
                             context.setFullCompletionBonusGranted(true);
                             context.setFullCompletionBonusExp(bonus);
                         } else {
                             // LUT-551: 유저 생성 타이머 미션의 목표시간은 "최대 목표시간"(자동 종료 상한)일 뿐
-                            // 보너스 대상이 아니다 — 분당 1 EXP 를 목표분으로 캡 (30분 미션 = 30 EXP).
-                            execution.setExpEarned(mission.getTargetDurationMinutes());
+                            // 보너스 대상이 아니다 — 목표분 공식값으로 캡 (30분 미션 = 30 EXP, 240분 = 96).
+                            execution.setExpEarned(targetExp);
                         }
                     } else {
-                        execution.setExpEarned((int) Math.max(1, elapsed));
+                        execution.setExpEarned(MissionExpPolicy.timedExp(elapsed));
                     }
                 }
                 // QA-212: 목표시간 미설정 미션의 수동 완료는 complete() 의 시간 기반 EXP

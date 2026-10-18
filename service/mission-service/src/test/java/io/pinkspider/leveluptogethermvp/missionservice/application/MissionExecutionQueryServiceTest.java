@@ -567,6 +567,115 @@ class MissionExecutionQueryServiceTest {
         }
 
         @Test
+        @DisplayName("LUT-568: 출석(EVENT)·체크 마일스톤 보상 이력을 날짜별 daily_rewards 행으로 내린다")
+        void getMonthlyCalendarData_includesDailyRewards() {
+            // given
+            int year = 2024;
+            int month = 12;
+            LocalDate date = LocalDate.of(year, month, 15);
+            LocalDate other = LocalDate.of(year, month, 16);
+
+            when(executionRepository.findCompletedByUserIdAndCompletedAtBetween(
+                            eq(testUserId), any(LocalDateTime.class), any(LocalDateTime.class)))
+                    .thenReturn(List.of());
+            when(dailyMissionInstanceRepository.findCompletedByUserIdAndCompletedAtBetween(
+                            eq(testUserId), any(LocalDateTime.class), any(LocalDateTime.class)))
+                    .thenReturn(List.of());
+            when(gamificationQueryFacade.getDailyExpSummary(
+                            eq(testUserId),
+                            any(LocalDateTime.class),
+                            any(LocalDateTime.class),
+                            eq("Asia/Seoul")))
+                    .thenReturn(java.util.Map.of(date, 50L, other, 20L));
+            when(gamificationQueryFacade.getDailyRewardSummary(
+                            eq(testUserId),
+                            any(LocalDateTime.class),
+                            any(LocalDateTime.class),
+                            eq("Asia/Seoul")))
+                    .thenReturn(
+                            List.of(
+                                    new io.pinkspider.global.facade.dto.DailyRewardDto(
+                                            date,
+                                            io.pinkspider.global.enums.ExpSourceType.EVENT,
+                                            77L,
+                                            10L),
+                                    new io.pinkspider.global.facade.dto.DailyRewardDto(
+                                            date,
+                                            io.pinkspider.global.enums.ExpSourceType
+                                                    .DAILY_MISSION_MILESTONE,
+                                            3L,
+                                            20L),
+                                    new io.pinkspider.global.facade.dto.DailyRewardDto(
+                                            date,
+                                            io.pinkspider.global.enums.ExpSourceType
+                                                    .DAILY_MISSION_MILESTONE,
+                                            5L,
+                                            20L),
+                                    // 대상 외 출처는 무시
+                                    new io.pinkspider.global.facade.dto.DailyRewardDto(
+                                            other,
+                                            io.pinkspider.global.enums.ExpSourceType.ACHIEVEMENT,
+                                            1L,
+                                            20L)));
+
+            // when
+            MonthlyCalendarResponse response =
+                    executionService.getMonthlyCalendarData(testUserId, year, month, null);
+
+            // then
+            var rewards = response.getDailyRewards();
+            assertThat(rewards).containsOnlyKeys(date.toString());
+            var rows = rewards.get(date.toString());
+            assertThat(rows).hasSize(3);
+            assertThat(rows.get(0).getType()).isEqualTo("ATTENDANCE");
+            assertThat(rows.get(0).getExp()).isEqualTo(10);
+            assertThat(rows.get(0).getMilestone()).isNull();
+            assertThat(rows.get(1).getType()).isEqualTo("DAILY_MISSION_MILESTONE");
+            assertThat(rows.get(1).getExp()).isEqualTo(20);
+            assertThat(rows.get(1).getMilestone()).isEqualTo(3);
+            assertThat(rows.get(2).getMilestone()).isEqualTo(5);
+            // daily_exp 는 그대로 유지(구버전 폴백)
+            assertThat(response.getDailyExp()).containsEntry(date.toString(), 50);
+        }
+
+        @Test
+        @DisplayName("LUT-568: 보상 이력 조회 실패는 캘린더 전체를 깨지 않고 daily_rewards 만 비운다")
+        void getMonthlyCalendarData_dailyRewardsFailure_isIsolated() {
+            // given
+            int year = 2024;
+            int month = 12;
+            LocalDate date = LocalDate.of(year, month, 15);
+
+            when(executionRepository.findCompletedByUserIdAndCompletedAtBetween(
+                            eq(testUserId), any(LocalDateTime.class), any(LocalDateTime.class)))
+                    .thenReturn(List.of(createCompletedExecution(1L, date, 50, 30)));
+            when(dailyMissionInstanceRepository.findCompletedByUserIdAndCompletedAtBetween(
+                            eq(testUserId), any(LocalDateTime.class), any(LocalDateTime.class)))
+                    .thenReturn(List.of());
+            when(gamificationQueryFacade.getDailyExpSummary(
+                            eq(testUserId),
+                            any(LocalDateTime.class),
+                            any(LocalDateTime.class),
+                            eq("Asia/Seoul")))
+                    .thenReturn(java.util.Map.of(date, 50L));
+            when(gamificationQueryFacade.getDailyRewardSummary(
+                            eq(testUserId),
+                            any(LocalDateTime.class),
+                            any(LocalDateTime.class),
+                            any()))
+                    .thenThrow(new RuntimeException("gamification 조회 실패"));
+
+            // when
+            MonthlyCalendarResponse response =
+                    executionService.getMonthlyCalendarData(testUserId, year, month, null);
+
+            // then
+            assertThat(response.getTotalExp()).isEqualTo(50);
+            assertThat(response.getDailyRewards()).isEmpty();
+            assertThat(response.getDailyMissions()).containsKey(date.toString());
+        }
+
+        @Test
         @DisplayName("QA-217: 경험치 이력 조회 실패 시 기존 미션 경험치 합으로 fallback 한다")
         void getMonthlyCalendarData_fallbackToMissionExpOnFailure() {
             // given

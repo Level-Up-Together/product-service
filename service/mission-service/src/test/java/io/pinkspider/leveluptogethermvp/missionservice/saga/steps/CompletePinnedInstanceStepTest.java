@@ -142,7 +142,109 @@ class CompletePinnedInstanceStepTest {
         }
 
         @Test
-        @DisplayName("SIMPLE 모드 + 일일 한도 미달이면 EXP=5, dailySimpleExpCapped=false")
+        @DisplayName("LUT-568: 고정 체크 미션도 당일 누계 3개째면 마일스톤 3 / 보너스 20 을 기록한다 (일반 0 + 고정 2 + 이번)")
+        void execute_simpleMode_thirdCompletion_marksMilestone3() {
+            // given
+            mission.setExecutionMode(MissionExecutionMode.SIMPLE);
+            when(executionRepository.countSimpleCompletedByUserIdAndDate(eq(TEST_USER_ID), any()))
+                    .thenReturn(0L);
+            when(instanceRepository.countSimpleCompletedByUserIdAndDate(eq(TEST_USER_ID), any()))
+                    .thenReturn(2L);
+            when(instanceRepository.save(any(DailyMissionInstance.class)))
+                    .thenAnswer(invocation -> invocation.getArgument(0));
+
+            // when
+            SagaStepResult result = completePinnedInstanceStep.execute(context);
+
+            // then
+            assertThat(result.isSuccess()).isTrue();
+            assertThat(instance.getExpEarned()).isEqualTo(10);
+            assertThat(context.getMilestoneCount()).isEqualTo(3);
+            assertThat(context.getMilestoneBonusExp()).isEqualTo(20);
+        }
+
+        @Test
+        @DisplayName("LUT-568: 한도 초과(11개째)로 EXP 0 이어도 마일스톤 판정은 누계로 하되 11 은 대상이 아니다")
+        void execute_simpleMode_overLimit_noMilestone() {
+            // given
+            mission.setExecutionMode(MissionExecutionMode.SIMPLE);
+            when(executionRepository.countSimpleCompletedByUserIdAndDate(eq(TEST_USER_ID), any()))
+                    .thenReturn(10L);
+            when(instanceRepository.countSimpleCompletedByUserIdAndDate(eq(TEST_USER_ID), any()))
+                    .thenReturn(0L);
+            when(instanceRepository.save(any(DailyMissionInstance.class)))
+                    .thenAnswer(invocation -> invocation.getArgument(0));
+
+            // when
+            completePinnedInstanceStep.execute(context);
+
+            // then
+            assertThat(instance.getExpEarned()).isZero();
+            assertThat(context.isDailySimpleExpCapped()).isTrue();
+            assertThat(context.getMilestoneBonusExp()).isZero();
+        }
+
+        @Test
+        @DisplayName(
+                "LUT-568: 한도 초과로 EXP 0 인 완료라도 누계 5개째면 마일스톤 5 를 기록한다 — 가능한 조합(일반 4 + 고정 0 + 이번)")
+        void execute_simpleMode_fifthCompletion_marksMilestone5() {
+            // given
+            mission.setExecutionMode(MissionExecutionMode.SIMPLE);
+            when(executionRepository.countSimpleCompletedByUserIdAndDate(eq(TEST_USER_ID), any()))
+                    .thenReturn(4L);
+            when(instanceRepository.countSimpleCompletedByUserIdAndDate(eq(TEST_USER_ID), any()))
+                    .thenReturn(0L);
+            when(instanceRepository.save(any(DailyMissionInstance.class)))
+                    .thenAnswer(invocation -> invocation.getArgument(0));
+
+            // when
+            completePinnedInstanceStep.execute(context);
+
+            // then
+            assertThat(context.getMilestoneCount()).isEqualTo(5);
+            assertThat(context.getMilestoneBonusExp()).isEqualTo(20);
+        }
+
+        @Test
+        @DisplayName("LUT-568: 유저 고정 타이머 120분 목표 도달은 공식값 72 로 되돌린다")
+        void execute_userPinnedTimer_target120_appliesFormula() {
+            // given
+            instance.setTargetDurationMinutes(120);
+            instance.setBonusExpOnFullCompletion(7);
+            instance.setStartedAt(LocalDateTime.now().minusMinutes(130));
+            when(instanceRepository.save(any(DailyMissionInstance.class)))
+                    .thenAnswer(invocation -> invocation.getArgument(0));
+
+            // when
+            SagaStepResult result = completePinnedInstanceStep.execute(context);
+
+            // then: timedExp(120) = 60 + 12
+            assertThat(result.isSuccess()).isTrue();
+            assertThat(instance.getExpEarned()).isEqualTo(72);
+            assertThat(context.getUserExpEarned()).isEqualTo(72);
+        }
+
+        @Test
+        @DisplayName("LUT-568: 미션북 고정 타이머 120분 목표 도달은 공식값 72 + 보너스")
+        void execute_systemPinnedTimer_target120_formulaPlusBonus() {
+            // given
+            mission.setSource(MissionSource.SYSTEM);
+            instance.setTargetDurationMinutes(120);
+            instance.setBonusExpOnFullCompletion(30);
+            instance.setStartedAt(LocalDateTime.now().minusMinutes(130));
+            when(instanceRepository.save(any(DailyMissionInstance.class)))
+                    .thenAnswer(invocation -> invocation.getArgument(0));
+
+            // when
+            completePinnedInstanceStep.execute(context);
+
+            // then
+            assertThat(instance.getExpEarned()).isEqualTo(102);
+            assertThat(context.getFullCompletionBonusExp()).isEqualTo(30);
+        }
+
+        @Test
+        @DisplayName("SIMPLE 모드 + 일일 한도 미달이면 EXP=10, dailySimpleExpCapped=false")
         void execute_simpleMode_underDailyLimit_awardsExp() {
             // given
             mission.setExecutionMode(MissionExecutionMode.SIMPLE);

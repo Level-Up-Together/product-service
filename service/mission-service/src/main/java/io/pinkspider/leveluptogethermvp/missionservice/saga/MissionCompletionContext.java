@@ -6,6 +6,7 @@ import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.DailyMissio
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.Mission;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.MissionExecution;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.MissionParticipant;
+import io.pinkspider.leveluptogethermvp.missionservice.domain.policy.MissionExpPolicy;
 import java.time.LocalDate;
 import lombok.Getter;
 import lombok.Setter;
@@ -53,6 +54,12 @@ public class MissionCompletionContext extends SagaContext {
 
     /** SIMPLE 일일 EXP 한도(10회) 도달 여부. true면 완료는 되지만 EXP=0으로 처리됨. */
     private boolean dailySimpleExpCapped;
+
+    /** LUT-568: 이번 완료로 도달한 체크 일일 마일스톤 수(3/5). 미도달이면 0. */
+    private int milestoneCount;
+
+    /** LUT-568: 이번 완료로 지급할 마일스톤 보너스 경험치. 미도달이면 0. */
+    private int milestoneBonusExp;
 
     // === Regular-only Calculated Data ===
     private int guildExpEarned;
@@ -126,6 +133,18 @@ public class MissionCompletionContext extends SagaContext {
         ctx.shareToFeed = feedVisibility != FeedVisibility.PRIVATE;
         ctx.pinned = true;
         return ctx;
+    }
+
+    /**
+     * LUT-568: 당일 체크 완료 누계(이번 완료 포함)가 마일스톤에 도달했으면 보너스를 기록한다. 완료 Step 이 호출하고
+     * GrantDailyMilestoneBonusStep 이 지급한다.
+     */
+    public void markDailyMilestone(long simpleCompletionsToday) {
+        int milestone = MissionExpPolicy.milestoneReached(simpleCompletionsToday);
+        if (milestone > 0) {
+            this.milestoneCount = milestone;
+            this.milestoneBonusExp = MissionExpPolicy.MILESTONE_BONUS_EXP;
+        }
     }
 
     /**

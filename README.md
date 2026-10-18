@@ -552,11 +552,11 @@ JaCoCo를 사용하며 최소 **75%** 커버리지를 요구합니다 (`service`
 - 미션 카테고리 (시스템 카테고리 + 사용자 정의)
 - 미션 참가자 진행 상태 추적
 - 미션 실행 스케줄 자동 생성
-- 미션 완료 시 경험치 지급 (TIMED 수행 시간 기반, 분당 1 EXP / 최대 480분)
+- 미션 완료 시 경험치 지급 (TIMED: 60분까지 분당 1 EXP, 초과 구간 5분당 1, 최대 480분 — LUT-568 `MissionExpPolicy`)
 - **누적 EXP (QA-176)**: 미션 응답의 `total_exp_earned`는 일반(`MissionExecution`) + 고정(`DailyMissionInstance`) 완료를 historic 합산 (탈퇴/실패 참여자 기여도 유지)
 - 미션북 (시스템 미션 라이브러리, 템플릿 수정 시 복제 미션에 duration/target/bonusExp 자동 전파)
 - Saga 패턴 기반 분산 트랜잭션 관리
-- **수행 방식 (Execution Mode)**: TIMED (시간 측정, 분당 1 EXP) / SIMPLE (수행 여부 체크, 고정 +5 EXP, 하루 10회 제한)
+- **수행 방식 (Execution Mode)**: TIMED (시간 측정, 60분까지 분당 1 EXP·초과 5분당 1) / SIMPLE (수행 여부 체크, 고정 +10 EXP, 하루 10회 제한, 당일 3·5개째 +20 마일스톤)
 - **고정 미션 (Pinned Mission)**: Template-Instance 패턴
   - 매일 자동 생성되는 일일 인스턴스
   - 미션 정보 스냅샷 저장
