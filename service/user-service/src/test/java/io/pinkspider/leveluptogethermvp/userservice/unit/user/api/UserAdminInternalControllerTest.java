@@ -8,6 +8,7 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.doNothing;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.restdocs.operation.preprocess.Preprocessors.preprocessRequest;
 import static org.springframework.restdocs.operation.preprocess.Preprocessors.preprocessResponse;
@@ -24,6 +25,7 @@ import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.dto.admin.U
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.dto.admin.UserAdminResponse;
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.dto.admin.UserBlacklistAdminRequest;
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.dto.admin.UserBlacklistAdminResponse;
+import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.dto.admin.UserWithdrawAdminRequest;
 import io.pinkspider.util.MockUtil;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -618,6 +620,77 @@ class UserAdminInternalControllerTest {
 
             // then
             resultActions.andExpect(MockMvcResultMatchers.status().isOk());
+        }
+    }
+
+    @Nested
+    @DisplayName("POST /api/internal/users/{userId}/withdraw (LUT-584)")
+    class WithdrawUserTest {
+
+        @Test
+        @DisplayName("어드민 즉시 탈퇴 — 가입유예 없이 WITHDRAWN 전환 요청을 서비스에 위임한다")
+        void withdrawUser() throws Exception {
+            // given
+            UserWithdrawAdminRequest request = new UserWithdrawAdminRequest(1L, "운영 요청");
+            doNothing()
+                    .when(userAdminInternalService)
+                    .withdrawUser(eq("user-001"), any(UserWithdrawAdminRequest.class));
+
+            // when
+            ResultActions resultActions =
+                    mockMvc.perform(
+                                    RestDocumentationRequestBuilders.post(
+                                                    "/api/internal/users/{userId}/withdraw",
+                                                    "user-001")
+                                            .contentType(MediaType.APPLICATION_JSON)
+                                            .content(objectMapper.writeValueAsString(request)))
+                            .andDo(
+                                    MockMvcRestDocumentationWrapper.document(
+                                            "어드민-06. 즉시 탈퇴 처리",
+                                            preprocessRequest(prettyPrint()),
+                                            preprocessResponse(prettyPrint()),
+                                            resource(
+                                                    ResourceSnippetParameters.builder()
+                                                            .tag("Admin User")
+                                                            .description(
+                                                                    "어드민 즉시 탈퇴 — 가입유예(재가입"
+                                                                            + " cool-down) 없이 바로 탈퇴"
+                                                                            + " 처리 (LUT-584)")
+                                                            .pathParameters(
+                                                                    parameterWithName("userId")
+                                                                            .type(SimpleType.STRING)
+                                                                            .description("사용자 ID"))
+                                                            .requestFields(
+                                                                    fieldWithPath("admin_id")
+                                                                            .type(
+                                                                                    JsonFieldType
+                                                                                            .NUMBER)
+                                                                            .description(
+                                                                                    "처리 어드민 ID"),
+                                                                    fieldWithPath("reason")
+                                                                            .type(
+                                                                                    JsonFieldType
+                                                                                            .STRING)
+                                                                            .optional()
+                                                                            .description(
+                                                                                    "처리 사유 (선택)"))
+                                                            .responseFields(
+                                                                    fieldWithPath("code")
+                                                                            .type(
+                                                                                    JsonFieldType
+                                                                                            .STRING)
+                                                                            .description("응답 코드"),
+                                                                    fieldWithPath("message")
+                                                                            .type(
+                                                                                    JsonFieldType
+                                                                                            .STRING)
+                                                                            .description("응답 메시지"))
+                                                            .build())));
+
+            // then
+            resultActions.andExpect(MockMvcResultMatchers.status().isOk());
+            verify(userAdminInternalService)
+                    .withdrawUser(eq("user-001"), any(UserWithdrawAdminRequest.class));
         }
     }
 

@@ -9,6 +9,7 @@ import io.pinkspider.global.facade.dto.UserGuildAdminInfo;
 import io.pinkspider.global.facade.dto.UserTitleDto;
 import io.pinkspider.global.util.CryptoUtils;
 import io.pinkspider.leveluptogethermvp.notificationservice.application.NotificationService;
+import io.pinkspider.leveluptogethermvp.userservice.mypage.application.MyPageService;
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.dto.admin.BlacklistListItemAdminResponse;
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.dto.admin.UserAchievementAdminResponse;
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.dto.admin.UserAdminPageResponse;
@@ -25,6 +26,7 @@ import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.dto.admin.U
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.dto.admin.UserTitleAdminResponse;
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.dto.admin.UserWarnFromReportRequest;
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.dto.admin.UserWarnFromReportResponse;
+import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.dto.admin.UserWithdrawAdminRequest;
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.entity.UserBlacklist;
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.entity.Users;
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.enums.BlacklistType;
@@ -57,6 +59,7 @@ public class UserAdminInternalService {
     private final GamificationQueryFacade gamificationQueryFacadeService;
     private final GuildQueryFacade guildQueryFacadeService;
     private final NotificationService notificationService;
+    private final MyPageService myPageService;
 
     // ========== 유저 검색/조회 ==========
 
@@ -275,6 +278,20 @@ public class UserAdminInternalService {
     }
 
     // ========== 블랙리스트 ==========
+
+    /**
+     * LUT-584: 어드민 즉시 탈퇴 — 가입유예(재가입 cool-down) 없이 바로 탈퇴 상태로 전환. 실제 정리는 일반 탈퇴와 같은 {@link
+     * MyPageService#withdrawUserByAdmin} 경로를 탄다(이미 탈퇴면 USER_002, 없으면 USER_001).
+     */
+    @Transactional(transactionManager = "userTransactionManager")
+    public void withdrawUser(String userId, UserWithdrawAdminRequest request) {
+        myPageService.withdrawUserByAdmin(userId, request.adminId(), request.reason());
+        log.info(
+                "어드민 즉시 탈퇴 처리 - userId: {}, adminId: {}, reason: {}",
+                userId,
+                request.adminId(),
+                request.reason());
+    }
 
     @Transactional(transactionManager = "userTransactionManager")
     public UserBlacklistAdminResponse addToBlacklist(

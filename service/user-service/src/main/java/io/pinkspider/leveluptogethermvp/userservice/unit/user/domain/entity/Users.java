@@ -114,6 +114,14 @@ public class Users extends LocalDateTimeBaseEntity {
     @Column(name = "withdrawn_at")
     private LocalDateTime withdrawnAt;
 
+    /**
+     * LUT-584: 어드민 즉시 탈퇴로 처리된 계정 — 재가입 cool-down(QA-115, 기본 7일) 면제. 일반 탈퇴는 false 라 cool-down 이 그대로
+     * 적용된다.
+     */
+    @lombok.Builder.Default
+    @Column(name = "withdrawal_cooldown_exempt", nullable = false)
+    private boolean withdrawalCooldownExempt = false;
+
     @Setter
     @OneToMany(mappedBy = "users")
     private Set<UserTermAgreement> userTermAgreements = new LinkedHashSet<>();
@@ -210,6 +218,15 @@ public class Users extends LocalDateTimeBaseEntity {
         this.appleRefreshToken = null;
         this.appleClientId = null;
         this.withdrawnAt = LocalDateTime.now();
+    }
+
+    /**
+     * LUT-584: 어드민 즉시 탈퇴. 일반 탈퇴와 같은 익명화·상태 전환을 하되, 재가입 cool-down 을 면제해 "가입유예 기간 없이" 바로 다시 가입할 수 있게
+     * 표시한다.
+     */
+    public void withdrawByAdmin() {
+        withdraw();
+        this.withdrawalCooldownExempt = true;
     }
 
     /** 표시용 이름 반환 (닉네임 > 이메일 앞부분) */
