@@ -336,9 +336,21 @@ public class UserExperienceService {
         return 100 + (level - 1) * 50;
     }
 
+    /**
+     * LUT-570: 다음 레벨(currentLevel + 1) 행의 required_exp — 레벨업 판정(processLevelUp)이 보는 행과 같다. 예전엔 현재
+     * 레벨 행을 읽었는데 2~11 레벨이 전부 500 인 균일 곡선에선 드러나지 않았고, 새 초기 곡선에선 레벨 2 유저에게 50(레벨 2 비용)을 보여주며 실제로는
+     * 150(레벨 3 비용)이 필요했다. 테이블이 비어 있으면 기본 공식, 다음 레벨 행이 없으면(최대 레벨) null.
+     */
     private Integer getNextLevelRequiredExp(int currentLevel) {
-        UserLevelConfig config = userLevelConfigCacheService.getLevelConfigByLevel(currentLevel);
-        return config != null ? config.getRequiredExp() : calculateDefaultRequiredExp(currentLevel);
+        List<UserLevelConfig> configs = userLevelConfigCacheService.getAllLevelConfigs();
+        if (configs == null || configs.isEmpty()) {
+            return calculateDefaultRequiredExp(currentLevel);
+        }
+        return configs.stream()
+                .filter(lc -> lc.getLevel() != null && lc.getLevel() == currentLevel + 1)
+                .map(UserLevelConfig::getRequiredExp)
+                .findFirst()
+                .orElse(null);
     }
 
     public List<UserLevelConfig> getAllLevelConfigs() {

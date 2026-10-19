@@ -71,6 +71,24 @@ SIMPLE  // 수행 여부 — 즉시 완료, 고정 +10 EXP (LUT-568: 5 → 10)
 - 길드 EXP 는 유저 EXP 와 같은 값(체크 10)이라 길드 포인트(`floor(min(일 EXP,60)/10)`)는 체크 6개로 상한 6점. 마일스톤 보너스는 길드 EXP 에 포함하지 않는다.
 - 어드민 미션북 템플릿 `target_duration_minutes` 도 유저 생성과 동일하게 `@Max(240)`.
 
+## User Level Curve (LUT-570) — `meta_db.user_level_config`
+
+`required_exp(L)` = 레벨 L-1 → L 비용, `cumulative_exp(L)` = 레벨 L 도달 누적(= Σ required 2..L), 레벨 1 = 0/0.
+레벨업 판정(`UserExperienceService.processLevelUp`)은 **현재 레벨 + 1 행**의 `required_exp` 와 `current_exp`(현재 레벨 안에서
+쌓인 값)를 비교한다. 응답의 `next_level_required_exp` 도 같은 행을 봐야 한다 — LUT-570 전엔 현재 레벨 행을 읽어 2~11 레벨이
+전부 500 인 균일 곡선에선 드러나지 않던 off-by-one 이 있었다. 테이블이 비면 기본 공식 `100 + (L-1)×50`, 최대 레벨이면 null.
+
+| L | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11+ |
+|---|---|---|---|---|---|---|---|---|---|---|
+| required | 50 | 150 | 200 | 300 | 400 | 500 | 600 | 800 | 1000 | 1000 (12+ 는 `cum = 1000L − 6000`) |
+| cumulative | 50 | 200 | 400 | 700 | 1100 | 1600 | 2200 | 3000 | 4000 | 5000 |
+
+- 곡선을 바꿀 때 **테이블만 바꾸면 안 된다**: 판정이 증분식이라 옛 임계값 기준 `current_exp` 를 들고 간다. `total_exp` 로
+  `current_level = max{L : cum(L) ≤ total}`, `current_exp = total − cum(level)` 을 재산정하는 SQL(상향만·멱등, sql 1.1.3 V002)이 동반돼야
+  하고, 적용 후 Redis `userLevelConfigs::*`(all + 레벨별 키) 를 지운다. SQL 재산정은 LEVEL_UP 푸시·피드를 타지 않고, 레벨업 다이아는
+  `last_rewarded_level` 이후분을 다음 자연 레벨업 때 받으며, 레벨 달성 업적은 상태 기반이라 다음 앱 접속 때 소급 완료된다.
+- 상점 등급(`LevelRarityPolicy`: <3 COMMON, <10 UNCOMMON)·레벨 랭킹은 재산정 즉시 반영. 길드 레벨 테이블은 별개.
+
 ## Mission 생성 한도 (QA-130)
 
 사용자별 PERSONAL 미션 합산 최대 30개 (`Mission.MAX_PERSONAL_MISSIONS_PER_USER`):
