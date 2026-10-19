@@ -7,6 +7,7 @@ import io.pinkspider.leveluptogethermvp.gamificationservice.shop.domain.entity.I
 import io.pinkspider.leveluptogethermvp.gamificationservice.shop.domain.entity.ItemPushSetting;
 import io.pinkspider.leveluptogethermvp.gamificationservice.shop.domain.entity.ShopItem;
 import io.pinkspider.leveluptogethermvp.gamificationservice.shop.domain.enums.ItemPushDispatchOutcome;
+import io.pinkspider.leveluptogethermvp.gamificationservice.shop.domain.enums.ItemPushSlot;
 import io.pinkspider.leveluptogethermvp.gamificationservice.shop.domain.enums.ShopItemType;
 import io.pinkspider.leveluptogethermvp.gamificationservice.shop.infrastructure.ItemPushMessageRepository;
 import io.pinkspider.leveluptogethermvp.gamificationservice.shop.infrastructure.ItemPushSettingRepository;
@@ -25,6 +26,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -34,20 +36,18 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
 /**
- * LUT-516/528/529: 장착 아이템 개별 푸시 스케줄러.
+ * LUT-516/528/529/573: 장착 아이템 개별 푸시 스케줄러.
  *
- * <p>매 분 실행되어, 발송 설정({@code item_push_setting})이 있는 HEAD 아이템마다 그 아이템을 현재 장착 중인 유저를 조회하고, 유저의 선호
- * 타임존(preferred_timezone) 로컬 시각(HH:mm)이 아이템의 발송 시각과 일치하는 유저에게 발송을 시도한다. 30·45분 오프셋 타임존도 매 분 실행이라
- * 자연히 처리된다. 유저·로컬날짜당 정확히 1회만 발송한다({@code item_push_send_log} 의 (user_id, send_date) 유니크).
+ * <p>매 분 실행되어, 발송 설정({@code item_push_setting})이 있는 HEAD 아이템마다 <b>슬롯 3개</b>를 평가한다 — 아침({@code
+ * before_activity_time}), 정오(12:00 고정, INACTIVE), 오후({@code after_complete_time}). 설정 행이 없거나 두 시각이
+ * 모두 null 이면 정오를 포함해 그 아이템은 아무것도 보내지 않는다. 슬롯마다 그 아이템을 장착 중인 유저의 선호 타임존 로컬 시각이 슬롯 시각 이후 캐치업 창 안이면
+ * 후보가 되고, 실제 조건 판정(슬롯 조건·백오프·간격·로테이션·대사 선택·발송 선점)은 유저별 짧은 트랜잭션인 {@link
+ * ItemPushDispatchService#trySendForUser} 가 담당한다. 상태 판정에 필요한 미션 완료 데이터는 타임존 그룹별로 배치 조회한다(N+1 회피).
  *
- * <p>LUT-529: 발송 여부·대사는 발송 시점의 유저 상태(오늘/전날 미션 완료 여부, 연속 미완료 일수)로 결정된다. 상태 판정에 필요한 미션 완료 데이터는 타임존
- * 그룹별로 <b>배치 조회</b>하여 N+1 을 피한다. 실제 상태 판정·백오프·대사 선택·발송 선점은 유저별 짧은 트랜잭션인 {@link
- * ItemPushDispatchService#trySendForUser} 가 담당한다.
- *
- * <p>LUT-545: 슬롯은 더 이상 1분 정확 일치가 아니다. 유저 로컬 시각이 슬롯 이후 {@code catchUpWindowMinutes}(기본 30분) 안이면 후보가
- * 되어, 그 1분 틱을 놓쳐도(배포·재시작, 스케줄러 스레드 점유, 락 경합, 틱 지연) 창 안의 다음 틱이 소급 발송한다. 중복은 (user_id, send_date)
- * 유니크가 막는다. 틱 시각은 run 진입 시 한 번만 고정한다 — 루프 안에서 now() 를 재계산하면 앞 아이템 처리가 1분을 넘길 때 뒤 아이템의 슬롯이 영구 미평가됐다.
- * 창 안의 매 틱마다 같은 유저를 다시 평가(쿼리·스킵 로그 반복)하지 않도록 이 인스턴스가 오늘 평가한 (아이템, 유저, 로컬날짜)는 메모해 두고 건너뛴다.
+ * <p>LUT-545: 슬롯은 1분 정확 일치가 아니다. 유저 로컬 시각이 슬롯 이후 {@code catchUpWindowMinutes}(기본 30분) 안이면 후보가 되어, 그
+ * 1분 틱을 놓쳐도(배포·재시작, 스케줄러 스레드 점유, 락 경합, 틱 지연) 창 안의 다음 틱이 소급 발송한다. 하루 1건은 (user_id, send_date) 유니크가
+ * 막는다. 틱 시각은 run 진입 시 한 번만 고정한다 — 루프 안에서 now() 를 재계산하면 앞 아이템 처리가 1분을 넘길 때 뒤 아이템의 슬롯이 영구 미평가됐다. 창 안의
+ * 매 틱마다 같은 유저를 다시 평가하지 않도록 이 인스턴스가 오늘 평가한 (아이템, 슬롯, 유저, 로컬날짜)는 메모해 두고 건너뛴다.
  */
 @Component
 @RequiredArgsConstructor
@@ -85,12 +85,15 @@ public class ItemPushScheduler {
     }
 
     /**
-     * LUT-545: 이 인스턴스가 오늘 평가한 "itemId:userId" 메모(로컬 날짜별). 발송 여부의 진실은 여전히 item_push_send_log 이며, 이
-     * 메모는 캐치업 창 안의 매 틱이 같은 유저를 다시 평가하는 것(완료데이터 배치조회·유저별 트랜잭션·스킵 INFO 로그 반복)을 막는 최적화다. 인스턴스 로컬이라
-     * 재시작·인스턴스 교대 시 비어 있을 수 있고, 그 경우 한 번 더 평가될 뿐이다(send_log 가 중복 발송을 막는다). 예외로 끝난 평가는 기록하지 않아 창 안에서
-     * 자연히 재시도된다.
+     * LUT-545: 이 인스턴스가 오늘 평가한 "itemId:slot:userId" 메모(로컬 날짜별). 발송 여부의 진실은 여전히 item_push_send_log
+     * 이며, 이 메모는 캐치업 창 안의 매 틱이 같은 유저·슬롯을 다시 평가하는 것(완료데이터 배치조회·유저별 트랜잭션·스킵 INFO 로그 반복)을 막는 최적화다. 인스턴스
+     * 로컬이라 재시작·인스턴스 교대 시 비어 있을 수 있고, 그 경우 한 번 더 평가될 뿐이다(send_log 가 중복 발송을 막는다). 예외로 끝난 평가는 기록하지 않아
+     * 창 안에서 자연히 재시도된다.
      */
     private final Map<LocalDate, Set<String>> evaluatedByDate = new ConcurrentHashMap<>();
+
+    /** 한 아이템의 슬롯 1개 (슬롯 종류 + 로컬 시각 HH:mm) */
+    record SlotTime(ItemPushSlot slot, String time) {}
 
     @Scheduled(cron = "0 * * * * *")
     @SchedulerLock(
@@ -104,7 +107,7 @@ public class ItemPushScheduler {
             return;
         }
 
-        // LUT-545: 틱 시각 스냅샷 — 아이템·유저 루프 전체가 같은 시각을 본다
+        // LUT-545: 틱 시각 스냅샷 — 아이템·슬롯·유저 루프 전체가 같은 시각을 본다
         Instant tickInstant = clock.instant();
         pruneEvaluatedMemo(tickInstant);
 
@@ -112,38 +115,66 @@ public class ItemPushScheduler {
         Map<Long, List<ItemPushMessage>> byItem =
                 messages.stream().collect(Collectors.groupingBy(m -> m.getShopItem().getId()));
 
-        // 아이템 단위 발송 시각 — 설정이 없는 아이템은 발송하지 않는다 (LUT-528)
-        Map<Long, String> slotByItem =
+        // 아이템 단위 발송 설정 — 설정이 없는 아이템은 발송하지 않는다 (LUT-528)
+        Map<Long, ItemPushSetting> settingByItem =
                 itemPushSettingRepository.findByShopItemIdIn(byItem.keySet()).stream()
                         .collect(
                                 Collectors.toMap(
-                                        ItemPushSetting::getShopItemId,
-                                        ItemPushSetting::getSendTime));
+                                        ItemPushSetting::getShopItemId, Function.identity()));
 
         for (Map.Entry<Long, List<ItemPushMessage>> entry : byItem.entrySet()) {
-            String slot = slotByItem.get(entry.getKey());
-            if (slot == null) {
-                continue; // 발송 설정 없음 = 미발송
+            List<SlotTime> slots = resolveSlots(settingByItem.get(entry.getKey()));
+            if (slots.isEmpty()) {
+                continue; // 설정 없음 또는 두 시각 모두 null = 전체 미발송 (정오 포함)
             }
-            try {
-                dispatchItem(entry.getValue(), slot, tickInstant);
-            } catch (Exception e) {
-                log.error(
-                        "장착 아이템 푸시 처리 실패: itemId={}, error={}", entry.getKey(), e.getMessage(), e);
+            for (SlotTime slot : slots) {
+                try {
+                    dispatchItemSlot(entry.getValue(), slot, tickInstant);
+                } catch (Exception e) {
+                    log.error(
+                            "장착 아이템 푸시 처리 실패: itemId={}, slot={}, error={}",
+                            entry.getKey(),
+                            slot.slot(),
+                            e.getMessage(),
+                            e);
+                }
             }
         }
     }
 
     /**
-     * 한 아이템에 대해: 장착 유저 → 로컬 시각이 slot 이후 캐치업 창 안이고 오늘 아직 평가되지 않은 후보 → 타임존 그룹별 완료데이터 배치조회 → 유저별 발송
-     * 시도.
+     * LUT-573: 설정 → 활성 슬롯 목록. 아침·오후는 시각이 있을 때만, 정오(12:00 INACTIVE)는 두 시각 중 하나라도 있을 때 활성. 형식이 잘못된
+     * 시각은 그 슬롯만 건너뛴다(정오 활성 판단에는 포함 — 어드민이 "설정했다"는 의사이므로).
      */
-    private void dispatchItem(
-            List<ItemPushMessage> itemMessages, String slot, Instant tickInstant) {
+    static List<SlotTime> resolveSlots(ItemPushSetting setting) {
+        if (setting == null || !setting.hasAnySlot()) {
+            return List.of();
+        }
+        List<SlotTime> slots = new ArrayList<>(3);
+        if (setting.getBeforeActivityTime() != null) {
+            slots.add(new SlotTime(ItemPushSlot.BEFORE_ACTIVITY, setting.getBeforeActivityTime()));
+        }
+        slots.add(new SlotTime(ItemPushSlot.INACTIVE, ItemPushSlot.NOON_TIME));
+        if (setting.getAfterCompleteTime() != null) {
+            slots.add(new SlotTime(ItemPushSlot.AFTER_COMPLETE, setting.getAfterCompleteTime()));
+        }
+        return slots;
+    }
+
+    /**
+     * 한 아이템의 한 슬롯에 대해: 장착 유저 → 로컬 시각이 slot 이후 캐치업 창 안이고 오늘 아직 평가되지 않은 후보 → 타임존 그룹별 완료데이터 배치조회 → 유저별
+     * 발송 시도.
+     */
+    private void dispatchItemSlot(
+            List<ItemPushMessage> itemMessages, SlotTime slot, Instant tickInstant) {
         ShopItem item = itemMessages.get(0).getShopItem();
-        int slotMinutes = parseSlotMinutes(slot);
+        int slotMinutes = parseSlotMinutes(slot.time());
         if (slotMinutes < 0) {
-            log.warn("장착 아이템 푸시 발송 시각 형식 오류: itemId={}, slot={}", item.getId(), slot);
+            log.warn(
+                    "장착 아이템 푸시 발송 시각 형식 오류: itemId={}, slot={}, time={}",
+                    item.getId(),
+                    slot.slot(),
+                    slot.time());
             return;
         }
         List<String> userIds = userItemRepository.findUserIdsByEquippedShopItemId(item.getId());
@@ -164,8 +195,8 @@ public class ItemPushScheduler {
             if (minutesPastSlot < 0 || minutesPastSlot > catchUpWindowMinutes) {
                 continue;
             }
-            if (isEvaluated(item.getId(), userId, userNow.toLocalDate())) {
-                continue; // 이 인스턴스가 오늘 이미 평가함 — 창 안 재평가 방지
+            if (isEvaluated(item.getId(), slot.slot(), userId, userNow.toLocalDate())) {
+                continue; // 이 인스턴스가 오늘 이 슬롯을 이미 평가함 — 창 안 재평가 방지
             }
             candidatesByTz.computeIfAbsent(tz, k -> new ArrayList<>()).add(userId);
             minutesPastSlotByTz.put(tz, minutesPastSlot);
@@ -187,7 +218,7 @@ public class ItemPushScheduler {
     private void dispatchTzGroup(
             ShopItem item,
             List<ItemPushMessage> itemMessages,
-            String slot,
+            SlotTime slot,
             String tz,
             List<String> groupUsers,
             Instant tickInstant,
@@ -210,8 +241,8 @@ public class ItemPushScheduler {
         Map<String, Set<LocalDate>> completedByUser =
                 missionQueryFacade.findMissionCompletedLocalDates(groupUsers, startUtc, endUtc, tz);
 
-        // LUT-541: 슬롯이 매칭된 순간만 로그를 남긴다(유저·아이템당 하루 1회) — 매 분 실행이라
-        // 후보가 없는 틱까지 찍으면 로그가 폭주한다. 이 줄이 "그날 잡이 실제로 돌았다"는 증거가 된다.
+        // LUT-541: 슬롯이 매칭된 순간만 로그를 남긴다(유저·아이템·슬롯당 하루 1회) — 매 분 실행이라
+        // 후보가 없는 틱까지 찍으면 로그가 폭주한다. 이 줄이 "그날 그 슬롯 잡이 실제로 돌았다"는 증거가 된다.
         EnumMap<ItemPushDispatchOutcome, Integer> tally =
                 new EnumMap<>(ItemPushDispatchOutcome.class);
         int failed = 0;
@@ -223,17 +254,19 @@ public class ItemPushScheduler {
                                 userId,
                                 item,
                                 today,
-                                slot,
+                                slot.slot(),
+                                slot.time(),
                                 itemMessages,
                                 completedByUser.getOrDefault(userId, Set.of()));
                 tally.merge(outcome, 1, Integer::sum);
-                // LUT-545: 결과가 무엇이든 오늘 평가는 끝 — 창 안 다음 틱에서 재평가하지 않는다 (예외는 기록하지 않아 재시도됨)
-                markEvaluated(item.getId(), userId, today);
+                // LUT-545: 결과가 무엇이든 오늘 이 슬롯의 평가는 끝 — 창 안 다음 틱에서 재평가하지 않는다 (예외는 기록하지 않아 재시도됨)
+                markEvaluated(item.getId(), slot.slot(), userId, today);
             } catch (Exception e) {
                 failed++;
                 log.error(
-                        "장착 아이템 푸시 발송 실패: itemId={}, userId={}, error={}",
+                        "장착 아이템 푸시 발송 실패: itemId={}, slot={}, userId={}, error={}",
                         item.getId(),
+                        slot.slot(),
                         userId,
                         e.getMessage(),
                         e);
@@ -241,11 +274,12 @@ public class ItemPushScheduler {
         }
 
         log.info(
-                "장착 아이템 푸시 슬롯 처리: itemId={}, itemName={}, slot={}, tz={}, localDate={},"
+                "장착 아이템 푸시 슬롯 처리: itemId={}, itemName={}, slot={}({}), tz={}, localDate={},"
                         + " 지연={}분, 후보={}명, 결과={}, 예외={}건",
                 item.getId(),
                 item.getName(),
-                slot,
+                slot.slot(),
+                slot.time(),
                 tz,
                 today,
                 minutesPastSlot,
@@ -271,15 +305,20 @@ public class ItemPushScheduler {
         }
     }
 
-    private boolean isEvaluated(Long itemId, String userId, LocalDate localDate) {
+    private boolean isEvaluated(
+            Long itemId, ItemPushSlot slot, String userId, LocalDate localDate) {
         Set<String> set = evaluatedByDate.get(localDate);
-        return set != null && set.contains(itemId + ":" + userId);
+        return set != null && set.contains(memoKey(itemId, slot, userId));
     }
 
-    private void markEvaluated(Long itemId, String userId, LocalDate localDate) {
+    private void markEvaluated(Long itemId, ItemPushSlot slot, String userId, LocalDate localDate) {
         evaluatedByDate
                 .computeIfAbsent(localDate, d -> ConcurrentHashMap.newKeySet())
-                .add(itemId + ":" + userId);
+                .add(memoKey(itemId, slot, userId));
+    }
+
+    private static String memoKey(Long itemId, ItemPushSlot slot, String userId) {
+        return itemId + ":" + slot + ":" + userId;
     }
 
     /** 어제 이전 로컬 날짜의 메모를 버린다 (타임존별 로컬 날짜는 UTC 날짜 ±1 범위). */

@@ -13,8 +13,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * LUT-528: 장착 아이템 푸시 발송 설정 관리 (어드민 내부 API 백엔드). 발송 시각을 아이템 단위로 1개 둔다. HEAD 타입 아이템에만 등록/수정을 허용한다.
- * 설정이 없으면 해당 아이템은 푸시가 나가지 않는다.
+ * LUT-528/573: 장착 아이템 푸시 발송 설정 관리 (어드민 내부 API 백엔드). 아이템 단위로 아침/오후 슬롯 시각을 둔다(정오 INACTIVE 는 고정). HEAD
+ * 타입 아이템에만 등록/수정을 허용한다. 설정이 없거나 두 시각이 모두 null 이면 해당 아이템은 푸시가 나가지 않는다.
  */
 @Service
 @RequiredArgsConstructor
@@ -43,11 +43,18 @@ public class ItemPushSettingAdminService {
                         .findById(itemId)
                         .map(
                                 existing -> {
-                                    existing.updateSendTime(request.getSendTime());
+                                    existing.update(
+                                            request.getBeforeActivityTime(),
+                                            request.getAfterCompleteTime());
                                     return existing;
                                 })
                         .orElseGet(
-                                () -> ItemPushSetting.of(itemId, request.getSendTime(), adminId));
+                                () ->
+                                        ItemPushSetting.of(
+                                                itemId,
+                                                request.getBeforeActivityTime(),
+                                                request.getAfterCompleteTime(),
+                                                adminId));
         return ItemPushSettingResponse.from(itemPushSettingRepository.save(setting));
     }
 

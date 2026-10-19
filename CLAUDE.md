@@ -278,29 +278,32 @@ Redis Stream `stream:app-push` → `AppPushMessageConsumer` → `FcmPushService`
   COMPLETED/FAILED 상태로 이력에 남고, ALL 대상은 **발송 시점에 재산출**되어 요청 시 `target_count`와 미세하게 다를 수 있다.
   중복 트리거는 PENDING 검사로 무시(재발송 없음). 에러 코드 140101(대상 없음)/140102(활성 유저 없음)/140103(캠페인 없음).
 
-### 장착 아이템 푸시 (LUT-516/528/529/530/531, `gamificationservice/shop/{scheduler,application}`)
+### 장착 아이템 푸시 (LUT-516/528/529/530/531/545/573, `gamificationservice/shop/{scheduler,application}`)
 
 유저가 **장착 중인 HEAD 아이템**이 유저 로컬 시각에 맞춰 말을 거는 푸시(`EQUIPPED_ITEM_PUSH`). 매분 cron(`ItemPushScheduler`)
-→ 아이템별 발송시각(`item_push_setting.send_time`, 아이템 단위 — LUT-528) → 유저 로컬 `HH:mm` **정확 일치** 후보만
-→ `ItemPushDispatchService.trySendForUser`(유저별 짧은 트랜잭션)에서 상태 판정·백오프·대사 선택·선점.
+→ 아이템별 **슬롯 3개**(`item_push_setting`: 아침 `before_activity_time` 08:00~11:59 / 정오 **12:00 고정** / 오후 `after_complete_time`
+12:00~20:59, LUT-573) → 유저 로컬 시각이 슬롯 이후 캐치업 창 안인 후보 → `ItemPushDispatchService.trySendForUser`(유저별 짧은 트랜잭션)에서
+슬롯 조건·백오프·간격·로테이션·대사 선택·선점.
 
-**발송 규칙 (LUT-529) — "하루 1건"이 아니다. QA·기획 혼동이 반복된 지점이니 먼저 읽을 것:**
+**발송 규칙 (LUT-573) — QA·기획 혼동이 반복된 지점이니 먼저 읽을 것:**
 
 | 단계 | 규칙 |
 |---|---|
-| 중복방지 | `item_push_send_log` `(user_id, send_date)` 유니크 — **유저·로컬날짜당 1건**(아이템 단위 아님). 장착을 바꿔도 그날 이미 받으면 재발송 없음 |
-| 상태 판정 | 오늘 완료 → `AFTER_COMPLETE` > 전날 미완료 → `INACTIVE` > 그 외 → `BEFORE_ACTIVITY` (미션 완료는 유저 로컬 날짜 기준) |
-| **백오프** | `INACTIVE` 는 **연속 미완료 일수 k ∈ {1,3,7,14} 인 날만** 발송. k는 `BACKOFF_MAX_DAYS(14)` 초과 시 15로 saturate → **15일 이상 미완료·완료 이력 0건 유저는 영구 미발송**(LUT-541 에서 확인된 설계 공백) |
-| 대사 선택 | `trigger_type` 이 상태와 일치하는 풀에서 최근 (후보−1)건 제외 후 랜덤 → 비면 `ANY` 풀 → **그것도 비면 조용히 스킵** |
+| 슬롯 조건 | 아침 = 전날 완료 AND 오늘 미완료(`BEFORE_ACTIVITY` 대사) / 정오 = 전날 미완료 AND 오늘 미완료 AND 백오프 발송일(`INACTIVE`) / 오후 = 오늘 완료(`AFTER_COMPLETE`). **불일치면 그 슬롯 스킵**(다른 대사로 대체 안 함) |
+| 설정 | 행 없음 또는 **두 시각 모두 null → 정오 포함 전체 미발송**. 한쪽만 설정해도 됨(비면 그 슬롯만 미발송). 미션 완료는 유저 로컬 날짜 기준 |
+| 하루 1건 | `item_push_send_log` `(user_id, send_date)` 유니크 — 어느 슬롯이든 발송하면 그날 나머지 스킵. 장착을 바꿔도 그날은 재발송 없음 |
+| **간격** | 유저+아이템 마지막 발송일로부터 **2일**(D 발송 → D+2). INACTIVE 발송도 기산점. 새 아이템을 장착하면 그 아이템 이력이 없어 다음 슬롯에 바로 나감. LUT-573 이전 로그(`slot` null)는 간격 판정에서 제외 |
+| **로테이션** | 직전 발송 슬롯이 아침이면 이번 차례의 아침은 양보(= 아침→아침 3일), 오후에 기회. 오후가 못 나가면 다음 날 아침 재개. INACTIVE 는 무관. 판정은 로그의 `slot`(ANY 폴백이어도 발송된 슬롯) |
+| **백오프** | 정오 `INACTIVE` 는 **연속 미완료 일수 k ∈ {1,3,7,14} 인 날만**. k 는 `BACKOFF_MAX_DAYS(14)` 초과 시 15로 saturate → **15일 이상 미완료·완료 이력 0건 유저는 영구 미발송**(LUT-541) |
+| 대사 선택 | 슬롯 `trigger_type` 풀 → 비면 `ANY` 풀 → **그것도 비면 조용히 스킵**. 풀 안에서 **한 번도 안 보낸 대사(최신 등록 먼저) → 가장 오래전에 보낸 대사**. 랜덤 없음. 비활성·삭제 대사는 풀에서 빠지고 이력은 유지(재활성화 시 이전 이력대로) |
 
-- **대사 미등록 = 그 상태의 유저는 무음**이다. 실제로 dev 전 아이템에 `AFTER_COMPLETE`·`ANY` 대사가 0건이어서 "당일 미션을 완료한
-  유저는 아무 푸시도 못 받는" 상태였다(LUT-541). 아이템을 추가하면 **상태 3종 대사를 모두 채웠는지 확인할 것**.
-- 스킵 사유는 `ItemPushDispatchOutcome`(SENT/SKIP_ALREADY_SENT/SKIP_BACKOFF/SKIP_NO_MESSAGE/SKIP_RACE)으로 반환되고
-  로그에 남는다 — 진단은 `grep "장착 아이템 푸시" product-service.log`. 백오프 로그에는 k가 함께 찍혀 다음 발송일을 계산할 수 있다.
+- **대사 미등록 = 그 슬롯의 유저는 무음**이다(LUT-541). 아이템을 추가하면 **상태 3종 대사를 모두 채웠는지 확인할 것**.
+- 스킵 사유는 `ItemPushDispatchOutcome`(SENT/SKIP_ALREADY_SENT/SKIP_STATE_MISMATCH/SKIP_BACKOFF/SKIP_INTERVAL/SKIP_ROTATION/SKIP_NO_MESSAGE/SKIP_RACE)으로
+  반환되고 로그에 남는다 — 진단은 `grep "장착 아이템 푸시" product-service.log`. 백오프 로그에는 k, 간격 로그에는 마지막 발송일·슬롯이 찍힌다.
 - **슬롯 캐치업** (LUT-545): 유저 로컬 시각이 슬롯 이후 `item.push.catch-up-window-minutes`(기본 30분) 안이면 후보 — 그 1분 틱을 놓쳐도
-  (배포·재시작·스레드 점유·락 경합) 창 안의 다음 틱이 소급 발송한다. 자정을 넘기는 소급은 없다. 틱 시각은 run 진입 시 1회 스냅샷(루프 중 재계산 금지 —
-  앞 아이템이 1분을 넘기면 뒤 아이템 슬롯이 영구 미평가됐던 증폭 요인). 창 안 재평가는 인스턴스 로컬 메모(아이템·유저·로컬날짜)로 막고, 예외로 끝난 유저만
-  다음 틱에 재시도된다. `spring.task.scheduling.pool.size=4`(base yml) — 기본 1 이면 9개 잡이 직렬화돼 매분 틱이 밀린다.
+  창 안의 다음 틱이 소급 발송한다. 자정을 넘기는 소급은 없다. 틱 시각은 run 진입 시 1회 스냅샷(루프 중 재계산 금지). 창 안 재평가는 인스턴스 로컬
+  메모(아이템·**슬롯**·유저·로컬날짜)로 막고, 예외로 끝난 유저만 다음 틱에 재시도된다. `spring.task.scheduling.pool.size=4`(base yml).
+- 어드민 내부 API `GET/PUT/DELETE /api/internal/shop-items/{itemId}/push-setting` — `{before_activity_time, after_complete_time}`(둘 다 선택, 서버 `@Pattern` 범위 검증). admin-service 패스스루 DTO 는 LUT-574.
 - 알림 토글은 `notification_preference.item_push_notifications`, 카테고리는 `ITEM_PUSH`.
 
 ## WebSocket 실시간 전파 — Redis 릴레이 필수 (LUT-263/QA-224/LUT-549)

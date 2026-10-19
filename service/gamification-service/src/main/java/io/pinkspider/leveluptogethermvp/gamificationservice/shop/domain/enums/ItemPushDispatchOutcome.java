@@ -14,8 +14,19 @@ public enum ItemPushDispatchOutcome {
     /** 유저·로컬날짜당 1건 제약에 걸림 (오늘 이미 받음 — 장착을 바꿔도 재발송 없음). */
     SKIP_ALREADY_SENT,
 
+    /**
+     * LUT-573: 슬롯 조건 불일치 — 아침(전날 활동·오늘 미완료) / 정오(전날 미활동·오늘 미완료) / 오후(오늘 완료)가 아님. 다른 대사로 대체하지 않는다.
+     */
+    SKIP_STATE_MISMATCH,
+
     /** INACTIVE 백오프 — 연속 미완료 일수 k 가 발송 일차(1·3·7·14)가 아님. */
     SKIP_BACKOFF,
+
+    /** LUT-573: 유저+아이템 마지막 발송일로부터 2일이 지나지 않음. */
+    SKIP_INTERVAL,
+
+    /** LUT-573: 아침/오후 로테이션 — 직전 발송이 아침 슬롯이라 이번 차례의 아침 슬롯은 건너뛰고 오후에 기회를 준다. */
+    SKIP_ROTATION,
 
     /** 상태에 맞는 trigger_type 대사와 ANY 대사가 모두 없음 (어드민 대사 미등록). */
     SKIP_NO_MESSAGE,

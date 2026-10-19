@@ -29,7 +29,7 @@ import org.mockito.quality.Strictness;
 
 @ExtendWith(MockitoExtension.class)
 @MockitoSettings(strictness = Strictness.LENIENT)
-@DisplayName("ItemPushSettingAdminService 테스트 (LUT-528)")
+@DisplayName("ItemPushSettingAdminService 테스트 (LUT-528/573)")
 class ItemPushSettingAdminServiceTest {
 
     @Mock private ShopItemRepository shopItemRepository;
@@ -51,8 +51,11 @@ class ItemPushSettingAdminServiceTest {
         setId(basicItem, BASIC_ID);
     }
 
-    private ItemPushSettingRequest request(String sendTime) {
-        return ItemPushSettingRequest.builder().sendTime(sendTime).build();
+    private ItemPushSettingRequest request(String before, String after) {
+        return ItemPushSettingRequest.builder()
+                .beforeActivityTime(before)
+                .afterCompleteTime(after)
+                .build();
     }
 
     @Test
@@ -63,25 +66,55 @@ class ItemPushSettingAdminServiceTest {
         when(itemPushSettingRepository.save(any(ItemPushSetting.class)))
                 .thenAnswer(inv -> inv.getArgument(0));
 
-        ItemPushSettingResponse res = service.upsert(HEAD_ID, request("09:00"), 1L);
+        ItemPushSettingResponse res = service.upsert(HEAD_ID, request("09:00", "18:00"), 1L);
 
         assertThat(res.getShopItemId()).isEqualTo(HEAD_ID);
-        assertThat(res.getSendTime()).isEqualTo("09:00");
+        assertThat(res.getBeforeActivityTime()).isEqualTo("09:00");
+        assertThat(res.getAfterCompleteTime()).isEqualTo("18:00");
         verify(itemPushSettingRepository).save(any(ItemPushSetting.class));
     }
 
     @Test
     @DisplayName("설정이 있으면 발송 시각을 수정한다")
     void upsertUpdatesWhenPresent() {
-        ItemPushSetting existing = ItemPushSetting.of(HEAD_ID, "10:00", 1L);
+        ItemPushSetting existing = ItemPushSetting.of(HEAD_ID, "10:00", null, 1L);
         when(shopItemRepository.findById(HEAD_ID)).thenReturn(Optional.of(headItem));
         when(itemPushSettingRepository.findById(HEAD_ID)).thenReturn(Optional.of(existing));
         when(itemPushSettingRepository.save(any(ItemPushSetting.class)))
                 .thenAnswer(inv -> inv.getArgument(0));
 
-        service.upsert(HEAD_ID, request("11:30"), 2L);
+        service.upsert(HEAD_ID, request("11:30", "20:00"), 2L);
 
-        assertThat(existing.getSendTime()).isEqualTo("11:30");
+        assertThat(existing.getBeforeActivityTime()).isEqualTo("11:30");
+        assertThat(existing.getAfterCompleteTime()).isEqualTo("20:00");
+    }
+
+    @Test
+    @DisplayName("E5: 아침만 설정하고 오후 null 이면 응답에 null 이 유지된다")
+    void upsertKeepsNullSlot() {
+        when(shopItemRepository.findById(HEAD_ID)).thenReturn(Optional.of(headItem));
+        when(itemPushSettingRepository.findById(HEAD_ID)).thenReturn(Optional.empty());
+        when(itemPushSettingRepository.save(any(ItemPushSetting.class)))
+                .thenAnswer(inv -> inv.getArgument(0));
+
+        ItemPushSettingResponse res = service.upsert(HEAD_ID, request("09:00", null), 1L);
+
+        assertThat(res.getBeforeActivityTime()).isEqualTo("09:00");
+        assertThat(res.getAfterCompleteTime()).isNull();
+    }
+
+    @Test
+    @DisplayName("E6: 둘 다 null 로 저장할 수 있고(전체 미발송), hasAnySlot 은 false")
+    void upsertBothNull() {
+        ItemPushSetting existing = ItemPushSetting.of(HEAD_ID, "09:00", "18:00", 1L);
+        when(shopItemRepository.findById(HEAD_ID)).thenReturn(Optional.of(headItem));
+        when(itemPushSettingRepository.findById(HEAD_ID)).thenReturn(Optional.of(existing));
+        when(itemPushSettingRepository.save(any(ItemPushSetting.class)))
+                .thenAnswer(inv -> inv.getArgument(0));
+
+        service.upsert(HEAD_ID, request(null, null), 2L);
+
+        assertThat(existing.hasAnySlot()).isFalse();
     }
 
     @Test
@@ -89,7 +122,7 @@ class ItemPushSettingAdminServiceTest {
     void upsertOnNonHeadFails() {
         when(shopItemRepository.findById(BASIC_ID)).thenReturn(Optional.of(basicItem));
 
-        assertThatThrownBy(() -> service.upsert(BASIC_ID, request("09:00"), 1L))
+        assertThatThrownBy(() -> service.upsert(BASIC_ID, request("09:00", null), 1L))
                 .isInstanceOf(CustomException.class)
                 .hasMessageContaining("error.item_push.not_head_item");
 
@@ -101,7 +134,7 @@ class ItemPushSettingAdminServiceTest {
     void upsertOnMissingItemFails() {
         when(shopItemRepository.findById(HEAD_ID)).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> service.upsert(HEAD_ID, request("09:00"), 1L))
+        assertThatThrownBy(() -> service.upsert(HEAD_ID, request("09:00", null), 1L))
                 .isInstanceOf(CustomException.class)
                 .hasMessageContaining("error.shop_item.not_found");
     }
