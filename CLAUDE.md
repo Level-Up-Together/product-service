@@ -181,6 +181,11 @@ BRANCH 88.0%. 분기 커버리지는 if/switch의 **모든 경로**를 요구하
 등록하지 않는다. 차단되면 `AuthEntryPointJwt`가 401, 허용되면 핸들러가 없어 404가 나므로 단언은 "401인가 아닌가"로 충분하다.
 **비로그인 허용 API를 추가할 때 이 테스트의 경로 목록에 함께 등록할 것.**
 
+**CORS 허용 헤더 회귀 가드** (`SecurityConfigCorsTest`, LUT-587): 같은 `security-guard` 프로필로 실제 `SecurityConfig` 만 올려
+preflight(OPTIONS) 응답의 `Access-Control-Allow-Headers` 를 검증한다. 클라이언트가 붙이는 커스텀 헤더(`X-Timezone`·`X-Signup-Token`·
+`X-Device-Type`·`Idempotency-Key`) 전부 + 모르는 헤더 거부(와일드카드 아님) + 401 에러 응답의 CORS 헤더까지 고정한다.
+**커스텀 헤더를 추가할 때 `SecurityConfig` 허용목록과 이 테스트의 `ALLOWED_CLIENT_HEADERS` 양쪽에 등록할 것.**
+
 ## 코드 컨벤션
 
 - **API 필드명**: snake_case (프론트 통신)
@@ -598,6 +603,13 @@ uk 멱등) — 쪼개서 수행해도 몰아서 한 것과 같은 점수. "하�
   `Retryer`가 **모든 Feign 클라이언트에 전역 적용**된다 — 어드민 패스스루의 Authorization 전달 인터셉터가 Google Translation 호출에
   섞여 prod에서 유저 JWT가 Google로 나가 401이 났다. `FeignClientConfigIsolationTest`(어노테이션)·`FeignClientConfigScopeIntegrationTest`
   (실제 컨텍스트)가 회귀를 막는다. 새 Feign 설정 클래스는 두 테스트 목록에 추가할 것.
+- **브라우저에서만 "CORS error"로 실패 (커스텀 헤더 추가 시)** (LUT-587): `SecurityConfig.corsConfigurationSource()` 의
+  `setAllowedHeaders(...)` 는 와일드카드가 아닌 **명시적 허용목록**이다. 목록에 없는 커스텀 헤더를 클라이언트가 붙이면 preflight(OPTIONS)가
+  그 헤더를 돌려주지 않아 **브라우저가 본 요청을 아예 보내지 않는다** — 서버 로그엔 아무것도 안 남고 "그 API 만 실패"로 보인다.
+  LUT-577/578 이 `Idempotency-Key` 를 빼먹어 미션 생성이 dev 에서 전부 CORS error 였고, 같이 점검하다 `X-Device-Type`(웹 로그아웃 직접
+  호출)도 누락된 것을 발견했다(실패를 try/catch 로 삼켜 증상이 안 보였다). **프론트·RN 에 커스텀 헤더를 추가하면 이 목록과
+  `SecurityConfigCorsTest.ALLOWED_CLIENT_HEADERS` 에 함께 추가할 것.** 에러 응답(401/409 등)에는 CORS 필터가 인가 필터보다 앞이라
+  헤더가 정상 포함된다. `maxAge=3600` 이므로 수정 배포 후에도 브라우저가 최대 1시간 옛 preflight 를 캐시한다 — 검증은 하드 리로드/시크릿 창.
 - **데이터 미저장/미조회**: `@Transactional`의 트랜잭션 매니저 확인
 - **Integration test 실패**: SSH 터널/외부 서비스 의존, `@ActiveProfiles("test")` 확인
 - **비로그인 API가 401** (LUT-350): 비로그인 허용은 **필터(`SecurityConfig`의 `permitAll`) + resolver(`@CurrentUser(required = false)`)

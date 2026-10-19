@@ -59,6 +59,9 @@ public class SecurityConfig {
         }
         configuration.setAllowedMethods(
                 Arrays.asList("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
+        // 명시적 허용목록이다 — 여기 없는 커스텀 헤더를 클라이언트가 붙이면 preflight(OPTIONS)가 그 헤더를 돌려주지 않아
+        // 브라우저가 본 요청을 아예 보내지 않고 "CORS error" 로 끝난다. 증상은 "그 API 만 실패"로 보인다 (LUT-587).
+        // **프론트/RN 에 커스텀 헤더를 추가할 때는 이 목록에도 함께 추가할 것** — SecurityConfigCorsTest 가 회귀를 막는다.
         configuration.setAllowedHeaders(
                 Arrays.asList(
                         "X-Requested-With",
@@ -70,6 +73,8 @@ public class SecurityConfig {
                         // 커스텀 헤더 (브라우저 직접 호출 + admin-service Feign 통합)
                         "X-Signup-Token", // OAuth 신규 가입 세션 토큰
                         "X-Timezone", // 홈/오늘의 미션 등 사용자 타임존
+                        "X-Device-Type", // 세션 기기 구분 (LUT-336) — 웹 로그아웃이 직접 호출 (LUT-587)
+                        "Idempotency-Key", // 미션 생성 멱등 키 (LUT-577/578)
                         "X-Admin-Id", // 어드민 인증 컨텍스트
                         "X-User-Id", // 어드민 → 사용자 위임 호출
                         "X-User-Email",
