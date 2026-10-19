@@ -6,6 +6,12 @@ on:
       - develop
       - 'epic/**'
 
+# 연속 push 시 롤링 배포가 겹치지 않도록 직렬화 — 진행 중인 run 은 취소하지 않고 뒤 run 을 대기시킨다
+# (대기 중인 run 이 이미 있으면 더 새 커밋으로 교체되어 최신만 배포된다)
+concurrency:
+  group: deploy-dev
+  cancel-in-progress: false
+
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
