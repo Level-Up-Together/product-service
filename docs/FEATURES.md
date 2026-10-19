@@ -89,6 +89,29 @@ SIMPLE  // 수행 여부 — 즉시 완료, 고정 +10 EXP (LUT-568: 5 → 10)
   `last_rewarded_level` 이후분을 다음 자연 레벨업 때 받으며, 레벨 달성 업적은 상태 기반이라 다음 앱 접속 때 소급 완료된다.
 - 상점 등급(`LevelRarityPolicy`: <3 COMMON, <10 UNCOMMON)·레벨 랭킹은 재산정 즉시 반영. 길드 레벨 테이블은 별개.
 
+## Mission 생성 멱등성 (LUT-577) — `missionservice/application/MissionIdempotencyService`
+
+`POST /api/v1/missions` 는 요청 헤더 `Idempotency-Key`(UUID, 클라이언트 생성)를 받는다. 네트워크가 나쁠 때 요청은 서버에 도착해 미션이 만들어졌는데
+응답만 유실되면 클라이언트 가드(LUT-293 `isSubmittingRef`)는 재시도를 막지 못한다 — 서버가 같은 시도를 알아보는 키가 필요하다.
+
+| 상황 | 동작 |
+|---|---|
+| 헤더 없음 | 기존처럼 매번 생성 (구버전 앱 호환, 필수 아님) |
+| UUID 형식 아님 | **400** `050401` `error.mission.idempotency_key.invalid` |
+| 처음 보는 키 | `mission_idempotency_key` 에 PROCESSING 선점 → 미션 생성 + COMPLETED(응답 JSON 보관)를 한 트랜잭션으로 → **200** (상태 코드는 기존 유지) |
+| 같은 유저·같은 키·완료 | 새로 만들지 않고 **저장된 응답 그대로**(같은 `id`). 본문이 없으면 `mission_id` 로 재조회 |
+| 같은 키·처리 중(동시 요청) | **409** `050402` `error.mission.idempotency_key.in_progress` — 같은 키로 재시도하면 완료 응답 |
+| 같은 키·다른 유저 | 유니크가 `(user_id, idempotency_key)` 라 충돌 없음, 각각 생성 |
+| 선점 후 5분 넘게 PROCESSING (JVM 중단 등) | stale 로 보고 행을 지운 뒤 새 요청으로 처리 |
+| 24시간 경과 | `MissionIdempotencyKeyCleanupScheduler`(매시 15분 KST)가 삭제. 삭제 전에 같은 키가 와도 그 자리에서 새 요청으로 취급 |
+
+- 트랜잭션 경계는 `MissionIdempotencyTxService` 가 가진다. 선점(claim)·해제(release)는 **REQUIRES_NEW** — 유니크 충돌이 호출자 영속성 컨텍스트를
+  오염시키지 않고(LUT-538 패턴), 선점 행이 즉시 커밋돼 다른 인스턴스의 동시 요청도 충돌을 본다. 생성이 실패하면 호출자가 선점 행을 release 해
+  같은 키 재시도가 다시 생성을 시도할 수 있다.
+- 400/409 는 플랫폼 `CustomException`(항상 500) 대신 `MissionIdempotencyException` + 미션 로컬 어드바이스 `MissionIdempotencyExceptionHandler`
+  (user-service `JwtExceptionHandler` 와 같은 구조)가 응답한다. 본문은 다른 에러와 같은 `ApiResult`(code + 현지화 message).
+- 키는 trim + 소문자로 정규화해 저장한다. 다른 생성 API(길드·댓글)로의 확장은 별도 티켓. 프론트 키 발급·전송은 [Web] 후속 티켓.
+
 ## Mission 생성 한도 (QA-130)
 
 사용자별 PERSONAL 미션 합산 최대 30개 (`Mission.MAX_PERSONAL_MISSIONS_PER_USER`):

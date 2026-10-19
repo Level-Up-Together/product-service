@@ -3,6 +3,7 @@ package io.pinkspider.leveluptogethermvp.missionservice.api;
 import io.pinkspider.global.annotation.CurrentUser;
 import io.pinkspider.global.api.ApiResult;
 import io.pinkspider.leveluptogethermvp.missionservice.application.MissionCommentService;
+import io.pinkspider.leveluptogethermvp.missionservice.application.MissionIdempotencyService;
 import io.pinkspider.leveluptogethermvp.missionservice.application.MissionService;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MissionCommentRequest;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MissionCommentResponse;
@@ -38,12 +39,21 @@ public class MissionController {
 
     private final MissionService missionService;
     private final MissionCommentService missionCommentService;
+    private final MissionIdempotencyService missionIdempotencyService;
 
+    /**
+     * 미션 생성. LUT-577: {@code Idempotency-Key}(UUID) 헤더가 있으면 같은 유저의 같은 키 재요청에 새로 만들지 않고 저장된 응답을 돌려준다
+     * (24시간). 헤더가 없으면 기존처럼 매번 생성(구버전 앱 호환). 상태 코드는 기존 200 유지.
+     */
     @PostMapping
     public ResponseEntity<ApiResult<MissionResponse>> createMission(
-            @CurrentUser String userId, @Valid @RequestBody MissionCreateRequest request) {
+            @CurrentUser String userId,
+            @RequestHeader(value = MissionIdempotencyService.HEADER_NAME, required = false)
+                    String idempotencyKey,
+            @Valid @RequestBody MissionCreateRequest request) {
 
-        MissionResponse response = missionService.createMission(userId, request);
+        MissionResponse response =
+                missionIdempotencyService.createMission(userId, idempotencyKey, request);
         return ResponseEntity.ok(ApiResult.<MissionResponse>builder().value(response).build());
     }
 

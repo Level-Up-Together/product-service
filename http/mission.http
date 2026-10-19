@@ -28,6 +28,32 @@ Accept: application/json
 }
 
 ### ----------------------------------------------------------
+### 미션 생성 — Idempotency-Key (LUT-577)
+### ----------------------------------------------------------
+### 같은 유저가 같은 키로 다시 보내면 새로 만들지 않고 저장된 응답(같은 id)을 돌려준다 (24시간 보관).
+### 키는 UUID 여야 하며(아니면 400 050401), 같은 키가 처리 중이면 409 050402 → 같은 키로 재시도.
+### 헤더가 없으면 기존처럼 매번 생성한다. 아래 요청을 두 번 보내 id 가 같은지 확인할 것 (키 고정).
+POST {{baseUrl}}/api/v1/missions
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+Accept: application/json
+Idempotency-Key: 11111111-2222-4333-8444-555555555555
+
+{
+  "title": "Idempotent Mission",
+  "description": "Same key twice should create only one mission",
+  "type": "PERSONAL",
+  "categoryId": 1,
+  "visibility": "PRIVATE",
+  "missionInterval": "DAILY",
+  "durationDays": 7,
+  "executionMode": "SIMPLE",
+  "isPinned": false,
+  "expPerCompletion": 10,
+  "maxParticipants": 1
+}
+
+### ----------------------------------------------------------
 ### 미션 생성 (SIMPLE 모드 - 즉시 완료)
 ### ----------------------------------------------------------
 ### SIMPLE 모드: 시간 측정 없이 즉시 완료, 고정 +5 EXP
