@@ -391,6 +391,20 @@ public void run() { ...}
 | `SubscriptionStipendScheduler.grantDailyStipends`           | `0 10 0 * * *` UTC          | 구독자 일일 블루다이아 1개 지급 (LUT-453, 멱등=구독ID+지급일) |
 | `MissionIdempotencyKeyCleanupScheduler.cleanupExpiredKeys`  | `0 15 * * * *` KST (매시)    | 24시간 지난 미션 생성 멱등 키 삭제 (LUT-577) |
 
+## DB 마이그레이션 — Flyway (LUT-595, `global/config/datasource/flyway`)
+
+**dev 는 Flyway, prod 는 v1.1.4 부터** (v1.1.3 운영 배포는 수동 psql, 직후 config prod `app.flyway.enabled=true`). Boot 자동설정은 DB 하나만 다루므로
+`spring.flyway.enabled=false` 로 끄고, 8개 `XxxDataSourceConfig` 가 각각 `xxxFlywayMigration` 빈(`initMethod=migrate`)을 두며 `xxxEntityManagerFactory`
+가 `@DependsOn` 한다 — Flyway 가 스키마를 맞춘 뒤 Hibernate `validate`(각 config 의 `jpaProperties()` 가 코드로 지정, yml `ddl-auto` 와 무관)가 돈다.
+
+- 파일: `app/src/main/resources/db/migration/<db>/V<major>_<minor>_<patch>_<seq3>__<ticket>_<desc>.sql` (예 `V1_1_4_001__lut600_add_x.sql`).
+  릴리스 번호가 앞이라 번호가 계속 커진다. `FlywayMigrationNamingTest`(app)가 규칙을 검사. **적용된 파일은 고치지 않는다**(checksum → 기동 실패).
+- `app.flyway.enabled`(기본 false — 테스트·local 은 off, local 이 공유 dev DB 에 다른 브랜치 파일을 먼저 넣지 않게) · `baseline-version`(기존 DB 를
+  "여기까지 적용됨" 으로 받아들이는 지점, 1.1.3 V007 = `1.1.3.7`). history 표는 DB 마다 `flyway_schema_history`.
+- **Flyway 에 두지 않는 것**: 큰 데이터 보정(재산정·소급·백필) — 서버 기동 시점 자동 실행은 위험. 지금처럼 `level-up-together-sql` + 수동.
+  기준은 "서버가 뜨는 데 꼭 필요한가".
+- 롤링 배포 중 옛 코드와 새 스키마가 공존한다 — 컬럼 이름 변경·삭제는 "추가 → 코드 배포 → 다음 릴리스에 삭제". DB 간 순서 의존은 만들지 않는다.
+
 ## Saga Pattern
 
 미션 완료 등 다단계 비즈니스 로직은 `AbstractSagaStep<Context>` 상속하여 `executeInternal` / `compensateInternal`(보상 트랜잭션) 구현. 오케스트레이터는

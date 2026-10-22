@@ -58,6 +58,10 @@ dependencies {
     api "io.pinkspider:lut-platform-infra:${rootProject.ext.lutPlatformVersion}"
     implementation "io.pinkspider:lut-platform-saga:${rootProject.ext.lutPlatformVersion}"
 
+    // LUT-595: Flyway (버전은 Spring Boot BOM). Flyway 10 부터 PostgreSQL 지원 모듈이 분리됨
+    implementation 'org.flywaydb:flyway-core'
+    implementation 'org.flywaydb:flyway-database-postgresql'
+
     // Spring starters (MVP-specific)
     api 'org.springframework.boot:spring-boot-starter-oauth2-client'
     api 'org.springframework.boot:spring-boot-starter-oauth2-resource-server'
