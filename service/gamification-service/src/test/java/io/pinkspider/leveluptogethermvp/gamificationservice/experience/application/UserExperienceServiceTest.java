@@ -3,6 +3,7 @@ package io.pinkspider.leveluptogethermvp.gamificationservice.experience.applicat
 import static io.pinkspider.global.test.TestReflectionUtils.setId;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -54,6 +55,8 @@ class UserExperienceServiceTest {
     @Mock
     private io.pinkspider.leveluptogethermvp.gamificationservice.diamond.application.DiamondService
             diamondService;
+
+    @Mock private LevelRewardItemService levelRewardItemService;
 
     @InjectMocks private UserExperienceService userExperienceService;
 
@@ -148,6 +151,37 @@ class UserExperienceServiceTest {
             // then
             assertThat(result).isNotNull();
             assertThat(userExp.getCurrentLevel()).isEqualTo(2);
+        }
+
+        @Test
+        @DisplayName("LUT-593: 레벨업 시 이전·새 레벨을 레벨 보상 지급기에 넘긴다")
+        void addExperience_levelUp_callsLevelReward() {
+            UserExperience userExp = createTestUserExperience(1L, TEST_USER_ID, 1, 90, 90);
+            when(userExperienceRepository.findByUserId(TEST_USER_ID))
+                    .thenReturn(Optional.of(userExp));
+            when(userLevelConfigCacheService.getAllLevelConfigs())
+                    .thenReturn(Collections.emptyList());
+
+            userExperienceService.addExperience(
+                    TEST_USER_ID, 20, ExpSourceType.MISSION_EXECUTION, 1L, "미션 완료");
+
+            verify(levelRewardItemService).grantOnLevelUp(TEST_USER_ID, 1, 2);
+        }
+
+        @Test
+        @DisplayName("LUT-593: 레벨이 오르지 않으면 레벨 보상 지급기를 부르지 않는다")
+        void addExperience_noLevelUp_skipsLevelReward() {
+            UserExperience userExp = createTestUserExperience(1L, TEST_USER_ID, 1, 0, 0);
+            when(userExperienceRepository.findByUserId(TEST_USER_ID))
+                    .thenReturn(Optional.of(userExp));
+            when(userLevelConfigCacheService.getAllLevelConfigs())
+                    .thenReturn(Collections.emptyList());
+
+            userExperienceService.addExperience(
+                    TEST_USER_ID, 5, ExpSourceType.MISSION_EXECUTION, 1L, "미션 완료");
+
+            verify(levelRewardItemService, org.mockito.Mockito.never())
+                    .grantOnLevelUp(org.mockito.ArgumentMatchers.anyString(), anyInt(), anyInt());
         }
     }
 

@@ -23,6 +23,7 @@ import io.pinkspider.global.event.GuildJoinRejectedEvent;
 import io.pinkspider.global.event.GuildJoinRequestedEvent;
 import io.pinkspider.global.event.GuildMissionArrivedEvent;
 import io.pinkspider.global.event.ItemGrantedByAdminEvent;
+import io.pinkspider.global.event.LevelRewardItemGrantedEvent;
 import io.pinkspider.global.event.MissionAutoEndMilestone;
 import io.pinkspider.global.event.MissionAutoEndWarningEvent;
 import io.pinkspider.global.event.MissionAutoEndedEvent;
@@ -184,6 +185,29 @@ public class NotificationEventListener {
     public void handleItemGrantedByAdmin(ItemGrantedByAdminEvent event) {
         safeHandle(
                 "관리자 아이템 지급",
+                () ->
+                        notificationService.sendLocalizedNotification(
+                                event.userId(),
+                                NotificationType.ITEM_GRANTED,
+                                event.shopItemId(),
+                                null,
+                                locale ->
+                                        new Object[] {
+                                            localizedItemName(
+                                                    event.itemName(),
+                                                    event.itemNameEn(),
+                                                    event.itemNameAr(),
+                                                    event.itemNameJa(),
+                                                    locale)
+                                        }));
+    }
+
+    /** LUT-593: 레벨 5 도달 보상(성장의 새싹) — 관리자 지급과 같은 ITEM_GRANTED 알림(딥링크 인벤토리) */
+    @Async(EVENT_EXECUTOR)
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    public void handleLevelRewardItemGranted(LevelRewardItemGrantedEvent event) {
+        safeHandle(
+                "레벨 보상 아이템",
                 () ->
                         notificationService.sendLocalizedNotification(
                                 event.userId(),

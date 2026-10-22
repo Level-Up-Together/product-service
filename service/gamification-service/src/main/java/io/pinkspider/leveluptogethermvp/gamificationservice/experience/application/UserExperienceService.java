@@ -45,6 +45,7 @@ public class UserExperienceService {
     private final UserCategoryExperienceRepository userCategoryExperienceRepository;
     private final UserLevelConfigCacheService userLevelConfigCacheService;
     private final ApplicationEventPublisher eventPublisher;
+    private final LevelRewardItemService levelRewardItemService;
 
     @Transactional(transactionManager = "gamificationTransactionManager")
     public UserExperienceResponse addExperience(
@@ -109,6 +110,9 @@ public class UserExperienceService {
 
             // QA-220: 레벨업 다이아 지급 (달성 레벨당 1개, 중복 지급은 lastRewardedLevel 로 방지)
             diamondService.awardLevelUpDiamonds(userId, levelAfter);
+
+            // LUT-593: 레벨 5 도달 시 성장의 새싹 지급 (미착용, 보유 시 스킵, 실패해도 레벨업 유지)
+            levelRewardItemService.grantOnLevelUp(userId, levelBefore, levelAfter);
 
             // 레벨업 피드 프로젝션 이벤트 발행
             eventPublisher.publishEvent(

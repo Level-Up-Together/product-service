@@ -40,6 +40,11 @@ app:
   prod-discovery-server-ip: 10.0.1.236 #10.0.1.124
   prod-db-server-ip: lut-postgres.c1wegq0a4s9l.ap-northeast-2.rds.amazonaws.com
 
+  # LUT-593: 레벨 도달 보상 아이템. sprout-item-id 는 환경별 shop_item_id (dev 6 / prod 15 — config-repository 에서 설정).
+  # 비어 있으면 지급하지 않는다.
+  level-reward:
+    sprout-level: 5
+    sprout-item-id:
   upload:
     profile-image:
       path: ${user.dir}/uploads/profile

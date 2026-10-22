@@ -32,6 +32,7 @@ import io.pinkspider.global.event.GuildJoinApprovedEvent;
 import io.pinkspider.global.event.GuildJoinRejectedEvent;
 import io.pinkspider.global.event.GuildJoinRequestedEvent;
 import io.pinkspider.global.event.GuildMissionArrivedEvent;
+import io.pinkspider.global.event.LevelRewardItemGrantedEvent;
 import io.pinkspider.global.event.MissionAutoEndMilestone;
 import io.pinkspider.global.event.MissionAutoEndWarningEvent;
 import io.pinkspider.global.event.MissionAutoEndedEvent;
@@ -1469,6 +1470,39 @@ class NotificationEventListenerTest {
             Object[] args =
                     captureArgs(MEMBER_ID_1, NotificationType.GUILD_CHAT, 88L).apply(Locale.KOREAN);
             assertThat(args).containsExactly("테스트길드", "발송자", "사진을 보냈습니다.", "100");
+        }
+    }
+
+    // ==================== LUT-593: 레벨 보상 아이템 ====================
+
+    @Nested
+    @DisplayName("레벨 도달 보상 아이템 지급 알림 (LUT-593)")
+    class HandleLevelRewardItemGrantedTest {
+
+        @Test
+        @SuppressWarnings("unchecked")
+        @DisplayName("성장의 새싹 지급 이벤트 → ITEM_GRANTED 알림을 수신자 locale 아이템명으로 보낸다")
+        void sendsItemGrantedWithLocalizedName() {
+            LevelRewardItemGrantedEvent event =
+                    new LevelRewardItemGrantedEvent(
+                            "user-123", 6L, "성장의 새싹", "Sprout of Growth", "برعم النمو", "成長の芽", 5);
+
+            eventListener.handleLevelRewardItemGranted(event);
+
+            ArgumentCaptor<Function<Locale, Object[]>> captor =
+                    ArgumentCaptor.forClass(Function.class);
+            verify(notificationService)
+                    .sendLocalizedNotification(
+                            eq("user-123"),
+                            eq(NotificationType.ITEM_GRANTED),
+                            eq(6L),
+                            isNull(),
+                            captor.capture());
+            Function<Locale, Object[]> args = captor.getValue();
+            assertThat(args.apply(Locale.KOREAN)[0]).isEqualTo("성장의 새싹");
+            assertThat(args.apply(Locale.ENGLISH)[0]).isEqualTo("Sprout of Growth");
+            assertThat(args.apply(Locale.JAPANESE)[0]).isEqualTo("成長の芽");
+            assertThat(args.apply(Locale.forLanguageTag("ar"))[0]).isEqualTo("برعم النمو");
         }
     }
 }
