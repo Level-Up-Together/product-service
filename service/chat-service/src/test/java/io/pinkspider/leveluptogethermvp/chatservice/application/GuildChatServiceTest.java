@@ -1522,7 +1522,7 @@ class GuildChatServiceTest {
             ChatMessageResponse response =
                     guildChatService.sendMessage(1L, testUserId, testNickname, request);
 
-            verify(chatImageService).validateImageUrl(IMAGE_URL);
+            verify(chatImageService).validateImageUrl(IMAGE_URL, 1L, testUserId);
             // 본문 없이 사진만 — 본문은 빈 문자열로 저장된다
             assertThat(response.getContent()).isEmpty();
             assertThat(response.getImageUrl()).isEqualTo(IMAGE_URL);
@@ -1540,7 +1540,7 @@ class GuildChatServiceTest {
                             new io.pinkspider.global.exception.CustomException(
                                     "CHAT_IMAGE_004", "error.chat.invalid_image_url"))
                     .when(chatImageService)
-                    .validateImageUrl("https://evil.example.com/t.gif");
+                    .validateImageUrl("https://evil.example.com/t.gif", 1L, testUserId);
 
             org.assertj.core.api.Assertions.assertThatThrownBy(
                             () ->
@@ -1570,7 +1570,7 @@ class GuildChatServiceTest {
 
             assertThat(imageMessage.getIsDeleted()).isTrue();
             assertThat(imageMessage.getImageUrl()).isNull();
-            verify(chatImageService).deleteAfterCommit(IMAGE_URL);
+            verify(chatImageService).deleteAfterCommit(IMAGE_URL, 1L, testUserId);
         }
     }
 }

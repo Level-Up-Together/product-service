@@ -54,7 +54,7 @@ public class GuildDirectMessageService {
         validateGuildExists(guildId);
         validateBothAreMember(guildId, senderId, recipientId);
         validateSenderNotBlocking(senderId, recipientId);
-        chatImageService.validateImageUrl(request.getImageUrl());
+        chatImageService.validateImageUrl(request.getImageUrl(), guildId, senderId);
 
         String senderNickname = userQueryFacadeService.getUserNickname(senderId);
 
@@ -383,7 +383,8 @@ public class GuildDirectMessageService {
 
         String imageUrl = message.getImageUrl();
         message.delete();
-        chatImageService.deleteAfterCommit(imageUrl);
+        chatImageService.deleteAfterCommit(
+                imageUrl, message.getConversation().getGuildId(), message.getSenderId());
         log.info("DM 삭제: messageId={}, deletedBy={}", messageId, userId);
     }
 

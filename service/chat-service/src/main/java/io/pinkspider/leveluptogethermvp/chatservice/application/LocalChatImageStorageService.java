@@ -83,7 +83,7 @@ public class LocalChatImageStorageService implements ChatImageStorageService {
 
     @Override
     public void delete(String imageUrl) {
-        if (!isOwnedUrl(imageUrl)) {
+        if (!isStoredUrl(imageUrl)) {
             return;
         }
         String relativePath = imageUrl.substring(properties.getUrlPrefix().length());
@@ -101,7 +101,16 @@ public class LocalChatImageStorageService implements ChatImageStorageService {
     }
 
     @Override
-    public boolean isOwnedUrl(String imageUrl) {
+    public boolean isOwnedBy(String imageUrl, Long guildId, String userId) {
+        return guildId != null
+                && userId != null
+                && isStoredUrl(imageUrl)
+                && imageUrl.startsWith(
+                        properties.getUrlPrefix() + "/" + guildId + "/" + userId + "/");
+    }
+
+    /** 이 저장소의 채팅 이미지 URL 인지 (상위 경로 {@code ..} 거부) — 삭제 대상 한정용 */
+    private boolean isStoredUrl(String imageUrl) {
         return imageUrl != null
                 && imageUrl.startsWith(properties.getUrlPrefix() + "/")
                 && !imageUrl.contains("..");

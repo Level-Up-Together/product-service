@@ -121,13 +121,17 @@ class LocalChatImageStorageServiceTest {
     }
 
     @Test
-    @DisplayName("isOwnedUrl: 접두어로 시작하고 상위 경로(..)가 없어야 한다")
-    void isOwnedUrl() {
-        assertThat(storage.isOwnedUrl("/uploads/chats/7/u1/a.jpg")).isTrue();
-        assertThat(storage.isOwnedUrl("/uploads/chats/../missions/a.jpg")).isFalse();
-        assertThat(storage.isOwnedUrl("/uploads/missions/a.jpg")).isFalse();
-        assertThat(storage.isOwnedUrl("/uploads/chatsx/a.jpg")).isFalse();
-        assertThat(storage.isOwnedUrl("https://evil.example.com/a.jpg")).isFalse();
-        assertThat(storage.isOwnedUrl(null)).isFalse();
+    @DisplayName("isOwnedBy: 그 길드·그 유저 경로여야 하고 상위 경로(..)는 거부")
+    void isOwnedBy() {
+        assertThat(storage.isOwnedBy("/uploads/chats/7/u1/a.jpg", 7L, "u1")).isTrue();
+        assertThat(storage.isOwnedBy("/uploads/chats/7/u2/a.jpg", 7L, "u1")).isFalse();
+        assertThat(storage.isOwnedBy("/uploads/chats/8/u1/a.jpg", 7L, "u1")).isFalse();
+        assertThat(storage.isOwnedBy("/uploads/chats/7/u1x/a.jpg", 7L, "u1")).isFalse();
+        assertThat(storage.isOwnedBy("/uploads/chats/7/u1/../../8/u2/a.jpg", 7L, "u1")).isFalse();
+        assertThat(storage.isOwnedBy("/uploads/missions/7/u1/a.jpg", 7L, "u1")).isFalse();
+        assertThat(storage.isOwnedBy("https://evil.example.com/a.jpg", 7L, "u1")).isFalse();
+        assertThat(storage.isOwnedBy(null, 7L, "u1")).isFalse();
+        assertThat(storage.isOwnedBy("/uploads/chats/7/u1/a.jpg", null, "u1")).isFalse();
+        assertThat(storage.isOwnedBy("/uploads/chats/7/u1/a.jpg", 7L, null)).isFalse();
     }
 }

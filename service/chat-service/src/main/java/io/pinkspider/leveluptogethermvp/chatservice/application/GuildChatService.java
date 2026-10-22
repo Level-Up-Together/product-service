@@ -50,7 +50,7 @@ public class GuildChatService {
             throw new IllegalArgumentException("길드를 찾을 수 없습니다: " + guildId);
         }
         validateMembership(guildId, userId);
-        chatImageService.validateImageUrl(request.getImageUrl());
+        chatImageService.validateImageUrl(request.getImageUrl(), guildId, userId);
 
         String effectiveNickname = nickname;
         if (effectiveNickname == null || effectiveNickname.isBlank()) {
@@ -201,7 +201,7 @@ public class GuildChatService {
 
         String imageUrl = message.getImageUrl();
         message.delete();
-        chatImageService.deleteAfterCommit(imageUrl);
+        chatImageService.deleteAfterCommit(imageUrl, message.getGuildId(), message.getSenderId());
         log.info("채팅 메시지 삭제: messageId={}, deletedBy={}", messageId, userId);
     }
 

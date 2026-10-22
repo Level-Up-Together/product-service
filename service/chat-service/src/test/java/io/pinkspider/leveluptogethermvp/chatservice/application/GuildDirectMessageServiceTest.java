@@ -1026,7 +1026,7 @@ class GuildDirectMessageServiceTest {
             DirectMessageResponse response =
                     dmService.sendMessage(1L, USER_ID_1, USER_ID_2, request);
 
-            verify(chatImageService).validateImageUrl(IMAGE_URL);
+            verify(chatImageService).validateImageUrl(IMAGE_URL, 1L, USER_ID_1);
             assertThat(response.getImageUrl()).isEqualTo(IMAGE_URL);
             assertThat(response.getContent()).isEmpty();
             assertThat(testConversation.getLastMessageContent()).isEmpty();
@@ -1040,7 +1040,7 @@ class GuildDirectMessageServiceTest {
                             new io.pinkspider.global.exception.CustomException(
                                     "CHAT_IMAGE_004", "error.chat.invalid_image_url"))
                     .when(chatImageService)
-                    .validateImageUrl("https://evil.example.com/t.gif");
+                    .validateImageUrl("https://evil.example.com/t.gif", 1L, USER_ID_1);
             DirectMessageRequest request =
                     DirectMessageRequest.builder()
                             .imageUrl("https://evil.example.com/t.gif")
@@ -1067,7 +1067,7 @@ class GuildDirectMessageServiceTest {
 
             assertThat(imageMessage.getIsDeleted()).isTrue();
             assertThat(imageMessage.getImageUrl()).isNull();
-            verify(chatImageService).deleteAfterCommit(IMAGE_URL);
+            verify(chatImageService).deleteAfterCommit(IMAGE_URL, 1L, USER_ID_1);
         }
     }
 }

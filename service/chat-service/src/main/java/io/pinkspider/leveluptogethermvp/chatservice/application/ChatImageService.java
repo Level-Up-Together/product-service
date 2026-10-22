@@ -49,14 +49,14 @@ public class ChatImageService {
     }
 
     /**
-     * 전송 API 가 받은 {@code image_url} 검증. 비어 있으면 통과(텍스트 메시지), 값이 있으면 업로드 API 가 발급한 URL 이어야 한다 — 임의 외부
-     * URL 을 허용하면 상대 화면에 추적용 이미지를 박아 넣을 수 있다.
+     * 전송 API 가 받은 {@code image_url} 검증. 비어 있으면 통과(텍스트 메시지), 값이 있으면 **보낸 사람 본인이 이 길드 채팅용으로 업로드한**
+     * URL 이어야 한다 — 외부 URL 추적 이미지 주입과, 남의 사진 URL 로 보낸 메시지를 지워 그 파일을 삭제하는 것을 막는다.
      */
-    public void validateImageUrl(String imageUrl) {
+    public void validateImageUrl(String imageUrl, Long guildId, String senderId) {
         if (imageUrl == null || imageUrl.isEmpty()) {
             return;
         }
-        if (!storageService.isOwnedUrl(imageUrl)) {
+        if (!storageService.isOwnedBy(imageUrl, guildId, senderId)) {
             log.warn("채팅 이미지 URL 거부(업로드 API 미경유): {}", imageUrl);
             throw new CustomException("CHAT_IMAGE_004", "error.chat.invalid_image_url");
         }
@@ -65,8 +65,13 @@ public class ChatImageService {
     /**
      * 메시지 삭제 시 저장된 이미지 정리. 삭제 트랜잭션이 커밋된 뒤에만 지운다 — 롤백되면 메시지는 남는데 파일만 사라지는 일을 막는다. 트랜잭션 밖이면 즉시 지운다.
      */
-    public void deleteAfterCommit(String imageUrl) {
+    public void deleteAfterCommit(String imageUrl, Long guildId, String senderId) {
         if (imageUrl == null || imageUrl.isEmpty()) {
+            return;
+        }
+        // 메시지 발신자 본인 경로의 파일만 지운다 — 검증 도입 전 저장된 메시지가 남의 URL 을 가리켜도 안전하다
+        if (!storageService.isOwnedBy(imageUrl, guildId, senderId)) {
+            log.warn("채팅 이미지 삭제 생략(발신자 경로 아님): {}", imageUrl);
             return;
         }
         if (TransactionSynchronizationManager.isSynchronizationActive()) {

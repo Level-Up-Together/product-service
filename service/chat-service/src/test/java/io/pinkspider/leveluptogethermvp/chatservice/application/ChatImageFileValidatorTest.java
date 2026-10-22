@@ -78,4 +78,16 @@ class ChatImageFileValidatorTest {
                 .isEqualTo("a/b_thumb.jpg");
         assertThat(ChatImageFileValidator.insertSuffix("a/b", "_thumb")).isEqualTo("a/b_thumb");
     }
+
+    @Test
+    @DisplayName("contentTypeOf: 허용 확장자는 고정 MIME, 그 외는 거부")
+    void contentTypeOf() {
+        assertThat(ChatImageFileValidator.contentTypeOf("jpg")).isEqualTo("image/jpeg");
+        assertThat(ChatImageFileValidator.contentTypeOf("jpeg")).isEqualTo("image/jpeg");
+        assertThat(ChatImageFileValidator.contentTypeOf("png")).isEqualTo("image/png");
+        assertThat(ChatImageFileValidator.contentTypeOf("gif")).isEqualTo("image/gif");
+        assertThat(ChatImageFileValidator.contentTypeOf("webp")).isEqualTo("image/webp");
+        assertThatThrownBy(() -> ChatImageFileValidator.contentTypeOf("svg"))
+                .isInstanceOf(CustomException.class);
+    }
 }

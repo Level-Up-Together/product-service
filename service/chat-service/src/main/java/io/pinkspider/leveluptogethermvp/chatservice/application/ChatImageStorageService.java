@@ -19,8 +19,11 @@ public interface ChatImageStorageService {
     void delete(String imageUrl);
 
     /**
-     * 이 저장소가 발급한 채팅 이미지 URL 인지. 전송 API 가 받는 {@code image_url} 은 반드시 업로드 API 를 거친 값이어야 한다 — 임의 외부
-     * URL 을 허용하면 상대 화면에 추적용 이미지를 박아 넣을 수 있다.
+     * 이 저장소가 {@code userId} 에게 {@code guildId} 채팅용으로 발급한 URL 인지 ({@code
+     * .../{guildId}/{userId}/...}).
+     *
+     * <p>전송 API 가 받는 {@code image_url} 은 반드시 보낸 사람 본인이 업로드한 값이어야 한다. 접두어만 보면 ① 임의 외부 URL 로 추적 이미지를
+     * 박거나 ② 남이 올린 사진 URL 로 메시지를 보낸 뒤 삭제해 그 사람의 파일을 지울 수 있다.
      */
-    boolean isOwnedUrl(String imageUrl);
+    boolean isOwnedBy(String imageUrl, Long guildId, String userId);
 }

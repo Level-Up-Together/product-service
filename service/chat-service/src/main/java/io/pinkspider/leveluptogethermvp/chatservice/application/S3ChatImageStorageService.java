@@ -50,19 +50,21 @@ public class S3ChatImageStorageService implements ChatImageStorageService {
                             + "."
                             + extension;
             byte[] originalBytes = file.getBytes();
-            putObject(key, file.getContentType(), originalBytes);
+            // 클라이언트 Content-Type 은 신뢰하지 않는다 — image/svg+xml 로 저장되면 CDN 에서 스크립트가 실행될 수 있다
+            String contentType = ChatImageFileValidator.contentTypeOf(extension);
+            putObject(key, contentType, originalBytes);
 
             putVariant(
                     key,
                     extension,
-                    file.getContentType(),
+                    contentType,
                     originalBytes,
                     THUMB_SUFFIX,
                     ImageResizer.THUMBNAIL_MAX_DIMENSION);
             putVariant(
                     key,
                     extension,
-                    file.getContentType(),
+                    contentType,
                     originalBytes,
                     MEDIUM_SUFFIX,
                     ImageResizer.MEDIUM_MAX_DIMENSION);
@@ -98,6 +100,8 @@ public class S3ChatImageStorageService implements ChatImageStorageService {
                         .bucket(s3Properties.getBucket())
                         .key(key)
                         .contentType(contentType)
+                        // 브라우저가 내용으로 타입을 추측하지 않도록 inline 이미지로 고정
+                        .contentDisposition("inline")
                         // UUID 파일명이라 콘텐츠 불변 — CloudFront/브라우저 공격적 캐시 허용 (LUT-406 관례)
                         .cacheControl("public, max-age=31536000, immutable")
                         .build(),
@@ -106,7 +110,7 @@ public class S3ChatImageStorageService implements ChatImageStorageService {
 
     @Override
     public void delete(String imageUrl) {
-        if (!isOwnedUrl(imageUrl)) {
+        if (!isStoredUrl(imageUrl)) {
             return;
         }
         String key = imageUrl.substring(s3Properties.getCdnBaseUrl().length() + 1);
@@ -128,7 +132,23 @@ public class S3ChatImageStorageService implements ChatImageStorageService {
     }
 
     @Override
-    public boolean isOwnedUrl(String imageUrl) {
+    public boolean isOwnedBy(String imageUrl, Long guildId, String userId) {
+        return guildId != null
+                && userId != null
+                && isStoredUrl(imageUrl)
+                && imageUrl.startsWith(
+                        s3Properties.getCdnBaseUrl()
+                                + "/"
+                                + properties.getS3KeyPrefix()
+                                + "/"
+                                + guildId
+                                + "/"
+                                + userId
+                                + "/");
+    }
+
+    /** 이 저장소의 채팅 이미지 URL 인지 (상위 경로 {@code ..} 거부) — 삭제 대상 한정용 */
+    private boolean isStoredUrl(String imageUrl) {
         return imageUrl != null
                 && imageUrl.startsWith(
                         s3Properties.getCdnBaseUrl() + "/" + properties.getS3KeyPrefix() + "/")

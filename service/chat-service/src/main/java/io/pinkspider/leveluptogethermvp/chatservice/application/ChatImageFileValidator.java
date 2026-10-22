@@ -39,6 +39,20 @@ public class ChatImageFileValidator {
         return extension;
     }
 
+    /**
+     * 검증을 통과한 확장자의 고정 MIME — 저장 시 클라이언트 Content-Type 을 쓰지 않기 위함. {@code photo.jpg} 에 {@code
+     * image/svg+xml} 을 붙여 올리면 CDN 이 SVG 로 서빙해 스크립트가 실행될 수 있다.
+     */
+    static String contentTypeOf(String extension) {
+        return switch (extension) {
+            case "jpg", "jpeg" -> "image/jpeg";
+            case "png" -> "image/png";
+            case "gif" -> "image/gif";
+            case "webp" -> "image/webp";
+            default -> throw new CustomException("CHAT_IMAGE_002", "error.image.invalid");
+        };
+    }
+
     static String getExtension(String filename) {
         if (filename == null || !filename.contains(".")) {
             return "";

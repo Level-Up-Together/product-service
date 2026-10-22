@@ -148,11 +148,32 @@ class S3ChatImageStorageServiceTest {
     }
 
     @Test
-    @DisplayName("isOwnedUrl: CDN/chats/ 로 시작하고 상위 경로(..)가 없어야 한다")
-    void isOwnedUrl() {
-        assertThat(storage.isOwnedUrl(CDN + "/chats/7/u1/a.jpg")).isTrue();
-        assertThat(storage.isOwnedUrl(CDN + "/chats/../missions/a.jpg")).isFalse();
-        assertThat(storage.isOwnedUrl(CDN + "/missions/a.jpg")).isFalse();
-        assertThat(storage.isOwnedUrl(null)).isFalse();
+    @DisplayName("isOwnedBy: CDN/chats/{guild}/{user}/ 여야 하고 상위 경로(..)는 거부")
+    void isOwnedBy() {
+        assertThat(storage.isOwnedBy(CDN + "/chats/7/u1/a.jpg", 7L, "u1")).isTrue();
+        assertThat(storage.isOwnedBy(CDN + "/chats/7/u2/a.jpg", 7L, "u1")).isFalse();
+        assertThat(storage.isOwnedBy(CDN + "/chats/7/u1/../../8/u2/a.jpg", 7L, "u1")).isFalse();
+        assertThat(storage.isOwnedBy(CDN + "/missions/7/u1/a.jpg", 7L, "u1")).isFalse();
+        assertThat(storage.isOwnedBy(null, 7L, "u1")).isFalse();
+    }
+
+    @Test
+    @DisplayName("클라이언트 Content-Type(image/svg+xml)을 무시하고 확장자의 고정 MIME 으로 저장한다")
+    void store_ignoresClientContentType() {
+        when(imageResizer.resize(any(), eq("jpg"), anyInt()))
+                .thenReturn(Optional.of("resized".getBytes()));
+        MockMultipartFile disguised =
+                new MockMultipartFile("image", "photo.jpg", "image/svg+xml", "<svg/>".getBytes());
+
+        storage.store(disguised, 7L, "u1");
+
+        ArgumentCaptor<PutObjectRequest> captor = ArgumentCaptor.forClass(PutObjectRequest.class);
+        verify(s3Client, times(3)).putObject(captor.capture(), any(RequestBody.class));
+        assertThat(captor.getAllValues())
+                .allSatisfy(
+                        req -> {
+                            assertThat(req.contentType()).isEqualTo("image/jpeg");
+                            assertThat(req.contentDisposition()).isEqualTo("inline");
+                        });
     }
 }

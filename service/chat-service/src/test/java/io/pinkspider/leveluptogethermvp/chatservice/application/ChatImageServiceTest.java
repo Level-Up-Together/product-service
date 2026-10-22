@@ -149,29 +149,41 @@ class ChatImageServiceTest {
         @Test
         @DisplayName("비어 있으면(텍스트 메시지) 통과")
         void blank() {
-            assertThatCode(() -> chatImageService.validateImageUrl(null))
+            assertThatCode(() -> chatImageService.validateImageUrl(null, GUILD_ID, USER_ID))
                     .doesNotThrowAnyException();
-            assertThatCode(() -> chatImageService.validateImageUrl("")).doesNotThrowAnyException();
-            verify(storageService, never()).isOwnedUrl(anyString());
+            assertThatCode(() -> chatImageService.validateImageUrl("", GUILD_ID, USER_ID))
+                    .doesNotThrowAnyException();
+            verify(storageService, never()).isOwnedBy(anyString(), any(), any());
         }
 
         @Test
-        @DisplayName("업로드 API 가 발급한 URL 이면 통과")
+        @DisplayName("보낸 사람 본인이 이 길드용으로 올린 URL 이면 통과")
         void owned() {
-            when(storageService.isOwnedUrl(URL)).thenReturn(true);
+            when(storageService.isOwnedBy(URL, GUILD_ID, USER_ID)).thenReturn(true);
 
-            assertThatCode(() -> chatImageService.validateImageUrl(URL)).doesNotThrowAnyException();
+            assertThatCode(() -> chatImageService.validateImageUrl(URL, GUILD_ID, USER_ID))
+                    .doesNotThrowAnyException();
         }
 
         @Test
         @DisplayName("외부 URL 은 error.chat.invalid_image_url 로 거부")
         void foreign() {
-            when(storageService.isOwnedUrl("https://evil.example.com/t.gif")).thenReturn(false);
+            String evil = "https://evil.example.com/t.gif";
+            when(storageService.isOwnedBy(evil, GUILD_ID, USER_ID)).thenReturn(false);
+
+            assertThatThrownBy(() -> chatImageService.validateImageUrl(evil, GUILD_ID, USER_ID))
+                    .isInstanceOf(CustomException.class)
+                    .hasMessageContaining("error.chat.invalid_image_url");
+        }
+
+        @Test
+        @DisplayName("남이 올린 채팅 사진 URL 로는 보낼 수 없다 (삭제로 남의 파일을 지우는 공격 차단)")
+        void othersUpload() {
+            String othersUrl = "/uploads/chats/1/victim/a.jpg";
+            when(storageService.isOwnedBy(othersUrl, GUILD_ID, USER_ID)).thenReturn(false);
 
             assertThatThrownBy(
-                            () ->
-                                    chatImageService.validateImageUrl(
-                                            "https://evil.example.com/t.gif"))
+                            () -> chatImageService.validateImageUrl(othersUrl, GUILD_ID, USER_ID))
                     .isInstanceOf(CustomException.class)
                     .hasMessageContaining("error.chat.invalid_image_url");
         }
@@ -191,8 +203,8 @@ class ChatImageServiceTest {
         @Test
         @DisplayName("이미지가 없으면 아무것도 하지 않는다")
         void noImage() {
-            chatImageService.deleteAfterCommit(null);
-            chatImageService.deleteAfterCommit("");
+            chatImageService.deleteAfterCommit(null, GUILD_ID, USER_ID);
+            chatImageService.deleteAfterCommit("", GUILD_ID, USER_ID);
 
             verify(storageService, never()).delete(anyString());
         }
@@ -200,7 +212,9 @@ class ChatImageServiceTest {
         @Test
         @DisplayName("트랜잭션 밖이면 즉시 지운다")
         void outsideTransaction() {
-            chatImageService.deleteAfterCommit(URL);
+            when(storageService.isOwnedBy(URL, GUILD_ID, USER_ID)).thenReturn(true);
+
+            chatImageService.deleteAfterCommit(URL, GUILD_ID, USER_ID);
 
             verify(storageService).delete(URL);
         }
@@ -208,9 +222,10 @@ class ChatImageServiceTest {
         @Test
         @DisplayName("트랜잭션 안이면 커밋 후에만 지운다")
         void insideTransaction() {
+            when(storageService.isOwnedBy(URL, GUILD_ID, USER_ID)).thenReturn(true);
             TransactionSynchronizationManager.initSynchronization();
 
-            chatImageService.deleteAfterCommit(URL);
+            chatImageService.deleteAfterCommit(URL, GUILD_ID, USER_ID);
             verify(storageService, never()).delete(anyString());
 
             List<TransactionSynchronization> syncs =
@@ -218,6 +233,17 @@ class ChatImageServiceTest {
             assertThat(syncs).hasSize(1);
             syncs.get(0).afterCommit();
             verify(storageService).delete(URL);
+        }
+
+        @Test
+        @DisplayName("발신자 본인 경로가 아닌 파일은 지우지 않는다 (검증 도입 전 저장된 메시지 대비)")
+        void notSendersFile_skipped() {
+            String othersUrl = "/uploads/chats/1/victim/a.jpg";
+            when(storageService.isOwnedBy(othersUrl, GUILD_ID, USER_ID)).thenReturn(false);
+
+            chatImageService.deleteAfterCommit(othersUrl, GUILD_ID, USER_ID);
+
+            verify(storageService, never()).delete(anyString());
         }
     }
 }
