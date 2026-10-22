@@ -20,7 +20,9 @@ import com.epages.restdocs.apispec.ResourceSnippetParameters;
 import com.epages.restdocs.apispec.SimpleType;
 import com.fasterxml.jackson.core.type.TypeReference;
 import io.pinkspider.global.component.LmObjectMapper;
+import io.pinkspider.leveluptogethermvp.chatservice.application.ChatImageService;
 import io.pinkspider.leveluptogethermvp.chatservice.application.GuildChatService;
+import io.pinkspider.leveluptogethermvp.chatservice.domain.dto.ChatImageUploadResponse;
 import io.pinkspider.leveluptogethermvp.chatservice.domain.dto.ChatMessageRequest;
 import io.pinkspider.leveluptogethermvp.chatservice.domain.dto.ChatMessageResponse;
 import io.pinkspider.leveluptogethermvp.chatservice.domain.dto.ChatParticipantResponse;
@@ -44,6 +46,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.MediaType;
+import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.restdocs.mockmvc.RestDocumentationRequestBuilders;
 import org.springframework.restdocs.payload.JsonFieldType;
 import org.springframework.test.context.ActiveProfiles;
@@ -72,6 +75,8 @@ class GuildChatControllerTest {
     @MockitoBean private GuildChatService guildChatService;
 
     @MockitoBean private GuildChatRealtimePublisher guildChatRealtimePublisher;
+
+    @MockitoBean private ChatImageService chatImageService;
 
     private static final String X_USER_NICKNAME = "X-User-Nickname";
     private static final String MOCK_USER_ID = "test-user-123";
@@ -1575,5 +1580,66 @@ class GuildChatControllerTest {
                         .isSystemMessage(false)
                         .createdAt(java.time.LocalDateTime.of(2025, 1, 15, 10, 31))
                         .build());
+    }
+
+    @Test
+    @DisplayName("POST /api/v1/guilds/{guildId}/chat/images : 길드 채팅 이미지 업로드 (LUT-590)")
+    void uploadImageTest() throws Exception {
+        // given
+        when(chatImageService.uploadGuildChatImage(anyLong(), anyString(), any()))
+                .thenReturn(
+                        new ChatImageUploadResponse("/uploads/chats/1/" + MOCK_USER_ID + "/a.jpg"));
+        MockMultipartFile image =
+                new MockMultipartFile(
+                        "image", "photo.jpg", MediaType.IMAGE_JPEG_VALUE, "fake".getBytes());
+
+        // when
+        ResultActions resultActions =
+                mockMvc.perform(
+                                RestDocumentationRequestBuilders.multipart(
+                                                "/api/v1/guilds/{guildId}/chat/images", 1L)
+                                        .file(image)
+                                        .with(user(MOCK_USER_ID)))
+                        .andDo(
+                                MockMvcRestDocumentationWrapper.document(
+                                        "길드채팅-이미지. 채팅 이미지 업로드",
+                                        preprocessRequest(prettyPrint()),
+                                        preprocessResponse(prettyPrint()),
+                                        resource(
+                                                ResourceSnippetParameters.builder()
+                                                        .tag("Guild Chat")
+                                                        .description(
+                                                                "길드 채팅 이미지 업로드. multipart 파트명"
+                                                                    + " image. 받은 image_url 을 메시지"
+                                                                    + " 전송의 image_url 로 보낸다 (JWT 토큰"
+                                                                    + " 인증 필요)")
+                                                        .pathParameters(
+                                                                parameterWithName("guildId")
+                                                                        .type(SimpleType.NUMBER)
+                                                                        .description("길드 ID"))
+                                                        .responseFields(
+                                                                fieldWithPath("code")
+                                                                        .type(JsonFieldType.STRING)
+                                                                        .description("응답 코드"),
+                                                                fieldWithPath("message")
+                                                                        .type(JsonFieldType.STRING)
+                                                                        .description("응답 메시지"),
+                                                                fieldWithPath("value")
+                                                                        .type(JsonFieldType.OBJECT)
+                                                                        .description("업로드 결과"),
+                                                                fieldWithPath("value.image_url")
+                                                                        .type(JsonFieldType.STRING)
+                                                                        .description(
+                                                                                "원본 이미지 URL (썸네일은"
+                                                                                    + " _thumb 접미사"
+                                                                                    + " 변형)"))
+                                                        .build())));
+
+        // then
+        resultActions
+                .andExpect(MockMvcResultMatchers.status().isOk())
+                .andExpect(
+                        MockMvcResultMatchers.jsonPath("$.value.image_url")
+                                .value("/uploads/chats/1/" + MOCK_USER_ID + "/a.jpg"));
     }
 }

@@ -51,6 +51,11 @@ app:
       max-size: 5242880
       allowed-extensions: jpg,jpeg,png,gif,webp
       url-prefix: /uploads/missions
+    chat-image: # LUT-590 길드 채팅·DM 이미지 (prod 는 S3 chats/ 키)
+      path: ${user.dir}/uploads/chats
+      max-size: 5242880
+      allowed-extensions: jpg,jpeg,png,gif,webp
+      url-prefix: /uploads/chats
     s3:
       bucket: ""
       cdn-base-url: ""

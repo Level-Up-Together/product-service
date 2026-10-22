@@ -634,6 +634,13 @@ uk 멱등) — 쪼개서 수행해도 몰아서 한 것과 같은 점수. "하�
 - **저장**: `@Profile("prod")`에서 S3 + CloudFront CDN, 그 외 로컬 파일시스템. 서비스별 Strategy (`S3*ImageStorageService` /
   `Local*ImageStorageService`)
 
+- **길드 채팅·DM 이미지** (LUT-590, `chatservice/application/ChatImage*`): 업로드와 전송이 분리된 2단계 — `POST /api/v1/guilds/{id}/chat/images`
+  · `POST /api/v1/guilds/{id}/dm/images/{recipientId}`(multipart 파트 `image`, `@ModerateImage`, 권한은 전송과 동일)가 URL 을 주고 클라이언트가 그 URL 을
+  기존 전송(WS/REST)의 `image_url` 로 보낸다. 전송은 **업로드 API 가 발급한 URL 만** 받는다(`isOwnedUrl`, 위반 `error.chat.invalid_image_url`) —
+  임의 외부 URL 로 추적 이미지를 박는 것 방지. 저장 `uploads/chats/{guildId}/{userId}/` / S3 `chats/`, 미션처럼 `_thumb`/`_medium` 변형 생성.
+  DM 본문은 `@NotBlank` → "본문 또는 사진" `@AssertTrue` 로 완화(구앱 호환). 메시지 삭제 시 `imageUrl=null` + 커밋 후 파일 삭제.
+  사진만 보낸 메시지의 푸시 미리보기는 빈 본문 대신 `notification.preview.photo`(수신자 locale).
+
 상세는 [`docs/IMAGE_INFRA.md`](docs/IMAGE_INFRA.md) 참조.
 
 ## Feature-Specific Notes

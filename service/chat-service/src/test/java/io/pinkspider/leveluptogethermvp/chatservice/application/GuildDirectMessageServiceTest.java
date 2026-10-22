@@ -56,6 +56,8 @@ class GuildDirectMessageServiceTest {
 
     @Mock private DmRealtimePublisher dmRealtimePublisher;
 
+    @Mock private ChatImageService chatImageService;
+
     @Mock
     private io.pinkspider.global.facade.GamificationQueryFacade gamificationQueryFacadeService;
 
@@ -992,6 +994,80 @@ class GuildDirectMessageServiceTest {
             assertThatThrownBy(() -> dmService.deleteMessage(1L, USER_ID_1, 999L))
                     .isInstanceOf(IllegalArgumentException.class)
                     .hasMessageContaining("메시지를 찾을 수 없습니다");
+        }
+    }
+
+    @Nested
+    @DisplayName("LUT-590 DM 이미지")
+    class DirectMessageImageTest {
+
+        private static final String IMAGE_URL = "/uploads/chats/1/user-aaa/a.jpg";
+
+        private void givenSendable() {
+            when(guildQueryFacadeService.guildExists(1L)).thenReturn(true);
+            when(guildQueryFacadeService.isActiveMember(1L, USER_ID_1)).thenReturn(true);
+            when(guildQueryFacadeService.isActiveMember(1L, USER_ID_2)).thenReturn(true);
+            when(userQueryFacadeService.getActiveUserIds(List.of(USER_ID_2)))
+                    .thenReturn(List.of(USER_ID_2));
+        }
+
+        @Test
+        @DisplayName("본문 없이 사진만 보낸 DM 도 저장되고 대화방 미리보기는 빈 값이다")
+        void sendMessage_imageOnly() {
+            givenSendable();
+            when(userQueryFacadeService.getUserNickname(USER_ID_1)).thenReturn(NICKNAME_1);
+            when(conversationRepository.findConversationIncludingInactive(1L, USER_ID_1, USER_ID_2))
+                    .thenReturn(Optional.of(testConversation));
+            when(messageRepository.save(any(GuildDirectMessage.class)))
+                    .thenAnswer(inv -> inv.getArgument(0));
+            DirectMessageRequest request =
+                    DirectMessageRequest.builder().imageUrl(IMAGE_URL).build();
+
+            DirectMessageResponse response =
+                    dmService.sendMessage(1L, USER_ID_1, USER_ID_2, request);
+
+            verify(chatImageService).validateImageUrl(IMAGE_URL);
+            assertThat(response.getImageUrl()).isEqualTo(IMAGE_URL);
+            assertThat(response.getContent()).isEmpty();
+            assertThat(testConversation.getLastMessageContent()).isEmpty();
+        }
+
+        @Test
+        @DisplayName("업로드 API 를 거치지 않은 URL 이면 저장하지 않는다")
+        void sendMessage_foreignImageUrl_rejected() {
+            givenSendable();
+            org.mockito.Mockito.doThrow(
+                            new io.pinkspider.global.exception.CustomException(
+                                    "CHAT_IMAGE_004", "error.chat.invalid_image_url"))
+                    .when(chatImageService)
+                    .validateImageUrl("https://evil.example.com/t.gif");
+            DirectMessageRequest request =
+                    DirectMessageRequest.builder()
+                            .imageUrl("https://evil.example.com/t.gif")
+                            .build();
+
+            org.assertj.core.api.Assertions.assertThatThrownBy(
+                            () -> dmService.sendMessage(1L, USER_ID_1, USER_ID_2, request))
+                    .isInstanceOf(io.pinkspider.global.exception.CustomException.class);
+            verify(messageRepository, org.mockito.Mockito.never())
+                    .save(any(GuildDirectMessage.class));
+        }
+
+        @Test
+        @DisplayName("사진 DM 을 삭제하면 사진도 숨기고 커밋 후 파일 정리를 예약한다")
+        void deleteMessage_image_clearsAndSchedulesCleanup() {
+            GuildDirectMessage imageMessage =
+                    GuildDirectMessage.createImageMessage(
+                            testConversation, USER_ID_1, NICKNAME_1, null, IMAGE_URL);
+            setId(imageMessage, GuildDirectMessage.class, 9L);
+            when(guildQueryFacadeService.isActiveMember(1L, USER_ID_1)).thenReturn(true);
+            when(messageRepository.findById(9L)).thenReturn(Optional.of(imageMessage));
+
+            dmService.deleteMessage(1L, USER_ID_1, 9L);
+
+            assertThat(imageMessage.getIsDeleted()).isTrue();
+            assertThat(imageMessage.getImageUrl()).isNull();
+            verify(chatImageService).deleteAfterCommit(IMAGE_URL);
         }
     }
 }
