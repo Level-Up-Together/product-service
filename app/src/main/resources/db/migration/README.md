@@ -4,7 +4,7 @@
 
 ## 폴더 = DB
 
-`user` `mission` `guild` `chat` `meta` `feed` `notification` `gamification` — 각 `XxxDataSourceConfig` 의 `xxxFlywayMigration` 빈이 읽는다.
+`user` `mission` `guild` `chat` `meta` `feed` `notification` `gamification` `stats`(LUT-598, 지표 집계 전용 신설 DB) — 각 `XxxDataSourceConfig` 의 `xxxFlywayMigration` 빈이 읽는다.
 
 ## 파일 이름
 

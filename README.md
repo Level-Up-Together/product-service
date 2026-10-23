@@ -736,12 +736,12 @@ Redis를 활용한 캐싱으로 서비스 간 호출을 최소화하고 성능�
 **VPC 내부 접근 + 공유 시크릿 헤더 인증**(LUT-244)으로 보호됩니다 — `InternalApiKeyFilter`가 `X-Internal-Api-Key` 헤더를
 `app.security.internal-api.key`와 상수시간 비교 (키 미설정 시 fail-open). 상세: [`docs/INTERNAL_API.md`](docs/INTERNAL_API.md)
 
-베이스 경로 36개 — `users`, `terms`, `feeds`, `feed-comments`, `missions`, `mission-templates`, `mission-participants`, `mission-comments`,
+베이스 경로 37개 — `users`, `terms`, `feeds`, `feed-comments`, `missions`, `mission-templates`, `mission-participants`, `mission-comments`,
 `mission-categories`, `mission-images`(변형 백필, LUT-409), `guilds`, `guilds/{guildId}`(게시글·댓글 관리), `guilds/exp`(EXP 백필),
 `guild-level-configs`, `user-level-configs`, `attendance-reward-configs`, `achievements`, `achievement-categories`, `check-logic-types`,
 `titles`, `title-grants`, `experience-history`, `events`, `seasons`, `seasons/{seasonId}/rank-rewards`, `mvp-history`, `daily-mvp-exclusions`,
 `profanity-words`, `shop-items`, `shop-purchases`, `item-grants`, `diamonds`(마이그레이션), `diamond-bundles`, `diamond-payments`, `subscription-payments`,
-`push-campaigns`(어드민 푸시 발송·이력, LUT-508).
+`push-campaigns`(어드민 푸시 발송·이력, LUT-508), `stats/activity`(유저 일별 활동 수동 flush, LUT-598).
 (`docs/INTERNAL_API.md`에는 이 중 일부만 정리돼 있어 보강 필요)
 
 | 도메인           | 베이스 경로                                                         |

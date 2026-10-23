@@ -31,11 +31,12 @@ class FlywayMigrationNamingTest {
                     "meta",
                     "feed",
                     "notification",
-                    "gamification");
+                    "gamification",
+                    "stats");
     static final Path ROOT = Path.of("src/main/resources/db/migration");
 
     @Test
-    @DisplayName("DB 8개 폴더가 모두 있다")
+    @DisplayName("DB 9개 폴더가 모두 있다")
     void allDatabaseFoldersExist() {
         for (String db : DATABASES) {
             assertThat(ROOT.resolve(db)).as("db/migration/%s", db).isDirectory();

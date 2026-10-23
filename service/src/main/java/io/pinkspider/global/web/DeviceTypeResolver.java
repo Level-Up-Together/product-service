@@ -1,4 +1,4 @@
-package io.pinkspider.leveluptogethermvp.userservice.oauth.components;
+package io.pinkspider.global.web;
 
 import jakarta.servlet.http.HttpServletRequest;
 import java.util.Locale;

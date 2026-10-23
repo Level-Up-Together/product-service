@@ -66,6 +66,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 | `bffservice`          | -               | BFF API 통합, 통합 검색                          |
 | `noticeservice`       | -               | 공지/안내 (Admin Feign)                          |
 | `supportservice`      | -               | 1:1 문의 + 신고 처리 (Admin Feign)               |
+| `statsservice`        | stats_db        | **지표 집계(IR KPI)** — 유저 일별 활동(DAU 신호) 수집·적재 (LUT-598). 2차: 일별 KPI 스냅샷·코호트 리텐션 |
 
 ### Transaction Manager (Critical)
 
@@ -87,6 +88,7 @@ public void updateGuild(...) { ...}
 | feedservice         | `feedTransactionManager`           |
 | notificationservice | `notificationTransactionManager`   |
 | gamificationservice | `gamificationTransactionManager`   |
+| statsservice        | `statsTransactionManager`          |
 | saga                | `sagaTransactionManager`           |
 
 ### Service Layer Pattern
@@ -366,6 +368,18 @@ Redis Stream `stream:app-push` → `AppPushMessageConsumer` → `FcmPushService`
 **캐시되는 엔티티에 컬럼을 추가할 때는 배포 직후 해당 키를 evict할 것** (LUT-534): 옛 JSON은 역직렬화 오류 없이 새 필드만 `null`로 살아남으므로 `RedisConfig`의 "오류 시 evict" 안전망에 걸리지 않는다. `@PostConstruct warmUpCache()`류 self-invocation은 캐시 프록시를 타지 않아 기동 시 갱신 효과가 없다.
 길드 레벨 재판정(`GuildExperienceService.processLevelUp`)은 **강등 금지**(포인트 단조 증가 → 레벨도 단조) — 재판정 결과가 현재 레벨보다 낮으면 warn 로그 후 유지.
 
+## 유저 일별 활동 수집 — DAU 신호 (LUT-598, `statsservice/activity`)
+
+IR 용 KPI(DAU/WAU/MAU·리텐션)의 원천. 예전엔 "앱을 열었다" 신호가 없었다(`last_login_at` 은 소셜 로그인 때만, 세션은 이력 없음).
+
+- **수집**: `UserActivityInterceptor`(`StatsActivityConfig` 의 `@Bean` — `@Component` 로 두면 `@WebMvcTest` 슬라이스가 HandlerInterceptor 를 스캔해 컨트롤러
+  테스트가 깨진다)가 인증된 요청마다 `UserActivityRecorder.recordAsync` → Redis `SADD active:{KST날짜} userId` + `active:{KST날짜}:{deviceType}`(TTL 40일).
+  `WebMvcConfig` 가 `ObjectProvider` 로 있을 때만 등록. 경로 `/api/**`·`/jwt/reissue`·`/graphql`, 제외 `/api/internal/**`·`/api/test/**`·`/api/v1/webhooks/**`.
+  principal 이 userId 문자열인 인증만 인정(anonymousUser 제외). **어떤 예외도 요청을 막지 않는다**(비동기 + try/catch, Redis 장애 구간은 DAU 결측 허용).
+- **적재**: `UserActivityFlushScheduler` 00:20 KST → `UserActivityFlushService.flush(date)` 가 집합을 읽어 `user_daily_activity`(user_id×activity_date 유니크, `device_types` 정렬 쉼표) 에 upsert. 멱등. 수동: `POST /api/internal/stats/activity/flush?date=YYYY-MM-DD`.
+- **설정** `app.stats.activity.enabled`(기본 true) · `excluded-user-ids`(E2E 봇·운영자 — config-repository 환경별). `DeviceTypeResolver` 는 LUT-598 에서 `global/web` 로 이동(user-service 전용 아님).
+- **DB**: `stats_db` 신설(9번째). DB 자체는 수동 생성(`CREATE DATABASE stats_db`), 테이블은 dev Flyway `db/migration/stats/` · prod 는 SQL 레포 V008 수동. 날짜 경계는 **KST**.
+
 ## Scheduler & Distributed Lock (ShedLock)
 
 멀티 EC2에서 `@Scheduled` 동시 실행 방지를 위해 **모든 스케줄러는 `@SchedulerLock` 필수**. `ShedLockConfig`가 Redis SETNX 기반 LockProvider 등록 (
@@ -390,11 +404,12 @@ public void run() { ...}
 | `SeasonRewardScheduler.processEndedSeasonRewards`           | `0 0 3 * * *` KST           | 종료된 시즌 보상 자동 부여            |
 | `SubscriptionStipendScheduler.grantDailyStipends`           | `0 10 0 * * *` UTC          | 구독자 일일 블루다이아 1개 지급 (LUT-453, 멱등=구독ID+지급일) |
 | `MissionIdempotencyKeyCleanupScheduler.cleanupExpiredKeys`  | `0 15 * * * *` KST (매시)    | 24시간 지난 미션 생성 멱등 키 삭제 (LUT-577) |
+| `UserActivityFlushScheduler.flushRecentDays`                 | `0 20 0 * * *` KST          | Redis `active:{날짜}` 활동 집합 → `stats_db.user_daily_activity` 적재(그제·어제 2일, 멱등) (LUT-598) |
 
 ## DB 마이그레이션 — Flyway (LUT-595, `global/config/datasource/flyway`)
 
 **dev 는 Flyway, prod 는 v1.1.4 부터** (v1.1.3 운영 배포는 수동 psql, 직후 config prod `app.flyway.enabled=true`). Boot 자동설정은 DB 하나만 다루므로
-`spring.flyway.enabled=false` 로 끄고, 8개 `XxxDataSourceConfig` 가 각각 `xxxFlywayMigration` 빈(`initMethod=migrate`)을 두며 `xxxEntityManagerFactory`
+`spring.flyway.enabled=false` 로 끄고, 9개 `XxxDataSourceConfig`(LUT-598 `stats` 포함) 가 각각 `xxxFlywayMigration` 빈(`initMethod=migrate`)을 두며 `xxxEntityManagerFactory`
 가 `@DependsOn` 한다 — Flyway 가 스키마를 맞춘 뒤 Hibernate `validate`(각 config 의 `jpaProperties()` 가 코드로 지정, yml `ddl-auto` 와 무관)가 돈다.
 
 - 파일: `app/src/main/resources/db/migration/<db>/V<major>_<minor>_<patch>_<seq3>__<ticket>_<desc>.sql` (예 `V1_1_4_001__lut600_add_x.sql`).

@@ -1,4 +1,4 @@
-package io.pinkspider.leveluptogethermvp.userservice.oauth.components;
+package io.pinkspider.global.web;
 
 import static org.assertj.core.api.Assertions.assertThat;
 

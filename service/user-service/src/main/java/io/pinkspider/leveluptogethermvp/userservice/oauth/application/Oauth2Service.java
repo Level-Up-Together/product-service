@@ -8,6 +8,7 @@ import io.pinkspider.global.exception.CustomException;
 import io.pinkspider.global.security.JwtUtil;
 import io.pinkspider.global.security.OAuth2Properties;
 import io.pinkspider.global.util.CryptoUtils;
+import io.pinkspider.global.web.DeviceTypeResolver;
 import io.pinkspider.leveluptogethermvp.notificationservice.application.NotificationService;
 import io.pinkspider.leveluptogethermvp.userservice.core.feignclient.google.GoogleOAuth2FeignClient;
 import io.pinkspider.leveluptogethermvp.userservice.core.feignclient.google.GoogleUserInfoFeignClient;
@@ -17,7 +18,6 @@ import io.pinkspider.leveluptogethermvp.userservice.core.properties.WithdrawalPr
 import io.pinkspider.leveluptogethermvp.userservice.geoip.GeoIpService;
 import io.pinkspider.leveluptogethermvp.userservice.geoip.GeoIpService.GeoIpResult;
 import io.pinkspider.leveluptogethermvp.userservice.oauth.components.DeviceIdentifier;
-import io.pinkspider.leveluptogethermvp.userservice.oauth.components.DeviceTypeResolver;
 import io.pinkspider.leveluptogethermvp.userservice.oauth.domain.SignupSessionData;
 import io.pinkspider.leveluptogethermvp.userservice.oauth.domain.dto.OAuth2UserInfo;
 import io.pinkspider.leveluptogethermvp.userservice.oauth.domain.dto.apple.AppleUserInfo;
