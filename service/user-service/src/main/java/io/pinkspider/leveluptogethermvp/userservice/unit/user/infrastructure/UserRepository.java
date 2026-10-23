@@ -122,8 +122,14 @@ public interface UserRepository extends JpaRepository<Users, String> {
     @Query("SELECT COUNT(u) FROM Users u WHERE u.createdAt >= :date")
     long countNewUsersSince(@Param("date") LocalDateTime date);
 
-    @Query("SELECT u.provider, COUNT(u) FROM Users u GROUP BY u.provider")
-    List<Object[]> countUsersByProvider();
+    /** LUT-603: 어드민 통계 — 탈퇴(WITHDRAWN) 를 뺀 현재 유저 수 */
+    long countByStatusNot(UserStatus status);
+
+    long countByStatus(UserStatus status);
+
+    /** LUT-603: 가입경로 분포 — 탈퇴 유저 제외(전체 사용자 수와 합이 맞도록) */
+    @Query("SELECT u.provider, COUNT(u) FROM Users u WHERE u.status <> :status GROUP BY u.provider")
+    List<Object[]> countUsersByProviderExcluding(@Param("status") UserStatus status);
 
     @Query(
             "SELECT FUNCTION('DATE', u.createdAt), COUNT(u) FROM Users u WHERE u.createdAt BETWEEN"

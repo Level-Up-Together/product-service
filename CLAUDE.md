@@ -740,6 +740,10 @@ UA로 덮어쓰지 않는 이유는 RN의 `Platform.OS`가 iPad에서도 `ios`�
 `app.security.internal-api.key`와 상수시간 비교 (키 미설정 시 fail-open). 도메인별 베이스 경로, 신고 처리 워크플로우(WARNING/SUSPEND/BAN) 매핑: [
 `docs/INTERNAL_API.md`](docs/INTERNAL_API.md)
 
+어드민 대시보드용 `GET /api/internal/users/statistics` 의 `total_users` 는 **탈퇴(WITHDRAWN) 제외**(LUT-603 — 예전엔 `count()` 라 익명화된
+탈퇴 행까지 세었다), 탈퇴 수는 `withdrawn_users`, 가입경로 분포(`users_by_provider`)도 탈퇴 제외라 합이 `total_users` 와 맞는다.
+`daily_new_users` 는 가입 시점 집계라 이후 탈퇴해도 포함된다.
+
 베이스 경로는 코드 기준 35개(README "Internal API" 절에 전체 목록). `docs/INTERNAL_API.md`에 빠진 것: `shop-items`, `shop-purchases`, `item-grants`,
 `diamonds`(마이그레이션), `diamond-bundles`, `diamond-payments`, `subscription-payments`, `title-grants`, `titles`, `achievements`, `achievement-categories`,
 `check-logic-types`, `experience-history`, `events`, `mvp-history`, `guild-level-configs`, `user-level-configs`, `mission-images`(변형 백필),
