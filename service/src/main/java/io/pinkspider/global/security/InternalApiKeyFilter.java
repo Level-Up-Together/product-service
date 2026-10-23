@@ -9,6 +9,7 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.util.Base64;
+import java.util.Locale;
 import java.util.Map;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -17,6 +18,7 @@ import org.springframework.context.annotation.Profile;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
+import org.springframework.web.util.UrlPathHelper;
 
 /**
  * 공유 시크릿 키 인증 필터 — 내부 API(/api/internal/**, LUT-244) + 액추에이터(LUT-605).
@@ -83,13 +85,14 @@ public class InternalApiKeyFilter extends OncePerRequestFilter {
             HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
             throws ServletException, IOException {
 
-        String path = request.getRequestURI();
-        if (requiresKey(path) && !configuredKey.isBlank()) {
+        String rawUri = request.getRequestURI();
+        String path = normalizedPath(request);
+        if ((requiresKey(path) || looksSuspicious(rawUri)) && !configuredKey.isBlank()) {
             boolean authorized =
                     matchesConfiguredKey(request.getHeader(HEADER_NAME))
                             || matchesBasicPassword(request.getHeader("Authorization"));
             if (!authorized) {
-                log.warn("내부 API 인증 실패: path={}, remoteAddr={}", path, request.getRemoteAddr());
+                log.warn("내부 API 인증 실패: path={}, remoteAddr={}", rawUri, request.getRemoteAddr());
                 writeUnauthorized(request, response);
                 return;
             }
@@ -98,7 +101,38 @@ public class InternalApiKeyFilter extends OncePerRequestFilter {
         filterChain.doFilter(request, response);
     }
 
-    /** 키가 필요한 경로인가 — 내부 API 전부 + 액추에이터(health 제외). */
+    /**
+     * 디스패처가 매핑에 쓰는 것과 같은 경로 — 컨텍스트 경로 제거, 퍼센트 디코딩, {@code ;param} 제거, 중복 슬래시 축약. 원시 {@code
+     * requestURI} 로 접두사만 비교하면 {@code /showmethemoney/%65nv} 같은 표기 차이로 판정이 어긋날 수 있다(보안 리뷰 지적).
+     */
+    static String normalizedPath(HttpServletRequest request) {
+        String path = UrlPathHelper.defaultInstance.getPathWithinApplication(request);
+        return path == null ? "" : path.replaceAll("/{2,}", "/");
+    }
+
+    /**
+     * 퍼센트 인코딩({@code %})·세그먼트 파라미터({@code ;})·상위 이동({@code ..})·역슬래시가 섞인 보호 접두사 요청은 어떻게 해석되든 키를
+     * 요구한다 (fail-closed). Spring Security {@code StrictHttpFirewall} 이 대부분 400 으로 먼저 막지만, 설정이 바뀌어도
+     * 열리지 않게 한 겹 더 둔다.
+     */
+    boolean looksSuspicious(String rawUri) {
+        if (rawUri == null) {
+            return false;
+        }
+        boolean odd =
+                rawUri.contains("%")
+                        || rawUri.contains(";")
+                        || rawUri.contains("..")
+                        || rawUri.contains("\\");
+        if (!odd) {
+            return false;
+        }
+        String lower = rawUri.toLowerCase(Locale.ROOT);
+        return lower.startsWith(actuatorBasePath.toLowerCase(Locale.ROOT))
+                || lower.startsWith(INTERNAL_PATH_PREFIX);
+    }
+
+    /** 키가 필요한 경로인가 — 내부 API 전부 + 액추에이터(health 제외). 인자는 {@link #normalizedPath} 결과. */
     boolean requiresKey(String path) {
         if (path == null) {
             return false;

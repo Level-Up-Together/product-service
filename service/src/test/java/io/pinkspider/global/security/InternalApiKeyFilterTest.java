@@ -242,6 +242,58 @@ class InternalApiKeyFilterTest {
             verify(filterChain, times(1)).doFilter(request, response);
         }
 
+        @ParameterizedTest(name = "표기를 바꾼 {0} 도 키 없이는 401 (인코딩·우회 방지)")
+        @ValueSource(
+                strings = {
+                    "/showmethemoney/%65nv",
+                    "/showmethemoney/health/../env",
+                    "/showmethemoney/health;x=1/../env",
+                    "/showmethemoney/health%2F..%2Fenv",
+                    "/showmethemoney//env",
+                    "/showmethemoney/health/..%2Fenv",
+                    "/SHOWMETHEMONEY/health/../env"
+                })
+        void obfuscatedActuatorPath_blocked(String uri) throws Exception {
+            MockHttpServletRequest request = new MockHttpServletRequest();
+            request.setRequestURI(uri);
+            MockHttpServletResponse response = new MockHttpServletResponse();
+
+            filter.doFilter(request, response, filterChain);
+
+            verify(filterChain, never()).doFilter(request, response);
+            assertThat(response.getStatus()).isEqualTo(401);
+        }
+
+        @Test
+        @DisplayName("컨텍스트 경로가 있어도 애플리케이션 내부 경로로 판정한다")
+        void contextPath_isStripped() throws Exception {
+            MockHttpServletRequest request = new MockHttpServletRequest();
+            request.setContextPath("/app");
+            request.setRequestURI("/app/showmethemoney/env");
+            MockHttpServletResponse response = new MockHttpServletResponse();
+
+            filter.doFilter(request, response, filterChain);
+
+            verify(filterChain, never()).doFilter(request, response);
+            assertThat(response.getStatus()).isEqualTo(401);
+        }
+
+        @Test
+        @DisplayName("일반 API 경로의 인코딩은 의심 요청이 아니다 (보호 접두사가 아닐 때)")
+        void encodedPublicPath_isNotSuspicious() throws Exception {
+            MockHttpServletRequest request = new MockHttpServletRequest();
+            request.setRequestURI("/api/v1/guilds/search?keyword=%EA%B8%B8%EB%93%9C");
+            MockHttpServletResponse response = new MockHttpServletResponse();
+
+            filter.doFilter(request, response, filterChain);
+
+            verify(filterChain, times(1)).doFilter(request, response);
+            assertThat(filter.looksSuspicious("/api/v1/x%20y")).isFalse();
+            assertThat(filter.looksSuspicious(null)).isFalse();
+            assertThat(filter.looksSuspicious("/api/internal/users/%2e%2e")).isTrue();
+            assertThat(filter.looksSuspicious("/showmethemoney\\env")).isTrue();
+        }
+
         @Test
         @DisplayName("base-path 표기가 달라도(끝 슬래시·슬래시 없음) 같은 경로로 정규화한다")
         void basePath_isNormalized() {
