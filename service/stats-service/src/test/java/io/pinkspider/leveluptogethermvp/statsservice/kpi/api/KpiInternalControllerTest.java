@@ -148,6 +148,25 @@ class KpiInternalControllerTest {
     }
 
     @Test
+    @DisplayName("GET /api/internal/kpi/signups/by-channel : 월 × 채널 가입자")
+    void signupsByChannel() throws Exception {
+        when(queryService.signupsByChannel(YearMonth.of(2026, 9), YearMonth.of(2026, 10)))
+                .thenReturn(
+                        List.of(
+                                new io.pinkspider.leveluptogethermvp.statsservice.kpi.domain.dto
+                                        .source.SignupsByChannel("2026-10", "insta", 12)));
+
+        mockMvc.perform(
+                        get("/api/internal/kpi/signups/by-channel")
+                                .param("from_month", "2026-09")
+                                .param("to_month", "2026-10"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.value[0].month").value("2026-10"))
+                .andExpect(jsonPath("$.value[0].channel").value("insta"))
+                .andExpect(jsonPath("$.value[0].signups").value(12));
+    }
+
+    @Test
     @DisplayName("GET /api/internal/kpi/revenue/cohorts : yyyy-MM 범위, 형식 오류는 400")
     void revenueCohorts() throws Exception {
         when(queryService.revenueCohorts(YearMonth.of(2026, 8), YearMonth.of(2026, 10)))

@@ -1,11 +1,13 @@
 package io.pinkspider.leveluptogethermvp.statsservice.kpi.infrastructure.source;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyMap;
 import static org.mockito.ArgumentMatchers.contains;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 
+import io.pinkspider.leveluptogethermvp.statsservice.kpi.domain.dto.source.SignupsByChannel;
 import java.time.LocalDateTime;
 import java.util.List;
 import org.junit.jupiter.api.DisplayName;
@@ -44,6 +46,34 @@ class UserSourceReaderTest {
         assertThat(UserSourceReader.COUNT_WITHDRAWALS).contains("withdrawn_at >= :from");
         assertThat(UserSourceReader.COUNT_ACTIVE_AS_OF)
                 .contains("withdrawn_at IS NULL OR withdrawn_at >= :asOf");
+    }
+
+    @Test
+    @DisplayName("LUT-602: 월 × 채널 가입자 수 매핑 (채널 null 은 SQL 에서 'unknown')")
+    @SuppressWarnings("unchecked")
+    void signupsByChannel() throws Exception {
+        UserSourceReader reader = new UserSourceReader(jdbc);
+        java.sql.ResultSet rs = org.mockito.Mockito.mock(java.sql.ResultSet.class);
+        when(rs.getString("month")).thenReturn("2026-10");
+        when(rs.getString("channel")).thenReturn("insta");
+        when(rs.getInt("signups")).thenReturn(12);
+        when(jdbc.query(
+                        eq(UserSourceReader.COUNT_SIGNUPS_BY_CHANNEL),
+                        anyMap(),
+                        any(org.springframework.jdbc.core.RowMapper.class)))
+                .thenAnswer(
+                        inv ->
+                                List.of(
+                                        ((org.springframework.jdbc.core.RowMapper<SignupsByChannel>)
+                                                        inv.getArgument(2))
+                                                .mapRow(rs, 0)));
+
+        List<SignupsByChannel> rows = reader.countSignupsByChannel(FROM, TO);
+
+        assertThat(rows).containsExactly(new SignupsByChannel("2026-10", "insta", 12));
+        assertThat(UserSourceReader.COUNT_SIGNUPS_BY_CHANNEL)
+                .contains("COALESCE(signup_channel, 'unknown')")
+                .contains("provider <> 'test'");
     }
 
     @Test

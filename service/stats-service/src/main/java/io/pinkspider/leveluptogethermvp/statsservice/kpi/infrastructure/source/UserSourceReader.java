@@ -1,5 +1,6 @@
 package io.pinkspider.leveluptogethermvp.statsservice.kpi.infrastructure.source;
 
+import io.pinkspider.leveluptogethermvp.statsservice.kpi.domain.dto.source.SignupsByChannel;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
@@ -26,6 +27,14 @@ public class UserSourceReader {
     static final String FIND_SIGNUP_IDS =
             "SELECT id FROM users WHERE created_at >= :from AND created_at < :to" + EXCLUDE_TEST;
 
+    /** LUT-602: KST 월 × 가입 채널(LUT-599) 가입자 수 — CAC 분모. 채널 null 은 'unknown'(배포 전 가입자) */
+    static final String COUNT_SIGNUPS_BY_CHANNEL =
+            "SELECT to_char(created_at + INTERVAL '9 hours', 'YYYY-MM') AS month,"
+                    + " COALESCE(signup_channel, 'unknown') AS channel, COUNT(*) AS signups"
+                    + " FROM users WHERE created_at >= :from AND created_at < :to"
+                    + EXCLUDE_TEST
+                    + " GROUP BY 1, 2 ORDER BY 1, 2";
+
     private final NamedParameterJdbcTemplate jdbc;
 
     public UserSourceReader(NamedParameterJdbcTemplate jdbc) {
@@ -48,6 +57,18 @@ public class UserSourceReader {
     public List<String> findSignupUserIds(LocalDateTime fromUtc, LocalDateTime toUtc) {
         return jdbc.queryForList(
                 FIND_SIGNUP_IDS, Map.of("from", fromUtc, "to", toUtc), String.class);
+    }
+
+    public List<SignupsByChannel> countSignupsByChannel(
+            LocalDateTime fromUtc, LocalDateTime toUtc) {
+        return jdbc.query(
+                COUNT_SIGNUPS_BY_CHANNEL,
+                Map.of("from", fromUtc, "to", toUtc),
+                (rs, i) ->
+                        new SignupsByChannel(
+                                rs.getString("month"),
+                                rs.getString("channel"),
+                                rs.getInt("signups")));
     }
 
     private int count(String sql, Map<String, ?> params) {

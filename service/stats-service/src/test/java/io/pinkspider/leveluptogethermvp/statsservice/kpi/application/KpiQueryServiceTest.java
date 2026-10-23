@@ -34,6 +34,10 @@ class KpiQueryServiceTest {
     @Mock private CohortRetentionRepository retentionRepository;
     @Mock private CohortRevenueRepository revenueRepository;
 
+    @Mock
+    private io.pinkspider.leveluptogethermvp.statsservice.kpi.infrastructure.source.UserSourceReader
+            userReader;
+
     @InjectMocks private KpiQueryService service;
 
     @Test
@@ -97,6 +101,23 @@ class KpiQueryServiceTest {
         assertThat(all.get(0).rate()).isEqualByComparingTo("0.3333");
         assertThat(request.get(0).rate()).isNull();
         assertThat(request.get(0).source()).isEqualTo("REQUEST");
+    }
+
+    @Test
+    @DisplayName("signupsByChannel: 월 범위를 UTC 구간으로 바꿔 user_db 를 읽는다 (from>to 스왑)")
+    void signupsByChannel() {
+        when(userReader.countSignupsByChannel(
+                        java.time.LocalDateTime.of(2026, 8, 31, 15, 0),
+                        java.time.LocalDateTime.of(2026, 10, 31, 15, 0)))
+                .thenReturn(
+                        List.of(
+                                new io.pinkspider.leveluptogethermvp.statsservice.kpi.domain.dto
+                                        .source.SignupsByChannel("2026-10", "insta", 3)));
+
+        var rows = service.signupsByChannel(YearMonth.of(2026, 10), YearMonth.of(2026, 9));
+
+        assertThat(rows).hasSize(1);
+        assertThat(rows.get(0).channel()).isEqualTo("insta");
     }
 
     @Test

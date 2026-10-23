@@ -7,6 +7,7 @@ import io.pinkspider.leveluptogethermvp.statsservice.kpi.domain.dto.CohortRetent
 import io.pinkspider.leveluptogethermvp.statsservice.kpi.domain.dto.CohortRevenueResponse;
 import io.pinkspider.leveluptogethermvp.statsservice.kpi.domain.dto.DailyKpiSnapshotResponse;
 import io.pinkspider.leveluptogethermvp.statsservice.kpi.domain.dto.KpiRebuildResponse;
+import io.pinkspider.leveluptogethermvp.statsservice.kpi.domain.dto.source.SignupsByChannel;
 import io.pinkspider.leveluptogethermvp.statsservice.kpi.domain.enums.RetentionSource;
 import java.time.LocalDate;
 import java.time.YearMonth;
@@ -28,6 +29,8 @@ import org.springframework.web.bind.annotation.RestController;
  *   <li>{@code GET /api/internal/kpi/daily?from&to}
  *   <li>{@code GET /api/internal/kpi/retention?cohort_from&cohort_to[&source]}
  *   <li>{@code GET /api/internal/kpi/revenue/cohorts?from_month&to_month} (yyyy-MM)
+ *   <li>{@code GET /api/internal/kpi/signups/by-channel?from_month&to_month} — 월 × 가입 채널 (LUT-602,
+ *       CAC 분모)
  * </ul>
  */
 @RestController
@@ -60,6 +63,14 @@ public class KpiInternalController {
                     LocalDate cohortTo,
             @RequestParam(value = "source", required = false) RetentionSource source) {
         return ok(queryService.retention(cohortFrom, cohortTo, source));
+    }
+
+    /** LUT-602: 월 × 가입 채널 가입자 수 — 어드민 CAC 분모 */
+    @GetMapping("/signups/by-channel")
+    public ResponseEntity<ApiResult<List<SignupsByChannel>>> signupsByChannel(
+            @RequestParam("from_month") @DateTimeFormat(pattern = "yyyy-MM") YearMonth fromMonth,
+            @RequestParam("to_month") @DateTimeFormat(pattern = "yyyy-MM") YearMonth toMonth) {
+        return ok(queryService.signupsByChannel(fromMonth, toMonth));
     }
 
     @GetMapping("/revenue/cohorts")
