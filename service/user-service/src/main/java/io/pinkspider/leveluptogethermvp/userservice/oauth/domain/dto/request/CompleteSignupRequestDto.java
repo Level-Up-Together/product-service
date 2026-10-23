@@ -31,6 +31,22 @@ public class CompleteSignupRequestDto {
     /** QA-207: 가입 시 디바이스 언어(ko/en/ja/ar). 알림 등 다국어의 기본 preferredLocale로 사용된다. */
     private String preferredLocale;
 
+    /**
+     * LUT-599: 유입 채널 원천 — 웹 first-touch UTM 쿠키 값과 길드 초대 코드. 모두 optional (구앱·구웹은 안 보낸다). 채널 이름은
+     * 서버({@code SignupChannelPolicy})가 정한다.
+     */
+    @Size(max = 100)
+    private String utmSource;
+
+    @Size(max = 100)
+    private String utmMedium;
+
+    @Size(max = 100)
+    private String utmCampaign;
+
+    @Size(max = 50)
+    private String inviteCode;
+
     @Getter
     @Setter
     @NoArgsConstructor

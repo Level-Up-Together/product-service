@@ -380,6 +380,21 @@ IR 용 KPI(DAU/WAU/MAU·리텐션)의 원천. 예전엔 "앱을 열었다" 신�
 - **설정** `app.stats.activity.enabled`(기본 true) · `excluded-user-ids`(E2E 봇·운영자 — config-repository 환경별). `DeviceTypeResolver` 는 LUT-598 에서 `global/web` 로 이동(user-service 전용 아님).
 - **DB**: `stats_db` 신설(9번째). DB 자체는 수동 생성(`CREATE DATABASE stats_db`), 테이블은 dev Flyway `db/migration/stats/` · prod 는 SQL 레포 V008 수동. 날짜 경계는 **KST**.
 
+## 가입 유입 채널 — CAC 원천 (LUT-599, `userservice/oauth/domain/policy/SignupChannelPolicy`)
+
+가입 완료(`POST /oauth/complete-signup`) 때 `users` 에 **1회 기록, 이후 불변**: `signup_channel`·`utm_source/medium/campaign`·`signup_device_type`·`invite_code`.
+배포 전 가입자는 전부 null(= 유입 미상). 채널 이름은 **서버가 정한다** — 클라이언트는 UTM 원문·초대 코드만 보낸다(요청 DTO optional 4필드, 구앱·구웹 호환).
+
+| 우선순위 | 조건 | `signup_channel` |
+|---|---|---|
+| 1 | `invite_code` 있음 (길드 초대 링크 LUT-519, 웹이 `return_url` 쿠키에서 읽음) | `invite` |
+| 2 | `utm_source` 있음 | utm_source 소문자 (50자) |
+| 3 | 가입 기기 ios/ipad/android (앱 웹뷰) | `store_ios` / `store_android` |
+| 4 | 그 외 | `organic_web` |
+
+웹은 `UtmCapture`(Providers)가 첫 진입 URL 의 UTM 을 **first-touch 쿠키** `{prefix}utm`(JSON, 30일, 덮어쓰지 않음)으로 보관하고, 가입 완료 요청에 `getSignupAttributionFields()` 로 실어 보낸 뒤 지운다(`src/lib/marketing/utm.ts`).
+CAC = 채널별 마케팅비 ÷ 채널별 가입자 — 마케팅비 입력·계산은 P3-a(어드민).
+
 ## Scheduler & Distributed Lock (ShedLock)
 
 멀티 EC2에서 `@Scheduled` 동시 실행 방지를 위해 **모든 스케줄러는 `@SchedulerLock` 필수**. `ShedLockConfig`가 Redis SETNX 기반 LockProvider 등록 (
