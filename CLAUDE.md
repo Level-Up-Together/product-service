@@ -555,6 +555,7 @@ list_price      = COMMON 유저 기준가 = 최대 할증가                    
   새 결제 → 옛 행에서 스토어 키를 떼고(유니크 제약, flush 선행) 결제 계정으로 **이전**. 웹훅(ASSN SUBSCRIBED/DID_RENEW/OFFER_REDEEMED,
   RTDN)도 거래 토큰이 현재 주인이 아니면 같은 upsert로 이전을 시도하고 거절(120802)되면 기존 행에 적용한다. 토큰 없는 예전 거래는
   스토어 키 소유자 기준. 웹 안내 문구: 스토어 해지가 아니라 "기존 이용 기간 종료 후 재구독".
+- **결제 이력 금액 출처 `price_source`** (LUT-600): Google `subscriptionsv2` 는 금액을 주지 않아 Android 원장 `price_amount` 가 null 이었다. `SubscriptionPriceResolver` 가 기록 시 결정 — 스토어 금액 있음 → `STORE` / 무료 체험 → 0원 `TRIAL` / 아니면 `plan_list_price`(플랜×플랫폼×통화, 결제일 이전 최신 `effective_from`) 정가로 채워 `LIST` / 정가도 없으면 null(warn). 정가 변경은 행 추가(삭제 금지). 캐시 없음(건수 적음). 어드민 응답 `price_source` 필드 추가(admin DTO 는 P3-a). ⚠ Play 라이선스 테스터 결제는 실매출이 아니다 — 운영 Android 17건(2026-09-20 하루 생성)은 백필 대상에서 제외 판단 필요.
 - **verify 응답 `trial`** (LUT-500): 이번 결제 건이 무료 체험으로 시작됐는지(원장 `subscription_payment_history.trial`과 동일). `trial_used`는
   **유저 평생 이력**이라 체험 소진 후 정가 재구독에도 true — 성공 문구 판정은 반드시 `trial`로. `/me` 응답의 `trial`은 null.
 - 테스트 환경 갱신 주기: Play 테스터 체험 3분·월 5분·연 30분(정상 갱신 6회 후 자동 취소) / iOS 샌드박스 1개월=5분 / TestFlight는 24시간 고정.

@@ -18,6 +18,7 @@ import io.pinkspider.leveluptogethermvp.config.ControllerTestConfig;
 import io.pinkspider.leveluptogethermvp.gamificationservice.subscription.application.SubscriptionPaymentHistoryAdminService;
 import io.pinkspider.leveluptogethermvp.gamificationservice.subscription.domain.dto.SubscriptionPaymentHistoryPageResponse;
 import io.pinkspider.leveluptogethermvp.gamificationservice.subscription.domain.dto.SubscriptionPaymentHistoryResponse;
+import io.pinkspider.leveluptogethermvp.gamificationservice.subscription.domain.enums.PriceSource;
 import io.pinkspider.leveluptogethermvp.gamificationservice.subscription.domain.enums.SubscriptionPaymentEventType;
 import io.pinkspider.leveluptogethermvp.gamificationservice.subscription.domain.enums.SubscriptionPlan;
 import java.math.BigDecimal;
@@ -76,7 +77,8 @@ class SubscriptionPaymentHistoryAdminInternalControllerTest {
                 "KRW",
                 "tx-" + id,
                 LocalDateTime.of(2026, 10, 14, 12, 0),
-                LocalDateTime.of(2026, 9, 14, 12, 0));
+                LocalDateTime.of(2026, 9, 14, 12, 0),
+                PriceSource.STORE);
     }
 
     @Test
@@ -244,6 +246,17 @@ class SubscriptionPaymentHistoryAdminInternalControllerTest {
                                                                         .type(JsonFieldType.STRING)
                                                                         .description(
                                                                                 "결제 통화 (ISO 4217)")
+                                                                        .optional(),
+                                                                fieldWithPath(
+                                                                                "value.content[].price_source")
+                                                                        .type(JsonFieldType.STRING)
+                                                                        .description(
+                                                                                "금액 출처 STORE(스토어"
+                                                                                    + " 제공)/LIST(정가"
+                                                                                    + " 폴백)/TRIAL(체험"
+                                                                                    + " 0원),"
+                                                                                    + " null=미상"
+                                                                                    + " (LUT-600)")
                                                                         .optional(),
                                                                 fieldWithPath(
                                                                                 "value.content[].transaction_id")

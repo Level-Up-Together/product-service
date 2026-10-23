@@ -1,5 +1,6 @@
 package io.pinkspider.leveluptogethermvp.gamificationservice.subscription.application;
 
+import io.pinkspider.leveluptogethermvp.gamificationservice.subscription.domain.dto.ResolvedPrice;
 import io.pinkspider.leveluptogethermvp.gamificationservice.subscription.domain.entity.SubscriptionPaymentHistory;
 import io.pinkspider.leveluptogethermvp.gamificationservice.subscription.domain.entity.UserSubscription;
 import io.pinkspider.leveluptogethermvp.gamificationservice.subscription.domain.enums.SubscriptionPaymentEventType;
@@ -23,6 +24,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class SubscriptionPaymentHistoryRecorder {
 
     private final SubscriptionPaymentHistoryRepository repository;
+    private final SubscriptionPriceResolver priceResolver;
 
     @Transactional(transactionManager = "gamificationTransactionManager")
     public void record(
@@ -43,6 +45,15 @@ public class SubscriptionPaymentHistoryRecorder {
                     expiresAt);
             return;
         }
+        // LUT-600: 스토어가 금액을 안 주면(Android) 플랜 정가로 채우고 출처를 남긴다
+        ResolvedPrice price =
+                priceResolver.resolve(
+                        priceAmount,
+                        priceCurrency,
+                        trial,
+                        subscription.getPlan(),
+                        subscription.getPlatform(),
+                        occurredAt == null ? null : occurredAt.toLocalDate());
         repository.save(
                 SubscriptionPaymentHistory.builder()
                         .userId(subscription.getUserId())
@@ -52,17 +63,21 @@ public class SubscriptionPaymentHistoryRecorder {
                         .plan(subscription.getPlan())
                         .eventType(eventType)
                         .trial(trial)
-                        .priceAmount(priceAmount)
-                        .priceCurrency(priceCurrency)
+                        .priceAmount(price.amount())
+                        .priceCurrency(price.currency())
+                        .priceSource(price.source())
                         .transactionId(transactionId)
                         .expiresAt(expiresAt)
                         .occurredAt(occurredAt)
                         .build());
         log.info(
-                "구독 결제 이력 기록: userId={}, event={}, plan={}, expiresAt={}",
+                "구독 결제 이력 기록: userId={}, event={}, plan={}, expiresAt={}, price={} {} ({})",
                 subscription.getUserId(),
                 eventType,
                 subscription.getPlan(),
-                expiresAt);
+                expiresAt,
+                price.amount(),
+                price.currency(),
+                price.source());
     }
 }

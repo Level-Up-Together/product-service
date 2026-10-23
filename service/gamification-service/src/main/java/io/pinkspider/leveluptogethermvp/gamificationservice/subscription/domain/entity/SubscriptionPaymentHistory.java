@@ -1,6 +1,7 @@
 package io.pinkspider.leveluptogethermvp.gamificationservice.subscription.domain.entity;
 
 import io.pinkspider.global.domain.auditentity.LocalDateTimeBaseEntity;
+import io.pinkspider.leveluptogethermvp.gamificationservice.subscription.domain.enums.PriceSource;
 import io.pinkspider.leveluptogethermvp.gamificationservice.subscription.domain.enums.SubscriptionPaymentEventType;
 import io.pinkspider.leveluptogethermvp.gamificationservice.subscription.domain.enums.SubscriptionPlan;
 import jakarta.persistence.Column;
@@ -97,6 +98,12 @@ public class SubscriptionPaymentHistory extends LocalDateTimeBaseEntity {
     @Column(name = "price_currency", length = 3)
     @Comment("결제 통화 (ISO 4217)")
     private String priceCurrency;
+
+    /** LUT-600: 금액 출처 — STORE(스토어 제공) / LIST(정가 폴백) / TRIAL(체험 0원). null = 미상 */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "price_source", length = 10)
+    @Comment("금액 출처 (STORE/LIST/TRIAL)")
+    private PriceSource priceSource;
 
     @Column(name = "transaction_id", length = 500)
     @Comment("결제 건 트랜잭션 ID (iOS transactionId — Android는 null)")
