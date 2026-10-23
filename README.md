@@ -735,6 +735,9 @@ Redis를 활용한 캐싱으로 서비스 간 호출을 최소화하고 성능�
 `/api/internal/**` 경로는 Admin Backend가 MVP의 도메인 데이터를 조회/조작하기 위해 사용합니다. `SecurityConfig`에서는 `permitAll`이지만
 **VPC 내부 접근 + 공유 시크릿 헤더 인증**(LUT-244)으로 보호됩니다 — `InternalApiKeyFilter`가 `X-Internal-Api-Key` 헤더를
 `app.security.internal-api.key`와 상수시간 비교 (키 미설정 시 fail-open). 상세: [`docs/INTERNAL_API.md`](docs/INTERNAL_API.md)
+같은 필터가 **액추에이터(`/showmethemoney/**`)도 보호**합니다(LUT-605) — `/showmethemoney/health` 만 공개(ALB·배포 헬스체크), 나머지는
+`X-Internal-Api-Key` 헤더 또는 HTTP Basic 비밀번호로 키를 보내야 합니다(Grafana Alloy 스크레이프용). KPI 스냅샷은 `lut_kpi_*` Micrometer
+게이지로 `/showmethemoney/prometheus` 에 노출됩니다(`KpiMetricsExporter`).
 
 베이스 경로 38개 — `users`, `terms`, `feeds`, `feed-comments`, `missions`, `mission-templates`, `mission-participants`, `mission-comments`,
 `mission-categories`, `mission-images`(변형 백필, LUT-409), `guilds`, `guilds/{guildId}`(게시글·댓글 관리), `guilds/exp`(EXP 백필),

@@ -10,6 +10,7 @@
 - **admin-service**: `MvpFeignConfig.mvpInternalApiKeyInterceptor`가 모든 MVP 내부 Feign 호출에 `app.mvp.internal-api-key`를 헤더로 주입.
 - **시크릿**: config-repository에 환경별 `{cipher}` 암호화 저장(dev/prod 각각 다른 값, product ↔ admin 동일 값이어야 매칭).
 - **fail-open**: 키 미설정(공백)이면 검증/주입을 건너뛴다 → config 선배포 없이 무중단 롤아웃 가능. 배포 후 config에 키가 있으면 자동 활성화.
+- **액추에이터 보호 (LUT-605)**: 같은 필터가 `management.endpoints.web.base-path`(`/showmethemoney`) 하위도 지킨다. `/showmethemoney/health`(및 `/health/**`)만 공개, 나머지 엔드포인트와 base-path 자체는 키 필수. 키는 `X-Internal-Api-Key` 헤더 또는 **HTTP Basic 비밀번호**(사용자명 무관, Prometheus/Alloy 스크레이프 호환) 로 전달. 예전엔 `permitAll` + exposure `*` 로 prod `/env`·`/beans`·`/prometheus` 가 공개돼 있었다(2026-10-24 확인).
 
 ## 도메인별 베이스 경로
 

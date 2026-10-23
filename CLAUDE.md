@@ -389,6 +389,7 @@ IR 용 KPI(DAU/WAU/MAU·리텐션)의 원천. 예전엔 "앱을 열었다" 신�
 - **지표**: dau/wau/mau = `user_daily_activity`(REQUEST, LUT-598 배포일부터) · `attendance_dau` = 출석(소급 가능) · 미션 완료 = `mission_execution`+`daily_mission_instance` COMPLETED(completed_at) · 구독 = `subscription_payment_history` PURCHASE/trial/REFUND + 체험→유료 전환 + `user_subscription` 활성/연장 없는 만료 · 매출 = **`price_source IS NOT NULL` 행만**(LUT-600, 미상·테스터 제외), 환불 음수, KRW 외 통화는 `fx_rate`(월, 수동) 있을 때만 `revenue_krw` 에 합산(원본은 `revenue_by_currency` JSONB).
 - **코호트 리텐션** `RetentionMetric` D1/D3/D7/D14/D30(classic)·W1(1~7일)·W2_4(8~30일) × `RetentionSource` REQUEST/ATTENDANCE. 창이 닫힌(어제 이내) 지표만 저장. REQUEST 는 활동 데이터 시작일(`min activity_date`) 이전 창은 계산하지 않는다. D0 없음(LUT-597 전 출석 0·요청은 가입 호출 포함).
 - **코호트 매출** 가입 월 × month_n {0,1,3,6,12}: 그 월말이 지난 점만, KRW 누적(구독+다이아). LTV = 누적 ÷ cohort_size (응답 `ltv_krw`).
+- **Micrometer 게이지** (LUT-605, `kpi/metrics/KpiMetricsExporter`): 최신 스냅샷 1행을 `lut_kpi_{dau,wau,mau,attendance_dau,signups,withdrawals,active_users,mission_completions,mission_active_users,paying_users,active_subscriptions,new_subscriptions,churned_subscriptions,revenue_krw}` + `lut_kpi_snapshot_age_days`(KST 오늘−snapshot_date, 정상 1 — 2 이상이면 00:40 스케줄러 실패) + `lut_kpi_snapshot_date_epoch_seconds` 로 `/showmethemoney/prometheus` 에 노출한다. 스크레이프마다 DB 를 치지 않게 5분 캐시, 조회 실패는 NaN(스크레이프를 깨지 않음). `@Scheduled` 가 아니라 인스턴스별 독립(ShedLock 불필요). Grafana Cloud 연동은 infra 레포 `docs/grafana-cloud.md`.
 - 내부 API `GET /api/internal/kpi/daily|retention|revenue/cohorts|signups/by-channel` 는 P3-a admin Feign(`MvpKpiFeignClient`, LUT-602) 이 그대로 읽는다. `signups/by-channel?from_month&to_month` 는 KST 월 × `signup_channel`(null→`unknown`, provider≠test) 가입자로 어드민 CAC 분모 — 스냅샷이 아니라 user_db 직접 집계. 날짜 파라미터는 ISO(`@DateTimeFormat`), 월은 `yyyy-MM`; 형식 오류 400, from>to 는 바꿔서 처리.
 
 ## 가입 유입 채널 — CAC 원천 (LUT-599, `userservice/oauth/domain/policy/SignupChannelPolicy`)
@@ -739,6 +740,12 @@ UA로 덮어쓰지 않는 이유는 RN의 `Platform.OS`가 iPad에서도 `ios`�
 `/api/internal/**` — VPC 내부 접근 + 공유 시크릿 헤더 인증(LUT-244). `InternalApiKeyFilter`가 `X-Internal-Api-Key` 헤더를
 `app.security.internal-api.key`와 상수시간 비교 (키 미설정 시 fail-open). 도메인별 베이스 경로, 신고 처리 워크플로우(WARNING/SUSPEND/BAN) 매핑: [
 `docs/INTERNAL_API.md`](docs/INTERNAL_API.md)
+
+**액추에이터도 같은 키로 보호된다** (LUT-605): `InternalApiKeyFilter` 가 `/showmethemoney/**` 중 **`/health`(하위 포함)만 공개**하고 나머지
+(`env`·`beans`·`metrics`·`prometheus`·`heapdump`·`threaddump`, base-path 자체)는 `X-Internal-Api-Key` 헤더 **또는 HTTP Basic 의 비밀번호**(사용자명 무관,
+Prometheus/Grafana Alloy 스크레이프용 — 플랫폼 `JwtAuthenticationFilter` 는 `Bearer` 만 해석해 충돌 없음)로 키를 받아야 200 이다. 예전엔 SecurityConfig
+`permitAll` + exposure `*` 라 prod `api.level-up-together.com/showmethemoney/env` 가 공개돼 있었다. 운영 점검은 `curl -u alloy:$KEY …/prometheus`.
+ALB·배포 스크립트(`gradle-*.yml`) 헬스체크는 `/showmethemoney/health` 라 영향 없다. 키 미설정이면 기존처럼 fail-open.
 
 어드민 대시보드용 `GET /api/internal/users/statistics` 의 `total_users` 는 **탈퇴(WITHDRAWN) 제외**(LUT-603 — 예전엔 `count()` 라 익명화된
 탈퇴 행까지 세었다), 탈퇴 수는 `withdrawn_users`, 가입경로 분포(`users_by_provider`)도 탈퇴 제외라 합이 `total_users` 와 맞는다.
