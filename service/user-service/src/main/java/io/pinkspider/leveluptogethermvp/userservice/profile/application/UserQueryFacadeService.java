@@ -75,6 +75,12 @@ public class UserQueryFacadeService implements UserQueryFacade {
 
     // ========== 신규 유저 확인 ==========
 
+    /**
+     * 오늘 가입한 신규 유저인지 확인.
+     *
+     * <p>LUT-597: 출석 "가입 첫날 제외" 규칙이 폐지되어 product 안에 호출처가 없다. kernel {@code UserQueryFacade} 인터페이스
+     * 호환을 위해 유지한다. UTC 날짜 비교(JVM 기본 UTC)라 유저 타임존 기준 "오늘"과 다를 수 있다.
+     */
     public boolean isNewUserToday(String userId) {
         return userRepository
                 .findById(userId)

@@ -2,13 +2,11 @@ package io.pinkspider.leveluptogethermvp.gamificationservice.attendance.api;
 
 import io.pinkspider.global.annotation.CurrentUser;
 import io.pinkspider.global.api.ApiResult;
-import io.pinkspider.global.facade.UserQueryFacade;
 import io.pinkspider.global.ratelimit.PerUserRateLimit;
 import io.pinkspider.leveluptogethermvp.gamificationservice.attendance.application.AttendanceService;
 import io.pinkspider.leveluptogethermvp.gamificationservice.attendance.domain.dto.AttendanceCheckInResponse;
 import io.pinkspider.leveluptogethermvp.gamificationservice.attendance.domain.dto.MonthlyAttendanceResponse;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -20,29 +18,17 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequestMapping("/api/v1/attendance")
 @RequiredArgsConstructor
-@Slf4j
 public class AttendanceController {
 
     private final AttendanceService attendanceService;
-    private final UserQueryFacade userQueryFacadeService;
 
     // 출석 체크 (Rate Limit: 사용자당 1분에 5회)
     @PostMapping("/check-in")
     @PerUserRateLimit(name = "attendance", limit = 5, windowSeconds = 60)
     public ResponseEntity<ApiResult<AttendanceCheckInResponse>> checkIn(
             @CurrentUser String userId) {
-        // 오늘 가입한 신규 유저는 출석 체크 대상에서 제외
-        if (userQueryFacadeService.isNewUserToday(userId)) {
-            log.info("신규 가입 유저는 첫날 출석 체크 제외: userId={}", userId);
-            AttendanceCheckInResponse response =
-                    AttendanceCheckInResponse.builder()
-                            .isAlreadyCheckedIn(true)
-                            .message("가입 첫날은 출석 체크가 적용되지 않습니다. 내일부터 출석 체크를 시작해주세요!")
-                            .build();
-            return ResponseEntity.ok(
-                    ApiResult.<AttendanceCheckInResponse>builder().value(response).build());
-        }
-
+        // LUT-597: 가입 당일 출석을 막던 "첫날 제외" 규칙(2025-12-25, UTC 날짜 비교)을 폐지했다.
+        // 가입 당일이 출석 1일차 — IR 리텐션 D1 정의와 맞추고, 첫날 출석 보상도 지급한다.
         AttendanceCheckInResponse response = attendanceService.checkIn(userId);
         return ResponseEntity.ok(
                 ApiResult.<AttendanceCheckInResponse>builder().value(response).build());
