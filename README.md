@@ -741,7 +741,7 @@ Redis를 활용한 캐싱으로 서비스 간 호출을 최소화하고 성능�
 `guild-level-configs`, `user-level-configs`, `attendance-reward-configs`, `achievements`, `achievement-categories`, `check-logic-types`,
 `titles`, `title-grants`, `experience-history`, `events`, `seasons`, `seasons/{seasonId}/rank-rewards`, `mvp-history`, `daily-mvp-exclusions`,
 `profanity-words`, `shop-items`, `shop-purchases`, `item-grants`, `diamonds`(마이그레이션), `diamond-bundles`, `diamond-payments`, `subscription-payments`,
-`push-campaigns`(어드민 푸시 발송·이력, LUT-508), `stats/activity`(유저 일별 활동 수동 flush, LUT-598), `kpi`(일별 KPI 스냅샷·코호트 리텐션·코호트 매출 조회 + rebuild, LUT-601).
+`push-campaigns`(어드민 푸시 발송·이력, LUT-508), `stats/activity`(유저 일별 활동 수동 flush, LUT-598), `kpi`(daily·retention·revenue/cohorts·signups/by-channel·rebuild)(일별 KPI 스냅샷·코호트 리텐션·코호트 매출 조회 + rebuild, LUT-601).
 (`docs/INTERNAL_API.md`에는 이 중 일부만 정리돼 있어 보강 필요)
 
 | 도메인           | 베이스 경로                                                         |

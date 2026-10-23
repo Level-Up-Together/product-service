@@ -389,7 +389,7 @@ IR 용 KPI(DAU/WAU/MAU·리텐션)의 원천. 예전엔 "앱을 열었다" 신�
 - **지표**: dau/wau/mau = `user_daily_activity`(REQUEST, LUT-598 배포일부터) · `attendance_dau` = 출석(소급 가능) · 미션 완료 = `mission_execution`+`daily_mission_instance` COMPLETED(completed_at) · 구독 = `subscription_payment_history` PURCHASE/trial/REFUND + 체험→유료 전환 + `user_subscription` 활성/연장 없는 만료 · 매출 = **`price_source IS NOT NULL` 행만**(LUT-600, 미상·테스터 제외), 환불 음수, KRW 외 통화는 `fx_rate`(월, 수동) 있을 때만 `revenue_krw` 에 합산(원본은 `revenue_by_currency` JSONB).
 - **코호트 리텐션** `RetentionMetric` D1/D3/D7/D14/D30(classic)·W1(1~7일)·W2_4(8~30일) × `RetentionSource` REQUEST/ATTENDANCE. 창이 닫힌(어제 이내) 지표만 저장. REQUEST 는 활동 데이터 시작일(`min activity_date`) 이전 창은 계산하지 않는다. D0 없음(LUT-597 전 출석 0·요청은 가입 호출 포함).
 - **코호트 매출** 가입 월 × month_n {0,1,3,6,12}: 그 월말이 지난 점만, KRW 누적(구독+다이아). LTV = 누적 ÷ cohort_size (응답 `ltv_krw`).
-- 내부 API `GET /api/internal/kpi/daily|retention|revenue/cohorts` 는 P3-a admin Feign 이 그대로 읽는다. 날짜 파라미터는 ISO(`@DateTimeFormat`), 월은 `yyyy-MM`; 형식 오류 400, from>to 는 바꿔서 처리.
+- 내부 API `GET /api/internal/kpi/daily|retention|revenue/cohorts|signups/by-channel` 는 P3-a admin Feign(`MvpKpiFeignClient`, LUT-602) 이 그대로 읽는다. `signups/by-channel?from_month&to_month` 는 KST 월 × `signup_channel`(null→`unknown`, provider≠test) 가입자로 어드민 CAC 분모 — 스냅샷이 아니라 user_db 직접 집계. 날짜 파라미터는 ISO(`@DateTimeFormat`), 월은 `yyyy-MM`; 형식 오류 400, from>to 는 바꿔서 처리.
 
 ## 가입 유입 채널 — CAC 원천 (LUT-599, `userservice/oauth/domain/policy/SignupChannelPolicy`)
 
