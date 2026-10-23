@@ -72,7 +72,6 @@ public class UserDataSourceConfig {
         return new HikariDataSource(cfg);
     }
 
-    @Primary
     /** LUT-595: Flyway → JPA 순서 보장. {@code app.flyway.enabled=false} 면 no-op */
     @Bean(name = "userFlywayMigration", initMethod = "migrate")
     public FlywayMigration userFlywayMigration(
@@ -81,6 +80,7 @@ public class UserDataSourceConfig {
         return FlywayMigration.forDatabase("user", dataSource, flywayProperties);
     }
 
+    @Primary
     @DependsOn("userFlywayMigration")
     @Bean(name = "userEntityManagerFactory")
     public LocalContainerEntityManagerFactoryBean userEntityManagerFactory(

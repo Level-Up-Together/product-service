@@ -64,11 +64,16 @@ public class FlywayMigration {
             return;
         }
         MigrateResult result = flywaySupplier.get().migrate();
+        // 적용이 0건이면 targetSchemaVersion 이 null — 그때 현재 버전은 initialSchemaVersion
+        String current =
+                result.targetSchemaVersion != null
+                        ? result.targetSchemaVersion
+                        : result.initialSchemaVersion;
         log.info(
-                "Flyway 완료: db={}, 적용 {}건, 현재 버전 {} (초기 {})",
+                "Flyway 완료: db={}, 적용 {}건, 현재 버전 {} (기동 전 {})",
                 database,
                 result.migrationsExecuted,
-                result.targetSchemaVersion,
+                current,
                 result.initialSchemaVersion);
     }
 }
