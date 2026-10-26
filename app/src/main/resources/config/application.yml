@@ -21,6 +21,14 @@ spring:
 server:
   port: 8443
 
+# LUT-615: HTTP 요청 지연 p95/p99 용 히스토그램 — percentiles-histogram(버킷 ~70개 × uri·status 조합)은 Grafana Cloud Free
+# 활성 시리즈 한도(1만)를 넘기므로 SLO 경계 4개(+Inf 포함 버킷 5개)만 노출한다. Grafana 는 histogram_quantile 로 추정(경계 사이는 선형 보간).
+management:
+  metrics:
+    distribution:
+      slo:
+        "[http.server.requests]": 100ms,300ms,1s,3s
+
 logging:
   config: classpath:slf4j/logback-spring-local.xml
 
