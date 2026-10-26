@@ -505,7 +505,8 @@ public void run() { ...}
 | `GET /api/internal/shop-items`, `/api/internal/shop-purchases`    | Internal      | Admin 아이템 관리 · 구매이력 (LUT-328)         |
 | `GET /api/internal/diamond-bundles`                               | Internal      | Admin 다이아 묶음상품 관리 (LUT-356)          |
 | `GET /api/internal/diamond-payments`                              | Internal      | Admin 다이아 결제이력 조회 — 어드민은 `DIAMOND_PAYMENT_READ` 권한 필요 (LUT-401). `user_id` 필터 지원 (LUT-486) |
-| `GET /api/internal/subscription-payments`                         | Internal      | Admin 구독 결제 이력 — 유저 상세 탭(`user_id`, LUT-486)과 결제이력 통합 페이지(닉네임·기간·플랫폼·플랜·이벤트 필터, LUT-488) 공용. `subscription_payment_history` append-only 원장(만료 엄격 연장 시에만 기록, verify·웹훅 이중 도착 자연 멱등). 가격은 iOS만 캡처 |
+| `GET /api/internal/subscription-payments`                         | Internal      | Admin 구독 결제 이력 — 유저 상세 탭(`user_id`, LUT-486)과 결제이력 통합 페이지(닉네임·기간·플랫폼·플랜·이벤트 필터, LUT-488) 공용. `subscription_payment_history` append-only 원장(만료 엄격 연장 시에만 기록, verify·웹훅 이중 도착 자연 멱등). 가격은 iOS JWS + Android Orders API(LUT-617) |
+| `POST /api/internal/subscription-payments/reconcile`              | Internal      | Android 구독 원장을 Play 주문 연번(1..latest)과 전수 대조 — 누락 갱신 백필·어긋난 행 정정, 구독 권한은 불변 (LUT-617). `user_id` 필수 |
 | `POST/GET /api/internal/item-grants`, `DELETE .../{id}`           | Internal      | Admin 아이템 수동 지급/이력/회수 — 멱등(보유 시 no-op), 회수=인벤토리 삭제+이력 revoked 마킹, `ITEM_GRANTED` 푸시 (LUT-472) |
 
 **합산 차감** (LUT-354): 아이템 구매는 블루+핑크 합산 잔액에서 **블루(무상) 우선 소진**
@@ -554,6 +555,19 @@ list_price      = COMMON 유저 기준가 = 최대 할증가                    
 - **스토어 서버 알림** (LUT-452): `POST /api/v1/webhooks/subscriptions/{apple|google}` permitAll. Android RTDN은 **GCP Pub/Sub push**로만
   온다 — 토픽 `lut-rtdn-{dev|prod}` + push 구독 → 웹훅 URL, Play Console 수익 창출 설정에 토픽 연결. iOS는 ASC 앱 정보에 Sandbox/Production
   URL 등록. dev는 2026-09-16 등록 완료(LUT-499); **prod는 config에 `iap:` 섹션 자체가 없어 검증 off** — 등록 전 config 추가·재기동 필수.
+  ⚠ **Pub/Sub push 구독은 반드시 `--expiration-period=never` 로 만든다** (LUT-617): 기본 만료 정책은 "31일 비활성 시 삭제"이고 삭제는 알림도
+  감사 로그도 없다. dev 구독이 2026-10-17 쯤 사라져 10/26 테스트 갱신 RTDN 9건이 구독 없는 토픽으로 발행돼 전부 폐기됐다. 2026-10-26 `lut-rtdn-dev-push`
+  재생성(만료 없음·재시도 10s~600s). 운영 `lut-rtdn-prod` 는 토픽만 있고 구독 0 — v1.1.3 때 같은 방식으로. 수신 여부는 `lut_rtdn_received_total`
+  (`RtdnMetrics`, kind 라벨) 카운터로 본다 — 0 이 계속되면 전달 경로부터 의심.
+- **Android 갱신 원장은 Play 주문 연번으로 완결한다** (LUT-617, `GoogleOrderLedgerSync`): RTDN·자가 치유·verify 는 "처리 시점의 `latestOrderId`
+  1건"만 알지만 갱신 주문 ID 는 `GPA.xxxx..N` 연번이다. 만료가 늘어날 때 원장의 마지막 N 다음부터 최신 N 까지 **Orders API**(`orders.get`,
+  `SubscriptionVerificationService.fetchGoogleOrder`)로 되짚어 실제 결제 시각(`createTime`)·금액(`total` → `price_source=STORE`)·이용 기간(`servicePeriodEnd`
+  = expires_at)으로 채운다. 주문 조회는 best-effort(권한 동기화를 막지 않음; 최신 주문만은 조회 실패 시 RTDN `eventTimeMillis`/now 로라도 기록, 중간 주문은
+  다음 호출 때 재시도). 같은 주문 ID 행은 주문 기준으로 정정(append-only 의 유일한 예외, `correctFromStoreOrder`). 수동 전수 대조는
+  `POST /api/internal/subscription-payments/reconcile?user_id=` (구독 권한은 안 바꿈, Android 만 — 120803/120804).
+- **스토어 API 실패는 일시/영구를 가른다** (LUT-617): `fetchGoogleSubscription`/`fetchGoogleOrder` 는 5xx·네트워크·토큰 발급 지연을
+  `StoreTransientException` 으로 던지고 웹훅은 이를 잡지 않아 5xx → Pub/Sub 백오프 재시도. 4xx(잘못된 토큰·권한)·파싱 실패만 `120702`(폐기). 클라이언트
+  verify·내부 reconcile 은 transient 를 120702 로 감싸 응답 계약 유지. 액세스 토큰은 50분 캐시(백필이 주문을 여러 번 조회).
 - **자가 치유** (LUT-499, `SubscriptionSelfHealService`): `/subscriptions/me`가 `expires_at` 경과 + `auto_renew` 상태를 보면 응답 전 스토어를
   재조회해 웹훅과 같은 경로(`SubscriptionWebhookTxService.applyGoogleState` / `applyAppleSnapshot`)로 덮어쓴다. 실패는 삼키고 DB 값 응답.
   `getMyEntitlement`는 클래스 readOnly 트랜잭션 밖(`NOT_SUPPORTED`)에서 돈다 — readOnly 안에서 쓰기를 부르면 flush 되지 않는다.

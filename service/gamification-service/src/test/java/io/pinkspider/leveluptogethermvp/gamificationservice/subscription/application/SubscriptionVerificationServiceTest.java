@@ -215,6 +215,235 @@ class SubscriptionVerificationServiceTest {
             return svc;
         }
 
+        private static final String ORDER_JSON =
+                "{\"orderId\":\"GPA.3329-9857-6705-37595..2\",\"state\":\"PROCESSED\","
+                        + "\"createTime\":\"2026-10-26T03:27:03.120Z\","
+                        + "\"total\":{\"currencyCode\":\"KRW\",\"units\":\"4900\"},"
+                        + "\"lineItems\":[{\"productId\":\"membership\","
+                        + "\"subscriptionDetails\":{\"basePlanId\":\"1m\","
+                        + "\"servicePeriodStartTime\":\"2026-10-26T03:27:00Z\","
+                        + "\"servicePeriodEndTime\":\"2026-10-26T03:32:00Z\"}}]}";
+
+        @Test
+        @DisplayName("LUT-617: orders.get 응답을 결제 시각·금액·이용 기간으로 매핑한다")
+        void google_fetchOrder_mapsResponse() throws Exception {
+            RestTemplate rest = mock(RestTemplate.class);
+            SubscriptionVerificationService svc = serviceWithGoogle(rest);
+            when(rest.exchange(
+                            contains("/orders/GPA.3329-9857-6705-37595..2"),
+                            eq(HttpMethod.GET),
+                            any(),
+                            eq(String.class)))
+                    .thenReturn(ResponseEntity.ok(ORDER_JSON));
+
+            java.util.Optional<
+                            io.pinkspider.leveluptogethermvp.gamificationservice.subscription.domain
+                                    .dto.GoogleOrder>
+                    order = svc.fetchGoogleOrder("GPA.3329-9857-6705-37595..2");
+
+            assertThat(order).isPresent();
+            assertThat(order.get().orderId()).isEqualTo("GPA.3329-9857-6705-37595..2");
+            assertThat(order.get().state()).isEqualTo("PROCESSED");
+            assertThat(order.get().createTime())
+                    .isEqualTo(java.time.LocalDateTime.of(2026, 10, 26, 3, 27, 3, 120_000_000));
+            assertThat(order.get().totalAmount()).isEqualByComparingTo("4900.00");
+            assertThat(order.get().totalCurrency()).isEqualTo("KRW");
+            assertThat(order.get().servicePeriodStart())
+                    .isEqualTo(java.time.LocalDateTime.of(2026, 10, 26, 3, 27));
+            assertThat(order.get().servicePeriodEnd())
+                    .isEqualTo(java.time.LocalDateTime.of(2026, 10, 26, 3, 32));
+        }
+
+        @Test
+        @DisplayName("LUT-617: 주문 404 는 empty, 그 외 4xx 는 120702, 5xx·네트워크는 StoreTransientException")
+        void google_fetchOrder_errorClassification() throws Exception {
+            RestTemplate rest = mock(RestTemplate.class);
+            SubscriptionVerificationService svc = serviceWithGoogle(rest);
+            when(rest.exchange(
+                            contains("/orders/missing"),
+                            eq(HttpMethod.GET),
+                            any(),
+                            eq(String.class)))
+                    .thenThrow(
+                            org.springframework.web.client.HttpClientErrorException.create(
+                                    org.springframework.http.HttpStatus.NOT_FOUND,
+                                    "Not Found",
+                                    org.springframework.http.HttpHeaders.EMPTY,
+                                    null,
+                                    null));
+            when(rest.exchange(
+                            contains("/orders/forbidden"),
+                            eq(HttpMethod.GET),
+                            any(),
+                            eq(String.class)))
+                    .thenThrow(
+                            org.springframework.web.client.HttpClientErrorException.create(
+                                    org.springframework.http.HttpStatus.FORBIDDEN,
+                                    "Forbidden",
+                                    org.springframework.http.HttpHeaders.EMPTY,
+                                    null,
+                                    null));
+            when(rest.exchange(
+                            contains("/orders/down"), eq(HttpMethod.GET), any(), eq(String.class)))
+                    .thenThrow(
+                            new org.springframework.web.client.HttpServerErrorException(
+                                    org.springframework.http.HttpStatus.SERVICE_UNAVAILABLE));
+            when(rest.exchange(
+                            contains("/orders/timeout"),
+                            eq(HttpMethod.GET),
+                            any(),
+                            eq(String.class)))
+                    .thenThrow(
+                            new org.springframework.web.client.ResourceAccessException("timeout"));
+            when(rest.exchange(
+                            contains("/orders/garbage"),
+                            eq(HttpMethod.GET),
+                            any(),
+                            eq(String.class)))
+                    .thenReturn(ResponseEntity.ok("not-json"));
+
+            assertThat(svc.fetchGoogleOrder("missing")).isEmpty();
+            assertThatThrownBy(() -> svc.fetchGoogleOrder("forbidden"))
+                    .isInstanceOf(CustomException.class)
+                    .extracting("code")
+                    .isEqualTo("120702");
+            assertThatThrownBy(() -> svc.fetchGoogleOrder("down"))
+                    .isInstanceOf(StoreTransientException.class);
+            assertThatThrownBy(() -> svc.fetchGoogleOrder("timeout"))
+                    .isInstanceOf(StoreTransientException.class);
+            assertThatThrownBy(() -> svc.fetchGoogleOrder("garbage"))
+                    .isInstanceOf(CustomException.class);
+        }
+
+        @Test
+        @DisplayName(
+                "LUT-617: subscriptionsv2 5xx 는 StoreTransientException, verify 경로에선 120702 로 감싼다")
+        void google_subscriptionTransient_isClassified() throws Exception {
+            RestTemplate rest = mock(RestTemplate.class);
+            SubscriptionVerificationService svc = serviceWithGoogle(rest);
+            when(rest.exchange(
+                            contains("/purchases/subscriptionsv2/tokens/token-001"),
+                            eq(HttpMethod.GET),
+                            any(),
+                            eq(String.class)))
+                    .thenThrow(
+                            new org.springframework.web.client.HttpServerErrorException(
+                                    org.springframework.http.HttpStatus.BAD_GATEWAY));
+
+            assertThatThrownBy(() -> svc.fetchGoogleSubscription("token-001"))
+                    .isInstanceOf(StoreTransientException.class);
+            assertThatThrownBy(() -> svc.verify(androidRequest()))
+                    .isInstanceOf(CustomException.class)
+                    .extracting("code")
+                    .isEqualTo("120702");
+        }
+
+        @Test
+        @DisplayName("LUT-617: subscriptionsv2 4xx(잘못된 토큰)는 영구 실패 120702")
+        void google_subscriptionClientError_isPermanent() throws Exception {
+            RestTemplate rest = mock(RestTemplate.class);
+            SubscriptionVerificationService svc = serviceWithGoogle(rest);
+            when(rest.exchange(
+                            contains("/purchases/subscriptionsv2/tokens/token-001"),
+                            eq(HttpMethod.GET),
+                            any(),
+                            eq(String.class)))
+                    .thenThrow(
+                            org.springframework.web.client.HttpClientErrorException.create(
+                                    org.springframework.http.HttpStatus.BAD_REQUEST,
+                                    "Bad Request",
+                                    org.springframework.http.HttpHeaders.EMPTY,
+                                    null,
+                                    null));
+
+            assertThatThrownBy(() -> svc.fetchGoogleSubscription("token-001"))
+                    .isInstanceOf(CustomException.class)
+                    .extracting("code")
+                    .isEqualTo("120702");
+        }
+
+        @Test
+        @DisplayName("LUT-617: 액세스 토큰은 캐시돼 연속 호출에 한 번만 발급한다 — 발급 5xx 는 transient, 빈 토큰은 120702")
+        void google_accessTokenCachedAndClassified() throws Exception {
+            RestTemplate rest = mock(RestTemplate.class);
+            SubscriptionVerificationService svc = serviceWithGoogle(rest);
+            when(rest.exchange(contains("/orders/"), eq(HttpMethod.GET), any(), eq(String.class)))
+                    .thenReturn(ResponseEntity.ok(ORDER_JSON));
+
+            svc.fetchGoogleOrder("GPA.1..1");
+            svc.fetchGoogleOrder("GPA.1..2");
+            svc.fetchGoogleOrder("GPA.1..3");
+
+            org.mockito.Mockito.verify(rest, org.mockito.Mockito.times(1))
+                    .postForObject(
+                            eq("https://oauth2.googleapis.com/token"), any(), eq(String.class));
+
+            RestTemplate failing = mock(RestTemplate.class);
+            SubscriptionVerificationService svc2 =
+                    new SubscriptionVerificationService(
+                            true,
+                            "io.pinkspider.lut",
+                            writeFakeServiceAccountJson().toString(),
+                            new IapAppleProperties());
+            svc2.setRestTemplate(failing);
+            when(failing.postForObject(
+                            eq("https://oauth2.googleapis.com/token"), any(), eq(String.class)))
+                    .thenThrow(
+                            new org.springframework.web.client.HttpServerErrorException(
+                                    org.springframework.http.HttpStatus.SERVICE_UNAVAILABLE));
+            assertThatThrownBy(() -> svc2.fetchGoogleOrder("GPA.1..1"))
+                    .isInstanceOf(StoreTransientException.class);
+
+            RestTemplate empty = mock(RestTemplate.class);
+            SubscriptionVerificationService svc3 =
+                    new SubscriptionVerificationService(
+                            true,
+                            "io.pinkspider.lut",
+                            writeFakeServiceAccountJson().toString(),
+                            new IapAppleProperties());
+            svc3.setRestTemplate(empty);
+            when(empty.postForObject(
+                            eq("https://oauth2.googleapis.com/token"), any(), eq(String.class)))
+                    .thenReturn("{}");
+            assertThatThrownBy(() -> svc3.fetchGoogleOrder("GPA.1..1"))
+                    .isInstanceOf(CustomException.class)
+                    .extracting("code")
+                    .isEqualTo("120702");
+        }
+
+        @Test
+        @DisplayName("LUT-617: parseMoney — units/nanos 합산, 둘 다 없으면 null; 주문에 이용 기간이 없으면 null")
+        void google_parseMoneyAndOrderEdges() throws Exception {
+            com.fasterxml.jackson.databind.ObjectMapper om =
+                    new com.fasterxml.jackson.databind.ObjectMapper();
+            assertThat(
+                            SubscriptionVerificationService.parseMoney(
+                                    om.readTree(
+                                            "{\"currencyCode\":\"USD\",\"units\":\"4\",\"nanos\":990000000}")))
+                    .isEqualByComparingTo("4.99");
+            assertThat(
+                            SubscriptionVerificationService.parseMoney(
+                                    om.readTree("{\"currencyCode\":\"KRW\"}")))
+                    .isNull();
+            assertThat(
+                            SubscriptionVerificationService.parseMoney(
+                                    om.readTree("{\"nanos\":500000000}")))
+                    .isEqualByComparingTo("0.50");
+
+            io.pinkspider.leveluptogethermvp.gamificationservice.subscription.domain.dto.GoogleOrder
+                    bare =
+                            SubscriptionVerificationService.parseGoogleOrder(
+                                    "GPA.9",
+                                    om.readTree(
+                                            "{\"state\":\"REFUNDED\",\"lineItems\":[{\"productId\":\"x\"}]}"));
+            assertThat(bare.orderId()).isEqualTo("GPA.9");
+            assertThat(bare.state()).isEqualTo("REFUNDED");
+            assertThat(bare.createTime()).isNull();
+            assertThat(bare.totalAmount()).isNull();
+            assertThat(bare.servicePeriodStart()).isNull();
+            assertThat(bare.servicePeriodEnd()).isNull();
+        }
+
         @Test
         @DisplayName("활성 구독을 결과로 매핑한다 — base plan/만료/자동갱신")
         void google_active_mapsResponse() throws Exception {

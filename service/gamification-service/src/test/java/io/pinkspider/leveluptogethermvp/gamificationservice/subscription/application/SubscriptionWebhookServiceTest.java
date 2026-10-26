@@ -1,6 +1,8 @@
 package io.pinkspider.leveluptogethermvp.gamificationservice.subscription.application;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
@@ -19,6 +21,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -30,6 +33,8 @@ class SubscriptionWebhookServiceTest {
     @Mock private SubscriptionVerificationService verificationService;
 
     @Mock private SubscriptionWebhookTxService webhookTxService;
+
+    @Mock private RtdnMetrics metrics;
 
     @InjectMocks private SubscriptionWebhookService webhookService;
 
@@ -112,7 +117,7 @@ class SubscriptionWebhookServiceTest {
                                 + "\"subscriptionNotification\":{\"version\":\"1.0\",\"notificationType\":2,"
                                 + "\"purchaseToken\":\"token-001\",\"subscriptionId\":\"membership\"}}"));
 
-            verify(webhookTxService).applyGoogleState(eq("token-001"), eq(state));
+            verify(webhookTxService).applyGoogleState(eq("token-001"), eq(state), any());
         }
 
         @Test
@@ -157,7 +162,7 @@ class SubscriptionWebhookServiceTest {
                             "{\"subscriptionNotification\":{\"notificationType\":8,"
                                     + "\"purchaseToken\":\"token-001\"}}"));
 
-            verify(webhookTxService).applyGoogleState(eq("token-001"), eq(state));
+            verify(webhookTxService).applyGoogleState(eq("token-001"), eq(state), any());
         }
 
         @Test
@@ -166,7 +171,7 @@ class SubscriptionWebhookServiceTest {
             webhookService.handleGoogleNotification(
                     b64("{\"testNotification\":{\"version\":\"1.0\"}}"));
 
-            verify(webhookTxService, never()).applyGoogleState(anyString(), any());
+            verify(webhookTxService, never()).applyGoogleState(anyString(), any(), any());
         }
 
         @Test
@@ -176,7 +181,7 @@ class SubscriptionWebhookServiceTest {
                     .doesNotThrowAnyException();
             assertThatCode(() -> webhookService.handleGoogleNotification(null))
                     .doesNotThrowAnyException();
-            verify(webhookTxService, never()).applyGoogleState(anyString(), any());
+            verify(webhookTxService, never()).applyGoogleState(anyString(), any(), any());
         }
 
         @Test
@@ -192,7 +197,88 @@ class SubscriptionWebhookServiceTest {
                                                     "{\"subscriptionNotification\":{\"notificationType\":2,"
                                                         + "\"purchaseToken\":\"token-001\"}}")))
                     .doesNotThrowAnyException();
-            verify(webhookTxService, never()).applyGoogleState(anyString(), any());
+            verify(webhookTxService, never()).applyGoogleState(anyString(), any(), any());
+        }
+
+        @Test
+        @DisplayName("LUT-617: eventTimeMillis 를 UTC 시각으로 넘긴다 — 결제 이력 occurred_at 폴백")
+        void eventTimePassedThrough() {
+            GoogleSubscriptionState state =
+                    new GoogleSubscriptionState(
+                            "membership",
+                            "1m",
+                            null,
+                            LocalDateTime.now().plusMonths(1),
+                            true,
+                            false,
+                            "SUBSCRIPTION_STATE_ACTIVE");
+            when(verificationService.fetchGoogleSubscription("token-001")).thenReturn(state);
+
+            // 2026-10-26T03:32:00Z
+            webhookService.handleGoogleNotification(
+                    b64(
+                            "{\"version\":\"1.0\",\"packageName\":\"pkg\",\"eventTimeMillis\":\"1792985520000\","
+                                + "\"subscriptionNotification\":{\"notificationType\":2,"
+                                + "\"purchaseToken\":\"token-001\"}}"));
+
+            ArgumentCaptor<LocalDateTime> eventTime = ArgumentCaptor.forClass(LocalDateTime.class);
+            verify(webhookTxService)
+                    .applyGoogleState(eq("token-001"), eq(state), eventTime.capture());
+            assertThat(eventTime.getValue()).isEqualTo(LocalDateTime.of(2026, 10, 26, 3, 32));
+            verify(metrics).received("subscription-2");
+        }
+
+        @Test
+        @DisplayName("LUT-617: 재조회 일시 실패(5xx·네트워크)는 삼키지 않는다 — 5xx 응답으로 Pub/Sub 재시도")
+        void transientRefetchFailurePropagates() {
+            when(verificationService.fetchGoogleSubscription("token-001"))
+                    .thenThrow(new StoreTransientException("503", null));
+
+            assertThatThrownBy(
+                            () ->
+                                    webhookService.handleGoogleNotification(
+                                            b64(
+                                                    "{\"subscriptionNotification\":{\"notificationType\":2,"
+                                                        + "\"purchaseToken\":\"token-001\"}}")))
+                    .isInstanceOf(StoreTransientException.class);
+            verify(webhookTxService, never()).applyGoogleState(anyString(), any(), any());
+            verify(metrics, never()).dropped(anyString());
+        }
+
+        @Test
+        @DisplayName("LUT-617: 영구 실패·빈 페이로드·구독 아님은 폐기 사유 카운터를 남긴다")
+        void dropsAreCounted() {
+            when(verificationService.fetchGoogleSubscription("token-001"))
+                    .thenThrow(new CustomException("120702", "error.iap.verification_failed"));
+            webhookService.handleGoogleNotification(
+                    b64(
+                            "{\"subscriptionNotification\":{\"notificationType\":2,"
+                                    + "\"purchaseToken\":\"token-001\"}}"));
+            webhookService.handleGoogleNotification("");
+            webhookService.handleGoogleNotification("!!not-base64!!");
+            webhookService.handleGoogleNotification(b64("{\"oneTimeProductNotification\":{}}"));
+
+            verify(metrics).dropped("refetch_rejected");
+            verify(metrics).dropped("empty");
+            verify(metrics).dropped("unparseable");
+            verify(metrics).dropped("not_subscription");
+            verify(metrics).received("other");
+        }
+
+        @Test
+        @DisplayName("LUT-617: eventTimeMillis 가 없거나 0 이면 null")
+        void parseEventTimeEdgeCases() throws Exception {
+            com.fasterxml.jackson.databind.ObjectMapper om =
+                    new com.fasterxml.jackson.databind.ObjectMapper();
+            assertThat(SubscriptionWebhookService.parseEventTime(om.readTree("{}"))).isNull();
+            assertThat(
+                            SubscriptionWebhookService.parseEventTime(
+                                    om.readTree("{\"eventTimeMillis\":\"0\"}")))
+                    .isNull();
+            assertThat(
+                            SubscriptionWebhookService.parseEventTime(
+                                    om.readTree("{\"eventTimeMillis\":\"abc\"}")))
+                    .isNull();
         }
     }
 }

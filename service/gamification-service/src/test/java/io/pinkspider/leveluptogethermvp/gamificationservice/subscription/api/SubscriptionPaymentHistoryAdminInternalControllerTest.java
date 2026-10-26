@@ -15,7 +15,9 @@ import com.epages.restdocs.apispec.MockMvcRestDocumentationWrapper;
 import com.epages.restdocs.apispec.ResourceSnippetParameters;
 import com.epages.restdocs.apispec.SimpleType;
 import io.pinkspider.leveluptogethermvp.config.ControllerTestConfig;
+import io.pinkspider.leveluptogethermvp.gamificationservice.subscription.application.SubscriptionLedgerReconcileService;
 import io.pinkspider.leveluptogethermvp.gamificationservice.subscription.application.SubscriptionPaymentHistoryAdminService;
+import io.pinkspider.leveluptogethermvp.gamificationservice.subscription.domain.dto.SubscriptionLedgerReconcileResponse;
 import io.pinkspider.leveluptogethermvp.gamificationservice.subscription.domain.dto.SubscriptionPaymentHistoryPageResponse;
 import io.pinkspider.leveluptogethermvp.gamificationservice.subscription.domain.dto.SubscriptionPaymentHistoryResponse;
 import io.pinkspider.leveluptogethermvp.gamificationservice.subscription.domain.enums.PriceSource;
@@ -60,6 +62,8 @@ class SubscriptionPaymentHistoryAdminInternalControllerTest {
 
     @MockitoBean
     private SubscriptionPaymentHistoryAdminService subscriptionPaymentHistoryAdminService;
+
+    @MockitoBean private SubscriptionLedgerReconcileService subscriptionLedgerReconcileService;
 
     private SubscriptionPaymentHistoryResponse historyRow(
             Long id, SubscriptionPaymentEventType eventType) {
@@ -344,5 +348,90 @@ class SubscriptionPaymentHistoryAdminInternalControllerTest {
                         MockMvcResultMatchers.jsonPath("$.value.content[0].event_type")
                                 .value("PURCHASE"))
                 .andExpect(MockMvcResultMatchers.jsonPath("$.value.total_elements").value(1));
+    }
+
+    @Test
+    @DisplayName(
+            "POST /api/internal/subscription-payments/reconcile : Android 구독 원장을 Play 주문 연번과 대조"
+                    + " (LUT-617)")
+    void reconcile() throws Exception {
+        when(subscriptionLedgerReconcileService.reconcileGoogle("user-1"))
+                .thenReturn(
+                        new SubscriptionLedgerReconcileResponse(
+                                "user-1",
+                                "GPA.3329-9857-6705-37595..5",
+                                "SUBSCRIPTION_STATE_EXPIRED",
+                                LocalDateTime.of(2026, 10, 26, 3, 47),
+                                3L,
+                                6L,
+                                4));
+
+        ResultActions resultActions =
+                mockMvc.perform(
+                                RestDocumentationRequestBuilders.post(
+                                                "/api/internal/subscription-payments/reconcile")
+                                        .queryParam("user_id", "user-1")
+                                        .contentType(MediaType.APPLICATION_JSON))
+                        .andDo(
+                                MockMvcRestDocumentationWrapper.document(
+                                        "구독-내부-02. 구독 원장 주문 대조",
+                                        preprocessRequest(prettyPrint()),
+                                        preprocessResponse(prettyPrint()),
+                                        resource(
+                                                ResourceSnippetParameters.builder()
+                                                        .tag("Subscription - Admin Internal")
+                                                        .description(
+                                                                "Android 구독 원장을 Play 주문"
+                                                                    + " 연번(1..latest)과 대조해 누락 갱신을"
+                                                                    + " 백필하고 어긋난 행을 정정 (LUT-617)."
+                                                                    + " 구독 권한은 바꾸지 않음")
+                                                        .queryParameters(
+                                                                parameterWithName("user_id")
+                                                                        .type(SimpleType.STRING)
+                                                                        .description("사용자 ID"))
+                                                        .responseFields(
+                                                                fieldWithPath("code")
+                                                                        .type(JsonFieldType.STRING)
+                                                                        .description("응답 코드"),
+                                                                fieldWithPath("message")
+                                                                        .type(JsonFieldType.STRING)
+                                                                        .description("응답 메시지"),
+                                                                fieldWithPath("value.user_id")
+                                                                        .type(JsonFieldType.STRING)
+                                                                        .description("사용자 ID"),
+                                                                fieldWithPath(
+                                                                                "value.latest_order_id")
+                                                                        .type(JsonFieldType.STRING)
+                                                                        .description(
+                                                                                "Play 최신 주문 ID")
+                                                                        .optional(),
+                                                                fieldWithPath(
+                                                                                "value.subscription_state")
+                                                                        .type(JsonFieldType.STRING)
+                                                                        .description(
+                                                                                "Play 구독 상태 원문")
+                                                                        .optional(),
+                                                                fieldWithPath("value.expires_at")
+                                                                        .type(JsonFieldType.STRING)
+                                                                        .description("Play 기준 만료")
+                                                                        .optional(),
+                                                                fieldWithPath("value.rows_before")
+                                                                        .type(JsonFieldType.NUMBER)
+                                                                        .description("대조 전 원장 행 수"),
+                                                                fieldWithPath("value.rows_after")
+                                                                        .type(JsonFieldType.NUMBER)
+                                                                        .description("대조 후 원장 행 수"),
+                                                                fieldWithPath("value.rows_written")
+                                                                        .type(JsonFieldType.NUMBER)
+                                                                        .description(
+                                                                                "새로 쓰거나 정정한 행 수"))
+                                                        .build())));
+
+        resultActions
+                .andExpect(MockMvcResultMatchers.status().isOk())
+                .andExpect(MockMvcResultMatchers.jsonPath("$.value.rows_written").value(4))
+                .andExpect(
+                        MockMvcResultMatchers.jsonPath("$.value.latest_order_id")
+                                .value("GPA.3329-9857-6705-37595..5"));
     }
 }
