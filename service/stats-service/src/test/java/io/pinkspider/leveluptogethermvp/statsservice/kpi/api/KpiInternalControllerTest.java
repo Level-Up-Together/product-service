@@ -186,15 +186,36 @@ class KpiInternalControllerTest {
                                 .param("to_month", "2026-10"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.value[0].ltv_krw").value(2450.00));
+        // LUT-616: 형식 오류는 플랫폼 500 이 아니라 stats 어드바이스가 400 + 100101 로 응답
         mockMvc.perform(
                         get("/api/internal/kpi/revenue/cohorts")
                                 .param("from_month", "202608")
                                 .param("to_month", "2026-10"))
-                .andExpect(status().isBadRequest());
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("100101"));
         mockMvc.perform(
                         get("/api/internal/kpi/daily")
                                 .param("from", "20261020")
                                 .param("to", "2026-10-22"))
-                .andExpect(status().isBadRequest());
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("100101"));
+    }
+
+    @Test
+    @DisplayName("LUT-616: 모르는 source 값·필수 파라미터 누락도 400 (100101 / 100102)")
+    void invalidParamsAreBadRequest() throws Exception {
+        mockMvc.perform(
+                        get("/api/internal/kpi/retention")
+                                .param("cohort_from", "2026-10-01")
+                                .param("cohort_to", "2026-10-22")
+                                .param("source", "CLICK"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("100101"));
+        mockMvc.perform(get("/api/internal/kpi/daily").param("to", "2026-10-22"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("100102"));
+        mockMvc.perform(post("/api/internal/kpi/rebuild").param("from", "2026-10-01"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("100102"));
     }
 }

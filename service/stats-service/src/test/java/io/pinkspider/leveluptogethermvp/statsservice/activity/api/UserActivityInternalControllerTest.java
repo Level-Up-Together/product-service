@@ -58,6 +58,10 @@ class UserActivityInternalControllerTest {
     @DisplayName("date 가 ISO 날짜가 아니면 400")
     void invalidDate() throws Exception {
         mockMvc.perform(post("/api/internal/stats/activity/flush").param("date", "20261022"))
-                .andExpect(status().isBadRequest());
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("100101")); // LUT-616
+        mockMvc.perform(post("/api/internal/stats/activity/flush"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("100102"));
     }
 }
