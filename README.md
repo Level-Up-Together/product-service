@@ -1,5 +1,19 @@
 # Level Up Together MVP
 
+[![Level Up Together](https://img.shields.io/badge/Level_Up_Together-00E5FF?style=flat-square&logo=github&logoColor=black)](https://github.com/Level-Up-Together)
+[![Pink Spider](https://img.shields.io/badge/Pink_Spider-contact@pink--spider.io-D14836?style=flat-square&logo=gmail&logoColor=white)](mailto:contact@pink-spider.io)
+[![Last Commit](https://img.shields.io/github/last-commit/Level-Up-Together/product-service/develop?style=flat-square&logo=github&logoColor=white)](https://github.com/Level-Up-Together/product-service/commits/develop)
+[![Dev Build](https://img.shields.io/github/actions/workflow/status/Level-Up-Together/product-service/gradle-dev.yml?style=flat-square&label=Dev%20Build&logo=githubactions&logoColor=white&branch=develop)](https://github.com/Level-Up-Together/product-service/actions/workflows/gradle-dev.yml)
+[![Java 21](https://img.shields.io/badge/Java-21-007396?style=flat-square&logo=openjdk&logoColor=white)](https://openjdk.org/projects/jdk/21/)
+[![Spring Boot 3.4.5](https://img.shields.io/badge/Spring_Boot-3.4.5-6DB33F?style=flat-square&logo=springboot&logoColor=white)](https://github.com/spring-projects/spring-boot/releases/tag/v3.4.5)
+[![Spring Cloud 2024.0.0](https://img.shields.io/badge/Spring_Cloud-2024.0.0-6DB33F?style=flat-square&logo=spring&logoColor=white)](https://spring.io/projects/spring-cloud)
+[![GraphQL DGS](https://img.shields.io/badge/GraphQL_DGS-8.0.0-E10098?style=flat-square&logo=graphql&logoColor=white)](https://netflix.github.io/dgs/)
+[![QueryDSL](https://img.shields.io/badge/QueryDSL-5.0.0-0769AD?style=flat-square)](http://querydsl.com/)
+[![Resilience4j](https://img.shields.io/badge/Resilience4j-1E88E5?style=flat-square)](https://resilience4j.readme.io/)
+[![Redis](https://img.shields.io/badge/Redis-DC382D?style=flat-square&logo=redis&logoColor=white)](https://redis.io/)
+[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-316192?style=flat-square&logo=postgresql&logoColor=white)](https://www.postgresql.org/)
+[![Gradle 8.14.3](https://img.shields.io/badge/Gradle-8.14.3-02303A?style=flat-square&logo=gradle&logoColor=white)](https://docs.gradle.org/8.14.3/userguide/userguide.html)
+
 함께 성장하는 미션 기반 커뮤니티 플랫폼의 백엔드 서비스입니다.
 
 ## 기술 스택
