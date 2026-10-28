@@ -17,12 +17,14 @@ import io.pinkspider.global.exception.CustomException;
 import io.pinkspider.leveluptogethermvp.gamificationservice.diamond.application.IapAppleProperties;
 import io.pinkspider.leveluptogethermvp.gamificationservice.subscription.domain.dto.AppleSubscriptionNotification;
 import io.pinkspider.leveluptogethermvp.gamificationservice.subscription.domain.dto.AppleSubscriptionSnapshot;
+import io.pinkspider.leveluptogethermvp.gamificationservice.subscription.domain.dto.GoogleOrder;
 import io.pinkspider.leveluptogethermvp.gamificationservice.subscription.domain.dto.GoogleSubscriptionState;
 import io.pinkspider.leveluptogethermvp.gamificationservice.subscription.domain.dto.SubscriptionVerificationResult;
 import io.pinkspider.leveluptogethermvp.gamificationservice.subscription.domain.dto.SubscriptionVerifyRequest;
 import java.io.ByteArrayInputStream;
 import java.io.InputStream;
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -34,6 +36,7 @@ import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.Base64;
 import java.util.Date;
+import java.util.Optional;
 import java.util.Set;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -46,6 +49,9 @@ import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
+import org.springframework.web.client.HttpClientErrorException;
+import org.springframework.web.client.HttpServerErrorException;
+import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestTemplate;
 
 /**
@@ -86,6 +92,11 @@ public class SubscriptionVerificationService {
     private volatile AppStoreServerAPIClient sandboxApiClient;
     private volatile SignedDataVerifier prodVerifier;
     private volatile SignedDataVerifier sandboxVerifier;
+
+    // LUT-617: Google OAuth 액세스 토큰 캐시 — 주문 백필은 한 번에 여러 번 호출하므로 매번 발급하지 않는다 (토큰 수명 60분, 50분 재사용)
+    private static final long GOOGLE_TOKEN_CACHE_MILLIS = 50L * 60 * 1000;
+    private volatile String cachedGoogleAccessToken;
+    private volatile long cachedGoogleAccessTokenExpiresAtMillis;
 
     public SubscriptionVerificationService(
             @Value("${iap.verification.enabled:false}") boolean enabled,
@@ -368,7 +379,14 @@ public class SubscriptionVerificationService {
     // ========== Google ==========
 
     private SubscriptionVerificationResult verifyGoogle(SubscriptionVerifyRequest request) {
-        GoogleSubscriptionState state = fetchGoogleSubscription(request.getPurchaseToken());
+        GoogleSubscriptionState state;
+        try {
+            state = fetchGoogleSubscription(request.getPurchaseToken());
+        } catch (StoreTransientException e) {
+            // 클라이언트 응답 계약 유지 — 일시 실패도 120702 (앱은 재시도/복원으로 수렴)
+            log.error("Google 구독 검증 일시 실패: {}", e.getMessage());
+            throw new CustomException("120702", "error.iap.verification_failed");
+        }
 
         if (state.isPending()) {
             // 결제 대기 — 아직 권한 부여 대상이 아님
@@ -402,19 +420,20 @@ public class SubscriptionVerificationService {
      * RTDN 은 트리거일 뿐이고 상태의 진실은 항상 이 재조회 결과다(페이로드 위조 방어 겸용). 테스트에서 스텁할 수 있게 package-private.
      */
     GoogleSubscriptionState fetchGoogleSubscription(String purchaseToken) {
+        String url =
+                String.format(
+                        "https://androidpublisher.googleapis.com/androidpublisher/v3/applications/%s/purchases/subscriptionsv2/tokens/%s",
+                        googlePackageName, purchaseToken);
+        String body;
         try {
-            String accessToken = fetchGoogleAccessToken();
-            String url =
-                    String.format(
-                            "https://androidpublisher.googleapis.com/androidpublisher/v3/applications/%s/purchases/subscriptionsv2/tokens/%s",
-                            googlePackageName, purchaseToken);
-
-            HttpHeaders headers = new HttpHeaders();
-            headers.setBearerAuth(accessToken);
-            var response =
-                    restTemplate.exchange(
-                            url, HttpMethod.GET, new HttpEntity<>(headers), String.class);
-            JsonNode json = objectMapper.readTree(response.getBody());
+            body = googleGet(url);
+        } catch (HttpClientErrorException e) {
+            // 잘못된/만료된 토큰·권한 없음 — 재시도해도 같다 (영구 실패)
+            log.warn("Google 구독 조회 거부: status={}", e.getStatusCode());
+            throw new CustomException("120702", "error.iap.verification_failed");
+        }
+        try {
+            JsonNode json = objectMapper.readTree(body);
 
             String state = json.path("subscriptionState").asText("");
 
@@ -479,6 +498,125 @@ public class SubscriptionVerificationService {
             log.error("Google 구독 검증 실패: {}", e.getMessage());
             throw new CustomException("120702", "error.iap.verification_failed");
         }
+    }
+
+    /**
+     * LUT-617: Play Developer API {@code orders.get} — 주문 ID 로 실제 결제 시각·금액·이용 기간을 조회한다. 갱신 주문
+     * ID({@code GPA.xxxx..N}) 연번으로 RTDN 유실 구간을 백필하는 데 쓴다.
+     *
+     * @return 404(없는 주문)면 empty
+     * @throws StoreTransientException 5xx·네트워크·토큰 발급 지연 — 호출자가 재시도 판단
+     * @throws CustomException 그 외 거부(권한 없음 등)·응답 파싱 실패 — 재시도 무의미
+     */
+    Optional<GoogleOrder> fetchGoogleOrder(String orderId) {
+        String url =
+                String.format(
+                        "https://androidpublisher.googleapis.com/androidpublisher/v3/applications/%s/orders/%s",
+                        googlePackageName, orderId);
+        String body;
+        try {
+            body = googleGet(url);
+        } catch (HttpClientErrorException.NotFound e) {
+            return Optional.empty();
+        } catch (HttpClientErrorException e) {
+            log.warn("Google 주문 조회 거부: orderId={}, status={}", orderId, e.getStatusCode());
+            throw new CustomException("120702", "error.iap.verification_failed");
+        }
+        try {
+            return Optional.of(parseGoogleOrder(orderId, objectMapper.readTree(body)));
+        } catch (Exception e) {
+            log.error("Google 주문 응답 파싱 실패: orderId={}, error={}", orderId, e.getMessage());
+            throw new CustomException("120702", "error.iap.verification_failed");
+        }
+    }
+
+    /**
+     * orders.get 응답 → {@link GoogleOrder}. 구독 주문은 lineItems 중 subscriptionDetails 가 있는 항목의 이용 기간을
+     * 쓴다.
+     */
+    static GoogleOrder parseGoogleOrder(String orderId, JsonNode json) {
+        JsonNode total = json.path("total");
+        JsonNode subscriptionDetails = null;
+        for (JsonNode item : json.path("lineItems")) {
+            if (item.has("subscriptionDetails")) {
+                subscriptionDetails = item.path("subscriptionDetails");
+                break;
+            }
+        }
+        LocalDateTime periodStart =
+                subscriptionDetails != null
+                                && subscriptionDetails.hasNonNull("servicePeriodStartTime")
+                        ? parseRfc3339(subscriptionDetails.path("servicePeriodStartTime").asText())
+                        : null;
+        LocalDateTime periodEnd =
+                subscriptionDetails != null
+                                && subscriptionDetails.hasNonNull("servicePeriodEndTime")
+                        ? parseRfc3339(subscriptionDetails.path("servicePeriodEndTime").asText())
+                        : null;
+        return new GoogleOrder(
+                json.path("orderId").asText(orderId),
+                json.path("state").asText(null),
+                json.hasNonNull("createTime")
+                        ? parseRfc3339(json.path("createTime").asText())
+                        : null,
+                parseMoney(total),
+                total.path("currencyCode").asText(null),
+                periodStart,
+                periodEnd);
+    }
+
+    /** Google Money {units, nanos} → 소수 둘째 자리 금액. 둘 다 없으면 null */
+    static BigDecimal parseMoney(JsonNode money) {
+        if (money == null
+                || money.isMissingNode()
+                || (!money.has("units") && !money.has("nanos"))) {
+            return null;
+        }
+        long units = money.path("units").asLong(0);
+        int nanos = money.path("nanos").asInt(0);
+        return BigDecimal.valueOf(units)
+                .add(BigDecimal.valueOf(nanos, 9))
+                .setScale(2, RoundingMode.HALF_UP);
+    }
+
+    /**
+     * Play Developer API GET — 4xx 는 그대로 던져 호출자가 의미(404=없음 등)를 판단하고, 5xx·네트워크 오류는 {@link
+     * StoreTransientException} 으로 바꿔 재시도 가능함을 알린다.
+     */
+    private String googleGet(String url) {
+        HttpHeaders headers = new HttpHeaders();
+        headers.setBearerAuth(googleAccessToken());
+        try {
+            return restTemplate
+                    .exchange(url, HttpMethod.GET, new HttpEntity<>(headers), String.class)
+                    .getBody();
+        } catch (HttpServerErrorException | ResourceAccessException e) {
+            throw new StoreTransientException("Play Developer API 일시 실패: " + e.getMessage(), e);
+        }
+    }
+
+    /** 캐시된 액세스 토큰 — 만료 전이면 재사용, 아니면 새로 발급. 발급 자체의 일시 실패는 transient 로 */
+    private String googleAccessToken() {
+        String token = cachedGoogleAccessToken;
+        if (token != null && System.currentTimeMillis() < cachedGoogleAccessTokenExpiresAtMillis) {
+            return token;
+        }
+        try {
+            token = fetchGoogleAccessToken();
+        } catch (HttpServerErrorException | ResourceAccessException e) {
+            throw new StoreTransientException("Google OAuth 토큰 발급 일시 실패: " + e.getMessage(), e);
+        } catch (Exception e) {
+            log.error("Google OAuth 토큰 발급 실패: {}", e.getMessage());
+            throw new CustomException("120702", "error.iap.verification_failed");
+        }
+        if (isBlank(token)) {
+            log.error("Google OAuth 토큰 응답에 access_token 없음");
+            throw new CustomException("120702", "error.iap.verification_failed");
+        }
+        cachedGoogleAccessToken = token;
+        cachedGoogleAccessTokenExpiresAtMillis =
+                System.currentTimeMillis() + GOOGLE_TOKEN_CACHE_MILLIS;
+        return token;
     }
 
     /** 서비스 계정 JWT(RS256) → OAuth2 액세스 토큰 (androidpublisher scope) */

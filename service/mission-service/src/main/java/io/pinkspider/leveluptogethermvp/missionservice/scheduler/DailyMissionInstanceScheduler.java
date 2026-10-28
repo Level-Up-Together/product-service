@@ -10,6 +10,7 @@ import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.Mission;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.MissionExecution;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.MissionParticipant;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.ParticipantStatus;
+import io.pinkspider.leveluptogethermvp.missionservice.domain.policy.MissionExpPolicy;
 import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.DailyMissionInstanceRepository;
 import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.MissionExecutionRepository;
 import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.MissionParticipantRepository;
@@ -215,7 +216,8 @@ public class DailyMissionInstanceScheduler {
                         e.getMessage());
                 try {
                     if (instance.autoCompleteForDateChange(
-                            missionExecutionProperties.getBaseExp())) {
+                            MissionExpPolicy.autoCompleteExp(
+                                    missionExecutionProperties.getBaseExp()))) {
                         instanceRepository.save(instance);
                         // QA-141: 폴백 시에도 user_experience / experience_history 에 EXP 반영
                         grantAutoCompleteExp(
@@ -278,7 +280,8 @@ public class DailyMissionInstanceScheduler {
                         e.getMessage());
                 try {
                     if (execution.autoCompleteForDateChange(
-                            missionExecutionProperties.getBaseExp())) {
+                            MissionExpPolicy.autoCompleteExp(
+                                    missionExecutionProperties.getBaseExp()))) {
                         executionRepository.save(execution);
                         // 일반 미션 participant를 COMPLETED로 변경하여 미션 목록에서 제외
                         MissionParticipant participant = execution.getParticipant();

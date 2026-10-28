@@ -298,7 +298,8 @@ class DailyMissionInstanceTest {
         }
 
         @Test
-        @DisplayName("QA-153: 목표 시간 달성 시 targetDurationMinutes + bonusExpOnFullCompletion 을 반환한다")
+        @DisplayName(
+                "QA-153/LUT-568: 목표 시간 달성 시 timedExp(target) + bonusExpOnFullCompletion 을 반환한다")
         void calculateExpByDuration_targetReached_addsBonus() {
             // given: target=240, bonus=60, expPerCompletion=10 인 인스턴스를 243분 수행
             DailyMissionInstance instance = createInstance(LocalDate.now());
@@ -313,8 +314,8 @@ class DailyMissionInstanceTest {
             // when
             int exp = instance.calculateExpByDuration();
 
-            // then: 240 + 60 = 300 (이전엔 expPerCompletion=10 을 더해 250 으로 잘못 계산됨)
-            assertThat(exp).isEqualTo(300);
+            // then: timedExp(240)=96 + 60 = 156 (LUT-568 — 이전 공식은 240 + 60 = 300)
+            assertThat(exp).isEqualTo(156);
         }
 
         @Test
@@ -332,12 +333,12 @@ class DailyMissionInstanceTest {
             // when
             int exp = instance.calculateExpByDuration();
 
-            // then: bonus 미적용, 실제 분만
+            // then: bonus 미적용, 실제 분만 (60분까지는 분당 1)
             assertThat(exp).isGreaterThanOrEqualTo(59).isLessThanOrEqualTo(60);
         }
 
         @Test
-        @DisplayName("최대 480분(8시간)까지만 경험치를 계산한다")
+        @DisplayName("최대 480분(8시간)까지만 경험치를 계산한다 — LUT-568 공식으로 60 + 420/5 = 144")
         void calculateExpByDuration_cappedAt480() {
             // given
             DailyMissionInstance instance = createInstance(LocalDate.now());
@@ -351,7 +352,7 @@ class DailyMissionInstanceTest {
             int exp = instance.calculateExpByDuration();
 
             // then
-            assertThat(exp).isEqualTo(480);
+            assertThat(exp).isEqualTo(144);
         }
     }
 

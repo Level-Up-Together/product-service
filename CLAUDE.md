@@ -66,6 +66,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 | `bffservice`          | -               | BFF API 통합, 통합 검색                          |
 | `noticeservice`       | -               | 공지/안내 (Admin Feign)                          |
 | `supportservice`      | -               | 1:1 문의 + 신고 처리 (Admin Feign)               |
+| `statsservice`        | stats_db        | **지표 집계(IR KPI)** — 유저 일별 활동(DAU 신호) 수집·적재 (LUT-598) + 일별 KPI 스냅샷·코호트 리텐션·코호트 매출 (LUT-601) |
 
 ### Transaction Manager (Critical)
 
@@ -87,6 +88,7 @@ public void updateGuild(...) { ...}
 | feedservice         | `feedTransactionManager`           |
 | notificationservice | `notificationTransactionManager`   |
 | gamificationservice | `gamificationTransactionManager`   |
+| statsservice        | `statsTransactionManager`          |
 | saga                | `sagaTransactionManager`           |
 
 ### Service Layer Pattern
@@ -181,6 +183,11 @@ BRANCH 88.0%. 분기 커버리지는 if/switch의 **모든 경로**를 요구하
 등록하지 않는다. 차단되면 `AuthEntryPointJwt`가 401, 허용되면 핸들러가 없어 404가 나므로 단언은 "401인가 아닌가"로 충분하다.
 **비로그인 허용 API를 추가할 때 이 테스트의 경로 목록에 함께 등록할 것.**
 
+**CORS 허용 헤더 회귀 가드** (`SecurityConfigCorsTest`, LUT-587): 같은 `security-guard` 프로필로 실제 `SecurityConfig` 만 올려
+preflight(OPTIONS) 응답의 `Access-Control-Allow-Headers` 를 검증한다. 클라이언트가 붙이는 커스텀 헤더(`X-Timezone`·`X-Signup-Token`·
+`X-Device-Type`·`Idempotency-Key`) 전부 + 모르는 헤더 거부(와일드카드 아님) + 401 에러 응답의 CORS 헤더까지 고정한다.
+**커스텀 헤더를 추가할 때 `SecurityConfig` 허용목록과 이 테스트의 `ALLOWED_CLIENT_HEADERS` 양쪽에 등록할 것.**
+
 ## 코드 컨벤션
 
 - **API 필드명**: snake_case (프론트 통신)
@@ -215,6 +222,21 @@ BRANCH 88.0%. 분기 커버리지는 if/switch의 **모든 경로**를 요구하
 - 한글로 커밋 메시지 작성
 - 새로 작성된 코드에 대한 테스트 코드 병행 작성 필수
 - 필요시 CLAUDE.md, README.md 업데이트
+
+## 배포 순서 · API 하위호환 (앱 스토어 버전 정합) — 필수
+
+RN 앱은 스토어 심사·단계적 배포를 거치므로 **구버전 앱이 새 백엔드와 몇 주 공존**한다. 심사에 올라간 앱 버전과 백엔드 API 가 어긋나면 되돌릴 방법이
+없다(앱은 즉시 롤백 불가). 그래서:
+
+1. **배포 순서는 항상 백엔드(product/admin) → 웹 → RN 심사 제출.** 앱이 의존하는 API 변경은 앱이 심사에 올라가기 전에 운영에 먼저 나가 있어야 한다.
+   SQL 은 그보다 앞서(JPA validate), platform 은 그보다 앞서(SNAPSHOT publish).
+2. **백엔드는 항상 하위호환을 유지한다** — 새 앱이 올라가도, 아직 업데이트 안 한 구앱이 남아 있어도 이슈가 없어야 한다.
+   - 응답 필드·enum 값은 **추가만** 한다. 삭제·이름 변경·의미 변경 금지. 새 필드는 구앱이 무시해도 되게 optional 로.
+   - 요청 필드는 구앱이 보내던 형식을 계속 받는다. 새 필드는 optional + 기본값. 필수화는 `app_version.min_version` 강제 업데이트가 끝난 뒤에만.
+   - 엔드포인트 제거·경로 변경은 하지 않는다. 대체 API 를 추가하고 구 API 는 유지(필요하면 내부에서 새 로직으로 위임).
+   - 공개 enum 에 값을 추가할 때는 구앱 파서가 모르는 값을 받아도 죽지 않는지(프론트 폴백) 함께 확인한다.
+   - 예외는 `/api/internal/**`(admin-service 와 같은 트레인으로 배포) — 그래도 같은 릴리스에서 양쪽을 함께 바꾼다.
+3. 호환을 깨는 변경이 불가피하면 **새 버전 API 를 추가**하고 구버전은 `min_version` 상향으로 구앱이 사라진 뒤 제거한다. 변경 PR·티켓에 "구앱 영향 없음" 근거를 적는다.
 
 ## Internationalization (i18n)
 
@@ -278,29 +300,32 @@ Redis Stream `stream:app-push` → `AppPushMessageConsumer` → `FcmPushService`
   COMPLETED/FAILED 상태로 이력에 남고, ALL 대상은 **발송 시점에 재산출**되어 요청 시 `target_count`와 미세하게 다를 수 있다.
   중복 트리거는 PENDING 검사로 무시(재발송 없음). 에러 코드 140101(대상 없음)/140102(활성 유저 없음)/140103(캠페인 없음).
 
-### 장착 아이템 푸시 (LUT-516/528/529/530/531, `gamificationservice/shop/{scheduler,application}`)
+### 장착 아이템 푸시 (LUT-516/528/529/530/531/545/573, `gamificationservice/shop/{scheduler,application}`)
 
 유저가 **장착 중인 HEAD 아이템**이 유저 로컬 시각에 맞춰 말을 거는 푸시(`EQUIPPED_ITEM_PUSH`). 매분 cron(`ItemPushScheduler`)
-→ 아이템별 발송시각(`item_push_setting.send_time`, 아이템 단위 — LUT-528) → 유저 로컬 `HH:mm` **정확 일치** 후보만
-→ `ItemPushDispatchService.trySendForUser`(유저별 짧은 트랜잭션)에서 상태 판정·백오프·대사 선택·선점.
+→ 아이템별 **슬롯 3개**(`item_push_setting`: 아침 `before_activity_time` 08:00~11:59 / 정오 **12:00 고정** / 오후 `after_complete_time`
+12:00~20:59, LUT-573) → 유저 로컬 시각이 슬롯 이후 캐치업 창 안인 후보 → `ItemPushDispatchService.trySendForUser`(유저별 짧은 트랜잭션)에서
+슬롯 조건·백오프·간격·로테이션·대사 선택·선점.
 
-**발송 규칙 (LUT-529) — "하루 1건"이 아니다. QA·기획 혼동이 반복된 지점이니 먼저 읽을 것:**
+**발송 규칙 (LUT-573) — QA·기획 혼동이 반복된 지점이니 먼저 읽을 것:**
 
 | 단계 | 규칙 |
 |---|---|
-| 중복방지 | `item_push_send_log` `(user_id, send_date)` 유니크 — **유저·로컬날짜당 1건**(아이템 단위 아님). 장착을 바꿔도 그날 이미 받으면 재발송 없음 |
-| 상태 판정 | 오늘 완료 → `AFTER_COMPLETE` > 전날 미완료 → `INACTIVE` > 그 외 → `BEFORE_ACTIVITY` (미션 완료는 유저 로컬 날짜 기준) |
-| **백오프** | `INACTIVE` 는 **연속 미완료 일수 k ∈ {1,3,7,14} 인 날만** 발송. k는 `BACKOFF_MAX_DAYS(14)` 초과 시 15로 saturate → **15일 이상 미완료·완료 이력 0건 유저는 영구 미발송**(LUT-541 에서 확인된 설계 공백) |
-| 대사 선택 | `trigger_type` 이 상태와 일치하는 풀에서 최근 (후보−1)건 제외 후 랜덤 → 비면 `ANY` 풀 → **그것도 비면 조용히 스킵** |
+| 슬롯 조건 | 아침 = 전날 완료 AND 오늘 미완료(`BEFORE_ACTIVITY` 대사) / 정오 = 전날 미완료 AND 오늘 미완료 AND 백오프 발송일(`INACTIVE`) / 오후 = 오늘 완료(`AFTER_COMPLETE`). **불일치면 그 슬롯 스킵**(다른 대사로 대체 안 함) |
+| 설정 | 행 없음 또는 **두 시각 모두 null → 정오 포함 전체 미발송**. 한쪽만 설정해도 됨(비면 그 슬롯만 미발송). 미션 완료는 유저 로컬 날짜 기준 |
+| 하루 1건 | `item_push_send_log` `(user_id, send_date)` 유니크 — 어느 슬롯이든 발송하면 그날 나머지 스킵. 장착을 바꿔도 그날은 재발송 없음 |
+| **간격** | 유저+아이템 마지막 발송일로부터 **2일**(D 발송 → D+2). INACTIVE 발송도 기산점. 새 아이템을 장착하면 그 아이템 이력이 없어 다음 슬롯에 바로 나감. LUT-573 이전 로그(`slot` null)는 간격 판정에서 제외 |
+| **로테이션** | 직전 발송 슬롯이 아침이면 이번 차례의 아침은 양보(= 아침→아침 3일), 오후에 기회. 오후가 못 나가면 다음 날 아침 재개. INACTIVE 는 무관. 판정은 로그의 `slot`(ANY 폴백이어도 발송된 슬롯) |
+| **백오프** | 정오 `INACTIVE` 는 **연속 미완료 일수 k ∈ {1,3,7,14} 인 날만**. k 는 `BACKOFF_MAX_DAYS(14)` 초과 시 15로 saturate → **15일 이상 미완료·완료 이력 0건 유저는 영구 미발송**(LUT-541) |
+| 대사 선택 | 슬롯 `trigger_type` 풀 → 비면 `ANY` 풀 → **그것도 비면 조용히 스킵**. 풀 안에서 **한 번도 안 보낸 대사(최신 등록 먼저) → 가장 오래전에 보낸 대사**. 랜덤 없음. 비활성·삭제 대사는 풀에서 빠지고 이력은 유지(재활성화 시 이전 이력대로) |
 
-- **대사 미등록 = 그 상태의 유저는 무음**이다. 실제로 dev 전 아이템에 `AFTER_COMPLETE`·`ANY` 대사가 0건이어서 "당일 미션을 완료한
-  유저는 아무 푸시도 못 받는" 상태였다(LUT-541). 아이템을 추가하면 **상태 3종 대사를 모두 채웠는지 확인할 것**.
-- 스킵 사유는 `ItemPushDispatchOutcome`(SENT/SKIP_ALREADY_SENT/SKIP_BACKOFF/SKIP_NO_MESSAGE/SKIP_RACE)으로 반환되고
-  로그에 남는다 — 진단은 `grep "장착 아이템 푸시" product-service.log`. 백오프 로그에는 k가 함께 찍혀 다음 발송일을 계산할 수 있다.
+- **대사 미등록 = 그 슬롯의 유저는 무음**이다(LUT-541). 아이템을 추가하면 **상태 3종 대사를 모두 채웠는지 확인할 것**.
+- 스킵 사유는 `ItemPushDispatchOutcome`(SENT/SKIP_ALREADY_SENT/SKIP_STATE_MISMATCH/SKIP_BACKOFF/SKIP_INTERVAL/SKIP_ROTATION/SKIP_NO_MESSAGE/SKIP_RACE)으로
+  반환되고 로그에 남는다 — 진단은 `grep "장착 아이템 푸시" product-service.log`. 백오프 로그에는 k, 간격 로그에는 마지막 발송일·슬롯이 찍힌다.
 - **슬롯 캐치업** (LUT-545): 유저 로컬 시각이 슬롯 이후 `item.push.catch-up-window-minutes`(기본 30분) 안이면 후보 — 그 1분 틱을 놓쳐도
-  (배포·재시작·스레드 점유·락 경합) 창 안의 다음 틱이 소급 발송한다. 자정을 넘기는 소급은 없다. 틱 시각은 run 진입 시 1회 스냅샷(루프 중 재계산 금지 —
-  앞 아이템이 1분을 넘기면 뒤 아이템 슬롯이 영구 미평가됐던 증폭 요인). 창 안 재평가는 인스턴스 로컬 메모(아이템·유저·로컬날짜)로 막고, 예외로 끝난 유저만
-  다음 틱에 재시도된다. `spring.task.scheduling.pool.size=4`(base yml) — 기본 1 이면 9개 잡이 직렬화돼 매분 틱이 밀린다.
+  창 안의 다음 틱이 소급 발송한다. 자정을 넘기는 소급은 없다. 틱 시각은 run 진입 시 1회 스냅샷(루프 중 재계산 금지). 창 안 재평가는 인스턴스 로컬
+  메모(아이템·**슬롯**·유저·로컬날짜)로 막고, 예외로 끝난 유저만 다음 틱에 재시도된다. `spring.task.scheduling.pool.size=4`(base yml).
+- 어드민 내부 API `GET/PUT/DELETE /api/internal/shop-items/{itemId}/push-setting` — `{before_activity_time, after_complete_time}`(둘 다 선택, 서버 `@Pattern` 범위 검증). admin-service 패스스루 DTO 는 LUT-574.
 - 알림 토글은 `notification_preference.item_push_notifications`, 카테고리는 `ITEM_PUSH`.
 
 ## WebSocket 실시간 전파 — Redis 릴레이 필수 (LUT-263/QA-224/LUT-549)
@@ -343,6 +368,47 @@ Redis Stream `stream:app-push` → `AppPushMessageConsumer` → `FcmPushService`
 **캐시되는 엔티티에 컬럼을 추가할 때는 배포 직후 해당 키를 evict할 것** (LUT-534): 옛 JSON은 역직렬화 오류 없이 새 필드만 `null`로 살아남으므로 `RedisConfig`의 "오류 시 evict" 안전망에 걸리지 않는다. `@PostConstruct warmUpCache()`류 self-invocation은 캐시 프록시를 타지 않아 기동 시 갱신 효과가 없다.
 길드 레벨 재판정(`GuildExperienceService.processLevelUp`)은 **강등 금지**(포인트 단조 증가 → 레벨도 단조) — 재판정 결과가 현재 레벨보다 낮으면 warn 로그 후 유지.
 
+## 유저 일별 활동 수집 — DAU 신호 (LUT-598, `statsservice/activity`)
+
+IR 용 KPI(DAU/WAU/MAU·리텐션)의 원천. 예전엔 "앱을 열었다" 신호가 없었다(`last_login_at` 은 소셜 로그인 때만, 세션은 이력 없음).
+
+- **수집**: `UserActivityInterceptor`(`StatsActivityConfig` 의 `@Bean` — `@Component` 로 두면 `@WebMvcTest` 슬라이스가 HandlerInterceptor 를 스캔해 컨트롤러
+  테스트가 깨진다)가 인증된 요청마다 `UserActivityRecorder.recordAsync` → Redis `SADD active:{KST날짜} userId` + `active:{KST날짜}:{deviceType}`(TTL 40일).
+  `WebMvcConfig` 가 `ObjectProvider` 로 있을 때만 등록. 경로 `/api/**`·`/jwt/reissue`·`/graphql`, 제외 `/api/internal/**`·`/api/test/**`·`/api/v1/webhooks/**`.
+  principal 이 userId 문자열인 인증만 인정(anonymousUser 제외). **어떤 예외도 요청을 막지 않는다**(비동기 + try/catch, Redis 장애 구간은 DAU 결측 허용).
+- **적재**: `UserActivityFlushScheduler` 00:20 KST → `UserActivityFlushService.flush(date)` 가 집합을 읽어 `user_daily_activity`(user_id×activity_date 유니크, `device_types` 정렬 쉼표) 에 upsert. 멱등. 수동: `POST /api/internal/stats/activity/flush?date=YYYY-MM-DD`.
+- **설정** `app.stats.activity.enabled`(기본 true) · `excluded-user-ids`(E2E 봇·운영자 — config-repository 환경별). `DeviceTypeResolver` 는 LUT-598 에서 `global/web` 로 이동(user-service 전용 아님).
+- **DB**: `stats_db` 신설(9번째). DB 자체는 수동 생성(`CREATE DATABASE stats_db`), 테이블은 dev Flyway `db/migration/stats/` · prod 는 SQL 레포 V008 수동. 날짜 경계는 **KST**.
+
+## KPI 일별 스냅샷 · 코호트 (LUT-601, `statsservice/kpi`)
+
+매일 00:40 KST(활동 flush 00:20 뒤) `KpiSnapshotScheduler` → `KpiRebuildService.runDaily` 가 어제 `daily_kpi_snapshot` 1행과 창이 닫힌 `cohort_retention`, 전월·당월 `cohort_revenue` 를 upsert 한다(멱등). 소급은 `POST /api/internal/kpi/rebuild?from&to`(어제까지, 최대 400일) — 서버 기동 시 자동 실행 없음(LUT-595 원칙).
+
+- **원천 조회는 `infrastructure/source/*SourceReader`** — 다른 서비스 Repository/Service 를 import 하지 않고 각 DB 의 `DataSource` 빈에 `NamedParameterJdbcTemplate` 로 읽기 전용 SQL 을 던진다(`KpiSourceConfig`). KPI 는 읽기 모델이라 테이블 스키마 결합을 허용하며, MSA 전환 시 이 클래스들만 이벤트/API 로 바꾼다. SQL 을 고치면 dev DB 에서 먼저 실행해 볼 것(H2 통합 테스트 없음).
+- **날짜 경계 KST** (`KpiDates`): KST 날짜 → UTC 구간 `[D-1 15:00, D 15:00)`. 테스트 계정(`users.provider='test'`)·활동 제외 유저(`app.stats.activity.excluded-user-ids`)는 전부 제외.
+- **지표**: dau/wau/mau = `user_daily_activity`(REQUEST, LUT-598 배포일부터) · `attendance_dau` = 출석(소급 가능) · 미션 완료 = `mission_execution`+`daily_mission_instance` COMPLETED(completed_at) · 구독 = `subscription_payment_history` PURCHASE/trial/REFUND + 체험→유료 전환 + `user_subscription` 활성/연장 없는 만료 · 매출 = **`price_source IS NOT NULL` 행만**(LUT-600, 미상·테스터 제외), 환불 음수, KRW 외 통화는 `fx_rate`(월, 수동) 있을 때만 `revenue_krw` 에 합산(원본은 `revenue_by_currency` JSONB).
+- **코호트 리텐션** `RetentionMetric` D1/D3/D7/D14/D30(classic)·W1(1~7일)·W2_4(8~30일) × `RetentionSource` REQUEST/ATTENDANCE. 창이 닫힌(어제 이내) 지표만 저장. REQUEST 는 활동 데이터 시작일(`min activity_date`) 이전 창은 계산하지 않는다. D0 없음(LUT-597 전 출석 0·요청은 가입 호출 포함).
+- **코호트 매출** 가입 월 × month_n {0,1,3,6,12}: 그 월말이 지난 점만, KRW 누적(구독+다이아). LTV = 누적 ÷ cohort_size (응답 `ltv_krw`).
+- **Micrometer 게이지** (LUT-605, `kpi/metrics/KpiMetricsExporter`): 최신 스냅샷 1행을 `lut_kpi_{dau,wau,mau,attendance_dau,signups,withdrawals,active_users,mission_completions,mission_active_users,paying_users,active_subscriptions,new_subscriptions,churned_subscriptions,revenue_krw}` + `lut_kpi_snapshot_age_days`(KST 오늘−snapshot_date, 정상 1 — 2 이상이면 00:40 스케줄러 실패) + `lut_kpi_snapshot_date_epoch_seconds` 로 `/showmethemoney/prometheus` 에 노출한다. 스크레이프마다 DB 를 치지 않게 5분 캐시, 조회 실패는 NaN(스크레이프를 깨지 않음). `@Scheduled` 가 아니라 인스턴스별 독립(ShedLock 불필요). Grafana Cloud 연동은 infra 레포 `docs/grafana-cloud.md`.
+- **HTTP 지연 히스토그램은 SLO 버킷만** (LUT-615, `application.yml` `management.metrics.distribution.slo.[http.server.requests]=100ms,300ms,1s,3s`): Boot 기본은 버킷 off 라 p95 를 낼 수 없고, `percentiles-histogram=true` 는 버킷 ~70개 × uri·status 조합이라 Grafana Cloud Free 시리즈 한도(1만)를 넘긴다. 경계 5개(+Inf)만 노출해 `histogram_quantile` 로 추정한다. 새 지표를 추가할 때는 시리즈 수(라벨 조합)를 먼저 세어 볼 것.
+- **내부 API 파라미터 오류는 400** (LUT-616, `statsservice/api/exception/StatsRequestExceptionHandler`): `@DateTimeFormat` 변환 실패·enum 허용값 밖 → `100101`, 필수 파라미터 누락 → `100102`. 플랫폼 `RestExceptionHandler` 의 `Exception.class` 핸들러가 Spring 기본 400 보다 먼저 500 을 내므로 statsservice 패키지 한정 `HIGHEST_PRECEDENCE` 어드바이스로 가로챈다(LUT-577 미션 어드바이스와 같은 구조). `@WebMvcTest` 슬라이스에는 플랫폼 핸들러가 없어 테스트만으로는 500 이 안 보인다.
+- 내부 API `GET /api/internal/kpi/daily|retention|revenue/cohorts|signups/by-channel` 는 P3-a admin Feign(`MvpKpiFeignClient`, LUT-602) 이 그대로 읽는다. `signups/by-channel?from_month&to_month` 는 KST 월 × `signup_channel`(null→`unknown`, provider≠test) 가입자로 어드민 CAC 분모 — 스냅샷이 아니라 user_db 직접 집계. 날짜 파라미터는 ISO(`@DateTimeFormat`), 월은 `yyyy-MM`; 형식 오류 400, from>to 는 바꿔서 처리.
+
+## 가입 유입 채널 — CAC 원천 (LUT-599, `userservice/oauth/domain/policy/SignupChannelPolicy`)
+
+가입 완료(`POST /oauth/complete-signup`) 때 `users` 에 **1회 기록, 이후 불변**: `signup_channel`·`utm_source/medium/campaign`·`signup_device_type`·`invite_code`.
+배포 전 가입자는 전부 null(= 유입 미상). 채널 이름은 **서버가 정한다** — 클라이언트는 UTM 원문·초대 코드만 보낸다(요청 DTO optional 4필드, 구앱·구웹 호환).
+
+| 우선순위 | 조건 | `signup_channel` |
+|---|---|---|
+| 1 | `invite_code` 있음 (길드 초대 링크 LUT-519, 웹이 `return_url` 쿠키에서 읽음) | `invite` |
+| 2 | `utm_source` 있음 | utm_source 소문자 (50자) |
+| 3 | 가입 기기 ios/ipad/android (앱 웹뷰) | `store_ios` / `store_android` |
+| 4 | 그 외 | `organic_web` |
+
+웹은 `UtmCapture`(Providers)가 첫 진입 URL 의 UTM 을 **first-touch 쿠키** `{prefix}utm`(JSON, 30일, 덮어쓰지 않음)으로 보관하고, 가입 완료 요청에 `getSignupAttributionFields()` 로 실어 보낸 뒤 지운다(`src/lib/marketing/utm.ts`).
+CAC = 채널별 마케팅비 ÷ 채널별 가입자 — 마케팅비 입력·계산은 P3-a(어드민).
+
 ## Scheduler & Distributed Lock (ShedLock)
 
 멀티 EC2에서 `@Scheduled` 동시 실행 방지를 위해 **모든 스케줄러는 `@SchedulerLock` 필수**. `ShedLockConfig`가 Redis SETNX 기반 LockProvider 등록 (
@@ -366,6 +432,23 @@ public void run() { ...}
 | `DailyMvpHistoryScheduler.saveDailyMvpHistory{Kst,Ast,Utc}` | `0 0 0 * * *` (Asia/Seoul·Asia/Riyadh·UTC) | 타임존별 일간 MVP 기록             |
 | `SeasonRewardScheduler.processEndedSeasonRewards`           | `0 0 3 * * *` KST           | 종료된 시즌 보상 자동 부여            |
 | `SubscriptionStipendScheduler.grantDailyStipends`           | `0 10 0 * * *` UTC          | 구독자 일일 블루다이아 1개 지급 (LUT-453, 멱등=구독ID+지급일) |
+| `MissionIdempotencyKeyCleanupScheduler.cleanupExpiredKeys`  | `0 15 * * * *` KST (매시)    | 24시간 지난 미션 생성 멱등 키 삭제 (LUT-577) |
+| `UserActivityFlushScheduler.flushRecentDays`                 | `0 20 0 * * *` KST          | Redis `active:{날짜}` 활동 집합 → `stats_db.user_daily_activity` 적재(그제·어제 2일, 멱등) (LUT-598) |
+| `KpiSnapshotScheduler.buildDailySnapshot`                    | `0 40 0 * * *` KST          | 어제·그제 `daily_kpi_snapshot` + 최근 31일 `cohort_retention` + 전월·당월 `cohort_revenue` 재계산(멱등) (LUT-601) |
+
+## DB 마이그레이션 — Flyway (LUT-595, `global/config/datasource/flyway`)
+
+**dev 는 Flyway, prod 는 v1.1.4 부터** (v1.1.3 운영 배포는 수동 psql, 직후 config prod `app.flyway.enabled=true`). Boot 자동설정은 DB 하나만 다루므로
+`spring.flyway.enabled=false` 로 끄고, 9개 `XxxDataSourceConfig`(LUT-598 `stats` 포함) 가 각각 `xxxFlywayMigration` 빈(`initMethod=migrate`)을 두며 `xxxEntityManagerFactory`
+가 `@DependsOn` 한다 — Flyway 가 스키마를 맞춘 뒤 Hibernate `validate`(각 config 의 `jpaProperties()` 가 코드로 지정, yml `ddl-auto` 와 무관)가 돈다.
+
+- 파일: `app/src/main/resources/db/migration/<db>/V<major>_<minor>_<patch>_<seq3>__<ticket>_<desc>.sql` (예 `V1_1_4_001__lut600_add_x.sql`).
+  릴리스 번호가 앞이라 번호가 계속 커진다. `FlywayMigrationNamingTest`(app)가 규칙을 검사. **적용된 파일은 고치지 않는다**(checksum → 기동 실패).
+- `app.flyway.enabled`(기본 false — 테스트·local 은 off, local 이 공유 dev DB 에 다른 브랜치 파일을 먼저 넣지 않게) · `baseline-version`(기존 DB 를
+  "여기까지 적용됨" 으로 받아들이는 지점, 1.1.3 V007 = `1.1.3.7`). history 표는 DB 마다 `flyway_schema_history`.
+- **Flyway 에 두지 않는 것**: 큰 데이터 보정(재산정·소급·백필) — 서버 기동 시점 자동 실행은 위험. 지금처럼 `level-up-together-sql` + 수동.
+  기준은 "서버가 뜨는 데 꼭 필요한가".
+- 롤링 배포 중 옛 코드와 새 스키마가 공존한다 — 컬럼 이름 변경·삭제는 "추가 → 코드 배포 → 다음 릴리스에 삭제". DB 간 순서 의존은 만들지 않는다.
 
 ## Saga Pattern
 
@@ -422,7 +505,8 @@ public void run() { ...}
 | `GET /api/internal/shop-items`, `/api/internal/shop-purchases`    | Internal      | Admin 아이템 관리 · 구매이력 (LUT-328)         |
 | `GET /api/internal/diamond-bundles`                               | Internal      | Admin 다이아 묶음상품 관리 (LUT-356)          |
 | `GET /api/internal/diamond-payments`                              | Internal      | Admin 다이아 결제이력 조회 — 어드민은 `DIAMOND_PAYMENT_READ` 권한 필요 (LUT-401). `user_id` 필터 지원 (LUT-486) |
-| `GET /api/internal/subscription-payments`                         | Internal      | Admin 구독 결제 이력 — 유저 상세 탭(`user_id`, LUT-486)과 결제이력 통합 페이지(닉네임·기간·플랫폼·플랜·이벤트 필터, LUT-488) 공용. `subscription_payment_history` append-only 원장(만료 엄격 연장 시에만 기록, verify·웹훅 이중 도착 자연 멱등). 가격은 iOS만 캡처 |
+| `GET /api/internal/subscription-payments`                         | Internal      | Admin 구독 결제 이력 — 유저 상세 탭(`user_id`, LUT-486)과 결제이력 통합 페이지(닉네임·기간·플랫폼·플랜·이벤트 필터, LUT-488) 공용. `subscription_payment_history` append-only 원장(만료 엄격 연장 시에만 기록, verify·웹훅 이중 도착 자연 멱등). 가격은 iOS JWS + Android Orders API(LUT-617) |
+| `POST /api/internal/subscription-payments/reconcile`              | Internal      | Android 구독 원장을 Play 주문 연번(1..latest)과 전수 대조 — 누락 갱신 백필·어긋난 행 정정, 구독 권한은 불변 (LUT-617). `user_id` 필수 |
 | `POST/GET /api/internal/item-grants`, `DELETE .../{id}`           | Internal      | Admin 아이템 수동 지급/이력/회수 — 멱등(보유 시 no-op), 회수=인벤토리 삭제+이력 revoked 마킹, `ITEM_GRANTED` 푸시 (LUT-472) |
 
 **합산 차감** (LUT-354): 아이템 구매는 블루+핑크 합산 잔액에서 **블루(무상) 우선 소진**
@@ -455,6 +539,14 @@ list_price      = COMMON 유저 기준가 = 최대 할증가                    
 **비로그인 열람 (LUT-350)** — `userId == null`이면 보유 아이템 없음 + 레벨 1(COMMON)로 계산한다. 화면에 보이는 값이 곧 가입 후 낼 값이라
 로그인해도 가격이 오르지 않는다.
 
+### 레벨 도달 보상 아이템 (LUT-593, `experience/application/LevelRewardItemService`)
+
+레벨 **4 이하 → 5 이상**이 되는 레벨업(4→6 건너뜀 포함)에 **성장의 새싹**을 미착용으로 지급하고 `ITEM_GRANTED` 알림(딥링크 인벤토리)을 보낸다.
+`shop_item_id` 는 환경별(dev 6 / prod 15)이라 `app.level-reward.sprout-item-id`(config-repository)로 받고, 비어 있으면 미지급.
+보유 중이면(구매·시즌 보상 포함) 지급·알림 모두 없음(`UserItemService.grantItem` null). **5→6 은 대상이 아니다** — 관리자 회수분이 되살아나지
+않게 하기 위함이고, 미지급 유저 보정은 백필 SQL(1.1.3 V007, 이름 `'성장의 새싹'` 으로 id 해석·알림 없음) 몫. 지급 실패는 레벨업을 되돌리지
+않는다(REQUIRES_NEW 행 생성이라 예외를 잡아도 호출자 트랜잭션 무오염).
+
 ## 구독 (gamificationservice/subscription, LUT-450~453 · 486 · 499)
 
 `user_subscription`(유저당 1행) + `subscription_payment_history`(원장). 상태의 **진실은 항상 스토어 재조회**
@@ -463,6 +555,19 @@ list_price      = COMMON 유저 기준가 = 최대 할증가                    
 - **스토어 서버 알림** (LUT-452): `POST /api/v1/webhooks/subscriptions/{apple|google}` permitAll. Android RTDN은 **GCP Pub/Sub push**로만
   온다 — 토픽 `lut-rtdn-{dev|prod}` + push 구독 → 웹훅 URL, Play Console 수익 창출 설정에 토픽 연결. iOS는 ASC 앱 정보에 Sandbox/Production
   URL 등록. dev는 2026-09-16 등록 완료(LUT-499); **prod는 config에 `iap:` 섹션 자체가 없어 검증 off** — 등록 전 config 추가·재기동 필수.
+  ⚠ **Pub/Sub push 구독은 반드시 `--expiration-period=never` 로 만든다** (LUT-617): 기본 만료 정책은 "31일 비활성 시 삭제"이고 삭제는 알림도
+  감사 로그도 없다. dev 구독이 2026-10-17 쯤 사라져 10/26 테스트 갱신 RTDN 9건이 구독 없는 토픽으로 발행돼 전부 폐기됐다. 2026-10-26 `lut-rtdn-dev-push`
+  재생성(만료 없음·재시도 10s~600s). 운영 `lut-rtdn-prod` 는 토픽만 있고 구독 0 — v1.1.3 때 같은 방식으로. 수신 여부는 `lut_rtdn_received_total`
+  (`RtdnMetrics`, kind 라벨) 카운터로 본다 — 0 이 계속되면 전달 경로부터 의심.
+- **Android 갱신 원장은 Play 주문 연번으로 완결한다** (LUT-617, `GoogleOrderLedgerSync`): RTDN·자가 치유·verify 는 "처리 시점의 `latestOrderId`
+  1건"만 알지만 갱신 주문 ID 는 `GPA.xxxx..N` 연번이다. 만료가 늘어날 때 원장의 마지막 N 다음부터 최신 N 까지 **Orders API**(`orders.get`,
+  `SubscriptionVerificationService.fetchGoogleOrder`)로 되짚어 실제 결제 시각(`createTime`)·금액(`total` → `price_source=STORE`)·이용 기간(`servicePeriodEnd`
+  = expires_at)으로 채운다. 주문 조회는 best-effort(권한 동기화를 막지 않음; 최신 주문만은 조회 실패 시 RTDN `eventTimeMillis`/now 로라도 기록, 중간 주문은
+  다음 호출 때 재시도). 같은 주문 ID 행은 주문 기준으로 정정(append-only 의 유일한 예외, `correctFromStoreOrder`). 수동 전수 대조는
+  `POST /api/internal/subscription-payments/reconcile?user_id=` (구독 권한은 안 바꿈, Android 만 — 120803/120804).
+- **스토어 API 실패는 일시/영구를 가른다** (LUT-617): `fetchGoogleSubscription`/`fetchGoogleOrder` 는 5xx·네트워크·토큰 발급 지연을
+  `StoreTransientException` 으로 던지고 웹훅은 이를 잡지 않아 5xx → Pub/Sub 백오프 재시도. 4xx(잘못된 토큰·권한)·파싱 실패만 `120702`(폐기). 클라이언트
+  verify·내부 reconcile 은 transient 를 120702 로 감싸 응답 계약 유지. 액세스 토큰은 50분 캐시(백필이 주문을 여러 번 조회).
 - **자가 치유** (LUT-499, `SubscriptionSelfHealService`): `/subscriptions/me`가 `expires_at` 경과 + `auto_renew` 상태를 보면 응답 전 스토어를
   재조회해 웹훅과 같은 경로(`SubscriptionWebhookTxService.applyGoogleState` / `applyAppleSnapshot`)로 덮어쓴다. 실패는 삼키고 DB 값 응답.
   `getMyEntitlement`는 클래스 readOnly 트랜잭션 밖(`NOT_SUPPORTED`)에서 돈다 — readOnly 안에서 쓰기를 부르면 flush 되지 않는다.
@@ -479,6 +584,7 @@ list_price      = COMMON 유저 기준가 = 최대 할증가                    
   새 결제 → 옛 행에서 스토어 키를 떼고(유니크 제약, flush 선행) 결제 계정으로 **이전**. 웹훅(ASSN SUBSCRIBED/DID_RENEW/OFFER_REDEEMED,
   RTDN)도 거래 토큰이 현재 주인이 아니면 같은 upsert로 이전을 시도하고 거절(120802)되면 기존 행에 적용한다. 토큰 없는 예전 거래는
   스토어 키 소유자 기준. 웹 안내 문구: 스토어 해지가 아니라 "기존 이용 기간 종료 후 재구독".
+- **결제 이력 금액 출처 `price_source`** (LUT-600): Google `subscriptionsv2` 는 금액을 주지 않아 Android 원장 `price_amount` 가 null 이었다. `SubscriptionPriceResolver` 가 기록 시 결정 — 스토어 금액 있음 → `STORE` / 무료 체험 → 0원 `TRIAL` / 아니면 `plan_list_price`(플랜×플랫폼×통화, 결제일 이전 최신 `effective_from`) 정가로 채워 `LIST` / 정가도 없으면 null(warn). 정가 변경은 행 추가(삭제 금지). 캐시 없음(건수 적음). 어드민 응답 `price_source` 필드 추가(admin DTO 는 P3-a). ⚠ Play 라이선스 테스터 결제는 실매출이 아니다 — 운영 Android 17건(2026-09-20 하루 생성)은 백필 대상에서 제외 판단 필요.
 - **verify 응답 `trial`** (LUT-500): 이번 결제 건이 무료 체험으로 시작됐는지(원장 `subscription_payment_history.trial`과 동일). `trial_used`는
   **유저 평생 이력**이라 체험 소진 후 정가 재구독에도 true — 성공 문구 판정은 반드시 `trial`로. `/me` 응답의 `trial`은 null.
 - 테스트 환경 갱신 주기: Play 테스터 체험 3분·월 5분·연 30분(정상 갱신 6회 후 자동 취소) / iOS 샌드박스 1개월=5분 / TestFlight는 24시간 고정.
@@ -494,6 +600,7 @@ list_price      = COMMON 유저 기준가 = 최대 할증가                    
   쿼리가 아니라 **데이터 정리(sql V009)** 로 제거 — 미션 상태로 소급 제외하면 활성이던 달의 정당한 미수행까지 빠진다.
 - **랭킹** `/api/v1/rankings` 14개: 전체·`/missions`·`/streaks`·`/achievements`·`/realtime`·`/level`·`/level/**`는 **비로그인 허용**(LUT-297,
   `SecurityConfig` permitAll + `SecurityConfigPublicEndpointTest`), `/my*`·`/nearby`는 인증 필요.
+- **출석은 가입 당일부터 1일차** (LUT-597): 예전 `AttendanceController` 의 "가입 첫날 출석 제외" 규칙(2025-12-25, 이유 미기재)은 폐지됐다. `isNewUserToday` 가 UTC 날짜(JVM 기본)를 비교해 차단 창이 KST 09:00~다음날 09:00 로 어긋났고, 웹은 `already_checked_in` 응답을 조용히 삼켜 유저에게 아무 안내도 없었다. IR 리텐션 D1 정의(가입 다음 날 재방문)와 맞추기 위해 제거 — **배포 전 가입 코호트의 가입 당일 출석 행은 구조적으로 0건**이라 출석 기반 D0 는 그 구간에서 측정 불가. kernel `UserQueryFacade.isNewUserToday` 는 호환 위해 남아 있다(호출처 없음).
 - **스트릭 소스는 2종이고 섞으면 안 된다** (LUT-405/555): ① **연속 출석** = `attendance_record.consecutive_days` 체인
   (`AttendanceService.getCurrentStreak`, 유저 타임존, 오늘·어제 출석 없으면 0) — 업적 화면 "현재 n일 출석중"·공개 프로필
   `consecutive_days`(파사드 `getCurrentAttendanceStreak`) ② **활동 스트릭** = `user_stats.current_streak/max_streak`
@@ -579,6 +686,13 @@ uk 멱등) — 쪼개서 수행해도 몰아서 한 것과 같은 점수. "하�
   `Retryer`가 **모든 Feign 클라이언트에 전역 적용**된다 — 어드민 패스스루의 Authorization 전달 인터셉터가 Google Translation 호출에
   섞여 prod에서 유저 JWT가 Google로 나가 401이 났다. `FeignClientConfigIsolationTest`(어노테이션)·`FeignClientConfigScopeIntegrationTest`
   (실제 컨텍스트)가 회귀를 막는다. 새 Feign 설정 클래스는 두 테스트 목록에 추가할 것.
+- **브라우저에서만 "CORS error"로 실패 (커스텀 헤더 추가 시)** (LUT-587): `SecurityConfig.corsConfigurationSource()` 의
+  `setAllowedHeaders(...)` 는 와일드카드가 아닌 **명시적 허용목록**이다. 목록에 없는 커스텀 헤더를 클라이언트가 붙이면 preflight(OPTIONS)가
+  그 헤더를 돌려주지 않아 **브라우저가 본 요청을 아예 보내지 않는다** — 서버 로그엔 아무것도 안 남고 "그 API 만 실패"로 보인다.
+  LUT-577/578 이 `Idempotency-Key` 를 빼먹어 미션 생성이 dev 에서 전부 CORS error 였고, 같이 점검하다 `X-Device-Type`(웹 로그아웃 직접
+  호출)도 누락된 것을 발견했다(실패를 try/catch 로 삼켜 증상이 안 보였다). **프론트·RN 에 커스텀 헤더를 추가하면 이 목록과
+  `SecurityConfigCorsTest.ALLOWED_CLIENT_HEADERS` 에 함께 추가할 것.** 에러 응답(401/409 등)에는 CORS 필터가 인가 필터보다 앞이라
+  헤더가 정상 포함된다. `maxAge=3600` 이므로 수정 배포 후에도 브라우저가 최대 1시간 옛 preflight 를 캐시한다 — 검증은 하드 리로드/시크릿 창.
 - **데이터 미저장/미조회**: `@Transactional`의 트랜잭션 매니저 확인
 - **Integration test 실패**: SSH 터널/외부 서비스 의존, `@ActiveProfiles("test")` 확인
 - **비로그인 API가 401** (LUT-350): 비로그인 허용은 **필터(`SecurityConfig`의 `permitAll`) + resolver(`@CurrentUser(required = false)`)
@@ -603,12 +717,27 @@ uk 멱등) — 쪼개서 수행해도 몰아서 한 것과 같은 점수. "하�
 - **저장**: `@Profile("prod")`에서 S3 + CloudFront CDN, 그 외 로컬 파일시스템. 서비스별 Strategy (`S3*ImageStorageService` /
   `Local*ImageStorageService`)
 
+- **길드 채팅·DM 이미지** (LUT-590, `chatservice/application/ChatImage*`): 업로드와 전송이 분리된 2단계 — `POST /api/v1/guilds/{id}/chat/images`
+  · `POST /api/v1/guilds/{id}/dm/images/{recipientId}`(multipart 파트 `image`, `@ModerateImage`, 권한은 전송과 동일)가 URL 을 주고 클라이언트가 그 URL 을
+  기존 전송(WS/REST)의 `image_url` 로 보낸다. 전송은 **업로드 API 가 발급한 URL 만** 받는다(`isOwnedUrl`, 위반 `error.chat.invalid_image_url`) —
+  임의 외부 URL 로 추적 이미지를 박는 것 방지. 저장 `uploads/chats/{guildId}/{userId}/` / S3 `chats/`, 미션처럼 `_thumb`/`_medium` 변형 생성.
+  DM 본문은 `@NotBlank` → "본문 또는 사진" `@AssertTrue` 로 완화(구앱 호환). 메시지 삭제 시 `imageUrl=null` + 커밋 후 파일 삭제.
+  사진만 보낸 메시지의 푸시 미리보기는 빈 본문 대신 `notification.preview.photo`(수신자 locale).
+
 상세는 [`docs/IMAGE_INFRA.md`](docs/IMAGE_INFRA.md) 참조.
 
 ## Feature-Specific Notes
 
 미션(고정/실행 모드/생성 한도/자동완료), 피드(공개범위/필터/동기화), 길드(초대/자동 참가), 인증(Browse-First/Signup Token Flow) 등 도메인별 비즈니스 규칙: [
 `docs/FEATURES.md`](docs/FEATURES.md)
+
+**미션 생성 멱등성** (LUT-577): `POST /api/v1/missions` 의 `Idempotency-Key`(UUID) 헤더 — 같은 유저·같은 키 재요청은 저장된 응답(같은 id) 재생,
+처리 중이면 409(`050402`), 형식 오류 400(`050401`), 헤더 없으면 기존처럼 매번 생성. 선점/해제는 REQUIRES_NEW, 생성+완료는 한 트랜잭션. 400/409 는
+플랫폼 `CustomException`(항상 500)이 아니라 미션 로컬 어드바이스가 낸다. 상세는 FEATURES.md "Mission 생성 멱등성" 절.
+
+**미션 EXP 공식은 `missionservice/domain/policy/MissionExpPolicy` 한 곳** (LUT-568): 체크 10/회(하루 10회), 타이머 60분까지 분당 1 + 초과 5분당 1
+(240분 = 96), 체크 일일 마일스톤 3·5개째 +20(`GrantDailyMilestoneBonusStep`, `ExpSourceType.DAILY_MISSION_MILESTONE`). 상세·응답 필드는
+FEATURES.md "Mission EXP 공식" 절. 공식을 바꿀 때 완료 Step 두 곳·엔티티 `calculateExpByDuration`·스케줄러 자동 종료 클램프가 전부 이 클래스를 참조하는지 확인할 것.
 
 JWT 발급/만료/슬라이딩 로직의 백엔드·웹·앱별 동작과 환경별 설정값: [`docs/JWT_TOKEN_LIFECYCLE.md`](docs/JWT_TOKEN_LIFECYCLE.md)
 
@@ -627,6 +756,16 @@ UA로 덮어쓰지 않는 이유는 RN의 `Platform.OS`가 iPad에서도 `ios`�
 `/api/internal/**` — VPC 내부 접근 + 공유 시크릿 헤더 인증(LUT-244). `InternalApiKeyFilter`가 `X-Internal-Api-Key` 헤더를
 `app.security.internal-api.key`와 상수시간 비교 (키 미설정 시 fail-open). 도메인별 베이스 경로, 신고 처리 워크플로우(WARNING/SUSPEND/BAN) 매핑: [
 `docs/INTERNAL_API.md`](docs/INTERNAL_API.md)
+
+**액추에이터도 같은 키로 보호된다** (LUT-605): `InternalApiKeyFilter` 가 `/showmethemoney/**` 중 **`/health`(하위 포함)만 공개**하고 나머지
+(`env`·`beans`·`metrics`·`prometheus`·`heapdump`·`threaddump`, base-path 자체)는 `X-Internal-Api-Key` 헤더 **또는 HTTP Basic 의 비밀번호**(사용자명 무관,
+Prometheus/Grafana Alloy 스크레이프용 — 플랫폼 `JwtAuthenticationFilter` 는 `Bearer` 만 해석해 충돌 없음)로 키를 받아야 200 이다. 예전엔 SecurityConfig
+`permitAll` + exposure `*` 라 prod `api.level-up-together.com/showmethemoney/env` 가 공개돼 있었다. 운영 점검은 `curl -u alloy:$KEY …/prometheus`.
+ALB·배포 스크립트(`gradle-*.yml`) 헬스체크는 `/showmethemoney/health` 라 영향 없다. 키 미설정이면 기존처럼 fail-open.
+
+어드민 대시보드용 `GET /api/internal/users/statistics` 의 `total_users` 는 **탈퇴(WITHDRAWN) 제외**(LUT-603 — 예전엔 `count()` 라 익명화된
+탈퇴 행까지 세었다), 탈퇴 수는 `withdrawn_users`, 가입경로 분포(`users_by_provider`)도 탈퇴 제외라 합이 `total_users` 와 맞는다.
+`daily_new_users` 는 가입 시점 집계라 이후 탈퇴해도 포함된다.
 
 베이스 경로는 코드 기준 35개(README "Internal API" 절에 전체 목록). `docs/INTERNAL_API.md`에 빠진 것: `shop-items`, `shop-purchases`, `item-grants`,
 `diamonds`(마이그레이션), `diamond-bundles`, `diamond-payments`, `subscription-payments`, `title-grants`, `titles`, `achievements`, `achievement-categories`,

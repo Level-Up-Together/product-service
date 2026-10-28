@@ -5,6 +5,7 @@ import io.pinkspider.leveluptogethermvp.gamificationservice.subscription.domain.
 import io.pinkspider.leveluptogethermvp.gamificationservice.subscription.domain.enums.SubscriptionPlan;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -19,6 +20,20 @@ public interface SubscriptionPaymentHistoryRepository
     /** LUT-486: 멱등 기록 가드 — uk_subscription_payment_dedup 과 같은 키 */
     boolean existsByUserIdAndEventTypeAndExpiresAt(
             String userId, SubscriptionPaymentEventType eventType, LocalDateTime expiresAt);
+
+    /** LUT-617: 같은 만료의 행 — 자가 치유가 다른 주문 ID 로 먼저 기록한 행을 찾아 주문 기준으로 정정 (uk 라 최대 1건) */
+    Optional<SubscriptionPaymentHistory> findByUserIdAndEventTypeAndExpiresAt(
+            String userId, SubscriptionPaymentEventType eventType, LocalDateTime expiresAt);
+
+    /** LUT-617: 같은 주문 ID 로 이미 기록된 행 — 시각·금액 정정용 (제약은 없지만 실질 유일, 방어적으로 List) */
+    List<SubscriptionPaymentHistory> findByUserIdAndEventTypeAndTransactionId(
+            String userId, SubscriptionPaymentEventType eventType, String transactionId);
+
+    /** LUT-617: 한 구매(GPA.xxxx 기준)의 주문 연번 전부 — 원장의 마지막 N 계산 */
+    List<SubscriptionPaymentHistory> findByUserIdAndTransactionIdStartingWith(
+            String userId, String transactionIdPrefix);
+
+    long countByUserId(String userId);
 
     /**
      * LUT-488: 어드민 결제이력 통합 페이지 — 기간(occurred_at)/플랫폼/플랜/이벤트 필터 목록 조회. (:param IS NULL OR ...) 패턴의

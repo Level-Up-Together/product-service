@@ -2,7 +2,9 @@ package io.pinkspider.leveluptogethermvp.chatservice.api;
 
 import io.pinkspider.global.annotation.CurrentUser;
 import io.pinkspider.global.api.ApiResult;
+import io.pinkspider.leveluptogethermvp.chatservice.application.ChatImageService;
 import io.pinkspider.leveluptogethermvp.chatservice.application.GuildDirectMessageService;
+import io.pinkspider.leveluptogethermvp.chatservice.domain.dto.ChatImageUploadResponse;
 import io.pinkspider.leveluptogethermvp.chatservice.domain.dto.DirectConversationResponse;
 import io.pinkspider.leveluptogethermvp.chatservice.domain.dto.DirectMessageRequest;
 import io.pinkspider.leveluptogethermvp.chatservice.domain.dto.DirectMessageResponse;
@@ -12,6 +14,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -19,7 +22,9 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
 
 @RestController
 @RequestMapping("/api/v1/guilds/{guildId}/dm")
@@ -27,6 +32,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class GuildDirectMessageController {
 
     private final GuildDirectMessageService dmService;
+    private final ChatImageService chatImageService;
 
     /** DM 대화 목록 조회 */
     @GetMapping("/conversations")
@@ -61,6 +67,22 @@ public class GuildDirectMessageController {
                 dmService.sendMessage(guildId, userId, recipientId, request);
         return ResponseEntity.ok(
                 ApiResult.<DirectMessageResponse>builder().value(response).build());
+    }
+
+    /**
+     * DM 이미지 업로드 (LUT-590). 저장된 URL 을 돌려주고, 클라이언트가 그 URL 을 DM 전송의 {@code image_url} 로 보낸다. 권한은 전송과
+     * 같다 — 양쪽 모두 길드원, 발신자가 상대를 차단했으면 거부.
+     */
+    @PostMapping(value = "/images/{recipientId}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<ApiResult<ChatImageUploadResponse>> uploadImage(
+            @PathVariable Long guildId,
+            @CurrentUser String userId,
+            @PathVariable String recipientId,
+            @RequestPart("image") MultipartFile image) {
+        ChatImageUploadResponse response =
+                chatImageService.uploadDirectMessageImage(guildId, userId, recipientId, image);
+        return ResponseEntity.ok(
+                ApiResult.<ChatImageUploadResponse>builder().value(response).build());
     }
 
     /** 대화 ID로 메시지 목록 조회 */

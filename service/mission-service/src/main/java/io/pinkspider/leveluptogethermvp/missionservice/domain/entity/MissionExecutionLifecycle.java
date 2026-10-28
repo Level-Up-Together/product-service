@@ -218,6 +218,9 @@ public interface MissionExecutionLifecycle {
 
     // === 필수 구현 (엔티티별 다른 로직) ===
 
-    /** 경험치 계산 - MissionExecution: 분당 1 EXP, 최대 480분 - DailyMissionInstance: 목표시간 기반 보너스 포함 */
+    /**
+     * 경험치 계산 (LUT-568 타이머 공식: 60분까지 분당 1, 초과 구간 5분당 1 — {@code MissionExpPolicy.timedExp}) -
+     * MissionExecution: 수행 분 기준, 최대 480분 - DailyMissionInstance: 목표시간 기반 보너스 포함
+     */
     int calculateExpByDuration();
 }

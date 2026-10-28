@@ -25,6 +25,7 @@ import io.pinkspider.leveluptogethermvp.missionservice.application.MissionExecut
 import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MissionExecutionResponse;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MonthlyCalendarResponse;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MonthlyCalendarResponse.DailyMission;
+import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MonthlyCalendarResponse.DailyReward;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.WeeklyCalendarResponse;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.ExecutionStatus;
 import java.time.LocalDate;
@@ -113,6 +114,8 @@ class MissionExecutionControllerTest {
                         .expEarned(50)
                         .note("1시간 조깅 완료")
                         .completedAt(LocalDateTime.now())
+                        .milestoneBonusExp(20)
+                        .milestoneCount(3)
                         .build();
 
         when(executionService.completeExecution(
@@ -278,6 +281,24 @@ class MissionExecutionControllerTest {
                                                                                 "SIMPLE 일일 EXP 한도"
                                                                                     + " 도달로 EXP=0"
                                                                                     + " 처리됨")
+                                                                        .optional(),
+                                                                fieldWithPath(
+                                                                                "value.milestone_bonus_exp")
+                                                                        .type(JsonFieldType.NUMBER)
+                                                                        .description(
+                                                                                "LUT-568: 이번 완료로"
+                                                                                    + " 지급된 체크 일일"
+                                                                                    + " 마일스톤 보너스"
+                                                                                    + " 경험치 (미도달 시"
+                                                                                    + " 필드 없음)")
+                                                                        .optional(),
+                                                                fieldWithPath(
+                                                                                "value.milestone_count")
+                                                                        .type(JsonFieldType.NUMBER)
+                                                                        .description(
+                                                                                "LUT-568: 도달한 마일스톤"
+                                                                                    + " 수 (3/5, 미도달"
+                                                                                    + " 시 필드 없음)")
                                                                         .optional())
                                                         .build())));
 
@@ -714,6 +735,19 @@ class MissionExecutionControllerTest {
                                                                                 .atTime(20, 0))
                                                                 .build())))
                         .dailyExp(Map.of(todayStr, 90, yesterdayStr, 40))
+                        .dailyRewards(
+                                Map.of(
+                                        todayStr,
+                                        List.of(
+                                                DailyReward.builder()
+                                                        .type("ATTENDANCE")
+                                                        .exp(10)
+                                                        .build(),
+                                                DailyReward.builder()
+                                                        .type("DAILY_MISSION_MILESTONE")
+                                                        .exp(20)
+                                                        .milestone(3)
+                                                        .build())))
                         .completedDates(List.of(yesterdayStr, todayStr))
                         .build();
 
@@ -783,6 +817,41 @@ class MissionExecutionControllerTest {
                                                                         .type(JsonFieldType.NUMBER)
                                                                         .description(
                                                                                 "해당 날짜 총 획득 경험치")
+                                                                        .optional(),
+                                                                fieldWithPath("value.daily_rewards")
+                                                                        .type(JsonFieldType.OBJECT)
+                                                                        .description(
+                                                                                "LUT-568: 날짜별 미션 외"
+                                                                                    + " 보상 내역 (key:"
+                                                                                    + " yyyy-MM-dd)."
+                                                                                    + " 출석·체크 미션 일일"
+                                                                                    + " 마일스톤. 이력 조회"
+                                                                                    + " 실패 시 빈 객체"),
+                                                                fieldWithPath(
+                                                                                "value.daily_rewards.*[]")
+                                                                        .type(JsonFieldType.ARRAY)
+                                                                        .description(
+                                                                                "해당 날짜 보상 행 목록")
+                                                                        .optional(),
+                                                                fieldWithPath(
+                                                                                "value.daily_rewards.*[].type")
+                                                                        .type(JsonFieldType.STRING)
+                                                                        .description(
+                                                                                "보상 유형 (ATTENDANCE"
+                                                                                    + " / DAILY_MISSION_MILESTONE)")
+                                                                        .optional(),
+                                                                fieldWithPath(
+                                                                                "value.daily_rewards.*[].exp")
+                                                                        .type(JsonFieldType.NUMBER)
+                                                                        .description("획득 경험치")
+                                                                        .optional(),
+                                                                fieldWithPath(
+                                                                                "value.daily_rewards.*[].milestone")
+                                                                        .type(JsonFieldType.NUMBER)
+                                                                        .description(
+                                                                                "마일스톤 수 (3/5,"
+                                                                                    + " DAILY_MISSION_MILESTONE"
+                                                                                    + " 만)")
                                                                         .optional(),
                                                                 fieldWithPath(
                                                                                 "value.daily_missions")
@@ -866,6 +935,7 @@ class MissionExecutionControllerTest {
                         .month(today.getMonthValue())
                         .totalExp(0)
                         .dailyExp(Map.of())
+                        .dailyRewards(Map.of())
                         .dailyMissions(Map.of())
                         .completedDates(List.of())
                         .build();
@@ -926,6 +996,12 @@ class MissionExecutionControllerTest {
                                                                         .description(
                                                                                 "날짜별 총 획득 경험치 (빈"
                                                                                         + " 객체)"),
+                                                                fieldWithPath("value.daily_rewards")
+                                                                        .type(JsonFieldType.OBJECT)
+                                                                        .description(
+                                                                                "LUT-568: 날짜별 미션 외"
+                                                                                    + " 보상 내역 (빈"
+                                                                                    + " 객체)"),
                                                                 fieldWithPath(
                                                                                 "value.daily_missions")
                                                                         .type(JsonFieldType.OBJECT)

@@ -6,8 +6,10 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import io.pinkspider.leveluptogethermvp.gamificationservice.subscription.domain.dto.ResolvedPrice;
 import io.pinkspider.leveluptogethermvp.gamificationservice.subscription.domain.entity.SubscriptionPaymentHistory;
 import io.pinkspider.leveluptogethermvp.gamificationservice.subscription.domain.entity.UserSubscription;
+import io.pinkspider.leveluptogethermvp.gamificationservice.subscription.domain.enums.PriceSource;
 import io.pinkspider.leveluptogethermvp.gamificationservice.subscription.domain.enums.SubscriptionPaymentEventType;
 import io.pinkspider.leveluptogethermvp.gamificationservice.subscription.domain.enums.SubscriptionPlan;
 import io.pinkspider.leveluptogethermvp.gamificationservice.subscription.infrastructure.SubscriptionPaymentHistoryRepository;
@@ -26,6 +28,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 class SubscriptionPaymentHistoryRecorderTest {
 
     @Mock private SubscriptionPaymentHistoryRepository repository;
+    @Mock private SubscriptionPriceResolver priceResolver;
 
     @InjectMocks private SubscriptionPaymentHistoryRecorder recorder;
 
@@ -50,6 +53,14 @@ class SubscriptionPaymentHistoryRecorderTest {
         when(repository.existsByUserIdAndEventTypeAndExpiresAt(
                         "user-1", SubscriptionPaymentEventType.PURCHASE, NOW.plusMonths(1)))
                 .thenReturn(false);
+        when(priceResolver.resolve(
+                        new BigDecimal("4900.00"),
+                        "KRW",
+                        true,
+                        SubscriptionPlan.MONTHLY,
+                        "ios",
+                        NOW.toLocalDate()))
+                .thenReturn(new ResolvedPrice(new BigDecimal("4900.00"), "KRW", PriceSource.STORE));
 
         recorder.record(
                 subscription(),
@@ -73,9 +84,38 @@ class SubscriptionPaymentHistoryRecorderTest {
         assertThat(saved.getTrial()).isTrue();
         assertThat(saved.getPriceAmount()).isEqualByComparingTo(new BigDecimal("4900.00"));
         assertThat(saved.getPriceCurrency()).isEqualTo("KRW");
+        assertThat(saved.getPriceSource()).isEqualTo(PriceSource.STORE);
         assertThat(saved.getTransactionId()).isEqualTo("tx-1001");
         assertThat(saved.getExpiresAt()).isEqualTo(NOW.plusMonths(1));
         assertThat(saved.getOccurredAt()).isEqualTo(NOW);
+    }
+
+    @Test
+    @DisplayName("LUT-600: 스토어 금액이 없으면 resolver 가 정한 정가·출처(LIST)를 저장한다")
+    void recordUsesResolvedListPrice() {
+        when(repository.existsByUserIdAndEventTypeAndExpiresAt(
+                        "user-1", SubscriptionPaymentEventType.RENEWAL, NOW.plusMonths(1)))
+                .thenReturn(false);
+        when(priceResolver.resolve(
+                        null, null, false, SubscriptionPlan.MONTHLY, "ios", NOW.toLocalDate()))
+                .thenReturn(new ResolvedPrice(new BigDecimal("4900.00"), "KRW", PriceSource.LIST));
+
+        recorder.record(
+                subscription(),
+                SubscriptionPaymentEventType.RENEWAL,
+                false,
+                null,
+                null,
+                "order-1",
+                NOW.plusMonths(1),
+                NOW);
+
+        ArgumentCaptor<SubscriptionPaymentHistory> captor =
+                ArgumentCaptor.forClass(SubscriptionPaymentHistory.class);
+        verify(repository).save(captor.capture());
+        assertThat(captor.getValue().getPriceAmount()).isEqualByComparingTo("4900.00");
+        assertThat(captor.getValue().getPriceCurrency()).isEqualTo("KRW");
+        assertThat(captor.getValue().getPriceSource()).isEqualTo(PriceSource.LIST);
     }
 
     @Test

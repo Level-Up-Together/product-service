@@ -20,6 +20,7 @@ sourceSets {
         'bff-service/src/main/java',
         'notice-service/src/main/java',
         'support-service/src/main/java',
+        'stats-service/src/main/java',
     ]
     test.java.srcDirs = [
         'src/test/java',
@@ -35,6 +36,7 @@ sourceSets {
         'bff-service/src/test/java',
         'notice-service/src/test/java',
         'support-service/src/test/java',
+        'stats-service/src/test/java',
     ]
     test.resources.srcDirs = [
         'shared-test/src/test/resources',
@@ -49,6 +51,7 @@ sourceSets {
         'bff-service/src/test/resources',
         'notice-service/src/test/resources',
         'support-service/src/test/resources',
+        'stats-service/src/test/resources',
     ]
 }
 
@@ -57,6 +60,10 @@ dependencies {
     api "io.pinkspider:lut-platform-kernel:${rootProject.ext.lutPlatformVersion}"
     api "io.pinkspider:lut-platform-infra:${rootProject.ext.lutPlatformVersion}"
     implementation "io.pinkspider:lut-platform-saga:${rootProject.ext.lutPlatformVersion}"
+
+    // LUT-595: Flyway (버전은 Spring Boot BOM). Flyway 10 부터 PostgreSQL 지원 모듈이 분리됨
+    implementation 'org.flywaydb:flyway-core'
+    implementation 'org.flywaydb:flyway-database-postgresql'
 
     // Spring starters (MVP-specific)
     api 'org.springframework.boot:spring-boot-starter-oauth2-client'

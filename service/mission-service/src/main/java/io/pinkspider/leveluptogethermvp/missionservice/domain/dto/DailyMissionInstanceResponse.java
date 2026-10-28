@@ -81,6 +81,14 @@ public class DailyMissionInstanceResponse {
     // SIMPLE 모드 일일 EXP 한도(10회) 도달로 EXP=0 처리됨 (프론트 안내 토스트용)
     private Boolean dailySimpleExpCapped;
 
+    /** LUT-568: 이번 완료로 지급된 체크 일일 마일스톤 보너스 경험치. 미도달이면 응답에서 제외. */
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    private Integer milestoneBonusExp;
+
+    /** LUT-568: 이번 완료로 도달한 마일스톤 수(3/5). 미도달이면 응답에서 제외. */
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    private Integer milestoneCount;
+
     // ============ 메타 정보 ============
 
     private LocalDateTime createdAt;

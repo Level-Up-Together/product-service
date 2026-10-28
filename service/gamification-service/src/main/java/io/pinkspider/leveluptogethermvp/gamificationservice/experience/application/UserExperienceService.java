@@ -3,6 +3,7 @@ package io.pinkspider.leveluptogethermvp.gamificationservice.experience.applicat
 import io.pinkspider.global.enums.ExpSourceType;
 import io.pinkspider.global.event.GuildCreationEligibleEvent;
 import io.pinkspider.global.event.UserLevelUpEvent;
+import io.pinkspider.global.facade.dto.DailyRewardDto;
 import io.pinkspider.leveluptogethermvp.gamificationservice.achievement.event.AchievementCheckRequestedEvent;
 import io.pinkspider.leveluptogethermvp.gamificationservice.diamond.application.DiamondService;
 import io.pinkspider.leveluptogethermvp.gamificationservice.domain.entity.ExperienceHistory;
@@ -44,6 +45,7 @@ public class UserExperienceService {
     private final UserCategoryExperienceRepository userCategoryExperienceRepository;
     private final UserLevelConfigCacheService userLevelConfigCacheService;
     private final ApplicationEventPublisher eventPublisher;
+    private final LevelRewardItemService levelRewardItemService;
 
     @Transactional(transactionManager = "gamificationTransactionManager")
     public UserExperienceResponse addExperience(
@@ -108,6 +110,9 @@ public class UserExperienceService {
 
             // QA-220: 레벨업 다이아 지급 (달성 레벨당 1개, 중복 지급은 lastRewardedLevel 로 방지)
             diamondService.awardLevelUpDiamonds(userId, levelAfter);
+
+            // LUT-593: 레벨 5 도달 시 성장의 새싹 지급 (미착용, 보유 시 스킵, 실패해도 레벨업 유지)
+            levelRewardItemService.grantOnLevelUp(userId, levelBefore, levelAfter);
 
             // 레벨업 피드 프로젝션 이벤트 발행
             eventPublisher.publishEvent(
@@ -232,6 +237,36 @@ public class UserExperienceService {
                                 row -> ((Number) row[1]).longValue()));
     }
 
+    /** LUT-568: 기간 내 미션 외 보상 행(출석·일일 체크 미션 마일스톤) — 사용자 타임존 날짜·출처·출처 ID 단위 순합. 캘린더 날짜별 보상 행 표기용. */
+    public List<DailyRewardDto> getDailyRewardSummary(
+            String userId, LocalDateTime startUtc, LocalDateTime endUtc, String timezone) {
+        String zone = resolveZone(timezone);
+
+        return experienceHistoryRepository
+                .findDailyRewardsByUserIdAndPeriod(userId, startUtc, endUtc, zone)
+                .stream()
+                .map(
+                        row ->
+                                new DailyRewardDto(
+                                        ((java.sql.Date) row[0]).toLocalDate(),
+                                        ExpSourceType.valueOf((String) row[1]),
+                                        row[2] != null ? ((Number) row[2]).longValue() : null,
+                                        ((Number) row[3]).longValue()))
+                .toList();
+    }
+
+    private String resolveZone(String timezone) {
+        if (timezone != null) {
+            try {
+                ZoneId.of(timezone);
+                return timezone;
+            } catch (Exception e) {
+                log.warn("유효하지 않은 타임존, 기본값 사용: timezone={}", timezone);
+            }
+        }
+        return "Asia/Seoul";
+    }
+
     public Page<ExperienceHistory> getExperienceHistory(String userId, Pageable pageable) {
         return experienceHistoryRepository.findByUserIdOrderByCreatedAtDesc(userId, pageable);
     }
@@ -305,9 +340,21 @@ public class UserExperienceService {
         return 100 + (level - 1) * 50;
     }
 
+    /**
+     * LUT-570: 다음 레벨(currentLevel + 1) 행의 required_exp — 레벨업 판정(processLevelUp)이 보는 행과 같다. 예전엔 현재
+     * 레벨 행을 읽었는데 2~11 레벨이 전부 500 인 균일 곡선에선 드러나지 않았고, 새 초기 곡선에선 레벨 2 유저에게 50(레벨 2 비용)을 보여주며 실제로는
+     * 150(레벨 3 비용)이 필요했다. 테이블이 비어 있으면 기본 공식, 다음 레벨 행이 없으면(최대 레벨) null.
+     */
     private Integer getNextLevelRequiredExp(int currentLevel) {
-        UserLevelConfig config = userLevelConfigCacheService.getLevelConfigByLevel(currentLevel);
-        return config != null ? config.getRequiredExp() : calculateDefaultRequiredExp(currentLevel);
+        List<UserLevelConfig> configs = userLevelConfigCacheService.getAllLevelConfigs();
+        if (configs == null || configs.isEmpty()) {
+            return calculateDefaultRequiredExp(currentLevel);
+        }
+        return configs.stream()
+                .filter(lc -> lc.getLevel() != null && lc.getLevel() == currentLevel + 1)
+                .map(UserLevelConfig::getRequiredExp)
+                .findFirst()
+                .orElse(null);
     }
 
     public List<UserLevelConfig> getAllLevelConfigs() {

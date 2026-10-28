@@ -2,7 +2,9 @@ package io.pinkspider.leveluptogethermvp.chatservice.api;
 
 import io.pinkspider.global.annotation.CurrentUser;
 import io.pinkspider.global.api.ApiResult;
+import io.pinkspider.leveluptogethermvp.chatservice.application.ChatImageService;
 import io.pinkspider.leveluptogethermvp.chatservice.application.GuildChatService;
+import io.pinkspider.leveluptogethermvp.chatservice.domain.dto.ChatImageUploadResponse;
 import io.pinkspider.leveluptogethermvp.chatservice.domain.dto.ChatMessageRequest;
 import io.pinkspider.leveluptogethermvp.chatservice.domain.dto.ChatMessageResponse;
 import io.pinkspider.leveluptogethermvp.chatservice.domain.dto.ChatParticipantResponse;
@@ -17,6 +19,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -26,7 +29,9 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
 
 @Slf4j
 @RestController
@@ -36,6 +41,7 @@ public class GuildChatController {
 
     private final GuildChatService chatService;
     private final GuildChatRealtimePublisher realtimePublisher;
+    private final ChatImageService chatImageService;
 
     // 메시지 전송
     @PostMapping
@@ -46,6 +52,21 @@ public class GuildChatController {
             @RequestBody ChatMessageRequest request) {
         ChatMessageResponse response = chatService.sendMessage(guildId, userId, nickname, request);
         return ResponseEntity.ok(ApiResult.<ChatMessageResponse>builder().value(response).build());
+    }
+
+    /**
+     * 채팅 이미지 업로드 (LUT-590). 저장된 URL 을 돌려주고, 클라이언트가 그 URL 을 메시지 전송(WS/REST)의 {@code image_url} 로
+     * 보낸다.
+     */
+    @PostMapping(value = "/images", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<ApiResult<ChatImageUploadResponse>> uploadImage(
+            @PathVariable Long guildId,
+            @CurrentUser String userId,
+            @RequestPart("image") MultipartFile image) {
+        ChatImageUploadResponse response =
+                chatImageService.uploadGuildChatImage(guildId, userId, image);
+        return ResponseEntity.ok(
+                ApiResult.<ChatImageUploadResponse>builder().value(response).build());
     }
 
     // 최신 메시지 조회

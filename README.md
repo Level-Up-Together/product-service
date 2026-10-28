@@ -1,5 +1,19 @@
 # Level Up Together MVP
 
+[![Level Up Together](https://img.shields.io/badge/Level_Up_Together-00E5FF?style=flat-square&logo=github&logoColor=black)](https://github.com/Level-Up-Together)
+[![Pink Spider](https://img.shields.io/badge/Pink_Spider-contact@pink--spider.io-D14836?style=flat-square&logo=gmail&logoColor=white)](mailto:contact@pink-spider.io)
+[![Last Commit](https://img.shields.io/github/last-commit/Level-Up-Together/product-service/develop?style=flat-square&logo=github&logoColor=white)](https://github.com/Level-Up-Together/product-service/commits/develop)
+[![Dev Build](https://img.shields.io/github/actions/workflow/status/Level-Up-Together/product-service/gradle-dev.yml?style=flat-square&label=Dev%20Build&logo=githubactions&logoColor=white&branch=develop)](https://github.com/Level-Up-Together/product-service/actions/workflows/gradle-dev.yml)
+[![Java 21](https://img.shields.io/badge/Java-21-007396?style=flat-square&logo=openjdk&logoColor=white)](https://openjdk.org/projects/jdk/21/)
+[![Spring Boot 3.4.5](https://img.shields.io/badge/Spring_Boot-3.4.5-6DB33F?style=flat-square&logo=springboot&logoColor=white)](https://github.com/spring-projects/spring-boot/releases/tag/v3.4.5)
+[![Spring Cloud 2024.0.0](https://img.shields.io/badge/Spring_Cloud-2024.0.0-6DB33F?style=flat-square&logo=spring&logoColor=white)](https://spring.io/projects/spring-cloud)
+[![GraphQL DGS](https://img.shields.io/badge/GraphQL_DGS-8.0.0-E10098?style=flat-square&logo=graphql&logoColor=white)](https://netflix.github.io/dgs/)
+[![QueryDSL](https://img.shields.io/badge/QueryDSL-5.0.0-0769AD?style=flat-square)](http://querydsl.com/)
+[![Resilience4j](https://img.shields.io/badge/Resilience4j-1E88E5?style=flat-square)](https://resilience4j.readme.io/)
+[![Redis](https://img.shields.io/badge/Redis-DC382D?style=flat-square&logo=redis&logoColor=white)](https://redis.io/)
+[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-316192?style=flat-square&logo=postgresql&logoColor=white)](https://www.postgresql.org/)
+[![Gradle 8.14.3](https://img.shields.io/badge/Gradle-8.14.3-02303A?style=flat-square&logo=gradle&logoColor=white)](https://docs.gradle.org/8.14.3/userguide/userguide.html)
+
 함께 성장하는 미션 기반 커뮤니티 플랫폼의 백엔드 서비스입니다.
 
 ## 기술 스택
@@ -552,11 +566,11 @@ JaCoCo를 사용하며 최소 **75%** 커버리지를 요구합니다 (`service`
 - 미션 카테고리 (시스템 카테고리 + 사용자 정의)
 - 미션 참가자 진행 상태 추적
 - 미션 실행 스케줄 자동 생성
-- 미션 완료 시 경험치 지급 (TIMED 수행 시간 기반, 분당 1 EXP / 최대 480분)
+- 미션 완료 시 경험치 지급 (TIMED: 60분까지 분당 1 EXP, 초과 구간 5분당 1, 최대 480분 — LUT-568 `MissionExpPolicy`)
 - **누적 EXP (QA-176)**: 미션 응답의 `total_exp_earned`는 일반(`MissionExecution`) + 고정(`DailyMissionInstance`) 완료를 historic 합산 (탈퇴/실패 참여자 기여도 유지)
 - 미션북 (시스템 미션 라이브러리, 템플릿 수정 시 복제 미션에 duration/target/bonusExp 자동 전파)
 - Saga 패턴 기반 분산 트랜잭션 관리
-- **수행 방식 (Execution Mode)**: TIMED (시간 측정, 분당 1 EXP) / SIMPLE (수행 여부 체크, 고정 +5 EXP, 하루 10회 제한)
+- **수행 방식 (Execution Mode)**: TIMED (시간 측정, 60분까지 분당 1 EXP·초과 5분당 1) / SIMPLE (수행 여부 체크, 고정 +10 EXP, 하루 10회 제한, 당일 3·5개째 +20 마일스톤)
 - **고정 미션 (Pinned Mission)**: Template-Instance 패턴
   - 매일 자동 생성되는 일일 인스턴스
   - 미션 정보 스냅샷 저장
@@ -735,13 +749,16 @@ Redis를 활용한 캐싱으로 서비스 간 호출을 최소화하고 성능�
 `/api/internal/**` 경로는 Admin Backend가 MVP의 도메인 데이터를 조회/조작하기 위해 사용합니다. `SecurityConfig`에서는 `permitAll`이지만
 **VPC 내부 접근 + 공유 시크릿 헤더 인증**(LUT-244)으로 보호됩니다 — `InternalApiKeyFilter`가 `X-Internal-Api-Key` 헤더를
 `app.security.internal-api.key`와 상수시간 비교 (키 미설정 시 fail-open). 상세: [`docs/INTERNAL_API.md`](docs/INTERNAL_API.md)
+같은 필터가 **액추에이터(`/showmethemoney/**`)도 보호**합니다(LUT-605) — `/showmethemoney/health` 만 공개(ALB·배포 헬스체크), 나머지는
+`X-Internal-Api-Key` 헤더 또는 HTTP Basic 비밀번호로 키를 보내야 합니다(Grafana Alloy 스크레이프용). KPI 스냅샷은 `lut_kpi_*` Micrometer
+게이지로 `/showmethemoney/prometheus` 에 노출됩니다(`KpiMetricsExporter`).
 
-베이스 경로 36개 — `users`, `terms`, `feeds`, `feed-comments`, `missions`, `mission-templates`, `mission-participants`, `mission-comments`,
+베이스 경로 38개 — `users`, `terms`, `feeds`, `feed-comments`, `missions`, `mission-templates`, `mission-participants`, `mission-comments`,
 `mission-categories`, `mission-images`(변형 백필, LUT-409), `guilds`, `guilds/{guildId}`(게시글·댓글 관리), `guilds/exp`(EXP 백필),
 `guild-level-configs`, `user-level-configs`, `attendance-reward-configs`, `achievements`, `achievement-categories`, `check-logic-types`,
 `titles`, `title-grants`, `experience-history`, `events`, `seasons`, `seasons/{seasonId}/rank-rewards`, `mvp-history`, `daily-mvp-exclusions`,
 `profanity-words`, `shop-items`, `shop-purchases`, `item-grants`, `diamonds`(마이그레이션), `diamond-bundles`, `diamond-payments`, `subscription-payments`,
-`push-campaigns`(어드민 푸시 발송·이력, LUT-508).
+`push-campaigns`(어드민 푸시 발송·이력, LUT-508), `stats/activity`(유저 일별 활동 수동 flush, LUT-598), `kpi`(daily·retention·revenue/cohorts·signups/by-channel·rebuild)(일별 KPI 스냅샷·코호트 리텐션·코호트 매출 조회 + rebuild, LUT-601).
 (`docs/INTERNAL_API.md`에는 이 중 일부만 정리돼 있어 보강 필요)
 
 | 도메인           | 베이스 경로                                                         |

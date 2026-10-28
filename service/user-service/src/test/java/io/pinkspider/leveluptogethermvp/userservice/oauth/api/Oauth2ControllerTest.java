@@ -20,8 +20,10 @@ import io.pinkspider.leveluptogethermvp.userservice.oauth.application.SignupToke
 import io.pinkspider.leveluptogethermvp.userservice.oauth.domain.dto.jwt.CreateJwtResponseDto;
 import io.pinkspider.leveluptogethermvp.userservice.oauth.domain.dto.jwt.OAuth2LoginUriResponseDto;
 import io.pinkspider.leveluptogethermvp.userservice.oauth.domain.dto.jwt.SocialLoginResponseDto;
+import io.pinkspider.leveluptogethermvp.userservice.oauth.domain.dto.request.CompleteSignupRequestDto;
 import io.pinkspider.leveluptogethermvp.userservice.oauth.domain.dto.request.MobileLoginRequestDto;
 import io.pinkspider.util.MockUtil;
+import java.util.List;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -429,6 +431,169 @@ class Oauth2ControllerTest {
 
         // then
         resultActions.andExpect(MockMvcResultMatchers.status().isOk());
+    }
+
+    @Test
+    @DisplayName("POST /oauth/complete-signup : 회원가입 최종 완료 (닉네임·약관·유입 채널 → users INSERT, JWT 발급)")
+    void completeSignup() throws Exception {
+        // given
+        CompleteSignupRequestDto requestDto = new CompleteSignupRequestDto();
+        requestDto.setNickname("새유저");
+        CompleteSignupRequestDto.TermAgreement term = new CompleteSignupRequestDto.TermAgreement();
+        term.setTermVersionId(1L);
+        term.setAgreed(true);
+        requestDto.setAgreedTerms(List.of(term));
+        requestDto.setDeviceType("web");
+        requestDto.setDeviceId("device_uuid_12345");
+        requestDto.setPreferredLocale("ko");
+        // LUT-599: 유입 채널 원천 (optional)
+        requestDto.setUtmSource("insta");
+        requestDto.setUtmMedium("cpc");
+        requestDto.setUtmCampaign("oct");
+        requestDto.setInviteCode("ABC123");
+
+        CreateJwtResponseDto mockResponse =
+                MockUtil.readJsonFileToClass(
+                        "fixture/userservice/oauth/mockCreateJwtResponseDto.json",
+                        CreateJwtResponseDto.class);
+        when(oauth2Service.completeSignup(
+                        eq("signup-token-123"), any(CompleteSignupRequestDto.class), any()))
+                .thenReturn(mockResponse);
+
+        // when
+        ResultActions resultActions =
+                mockMvc.perform(
+                                RestDocumentationRequestBuilders.post("/oauth/complete-signup")
+                                        .header("X-Signup-Token", "signup-token-123")
+                                        .contentType("application/json;charset=UTF-8")
+                                        .content(objectMapper.writeValueAsString(requestDto)))
+                        .andDo(
+                                MockMvcRestDocumentationWrapper.document(
+                                        "04. 회원가입 최종 완료",
+                                        preprocessRequest(prettyPrint()),
+                                        preprocessResponse(prettyPrint()),
+                                        resource(
+                                                ResourceSnippetParameters.builder()
+                                                        .description(
+                                                                "04. 회원가입 최종 완료 - signup token +"
+                                                                    + " 닉네임 + 약관 동의(+ 유입 채널"
+                                                                    + " LUT-599)를 받아 users INSERT,"
+                                                                    + " JWT 발급")
+                                                        .requestHeaders(
+                                                                headerWithName("X-Signup-Token")
+                                                                        .description(
+                                                                                "OAuth 콜백에서 받은"
+                                                                                        + " signup"
+                                                                                        + " token"),
+                                                                headerWithName(
+                                                                                HttpHeaders
+                                                                                        .CONTENT_TYPE)
+                                                                        .description(
+                                                                                "application/json;"
+                                                                                    + " charset=UTF-8"))
+                                                        .requestFields(
+                                                                fieldWithPath("nickname")
+                                                                        .type(JsonFieldType.STRING)
+                                                                        .description("닉네임 (2~10자)"),
+                                                                fieldWithPath("agreed_terms")
+                                                                        .type(JsonFieldType.ARRAY)
+                                                                        .description("약관 동의 목록"),
+                                                                fieldWithPath(
+                                                                                "agreed_terms[].term_version_id")
+                                                                        .type(JsonFieldType.NUMBER)
+                                                                        .description("약관 버전 ID"),
+                                                                fieldWithPath(
+                                                                                "agreed_terms[].is_agreed")
+                                                                        .type(JsonFieldType.BOOLEAN)
+                                                                        .description("동의 여부"),
+                                                                fieldWithPath("device_type")
+                                                                        .type(JsonFieldType.STRING)
+                                                                        .description(
+                                                                                "디바이스 타입 (web, ios,"
+                                                                                    + " ipad,"
+                                                                                    + " android)")
+                                                                        .optional(),
+                                                                fieldWithPath("device_id")
+                                                                        .type(JsonFieldType.STRING)
+                                                                        .description("디바이스 고유 ID")
+                                                                        .optional(),
+                                                                fieldWithPath("preferred_locale")
+                                                                        .type(JsonFieldType.STRING)
+                                                                        .description(
+                                                                                "디바이스 언어 (ko, en,"
+                                                                                    + " ja, ar)")
+                                                                        .optional(),
+                                                                fieldWithPath("utm_source")
+                                                                        .type(JsonFieldType.STRING)
+                                                                        .description(
+                                                                                "LUT-599"
+                                                                                    + " first-touch"
+                                                                                    + " utm_source"
+                                                                                    + " (100자, 채널"
+                                                                                    + " 결정에 사용)")
+                                                                        .optional(),
+                                                                fieldWithPath("utm_medium")
+                                                                        .type(JsonFieldType.STRING)
+                                                                        .description(
+                                                                                "LUT-599 utm_medium"
+                                                                                        + " (100자)")
+                                                                        .optional(),
+                                                                fieldWithPath("utm_campaign")
+                                                                        .type(JsonFieldType.STRING)
+                                                                        .description(
+                                                                                "LUT-599"
+                                                                                    + " utm_campaign"
+                                                                                    + " (100자)")
+                                                                        .optional(),
+                                                                fieldWithPath("invite_code")
+                                                                        .type(JsonFieldType.STRING)
+                                                                        .description(
+                                                                                "LUT-599 길드 초대 코드"
+                                                                                    + " (50자, 있으면"
+                                                                                    + " 채널 invite)")
+                                                                        .optional())
+                                                        .responseFields(
+                                                                fieldWithPath("code")
+                                                                        .type(JsonFieldType.STRING)
+                                                                        .description("응답 코드"),
+                                                                fieldWithPath("message")
+                                                                        .type(JsonFieldType.STRING)
+                                                                        .description("응답 메시지"),
+                                                                fieldWithPath("value")
+                                                                        .type(JsonFieldType.OBJECT)
+                                                                        .description("JWT 발급 결과"),
+                                                                fieldWithPath("value.access_token")
+                                                                        .type(JsonFieldType.STRING)
+                                                                        .description("액세스 토큰"),
+                                                                fieldWithPath("value.refresh_token")
+                                                                        .type(JsonFieldType.STRING)
+                                                                        .description("리프레시 토큰"),
+                                                                fieldWithPath("value.token_type")
+                                                                        .type(JsonFieldType.STRING)
+                                                                        .description(
+                                                                                "토큰 타입 (Bearer)"),
+                                                                fieldWithPath("value.expired_time")
+                                                                        .type(JsonFieldType.STRING)
+                                                                        .description("만료 시각")
+                                                                        .optional(),
+                                                                fieldWithPath("value.expires_in")
+                                                                        .type(JsonFieldType.NUMBER)
+                                                                        .description("만료까지 초"),
+                                                                fieldWithPath("value.user_id")
+                                                                        .type(JsonFieldType.STRING)
+                                                                        .description("유저 ID"),
+                                                                fieldWithPath("value.device_id")
+                                                                        .type(JsonFieldType.STRING)
+                                                                        .description("디바이스 ID"),
+                                                                fieldWithPath("value.nickname_set")
+                                                                        .type(JsonFieldType.BOOLEAN)
+                                                                        .description("닉네임 설정 여부"))
+                                                        .build())));
+
+        // then
+        resultActions
+                .andExpect(MockMvcResultMatchers.status().isOk())
+                .andExpect(MockMvcResultMatchers.jsonPath("$.value.user_id").value("userId"));
     }
 
     @Test

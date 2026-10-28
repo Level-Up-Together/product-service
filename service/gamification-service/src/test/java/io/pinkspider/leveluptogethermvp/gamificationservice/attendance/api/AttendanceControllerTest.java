@@ -14,7 +14,6 @@ import static org.springframework.security.test.web.servlet.request.SecurityMock
 import com.epages.restdocs.apispec.MockMvcRestDocumentationWrapper;
 import com.epages.restdocs.apispec.ResourceSnippetParameters;
 import com.epages.restdocs.apispec.SimpleType;
-import io.pinkspider.global.facade.UserQueryFacade;
 import io.pinkspider.leveluptogethermvp.config.ControllerTestConfig;
 import io.pinkspider.leveluptogethermvp.gamificationservice.attendance.application.AttendanceService;
 import io.pinkspider.leveluptogethermvp.gamificationservice.attendance.domain.dto.AttendanceCheckInResponse;
@@ -60,16 +59,12 @@ class AttendanceControllerTest {
 
     @MockitoBean private AttendanceService attendanceService;
 
-    @MockitoBean private UserQueryFacade userQueryFacadeService;
-
     private static final String MOCK_USER_ID = "test-user-123";
 
     @Test
     @DisplayName("POST /api/v1/attendance/check-in : 출석 체크")
     void checkInTest() throws Exception {
         // given
-        when(userQueryFacadeService.isNewUserToday(anyString())).thenReturn(false);
-
         AttendanceResponse attendance =
                 AttendanceResponse.builder()
                         .id(1L)

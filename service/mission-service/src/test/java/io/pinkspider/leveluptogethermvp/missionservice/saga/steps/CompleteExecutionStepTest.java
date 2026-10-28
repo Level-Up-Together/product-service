@@ -427,7 +427,7 @@ class CompleteExecutionStepTest {
         }
 
         @Test
-        @DisplayName("QA-212: 목표시간 미설정 미션을 2시간 초과 수동 완료하면 시간 기반 EXP(분당 1)를 받는다")
+        @DisplayName("QA-212/LUT-568: 목표시간 미설정 미션을 2시간 초과 수동 완료하면 타이머 공식 EXP 를 받는다")
         void execute_over2HoursManual_grantsTimeBasedExp() {
             // given - 2시간 27분(147분) 수행 후 수동 완료
             execution.setStartedAt(LocalDateTime.now().minusMinutes(147));
@@ -437,10 +437,97 @@ class CompleteExecutionStepTest {
             // when
             SagaStepResult result = completeExecutionStep.execute(context);
 
-            // then - 120(baseExp) 가 아니라 시간 기반(147), 자동완료 아님
+            // then - 120(baseExp) 가 아니라 공식값(60 + 87/5 = 77), 자동완료 아님
             assertThat(result.isSuccess()).isTrue();
-            assertThat(execution.getExpEarned()).isGreaterThanOrEqualTo(147);
+            assertThat(execution.getExpEarned()).isEqualTo(77);
             assertThat(execution.getIsAutoCompleted()).isNotEqualTo(Boolean.TRUE);
+        }
+
+        @Test
+        @DisplayName("LUT-568: 미션북 240분 목표 도달은 공식값(96) + 보너스로 지급한다 (240 이 아님)")
+        void execute_systemTarget240_appliesTimedFormulaPlusBonus() {
+            // given
+            Mission targetMission =
+                    Mission.builder()
+                            .title("4시간 집중")
+                            .creatorId(TEST_USER_ID)
+                            .status(MissionStatus.IN_PROGRESS)
+                            .visibility(MissionVisibility.PUBLIC)
+                            .type(MissionType.PERSONAL)
+                            .source(MissionSource.SYSTEM)
+                            .targetDurationMinutes(240)
+                            .bonusExpOnFullCompletion(50)
+                            .expPerCompletion(10)
+                            .build();
+            setId(targetMission, 7L);
+            MissionParticipant targetParticipant =
+                    MissionParticipant.builder()
+                            .mission(targetMission)
+                            .userId(TEST_USER_ID)
+                            .status(ParticipantStatus.IN_PROGRESS)
+                            .progress(0)
+                            .build();
+            setId(targetParticipant, 7L);
+            MissionExecution targetExecution =
+                    MissionExecution.builder()
+                            .participant(targetParticipant)
+                            .executionDate(LocalDate.now())
+                            .status(ExecutionStatus.IN_PROGRESS)
+                            .build();
+            setId(targetExecution, 7L);
+            targetExecution.setStartedAt(LocalDateTime.now().minusMinutes(245));
+
+            MissionCompletionContext targetContext =
+                    new MissionCompletionContext(7L, TEST_USER_ID, null);
+            targetContext.setExecution(targetExecution);
+            targetContext.setParticipant(targetParticipant);
+            targetContext.setMission(targetMission);
+            when(executionRepository.save(any(MissionExecution.class)))
+                    .thenAnswer(invocation -> invocation.getArgument(0));
+
+            // when
+            SagaStepResult result = completeExecutionStep.execute(targetContext);
+
+            // then: timedExp(240)=96 + 50
+            assertThat(result.isSuccess()).isTrue();
+            assertThat(targetExecution.getExpEarned()).isEqualTo(146);
+            assertThat(targetContext.getFullCompletionBonusExp()).isEqualTo(50);
+        }
+
+        @Test
+        @DisplayName("LUT-568: 유저 타이머 240분 목표 도달은 공식값 96 으로 캡한다 (방치 240 EXP 불가)")
+        void execute_userTarget240_cappedAt96() {
+            // given
+            mission.setTargetDurationMinutes(240);
+            mission.setSource(MissionSource.USER);
+            execution.setStartedAt(LocalDateTime.now().minusMinutes(300));
+            when(executionRepository.save(any(MissionExecution.class)))
+                    .thenAnswer(invocation -> invocation.getArgument(0));
+
+            // when
+            SagaStepResult result = completeExecutionStep.execute(context);
+
+            // then
+            assertThat(result.isSuccess()).isTrue();
+            assertThat(execution.getExpEarned()).isEqualTo(96);
+            assertThat(context.getUserExpEarned()).isEqualTo(96);
+        }
+
+        @Test
+        @DisplayName("LUT-568: 목표 미달 90분 수행은 공식값 66 (60 + 30/5)")
+        void execute_targetNotReached_appliesTimedFormula() {
+            // given
+            mission.setTargetDurationMinutes(120);
+            execution.setStartedAt(LocalDateTime.now().minusMinutes(90));
+            when(executionRepository.save(any(MissionExecution.class)))
+                    .thenAnswer(invocation -> invocation.getArgument(0));
+
+            // when
+            SagaStepResult result = completeExecutionStep.execute(context);
+
+            // then
+            assertThat(result.isSuccess()).isTrue();
+            assertThat(execution.getExpEarned()).isEqualTo(66);
         }
 
         @Test
@@ -490,7 +577,108 @@ class CompleteExecutionStepTest {
         }
 
         @Test
-        @DisplayName("SIMPLE 모드 + 일일 한도 미달이면 EXP=5(SIMPLE_EXP), dailySimpleExpCapped=false")
+        @DisplayName("LUT-568: SIMPLE 완료당 EXP 는 10 이다")
+        void execute_simpleMode_awardsTenExp() {
+            // given
+            mission.setExecutionMode(MissionExecutionMode.SIMPLE);
+            when(executionRepository.countSimpleCompletedByUserIdAndDate(eq(TEST_USER_ID), any()))
+                    .thenReturn(0L);
+            when(dailyMissionInstanceRepository.countSimpleCompletedByUserIdAndDate(
+                            eq(TEST_USER_ID), any()))
+                    .thenReturn(0L);
+            when(executionRepository.save(any(MissionExecution.class)))
+                    .thenAnswer(invocation -> invocation.getArgument(0));
+
+            // when
+            completeExecutionStep.execute(context);
+
+            // then
+            assertThat(execution.getExpEarned()).isEqualTo(10);
+            assertThat(context.getMilestoneBonusExp()).isZero();
+            assertThat(context.getMilestoneCount()).isZero();
+        }
+
+        @Test
+        @DisplayName("LUT-568: 당일 체크 완료 누계가 3개째면 마일스톤 3 / 보너스 20 을 기록한다 (일반 2 + 고정 0 + 이번)")
+        void execute_simpleMode_thirdCompletion_marksMilestone3() {
+            // given
+            mission.setExecutionMode(MissionExecutionMode.SIMPLE);
+            when(executionRepository.countSimpleCompletedByUserIdAndDate(eq(TEST_USER_ID), any()))
+                    .thenReturn(2L);
+            when(dailyMissionInstanceRepository.countSimpleCompletedByUserIdAndDate(
+                            eq(TEST_USER_ID), any()))
+                    .thenReturn(0L);
+            when(executionRepository.save(any(MissionExecution.class)))
+                    .thenAnswer(invocation -> invocation.getArgument(0));
+
+            // when
+            completeExecutionStep.execute(context);
+
+            // then
+            assertThat(context.getMilestoneCount()).isEqualTo(3);
+            assertThat(context.getMilestoneBonusExp()).isEqualTo(20);
+            // 미션 자체 EXP 는 별도 (보너스는 GrantDailyMilestoneBonusStep 이 지급)
+            assertThat(context.getUserExpEarned()).isEqualTo(10);
+        }
+
+        @Test
+        @DisplayName("LUT-568: 일반 1 + 고정 3 + 이번 = 5개째면 마일스톤 5 를 기록한다")
+        void execute_simpleMode_fifthCompletion_marksMilestone5() {
+            // given
+            mission.setExecutionMode(MissionExecutionMode.SIMPLE);
+            when(executionRepository.countSimpleCompletedByUserIdAndDate(eq(TEST_USER_ID), any()))
+                    .thenReturn(1L);
+            when(dailyMissionInstanceRepository.countSimpleCompletedByUserIdAndDate(
+                            eq(TEST_USER_ID), any()))
+                    .thenReturn(3L);
+            when(executionRepository.save(any(MissionExecution.class)))
+                    .thenAnswer(invocation -> invocation.getArgument(0));
+
+            // when
+            completeExecutionStep.execute(context);
+
+            // then
+            assertThat(context.getMilestoneCount()).isEqualTo(5);
+            assertThat(context.getMilestoneBonusExp()).isEqualTo(20);
+        }
+
+        @Test
+        @DisplayName("LUT-568: 4개째(마일스톤 사이)는 보너스를 기록하지 않는다")
+        void execute_simpleMode_fourthCompletion_noMilestone() {
+            // given
+            mission.setExecutionMode(MissionExecutionMode.SIMPLE);
+            when(executionRepository.countSimpleCompletedByUserIdAndDate(eq(TEST_USER_ID), any()))
+                    .thenReturn(3L);
+            when(dailyMissionInstanceRepository.countSimpleCompletedByUserIdAndDate(
+                            eq(TEST_USER_ID), any()))
+                    .thenReturn(0L);
+            when(executionRepository.save(any(MissionExecution.class)))
+                    .thenAnswer(invocation -> invocation.getArgument(0));
+
+            // when
+            completeExecutionStep.execute(context);
+
+            // then
+            assertThat(context.getMilestoneCount()).isZero();
+            assertThat(context.getMilestoneBonusExp()).isZero();
+        }
+
+        @Test
+        @DisplayName("LUT-568: TIMED 완료는 체크 마일스톤 집계에 포함되지 않는다")
+        void execute_timedMode_neverMarksMilestone() {
+            // given
+            when(executionRepository.save(any(MissionExecution.class)))
+                    .thenAnswer(invocation -> invocation.getArgument(0));
+
+            // when
+            completeExecutionStep.execute(context);
+
+            // then
+            assertThat(context.getMilestoneBonusExp()).isZero();
+        }
+
+        @Test
+        @DisplayName("SIMPLE 모드 + 일일 한도 미달이면 EXP=10(SIMPLE_EXP), dailySimpleExpCapped=false")
         void execute_simpleMode_underDailyLimit_awardsExp() {
             // given
             mission.setExecutionMode(MissionExecutionMode.SIMPLE);

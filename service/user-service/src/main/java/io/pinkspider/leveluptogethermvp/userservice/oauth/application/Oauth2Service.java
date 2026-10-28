@@ -8,6 +8,7 @@ import io.pinkspider.global.exception.CustomException;
 import io.pinkspider.global.security.JwtUtil;
 import io.pinkspider.global.security.OAuth2Properties;
 import io.pinkspider.global.util.CryptoUtils;
+import io.pinkspider.global.web.DeviceTypeResolver;
 import io.pinkspider.leveluptogethermvp.notificationservice.application.NotificationService;
 import io.pinkspider.leveluptogethermvp.userservice.core.feignclient.google.GoogleOAuth2FeignClient;
 import io.pinkspider.leveluptogethermvp.userservice.core.feignclient.google.GoogleUserInfoFeignClient;
@@ -17,7 +18,7 @@ import io.pinkspider.leveluptogethermvp.userservice.core.properties.WithdrawalPr
 import io.pinkspider.leveluptogethermvp.userservice.geoip.GeoIpService;
 import io.pinkspider.leveluptogethermvp.userservice.geoip.GeoIpService.GeoIpResult;
 import io.pinkspider.leveluptogethermvp.userservice.oauth.components.DeviceIdentifier;
-import io.pinkspider.leveluptogethermvp.userservice.oauth.components.DeviceTypeResolver;
+import io.pinkspider.leveluptogethermvp.userservice.oauth.domain.SignupAttribution;
 import io.pinkspider.leveluptogethermvp.userservice.oauth.domain.SignupSessionData;
 import io.pinkspider.leveluptogethermvp.userservice.oauth.domain.dto.OAuth2UserInfo;
 import io.pinkspider.leveluptogethermvp.userservice.oauth.domain.dto.apple.AppleUserInfo;
@@ -27,6 +28,7 @@ import io.pinkspider.leveluptogethermvp.userservice.oauth.domain.dto.jwt.OAuth2L
 import io.pinkspider.leveluptogethermvp.userservice.oauth.domain.dto.jwt.SocialLoginResponseDto;
 import io.pinkspider.leveluptogethermvp.userservice.oauth.domain.dto.kakao.KakaoUserInfo;
 import io.pinkspider.leveluptogethermvp.userservice.oauth.domain.dto.request.CompleteSignupRequestDto;
+import io.pinkspider.leveluptogethermvp.userservice.oauth.domain.policy.SignupChannelPolicy;
 import io.pinkspider.leveluptogethermvp.userservice.terms.application.UserTermsService;
 import io.pinkspider.leveluptogethermvp.userservice.terms.domain.request.AgreementTermsByUserRequestDto;
 import io.pinkspider.leveluptogethermvp.userservice.terms.domain.request.AgreementTermsByUserRequestDto.AgreementTerms;
@@ -506,6 +508,15 @@ public class Oauth2Service {
                         ? request.getPreferredLocale()
                         : session.preferredLocale();
 
+        // LUT-599: 가입 유입 채널 — 클라이언트는 UTM 원문·초대 코드만 보내고 채널은 서버가 정한다 (CAC 원천)
+        SignupAttribution attribution =
+                SignupChannelPolicy.resolve(
+                        request.getUtmSource(),
+                        request.getUtmMedium(),
+                        request.getUtmCampaign(),
+                        request.getInviteCode(),
+                        deviceTypeResolver.resolve(httpRequest, request.getDeviceType()));
+
         Users newUsers =
                 Users.builder()
                         .email(session.email())
@@ -517,10 +528,20 @@ public class Oauth2Service {
                         .nicknameSet(true)
                         .preferredLocale(preferredLocale)
                         .preferredTimezone(session.preferredTimezone())
+                        .signupChannel(attribution.signupChannel())
+                        .utmSource(attribution.utmSource())
+                        .utmMedium(attribution.utmMedium())
+                        .utmCampaign(attribution.utmCampaign())
+                        .signupDeviceType(attribution.signupDeviceType())
+                        .inviteCode(attribution.inviteCode())
                         .build();
 
         Users savedUser = userRepository.save(newUsers);
-        log.info("신규 사용자 가입 완료: userId={}, provider={}", savedUser.getId(), session.provider());
+        log.info(
+                "신규 사용자 가입 완료: userId={}, provider={}, channel={}",
+                savedUser.getId(),
+                session.provider(),
+                attribution.signupChannel());
 
         // 약관 동의 저장
         if (request.getAgreedTerms() != null && !request.getAgreedTerms().isEmpty()) {

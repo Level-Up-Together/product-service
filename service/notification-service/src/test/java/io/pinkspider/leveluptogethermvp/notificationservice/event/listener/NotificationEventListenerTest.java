@@ -32,6 +32,7 @@ import io.pinkspider.global.event.GuildJoinApprovedEvent;
 import io.pinkspider.global.event.GuildJoinRejectedEvent;
 import io.pinkspider.global.event.GuildJoinRequestedEvent;
 import io.pinkspider.global.event.GuildMissionArrivedEvent;
+import io.pinkspider.global.event.LevelRewardItemGrantedEvent;
 import io.pinkspider.global.event.MissionAutoEndMilestone;
 import io.pinkspider.global.event.MissionAutoEndWarningEvent;
 import io.pinkspider.global.event.MissionAutoEndedEvent;
@@ -67,6 +68,8 @@ class NotificationEventListenerTest {
     @Mock private GuildQueryFacade guildQueryFacadeService;
 
     @Mock private io.pinkspider.global.facade.UserQueryFacade userQueryFacadeService;
+
+    @Mock private org.springframework.context.MessageSource messageSource;
 
     @InjectMocks private NotificationEventListener eventListener;
 
@@ -1391,6 +1394,115 @@ class NotificationEventListenerTest {
             SubscriptionStipendGrantedEvent event =
                     new SubscriptionStipendGrantedEvent(TARGET_USER_ID, 20345L, 1);
             eventListener.handleSubscriptionStipendGranted(event);
+        }
+    }
+
+    // ==================== LUT-590: 사진만 보낸 채팅·DM 미리보기 ====================
+
+    @Nested
+    @DisplayName("사진만 보낸 채팅·DM 푸시 미리보기 (LUT-590)")
+    class PhotoOnlyPreviewTest {
+
+        @SuppressWarnings("unchecked")
+        private Function<Locale, Object[]> captureArgs(
+                String recipient, NotificationType type, Long id) {
+            ArgumentCaptor<Function<Locale, Object[]>> captor =
+                    ArgumentCaptor.forClass(Function.class);
+            verify(notificationService)
+                    .sendLocalizedNotification(
+                            eq(recipient), eq(type), eq(id), isNull(), captor.capture());
+            return captor.getValue();
+        }
+
+        @Test
+        @DisplayName("DM 본문이 비면 수신자 언어의 '사진을 보냈습니다' 로 보낸다")
+        void dm_imageOnly_usesLocalizedPhotoText() {
+            org.mockito.Mockito.when(
+                            messageSource.getMessage(
+                                    eq("notification.preview.photo"),
+                                    isNull(),
+                                    eq("notification.preview.photo"),
+                                    eq(Locale.ENGLISH)))
+                    .thenReturn("Sent a photo.");
+            GuildDirectMessageEvent event =
+                    new GuildDirectMessageEvent(
+                            SENDER_ID,
+                            "발송자",
+                            100L,
+                            5L,
+                            77L,
+                            null,
+                            MEMBER_ID_1,
+                            LocalDateTime.now());
+
+            eventListener.handleGuildDirectMessage(event);
+
+            Object[] args =
+                    captureArgs(MEMBER_ID_1, NotificationType.GUILD_DM, 77L).apply(Locale.ENGLISH);
+            assertThat(args).containsExactly("발송자", "Sent a photo.", "100", SENDER_ID);
+            verify(notificationService, never())
+                    .sendNotification(any(), any(), any(), any(), any(Object[].class));
+        }
+
+        @Test
+        @DisplayName("길드 채팅 본문이 비면 수신자 언어의 '사진을 보냈습니다' 로 보낸다")
+        void guildChat_imageOnly_usesLocalizedPhotoText() {
+            org.mockito.Mockito.when(
+                            messageSource.getMessage(
+                                    eq("notification.preview.photo"),
+                                    isNull(),
+                                    eq("notification.preview.photo"),
+                                    eq(Locale.KOREAN)))
+                    .thenReturn("사진을 보냈습니다.");
+            GuildChatMessageEvent event =
+                    new GuildChatMessageEvent(
+                            SENDER_ID,
+                            "발송자",
+                            100L,
+                            "테스트길드",
+                            88L,
+                            "",
+                            List.of(MEMBER_ID_1),
+                            LocalDateTime.now());
+
+            eventListener.handleGuildChatMessage(event);
+
+            Object[] args =
+                    captureArgs(MEMBER_ID_1, NotificationType.GUILD_CHAT, 88L).apply(Locale.KOREAN);
+            assertThat(args).containsExactly("테스트길드", "발송자", "사진을 보냈습니다.", "100");
+        }
+    }
+
+    // ==================== LUT-593: 레벨 보상 아이템 ====================
+
+    @Nested
+    @DisplayName("레벨 도달 보상 아이템 지급 알림 (LUT-593)")
+    class HandleLevelRewardItemGrantedTest {
+
+        @Test
+        @SuppressWarnings("unchecked")
+        @DisplayName("성장의 새싹 지급 이벤트 → ITEM_GRANTED 알림을 수신자 locale 아이템명으로 보낸다")
+        void sendsItemGrantedWithLocalizedName() {
+            LevelRewardItemGrantedEvent event =
+                    new LevelRewardItemGrantedEvent(
+                            "user-123", 6L, "성장의 새싹", "Sprout of Growth", "برعم النمو", "成長の芽", 5);
+
+            eventListener.handleLevelRewardItemGranted(event);
+
+            ArgumentCaptor<Function<Locale, Object[]>> captor =
+                    ArgumentCaptor.forClass(Function.class);
+            verify(notificationService)
+                    .sendLocalizedNotification(
+                            eq("user-123"),
+                            eq(NotificationType.ITEM_GRANTED),
+                            eq(6L),
+                            isNull(),
+                            captor.capture());
+            Function<Locale, Object[]> args = captor.getValue();
+            assertThat(args.apply(Locale.KOREAN)[0]).isEqualTo("성장의 새싹");
+            assertThat(args.apply(Locale.ENGLISH)[0]).isEqualTo("Sprout of Growth");
+            assertThat(args.apply(Locale.JAPANESE)[0]).isEqualTo("成長の芽");
+            assertThat(args.apply(Locale.forLanguageTag("ar"))[0]).isEqualTo("برعم النمو");
         }
     }
 }

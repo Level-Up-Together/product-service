@@ -6,6 +6,9 @@ import io.pinkspider.global.exception.CustomException;
 import io.pinkspider.leveluptogethermvp.gamificationservice.subscription.domain.dto.AppleSubscriptionNotification;
 import io.pinkspider.leveluptogethermvp.gamificationservice.subscription.domain.dto.GoogleSubscriptionState;
 import java.nio.charset.StandardCharsets;
+import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.util.Base64;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -31,6 +34,7 @@ public class SubscriptionWebhookService {
 
     private final SubscriptionVerificationService verificationService;
     private final SubscriptionWebhookTxService webhookTxService;
+    private final RtdnMetrics metrics;
 
     private final ObjectMapper objectMapper = new ObjectMapper();
 
@@ -55,13 +59,19 @@ public class SubscriptionWebhookService {
         webhookTxService.applyAppleNotification(notification);
     }
 
-    /** Google RTDN — base64 DeveloperNotification 파싱 후 Play API 재조회로 상태 적용 */
+    /**
+     * Google RTDN — base64 DeveloperNotification 파싱 후 Play API 재조회로 상태 적용.
+     *
+     * <p>LUT-617: 재조회의 <b>일시</b> 실패({@link StoreTransientException})는 잡지 않는다 — 5xx 로 응답해 Pub/Sub 가
+     * 백오프 재시도한다. 예전엔 모든 실패를 폐기해 Google 장애 구간의 갱신이 원장에서 사라졌다. 수신·폐기는 {@link RtdnMetrics} 카운터로 남긴다.
+     */
     public void handleGoogleNotification(String base64Data) {
         JsonNode notification = parseGoogleNotification(base64Data);
         if (notification == null) {
             return;
         }
         if (notification.has("testNotification")) {
+            metrics.received("test");
             log.info("RTDN 테스트 알림 수신 확인");
             return;
         }
@@ -69,17 +79,21 @@ public class SubscriptionWebhookService {
         // 환불(취소) 알림 — 별도 페이로드로 온다
         JsonNode voided = notification.path("voidedPurchaseNotification");
         if (voided.hasNonNull("purchaseToken")) {
+            metrics.received("voided");
             webhookTxService.revokeByPurchaseToken(voided.path("purchaseToken").asText());
             return;
         }
 
         JsonNode sub = notification.path("subscriptionNotification");
         if (!sub.hasNonNull("purchaseToken")) {
+            metrics.received("other");
+            metrics.dropped("not_subscription");
             log.info("RTDN 구독 알림 아님 — 스킵");
             return;
         }
         String purchaseToken = sub.path("purchaseToken").asText();
         int type = sub.path("notificationType").asInt(-1);
+        metrics.received("subscription-" + type);
 
         if (type == GOOGLE_TYPE_REVOKED) {
             webhookTxService.revokeByPurchaseToken(purchaseToken);
@@ -96,14 +110,28 @@ public class SubscriptionWebhookService {
             state = verificationService.fetchGoogleSubscription(purchaseToken);
         } catch (CustomException e) {
             // 잘못된 토큰 등 영구 실패로 보고 폐기 — 재전송해도 같은 결과
+            metrics.dropped("refetch_rejected");
             log.error("RTDN 상태 재조회 실패 — 폐기: type={}", type);
             return;
         }
-        webhookTxService.applyGoogleState(purchaseToken, state);
+        // LUT-617: 이벤트 발생 시각 — 주문 조회가 안 될 때 결제 이력 occurred_at 의 폴백 (처리 시점 now 보다 정확)
+        webhookTxService.applyGoogleState(purchaseToken, state, parseEventTime(notification));
+    }
+
+    /**
+     * DeveloperNotification.eventTimeMillis(문자열 epoch millis) → UTC LocalDateTime, 없거나 이상하면 null
+     */
+    static LocalDateTime parseEventTime(JsonNode notification) {
+        long millis = notification.path("eventTimeMillis").asLong(0);
+        if (millis <= 0) {
+            return null;
+        }
+        return LocalDateTime.ofInstant(Instant.ofEpochMilli(millis), ZoneOffset.UTC);
     }
 
     private JsonNode parseGoogleNotification(String base64Data) {
         if (base64Data == null || base64Data.isBlank()) {
+            metrics.dropped("empty");
             log.warn("RTDN 빈 data — 스킵");
             return null;
         }
@@ -112,6 +140,7 @@ public class SubscriptionWebhookService {
                     new String(Base64.getDecoder().decode(base64Data), StandardCharsets.UTF_8);
             return objectMapper.readTree(json);
         } catch (Exception e) {
+            metrics.dropped("unparseable");
             log.error("RTDN 페이로드 파싱 실패 — 폐기: {}", e.getMessage());
             return null;
         }

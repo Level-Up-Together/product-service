@@ -221,13 +221,15 @@ public class UserAdminInternalService {
         LocalDateTime startOfWeek = LocalDate.now().minusDays(7).atStartOfDay();
         LocalDateTime startOfMonth = LocalDate.now().minusDays(30).atStartOfDay();
 
-        long totalUsers = userRepository.count();
+        // LUT-603: 전체 사용자는 탈퇴(익명화 soft delete) 제외 — 예전엔 count() 라 WITHDRAWN 포함
+        long totalUsers = userRepository.countByStatusNot(UserStatus.WITHDRAWN);
+        long withdrawnUsers = userRepository.countByStatus(UserStatus.WITHDRAWN);
         long newUsersToday = userRepository.countNewUsersSince(startOfToday);
         long newUsersThisWeek = userRepository.countNewUsersSince(startOfWeek);
         long newUsersThisMonth = userRepository.countNewUsersSince(startOfMonth);
 
         Map<String, Long> usersByProvider = new LinkedHashMap<>();
-        for (Object[] row : userRepository.countUsersByProvider()) {
+        for (Object[] row : userRepository.countUsersByProviderExcluding(UserStatus.WITHDRAWN)) {
             usersByProvider.put(row[0].toString(), (Long) row[1]);
         }
 
@@ -248,6 +250,7 @@ public class UserAdminInternalService {
 
         return UserStatisticsAdminResponse.builder()
                 .totalUsers(totalUsers)
+                .withdrawnUsers(withdrawnUsers)
                 .newUsersToday(newUsersToday)
                 .newUsersThisWeek(newUsersThisWeek)
                 .newUsersThisMonth(newUsersThisMonth)

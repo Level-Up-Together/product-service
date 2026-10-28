@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -40,6 +41,8 @@ class SubscriptionWebhookTxServiceTest {
     @Mock private SubscriptionPaymentHistoryRecorder paymentHistoryRecorder;
 
     @Mock private SubscriptionGrantTxService grantTxService;
+
+    @Mock private GoogleOrderLedgerSync ledgerSync;
 
     @InjectMocks private SubscriptionWebhookTxService webhookTxService;
 
@@ -360,16 +363,14 @@ class SubscriptionWebhookTxServiceTest {
             assertThat(sub.getBasePlanId()).isEqualTo("1y");
             assertThat(sub.getGracePeriodExpiresAt()).isNull();
             // LUT-486: 만료 엄격 연장 = RENEWAL 결제 이력 기록 (Google 은 가격 미제공 → null)
-            verify(paymentHistoryRecorder)
-                    .record(
+            verify(ledgerSync)
+                    .syncRenewals(
                             eq(sub),
-                            eq(SubscriptionPaymentEventType.RENEWAL),
+                            eq(null),
                             eq(false),
-                            eq(null),
-                            eq(null),
-                            eq(null),
                             eq(NOW.plusYears(1)),
-                            any());
+                            isNull(),
+                            eq(false));
         }
 
         @Test
@@ -414,8 +415,8 @@ class SubscriptionWebhookTxServiceTest {
             assertThat(sub.getAutoRenew()).isFalse();
             assertThat(sub.isEntitled(NOW)).isTrue();
             // LUT-486: 만료 연장 없는 상태 변경(해지 등)은 결제 이력을 남기지 않는다
-            verify(paymentHistoryRecorder, never())
-                    .record(any(), any(), anyBoolean(), any(), any(), any(), any(), any());
+            verify(ledgerSync, never())
+                    .syncRenewals(any(), any(), anyBoolean(), any(), any(), anyBoolean());
         }
 
         @Test
@@ -517,16 +518,14 @@ class SubscriptionWebhookTxServiceTest {
             assertThat(sub.getPlan()).isEqualTo(SubscriptionPlan.ANNUAL);
             assertThat(sub.getExpiresAt()).isEqualTo(NOW.plusYears(1));
             // 거래 ID = latestOrderId
-            verify(paymentHistoryRecorder)
-                    .record(
+            verify(ledgerSync)
+                    .syncRenewals(
                             eq(sub),
-                            eq(SubscriptionPaymentEventType.RENEWAL),
-                            eq(false),
-                            eq(null),
-                            eq(null),
                             eq("GPA.1234-5678"),
+                            eq(false),
                             eq(NOW.plusYears(1)),
-                            any());
+                            isNull(),
+                            eq(false));
         }
 
         @Test
@@ -549,16 +548,14 @@ class SubscriptionWebhookTxServiceTest {
                             null,
                             "GPA.9999-0001"));
 
-            verify(paymentHistoryRecorder)
-                    .record(
+            verify(ledgerSync)
+                    .syncRenewals(
                             eq(sub),
-                            eq(SubscriptionPaymentEventType.RENEWAL),
-                            eq(false),
-                            eq(null),
-                            eq(null),
                             eq("GPA.9999-0001"),
+                            eq(false),
                             eq(NOW.plusMonths(1)),
-                            any());
+                            isNull(),
+                            eq(false));
         }
 
         @Test
@@ -1205,8 +1202,8 @@ class SubscriptionWebhookTxServiceTest {
                                                     "GPA.1")))
                     .doesNotThrowAnyException();
 
-            verify(paymentHistoryRecorder, never())
-                    .record(any(), any(), anyBoolean(), any(), any(), any(), any(), any());
+            verify(ledgerSync, never())
+                    .syncRenewals(any(), any(), anyBoolean(), any(), any(), anyBoolean());
         }
 
         @Test
@@ -1338,16 +1335,14 @@ class SubscriptionWebhookTxServiceTest {
                             "GPA.8"));
 
             assertThat(sub.getTrialUsed()).isTrue();
-            verify(paymentHistoryRecorder)
-                    .record(
+            verify(ledgerSync)
+                    .syncRenewals(
                             eq(sub),
-                            eq(SubscriptionPaymentEventType.RENEWAL),
-                            eq(true),
-                            eq(null),
-                            eq(null),
                             eq("GPA.8"),
+                            eq(true),
                             eq(NOW.plusDays(7)),
-                            any());
+                            isNull(),
+                            eq(false));
         }
 
         @Test

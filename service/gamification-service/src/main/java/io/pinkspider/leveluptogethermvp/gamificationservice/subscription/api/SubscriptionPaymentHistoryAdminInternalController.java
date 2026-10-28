@@ -1,7 +1,9 @@
 package io.pinkspider.leveluptogethermvp.gamificationservice.subscription.api;
 
 import io.pinkspider.global.api.ApiResult;
+import io.pinkspider.leveluptogethermvp.gamificationservice.subscription.application.SubscriptionLedgerReconcileService;
 import io.pinkspider.leveluptogethermvp.gamificationservice.subscription.application.SubscriptionPaymentHistoryAdminService;
+import io.pinkspider.leveluptogethermvp.gamificationservice.subscription.domain.dto.SubscriptionLedgerReconcileResponse;
 import io.pinkspider.leveluptogethermvp.gamificationservice.subscription.domain.dto.SubscriptionPaymentHistoryPageResponse;
 import io.pinkspider.leveluptogethermvp.gamificationservice.subscription.domain.enums.SubscriptionPaymentEventType;
 import io.pinkspider.leveluptogethermvp.gamificationservice.subscription.domain.enums.SubscriptionPlan;
@@ -9,6 +11,7 @@ import java.time.LocalDateTime;
 import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -23,6 +26,19 @@ import org.springframework.web.bind.annotation.RestController;
 public class SubscriptionPaymentHistoryAdminInternalController {
 
     private final SubscriptionPaymentHistoryAdminService subscriptionPaymentHistoryAdminService;
+    private final SubscriptionLedgerReconcileService subscriptionLedgerReconcileService;
+
+    /**
+     * LUT-617: Android 구독 원장을 Play 주문 연번과 전부 대조해 누락 갱신을 백필하고 어긋난 행을 정정한다. 구독 권한 상태는 바꾸지 않는다.
+     * Android 가 아니면 120804, 구독 행이 없으면 120803.
+     */
+    @PostMapping("/reconcile")
+    public ApiResult<SubscriptionLedgerReconcileResponse> reconcile(
+            @RequestParam(name = "user_id") String userId) {
+        return ApiResult.<SubscriptionLedgerReconcileResponse>builder()
+                .value(subscriptionLedgerReconcileService.reconcileGoogle(userId))
+                .build();
+    }
 
     @GetMapping
     public ApiResult<SubscriptionPaymentHistoryPageResponse> getPaymentHistory(

@@ -45,6 +45,7 @@ public class GuildDirectMessageService {
     private final ApplicationEventPublisher eventPublisher;
     private final DmPresenceService dmPresenceService;
     private final DmRealtimePublisher dmRealtimePublisher;
+    private final ChatImageService chatImageService;
 
     @Transactional(transactionManager = "chatTransactionManager")
     public DirectMessageResponse sendMessage(
@@ -53,6 +54,7 @@ public class GuildDirectMessageService {
         validateGuildExists(guildId);
         validateBothAreMember(guildId, senderId, recipientId);
         validateSenderNotBlocking(senderId, recipientId);
+        chatImageService.validateImageUrl(request.getImageUrl(), guildId, senderId);
 
         String senderNickname = userQueryFacadeService.getUserNickname(senderId);
 
@@ -87,7 +89,8 @@ public class GuildDirectMessageService {
         }
 
         GuildDirectMessage savedMessage = messageRepository.save(message);
-        conversation.updateLastMessage(request.getContent());
+        // LUT-590: 사진만 보낸 DM 은 본문이 없다 — 미리보기는 빈 값(웹이 "사진" 라벨로 표시)
+        conversation.updateLastMessage(request.getContent() != null ? request.getContent() : "");
 
         log.debug("DM 전송: guildId={}, senderId={}, recipientId={}", guildId, senderId, recipientId);
 
@@ -378,7 +381,10 @@ public class GuildDirectMessageService {
             throw new IllegalArgumentException("해당 길드의 메시지가 아닙니다.");
         }
 
+        String imageUrl = message.getImageUrl();
         message.delete();
+        chatImageService.deleteAfterCommit(
+                imageUrl, message.getConversation().getGuildId(), message.getSenderId());
         log.info("DM 삭제: messageId={}, deletedBy={}", messageId, userId);
     }
 

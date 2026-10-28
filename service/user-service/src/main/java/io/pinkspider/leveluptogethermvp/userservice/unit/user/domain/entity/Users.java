@@ -97,6 +97,26 @@ public class Users extends LocalDateTimeBaseEntity {
     @Column(name = "preferred_timezone", length = 50, nullable = false)
     private String preferredTimezone = "Asia/Seoul";
 
+    // ===== LUT-599: 가입 유입 채널 (CAC 원천). 가입 시 SignupChannelPolicy 가 1회 기록, 이후 불변. 배포 전 가입자는 null
+    // =====
+    @Column(name = "signup_channel", length = 50)
+    private String signupChannel;
+
+    @Column(name = "utm_source", length = 100)
+    private String utmSource;
+
+    @Column(name = "utm_medium", length = 100)
+    private String utmMedium;
+
+    @Column(name = "utm_campaign", length = 100)
+    private String utmCampaign;
+
+    @Column(name = "signup_device_type", length = 20)
+    private String signupDeviceType;
+
+    @Column(name = "invite_code", length = 50)
+    private String inviteCode;
+
     @lombok.Builder.Default
     @Column(name = "preferred_feed_visibility", length = 20, nullable = false)
     private String preferredFeedVisibility = "PUBLIC";

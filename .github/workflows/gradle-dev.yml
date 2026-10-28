@@ -6,6 +6,12 @@ on:
       - develop
       - 'epic/**'
 
+# 연속 push 시 롤링 배포가 겹치지 않도록 직렬화 — 진행 중인 run 은 취소하지 않고 뒤 run 을 대기시킨다
+# (대기 중인 run 이 이미 있으면 더 새 커밋으로 교체되어 최신만 배포된다)
+concurrency:
+  group: deploy-dev
+  cancel-in-progress: false
+
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
@@ -88,6 +94,23 @@ jobs:
           # swagger rest doc json
           scp -i ~/.ssh/github_action app/build/resources/main/restdocs/*.json $DEPLOY_SERVER_USER@$DEPLOY_SERVER_IP:/home/$DEPLOY_SERVER_USER/levelUpTogether/swagger-docs/
 
+      # config-server 가 응답하지 않으면 배포하지 않는다 — deploy_dev.sh 는 기존 프로세스를 먼저 죽이므로,
+      # config-server 가 꺼진 채 배포하면 설정을 못 받아 기동에 실패하고 잘 돌던 서버까지 내려간다
+      # (2026-10-22: 전날 재부팅 후 config-server 미기동 → product·admin 기동 실패)
+      - name: Pre-check config-server
+        env:
+          DEPLOY_SERVER_IP: ${{ secrets.DEV_SERVER_IP }}
+          SERVER_USER: ${{ secrets.DEV_SERVER_USER }}
+        run: |
+          ssh -T -i ~/.ssh/github_action $SERVER_USER@$DEPLOY_SERVER_IP 'sh -s' << 'EOF'
+          if curl -sf -m 10 -o /dev/null http://localhost:10085/product-service/dev; then
+            echo "config-server OK"
+          else
+            echo "::error::config-server(10085)가 응답하지 않아 배포를 중단합니다 — 실행 중인 서버는 그대로 둡니다. dev 서버에서 'sudo systemctl status lut-config-server' 확인"
+            exit 1
+          fi
+          EOF
+
       # 9. 서버에서 애플리케이션 실행
       - name: Start Application
         env:
@@ -101,6 +124,32 @@ jobs:
           chmod 700 /home/$SERVER_USER/levelUpTogether/backend/${PROJECT_NAME}*-exec.jar
           sh /home/$SERVER_USER/levelUpTogether/bin/deploy_dev.sh $PROJECT_NAME dev /home/$SERVER_USER 4096m
           sh /home/$SERVER_USER/infra/swagger/swagger_script.sh restart
+          EOF
+
+      # 기동 확인 — 예전엔 프로세스가 기동 직후 죽어도 배포가 "성공"으로 끝났다 (2026-10-22)
+      # prod ALB 와 같은 헬스 경로. 5분 안에 200 이 아니면 job 실패 → Slack @here
+      - name: Health check
+        env:
+          DEPLOY_SERVER_IP: ${{ secrets.DEV_SERVER_IP }}
+          SERVER_USER: ${{ secrets.DEV_SERVER_USER }}
+        run: |
+          ssh -T -i ~/.ssh/github_action $SERVER_USER@$DEPLOY_SERVER_IP 'sh -s' << 'EOF'
+          URL=https://localhost:8443/showmethemoney/health
+          CODE=000
+          i=0
+          while [ $i -lt 60 ]; do
+            CODE=$(curl -sk -m 5 -o /tmp/product-service-health.json -w '%{http_code}' "$URL" || true)
+            if [ "$CODE" = "200" ]; then
+              echo "product-service healthy (~$((i * 5))s)"
+              exit 0
+            fi
+            i=$((i + 1))
+            sleep 5
+          done
+          echo "::error::product-service 가 5분 안에 healthy 가 되지 않았습니다 (마지막 HTTP $CODE)"
+          cat /tmp/product-service-health.json 2>/dev/null; echo
+          tail -n 80 ~/levelUpTogether/backend/logs/product-service.log
+          exit 1
           EOF
 
       - name: action-slack

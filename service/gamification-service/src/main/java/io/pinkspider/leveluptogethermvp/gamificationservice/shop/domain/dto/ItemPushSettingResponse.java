@@ -9,7 +9,7 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
-/** LUT-528: 장착 아이템 푸시 발송 설정 응답 */
+/** LUT-528/573: 장착 아이템 푸시 발송 설정 응답 — 아침/오후 슬롯 시각 (null = 그 슬롯 미발송) */
 @Getter
 @Builder
 @NoArgsConstructor
@@ -18,7 +18,8 @@ import lombok.NoArgsConstructor;
 public class ItemPushSettingResponse {
 
     private Long shopItemId;
-    private String sendTime;
+    private String beforeActivityTime;
+    private String afterCompleteTime;
     private Long createdBy;
     private LocalDateTime createdAt;
     private LocalDateTime modifiedAt;
@@ -26,7 +27,8 @@ public class ItemPushSettingResponse {
     public static ItemPushSettingResponse from(ItemPushSetting entity) {
         return ItemPushSettingResponse.builder()
                 .shopItemId(entity.getShopItemId())
-                .sendTime(entity.getSendTime())
+                .beforeActivityTime(entity.getBeforeActivityTime())
+                .afterCompleteTime(entity.getAfterCompleteTime())
                 .createdBy(entity.getCreatedBy())
                 .createdAt(entity.getCreatedAt())
                 .modifiedAt(entity.getModifiedAt())

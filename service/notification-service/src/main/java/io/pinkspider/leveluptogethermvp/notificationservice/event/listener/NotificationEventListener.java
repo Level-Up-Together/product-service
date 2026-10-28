@@ -23,6 +23,7 @@ import io.pinkspider.global.event.GuildJoinRejectedEvent;
 import io.pinkspider.global.event.GuildJoinRequestedEvent;
 import io.pinkspider.global.event.GuildMissionArrivedEvent;
 import io.pinkspider.global.event.ItemGrantedByAdminEvent;
+import io.pinkspider.global.event.LevelRewardItemGrantedEvent;
 import io.pinkspider.global.event.MissionAutoEndMilestone;
 import io.pinkspider.global.event.MissionAutoEndWarningEvent;
 import io.pinkspider.global.event.MissionAutoEndedEvent;
@@ -41,6 +42,7 @@ import java.util.Locale;
 import java.util.function.Consumer;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.MessageSource;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.event.TransactionPhase;
@@ -52,7 +54,11 @@ import org.springframework.transaction.event.TransactionalEventListener;
 @RequiredArgsConstructor
 public class NotificationEventListener {
 
+    /** LUT-590: 본문 없이 사진만 보낸 채팅·DM 의 푸시 미리보기 문구 키 */
+    static final String PHOTO_PREVIEW_KEY = "notification.preview.photo";
+
     private final NotificationService notificationService;
+    private final MessageSource messageSource;
     private final GuildQueryFacade guildQueryFacadeService;
     private final io.pinkspider.global.facade.UserQueryFacade userQueryFacadeService;
 
@@ -179,6 +185,29 @@ public class NotificationEventListener {
     public void handleItemGrantedByAdmin(ItemGrantedByAdminEvent event) {
         safeHandle(
                 "관리자 아이템 지급",
+                () ->
+                        notificationService.sendLocalizedNotification(
+                                event.userId(),
+                                NotificationType.ITEM_GRANTED,
+                                event.shopItemId(),
+                                null,
+                                locale ->
+                                        new Object[] {
+                                            localizedItemName(
+                                                    event.itemName(),
+                                                    event.itemNameEn(),
+                                                    event.itemNameAr(),
+                                                    event.itemNameJa(),
+                                                    locale)
+                                        }));
+    }
+
+    /** LUT-593: 레벨 5 도달 보상(성장의 새싹) — 관리자 지급과 같은 ITEM_GRANTED 알림(딥링크 인벤토리) */
+    @Async(EVENT_EXECUTOR)
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    public void handleLevelRewardItemGranted(LevelRewardItemGrantedEvent event) {
+        safeHandle(
+                "레벨 보상 아이템",
                 () ->
                         notificationService.sendLocalizedNotification(
                                 event.userId(),
@@ -349,6 +378,23 @@ public class NotificationEventListener {
                 memberId -> {
                     // LUT-373: 차단 관계면 단체 채팅 알림/푸시도 스킵
                     if (isBlockedInteraction(memberId, event.userId())) return;
+                    String preview = event.getPreviewContent();
+                    if (preview.isBlank()) {
+                        // LUT-590: 사진만 보낸 메시지 — 빈 본문 대신 수신자 언어의 "사진을 보냈습니다"
+                        notificationService.sendLocalizedNotification(
+                                memberId,
+                                NotificationType.GUILD_CHAT,
+                                event.messageId(),
+                                null,
+                                locale ->
+                                        new Object[] {
+                                            event.guildName(),
+                                            event.senderNickname(),
+                                            photoPreview(locale),
+                                            event.guildId().toString()
+                                        });
+                        return;
+                    }
                     notificationService.sendNotification(
                             memberId,
                             NotificationType.GUILD_CHAT,
@@ -356,7 +402,7 @@ public class NotificationEventListener {
                             null,
                             event.guildName(),
                             event.senderNickname(),
-                            event.getPreviewContent(),
+                            preview,
                             event.guildId().toString());
                 });
     }
@@ -376,13 +422,30 @@ public class NotificationEventListener {
                     if (isBlockedInteraction(event.recipientId(), event.userId())) {
                         return;
                     }
+                    String preview = event.getPreviewContent();
+                    if (preview.isBlank()) {
+                        // LUT-590: 사진만 보낸 DM — 빈 본문 대신 수신자 언어의 "사진을 보냈습니다"
+                        notificationService.sendLocalizedNotification(
+                                event.recipientId(),
+                                NotificationType.GUILD_DM,
+                                event.messageId(),
+                                null,
+                                locale ->
+                                        new Object[] {
+                                            event.senderNickname(),
+                                            photoPreview(locale),
+                                            event.guildId().toString(),
+                                            event.userId()
+                                        });
+                        return;
+                    }
                     notificationService.sendNotification(
                             event.recipientId(),
                             NotificationType.GUILD_DM,
                             event.messageId(),
                             null,
                             event.senderNickname(),
-                            event.getPreviewContent(),
+                            preview,
                             event.guildId().toString(),
                             event.userId());
                 });
@@ -659,5 +722,10 @@ public class NotificationEventListener {
         } catch (Exception e) {
             log.warn("길드 마스터 알림 생성 실패: targetType={}, error={}", targetType, e.getMessage());
         }
+    }
+
+    /** LUT-590: 사진만 보낸 메시지의 미리보기 — 수신자 locale 로 현지화(키가 없으면 키 원문) */
+    private String photoPreview(Locale locale) {
+        return messageSource.getMessage(PHOTO_PREVIEW_KEY, null, PHOTO_PREVIEW_KEY, locale);
     }
 }

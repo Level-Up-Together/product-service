@@ -6,6 +6,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -186,15 +187,22 @@ class UserAdminInternalServiceTest {
         @Test
         @DisplayName("통계 정보를 조회한다")
         void getStatistics() {
-            when(userRepository.count()).thenReturn(100L);
+            when(userRepository.countByStatusNot(UserStatus.WITHDRAWN)).thenReturn(100L);
+            when(userRepository.countByStatus(UserStatus.WITHDRAWN)).thenReturn(16L);
             when(userRepository.countNewUsersSince(any())).thenReturn(5L);
-            when(userRepository.countUsersByProvider())
+            when(userRepository.countUsersByProviderExcluding(UserStatus.WITHDRAWN))
                     .thenReturn(List.of(new Object[] {"google", 50L}, new Object[] {"kakao", 30L}));
             when(userRepository.countDailyNewUsers(any(), any())).thenReturn(List.of());
 
             var result = service.getStatistics();
 
+            // LUT-603: 전체 사용자는 탈퇴 제외, 탈퇴 수는 별도 필드
             assertThat(result.totalUsers()).isEqualTo(100L);
+            assertThat(result.withdrawnUsers()).isEqualTo(16L);
+            assertThat(result.usersByProvider())
+                    .containsEntry("google", 50L)
+                    .containsEntry("kakao", 30L);
+            verify(userRepository, never()).count();
         }
     }
 
@@ -684,9 +692,11 @@ class UserAdminInternalServiceTest {
         @Test
         @DisplayName("날짜 컬럼이 LocalDate 면 포맷하고, 아니면 toString 을 사용한다")
         void dailyRows_dateFormatting() {
-            when(userRepository.count()).thenReturn(1L);
+            when(userRepository.countByStatusNot(UserStatus.WITHDRAWN)).thenReturn(1L);
+            when(userRepository.countByStatus(UserStatus.WITHDRAWN)).thenReturn(0L);
             when(userRepository.countNewUsersSince(any())).thenReturn(0L);
-            when(userRepository.countUsersByProvider()).thenReturn(List.of());
+            when(userRepository.countUsersByProviderExcluding(UserStatus.WITHDRAWN))
+                    .thenReturn(List.of());
             when(userRepository.countDailyNewUsers(any(), any()))
                     .thenReturn(
                             List.of(

@@ -1,6 +1,7 @@
 package io.pinkspider.leveluptogethermvp.gamificationservice.subscription.domain.entity;
 
 import io.pinkspider.global.domain.auditentity.LocalDateTimeBaseEntity;
+import io.pinkspider.leveluptogethermvp.gamificationservice.subscription.domain.enums.PriceSource;
 import io.pinkspider.leveluptogethermvp.gamificationservice.subscription.domain.enums.SubscriptionPaymentEventType;
 import io.pinkspider.leveluptogethermvp.gamificationservice.subscription.domain.enums.SubscriptionPlan;
 import jakarta.persistence.Column;
@@ -16,6 +17,7 @@ import jakarta.persistence.UniqueConstraint;
 import jakarta.validation.constraints.NotNull;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.Objects;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
@@ -98,6 +100,12 @@ public class SubscriptionPaymentHistory extends LocalDateTimeBaseEntity {
     @Comment("결제 통화 (ISO 4217)")
     private String priceCurrency;
 
+    /** LUT-600: 금액 출처 — STORE(스토어 제공) / LIST(정가 폴백) / TRIAL(체험 0원). null = 미상 */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "price_source", length = 10)
+    @Comment("금액 출처 (STORE/LIST/TRIAL)")
+    private PriceSource priceSource;
+
     @Column(name = "transaction_id", length = 500)
     @Comment("결제 건 트랜잭션 ID (iOS transactionId — Android는 null)")
     private String transactionId;
@@ -111,4 +119,43 @@ public class SubscriptionPaymentHistory extends LocalDateTimeBaseEntity {
     @Column(name = "occurred_at", nullable = false)
     @Comment("이벤트 발생 시각")
     private LocalDateTime occurredAt;
+
+    /**
+     * LUT-617: 스토어 주문(orders.get) 기준으로 행을 바로잡는다 — 자가 치유가 늦게 기록해 시각이 처리 시점이 되거나, 최신 주문 ID 가 다른 기간의
+     * 행에 붙은 경우. append-only 원칙의 유일한 예외이며 값의 출처는 항상 스토어 주문이다.
+     *
+     * @param newExpiresAt 바꿀 만료 — null 이면 유지 (uk 충돌 회피는 호출자가 판단)
+     * @return 하나라도 바뀌었으면 true
+     */
+    public boolean correctFromStoreOrder(
+            String transactionId,
+            LocalDateTime occurredAt,
+            LocalDateTime newExpiresAt,
+            BigDecimal priceAmount,
+            String priceCurrency,
+            PriceSource priceSource) {
+        boolean changed = false;
+        if (transactionId != null && !transactionId.equals(this.transactionId)) {
+            this.transactionId = transactionId;
+            changed = true;
+        }
+        if (occurredAt != null && !occurredAt.equals(this.occurredAt)) {
+            this.occurredAt = occurredAt;
+            changed = true;
+        }
+        if (newExpiresAt != null && !newExpiresAt.equals(this.expiresAt)) {
+            this.expiresAt = newExpiresAt;
+            changed = true;
+        }
+        if (priceAmount != null
+                && (!priceAmount.equals(this.priceAmount)
+                        || !Objects.equals(priceCurrency, this.priceCurrency)
+                        || priceSource != this.priceSource)) {
+            this.priceAmount = priceAmount;
+            this.priceCurrency = priceCurrency;
+            this.priceSource = priceSource;
+            changed = true;
+        }
+        return changed;
+    }
 }

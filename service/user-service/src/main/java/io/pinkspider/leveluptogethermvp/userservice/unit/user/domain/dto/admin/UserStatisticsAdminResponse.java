@@ -6,10 +6,12 @@ import java.util.List;
 import java.util.Map;
 import lombok.Builder;
 
+/** 어드민 사용자 통계. LUT-603: total_users 는 탈퇴 제외, withdrawn_users 별도. */
 @Builder
 @JsonNaming(SnakeCaseStrategy.class)
 public record UserStatisticsAdminResponse(
         long totalUsers,
+        long withdrawnUsers,
         long newUsersToday,
         long newUsersThisWeek,
         long newUsersThisMonth,

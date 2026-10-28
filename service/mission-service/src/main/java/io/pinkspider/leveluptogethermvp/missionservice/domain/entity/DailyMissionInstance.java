@@ -2,6 +2,7 @@ package io.pinkspider.leveluptogethermvp.missionservice.domain.entity;
 
 import io.pinkspider.global.domain.auditentity.LocalDateTimeBaseEntity;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.ExecutionStatus;
+import io.pinkspider.leveluptogethermvp.missionservice.domain.policy.MissionExpPolicy;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -228,10 +229,11 @@ public class DailyMissionInstance extends LocalDateTimeBaseEntity
     /**
      * 경험치 계산: 목표시간 기반 보너스 포함
      *
-     * <p>목표시간(targetDurationMinutes) 설정 시: - 목표시간 달성: targetDurationMinutes +
-     * bonusExpOnFullCompletion (추가 보상) - 목표시간 미달: 실제 수행 분 (1분=1XP)
+     * <p>목표시간(targetDurationMinutes) 설정 시: - 목표시간 달성: timedExp(targetDurationMinutes) +
+     * bonusExpOnFullCompletion (추가 보상) - 목표시간 미달: timedExp(실제 수행 분)
      *
-     * <p>목표시간 미설정 시: 분당 1 EXP, 최대 480 QA-153: 이전에는 bonus 자리에 expPerCompletion 을 잘못 사용해 추가 보상이 누락됐다.
+     * <p>목표시간 미설정 시: timedExp(실제 수행 분, 최대 480). LUT-568: 타이머 공식은 60분까지 분당 1, 초과 구간 5분당 1 ({@link
+     * MissionExpPolicy#timedExp}). QA-153: 이전에는 bonus 자리에 expPerCompletion 을 잘못 사용해 추가 보상이 누락됐다.
      */
     @Override
     public int calculateExpByDuration() {
@@ -244,11 +246,11 @@ public class DailyMissionInstance extends LocalDateTimeBaseEntity
             if (elapsed >= this.targetDurationMinutes) {
                 int bonus =
                         this.bonusExpOnFullCompletion != null ? this.bonusExpOnFullCompletion : 0;
-                return this.targetDurationMinutes + bonus;
+                return MissionExpPolicy.timedExp(this.targetDurationMinutes) + bonus;
             }
-            return (int) Math.max(1, elapsed);
+            return MissionExpPolicy.timedExp(elapsed);
         }
-        return (int) Math.max(1, Math.min(elapsed, 480));
+        return MissionExpPolicy.timedExp(elapsed);
     }
 
     // start(), complete(), skip(), markAsMissed(), shareToFeed(), unshareFromFeed(),

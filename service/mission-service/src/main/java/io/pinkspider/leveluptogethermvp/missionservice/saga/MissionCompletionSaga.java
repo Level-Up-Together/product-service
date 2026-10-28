@@ -10,6 +10,7 @@ import io.pinkspider.leveluptogethermvp.missionservice.saga.steps.CompleteExecut
 import io.pinkspider.leveluptogethermvp.missionservice.saga.steps.CompletePinnedInstanceStep;
 import io.pinkspider.leveluptogethermvp.missionservice.saga.steps.CreateFeedFromMissionStep;
 import io.pinkspider.leveluptogethermvp.missionservice.saga.steps.CreateNextPinnedInstanceStep;
+import io.pinkspider.leveluptogethermvp.missionservice.saga.steps.GrantDailyMilestoneBonusStep;
 import io.pinkspider.leveluptogethermvp.missionservice.saga.steps.GrantGuildExperienceStep;
 import io.pinkspider.leveluptogethermvp.missionservice.saga.steps.GrantMissionBookDiamondStep;
 import io.pinkspider.leveluptogethermvp.missionservice.saga.steps.GrantUserExperienceStep;
@@ -28,9 +29,9 @@ import org.springframework.stereotype.Component;
  * <p>shouldExecute() 조건으로 일반/고정 미션 Step을 분기:
  *
  * <p>일반 미션 실행 순서: 1. LoadMissionData - 미션 데이터 로드 및 검증 2. CompleteExecution - 수행 기록 완료 처리 3.
- * GrantUserExperience - 사용자 경험치 지급 4. GrantGuildExperience - 길드 경험치 지급 (길드 미션인 경우) 5.
- * UpdateParticipantProgress - 참가자 진행도 업데이트 6. UpdateUserStats - 사용자 통계 및 업적 업데이트 (선택적) 7.
- * CreateFeedFromMission - 피드 생성 (사용자 선택시, 선택적)
+ * GrantUserExperience - 사용자 경험치 지급 (+ GrantDailyMilestoneBonus: 체크 일일 마일스톤 도달 시, LUT-568) 4.
+ * GrantGuildExperience - 길드 경험치 지급 (길드 미션인 경우) 5. UpdateParticipantProgress - 참가자 진행도 업데이트 6.
+ * UpdateUserStats - 사용자 통계 및 업적 업데이트 (선택적) 7. CreateFeedFromMission - 피드 생성 (사용자 선택시, 선택적)
  *
  * <p>고정 미션 실행 순서 (QA-194 이후): 1. LoadPinnedMissionData - 인스턴스 데이터 로드 및 검증 2. CompletePinnedInstance
  * - 인스턴스 완료 처리 3. GrantUserExperience - 사용자 경험치 지급 4. GrantGuildExperience - 길드 경험치 지급 (고정 길드 미션
@@ -55,6 +56,7 @@ public class MissionCompletionSaga {
 
     // Unified steps (both regular and pinned)
     private final GrantUserExperienceStep grantUserExperienceStep;
+    private final GrantDailyMilestoneBonusStep grantDailyMilestoneBonusStep;
     private final GrantMissionBookDiamondStep grantMissionBookDiamondStep;
     private final UpdateUserStatsStep updateUserStatsStep;
     private final CreateFeedFromMissionStep createFeedFromMissionStep;
@@ -71,6 +73,7 @@ public class MissionCompletionSaga {
             CompletePinnedInstanceStep completePinnedInstanceStep,
             CreateNextPinnedInstanceStep createNextPinnedInstanceStep,
             GrantUserExperienceStep grantUserExperienceStep,
+            GrantDailyMilestoneBonusStep grantDailyMilestoneBonusStep,
             GrantMissionBookDiamondStep grantMissionBookDiamondStep,
             UpdateUserStatsStep updateUserStatsStep,
             CreateFeedFromMissionStep createFeedFromMissionStep,
@@ -84,6 +87,7 @@ public class MissionCompletionSaga {
         this.completePinnedInstanceStep = completePinnedInstanceStep;
         this.createNextPinnedInstanceStep = createNextPinnedInstanceStep;
         this.grantUserExperienceStep = grantUserExperienceStep;
+        this.grantDailyMilestoneBonusStep = grantDailyMilestoneBonusStep;
         this.grantMissionBookDiamondStep = grantMissionBookDiamondStep;
         this.updateUserStatsStep = updateUserStatsStep;
         this.createFeedFromMissionStep = createFeedFromMissionStep;
@@ -181,8 +185,11 @@ public class MissionCompletionSaga {
         // 2. 완료 처리 (regular 또는 pinned 중 하나만 실행)
         orchestrator.addStep(completeExecutionStep).addStep(completePinnedInstanceStep);
 
-        // 3. 경험치 지급
-        orchestrator.addStep(grantUserExperienceStep).addStep(grantGuildExperienceStep);
+        // 3. 경험치 지급 (LUT-568: 체크 일일 마일스톤 보너스는 도달 시에만 실행)
+        orchestrator
+                .addStep(grantUserExperienceStep)
+                .addStep(grantDailyMilestoneBonusStep)
+                .addStep(grantGuildExperienceStep);
 
         // 4. 진행도 업데이트 + 다음 인스턴스 생성
         orchestrator.addStep(updateParticipantProgressStep).addStep(createNextPinnedInstanceStep);
@@ -246,9 +253,13 @@ public class MissionCompletionSaga {
     /** 일반 미션 Saga 결과에서 MissionExecutionResponse 추출 */
     public MissionExecutionResponse toResponse(SagaResult<MissionCompletionContext> result) {
         if (result.isSuccess() && result.getContext().getExecution() != null) {
-            MissionExecutionResponse response =
-                    MissionExecutionResponse.from(result.getContext().getExecution());
-            response.setDailySimpleExpCapped(result.getContext().isDailySimpleExpCapped());
+            MissionCompletionContext ctx = result.getContext();
+            MissionExecutionResponse response = MissionExecutionResponse.from(ctx.getExecution());
+            response.setDailySimpleExpCapped(ctx.isDailySimpleExpCapped());
+            if (ctx.getMilestoneBonusExp() > 0) {
+                response.setMilestoneBonusExp(ctx.getMilestoneBonusExp());
+                response.setMilestoneCount(ctx.getMilestoneCount());
+            }
             return response;
         }
         return null;
@@ -258,9 +269,14 @@ public class MissionCompletionSaga {
     public DailyMissionInstanceResponse toPinnedResponse(
             SagaResult<MissionCompletionContext> result) {
         if (result.isSuccess() && result.getContext().getInstance() != null) {
+            MissionCompletionContext ctx = result.getContext();
             DailyMissionInstanceResponse response =
-                    DailyMissionInstanceResponse.from(result.getContext().getInstance());
-            response.setDailySimpleExpCapped(result.getContext().isDailySimpleExpCapped());
+                    DailyMissionInstanceResponse.from(ctx.getInstance());
+            response.setDailySimpleExpCapped(ctx.isDailySimpleExpCapped());
+            if (ctx.getMilestoneBonusExp() > 0) {
+                response.setMilestoneBonusExp(ctx.getMilestoneBonusExp());
+                response.setMilestoneCount(ctx.getMilestoneCount());
+            }
             return response;
         }
         return null;

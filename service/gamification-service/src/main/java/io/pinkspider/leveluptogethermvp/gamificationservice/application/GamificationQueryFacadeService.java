@@ -2,6 +2,7 @@ package io.pinkspider.leveluptogethermvp.gamificationservice.application;
 
 import io.pinkspider.global.enums.ExpSourceType;
 import io.pinkspider.global.facade.GamificationQueryFacade;
+import io.pinkspider.global.facade.dto.DailyRewardDto;
 import io.pinkspider.global.facade.dto.DetailedTitleInfoDto;
 import io.pinkspider.global.facade.dto.EquippedItemRarityDto;
 import io.pinkspider.global.facade.dto.SeasonDto;
@@ -138,6 +139,12 @@ public class GamificationQueryFacadeService implements GamificationQueryFacade {
     public Map<LocalDate, Long> getDailyExpSummary(
             String userId, LocalDateTime startUtc, LocalDateTime endUtc, String timezone) {
         return userExperienceService.getDailyExpSummary(userId, startUtc, endUtc, timezone);
+    }
+
+    @Override
+    public List<DailyRewardDto> getDailyRewardSummary(
+            String userId, LocalDateTime startUtc, LocalDateTime endUtc, String timezone) {
+        return userExperienceService.getDailyRewardSummary(userId, startUtc, endUtc, timezone);
     }
 
     // ========== 칭호 조회 ==========

@@ -3,7 +3,7 @@ package io.pinkspider.leveluptogethermvp.gamificationservice.shop.infrastructure
 import io.pinkspider.leveluptogethermvp.gamificationservice.shop.domain.entity.ItemPushSendLog;
 import java.time.LocalDate;
 import java.util.List;
-import org.springframework.data.domain.Pageable;
+import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -17,11 +17,20 @@ public interface ItemPushSendLogRepository extends JpaRepository<ItemPushSendLog
     boolean existsByUserIdAndSendDate(String userId, LocalDate sendDate);
 
     /**
-     * LUT-529: 유저가 최근 발송받은 메시지 ID 목록 (send_date 내림차순). 대사 로테이션에서 최근 (후보 수 - 1)건을 제외하기 위해 사용한다.
-     * (user_id, send_date) 유니크라 하루 1건 → 최근 N일 = 최근 N건.
+     * LUT-573: 유저+아이템의 마지막 발송 행 (간격·로테이션 판정). LUT-573 이전 행(slot null)은 제외해 마이그레이션 전 이력이 있던 유저도 "첫
+     * 발송"으로 취급한다.
+     */
+    Optional<ItemPushSendLog> findTopByUserIdAndShopItemIdAndSlotIsNotNullOrderBySendDateDesc(
+            String userId, Long shopItemId);
+
+    /**
+     * LUT-573: 유저+아이템에서 메시지별 마지막 발송일 — 이력 기반 대사 선택(미발송 우선 → 가장 오래전 발송). 삭제된 메시지 id 도 그대로 남지만 후보에
+     * 없으니 자연히 제외된다. 레거시 행(slot null)도 포함한다.
      */
     @Query(
-            "SELECT l.itemPushMessageId FROM ItemPushSendLog l WHERE l.userId = :userId ORDER BY"
-                    + " l.sendDate DESC")
-    List<Long> findRecentSentMessageIds(@Param("userId") String userId, Pageable pageable);
+            "SELECT l.itemPushMessageId, MAX(l.sendDate) FROM ItemPushSendLog l"
+                    + " WHERE l.userId = :userId AND l.shopItemId = :shopItemId"
+                    + " GROUP BY l.itemPushMessageId")
+    List<Object[]> findLastSentDateByMessage(
+            @Param("userId") String userId, @Param("shopItemId") Long shopItemId);
 }

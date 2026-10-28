@@ -13,6 +13,7 @@ import io.pinkspider.global.security.JwtUtil;
 import io.pinkspider.global.validation.KoreanTextNormalizer;
 import io.pinkspider.global.validation.NoProfanityValidator;
 import io.pinkspider.global.validation.ProfanityDetectionMode;
+import io.pinkspider.leveluptogethermvp.chatservice.application.ChatImageProperties;
 import io.pinkspider.leveluptogethermvp.gamificationservice.event.application.EventImageProperties;
 import io.pinkspider.leveluptogethermvp.gamificationservice.shop.application.ShopItemImageProperties;
 import io.pinkspider.leveluptogethermvp.guildservice.application.GuildImageProperties;
@@ -115,6 +116,15 @@ public class ControllerTestConfig implements WebMvcConfigurer {
         properties.setMaxSize(5242880);
         properties.setAllowedExtensions("jpg,jpeg,png,gif,webp");
         properties.setUrlPrefix("/uploads/missions");
+        return properties;
+    }
+
+    // 채팅·DM 이미지 업로드 설정 Mock (LUT-590 — ChatImageWebConfig 가 슬라이스에 올라온다)
+    @Bean
+    public ChatImageProperties chatImageProperties() {
+        ChatImageProperties properties = new ChatImageProperties();
+        properties.setPath("/tmp/test-uploads/chats");
+        properties.setUrlPrefix("/uploads/chats");
         return properties;
     }
 

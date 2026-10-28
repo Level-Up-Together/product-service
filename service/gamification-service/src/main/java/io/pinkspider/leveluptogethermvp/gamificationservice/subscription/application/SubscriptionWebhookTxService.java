@@ -38,6 +38,7 @@ public class SubscriptionWebhookTxService {
     private final UserSubscriptionRepository userSubscriptionRepository;
     private final SubscriptionPaymentHistoryRecorder paymentHistoryRecorder;
     private final SubscriptionGrantTxService grantTxService;
+    private final GoogleOrderLedgerSync ledgerSync;
 
     /** 주인 교체를 검토하는 결제성 알림 — 새 거래(구매·갱신·오퍼)가 동반되는 타입만 */
     private static final Set<String> APPLE_PAYMENT_TYPES =
@@ -309,9 +310,21 @@ public class SubscriptionWebhookTxService {
 
     // ========== Google (RTDN) ==========
 
-    /** RTDN 트리거 후 subscriptionsv2 재조회 상태를 적용한다 — 웹훅이 진실의 원천이라 만료 단축도 반영 */
+    /** 자가 치유(LUT-499)·이벤트 시각 없는 경로용 — 결제 시각은 주문 조회 또는 now 로 채운다 */
     @Transactional(transactionManager = "gamificationTransactionManager")
     public void applyGoogleState(String purchaseToken, GoogleSubscriptionState state) {
+        applyGoogleState(purchaseToken, state, null);
+    }
+
+    /**
+     * RTDN 트리거 후 subscriptionsv2 재조회 상태를 적용한다 — 웹훅이 진실의 원천이라 만료 단축도 반영.
+     *
+     * @param eventTime RTDN {@code eventTimeMillis}(UTC) — 주문 조회가 안 될 때 결제 이력의 occurred_at 폴백. null
+     *     이면 now
+     */
+    @Transactional(transactionManager = "gamificationTransactionManager")
+    public void applyGoogleState(
+            String purchaseToken, GoogleSubscriptionState state, LocalDateTime eventTime) {
         UserSubscription subscription =
                 userSubscriptionRepository.findByPurchaseToken(purchaseToken).orElse(null);
         boolean linkedByContinuityKey = false;
@@ -383,18 +396,16 @@ public class SubscriptionWebhookTxService {
         if (state.trial()) {
             subscription.setTrialUsed(true);
         }
-        // LUT-486: 만료 엄격 연장 = 갱신 결제 이력 (Google 은 실결제가를 주지 않아 가격 null).
-        // LUT-499: 거래 ID 는 subscriptionsv2 의 latestOrderId(GPA.xxxx).
+        // LUT-486: 만료 엄격 연장 = 갱신 결제 이력. LUT-617: latestOrderId 1건이 아니라 원장의 마지막 주문 연번부터
+        // 최신(GPA.xxxx..N)까지 Orders API 로 되짚어 빠진 갱신을 실제 결제 시각·금액으로 채운다 — RTDN 유실 구간 보정.
         if (subscription.getExpiresAt().isAfter(previousExpiresAt)) {
-            paymentHistoryRecorder.record(
+            ledgerSync.syncRenewals(
                     subscription,
-                    SubscriptionPaymentEventType.RENEWAL,
-                    state.trial(),
-                    null,
-                    null,
                     state.latestOrderId(),
+                    state.trial(),
                     subscription.getExpiresAt(),
-                    LocalDateTime.now());
+                    eventTime,
+                    false);
         }
         log.info(
                 "RTDN 구독 동기화: userId={}, state={}, plan={}, expiresAt={}, autoRenew={}",

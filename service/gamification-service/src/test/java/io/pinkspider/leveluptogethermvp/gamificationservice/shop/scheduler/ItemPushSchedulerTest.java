@@ -18,6 +18,8 @@ import io.pinkspider.leveluptogethermvp.gamificationservice.shop.application.Ite
 import io.pinkspider.leveluptogethermvp.gamificationservice.shop.domain.entity.ItemPushMessage;
 import io.pinkspider.leveluptogethermvp.gamificationservice.shop.domain.entity.ItemPushSetting;
 import io.pinkspider.leveluptogethermvp.gamificationservice.shop.domain.entity.ShopItem;
+import io.pinkspider.leveluptogethermvp.gamificationservice.shop.domain.enums.ItemPushDispatchOutcome;
+import io.pinkspider.leveluptogethermvp.gamificationservice.shop.domain.enums.ItemPushSlot;
 import io.pinkspider.leveluptogethermvp.gamificationservice.shop.domain.enums.ItemPushTriggerType;
 import io.pinkspider.leveluptogethermvp.gamificationservice.shop.domain.enums.ShopItemType;
 import io.pinkspider.leveluptogethermvp.gamificationservice.shop.infrastructure.ItemPushMessageRepository;
@@ -33,6 +35,7 @@ import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -43,7 +46,7 @@ import org.mockito.quality.Strictness;
 
 @ExtendWith(MockitoExtension.class)
 @MockitoSettings(strictness = Strictness.LENIENT)
-@DisplayName("ItemPushScheduler 테스트 (LUT-516/529)")
+@DisplayName("ItemPushScheduler 테스트 (LUT-516/529/545/573)")
 class ItemPushSchedulerTest {
 
     @Mock private ItemPushMessageRepository itemPushMessageRepository;
@@ -57,19 +60,22 @@ class ItemPushSchedulerTest {
 
     private static final Long ITEM_ID = 100L;
     private static final String USER_ID = "user-1";
+    private static final LocalDate SEOUL_DATE = LocalDate.of(2026, 7, 27);
     // 2026-07-27(월) 00:00 UTC = Asia/Seoul 09:00, Asia/Kolkata(+5:30) 05:30
-    private static final Instant UTC_00_00 = Instant.parse("2026-07-27T00:00:00Z");
-    private static final Instant UTC_03_30 = Instant.parse("2026-07-27T03:30:00Z");
-    private static final Instant UTC_01_00 = Instant.parse("2026-07-27T01:00:00Z");
+    private static final Instant SEOUL_09_00 = Instant.parse("2026-07-27T00:00:00Z");
+    private static final Instant SEOUL_10_00 = Instant.parse("2026-07-27T01:00:00Z");
+    private static final Instant SEOUL_12_00 = Instant.parse("2026-07-27T03:00:00Z");
+    private static final Instant SEOUL_18_00 = Instant.parse("2026-07-27T09:00:00Z");
+    private static final Instant KOLKATA_09_00 = Instant.parse("2026-07-27T03:30:00Z");
 
     private ShopItem headItem;
-    private ItemPushMessage nineAmMessage;
+    private ItemPushMessage anyMessage;
 
     @BeforeEach
     void setUp() {
         headItem = ShopItem.builder().name("시련의 장미").itemType(ShopItemType.HEAD).price(0).build();
         setId(headItem, ITEM_ID);
-        nineAmMessage =
+        anyMessage =
                 ItemPushMessage.create(
                         headItem,
                         "시련의 장미가 {nickname}님을 부르고 있어요.",
@@ -79,92 +85,245 @@ class ItemPushSchedulerTest {
                         ItemPushTriggerType.ANY,
                         true,
                         1L);
-        setId(nineAmMessage, 1L);
+        setId(anyMessage, 1L);
 
         when(itemPushMessageRepository.findEnabledWithItemByType(ShopItemType.HEAD))
-                .thenReturn(List.of(nineAmMessage));
-        // LUT-528: 발송 시각은 아이템 단위 설정(item_push_setting)에서 온다
-        when(itemPushSettingRepository.findByShopItemIdIn(any()))
-                .thenReturn(List.of(ItemPushSetting.of(ITEM_ID, "09:00", 1L)));
+                .thenReturn(List.of(anyMessage));
+        // LUT-573: 아침 09:00 · 오후 18:00 (정오 12:00 은 고정)
+        setting("09:00", "18:00");
         when(userItemRepository.findUserIdsByEquippedShopItemId(ITEM_ID))
                 .thenReturn(List.of(USER_ID));
-        // LUT-529: 타임존은 배치 조회, 완료데이터도 배치 조회 (여기선 스케줄러 위임만 검증하므로 빈 맵)
         when(userQueryFacade.getPreferredTimezones(any()))
                 .thenReturn(Map.of(USER_ID, "Asia/Seoul"));
         when(missionQueryFacade.findMissionCompletedLocalDates(any(), any(), any(), any()))
                 .thenReturn(Map.of());
-        // LUT-545: 결과가 null 이면 집계(EnumMap)에서 NPE → 예외 경로로 빠져 평가 메모가 남지 않는다. 실제 서비스는 항상 enum 을 돌려준다.
         when(itemPushDispatchService.trySendForUser(
-                        any(), any(), any(), any(), anyList(), anySet()))
-                .thenReturn(
-                        io.pinkspider.leveluptogethermvp.gamificationservice.shop.domain.enums
-                                .ItemPushDispatchOutcome.SENT);
-        scheduler.setClock(Clock.fixed(UTC_00_00, ZoneOffset.UTC));
+                        any(), any(), any(), any(), any(), anyList(), anySet()))
+                .thenReturn(ItemPushDispatchOutcome.SENT);
+        scheduler.setClock(Clock.fixed(SEOUL_09_00, ZoneOffset.UTC));
     }
 
-    @Test
-    @DisplayName("유저 로컬 시각이 발송 시각과 일치하면 해당 슬롯으로 발송을 위임한다")
-    void dispatchesWhenLocalTimeMatches() {
-        scheduler.sendEquippedItemPushes();
+    private void setting(String before, String after) {
+        when(itemPushSettingRepository.findByShopItemIdIn(any()))
+                .thenReturn(List.of(ItemPushSetting.of(ITEM_ID, before, after, 1L)));
+    }
 
+    private void at(Instant instant) {
+        scheduler.setClock(Clock.fixed(instant, ZoneOffset.UTC));
+    }
+
+    private void verifyDispatched(ItemPushSlot slot, String time) {
         verify(itemPushDispatchService)
                 .trySendForUser(
                         eq(USER_ID),
                         eq(headItem),
-                        eq(LocalDate.of(2026, 7, 27)),
+                        eq(SEOUL_DATE),
+                        eq(slot),
+                        eq(time),
+                        anyList(),
+                        anySet());
+    }
+
+    private void verifyNothingDispatched() {
+        verify(itemPushDispatchService, never())
+                .trySendForUser(any(), any(), any(), any(), any(), anyList(), anySet());
+    }
+
+    // ===== LUT-573: 슬롯 3개 =====
+
+    @Nested
+    @DisplayName("LUT-573: 아침·정오(고정)·오후 슬롯")
+    class Slots {
+
+        @Test
+        @DisplayName("09:00 — 아침 슬롯(BEFORE_ACTIVITY)만 위임한다")
+        void morningSlot() {
+            at(SEOUL_09_00);
+            scheduler.sendEquippedItemPushes();
+
+            verifyDispatched(ItemPushSlot.BEFORE_ACTIVITY, "09:00");
+            verify(itemPushDispatchService, times(1))
+                    .trySendForUser(any(), any(), any(), any(), any(), anyList(), anySet());
+        }
+
+        @Test
+        @DisplayName("12:00 — 정오 슬롯(INACTIVE)은 설정 시각이 없어도 고정으로 평가된다")
+        void noonSlotFixed() {
+            at(SEOUL_12_00);
+            scheduler.sendEquippedItemPushes();
+
+            verifyDispatched(ItemPushSlot.INACTIVE, ItemPushSlot.NOON_TIME);
+        }
+
+        @Test
+        @DisplayName("18:00 — 오후 슬롯(AFTER_COMPLETE)")
+        void afternoonSlot() {
+            at(SEOUL_18_00);
+            scheduler.sendEquippedItemPushes();
+
+            verifyDispatched(ItemPushSlot.AFTER_COMPLETE, "18:00");
+        }
+
+        @Test
+        @DisplayName("A14: 오후 시각 null — 09:00 아침·12:00 정오는 정상, 18:00 은 미평가")
+        void afternoonNull() {
+            setting("09:00", null);
+
+            at(SEOUL_09_00);
+            scheduler.sendEquippedItemPushes();
+            verifyDispatched(ItemPushSlot.BEFORE_ACTIVITY, "09:00");
+
+            at(SEOUL_12_00);
+            scheduler.sendEquippedItemPushes();
+            verifyDispatched(ItemPushSlot.INACTIVE, ItemPushSlot.NOON_TIME);
+
+            at(SEOUL_18_00);
+            scheduler.sendEquippedItemPushes();
+            verify(itemPushDispatchService, never())
+                    .trySendForUser(
+                            any(),
+                            any(),
+                            any(),
+                            eq(ItemPushSlot.AFTER_COMPLETE),
+                            any(),
+                            anyList(),
+                            anySet());
+        }
+
+        @Test
+        @DisplayName("A15: 아침 시각 null — 09:00 미평가, 정오·오후는 정상")
+        void morningNull() {
+            setting(null, "18:00");
+
+            at(SEOUL_09_00);
+            scheduler.sendEquippedItemPushes();
+            verifyNothingDispatched();
+
+            at(SEOUL_12_00);
+            scheduler.sendEquippedItemPushes();
+            verifyDispatched(ItemPushSlot.INACTIVE, ItemPushSlot.NOON_TIME);
+
+            at(SEOUL_18_00);
+            scheduler.sendEquippedItemPushes();
+            verifyDispatched(ItemPushSlot.AFTER_COMPLETE, "18:00");
+        }
+
+        @Test
+        @DisplayName("A16: 두 시각 모두 null — 정오 포함 전체 미발송")
+        void bothNullDisablesEverything() {
+            setting(null, null);
+
+            at(SEOUL_12_00);
+            scheduler.sendEquippedItemPushes();
+
+            verifyNothingDispatched();
+            verify(userItemRepository, never()).findUserIdsByEquippedShopItemId(any());
+        }
+
+        @Test
+        @DisplayName("A17: 설정 행 없음 — 전체 미발송")
+        void noSettingRow() {
+            when(itemPushSettingRepository.findByShopItemIdIn(any())).thenReturn(List.of());
+
+            at(SEOUL_12_00);
+            scheduler.sendEquippedItemPushes();
+
+            verifyNothingDispatched();
+        }
+
+        @Test
+        @DisplayName("resolveSlots — 설정 → 활성 슬롯 목록")
+        void resolveSlots() {
+            assertThat(ItemPushScheduler.resolveSlots(null)).isEmpty();
+            assertThat(ItemPushScheduler.resolveSlots(ItemPushSetting.of(ITEM_ID, null, null, 1L)))
+                    .isEmpty();
+            assertThat(
+                            ItemPushScheduler.resolveSlots(
+                                    ItemPushSetting.of(ITEM_ID, "09:00", "18:00", 1L)))
+                    .extracting(ItemPushScheduler.SlotTime::slot)
+                    .containsExactly(
+                            ItemPushSlot.BEFORE_ACTIVITY,
+                            ItemPushSlot.INACTIVE,
+                            ItemPushSlot.AFTER_COMPLETE);
+            assertThat(
+                            ItemPushScheduler.resolveSlots(
+                                    ItemPushSetting.of(ITEM_ID, null, "18:00", 1L)))
+                    .extracting(ItemPushScheduler.SlotTime::slot)
+                    .containsExactly(ItemPushSlot.INACTIVE, ItemPushSlot.AFTER_COMPLETE);
+        }
+
+        @Test
+        @DisplayName("평가 메모는 슬롯 단위 — 같은 날 아침 평가가 오후 평가를 막지 않는다")
+        void memoIsPerSlot() {
+            at(SEOUL_09_00);
+            scheduler.sendEquippedItemPushes();
+            at(SEOUL_18_00);
+            scheduler.sendEquippedItemPushes();
+
+            verifyDispatched(ItemPushSlot.BEFORE_ACTIVITY, "09:00");
+            verifyDispatched(ItemPushSlot.AFTER_COMPLETE, "18:00");
+        }
+
+        @Test
+        @DisplayName("한 슬롯의 시각 형식이 잘못되면 그 슬롯만 건너뛴다 (정오·다른 슬롯은 정상)")
+        void malformedSlotSkippedOnly() {
+            setting("bad", "18:00");
+
+            at(SEOUL_09_00);
+            scheduler.sendEquippedItemPushes();
+            verifyNothingDispatched();
+
+            at(SEOUL_18_00);
+            scheduler.sendEquippedItemPushes();
+            verifyDispatched(ItemPushSlot.AFTER_COMPLETE, "18:00");
+        }
+    }
+
+    // ===== 타임존·캐치업·메모·스냅샷 (LUT-516/545) =====
+
+    @Test
+    @DisplayName("유저 로컬 시각이 슬롯과 다르면(10:00) 발송하지 않는다")
+    void skipsWhenLocalTimeDiffers() {
+        at(SEOUL_10_00);
+        scheduler.sendEquippedItemPushes();
+        verifyNothingDispatched();
+    }
+
+    @Test
+    @DisplayName("A18: 타임존 오프셋 — Kolkata(+5:30) 유저는 UTC 03:30 에 로컬 09:00 아침 슬롯")
+    void matchesPerUserTimezoneOffset() {
+        when(userQueryFacade.getPreferredTimezones(any()))
+                .thenReturn(Map.of(USER_ID, "Asia/Kolkata"));
+
+        at(SEOUL_09_00); // Kolkata 05:30 → 아무 슬롯도 아님
+        scheduler.sendEquippedItemPushes();
+        verifyNothingDispatched();
+
+        at(KOLKATA_09_00);
+        scheduler.sendEquippedItemPushes();
+        verify(itemPushDispatchService)
+                .trySendForUser(
+                        eq(USER_ID),
+                        eq(headItem),
+                        any(),
+                        eq(ItemPushSlot.BEFORE_ACTIVITY),
                         eq("09:00"),
                         anyList(),
                         anySet());
     }
 
     @Test
-    @DisplayName("유저 로컬 시각이 발송 시각과 다르면 발송하지 않는다")
-    void skipsWhenLocalTimeDiffers() {
-        scheduler.setClock(Clock.fixed(UTC_01_00, ZoneOffset.UTC)); // Seoul 10:00
-
-        scheduler.sendEquippedItemPushes();
-
-        verify(itemPushDispatchService, never())
-                .trySendForUser(any(), any(), any(), any(), anyList(), anySet());
-    }
-
-    @Test
-    @DisplayName("타임존 오프셋이 반영된다 — Kolkata(+5:30) 유저는 UTC 03:30 실행에서 로컬 09:00 매칭")
-    void matchesPerUserTimezoneOffset() {
-        when(userQueryFacade.getPreferredTimezones(any()))
-                .thenReturn(Map.of(USER_ID, "Asia/Kolkata"));
-
-        scheduler.setClock(Clock.fixed(UTC_00_00, ZoneOffset.UTC)); // Kolkata 05:30 → no
-        scheduler.sendEquippedItemPushes();
-        verify(itemPushDispatchService, never())
-                .trySendForUser(any(), any(), any(), any(), anyList(), anySet());
-
-        scheduler.setClock(Clock.fixed(UTC_03_30, ZoneOffset.UTC)); // Kolkata 09:00 → yes
-        scheduler.sendEquippedItemPushes();
-        verify(itemPushDispatchService)
-                .trySendForUser(eq(USER_ID), eq(headItem), any(), eq("09:00"), anyList(), anySet());
-    }
-
-    @Test
-    @DisplayName("타임존이 조회되지 않으면 Asia/Seoul 로 폴백해 매칭한다")
-    void fallsBackToSeoulWhenTimezoneMissing() {
-        when(userQueryFacade.getPreferredTimezones(any())).thenReturn(Map.of()); // 유저 없음 → 기본값
-
-        scheduler.sendEquippedItemPushes(); // clock=UTC 00:00 → Seoul 09:00
-
-        verify(itemPushDispatchService)
-                .trySendForUser(eq(USER_ID), eq(headItem), any(), eq("09:00"), anyList(), anySet());
-    }
-
-    @Test
-    @DisplayName("잘못된 타임존 문자열이면 Asia/Seoul 로 폴백해 매칭한다")
-    void fallsBackToSeoulWhenTimezoneInvalid() {
+    @DisplayName("타임존이 없거나 잘못되면 Asia/Seoul 로 폴백한다")
+    void fallsBackToSeoul() {
         when(userQueryFacade.getPreferredTimezones(any())).thenReturn(Map.of(USER_ID, "Not/AZone"));
+        scheduler.sendEquippedItemPushes();
+        verifyDispatched(ItemPushSlot.BEFORE_ACTIVITY, "09:00");
 
-        scheduler.sendEquippedItemPushes(); // clock=UTC 00:00 → Seoul 09:00
-
-        verify(itemPushDispatchService)
-                .trySendForUser(eq(USER_ID), eq(headItem), any(), eq("09:00"), anyList(), anySet());
+        when(userQueryFacade.getPreferredTimezones(any())).thenReturn(Map.of());
+        scheduler.sendEquippedItemPushes();
+        verify(itemPushDispatchService, times(1))
+                .trySendForUser(any(), any(), any(), any(), any(), anyList(), anySet());
+        // 두 번째 호출은 메모로 스킵됨 (같은 날·같은 슬롯)
     }
 
     @Test
@@ -176,12 +335,11 @@ class ItemPushSchedulerTest {
                 .thenReturn(Map.of("user-fail", "Asia/Seoul", USER_ID, "Asia/Seoul"));
         doThrow(new RuntimeException("dispatch boom"))
                 .when(itemPushDispatchService)
-                .trySendForUser(eq("user-fail"), any(), any(), any(), anyList(), anySet());
+                .trySendForUser(eq("user-fail"), any(), any(), any(), any(), anyList(), anySet());
 
         scheduler.sendEquippedItemPushes();
 
-        verify(itemPushDispatchService)
-                .trySendForUser(eq(USER_ID), eq(headItem), any(), eq("09:00"), anyList(), anySet());
+        verifyDispatched(ItemPushSlot.BEFORE_ACTIVITY, "09:00");
     }
 
     @Test
@@ -193,11 +351,8 @@ class ItemPushSchedulerTest {
         scheduler.sendEquippedItemPushes();
 
         verify(userItemRepository, never()).findUserIdsByEquippedShopItemId(any());
-        verify(itemPushDispatchService, never())
-                .trySendForUser(any(), any(), any(), any(), anyList(), anySet());
+        verifyNothingDispatched();
     }
-
-    // ===== LUT-545: 슬롯 캐치업 창 · 틱 시각 스냅샷 · 평가 메모 =====
 
     /** 호출마다 지정 초만큼 전진하는 Clock — 루프 중 now() 재계산 시 드리프트를 재현한다 */
     private static Clock driftingClock(Instant start, long stepSeconds) {
@@ -220,165 +375,174 @@ class ItemPushSchedulerTest {
         };
     }
 
-    @Test
-    @DisplayName("LUT-545: 슬롯을 지났어도 캐치업 창(30분) 안이면 발송을 위임한다 — Seoul 09:10, 슬롯 09:00")
-    void catchesUpWithinWindow() {
-        scheduler.setClock(Clock.fixed(Instant.parse("2026-07-27T00:10:00Z"), ZoneOffset.UTC));
+    @Nested
+    @DisplayName("LUT-545: 캐치업 창 · 평가 메모 · 틱 스냅샷")
+    class CatchUp {
 
-        scheduler.sendEquippedItemPushes();
+        @Test
+        @DisplayName("슬롯을 지났어도 캐치업 창(30분) 안이면 위임 — 09:10 / 경계 09:30 포함 / 09:31 제외 / 08:59 제외")
+        void window() {
+            at(Instant.parse("2026-07-27T00:10:00Z"));
+            scheduler.sendEquippedItemPushes();
+            verifyDispatched(ItemPushSlot.BEFORE_ACTIVITY, "09:00");
 
-        verify(itemPushDispatchService)
-                .trySendForUser(
-                        eq(USER_ID),
-                        eq(headItem),
-                        eq(LocalDate.of(2026, 7, 27)),
-                        eq("09:00"),
-                        anyList(),
-                        anySet());
+            ItemPushScheduler fresh = freshScheduler();
+            fresh.setClock(Clock.fixed(Instant.parse("2026-07-27T00:30:00Z"), ZoneOffset.UTC));
+            fresh.sendEquippedItemPushes();
+            fresh.setClock(Clock.fixed(Instant.parse("2026-07-27T00:31:00Z"), ZoneOffset.UTC));
+            fresh.sendEquippedItemPushes();
+            fresh.setClock(Clock.fixed(Instant.parse("2026-07-26T23:59:00Z"), ZoneOffset.UTC));
+            fresh.sendEquippedItemPushes();
+            verify(itemPushDispatchService, times(2))
+                    .trySendForUser(any(), any(), any(), any(), any(), anyList(), anySet());
+        }
+
+        @Test
+        @DisplayName("창을 0 으로 두면 정확 일치만")
+        void windowZero() {
+            scheduler.setCatchUpWindowMinutes(0);
+
+            at(Instant.parse("2026-07-27T00:01:00Z"));
+            scheduler.sendEquippedItemPushes();
+            verifyNothingDispatched();
+
+            at(SEOUL_09_00);
+            scheduler.sendEquippedItemPushes();
+            verifyDispatched(ItemPushSlot.BEFORE_ACTIVITY, "09:00");
+        }
+
+        @Test
+        @DisplayName("같은 날 이미 평가한 유저·슬롯은 창 안의 다음 틱에서 다시 평가하지 않는다")
+        void memoPreventsReevaluation() {
+            at(SEOUL_09_00);
+            scheduler.sendEquippedItemPushes();
+            at(Instant.parse("2026-07-27T00:05:00Z"));
+            scheduler.sendEquippedItemPushes();
+
+            verify(itemPushDispatchService, times(1))
+                    .trySendForUser(any(), any(), any(), any(), any(), anyList(), anySet());
+            verify(missionQueryFacade, times(1))
+                    .findMissionCompletedLocalDates(any(), any(), any(), any());
+        }
+
+        @Test
+        @DisplayName("평가 메모는 로컬 날짜 단위 — 다음 날 같은 슬롯은 다시 평가한다")
+        void memoIsPerLocalDate() {
+            at(SEOUL_09_00);
+            scheduler.sendEquippedItemPushes();
+            at(Instant.parse("2026-07-28T00:00:00Z"));
+            scheduler.sendEquippedItemPushes();
+
+            verify(itemPushDispatchService)
+                    .trySendForUser(
+                            eq(USER_ID),
+                            eq(headItem),
+                            eq(LocalDate.of(2026, 7, 27)),
+                            eq(ItemPushSlot.BEFORE_ACTIVITY),
+                            eq("09:00"),
+                            anyList(),
+                            anySet());
+            verify(itemPushDispatchService)
+                    .trySendForUser(
+                            eq(USER_ID),
+                            eq(headItem),
+                            eq(LocalDate.of(2026, 7, 28)),
+                            eq(ItemPushSlot.BEFORE_ACTIVITY),
+                            eq("09:00"),
+                            anyList(),
+                            anySet());
+        }
+
+        @Test
+        @DisplayName("예외로 끝난 유저는 메모되지 않아 창 안의 다음 틱에서 재시도된다")
+        void failedUserRetried() {
+            doThrow(new RuntimeException("transient"))
+                    .doReturn(ItemPushDispatchOutcome.SENT)
+                    .when(itemPushDispatchService)
+                    .trySendForUser(eq(USER_ID), any(), any(), any(), any(), anyList(), anySet());
+
+            at(SEOUL_09_00);
+            scheduler.sendEquippedItemPushes();
+            at(Instant.parse("2026-07-27T00:01:00Z"));
+            scheduler.sendEquippedItemPushes();
+
+            verify(itemPushDispatchService, times(2))
+                    .trySendForUser(
+                            eq(USER_ID),
+                            eq(headItem),
+                            any(),
+                            eq(ItemPushSlot.BEFORE_ACTIVITY),
+                            eq("09:00"),
+                            anyList(),
+                            anySet());
+        }
+
+        @Test
+        @DisplayName("틱 시각은 run 진입 시 1회 스냅샷 — 루프 중 시계가 흘러도 뒤 아이템의 슬롯이 미평가되지 않는다")
+        void tickSnapshot() {
+            ShopItem secondItem =
+                    ShopItem.builder().name("두번째 투구").itemType(ShopItemType.HEAD).price(0).build();
+            setId(secondItem, 200L);
+            ItemPushMessage secondMessage =
+                    ItemPushMessage.create(
+                            secondItem,
+                            "두번째 {nickname}",
+                            null,
+                            null,
+                            null,
+                            ItemPushTriggerType.ANY,
+                            true,
+                            1L);
+            setId(secondMessage, 2L);
+            when(itemPushMessageRepository.findEnabledWithItemByType(ShopItemType.HEAD))
+                    .thenReturn(List.of(anyMessage, secondMessage));
+            when(itemPushSettingRepository.findByShopItemIdIn(any()))
+                    .thenReturn(
+                            List.of(
+                                    ItemPushSetting.of(ITEM_ID, "09:00", null, 1L),
+                                    ItemPushSetting.of(200L, "09:00", null, 1L)));
+            when(userItemRepository.findUserIdsByEquippedShopItemId(200L))
+                    .thenReturn(List.of(USER_ID));
+            scheduler.setCatchUpWindowMinutes(0);
+            scheduler.setClock(driftingClock(Instant.parse("2026-07-27T00:00:30Z"), 70));
+
+            scheduler.sendEquippedItemPushes();
+
+            verify(itemPushDispatchService)
+                    .trySendForUser(
+                            eq(USER_ID),
+                            eq(headItem),
+                            any(),
+                            eq(ItemPushSlot.BEFORE_ACTIVITY),
+                            eq("09:00"),
+                            anyList(),
+                            anySet());
+            verify(itemPushDispatchService)
+                    .trySendForUser(
+                            eq(USER_ID),
+                            eq(secondItem),
+                            any(),
+                            eq(ItemPushSlot.BEFORE_ACTIVITY),
+                            eq("09:00"),
+                            anyList(),
+                            anySet());
+        }
+
+        private ItemPushScheduler freshScheduler() {
+            ItemPushScheduler s =
+                    new ItemPushScheduler(
+                            itemPushMessageRepository,
+                            itemPushSettingRepository,
+                            userItemRepository,
+                            userQueryFacade,
+                            missionQueryFacade,
+                            itemPushDispatchService);
+            return s;
+        }
     }
 
     @Test
-    @DisplayName("LUT-545: 창 경계(슬롯 +30분)는 포함, +31분은 제외")
-    void catchUpWindowBoundary() {
-        scheduler.setClock(Clock.fixed(Instant.parse("2026-07-27T00:30:00Z"), ZoneOffset.UTC));
-        scheduler.sendEquippedItemPushes();
-        verify(itemPushDispatchService)
-                .trySendForUser(eq(USER_ID), eq(headItem), any(), eq("09:00"), anyList(), anySet());
-
-        scheduler.setClock(Clock.fixed(Instant.parse("2026-07-27T00:31:00Z"), ZoneOffset.UTC));
-        scheduler.sendEquippedItemPushes();
-        verify(itemPushDispatchService, times(1))
-                .trySendForUser(any(), any(), any(), any(), anyList(), anySet());
-    }
-
-    @Test
-    @DisplayName("LUT-545: 슬롯 이전(08:59)은 창에 들지 않는다")
-    void doesNotDispatchBeforeSlot() {
-        scheduler.setClock(Clock.fixed(Instant.parse("2026-07-26T23:59:00Z"), ZoneOffset.UTC));
-
-        scheduler.sendEquippedItemPushes();
-
-        verify(itemPushDispatchService, never())
-                .trySendForUser(any(), any(), any(), any(), anyList(), anySet());
-    }
-
-    @Test
-    @DisplayName("LUT-545: 창을 0 으로 두면 정확 일치만 발송한다")
-    void windowZeroMeansExactMatchOnly() {
-        scheduler.setCatchUpWindowMinutes(0);
-
-        scheduler.setClock(Clock.fixed(Instant.parse("2026-07-27T00:01:00Z"), ZoneOffset.UTC));
-        scheduler.sendEquippedItemPushes();
-        verify(itemPushDispatchService, never())
-                .trySendForUser(any(), any(), any(), any(), anyList(), anySet());
-
-        scheduler.setClock(Clock.fixed(UTC_00_00, ZoneOffset.UTC));
-        scheduler.sendEquippedItemPushes();
-        verify(itemPushDispatchService)
-                .trySendForUser(eq(USER_ID), eq(headItem), any(), eq("09:00"), anyList(), anySet());
-    }
-
-    @Test
-    @DisplayName("LUT-545: 같은 날 이미 평가한 유저는 창 안의 다음 틱에서 다시 평가하지 않는다 (쿼리·스킵 로그 반복 방지)")
-    void evaluatedMemoPreventsReevaluationWithinWindow() {
-        scheduler.setClock(Clock.fixed(UTC_00_00, ZoneOffset.UTC)); // 09:00 정각
-        scheduler.sendEquippedItemPushes();
-        scheduler.setClock(Clock.fixed(Instant.parse("2026-07-27T00:05:00Z"), ZoneOffset.UTC));
-        scheduler.sendEquippedItemPushes(); // 09:05 캐치업 틱
-
-        verify(itemPushDispatchService, times(1))
-                .trySendForUser(eq(USER_ID), eq(headItem), any(), eq("09:00"), anyList(), anySet());
-        // 완료데이터 배치조회도 1회 — 두 번째 틱은 후보가 없어 타임존 그룹 자체가 만들어지지 않는다
-        verify(missionQueryFacade, times(1))
-                .findMissionCompletedLocalDates(any(), any(), any(), any());
-    }
-
-    @Test
-    @DisplayName("LUT-545: 평가 메모는 로컬 날짜 단위 — 다음 날 같은 슬롯은 다시 평가한다")
-    void evaluatedMemoIsPerLocalDate() {
-        scheduler.setClock(Clock.fixed(UTC_00_00, ZoneOffset.UTC));
-        scheduler.sendEquippedItemPushes();
-        scheduler.setClock(Clock.fixed(Instant.parse("2026-07-28T00:00:00Z"), ZoneOffset.UTC));
-        scheduler.sendEquippedItemPushes();
-
-        verify(itemPushDispatchService)
-                .trySendForUser(
-                        eq(USER_ID),
-                        eq(headItem),
-                        eq(LocalDate.of(2026, 7, 27)),
-                        eq("09:00"),
-                        anyList(),
-                        anySet());
-        verify(itemPushDispatchService)
-                .trySendForUser(
-                        eq(USER_ID),
-                        eq(headItem),
-                        eq(LocalDate.of(2026, 7, 28)),
-                        eq("09:00"),
-                        anyList(),
-                        anySet());
-    }
-
-    @Test
-    @DisplayName("LUT-545: 예외로 끝난 유저는 메모되지 않아 창 안의 다음 틱에서 재시도된다")
-    void failedUserIsRetriedOnNextTickWithinWindow() {
-        doThrow(new RuntimeException("transient"))
-                .doReturn(
-                        io.pinkspider.leveluptogethermvp.gamificationservice.shop.domain.enums
-                                .ItemPushDispatchOutcome.SENT)
-                .when(itemPushDispatchService)
-                .trySendForUser(eq(USER_ID), any(), any(), any(), anyList(), anySet());
-
-        scheduler.setClock(Clock.fixed(UTC_00_00, ZoneOffset.UTC));
-        scheduler.sendEquippedItemPushes(); // 실패
-        scheduler.setClock(Clock.fixed(Instant.parse("2026-07-27T00:01:00Z"), ZoneOffset.UTC));
-        scheduler.sendEquippedItemPushes(); // 재시도 성공
-
-        verify(itemPushDispatchService, times(2))
-                .trySendForUser(eq(USER_ID), eq(headItem), any(), eq("09:00"), anyList(), anySet());
-    }
-
-    @Test
-    @DisplayName("LUT-545: 틱 시각은 run 진입 시 1회 스냅샷 — 루프 중 시계가 흘러도 뒤 아이템의 슬롯이 미평가되지 않는다")
-    void tickInstantIsSnapshottedOncePerRun() {
-        // 아이템 2개, 둘 다 09:00 슬롯, 창 0(정확 일치)으로 두어 스냅샷이 없으면 두 번째 아이템이 09:01 로 계산돼 빠진다
-        ShopItem secondItem =
-                ShopItem.builder().name("두번째 투구").itemType(ShopItemType.HEAD).price(0).build();
-        setId(secondItem, 200L);
-        ItemPushMessage secondMessage =
-                ItemPushMessage.create(
-                        secondItem,
-                        "두번째 {nickname}",
-                        null,
-                        null,
-                        null,
-                        ItemPushTriggerType.ANY,
-                        true,
-                        1L);
-        setId(secondMessage, 2L);
-        when(itemPushMessageRepository.findEnabledWithItemByType(ShopItemType.HEAD))
-                .thenReturn(List.of(nineAmMessage, secondMessage));
-        when(itemPushSettingRepository.findByShopItemIdIn(any()))
-                .thenReturn(
-                        List.of(
-                                ItemPushSetting.of(ITEM_ID, "09:00", 1L),
-                                ItemPushSetting.of(200L, "09:00", 1L)));
-        when(userItemRepository.findUserIdsByEquippedShopItemId(200L)).thenReturn(List.of(USER_ID));
-        scheduler.setCatchUpWindowMinutes(0);
-        // 첫 호출 09:00:30, 이후 호출마다 70초씩 전진 (루프 중 재계산하면 09:01 이 된다)
-        scheduler.setClock(driftingClock(Instant.parse("2026-07-27T00:00:30Z"), 70));
-
-        scheduler.sendEquippedItemPushes();
-
-        verify(itemPushDispatchService)
-                .trySendForUser(eq(USER_ID), eq(headItem), any(), eq("09:00"), anyList(), anySet());
-        verify(itemPushDispatchService)
-                .trySendForUser(
-                        eq(USER_ID), eq(secondItem), any(), eq("09:00"), anyList(), anySet());
-    }
-
-    @Test
-    @DisplayName("LUT-545: 발송 시각 형식이 잘못된 아이템은 건너뛴다 (parseSlotMinutes)")
+    @DisplayName("parseSlotMinutes 규칙")
     void parseSlotMinutes_rules() {
         assertThat(ItemPushScheduler.parseSlotMinutes("09:00")).isEqualTo(540);
         assertThat(ItemPushScheduler.parseSlotMinutes("23:59")).isEqualTo(1439);
@@ -386,10 +550,5 @@ class ItemPushSchedulerTest {
         assertThat(ItemPushScheduler.parseSlotMinutes("9:00")).isEqualTo(-1);
         assertThat(ItemPushScheduler.parseSlotMinutes("ab:cd")).isEqualTo(-1);
         assertThat(ItemPushScheduler.parseSlotMinutes(null)).isEqualTo(-1);
-
-        when(itemPushSettingRepository.findByShopItemIdIn(any()))
-                .thenReturn(List.of(ItemPushSetting.of(ITEM_ID, "bad", 1L)));
-        scheduler.sendEquippedItemPushes();
-        verify(userItemRepository, never()).findUserIdsByEquippedShopItemId(any());
     }
 }

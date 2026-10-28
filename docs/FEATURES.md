@@ -33,18 +33,84 @@ API 라우팅 — Strategy Pattern (`MissionExecutionStrategy` 인터페이스):
 미션의 수행 방식을 결정하는 `MissionExecutionMode` enum:
 
 ```java
-TIMED   // 시간 측정 (기본값) — 분당 1 EXP, 4시간 초과 시 자동종료
-SIMPLE  // 수행 여부 — 즉시 완료, 고정 +5 EXP
+TIMED   // 시간 측정 (기본값) — 60분까지 분당 1 EXP, 초과 구간 5분당 1 (LUT-568), 4시간 초과 시 자동종료
+SIMPLE  // 수행 여부 — 즉시 완료, 고정 +10 EXP (LUT-568: 5 → 10)
 ```
 
 - `Mission.executionMode` 필드로 미션 생성 시 선택 (TIMED/SIMPLE)
 - `MissionExecutionLifecycle.complete(boolean awardSimpleExp)`에서 SIMPLE 모드 분기 — `awardSimpleExp=false`면 EXP 0
 - SIMPLE 모드는 최소 수행 시간 제한 없음, 자동완료 불필요
-- **SIMPLE 일일 EXP 한도 (QA-130)**: 하루 `SIMPLE_DAILY_LIMIT(10)`회까지 EXP +5 지급, 초과 시에도 수행은 가능하지만 EXP=0 처리
+- **SIMPLE 일일 EXP 한도 (QA-130)**: 하루 `SIMPLE_DAILY_LIMIT(10)`회까지 EXP +10 지급, 초과 시에도 수행은 가능하지만 EXP=0 처리
   - 카운트는 일반(`MissionExecution`) + 고정(`DailyMissionInstance`) SIMPLE 완료 합산 (mission 단위가 아닌 **유저 단위**)
   - 한도 도달 여부는 `MissionExecutionService.isSimpleDailyLimitReached(userId, date)`로 조회
   - 실제 EXP 0 처리는 Saga 단계(`CompleteExecutionStep`/`CompletePinnedInstanceStep`)에서 카운트 체크 후 `lifecycle.complete(false)` 호출
   - 응답 DTO(`MissionExecutionResponse`/`DailyMissionInstanceResponse`)의 `daily_simple_exp_capped` 플래그로 프론트 안내
+
+## Mission EXP 공식 (LUT-568) — `missionservice/domain/policy/MissionExpPolicy`
+
+공식의 단일 출처. 출처(개인·길드·미션북) 무관, `execution_mode` 기준으로만 적용. 프론트는 서버 값을 **표시만** 한다(재구현 금지).
+
+| 모드 | 공식 | 예 |
+|---|---|---|
+| 체크(SIMPLE) | 완료당 **10**, 하루 10회까지 | 체크 10개 = 100 |
+| 타이머(TIMED) | **60분까지 분당 1, 초과 구간 5분당 1**(`timedExp`). 완료 기본 EXP 없음(쪼개기 유인 방지: 10분×6 = 60분×1 = 60) | 33분 = 33, 240분 = 60+36 = **96** |
+| 체크 일일 마일스톤 | 당일 체크 완료 **3개째 +20, 5개째 +20**(각 1회). TIMED 완료는 집계 제외, 한도 초과로 EXP 0 인 체크 완료도 횟수에 포함 | 체크 5개 = 50 + 40 = 90, 체크 10개 = 140 |
+
+- 목표시간 도달: 미션북(`source=SYSTEM`) = `timedExp(target) + bonusExpOnFullCompletion`, 유저 생성(USER/GUILD) = `timedExp(target)` 캡.
+  미달 = `timedExp(실제 분)`. 목표 없는 레거시 타이머는 `timedExp(min(실제, 480))`. 240분 목표는 이제 240 이 아니라 96 이다.
+- **마일스톤 판정은 완료 Step** (`CompleteExecutionStep`/`CompletePinnedInstanceStep`)이 일일 한도와 **같은 카운트·같은 날짜 경계**
+  (`executionDate`/`instanceDate`, 일반+고정 합산)로 "이번 완료 포함 누계 == 3 또는 5" 를 검사해 `context.markDailyMilestone` 로 기록하고,
+  **`GrantDailyMilestoneBonusStep`**(필수 Step, `GrantUserExperience` 직후)이 `ExpSourceType.DAILY_MISSION_MILESTONE` /
+  `sourceId=마일스톤 수` / 카테고리 `기타`(출석과 동일 — 일별 합계·MVP 집계 포함)로 별도 이력을 남긴다. 실패 시 완료 전체가 보상된다
+  (누계가 3·5 를 지나면 다시 줄 기회가 없다). 동시 완료 레이스는 일일 한도와 같은 수준(락 없음)으로 수용한다.
+- 응답: 완료 응답에 `milestone_bonus_exp`/`milestone_count`(미도달 시 필드 생략). 월간 캘린더(`/executions/monthly`)에
+  `daily_rewards: { "yyyy-MM-dd": [ {type: ATTENDANCE|DAILY_MISSION_MILESTONE, exp, milestone?} ] }` — 경험치 이력(EVENT=출석,
+  DAILY_MISSION_MILESTONE)을 (날짜·출처·sourceId) 순합으로 복원(환수된 건은 합 ≤ 0 이라 제외). `daily_exp` 는 유지(구버전 폴백).
+- 스케줄러 자동 종료(4시간 초과, 목표 없는 레거시) EXP 는 `autoCompleteExp(base-exp)` = `min(설정값, timedExp(240)=96)` — 설정 120 은
+  96 으로 클램프된다. "정상 완료의 절반" 패널티를 유지하려면 config `mission.execution.base-exp` 를 48 로 내릴 것(코드 변경 불필요).
+- 길드 EXP 는 유저 EXP 와 같은 값(체크 10)이라 길드 포인트(`floor(min(일 EXP,60)/10)`)는 체크 6개로 상한 6점. 마일스톤 보너스는 길드 EXP 에 포함하지 않는다.
+- 어드민 미션북 템플릿 `target_duration_minutes` 도 유저 생성과 동일하게 `@Max(240)`.
+
+## User Level Curve (LUT-570) — `meta_db.user_level_config`
+
+`required_exp(L)` = 레벨 L-1 → L 비용, `cumulative_exp(L)` = 레벨 L 도달 누적(= Σ required 2..L), 레벨 1 = 0/0.
+레벨업 판정(`UserExperienceService.processLevelUp`)은 **현재 레벨 + 1 행**의 `required_exp` 와 `current_exp`(현재 레벨 안에서
+쌓인 값)를 비교한다. 응답의 `next_level_required_exp` 도 같은 행을 봐야 한다 — LUT-570 전엔 현재 레벨 행을 읽어 2~11 레벨이
+전부 500 인 균일 곡선에선 드러나지 않던 off-by-one 이 있었다. 테이블이 비면 기본 공식 `100 + (L-1)×50`, 최대 레벨이면 null.
+
+| L | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11+ |
+|---|---|---|---|---|---|---|---|---|---|---|
+| required | 50 | 150 | 200 | 300 | 400 | 500 | 600 | 800 | 1000 | 1000 (12+ 는 `cum = 1000L − 6000`) |
+| cumulative | 50 | 200 | 400 | 700 | 1100 | 1600 | 2200 | 3000 | 4000 | 5000 |
+
+- 곡선을 바꿀 때 **테이블만 바꾸면 안 된다**: 판정이 증분식이라 옛 임계값 기준 `current_exp` 를 들고 간다. `total_exp` 로
+  `current_level = max{L : cum(L) ≤ total}`, `current_exp = total − cum(level)` 을 재산정하는 SQL(상향만·멱등, sql 1.1.3 V002)이 동반돼야
+  하고, 적용 후 Redis `userLevelConfigs::*`(all + 레벨별 키) 를 지운다. SQL 재산정은 LEVEL_UP 푸시·피드를 타지 않고, 레벨업 다이아는
+  `last_rewarded_level` 이후분을 다음 자연 레벨업 때 받으며, 레벨 달성 업적은 상태 기반이라 다음 앱 접속 때 소급 완료된다.
+- 상점 등급(`LevelRarityPolicy`: <3 COMMON, <10 UNCOMMON)·레벨 랭킹은 재산정 즉시 반영. 길드 레벨 테이블은 별개.
+
+## Mission 생성 멱등성 (LUT-577) — `missionservice/application/MissionIdempotencyService`
+
+`POST /api/v1/missions` 는 요청 헤더 `Idempotency-Key`(UUID, 클라이언트 생성)를 받는다. 네트워크가 나쁠 때 요청은 서버에 도착해 미션이 만들어졌는데
+응답만 유실되면 클라이언트 가드(LUT-293 `isSubmittingRef`)는 재시도를 막지 못한다 — 서버가 같은 시도를 알아보는 키가 필요하다.
+
+| 상황 | 동작 |
+|---|---|
+| 헤더 없음 | 기존처럼 매번 생성 (구버전 앱 호환, 필수 아님) |
+| UUID 형식 아님 | **400** `050401` `error.mission.idempotency_key.invalid` |
+| 처음 보는 키 | `mission_idempotency_key` 에 PROCESSING 선점 → 미션 생성 + COMPLETED(응답 JSON 보관)를 한 트랜잭션으로 → **200** (상태 코드는 기존 유지) |
+| 같은 유저·같은 키·완료 | 새로 만들지 않고 **저장된 응답 그대로**(같은 `id`). 본문이 없으면 `mission_id` 로 재조회 |
+| 같은 키·처리 중(동시 요청) | **409** `050402` `error.mission.idempotency_key.in_progress` — 같은 키로 재시도하면 완료 응답 |
+| 같은 키·다른 유저 | 유니크가 `(user_id, idempotency_key)` 라 충돌 없음, 각각 생성 |
+| 선점 후 5분 넘게 PROCESSING (JVM 중단 등) | stale 로 보고 행을 지운 뒤 새 요청으로 처리 |
+| 24시간 경과 | `MissionIdempotencyKeyCleanupScheduler`(매시 15분 KST)가 삭제. 삭제 전에 같은 키가 와도 그 자리에서 새 요청으로 취급 |
+
+- 트랜잭션 경계는 `MissionIdempotencyTxService` 가 가진다. 선점(claim)·해제(release)는 **REQUIRES_NEW** — 유니크 충돌이 호출자 영속성 컨텍스트를
+  오염시키지 않고(LUT-538 패턴), 선점 행이 즉시 커밋돼 다른 인스턴스의 동시 요청도 충돌을 본다. 생성이 실패하면 호출자가 선점 행을 release 해
+  같은 키 재시도가 다시 생성을 시도할 수 있다.
+- 400/409 는 플랫폼 `CustomException`(항상 500) 대신 `MissionIdempotencyException` + 미션 로컬 어드바이스 `MissionIdempotencyExceptionHandler`
+  (user-service `JwtExceptionHandler` 와 같은 구조)가 응답한다. 본문은 다른 에러와 같은 `ApiResult`(code + 현지화 message).
+- 키는 trim + 소문자로 정규화해 저장한다. 다른 생성 API(길드·댓글)로의 확장은 별도 티켓. 프론트 키 발급·전송은 [Web] 후속 티켓.
 
 ## Mission 생성 한도 (QA-130)
 
@@ -131,7 +197,7 @@ FeedSearchType { ALL, FRIENDS, GUILD, MINE }
 `MissionAutoCompleteScheduler` (5분 간격 실행, 설정: `MissionExecutionProperties`):
 
 - 목표 시간 도달 미션: 자동 완료 처리 (목표 시간 기준 EXP 지급)
-- 4시간(`maxExecutionMinutes=240`) 초과 미션 (목표 시간 없는 경우): 자동 완료 (`baseExp=120` — 정상 완료의 절반, 어뷰징 방지 패널티성. `isAutoCompleted=true`, QA-171)
+- 4시간(`maxExecutionMinutes=240`) 초과 미션 (목표 시간 없는 경우): 자동 완료 (`baseExp=120` 설정이지만 LUT-568 이후 `min(baseExp, timedExp(240)=96)` 으로 클램프 — 방치가 정상 완료보다 유리해지지 않게. `isAutoCompleted=true`, QA-171)
 - 경고 알림: 시작 후 180·230분(`warningMinutesAfterStart`) 시점에 `MissionAutoEndWarningEvent` 발행 → FIRST/FINAL 2단계 푸시 (dedup)
 
 ## Guild Mission Auto-Enrollment (길드 미션 자동 참가)

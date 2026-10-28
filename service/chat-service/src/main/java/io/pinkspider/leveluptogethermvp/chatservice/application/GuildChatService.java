@@ -40,6 +40,7 @@ public class GuildChatService {
     private final GuildQueryFacade guildQueryFacadeService;
     private final UserQueryFacade userQueryFacadeService;
     private final ApplicationEventPublisher eventPublisher;
+    private final ChatImageService chatImageService;
 
     @Transactional(transactionManager = "chatTransactionManager")
     public ChatMessageResponse sendMessage(
@@ -49,6 +50,7 @@ public class GuildChatService {
             throw new IllegalArgumentException("길드를 찾을 수 없습니다: " + guildId);
         }
         validateMembership(guildId, userId);
+        chatImageService.validateImageUrl(request.getImageUrl(), guildId, userId);
 
         String effectiveNickname = nickname;
         if (effectiveNickname == null || effectiveNickname.isBlank()) {
@@ -197,7 +199,9 @@ public class GuildChatService {
             throw new IllegalStateException("본인 메시지 또는 길드 마스터만 삭제할 수 있습니다.");
         }
 
+        String imageUrl = message.getImageUrl();
         message.delete();
+        chatImageService.deleteAfterCommit(imageUrl, message.getGuildId(), message.getSenderId());
         log.info("채팅 메시지 삭제: messageId={}, deletedBy={}", messageId, userId);
     }
 

@@ -129,6 +129,8 @@ public class GuildChatMessage extends LocalDateTimeBaseEntity {
         this.isDeleted = true;
         this.deletedAt = LocalDateTime.now();
         this.content = "[삭제된 메시지입니다]";
+        // LUT-590: 삭제된 메시지의 사진이 계속 보이지 않게 함께 걷어낸다 (파일 정리는 서비스가 커밋 후 수행)
+        this.imageUrl = null;
     }
 
     public boolean isSystemMessage() {

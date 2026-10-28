@@ -57,6 +57,8 @@ class GuildChatServiceTest {
 
     @Mock private org.springframework.context.ApplicationEventPublisher eventPublisher;
 
+    @Mock private ChatImageService chatImageService;
+
     @InjectMocks private GuildChatService guildChatService;
 
     private GuildChatMessage testMessage;
@@ -1496,6 +1498,79 @@ class GuildChatServiceTest {
 
             verify(chatMessageRepository, org.mockito.Mockito.never())
                     .save(any(GuildChatMessage.class));
+        }
+    }
+
+    @Nested
+    @DisplayName("LUT-590 채팅 이미지")
+    class ChatImageTest {
+
+        private static final String IMAGE_URL = "/uploads/chats/1/test-user-id/a.jpg";
+
+        @Test
+        @DisplayName("전송 시 image_url 을 업로드 URL 인지 검증한다")
+        void sendMessage_validatesImageUrl() {
+            ChatMessageRequest request = ChatMessageRequest.builder().imageUrl(IMAGE_URL).build();
+            when(guildQueryFacadeService.getGuildBasicInfo(1L))
+                    .thenReturn(new GuildBasicInfo(1L, "테스트길드", null, 1));
+            when(guildQueryFacadeService.isActiveMember(1L, testUserId)).thenReturn(true);
+            when(guildQueryFacadeService.getActiveMemberUserIds(1L))
+                    .thenReturn(java.util.Collections.emptyList());
+            when(chatMessageRepository.save(any(GuildChatMessage.class)))
+                    .thenAnswer(inv -> inv.getArgument(0));
+
+            ChatMessageResponse response =
+                    guildChatService.sendMessage(1L, testUserId, testNickname, request);
+
+            verify(chatImageService).validateImageUrl(IMAGE_URL, 1L, testUserId);
+            // 본문 없이 사진만 — 본문은 빈 문자열로 저장된다
+            assertThat(response.getContent()).isEmpty();
+            assertThat(response.getImageUrl()).isEqualTo(IMAGE_URL);
+        }
+
+        @Test
+        @DisplayName("업로드 API 를 거치지 않은 URL 이면 저장하지 않는다")
+        void sendMessage_foreignImageUrl_rejected() {
+            ChatMessageRequest request =
+                    ChatMessageRequest.builder().imageUrl("https://evil.example.com/t.gif").build();
+            when(guildQueryFacadeService.getGuildBasicInfo(1L))
+                    .thenReturn(new GuildBasicInfo(1L, "테스트길드", null, 1));
+            when(guildQueryFacadeService.isActiveMember(1L, testUserId)).thenReturn(true);
+            org.mockito.Mockito.doThrow(
+                            new io.pinkspider.global.exception.CustomException(
+                                    "CHAT_IMAGE_004", "error.chat.invalid_image_url"))
+                    .when(chatImageService)
+                    .validateImageUrl("https://evil.example.com/t.gif", 1L, testUserId);
+
+            org.assertj.core.api.Assertions.assertThatThrownBy(
+                            () ->
+                                    guildChatService.sendMessage(
+                                            1L, testUserId, testNickname, request))
+                    .isInstanceOf(io.pinkspider.global.exception.CustomException.class);
+            verify(chatMessageRepository, org.mockito.Mockito.never())
+                    .save(any(GuildChatMessage.class));
+        }
+
+        @Test
+        @DisplayName("사진 메시지를 삭제하면 사진도 숨기고 커밋 후 파일 정리를 예약한다")
+        void deleteMessage_image_clearsAndSchedulesCleanup() {
+            GuildChatMessage imageMessage =
+                    GuildChatMessage.builder()
+                            .guildId(1L)
+                            .senderId(testUserId)
+                            .senderNickname(testNickname)
+                            .messageType(ChatMessageType.IMAGE)
+                            .content("")
+                            .imageUrl(IMAGE_URL)
+                            .build();
+            setId(imageMessage, 5L);
+            when(chatMessageRepository.findById(5L)).thenReturn(Optional.of(imageMessage));
+
+            guildChatService.deleteMessage(1L, 5L, testUserId);
+
+            assertThat(imageMessage.getIsDeleted()).isTrue();
+            assertThat(imageMessage.getImageUrl()).isNull();
+            verify(chatImageService).deleteAfterCommit(IMAGE_URL, 1L, testUserId);
         }
     }
 }

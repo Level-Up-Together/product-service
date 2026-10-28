@@ -23,6 +23,7 @@ import io.pinkspider.leveluptogethermvp.missionservice.saga.steps.CompleteExecut
 import io.pinkspider.leveluptogethermvp.missionservice.saga.steps.CompletePinnedInstanceStep;
 import io.pinkspider.leveluptogethermvp.missionservice.saga.steps.CreateFeedFromMissionStep;
 import io.pinkspider.leveluptogethermvp.missionservice.saga.steps.CreateNextPinnedInstanceStep;
+import io.pinkspider.leveluptogethermvp.missionservice.saga.steps.GrantDailyMilestoneBonusStep;
 import io.pinkspider.leveluptogethermvp.missionservice.saga.steps.GrantGuildExperienceStep;
 import io.pinkspider.leveluptogethermvp.missionservice.saga.steps.GrantMissionBookDiamondStep;
 import io.pinkspider.leveluptogethermvp.missionservice.saga.steps.GrantUserExperienceStep;
@@ -60,6 +61,7 @@ class MissionCompletionSagaTest {
 
     // Unified steps
     @Mock private GrantUserExperienceStep grantUserExperienceStep;
+    @Mock private GrantDailyMilestoneBonusStep grantDailyMilestoneBonusStep;
     @Mock private GrantMissionBookDiamondStep grantMissionBookDiamondStep;
     @Mock private UpdateUserStatsStep updateUserStatsStep;
     @Mock private CreateFeedFromMissionStep createFeedFromMissionStep;
@@ -84,6 +86,7 @@ class MissionCompletionSagaTest {
                         completePinnedInstanceStep,
                         createNextPinnedInstanceStep,
                         grantUserExperienceStep,
+                        grantDailyMilestoneBonusStep,
                         grantMissionBookDiamondStep,
                         updateUserStatsStep,
                         createFeedFromMissionStep,
@@ -164,6 +167,14 @@ class MissionCompletionSagaTest {
 
         // === Unified steps ===
         configureStep(grantUserExperienceStep, "GrantUserExperience", true, ctx -> true);
+        // LUT-568: 체크 일일 마일스톤 보너스는 도달 기록이 있을 때만 실행
+        configureStep(
+                grantDailyMilestoneBonusStep,
+                "GrantDailyMilestoneBonus",
+                true,
+                ctx -> ctx.getMilestoneBonusExp() > 0);
+        when(grantDailyMilestoneBonusStep.execute(any()))
+                .thenReturn(SagaStepResult.success("마일스톤 보너스 지급"));
         configureStep(grantMissionBookDiamondStep, "GrantMissionBookDiamond", false, ctx -> true);
         configureStep(updateUserStatsStep, "UpdateUserStats", false, ctx -> true);
         configureStep(createFeedFromMissionStep, "CreateFeedFromMission", false, ctx -> true);
@@ -258,6 +269,7 @@ class MissionCompletionSagaTest {
                             completePinnedInstanceStep,
                             createNextPinnedInstanceStep,
                             grantUserExperienceStep,
+                            grantDailyMilestoneBonusStep,
                             grantMissionBookDiamondStep,
                             updateUserStatsStep,
                             createFeedFromMissionStep,
@@ -523,6 +535,104 @@ class MissionCompletionSagaTest {
             verify(loadMissionDataStep, never()).execute(any());
             verify(completeExecutionStep, never()).execute(any());
             verify(updateParticipantProgressStep, never()).execute(any());
+        }
+    }
+
+    @Nested
+    @DisplayName("체크 일일 마일스톤 보너스 흐름 (LUT-568)")
+    class DailyMilestoneFlowTest {
+
+        private void stubSuccessfulRegularFlow(boolean markMilestone) {
+            when(loadMissionDataStep.execute(any(MissionCompletionContext.class)))
+                    .thenAnswer(
+                            invocation -> {
+                                MissionCompletionContext ctx = invocation.getArgument(0);
+                                ctx.setExecution(execution);
+                                ctx.setParticipant(participant);
+                                ctx.setMission(mission);
+                                return SagaStepResult.success("데이터 로드 성공");
+                            });
+            when(completeExecutionStep.execute(any(MissionCompletionContext.class)))
+                    .thenAnswer(
+                            invocation -> {
+                                MissionCompletionContext ctx = invocation.getArgument(0);
+                                ctx.setUserExpEarned(10);
+                                if (markMilestone) {
+                                    ctx.markDailyMilestone(3);
+                                }
+                                return SagaStepResult.success("완료 처리 성공");
+                            });
+            when(grantUserExperienceStep.execute(any(MissionCompletionContext.class)))
+                    .thenReturn(SagaStepResult.success("경험치 지급 성공"));
+            when(updateParticipantProgressStep.execute(any(MissionCompletionContext.class)))
+                    .thenReturn(SagaStepResult.success("진행도 업데이트 성공"));
+            when(updateUserStatsStep.execute(any(MissionCompletionContext.class)))
+                    .thenReturn(SagaStepResult.success("통계 업데이트 성공"));
+            when(createFeedFromMissionStep.execute(any(MissionCompletionContext.class)))
+                    .thenReturn(SagaStepResult.success("피드 생성 스킵"));
+        }
+
+        @Test
+        @DisplayName("완료 Step 이 마일스톤을 기록하면 보너스 Step 이 실행되고 응답에 보너스가 실린다")
+        void milestoneMarked_runsBonusStepAndExposesInResponse() {
+            // given
+            stubSuccessfulRegularFlow(true);
+
+            // when
+            SagaResult<MissionCompletionContext> result =
+                    missionCompletionSaga.execute(EXECUTION_ID, TEST_USER_ID, null);
+
+            // then
+            assertThat(result.isSuccess()).isTrue();
+            verify(grantDailyMilestoneBonusStep).execute(any(MissionCompletionContext.class));
+
+            var response = missionCompletionSaga.toResponse(result);
+            assertThat(response.getMilestoneBonusExp()).isEqualTo(20);
+            assertThat(response.getMilestoneCount()).isEqualTo(3);
+        }
+
+        @Test
+        @DisplayName("마일스톤 미도달이면 보너스 Step 은 실행되지 않고 응답 필드도 비어 있다")
+        void milestoneNotMarked_skipsBonusStep() {
+            // given
+            stubSuccessfulRegularFlow(false);
+
+            // when
+            SagaResult<MissionCompletionContext> result =
+                    missionCompletionSaga.execute(EXECUTION_ID, TEST_USER_ID, null);
+
+            // then
+            assertThat(result.isSuccess()).isTrue();
+            verify(grantDailyMilestoneBonusStep, never())
+                    .execute(any(MissionCompletionContext.class));
+
+            var response = missionCompletionSaga.toResponse(result);
+            assertThat(response.getMilestoneBonusExp()).isNull();
+            assertThat(response.getMilestoneCount()).isNull();
+        }
+
+        @Test
+        @DisplayName("보너스 지급이 실패하면 필수 Step 이라 Saga 가 실패하고 앞 Step 이 보상된다")
+        void bonusStepFails_sagaFailsAndCompensates() {
+            // given
+            stubSuccessfulRegularFlow(true);
+            when(grantDailyMilestoneBonusStep.execute(any(MissionCompletionContext.class)))
+                    .thenReturn(SagaStepResult.failure("gamification 장애"));
+            when(grantUserExperienceStep.compensate(any(MissionCompletionContext.class)))
+                    .thenReturn(SagaStepResult.success("환수"));
+            when(completeExecutionStep.compensate(any(MissionCompletionContext.class)))
+                    .thenReturn(SagaStepResult.success("복원"));
+            when(loadMissionDataStep.compensate(any(MissionCompletionContext.class)))
+                    .thenReturn(SagaStepResult.success("없음"));
+
+            // when
+            SagaResult<MissionCompletionContext> result =
+                    missionCompletionSaga.execute(EXECUTION_ID, TEST_USER_ID, null);
+
+            // then
+            assertThat(result.isSuccess()).isFalse();
+            verify(grantUserExperienceStep).compensate(any(MissionCompletionContext.class));
+            verify(completeExecutionStep).compensate(any(MissionCompletionContext.class));
         }
     }
 

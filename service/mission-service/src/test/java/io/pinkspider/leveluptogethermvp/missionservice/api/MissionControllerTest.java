@@ -1,11 +1,13 @@
 package io.pinkspider.leveluptogethermvp.missionservice.api;
 
+import static com.epages.restdocs.apispec.ResourceDocumentation.headerWithName;
 import static com.epages.restdocs.apispec.ResourceDocumentation.parameterWithName;
 import static com.epages.restdocs.apispec.ResourceDocumentation.resource;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -21,7 +23,9 @@ import com.epages.restdocs.apispec.SimpleType;
 import com.fasterxml.jackson.core.type.TypeReference;
 import io.pinkspider.global.component.LmObjectMapper;
 import io.pinkspider.leveluptogethermvp.config.ControllerTestConfig;
+import io.pinkspider.leveluptogethermvp.missionservice.api.exception.MissionIdempotencyException;
 import io.pinkspider.leveluptogethermvp.missionservice.application.MissionCommentService;
+import io.pinkspider.leveluptogethermvp.missionservice.application.MissionIdempotencyService;
 import io.pinkspider.leveluptogethermvp.missionservice.application.MissionService;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MissionCommentRequest;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MissionCommentResponse;
@@ -73,9 +77,14 @@ class MissionControllerTest {
 
     @MockitoBean private MissionService missionService;
 
+    @MockitoBean private MissionIdempotencyService missionIdempotencyService;
+
     @MockitoBean private MissionCommentService missionCommentService;
 
     private static final String MOCK_USER_ID = "test-user-123";
+
+    // LUT-577: 미션 생성 멱등 키 (UUID)
+    private static final String IDEMPOTENCY_KEY = "11111111-2222-4333-8444-555555555555";
 
     @Test
     @DisplayName("POST /api/v1/missions : 미션 생성")
@@ -98,7 +107,9 @@ class MissionControllerTest {
                 MockUtil.readJsonFileToClass(
                         "fixture/missionservice/missionResponse.json", MissionResponse.class);
 
-        when(missionService.createMission(anyString(), any(MissionCreateRequest.class)))
+        // LUT-577: 컨트롤러는 Idempotency-Key 헤더를 멱등 서비스로 넘긴다
+        when(missionIdempotencyService.createMission(
+                        anyString(), eq(IDEMPOTENCY_KEY), any(MissionCreateRequest.class)))
                 .thenReturn(response);
 
         // when
@@ -106,6 +117,7 @@ class MissionControllerTest {
                 mockMvc.perform(
                                 RestDocumentationRequestBuilders.post("/api/v1/missions")
                                         .with(user(MOCK_USER_ID))
+                                        .header("Idempotency-Key", IDEMPOTENCY_KEY)
                                         .contentType(MediaType.APPLICATION_JSON)
                                         .content(objectMapper.writeValueAsString(request)))
                         .andDo(
@@ -116,7 +128,23 @@ class MissionControllerTest {
                                         resource(
                                                 ResourceSnippetParameters.builder()
                                                         .tag("Mission")
-                                                        .description("미션 생성 (JWT 토큰 인증 필요)")
+                                                        .description(
+                                                                "미션 생성 (JWT 토큰 인증 필요). LUT-577:"
+                                                                    + " Idempotency-Key 헤더(UUID)를"
+                                                                    + " 보내면 같은 유저의 같은 키 재요청에 새로 만들지"
+                                                                    + " 않고 저장된 응답(같은 id)을 돌려준다"
+                                                                    + " (24시간). 처리 중이면 409(050402)"
+                                                                    + " — 같은 키로 재시도. UUID 가 아니면"
+                                                                    + " 400(050401). 헤더가 없으면 매번"
+                                                                    + " 생성.")
+                                                        .requestHeaders(
+                                                                headerWithName("Idempotency-Key")
+                                                                        .description(
+                                                                                "멱등 키 (UUID, 클라이언트"
+                                                                                    + " 생성). 같은 시도의"
+                                                                                    + " 재전송에 같은 값을"
+                                                                                    + " 보낸다")
+                                                                        .optional())
                                                         .requestFields(
                                                                 fieldWithPath("title")
                                                                         .type(JsonFieldType.STRING)
@@ -429,6 +457,99 @@ class MissionControllerTest {
 
         // then
         resultActions.andExpect(MockMvcResultMatchers.status().isOk());
+    }
+
+    @Test
+    @DisplayName("POST /api/v1/missions : Idempotency-Key 없이 보내면 null 로 전달돼 기존처럼 생성된다 (구버전 앱 호환)")
+    void createMission_withoutIdempotencyKey() throws Exception {
+        MissionResponse response =
+                MockUtil.readJsonFileToClass(
+                        "fixture/missionservice/missionResponse.json", MissionResponse.class);
+        when(missionIdempotencyService.createMission(
+                        eq(MOCK_USER_ID), isNull(), any(MissionCreateRequest.class)))
+                .thenReturn(response);
+
+        mockMvc.perform(
+                        RestDocumentationRequestBuilders.post("/api/v1/missions")
+                                .with(user(MOCK_USER_ID))
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(minimalCreateRequest())))
+                .andExpect(MockMvcResultMatchers.status().isOk())
+                .andExpect(MockMvcResultMatchers.jsonPath("$.value.id").value(1));
+
+        verify(missionIdempotencyService)
+                .createMission(eq(MOCK_USER_ID), isNull(), any(MissionCreateRequest.class));
+    }
+
+    @Test
+    @DisplayName("POST /api/v1/missions : 같은 키 재요청은 저장된 응답(같은 id)을 200 으로 돌려준다 (LUT-577)")
+    void createMission_sameKey_replays() throws Exception {
+        MissionResponse stored =
+                MockUtil.readJsonFileToClass(
+                        "fixture/missionservice/missionResponse.json", MissionResponse.class);
+        when(missionIdempotencyService.createMission(
+                        eq(MOCK_USER_ID), eq(IDEMPOTENCY_KEY), any(MissionCreateRequest.class)))
+                .thenReturn(stored);
+
+        for (int i = 0; i < 2; i++) {
+            mockMvc.perform(
+                            RestDocumentationRequestBuilders.post("/api/v1/missions")
+                                    .with(user(MOCK_USER_ID))
+                                    .header("Idempotency-Key", IDEMPOTENCY_KEY)
+                                    .contentType(MediaType.APPLICATION_JSON)
+                                    .content(
+                                            objectMapper.writeValueAsString(
+                                                    minimalCreateRequest())))
+                    .andExpect(MockMvcResultMatchers.status().isOk())
+                    .andExpect(MockMvcResultMatchers.jsonPath("$.value.id").value(1));
+        }
+    }
+
+    @Test
+    @DisplayName("POST /api/v1/missions : Idempotency-Key 가 UUID 가 아니면 400 + 050401 (LUT-577)")
+    void createMission_invalidIdempotencyKey_400() throws Exception {
+        when(missionIdempotencyService.createMission(
+                        eq(MOCK_USER_ID), eq("not-a-uuid"), any(MissionCreateRequest.class)))
+                .thenThrow(MissionIdempotencyException.invalidKey());
+
+        mockMvc.perform(
+                        RestDocumentationRequestBuilders.post("/api/v1/missions")
+                                .with(user(MOCK_USER_ID))
+                                .header("Idempotency-Key", "not-a-uuid")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(minimalCreateRequest())))
+                .andExpect(MockMvcResultMatchers.status().isBadRequest())
+                .andExpect(MockMvcResultMatchers.jsonPath("$.code").value("050401"));
+    }
+
+    @Test
+    @DisplayName("POST /api/v1/missions : 같은 키가 처리 중이면 409 + 050402 (LUT-577)")
+    void createMission_inProgress_409() throws Exception {
+        when(missionIdempotencyService.createMission(
+                        eq(MOCK_USER_ID), eq(IDEMPOTENCY_KEY), any(MissionCreateRequest.class)))
+                .thenThrow(MissionIdempotencyException.inProgress());
+
+        mockMvc.perform(
+                        RestDocumentationRequestBuilders.post("/api/v1/missions")
+                                .with(user(MOCK_USER_ID))
+                                .header("Idempotency-Key", IDEMPOTENCY_KEY)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(minimalCreateRequest())))
+                .andExpect(MockMvcResultMatchers.status().isConflict())
+                .andExpect(MockMvcResultMatchers.jsonPath("$.code").value("050402"));
+    }
+
+    private static MissionCreateRequest minimalCreateRequest() {
+        return MissionCreateRequest.builder()
+                .title("30일 운동 챌린지")
+                .visibility(
+                        io.pinkspider.leveluptogethermvp.missionservice.domain.enums
+                                .MissionVisibility.PUBLIC)
+                .type(
+                        io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionType
+                                .PERSONAL)
+                .maxParticipants(50)
+                .build();
     }
 
     @Test

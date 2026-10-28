@@ -3,6 +3,7 @@ package io.pinkspider.leveluptogethermvp.missionservice.application;
 import io.pinkspider.global.facade.GamificationQueryFacade;
 import io.pinkspider.global.facade.GuildQueryFacade;
 import io.pinkspider.global.facade.UserQueryFacade;
+import io.pinkspider.global.facade.dto.DailyRewardDto;
 import io.pinkspider.global.facade.dto.GuildMembershipInfo;
 import io.pinkspider.leveluptogethermvp.feedservice.application.FeedQueryService;
 import io.pinkspider.leveluptogethermvp.metaservice.application.MissionCategoryService;
@@ -11,6 +12,7 @@ import io.pinkspider.leveluptogethermvp.missionservice.application.strategy.Miss
 import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MissionExecutionResponse;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MonthlyCalendarResponse;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MonthlyCalendarResponse.DailyMission;
+import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MonthlyCalendarResponse.DailyReward;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.WeeklyCalendarResponse;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.WeeklyCalendarResponse.CalendarMission;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.DailyMissionInstance;
@@ -422,6 +424,9 @@ public class MissionExecutionQueryService {
         //    미션 외 경험치까지 포함해 오늘의 MVP 표기와 일치시킨다.
         //    경험치 이력 조회 실패 시 기존 방식(미션 경험치 합)으로 fallback.
         Map<String, Integer> dailyExp = fetchDailyExpSummary(userId, yearMonth, timezone);
+        // LUT-568: 날짜별 보상 행(출석·체크 마일스톤) — 실패 시 빈 맵
+        Map<String, List<DailyReward>> dailyRewards =
+                fetchDailyRewards(userId, yearMonth, timezone);
         int totalExp;
         if (dailyExp != null) {
             totalExp = dailyExp.values().stream().mapToInt(Integer::intValue).sum();
@@ -537,6 +542,7 @@ public class MissionExecutionQueryService {
                 .month(month)
                 .totalExp(totalExp)
                 .dailyExp(dailyExp != null ? dailyExp : Map.of())
+                .dailyRewards(dailyRewards)
                 .dailyMissions(dailyMissions)
                 .completedDates(completedDates)
                 .build();
@@ -797,6 +803,71 @@ public class MissionExecutionQueryService {
                 .withZoneSameInstant(userZone)
                 .toLocalDate()
                 .toString();
+    }
+
+    /**
+     * LUT-568: 월 범위의 미션 외 보상 행(출석·체크 일일 마일스톤)을 날짜별로 묶는다. 경험치 이력의 EVENT 는 출석 보상에만 쓰이므로 ATTENDANCE 로
+     * 노출하고, DAILY_MISSION_MILESTONE 은 sourceId(3/5)를 milestone 으로 복원한다. 조회 실패는 빈 맵 (daily_exp 와 같은
+     * 폴백 정책).
+     */
+    private Map<String, List<DailyReward>> fetchDailyRewards(
+            String userId, YearMonth yearMonth, String timezone) {
+        try {
+            ZoneId userZone;
+            try {
+                userZone = ZoneId.of(timezone != null ? timezone : "Asia/Seoul");
+            } catch (Exception e) {
+                userZone = ZoneId.of("Asia/Seoul");
+            }
+            LocalDateTime startUtc =
+                    yearMonth
+                            .atDay(1)
+                            .atStartOfDay(userZone)
+                            .withZoneSameInstant(ZoneOffset.UTC)
+                            .toLocalDateTime();
+            LocalDateTime endUtc =
+                    yearMonth
+                            .plusMonths(1)
+                            .atDay(1)
+                            .atStartOfDay(userZone)
+                            .withZoneSameInstant(ZoneOffset.UTC)
+                            .toLocalDateTime();
+
+            Map<String, List<DailyReward>> result = new java.util.LinkedHashMap<>();
+            for (DailyRewardDto dto :
+                    gamificationQueryFacade.getDailyRewardSummary(
+                            userId, startUtc, endUtc, userZone.getId())) {
+                DailyReward reward = toDailyReward(dto);
+                if (reward == null) {
+                    continue;
+                }
+                result.computeIfAbsent(dto.date().toString(), k -> new ArrayList<>()).add(reward);
+            }
+            return result;
+        } catch (Exception e) {
+            log.warn("일별 보상 이력 조회 실패, 보상 행 생략: userId={}, error={}", userId, e.getMessage());
+            return Map.of();
+        }
+    }
+
+    private static DailyReward toDailyReward(DailyRewardDto dto) {
+        if (dto.sourceType() == null || dto.exp() <= 0) {
+            return null;
+        }
+        return switch (dto.sourceType()) {
+            case EVENT ->
+                    DailyReward.builder()
+                            .type(DailyReward.TYPE_ATTENDANCE)
+                            .exp((int) dto.exp())
+                            .build();
+            case DAILY_MISSION_MILESTONE ->
+                    DailyReward.builder()
+                            .type(DailyReward.TYPE_DAILY_MISSION_MILESTONE)
+                            .exp((int) dto.exp())
+                            .milestone(dto.sourceId() != null ? dto.sourceId().intValue() : null)
+                            .build();
+            default -> null;
+        };
     }
 
     private Map<String, Integer> fetchDailyExpSummary(
