@@ -648,12 +648,16 @@ class NotificationEventListenerTest {
         @DisplayName("길드 창설 가능 레벨 도달 이벤트 처리 시 유저에게 알림을 생성한다")
         void handleGuildCreationEligible_success_createsNotification() {
             GuildCreationEligibleEvent event =
-                    new GuildCreationEligibleEvent(TARGET_USER_ID, 20, LocalDateTime.now());
+                    new GuildCreationEligibleEvent(TARGET_USER_ID, 2, LocalDateTime.now());
             eventListener.handleGuildCreationEligible(event);
+            // LUT-626: 도달 레벨을 메시지 인자 {0} 로 넘긴다
             verify(notificationService)
                     .sendNotification(
-                            eq(TARGET_USER_ID), eq(NotificationType.GUILD_CREATION_ELIGIBLE),
-                            isNull(), isNull());
+                            eq(TARGET_USER_ID),
+                            eq(NotificationType.GUILD_CREATION_ELIGIBLE),
+                            isNull(),
+                            isNull(),
+                            eq(2));
         }
     }
 

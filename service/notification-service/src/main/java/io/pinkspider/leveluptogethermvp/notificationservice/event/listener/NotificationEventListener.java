@@ -457,11 +457,13 @@ public class NotificationEventListener {
         safeHandle(
                 "길드 창설 가능",
                 () ->
+                        // LUT-626: 문구의 레벨은 템플릿 리터럴(옛 요구 레벨 20)이 아니라 실제 도달 레벨 {0}
                         notificationService.sendNotification(
                                 event.userId(),
                                 NotificationType.GUILD_CREATION_ELIGIBLE,
                                 null,
-                                null));
+                                null,
+                                event.level()));
     }
 
     @Async(EVENT_EXECUTOR)
