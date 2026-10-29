@@ -1,6 +1,7 @@
 package io.pinkspider.global.config;
 
 import static org.springframework.security.test.web.servlet.setup.SecurityMockMvcConfigurers.springSecurity;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 
@@ -149,6 +150,18 @@ class SecurityConfigPublicEndpointTest {
         int status = mockMvc.perform(post(path)).andReturn().getResponse().getStatus();
 
         Assertions.assertThat(status).as("%s 는 로그인 필수다", path).isEqualTo(401);
+    }
+
+    /**
+     * LUT-649: 비로그인으로 열려 있던 시즌 캐시 삭제(DELETE /api/v1/bff/season/cache)를 지웠다. 엔드포인트가 없어도 permitAll 이
+     * 남아 있으면 404, 지워졌으면 401 이다 — 다시 열리지 않는지 본다.
+     */
+    @ParameterizedTest(name = "익명 DELETE 차단: {0}")
+    @ValueSource(strings = {"/api/v1/bff/season/cache"})
+    void 익명_DELETE_는_401_이어야_한다(String path) throws Exception {
+        int status = mockMvc.perform(delete(path)).andReturn().getResponse().getStatus();
+
+        Assertions.assertThat(status).as("%s 는 비로그인으로 열리면 안 된다", path).isEqualTo(401);
     }
 
     /**

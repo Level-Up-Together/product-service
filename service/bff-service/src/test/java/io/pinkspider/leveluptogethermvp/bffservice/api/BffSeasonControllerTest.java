@@ -5,8 +5,6 @@ import static com.epages.restdocs.apispec.ResourceDocumentation.resource;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.Mockito.doNothing;
-import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.restdocs.operation.preprocess.Preprocessors.preprocessRequest;
 import static org.springframework.restdocs.operation.preprocess.Preprocessors.preprocessResponse;
@@ -1277,45 +1275,5 @@ class BffSeasonControllerTest {
                                 .with(user(MOCK_USER_ID))
                                 .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(MockMvcResultMatchers.status().is4xxClientError());
-    }
-
-    @Test
-    @DisplayName("DELETE /api/v1/bff/season/cache : 시즌 캐시 삭제")
-    void evictSeasonCacheTest() throws Exception {
-        // given
-        doNothing().when(gamificationQueryFacade).evictAllSeasonCaches();
-
-        // when
-        ResultActions resultActions =
-                mockMvc.perform(
-                                RestDocumentationRequestBuilders.delete("/api/v1/bff/season/cache")
-                                        .contentType(MediaType.APPLICATION_JSON))
-                        .andDo(
-                                MockMvcRestDocumentationWrapper.document(
-                                        "BFF-08. 시즌 캐시 삭제",
-                                        preprocessRequest(prettyPrint()),
-                                        preprocessResponse(prettyPrint()),
-                                        resource(
-                                                ResourceSnippetParameters.builder()
-                                                        .tag("BFF - Season")
-                                                        .description(
-                                                                "시즌 관련 Redis 캐시를 삭제합니다."
-                                                                        + " (currentSeason,"
-                                                                        + " seasonMvpData)")
-                                                        .responseFields(
-                                                                fieldWithPath("code")
-                                                                        .type(JsonFieldType.STRING)
-                                                                        .description("응답 코드"),
-                                                                fieldWithPath("message")
-                                                                        .type(JsonFieldType.STRING)
-                                                                        .description("응답 메시지"),
-                                                                fieldWithPath("value")
-                                                                        .type(JsonFieldType.STRING)
-                                                                        .description("삭제 완료 메시지"))
-                                                        .build())));
-
-        // then
-        resultActions.andExpect(MockMvcResultMatchers.status().isOk());
-        verify(gamificationQueryFacade).evictAllSeasonCaches();
     }
 }

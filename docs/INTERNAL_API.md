@@ -116,7 +116,7 @@ MVP 도 admin-service(`app.admin.api-url`) 의 내부 API 를 읽는다: `GET /a
 
 ### 참고 — `/api/internal` 밖의 "내부용" 경로
 
-`DELETE /api/v1/bff/season/cache`(시즌 캐시 `currentSeason`·`seasonMvpData` 삭제)는 `SecurityConfig` 에서 메서드 제한 없이 `permitAll` 이고 `/api/internal/` 접두사가 아니라 **키 필터 보호 대상이 아니다**. admin-service 코드에는 호출처가 없다.
+예전의 `DELETE /api/v1/bff/season/cache`(시즌 캐시 삭제)는 메서드 제한 없는 `permitAll` 이라 비로그인 누구나 호출할 수 있었고 호출처도 없어 **LUT-649(2026-10-30)에 엔드포인트와 permitAll 을 지웠다**. 운영에서 시즌 캐시를 비울 일이 생기면 `/api/internal/**` 아래(내부 키 보호)로 새로 만든다. 시즌 캐시는 어드민 시즌 변경 시 이미 evict 된다.
 
 ## 신고 처리 워크플로우 (Admin → MVP)
 
