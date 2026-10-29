@@ -8,7 +8,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 # Build
 ./gradlew clean build
 
-# Run ALL tests (4,900+ tests across 5 modules)
+# Run service + app tests (5,100+ — platform kernel/infra/saga 테스트는 platform 레포에서 별도 실행)
 ./gradlew test
 
 # Run tests by module
@@ -37,7 +37,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Architecture Overview
 
 **Multi-Service Monolith**: Spring Boot 3.4.5, Java 21, Gradle multi-module (`service` + `app` +
-`includeBuild ../level-up-together-platform`). 11개 서비스가 단일 배포 단위지만 **서비스별 별도 DB** + Saga 패턴으로 MSA 전환 준비.
+`includeBuild ../level-up-together-platform`). 12개 서비스가 단일 배포 단위지만 **서비스별 별도 DB** + Saga 패턴으로 MSA 전환 준비.
 (adminservice는 별도 레포 `admin-service`(Admin Backend)로 이전됨)
 
 **Why single service module**: 서비스 간 순환 의존성(user↔guild, user↔gamification 등)으로 독립 Gradle 모듈 불가.
@@ -150,8 +150,8 @@ All REST endpoints return `ApiResult<T>`:
 | `platform:kernel` | 204    | util/wrapper/aop/converter/api tests + `NotificationTypeTest`  |
 | `platform:infra`  | 98     | JwtUtil/JwtAuthenticationFilter/RestExceptionHandler/Crypto/Feign 등 (resolver/profanity 테스트는 `service`) |
 | `platform:saga`   | 90     | saga framework tests                                          |
-| `service`         | 4,577  | all service unit + controller tests                           |
-| `app`             | 15     | `@SpringBootTest` (full context) + 벤치마크/통합                  |
+| `service`         | 5,081  | all service unit + controller tests                           |
+| `app`             | 32     | `@SpringBootTest` (full context) + 벤치마크/통합                  |
 
 **커버리지 게이트** (`service/build.gradle` `jacocoTestCoverageVerification`, `check`에 연결): INSTRUCTION 80% + **BRANCH 80%**
 두 룰. `jacocoExcludes`(config/dto/entity/enums/외부 의존 컴포넌트 등)가 리포트와 게이트에 동일 적용. 2026-09-30 기준 INSTRUCTION 91.8% /
@@ -287,7 +287,7 @@ Redis Stream `stream:app-push` → `AppPushMessageConsumer` → `FcmPushService`
 
 - `NotificationType`은 platform kernel에 정의 (category, messageTemplate, actionUrlPattern, dedup 여부)
 - 방해금지(quiet hours)는 유저 `preferred_timezone` 기준 판정, **푸시만 억제** (DB 저장은 유지)
-- 카테고리 토글은 FRIEND/GUILD/SOCIAL/SYSTEM만 — MISSION/ACHIEVEMENT/INQUIRY/LEVEL/ITEM은 항상 발송 (`NotificationType` 33종, LUT-410 아이템·LUT-489 스티펜드·LUT-508 `ADMIN_PUSH` 포함)
+- 카테고리 토글은 FRIEND/GUILD/SOCIAL/SYSTEM만 — MISSION/ACHIEVEMENT/INQUIRY/LEVEL/ITEM은 항상 발송 (`NotificationType` 35종, LUT-410 아이템·LUT-489 스티펜드·LUT-508 `ADMIN_PUSH` 포함)
 - GUILD_DM은 수신자가 DM방 열람 중이면 이벤트 자체 미발행 (`DmPresenceService`, Redis TTL 60초, LUT-263)
 - Consumer 재현지화는 외부 발행 타입(INQUIRY_REPLIED, admin-service 발행)만 — 내부 발행분을 재현지화하면 `{1}` 리터럴 노출 (LUT-262)
 - 뱃지 동기화 3경로: 푸시 발송 시 +1 / 읽음 처리 시 badge-only silent push(iOS, content-available 없음) / 웹→앱 `badgeSync` 브릿지(Android 유일 해제 경로) (LUT-291)
@@ -329,6 +329,8 @@ Redis Stream `stream:app-push` → `AppPushMessageConsumer` → `FcmPushService`
 - 알림 토글은 `notification_preference.item_push_notifications`, 카테고리는 `ITEM_PUSH`.
 
 ## WebSocket 실시간 전파 — Redis 릴레이 필수 (LUT-263/QA-224/LUT-549)
+
+설계 결정: `docs/adr/ADR-009`.
 
 `WebSocketConfig`는 `enableSimpleBroker("/topic", "/queue")` — **인스턴스 로컬 메모리 브로커**다. prod는 ALB 뒤 2대(스티키 세션 없음)라
 `SimpMessagingTemplate.convertAndSend*`를 직접 호출하면 **발신자가 붙은 인스턴스의 구독자에게만** 전달된다. 증상은 항상 "내 것은 보이고
@@ -382,10 +384,12 @@ IR 용 KPI(DAU/WAU/MAU·리텐션)의 원천. 예전엔 "앱을 열었다" 신�
 
 ## KPI 일별 스냅샷 · 코호트 (LUT-601, `statsservice/kpi`)
 
-매일 00:40 KST(활동 flush 00:20 뒤) `KpiSnapshotScheduler` → `KpiRebuildService.runDaily` 가 어제 `daily_kpi_snapshot` 1행과 창이 닫힌 `cohort_retention`, 전월·당월 `cohort_revenue` 를 upsert 한다(멱등). 소급은 `POST /api/internal/kpi/rebuild?from&to`(어제까지, 최대 400일) — 서버 기동 시 자동 실행 없음(LUT-595 원칙).
+상세 레퍼런스(지표 정의·제외 규칙·API·운영 점검): [`docs/KPI_STATS.md`](docs/KPI_STATS.md), 설계 결정: `docs/adr/ADR-008`.
+
+매일 00:40 KST(활동 flush 00:20 뒤) `KpiSnapshotScheduler` → `KpiRebuildService.runDaily` 가 어제·그제 `daily_kpi_snapshot` 과 창이 닫힌 `cohort_retention`, 전월·당월 `cohort_revenue` 를 upsert 한다(멱등). 소급은 `POST /api/internal/kpi/rebuild?from&to`(어제까지, 최대 400일) — 서버 기동 시 자동 실행 없음(LUT-595 원칙).
 
 - **원천 조회는 `infrastructure/source/*SourceReader`** — 다른 서비스 Repository/Service 를 import 하지 않고 각 DB 의 `DataSource` 빈에 `NamedParameterJdbcTemplate` 로 읽기 전용 SQL 을 던진다(`KpiSourceConfig`). KPI 는 읽기 모델이라 테이블 스키마 결합을 허용하며, MSA 전환 시 이 클래스들만 이벤트/API 로 바꾼다. SQL 을 고치면 dev DB 에서 먼저 실행해 볼 것(H2 통합 테스트 없음).
-- **날짜 경계 KST** (`KpiDates`): KST 날짜 → UTC 구간 `[D-1 15:00, D 15:00)`. 테스트 계정(`users.provider='test'`)·활동 제외 유저(`app.stats.activity.excluded-user-ids`)는 전부 제외.
+- **날짜 경계 KST** (`KpiDates`): KST 날짜 → UTC 구간 `[D-1 15:00, D 15:00)`. 테스트 계정(`users.provider='test'`)은 **user_db 기반 지표**(가입·탈퇴·활성 유저·코호트 모수)에서만, 활동 제외 유저(`app.stats.activity.excluded-user-ids`, 2026-10 현재 config 미설정)는 DAU/WAU/MAU·REQUEST 리텐션에서만 빠진다 — 출석·미션·구독·매출은 제외 없음.
 - **지표**: dau/wau/mau = `user_daily_activity`(REQUEST, LUT-598 배포일부터) · `attendance_dau` = 출석(소급 가능) · 미션 완료 = `mission_execution`+`daily_mission_instance` COMPLETED(completed_at) · 구독 = `subscription_payment_history` PURCHASE/trial/REFUND + 체험→유료 전환 + `user_subscription` 활성/연장 없는 만료 · 매출 = **`price_source IS NOT NULL` 행만**(LUT-600, 미상·테스터 제외), 환불 음수, KRW 외 통화는 `fx_rate`(월, 수동) 있을 때만 `revenue_krw` 에 합산(원본은 `revenue_by_currency` JSONB).
 - **코호트 리텐션** `RetentionMetric` D1/D3/D7/D14/D30(classic)·W1(1~7일)·W2_4(8~30일) × `RetentionSource` REQUEST/ATTENDANCE. 창이 닫힌(어제 이내) 지표만 저장. REQUEST 는 활동 데이터 시작일(`min activity_date`) 이전 창은 계산하지 않는다. D0 없음(LUT-597 전 출석 0·요청은 가입 호출 포함).
 - **코호트 매출** 가입 월 × month_n {0,1,3,6,12}: 그 월말이 지난 점만, KRW 누적(구독+다이아). LTV = 누적 ÷ cohort_size (응답 `ltv_krw`).
@@ -438,7 +442,8 @@ public void run() { ...}
 
 ## DB 마이그레이션 — Flyway (LUT-595, `global/config/datasource/flyway`)
 
-**dev 는 Flyway, prod 는 v1.1.4 부터** (v1.1.3 운영 배포는 수동 psql, 직후 config prod `app.flyway.enabled=true`). Boot 자동설정은 DB 하나만 다루므로
+**dev 는 Flyway, prod 는 v1.1.4 부터** (v1.1.3 운영 배포는 수동 psql, 직후 config prod `app.flyway.enabled=true`·`baseline-version=1.1.3.12`, 2026-10-28).
+상세 레퍼런스·새 마이그레이션 체크리스트: [`docs/DB_MIGRATION.md`](docs/DB_MIGRATION.md), 설계 결정: `docs/adr/ADR-007`. Boot 자동설정은 DB 하나만 다루므로
 `spring.flyway.enabled=false` 로 끄고, 9개 `XxxDataSourceConfig`(LUT-598 `stats` 포함) 가 각각 `xxxFlywayMigration` 빈(`initMethod=migrate`)을 두며 `xxxEntityManagerFactory`
 가 `@DependsOn` 한다 — Flyway 가 스키마를 맞춘 뒤 Hibernate `validate`(각 config 의 `jpaProperties()` 가 코드로 지정, yml `ddl-auto` 와 무관)가 돈다.
 
@@ -486,7 +491,7 @@ public void run() { ...}
   `transaction_id`만 보낸다. `receipt`가 없으면 `verifyReceipt` 대신 **App Store Server API**(`fetchAppleTransaction`,
   prod→sandbox 폴백)로 상품 일치·미환불(`revocationDate`)을 검증한다 — 구독 검증과 같은 경로. `receipt`가 있으면 기존
   `verifyReceipt` 경로 유지. 예전엔 receipt 필수(120701)라 iOS 다이아 결제가 dev에서 항상 실패했다.
-  RN 스토어 결제 대기에는 4분 타임아웃(`STORE_PURCHASE_TIMEOUT_MS`, 웹 브릿지 5분보다 짧게)이 있어 무응답 시 `store_timeout`으로 회신한다.
+  RN 스토어 결제 대기에는 60초 타임아웃(`STORE_PURCHASE_TIMEOUT_MS`, LUT-502 — 웹 브릿지 대기보다 짧게)이 있어 무응답 시 `store_timeout`으로 회신한다.
 - **동시 지급 낙관락 충돌** (LUT-504): 앱 기동 시 StoreKit이 미완료 트랜잭션 여러 건을 한꺼번에 재전달하면 같은 유저의
   `UserDiamond`(@Version) 갱신이 충돌해 500이 났고, 클라이언트가 finish를 못 해 큐에 남았다. `DiamondBundlePurchaseService`가
   `ObjectOptimisticLockingFailureException`을 최대 3회 재시도하고(트랜잭션 전체 롤백이라 구매 기록 중복 없음), RN은 고아 재전달을
@@ -549,15 +554,17 @@ list_price      = COMMON 유저 기준가 = 최대 할증가                    
 
 ## 구독 (gamificationservice/subscription, LUT-450~453 · 486 · 499)
 
+상세 레퍼런스(흐름·에러 코드·config 키·운영 점검): [`docs/SUBSCRIPTION_IAP.md`](docs/SUBSCRIPTION_IAP.md).
+
 `user_subscription`(유저당 1행) + `subscription_payment_history`(원장). 상태의 **진실은 항상 스토어 재조회**
 (Android `subscriptionsv2`, iOS App Store Server API) — 웹훅 payload·클라이언트 값은 트리거일 뿐이다.
 
 - **스토어 서버 알림** (LUT-452): `POST /api/v1/webhooks/subscriptions/{apple|google}` permitAll. Android RTDN은 **GCP Pub/Sub push**로만
   온다 — 토픽 `lut-rtdn-{dev|prod}` + push 구독 → 웹훅 URL, Play Console 수익 창출 설정에 토픽 연결. iOS는 ASC 앱 정보에 Sandbox/Production
-  URL 등록. dev는 2026-09-16 등록 완료(LUT-499); **prod는 config에 `iap:` 섹션 자체가 없어 검증 off** — 등록 전 config 추가·재기동 필수.
+  URL 등록. dev는 2026-09-16 등록 완료(LUT-499). prod config `iap:`(검증 on·스토어 자격증명)도 LUT-499(2026-09-16)로 추가됐다.
   ⚠ **Pub/Sub push 구독은 반드시 `--expiration-period=never` 로 만든다** (LUT-617): 기본 만료 정책은 "31일 비활성 시 삭제"이고 삭제는 알림도
   감사 로그도 없다. dev 구독이 2026-10-17 쯤 사라져 10/26 테스트 갱신 RTDN 9건이 구독 없는 토픽으로 발행돼 전부 폐기됐다. 2026-10-26 `lut-rtdn-dev-push`
-  재생성(만료 없음·재시도 10s~600s). 운영 `lut-rtdn-prod` 는 토픽만 있고 구독 0 — v1.1.3 때 같은 방식으로. 수신 여부는 `lut_rtdn_received_total`
+  재생성(만료 없음·재시도 10s~600s). 운영 push 구독 `lut-rtdn-prod-push` 는 2026-10-28 v1.1.3 릴리스 때 같은 방식(만료 없음)으로 생성했다. 수신 여부는 `lut_rtdn_received_total`
   (`RtdnMetrics`, kind 라벨) 카운터로 본다 — 0 이 계속되면 전달 경로부터 의심.
 - **Android 갱신 원장은 Play 주문 연번으로 완결한다** (LUT-617, `GoogleOrderLedgerSync`): RTDN·자가 치유·verify 는 "처리 시점의 `latestOrderId`
   1건"만 알지만 갱신 주문 ID 는 `GPA.xxxx..N` 연번이다. 만료가 늘어날 때 원장의 마지막 N 다음부터 최신 N 까지 **Orders API**(`orders.get`,
@@ -719,7 +726,7 @@ uk 멱등) — 쪼개서 수행해도 몰아서 한 것과 같은 점수. "하�
 
 - **길드 채팅·DM 이미지** (LUT-590, `chatservice/application/ChatImage*`): 업로드와 전송이 분리된 2단계 — `POST /api/v1/guilds/{id}/chat/images`
   · `POST /api/v1/guilds/{id}/dm/images/{recipientId}`(multipart 파트 `image`, `@ModerateImage`, 권한은 전송과 동일)가 URL 을 주고 클라이언트가 그 URL 을
-  기존 전송(WS/REST)의 `image_url` 로 보낸다. 전송은 **업로드 API 가 발급한 URL 만** 받는다(`isOwnedUrl`, 위반 `error.chat.invalid_image_url`) —
+  기존 전송(WS/REST)의 `image_url` 로 보낸다. 전송은 **업로드 API 가 발급한 URL 만** 받는다(`ChatImageService.validateImageUrl` → 스토리지 `isOwnedBy`, 위반 `error.chat.invalid_image_url`) —
   임의 외부 URL 로 추적 이미지를 박는 것 방지. 저장 `uploads/chats/{guildId}/{userId}/` / S3 `chats/`, 미션처럼 `_thumb`/`_medium` 변형 생성.
   DM 본문은 `@NotBlank` → "본문 또는 사진" `@AssertTrue` 로 완화(구앱 호환). 메시지 삭제 시 `imageUrl=null` + 커밋 후 파일 삭제.
   사진만 보낸 메시지의 푸시 미리보기는 빈 본문 대신 `notification.preview.photo`(수신자 locale).
@@ -767,7 +774,5 @@ ALB·배포 스크립트(`gradle-*.yml`) 헬스체크는 `/showmethemoney/health
 탈퇴 행까지 세었다), 탈퇴 수는 `withdrawn_users`, 가입경로 분포(`users_by_provider`)도 탈퇴 제외라 합이 `total_users` 와 맞는다.
 `daily_new_users` 는 가입 시점 집계라 이후 탈퇴해도 포함된다.
 
-베이스 경로는 코드 기준 35개(README "Internal API" 절에 전체 목록). `docs/INTERNAL_API.md`에 빠진 것: `shop-items`, `shop-purchases`, `item-grants`,
-`diamonds`(마이그레이션), `diamond-bundles`, `diamond-payments`, `subscription-payments`, `title-grants`, `titles`, `achievements`, `achievement-categories`,
-`check-logic-types`, `experience-history`, `events`, `mvp-history`, `guild-level-configs`, `user-level-configs`, `mission-images`(변형 백필),
-`guilds/exp`(EXP 백필), `guilds/{guildId}`(게시글·댓글 관리), `seasons/{seasonId}/rank-rewards`.
+베이스 경로는 코드 기준 40개 — 서비스별 전체 목록·주요 엔드포인트·도입 티켓은 [`docs/INTERNAL_API.md`](docs/INTERNAL_API.md)(2026-10-29 코드 대조).
+README "Internal API" 절도 같은 40개를 서비스별로 요약한다(2026-10-29).

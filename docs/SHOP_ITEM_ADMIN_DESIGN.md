@@ -50,6 +50,9 @@ shop/
 └── infrastructure/ShopItemRepository.java
 ```
 
+> 현행(2026-10): DTO 는 `api/dto/` 가 아니라 `domain/dto/` 에 있다. 이후 유저 API(`ShopController`·`UserItemController`)·지급(`ItemGrant*`)·
+> 장착 아이템 푸시(`ItemPush*`, `scheduler/ItemPushScheduler`) 등이 같은 패키지에 추가됨 (§8).
+
 ### 3.2 `shop_item` 스키마 (gamification_db)
 
 | 컬럼 | 타입 | 설명 |
@@ -67,13 +70,16 @@ shop/
 
 - DDL: `level-up-together-sql/queries/developing/0.1.3/V003__qa225_shop_item.sql`, `V006__lut225_shop_item_image_position.sql`
 - 인덱스: `(item_type)`, `(is_active)`
+- 이후 추가 컬럼: `description`/`description_en`/`_ar`/`_ja` VARCHAR(2000) (LUT-271/294), `effect_code` VARCHAR(50) (LUT-341)
 - 삭제는 물리 삭제로 시작하되, **판매 이력 발생 이후에는 soft delete로 전환 필요** (§6)
+  - ⚠ 판매(LUT-327) 이후에도 `ShopItemAdminService.deleteShopItem` 은 물리 삭제(`deleteById` + 이미지 삭제) 그대로 — soft delete 미전환.
+    보유자(`user_item.shop_item_id`)가 있는 아이템을 삭제할 때의 동작은 ❓ (DB FK 미확인)
 
 ### 3.3 Internal API (`/api/internal/shop-items`, permitAll — VPC 내부)
 
 | 메서드 | 경로 | 설명 |
 |---|---|---|
-| GET | `/api/internal/shop-items?page&size&itemType&rarity&isActive&keyword` | 페이징 목록 |
+| GET | `/api/internal/shop-items?page&size&item_type&rarity&is_active&keyword&sort_by&sort_direction` | 페이징 목록 (파라미터는 snake_case, 정렬 기본 `id` DESC) |
 | GET | `/api/internal/shop-items/{id}` | 단건 |
 | POST | `/api/internal/shop-items` | 생성 |
 | PUT | `/api/internal/shop-items/{id}` | 수정 |
@@ -91,7 +97,7 @@ adminservice/gamification/shopitem/
 ├── api/ShopItemController.java            # /api/admin/shop-items
 ├── api/dto/...                            # Request/Response (String enum + 검증)
 ├── application/ShopItemService.java       # Feign 호출 + 예외 매핑
-└── infrastructure/ShopItemFeignClient.java  # → product-service /api/internal/shop-items
+└── infrastructure/MvpShopItemFeignClient.java  # → product-service /api/internal/shop-items (설계명 ShopItemFeignClient)
 ```
 
 - 권한: `@PreAuthorize("hasRole('SUPER_ADMIN') or hasAuthority('SHOP_ITEM_READ|WRITE|DELETE')")` (칭호/시즌 패턴)
@@ -120,7 +126,7 @@ adminservice/gamification/shopitem/
 | 2 | EFFECT 이미지 가이드 | **260×260 png** (FULL과 동일)로 하드코딩 — 디자인 확정 시 조정 |
 | 3 | 아이템명 다국어 | **포함** — name_en/name_ar/name_ja (Title 패턴) |
 | 4 | 판매 기간/노출 순서 | 1차 범위 제외 |
-| 5 | 삭제 정책 | 판매 기능 구현 전까지 물리 삭제 허용 |
+| 5 | 삭제 정책 | 판매 기능 구현 전까지 물리 삭제 허용 — ⚠ 판매(LUT-327) 이후에도 물리 삭제 유지 중 (§3.2) |
 
 ## 6.1 구현 노트 (2026-07-10 구현 완료)
 
@@ -143,6 +149,20 @@ adminservice/gamification/shopitem/
 | LUT-271 | 아이템 타입 `ETC`("기타") 추가(5종), `description` + 다국어(en/ar/ja) 필드 추가, 타입별 사이즈 가이드 조정 — 0.1.5 V001(gamification_db) 선행 적용 필요 |
 | LUT-294 | 아이템 설명 최대 **2000자**로 상향 (전 로케일 컬럼) |
 | LUT-296 | 유저 인벤토리 API 신설 — `GET /api/v1/user-items`(보유 목록 + 타입별 장착 여부), `POST /api/v1/user-items/{shopItemId}/equip`(타입당 1개 장착). `shop/api/UserItemController` |
+| LUT-299 | 장착 해제 API `POST /api/v1/user-items/{shopItemId}/unequip` |
+| LUT-308 | BASIC·FULL 장착 상호 배타 (`ShopItemType.equipConflictTypes`) — 나머지는 타입 단위 |
+| LUT-327 | 유저 상점 API — `GET /api/v1/shop-items`(판매중 목록), `POST /api/v1/shop-items/{id}/purchase`(다이아 차감 + 인벤토리 지급 단일 트랜잭션, `ShopService`) |
+| LUT-328 | 구매이력 내부 API `GET /api/internal/shop-purchases` |
+| LUT-341/342 | `effect_code` 컬럼 추가, 인벤토리·프로필 응답에 노출 |
+| LUT-348 | 등급 차이 할증 — 응답 `effective_price`(실결제가)·`list_price`(COMMON 기준 최대 할증가), `price` 는 기본가 그대로 (`LevelRarityPolicy`) |
+| LUT-349 | 상위 등급 잠금 `locked` — 탭(`ShopTabGroup`: WINGS=BASIC·FULL / ETC) × 희귀도 섹션마다 최저가 3개만 해금 |
+| LUT-350 | 상점 목록 비로그인 허용 (GET 만, 레벨 1(COMMON) 기준 가격) |
+| LUT-354/356/401 | 아이템 구매 차감은 블루+핑크 합산·블루 우선 (`UserDiamond.spendCombined`). 핑크다이아 묶음상품·IAP 결제·결제가 캡처는 별도 도메인(`diamond_bundle`) — CLAUDE.md "상점 · 다이아 경제" |
+| LUT-410 | 구매 시 `ITEM_PURCHASED` 알림 (AFTER_COMMIT — 구매 롤백 시 미발송) |
+| LUT-472 | 어드민 수동 지급/이력/회수 `POST/GET /api/internal/item-grants`, `DELETE .../{id}` — `item_grant` 이력, 보유 시 멱등 no-op, 회수=revoked 마킹+인벤토리 삭제, `ITEM_GRANTED` 알림 |
+| LUT-516/528/529/541/545/573 | 장착 HEAD 아이템 푸시 — `item_push_setting`(아이템별 슬롯 시각)·`item_push_message`(`trigger_type` 별 대사)·`item_push_send_log`, 내부 API `/api/internal/shop-items/{itemId}/push-setting`(GET/PUT/DELETE)·`/push-messages`(CRUD + toggle), `ItemPushScheduler` 매분. 규칙은 CLAUDE.md "장착 아이템 푸시" (어드민 UI LUT-530/574, 웹 타임존 동기화 LUT-531) |
+| LUT-539 | 인벤토리 지급 insert 를 `UserItemCreator`(REQUIRES_NEW) 로 분리 — 중복 키 레이스 흡수 |
+| LUT-593 | 레벨 5 미만 → 5 이상 레벨업 시 "성장의 새싹" 지급 (`LevelRewardItemService`, `app.level-reward.sprout-item-id`, 보유 시 스킵, `ITEM_GRANTED` 알림) |
 
 ## 9. 테스트 체크리스트
 

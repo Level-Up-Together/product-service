@@ -26,6 +26,9 @@ S2S Notification Endpoint는 ② 반대 방향(Apple→우리, 유저가 Apple I
 
 `MyPageService.withdrawUser()` → `SocialUnlinkService.unlinkOnWithdrawal(user)`
 
+어드민 즉시 탈퇴(`POST /api/internal/users/{userId}/withdraw` → `withdrawUserByAdmin`, LUT-584)도 같은 내부 `withdraw()` 를 타므로
+unlink/revoke·전 기기 로그아웃이 동일하다. 차이는 `users.withdrawal_cooldown_exempt=true`(재가입 cool-down 면제)뿐.
+
 - **전부 best-effort**: 예외를 삼키고 탈퇴는 계속 진행 (소셜 측 설정·수신 웹훅으로도 정합이 맞춰짐)
 - kakao: `KakaoAdminFeignClient.unlink("KakaoAK {adminKey}", "user_id", 회원번호)` — 어드민 키/회원번호 미보유 시 스킵(로그)
 - apple: 저장된 refresh token(AES) 복호화 → `AppleTokenService.revoke` (LUT-477). 토큰/client_id 미보유(구 클라이언트 로그인 유저)면 스킵(로그)
@@ -127,7 +130,7 @@ apple:              # dev/prod 동일 키 (SIWA 키는 팀 소속 — 모든 cli
 3. **prod config-server 스테일 가능성**: config push 후 반영 안 되면 클론 fetch 필요 (dev 에서 동일 이슈 확인됨 — 메모리 `dev-config-server-stale-clone` 참조)
 4. Google RISC 는 보안 강화가 필요해지면 별도 티켓으로 도입
 
-## 7. 운영 점검 결과 — 카카오 unlink 는 prod 에서 한 번도 성공한 적이 없다 (LUT-561, 2026-10-14)
+## 8. 운영 점검 결과 — 카카오 unlink 는 prod 에서 한 번도 성공한 적이 없다 (LUT-561, 2026-10-14)
 
 prod 로그 기준 `카카오 연결 해제 완료` 0건, 실패는 `[401 Unauthorized] ... {"msg":"no authentication key!","code":-401}`.
 카카오가 `Authorization: KakaoAK …` 헤더를 인식하지 못한다는 뜻이라 **config 의 admin-key 값 자체**(복호화 결과에 `value=` 접두사·개행이
@@ -137,4 +140,6 @@ prod 로그 기준 `카카오 연결 해제 완료` 0건, 실패는 `[401 Unauth
 탈퇴 시 **기기 쪽** 소셜 SDK 세션 정리는 RN 이 맡는다(LUT-561): `useAuth.logout({unlinkSocial})` → `clearSocialSessions` —
 탈퇴면 카카오 `unlink()`, 그 외 로그아웃은 카카오 `logout()`, 구글은 `signOut()`. 카카오 SDK 는 토큰을 기기에 영구 보관하므로 서버 세션만
 지우면 탈퇴 뒤에도 이전 카카오 세션이 남는다. 서버는 어떤 경로로도 WITHDRAWN 유저에게 토큰을 발급하지 않는다
-(`Oauth2Service.findExistingUser` — 활성 계정만 조회, 탈퇴 이력은 cool-down 판정).
+(`Oauth2Service.findExistingUser` — 활성 계정만 조회, 탈퇴 이력은 cool-down 판정: `app.user.withdrawal.cool-down-days` 기본 7일,
+기간 중 같은 이메일+provider 재가입은 `030001`. 최신 탈퇴 행이 `withdrawal_cooldown_exempt=true`(어드민 즉시 탈퇴, LUT-584)면 면제.
+수신 웹훅 탈퇴는 `withdrawUser` 경로라 cool-down 이 적용된다).

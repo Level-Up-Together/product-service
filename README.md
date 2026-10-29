@@ -33,6 +33,7 @@
 | **Image Moderation** | ONNX Runtime 1.17.3 (OpenNSFW2 모델)             |
 | **Image Storage**    | AWS S3 + CloudFront CDN (prod), Local FS (dev) |
 | **Scheduling**       | ShedLock 5.16.0 (Redis SETNX 분산 락)              |
+| **DB Migration**     | Flyway (Spring Boot BOM, DB별 마이그레이션 빈 9개 — LUT-595) |
 | **Push**             | Firebase Admin 9.2.0 (FCM)                     |
 | **IAP 검증**          | Apple App Store Server Library 5.2.0, Google Play Developer API |
 | **Formatting**       | Spotless 6.25.0 + google-java-format (AOSP)     |
@@ -47,11 +48,11 @@ Gradle Multi-Module 기반 Multi-Service Monolith 구조로, 5개 Gradle 모듈�
 
 ```
 product-service/
-├── service/       ← 11 서비스 + global infra 통합 모듈 (multi-srcDirs)
+├── service/       ← 12 서비스 + global infra 통합 모듈 (multi-srcDirs)
 │   ├── src/main/java/         ← Global infra (datasource, security, moderation 등)
 │   ├── user-service/src/main/java/
 │   ├── guild-service/src/main/java/
-│   ├── ... (11 service directories)
+│   ├── ... (12 service directories — stats-service 포함)
 │   └── shared-test/src/test/java/   ← 컨트롤러 테스트 공용 설정 (ControllerTestConfig, MockUtil 등)
 └── app/           ← Bootstrap, 설정 파일, DGS codegen, JaCoCo
 
@@ -71,13 +72,15 @@ level-up-together-platform/    ← includeBuild (별도 레포, CI에서는 GitH
 - **Facade Pattern**: 서비스 간 통신은 Facade 인터페이스 (`UserQueryFacade`, `GuildQueryFacade`, `GamificationQueryFacade`, `MissionQueryFacade`)를 통해 수행
 - **Event-Driven**: Spring Events를 활용한 서비스 간 느슨한 결합 + 프로필 스냅샷 동기화
 - **Redis Caching**: 자주 조회되는 데이터의 캐싱으로 성능 최적화
-- **Redis Streams / Pub-Sub**: `stream:app-push`로 FCM 푸시 비동기 발행(`AppPushMessageProducer/Consumer`), `notification:realtime` Pub/Sub으로 WebSocket 실시간 알림 릴레이
+- **Redis Streams / Pub-Sub**: `stream:app-push`로 FCM 푸시 비동기 발행(`AppPushMessageProducer/Consumer`), `notification:realtime`·`chat:guild:realtime`·`chat:dm:realtime` Pub/Sub으로 WebSocket 실시간 릴레이(인스턴스 로컬 브로커 보완, ADR-009)
 - **Saga Pattern**: 분산 트랜잭션 관리 (MSA 전환 대비)
 - **Distributed Lock (ShedLock)**: 멀티 EC2 인스턴스 환경에서 `@Scheduled` 동시 실행 방지 (Redis SETNX)
 - **Image Moderation**: ONNX 기반 NSFW 이미지 자동 검증 (AOP)
 - **Image Storage**: prod에서 S3 + CloudFront CDN, dev에서 로컬 파일시스템 (`@Profile` 분기)
 - **i18n**: MessageSource 기반 다국어 지원 (en/ko/ar/ja), Accept-Language 헤더 기반 locale 결정
 - **Content Translation**: Google Translation API 연동, 3-tier 캐시 (Redis → DB → API)
+- **DB Migration (Flyway)**: DB별 `xxxFlywayMigration` 빈이 기동 시 스키마를 맞춘 뒤 Hibernate `validate` (`app.flyway.enabled` — dev·prod 활성,
+  prod 는 2026-10-28 config 활성화·baseline `1.1.3.12`). 큰 데이터 보정은 SQL 레포 수동 적용. 상세: [`docs/DB_MIGRATION.md`](docs/DB_MIGRATION.md)
 - **Browse-First**: 비로그인 상태에서 홈/피드/길드/상점/프로필 GET 열람 허용 (작성/수정/구매는 인증 필요).
   공개 경로는 `SecurityConfigPublicEndpointTest`가 회귀 가드 (LUT-350)
 
@@ -97,7 +100,7 @@ graph TB
 
     subgraph Application["Level Up Together MVP (Spring Boot 3.4.5)"]
         subgraph Services["Service Modules"]
-            USER["userservice<br/>인증, 프로필<br/>친구, 퀘스트"]
+            USER["userservice<br/>인증, 프로필<br/>친구·차단, 약관"]
             MISSION["missionservice<br/>미션 관리, Saga<br/>미션북"]
             GUILD["guildservice<br/>길드, 멤버<br/>게시판, 거점"]
             CHAT["chatservice<br/>길드 채팅, DM<br/>읽음 상태"]
@@ -108,6 +111,7 @@ graph TB
             BFF["bffservice<br/>데이터 집계<br/>통합 검색"]
             NOTICE["noticeservice<br/>공지/안내"]
             SUPPORT["supportservice<br/>1:1 문의, 신고"]
+            STATS["statsservice<br/>DAU 수집<br/>KPI 스냅샷"]
         end
 
         subgraph Global["Global Infrastructure"]
@@ -128,12 +132,12 @@ graph TB
         FEED_DB[("feed_db")]
         NOTIF_DB[("notification_db")]
         GAMIF_DB[("gamification_db")]
+        STATS_DB[("stats_db")]
         SAGA_DB[("saga_db")]
     end
 
     subgraph External["External Services"]
         REDIS[("Redis<br/>캐시/스트림")]
-        MONGO[("MongoDB<br/>로그")]
     end
 
     APP --> SSL
@@ -155,6 +159,7 @@ graph TB
     FEED --> FEED_DB
     NOTIF --> NOTIF_DB
     GAMIF --> GAMIF_DB
+    STATS --> STATS_DB
     SAGA --> SAGA_DB
 
     CACHE --> REDIS
@@ -164,17 +169,24 @@ graph TB
     classDef external fill:#ed8936,stroke:#c05621,color:#fff
     classDef client fill:#9f7aea,stroke:#6b46c1,color:#fff
 
-    class USER,MISSION,GUILD,CHAT,META,FEED,NOTIF,GAMIF,BFF,NOTICE,SUPPORT service
-    class USER_DB,MISSION_DB,GUILD_DB,CHAT_DB,META_DB,FEED_DB,NOTIF_DB,GAMIF_DB,SAGA_DB db
-    class REDIS,MONGO external
+    class USER,MISSION,GUILD,CHAT,META,FEED,NOTIF,GAMIF,BFF,NOTICE,SUPPORT,STATS service
+    class USER_DB,MISSION_DB,GUILD_DB,CHAT_DB,META_DB,FEED_DB,NOTIF_DB,GAMIF_DB,STATS_DB,SAGA_DB db
+    class REDIS external
     class APP,WEB,ADMIN client
 ```
 
 ### 아키텍처 결정 기록 (ADR)
 
 `docs/adr/` — ADR-001 Multi-Service Monolith · ADR-002 Event-Driven 통신 · ADR-003 Saga · ADR-004 BFF · ADR-005 Gradle Multi-Module 전환 ·
-ADR-006 MSA/Admin Service 전략. 기술 검토 문서는 `docs/TD/`(피드 콘텐츠 규칙, 글로벌 서비스 로드맵, 미션 타입 계층 등),
-상점 어드민 설계는 `docs/SHOP_ITEM_ADMIN_DESIGN.md`.
+ADR-006 MSA/Admin Service 전략 · [ADR-007](docs/adr/ADR-007-Flyway%20Per-Database%20Migrations-20261023.md) DB별 Flyway 마이그레이션 ·
+[ADR-008](docs/adr/ADR-008-KPI%20Read%20Model%20via%20Direct%20Read-Only%20SQL-20261023.md) KPI 읽기 모델(읽기 전용 직접 SQL) ·
+[ADR-009](docs/adr/ADR-009-WebSocket%20Redis%20PubSub%20Relay-20261012.md) WebSocket Redis Pub/Sub 릴레이.
+기술 검토 문서는 `docs/TD/`(피드 콘텐츠 규칙, 글로벌 서비스 로드맵, 미션 타입 계층 등), 상점 어드민 설계는 `docs/SHOP_ITEM_ADMIN_DESIGN.md`.
+
+도메인 문서: [`FEATURES`](docs/FEATURES.md)(도메인별 비즈니스 규칙) · [`EVENT_FLOWS`](docs/EVENT_FLOWS.md) · [`INTERNAL_API`](docs/INTERNAL_API.md) ·
+[`SUBSCRIPTION_IAP`](docs/SUBSCRIPTION_IAP.md)(인앱결제·구독) · [`KPI_STATS`](docs/KPI_STATS.md)(DAU·KPI 스냅샷) · [`DB_MIGRATION`](docs/DB_MIGRATION.md)(Flyway) ·
+[`IMAGE_INFRA`](docs/IMAGE_INFRA.md) · [`JWT_TOKEN_LIFECYCLE`](docs/JWT_TOKEN_LIFECYCLE.md) · [`SOCIAL_ACCOUNT_LIFECYCLE`](docs/SOCIAL_ACCOUNT_LIFECYCLE.md) ·
+[`CODE_FORMATTING`](docs/CODE_FORMATTING.md)
 
 ### 서비스 간 의존성
 
@@ -248,17 +260,17 @@ graph LR
 graph LR
     subgraph "Event Publishers"
         GUILD_SVC["GuildService"]
-        MISSION_SVC["MissionService"]
+        MISSION_SVC["MissionCommentService"]
         FRIEND_SVC["FriendService"]
-        USER_SVC["UserService"]
-        FEED_SVC["FeedService"]
+        USER_SVC["Oauth2Service / MyPageService"]
+        FEED_SVC["FeedCommandService"]
     end
 
     subgraph "Events"
         GJE["GuildJoinedEvent"]
         GME["GuildMasterAssignedEvent"]
         FRE["FriendRequestAcceptedEvent"]
-        MCE["MissionCompletedEvent"]
+        MCE["MissionCommentEvent"]
         UPC["UserProfileChangedEvent"]
         USE["UserSignedUpEvent"]
         FLE["FeedLikedEvent"]
@@ -287,7 +299,8 @@ graph LR
     FRE --> NOTIF_LISTENER
     FRE --> FEED_LISTENER
     FRE --> STATS_LISTENER
-    MCE --> FEED_LISTENER
+    MCE --> NOTIF_LISTENER
+    MCE --> STATS_LISTENER
     UPC --> SNAPSHOT
     USE --> SIGNUP_LISTENER
     FLE --> STATS_LISTENER
@@ -402,6 +415,14 @@ erDiagram
         subscription_stipend
     }
 
+    stats_db {
+        user_daily_activity PK
+        daily_kpi_snapshot
+        cohort_retention
+        cohort_revenue
+        fx_rate
+    }
+
     saga_db {
         saga_instance PK
         saga_step_log FK
@@ -412,6 +433,7 @@ erDiagram
     user_db ||--o{ feed_db : "user_id"
     user_db ||--o{ notification_db : "user_id"
     user_db ||--o{ gamification_db : "user_id"
+    user_db ||--o{ stats_db : "user_id"
     mission_db ||--o{ feed_db : "mission_id"
     guild_db ||--o{ feed_db : "guild_id"
     guild_db ||--o{ chat_db : "guild_id"
@@ -431,15 +453,15 @@ erDiagram
 # 빌드
 ./gradlew clean build
 
-# 전체 테스트 실행 (4,100+ tests)
+# 전체 테스트 실행 (service + app, 5,100+ tests — platform 테스트는 포함되지 않음)
 ./gradlew test
 
-# 모듈별 테스트 실행
-./gradlew :level-up-together-platform:kernel:test   # 49 tests
-./gradlew :level-up-together-platform:infra:test    # 2 tests (나머지는 service 모듈로 이동)
-./gradlew :level-up-together-platform:saga:test     # 29 tests
-./gradlew :service:test                             # 4,048 tests
-./gradlew :app:test                                 # 15 tests
+# 모듈별 테스트 실행 (2026-10-29 기준)
+./gradlew :level-up-together-platform:kernel:test   # 204 tests
+./gradlew :level-up-together-platform:infra:test    # 98 tests (resolver/profanity 테스트는 service 모듈)
+./gradlew :level-up-together-platform:saga:test     # 90 tests
+./gradlew :service:test                             # 5,081 tests
+./gradlew :app:test                                 # 32 tests (@SpringBootTest·통합·벤치마크, 일부 @Disabled)
 
 # 단일 테스트 클래스 실행 (모듈 지정)
 ./gradlew :service:test --tests "*.Oauth2ControllerTest"
@@ -480,7 +502,8 @@ AOSP 스타일(4-space, 100col, alphabet import sort). IntelliJ는 `google-java-
 
 ### 테스트 커버리지
 
-JaCoCo를 사용하며 최소 **75%** 커버리지를 요구합니다 (`service`·`app` 모듈 `jacocoTestCoverageVerification`이 `check`/CI에서 강제).
+JaCoCo를 사용하며 `service` 모듈 `jacocoTestCoverageVerification`이 **INSTRUCTION 80% + BRANCH 80%** 두 룰을 `check`/CI에서 강제합니다
+(`jacocoExcludes` 가 리포트·게이트에 동일 적용). `app` 모듈의 75% 룰은 `check`에 연결되지 않아 무효입니다.
 
 ```bash
 # 테스트 실행 후 커버리지 리포트 생성
@@ -494,7 +517,8 @@ JaCoCo를 사용하며 최소 **75%** 커버리지를 요구합니다 (`service`
 ### 사용자 (User Service)
 
 - OAuth2 소셜 로그인 (Google, Kakao, Apple)
-- **Signup Token 기반 가입 흐름** (QA-108) — OAuth 콜백 시 임시 토큰(Redis 30분 TTL) 발급, 닉네임/약관 동의 완료 시점에 비로소 INSERT
+- **Signup Token 기반 가입 흐름** (QA-108) — OAuth 콜백(웹) 또는 `POST /oauth/mobile/login`(앱 네이티브 SDK) 시 신규 유저에게 임시 토큰(Redis 30분 TTL) 발급,
+  `POST /oauth/complete-signup`(헤더 `X-Signup-Token`, 닉네임/약관 동의) 시점에 비로소 INSERT. 재진입 시 `GET /oauth/signup-session/check`로 토큰 유효성 확인
 - JWT 기반 토큰 인증 (멀티 디바이스 지원)
 - **회원탈퇴 cool-down** (QA-115) — 탈퇴 후 `app.user.withdrawal.cool-down-days`(기본 7일)이 지나야 동일 이메일+provider 재가입 허용
 - **약관 관리** (LUT-364) — `terms` → `term_versions`(DRAFT→PUBLISHED 단방향) → `user_term_agreements`. 게시가 재동의 트리거,
@@ -558,7 +582,8 @@ JaCoCo를 사용하며 최소 **75%** 커버리지를 요구합니다 (`service`
 - **구독** `POST /api/v1/subscriptions/verify`(최초 구매·복원 공용, 멱등) · `GET /api/v1/subscriptions/me`(만료+자동갱신이면 스토어 재조회로 자가 치유) ·
   스토어 서버 알림 웹훅 `POST /api/v1/webhooks/subscriptions/{apple|google}` — 상태의 진실은 항상 스토어 재조회
 - **환경 분리** — 검증 자격증명(`iap.*`)은 config-repository의 dev/prod yml에 앱별(번들 ID·app-id·패키지)로 등록.
-  iOS 상품 ID는 Apple 팀 유일 제약으로 dev 앱이 `dev_` 접두사(`dev_diamond_box_*`, `dev_membership_*`)를 쓴다
+  iOS 상품 ID는 Apple 팀 유일 제약으로 dev 앱이 `dev_` 접두사(`dev_diamond_box_*`, `dev_membership_*`)를 쓴다.
+  prod 도 LUT-499 부터 `iap.verification.enabled=true` + 스토어 자격증명 등록. 상세: [`docs/SUBSCRIPTION_IAP.md`](docs/SUBSCRIPTION_IAP.md)
 
 ### 미션 (Mission Service)
 
@@ -575,9 +600,11 @@ JaCoCo를 사용하며 최소 **75%** 커버리지를 요구합니다 (`service`
   - 매일 자동 생성되는 일일 인스턴스
   - 미션 정보 스냅샷 저장
   - Strategy 패턴으로 일반/고정 미션 라우팅 분기
-- **미션 자동 종료 (QA-171)**: 목표 시간 도달 또는 4시간(`maxExecutionMinutes=240`) 초과 시 자동 완료. 자동 종료 EXP는 정상 완료의 절반인 `baseExp=120`(어뷰징 방지 패널티성), 종료 전 경고 알림(180·230분 시점) 발송
+- **미션 자동 종료 (QA-171)**: 목표 시간이 있으면 도달 시 정상 완료와 같은 Saga로 완료, 없으면 4시간(`maxExecutionMinutes=240`) 초과 시 자동 완료.
+  4시간 자동 종료 EXP는 설정 `mission.execution.base-exp`(기본 120)를 쓰되 정상 4시간 완료(`timedExp(240)=96`)보다 많지 않게 클램프
+  (LUT-568 `MissionExpPolicy.autoCompleteExp` — 기본값이면 96). 목표 시간 없는 미션에는 종료 전 경고 알림(180·230분 시점) 발송
 - **길드 미션 라이프사이클**: 생성 즉시 모집중(`OPEN`) 전환(QA-185) → 멤버 자동 참가 → `IN_PROGRESS` → `COMPLETED`. 모집중 미션은 목록 노출/수행 차단(QA-181), 고정 길드미션은 고정 섹션으로 분류(QA-186)
-- **길드 미션 자동 참가**: 길드 가입/미션 공개 시 멤버 자동 등록
+- **길드 미션 자동 참가**: 미션 공개(`OPEN`) 시 생성자 제외 활성 길드원 전원 등록, 길드 가입 시에는 진행 중(`OPEN`/`IN_PROGRESS`)인 **고정** 길드미션만 등록 (LUT-518)
 - **소프트 삭제**: 미션 삭제 시 물리적 삭제 대신 논리적 삭제
 
 ### 길드 (Guild Service)
@@ -587,7 +614,8 @@ JaCoCo를 사용하며 최소 **75%** 커버리지를 요구합니다 (`service`
 - **길드 초대 시스템** (비공개 길드용)
   - 마스터/관리자가 유저 초대
   - 초대 수락/거절/취소/만료 상태 관리
-- 길드 경험치/레벨 시스템 — 길드 미션 완료 시 수행 시간 기반 EXP를 길드 EXP로 부여(QA-174). 고정 길드미션도 동일하게 누적(QA-194/195/198)
+- 길드 경험치/레벨 시스템 — 길드 미션 완료 시 수행 시간 기반 EXP를 길드 EXP로 부여(QA-174). 고정 길드미션도 동일하게 누적(QA-194/195/198).
+  단 **레벨·랭킹 기준은 활동 포인트**(LUT-483 — 유저×일자 `floor(min(하루 길드미션 EXP, 60) / 10)`, 하루 최대 6점, KST 경계), EXP는 표기용
 - 길드 게시판 (공지사항, 일반 게시글)
 - 길드 채팅
 - 길드 거점 시스템 (지도 기반)
@@ -610,13 +638,13 @@ JaCoCo를 사용하며 최소 **75%** 커버리지를 요구합니다 (`service`
 - 이벤트 기반 알림 생성 — Spring Event → `NotificationEventListener` → DB 저장·실시간·푸시 일괄 처리 (Kafka 미사용)
 - 푸시 알림 (FCM) — Redis Stream(`stream:app-push`) 비동기 발송, 유저 preferredLocale 기반 다국어 (발송 시점 현지화)
 - 실시간 알림 — Redis Pub/Sub → WebSocket `/user/queue/notifications` (멀티 인스턴스 릴레이, 웹 미읽음 뱃지 즉시 갱신)
-- 알림 설정 — 전체 푸시 on/off, 카테고리별(친구/길드/소셜/시스템) on/off, 방해금지 시간(유저 타임존 기준, 푸시만 억제). MISSION/ACHIEVEMENT/INQUIRY/LEVEL/ITEM 카테고리는 토글 없이 항상 발송
+- 알림 설정 — 전체 푸시 on/off, 카테고리별(친구/길드/소셜/시스템/장착 아이템 푸시 `ITEM_PUSH`) on/off, 방해금지 시간(유저 타임존 기준, 푸시만 억제). MISSION/ACHIEVEMENT/INQUIRY/LEVEL/ITEM 카테고리는 토글 없이 항상 발송
 - 미션 리마인더 푸시 — 미션별 요일·시각(30분 단위) 설정, 유저 타임존 기준 발송 (LUT-282/295)
 - DM 열람 중 푸시 억제 — presence(Redis TTL 60초) 기반, 보고 있는 대화방의 알림 미생성 (LUT-263)
 - 앱 아이콘 뱃지 동기화 — 읽음 처리 시 badge-only silent push + 웹→앱 badgeSync 브릿지 (LUT-291)
 - 디바이스 토큰 관리 (1유저 1활성 디바이스) — `/api/v1/device-tokens` (POST 등록 / DELETE 현재 기기 / DELETE `/all` / GET / POST `/badge/reset` / POST `/test-push` 테스트 발송), 알림 조회/읽음/삭제
-- 알림 타입은 platform kernel `NotificationType`(33종 — 아이템 `ITEM_PURCHASED`·`SEASON_REWARD_ITEM`·`ITEM_GRANTED`, `SUBSCRIPTION_STIPEND`,
-  `MISSION_AUTO_END_WARNING_FIRST/FINAL`, `GUILD_CREATION_ELIGIBLE`, 어드민 자유 문구 `ADMIN_PUSH` 포함)에 정의
+- 알림 타입은 platform kernel `NotificationType`(35종 — 아이템 `ITEM_PURCHASED`·`SEASON_REWARD_ITEM`·`ITEM_GRANTED`, `SUBSCRIPTION_STIPEND`,
+  `MISSION_AUTO_END_WARNING_FIRST/FINAL`·`MISSION_AUTO_ENDED`, `GUILD_CREATION_ELIGIBLE`, 장착 아이템 푸시 `EQUIPPED_ITEM_PUSH`, 어드민 자유 문구 `ADMIN_PUSH` 포함)에 정의
 - **어드민 푸시 발송** (LUT-508) — 어드민이 제목·본문·이동 링크를 직접 써서 전체 활성 유저 또는 일부 유저에게 발송.
   `POST /api/internal/push-campaigns`가 `admin_push_campaign` 이력(PENDING)을 커밋하면 `AdminPushCampaignDispatcher`가 비동기로 유저별
   `createNotification(ADMIN_PUSH)` 호출 — 표준 파이프라인을 타므로 SYSTEM 카테고리 토글·방해금지가 적용되고 결과는 성공/스킵/실패 건수로 이력에 남는다
@@ -627,9 +655,11 @@ JaCoCo를 사용하며 최소 **75%** 커버리지를 요구합니다 (`service`
 - **신고 처리** (`ReportController`)
   - `POST /api/v1/reports` — 신고 접수
   - `GET /api/v1/reports/check` — 처리 대기 여부 확인
-  - 어드민 처리 결과(`WARNING` / `USER_SUSPENDED` / `GUILD_BANNED`)는 Internal API로 MVP에 적용
-    - 누적 경고 임계치 도달 시 자동 30일 정지, 누적 3회 영구강퇴
-    - 처리 결과는 사용자에게 알림 발송
+  - 어드민 조치(`ReportActionType` — `WARNING` / `USER_SUSPENDED` / `CONTENT_DELETED`)의 부수 효과를 Internal API로 MVP에 적용.
+    길드 차단은 별도 조치 유형이 아니라 `CONTENT_DELETED` + 대상 `GUILD`(`POST /api/internal/guilds/{guildId}/ban-from-report`)
+    - 경고 누적 3회 → 자동 30일 정지, 정지 누적 3회 → 영구강퇴 (임계값·기간은 admin-service 가 요청에 담아 보내는 값)
+    - 경고·정지·영구강퇴 결과는 사용자에게 알림 발송 (길드 차단·콘텐츠 삭제는 알림 없음)
+    - 상세 워크플로우: [`docs/INTERNAL_API.md`](docs/INTERNAL_API.md) "신고 처리 워크플로우"
 - **1:1 문의 API** — `POST /api/v1/support/inquiries`(등록), `GET`(내 문의 목록), `GET /{id}`(상세), `GET /types`(문의 유형)
 
 ### 국제화 (Internationalization)
@@ -640,7 +670,7 @@ JaCoCo를 사용하며 최소 **75%** 커버리지를 요구합니다 (`service`
 - 푸시 알림: 유저 locale 기반 다국어 발송
 - 콘텐츠 번역: Google Translation API (Feed, Guild 게시판/댓글)
 - 금칙어: locale별 관리 (ko, en, ar, ja)
-- DB 다국어 컬럼: 7개 엔티티에 _en, _ar, _ja 필드 (Title, Achievement, Event, Mission, MissionTemplate, MissionCategory, CommonCode)
+- DB 다국어 컬럼: 10개 엔티티에 _en, _ar, _ja 필드 (Title, Achievement, Event, Mission, MissionTemplate, MissionCategory, CommonCode, ShopItem, DiamondBundle, ItemPushMessage)
 - 타임존: UTC 기반 저장, ISO 8601 포맷
 
 ### BFF (Backend-for-Frontend)
@@ -649,19 +679,29 @@ JaCoCo를 사용하며 최소 **75%** 커버리지를 요구합니다 (`service`
 - 통합 검색 (피드, 미션, 사용자, 길드)
 - 다중 서비스 데이터 조합
 
+### 지표 집계 (Stats Service)
+
+IR 용 KPI(DAU/WAU/MAU·리텐션·LTV·CAC)의 원천. `stats_db`(LUT-598 신설) 사용, 상세는 [`docs/KPI_STATS.md`](docs/KPI_STATS.md).
+
+- **유저 일별 활동 — DAU 신호** (LUT-598) — `UserActivityInterceptor`가 인증된 요청마다 Redis `active:{KST날짜}` 집합에 기록(비동기, 실패해도 요청 무영향),
+  00:20 KST `UserActivityFlushScheduler`가 그제·어제분을 `user_daily_activity`에 멱등 적재
+- **KPI 일별 스냅샷 · 코호트** (LUT-601) — 00:40 KST `KpiSnapshotScheduler`가 어제·그제 `daily_kpi_snapshot` + `cohort_retention`·`cohort_revenue` 재계산(멱등).
+  원천은 다른 서비스 Repository 대신 각 DB 에 읽기 전용 SQL(`*SourceReader`, ADR-008). 소급은 `POST /api/internal/kpi/rebuild`
+- **Micrometer 게이지** (LUT-605) — 최신 스냅샷을 `lut_kpi_*`로 `/showmethemoney/prometheus`에 노출 (`KpiMetricsExporter`)
+
 ### Image Moderation (이미지 검증)
 
 - ONNX Runtime 기반 NSFW 이미지 자동 검증 ($0 비용)
 - `@ModerateImage` AOP 어노테이션으로 자동 적용
 - Strategy Pattern: NoOp / ONNX NSFW / AWS Rekognition (설정 전환 가능)
-- 적용 대상: 프로필 이미지, 길드 이미지, 미션 이미지, 이벤트 이미지
+- 적용 대상: 프로필 이미지, 길드 이미지, 미션 이미지, 이벤트 이미지, 길드 채팅·DM 이미지(LUT-590)
 
 ### Image Storage (이미지 저장)
 
 - `@Profile` 기반 환경별 저장소 분기 (Strategy Pattern)
 - **prod**: AWS S3 (`lut-images-prod`) 업로드 + CloudFront CDN 서빙 (`images.level-up-together.com`)
 - **dev/test**: 로컬 파일시스템 + Spring MVC 리소스 핸들러
-- S3 키 패턴: `profile/`, `guild/`, `missions/`, `events/`
+- S3 키 패턴: `profile/`, `guild/`, `missions/`, `events/`, `shop-items/`, `chats/`(LUT-590)
 - EC2 IAM Role 기반 인증 (AccessKey 불필요)
 
 ## 스케줄러
@@ -671,12 +711,16 @@ JaCoCo를 사용하며 최소 **75%** 커버리지를 요구합니다 (`service`
 | 스케줄러                                | 주기 / Zone                          | 설명                                       |
 |-------------------------------------|------------------------------------|------------------------------------------|
 | `DailyMissionInstanceScheduler`     | `0 0 0 * * *` (KST)                | 고정 미션 일일 인스턴스 자동 생성 + 자정 자동완료              |
-| `MissionAutoCompleteScheduler`      | 5분 간격 (fixedRate)                  | 만료(4시간 초과) 미션 자동 종료 + 종료 전 경고 알림(180·230분) 발송 |
+| `MissionAutoCompleteScheduler`      | 5분 간격 (fixedRate)                  | 목표 시간 도달 미션 완료 + 만료(4시간 초과) 미션 자동 종료 + 종료 전 경고 알림(180·230분) 발송 |
+| `MissionIdempotencyKeyCleanupScheduler` | `0 15 * * * *` (KST, 매시)       | 24시간 지난 미션 생성 멱등 키 삭제 (LUT-577)               |
 | `MissionReminderScheduler`          | 매시 0,30분 (zone 미지정 → JVM 기본 UTC) | 미션 리마인더 푸시 — 설정 요일·시각(30분 단위), 유저 타임존 매칭      |
+| `ItemPushScheduler`                 | `0 * * * * *` (매분, lock 50s)       | 장착 아이템 푸시 — 유저 로컬 시각 슬롯 + 30분 캐치업 창, 상태·백오프 판정 (LUT-516/545/573) |
 | `TokenMaintenanceScheduler`         | `0 0 2 * * *` (KST), `0 30 2` (KST) | 만료된 OAuth 세션 정리 + 고아 user_sessions 참조 정리   |
 | `DailyMvpHistoryScheduler`          | `0 0 0 * * *` (Asia/Seoul · Asia/Riyadh · UTC) | 타임존별 일간 MVP 히스토리 기록                       |
 | `SeasonRewardScheduler`             | `0 0 3 * * *` (KST)                | 종료된 시즌의 순위 보상 자동 부여                       |
 | `SubscriptionStipendScheduler`      | `0 10 0 * * *` (UTC)               | 구독자 일일 블루다이아 1개 지급 (LUT-453, 멱등=구독ID+지급일) + 푸시(LUT-489) |
+| `UserActivityFlushScheduler`        | `0 20 0 * * *` (KST)               | Redis `active:{날짜}` 활동 집합 → `stats_db.user_daily_activity` 적재 (그제·어제, 멱등, LUT-598) |
+| `KpiSnapshotScheduler`              | `0 40 0 * * *` (KST)               | 어제·그제 `daily_kpi_snapshot` + 최근 코호트 리텐션(창이 닫힌 지표만) + 전월·당월 코호트 매출 재계산 (멱등, LUT-601) |
 
 ## 캐싱 전략
 
@@ -692,8 +736,9 @@ Redis를 활용한 캐싱으로 서비스 간 호출을 최소화하고 성능�
 | `userExists`                                          | 5분  | JWT 인증 필터 유저 존재 확인          |
 | `reportUnderReview`                                   | 1분  | 신고 진행 상태                    |
 | `missionCategories`, `activeMissionCategories`        | 1시간 | 마스터 데이터 (Admin evict+reload) |
+| `guildLevelConfigs`, `userLevelConfigs`               | 1시간 | 레벨 설정 (LUT-534 — 무기한 캐시가 컬럼 추가 후 스테일 JSON 반환) |
 
-그 외 설정·조회 캐시(`userLevelConfigs`, 길드 레벨, 출석 보상, 업적, `profanityWords`, `userDetailedTitleInfo` 등)는 각 `*CacheService`의 `@Cacheable`을 사용하며 **기본 설정에는 TTL이 없어(무기한) 이벤트 evict에 의존**합니다.
+그 외 설정·조회 캐시(출석 보상, 업적, `profanityWords`, `userDetailedTitleInfo` 등)는 각 `*CacheService`의 `@Cacheable`을 사용하며 **기본 설정에는 TTL이 없어(무기한) 이벤트 evict에 의존**합니다.
 
 ## API 응답 형식
 
@@ -729,13 +774,13 @@ Redis를 활용한 캐싱으로 서비스 간 호출을 최소화하고 성능�
 | `dev`   | 개발 서버 환경                           |
 | `prod`  | 운영 서버 환경                           |
 | `unit-test` / `push-test` | 단위 테스트 / 푸시 연동 테스트 전용     |
-| `security-guard` | 테스트 전용 — 실제 `SecurityConfig`만 올려 공개 엔드포인트를 검증(`SecurityConfigPublicEndpointTest`) |
+| `security-guard` | 테스트 전용 — 실제 `SecurityConfig`만 올려 공개 엔드포인트·CORS 허용 헤더를 검증(`SecurityConfigPublicEndpointTest`·`SecurityConfigCorsTest`) |
 
 ## 모니터링
 
-- **Actuator**: `/showmethemoney`
-- **Tracing**: Zipkin 연동
-- **Metrics**: Micrometer + Prometheus
+- **Actuator**: `/showmethemoney` (`/health` 만 공개, 나머지는 내부 API 키 필요 — LUT-605)
+- **Metrics**: Micrometer + Prometheus(`/showmethemoney/prometheus`) → Grafana Cloud(Alloy 스크레이프). KPI 게이지 `lut_kpi_*`,
+  HTTP 지연은 SLO 버킷(100ms·300ms·1s·3s)만 노출(LUT-615)
 
 ## CI/CD
 
@@ -753,25 +798,20 @@ Redis를 활용한 캐싱으로 서비스 간 호출을 최소화하고 성능�
 `X-Internal-Api-Key` 헤더 또는 HTTP Basic 비밀번호로 키를 보내야 합니다(Grafana Alloy 스크레이프용). KPI 스냅샷은 `lut_kpi_*` Micrometer
 게이지로 `/showmethemoney/prometheus` 에 노출됩니다(`KpiMetricsExporter`).
 
-베이스 경로 38개 — `users`, `terms`, `feeds`, `feed-comments`, `missions`, `mission-templates`, `mission-participants`, `mission-comments`,
-`mission-categories`, `mission-images`(변형 백필, LUT-409), `guilds`, `guilds/{guildId}`(게시글·댓글 관리), `guilds/exp`(EXP 백필),
-`guild-level-configs`, `user-level-configs`, `attendance-reward-configs`, `achievements`, `achievement-categories`, `check-logic-types`,
-`titles`, `title-grants`, `experience-history`, `events`, `seasons`, `seasons/{seasonId}/rank-rewards`, `mvp-history`, `daily-mvp-exclusions`,
-`profanity-words`, `shop-items`, `shop-purchases`, `item-grants`, `diamonds`(마이그레이션), `diamond-bundles`, `diamond-payments`, `subscription-payments`,
-`push-campaigns`(어드민 푸시 발송·이력, LUT-508), `stats/activity`(유저 일별 활동 수동 flush, LUT-598), `kpi`(daily·retention·revenue/cohorts·signups/by-channel·rebuild)(일별 KPI 스냅샷·코호트 리텐션·코호트 매출 조회 + rebuild, LUT-601).
-(`docs/INTERNAL_API.md`에는 이 중 일부만 정리돼 있어 보강 필요)
+베이스 경로 **40개**(2026-10-29 코드 기준, 중첩 경로 포함 — chat·bff·notice·support 에는 내부 API 없음). 엔드포인트·도입 티켓·신고 처리
+워크플로우 전체는 [`docs/INTERNAL_API.md`](docs/INTERNAL_API.md).
 
-| 도메인           | 베이스 경로                                                         |
-|---------------|---------------------------------------------------------------|
-| user          | `/api/internal/users`, `/terms`, `/daily-mvp-exclusions`        |
-| guild         | `/api/internal/guilds` (검색/통계/활성화 토글, **신고 처리 ban-from-report**) |
-| mission       | `/api/internal/missions`, `/mission-templates`, `/mission-participants`, `/mission-comments` |
-| feed          | `/api/internal/feeds`, `/feed-comments`                         |
-| meta          | `/api/internal/{user,guild}-level-configs`, `/attendance-reward-configs`, `/mission-categories`, `/profanity-words` |
-| gamification  | `/api/internal/{achievements,achievement-categories,titles,title-grants,events,seasons,check-logic-types,experience-history,mvp-history}` |
-| gamification  | `/api/internal/seasons/{id}/rank-rewards`                       |
-| gamification  | `/api/internal/shop-items` (아이템 관리 + 이미지 업로드), `/api/internal/shop-purchases` (구매이력, LUT-328) |
-| gamification  | `/api/internal/diamonds/user/{userId}/history` (다이아 원장 조회)     |
+| 서비스 (DB)                       | 베이스 경로 (`/api/internal/` 생략)                                                                 |
+|--------------------------------|-------------------------------------------------------------------------------------------------|
+| user (user_db)                 | `users`(검색·상세·블랙리스트·신고 처리 warn/suspend-from-report·즉시 탈퇴), `terms`, `daily-mvp-exclusions` |
+| guild (guild_db)               | `guilds`(검색·통계·활성 토글, 신고 처리 `ban-from-report`), `guilds/{guildId}`(게시글·댓글 관리)               |
+| mission (mission_db)           | `missions`, `mission-templates`, `mission-participants`, `mission-comments`, `mission-images`(변형 백필, LUT-409), `guilds/exp`(길드 EXP 백필 — 경로는 길드 하위지만 mission 소유) |
+| feed (feed_db)                 | `feeds`, `feed-comments`                                                                        |
+| meta (meta_db)                 | `user-level-configs`, `guild-level-configs`, `attendance-reward-configs`, `mission-categories`, `profanity-words` |
+| gamification (gamification_db) | `achievements`, `achievement-categories`, `titles`, `title-grants`, `check-logic-types`, `events`, `seasons`, `seasons/{seasonId}/rank-rewards`, `experience-history`, `mvp-history` |
+| gamification — 상점·결제          | `shop-items`(+ 이미지 업로드), `shop-items/{itemId}/push-setting`·`shop-items/{itemId}/push-messages`(장착 아이템 푸시 슬롯·대사, LUT-516/528/573), `shop-purchases`(LUT-328), `item-grants`(LUT-472), `diamonds`(원장·마이그레이션), `diamond-bundles`, `diamond-payments`, `subscription-payments`(+ `POST /reconcile`, LUT-617) |
+| notification (notification_db) | `push-campaigns`(어드민 푸시 발송·이력, LUT-508)                                                  |
+| stats (stats_db)               | `stats/activity`(유저 일별 활동 수동 flush, LUT-598), `kpi`(daily·retention·revenue/cohorts·signups/by-channel 조회 + rebuild, LUT-601) |
 
 ## 관련 프로젝트
 
@@ -819,29 +859,28 @@ SSH 터널이나 외부 서비스 연결이 필요한 테스트는 로컬에서 
 
 ### Race Condition (중복 키 오류)
 
-동시 요청으로 인한 `DataIntegrityViolationException` 발생 시, Check-then-Insert 패턴 대신 `saveAndFlush()` + 예외 처리 패턴을 사용합니다:
+동시 요청의 "없으면 생성"이 유니크 제약에 부딪히는 경우(`DataIntegrityViolationException`), **insert 를 별도 트랜잭션(`REQUIRES_NEW`) 전용 `*Creator` 빈**에
+두고 호출부가 예외를 잡은 뒤 **재조회**합니다 (LUT-538/539). 같은 트랜잭션에서 `saveAndFlush()` + catch 로 흡수하면 제약 위반이 영속성 컨텍스트를
+오염시켜 트랜잭션이 rollback-only 가 되고, 재조회해도 커밋 시 `UnexpectedRollbackException`(요청 500)이 납니다.
 
 ```java
-private Entity getOrCreateEntity(String key) {
-    return repository.findByKey(key)
-        .orElseGet(() -> {
-            try {
-                Entity newEntity = Entity.builder().key(key).build();
-                return repository.saveAndFlush(newEntity);  // 즉시 INSERT
-            } catch (DataIntegrityViolationException e) {
-                // 중복 발생 시 기존 레코드 조회
-                return repository.findByKey(key)
-                    .orElseThrow(() -> new IllegalStateException("Race condition 처리 실패"));
-            }
-        });
+// *Creator — 별도 트랜잭션에서 insert 만 수행 (중복 예외는 삼키지 않고 호출자에게 던진다)
+@Transactional(transactionManager = "gamificationTransactionManager", propagation = Propagation.REQUIRES_NEW)
+public void create(String userId) {
+    userStatsRepository.saveAndFlush(UserStats.builder().userId(userId).build());
 }
+
+// 호출부 — 중복이면 상대 요청이 만든 행을 재조회 (내부 트랜잭션이 반환한 엔티티는 detached 라 쓰지 않는다)
+try {
+    userStatsCreator.create(userId);
+} catch (DataIntegrityViolationException e) {
+    log.debug("UserStats 중복 감지, 기존 레코드 조회: userId={}", userId);
+}
+return userStatsRepository.findByUserId(userId).orElseThrow(...);
 ```
 
-**적용 사례:**
-
-- `AchievementService.getOrCreateUserAchievement()` - 업적 중복 방지
-- `AttendanceService.checkIn()` - 출석 체크 중복 방지
-- `NotificationService.createNotificationWithDeduplication()` - 알림 중복 방지
+**적용 사례:** `UserStatsCreator` · `UserAchievementCreator` · `AttendanceRecordCreator` · `GuildMemberDailyPointCreator` · `UserItemCreator` ·
+`NotificationCreator`(dedup) · `DailyMissionInstanceCreator`(`CreateNextPinnedInstanceStep`)
 
 ## 서버 환경
 
@@ -855,5 +894,5 @@ private Entity getOrCreateEntity(String key) {
 | **Dev Web**          | `https://dev.level-up-together.com:3000`                                         |                          |
 | **Admin API**        | `https://admin-api.level-up-together.com`                                        |                          |
 | **Local API**        | `https://local.level-up-together.com:8443`                                       |                          |
-| **Swagger UI**       | `{https://dev.level-up-together.com:29999/?urls.primaryName=product-service-api` | REST Docs 기반 OpenAPI 3.0 |
+| **Swagger UI**       | `https://dev.level-up-together.com:29999/?urls.primaryName=product-service-api` | REST Docs 기반 OpenAPI 3.0 |
 | **CDN (Images)**     | `https://images.level-up-together.com`                                           | S3 + CloudFront          |
