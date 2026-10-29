@@ -215,6 +215,21 @@ preflight(OPTIONS) 응답의 `Access-Control-Allow-Headers` 를 검증한다. �
 
 **Claude는 Java 코드 수정 후 반드시 `./gradlew :모듈:spotlessApply`를 실행하여 형식을 정정한다.** 작성 시 IDE 결과와 어긋날 수 있어 마무리 단계로 spotless 적용 필수.
 
+## 브랜치 흐름 (전 레포 공통, 2026-10-29)
+
+대상: product-service · admin-service · level-up-together-platform · level-up-together-frontend · level-up-together-admin-frontend · LevelUpTogetherReactNative.
+
+| 작업 | 어디서 분기 | 브랜치 | 끝나면 |
+|---|---|---|---|
+| Jira 핫픽스 (parent LUT-123) | `main` | `hotfix/LUT-###` | `main` 에 머지 → 운영 배포 → 진행 중인 `epic/vX.Y.Z` 에도 머지 |
+| 그 외 작업 | 진행 중인 `epic/vX.Y.Z` | `feature/LUT-###` | `epic/vX.Y.Z` 에 머지 |
+| 릴리스 | — | `epic/vX.Y.Z` | `main` 에 머지 → 운영 배포 |
+
+- 새 릴리스는 `main` 에서 `epic/vX.Y.Z` 를 분기하고, 첫 커밋으로 버전을 맞춘다(`chore: [LUT-에픽] vX.Y.Z 버전 정렬`).
+- 핫픽스를 epic 에도 머지하는 이유: 빠뜨리면 다음 릴리스(epic → `main`)에서 그 수정이 사라지거나 충돌한다.
+- 이 레포: `develop`·`epic/**` push → 개발 서버 배포(`gradle-dev.yml`), `main` push → 운영 롤링 배포(`gradle-prod.yml`). 운영 배포가 필요 없는 `main` 커밋(문서 등)은 메시지에 `[skip ci]`.
+  platform 을 함께 바꿨으면 platform 의 같은 epic 을 먼저 push 한다(`X.Y.Z-SNAPSHOT` 발행 → 이 레포 dev 빌드가 받는다).
+
 ## 작업 완료 시 규칙
 
 - 작업이 끝나면 반드시 프로젝트별 커밋 메시지를 생성 (커밋은 직접 실행)
