@@ -2,9 +2,11 @@ package io.pinkspider.global.config;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import io.pinkspider.global.feign.admin.AdminInternalFeignConfig;
 import io.pinkspider.global.translation.GoogleTranslationConfig;
 import io.pinkspider.leveluptogethermvp.noticeservice.core.config.AdminFeignConfig;
 import io.pinkspider.leveluptogethermvp.supportservice.report.core.config.ReportFeignConfig;
+import io.pinkspider.leveluptogethermvp.userservice.core.config.GoogleFeignConfig;
 import io.pinkspider.leveluptogethermvp.userservice.core.config.KakaoFeignConfig;
 import java.util.List;
 import org.junit.jupiter.api.DisplayName;
@@ -26,7 +28,9 @@ class FeignClientConfigIsolationTest {
                     AdminFeignConfig.class,
                     ReportFeignConfig.class,
                     KakaoFeignConfig.class,
-                    GoogleTranslationConfig.class);
+                    GoogleTranslationConfig.class,
+                    GoogleFeignConfig.class,
+                    AdminInternalFeignConfig.class); // LUT-648: trust-all Client·Retryer 가 전역으로 샜다
 
     @Test
     @DisplayName("Feign 클라이언트 전용 설정 클래스는 @Configuration 으로 컴포넌트 스캔되지 않는다")
