@@ -709,7 +709,7 @@ uk 멱등) — 쪼개서 수행해도 몰아서 한 것과 같은 점수. "하�
   자식 컨텍스트에 로드된다. `@Configuration`을 붙이면 컴포넌트 스캔으로 부모 컨텍스트에도 올라가 그 안의 `RequestInterceptor`·`Client`·
   `Retryer`가 **모든 Feign 클라이언트에 전역 적용**된다 — 어드민 패스스루의 Authorization 전달 인터셉터가 Google Translation 호출에
   섞여 prod에서 유저 JWT가 Google로 나가 401이 났다. `FeignClientConfigIsolationTest`(어노테이션)·`FeignClientConfigScopeIntegrationTest`
-  (실제 컨텍스트)가 회귀를 막는다. 새 Feign 설정 클래스는 두 테스트 목록에 추가할 것.
+  (실제 컨텍스트)가 회귀를 막는다. 새 Feign 설정 클래스는 두 테스트 목록에 추가할 것. LUT-648: `AdminInternalFeignConfig` 도 `@Configuration` 이라 인증서·호스트 검증을 끈 `Client` 와 `Retryer`(3회)가 카카오·애플·구글 번역 호출에 새고 있었다 — 떼고, trust-all Client 는 `@Profile("local")` 전용(dev·prod 어드민은 정식 인증서). user-service `FeignRetryConfig`(전역 `Retryer`, 시도 1회 = 재시도 없음)는 의도된 전역 설정이다.
 - **브라우저에서만 "CORS error"로 실패 (커스텀 헤더 추가 시)** (LUT-587): `SecurityConfig.corsConfigurationSource()` 의
   `setAllowedHeaders(...)` 는 와일드카드가 아닌 **명시적 허용목록**이다. 목록에 없는 커스텀 헤더를 클라이언트가 붙이면 preflight(OPTIONS)가
   그 헤더를 돌려주지 않아 **브라우저가 본 요청을 아예 보내지 않는다** — 서버 로그엔 아무것도 안 남고 "그 API 만 실패"로 보인다.

@@ -2,7 +2,10 @@ package io.pinkspider;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import feign.Client;
 import feign.RequestInterceptor;
+import feign.Retryer;
+import java.util.List;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -29,6 +32,34 @@ class FeignClientConfigScopeIntegrationTest {
                         feignClientFactory.getInstances(
                                 "google-translation-client", RequestInterceptor.class))
                 .isEmpty();
+    }
+
+    /**
+     * LUT-648: admin-internal-client 전용 Client(local 에서만 인증서 검증을 끄는)와 Retryer(최대 3회)가 외부 호출 클라이언트로
+     * 새면 카카오·애플·구글 호출의 TLS 검증이 꺼지고 멱등이 아닌 호출도 재시도된다.
+     */
+    @Test
+    @DisplayName("LUT-648: admin-internal 전용 Client·Retryer 는 외부 호출 클라이언트에 적용되지 않는다")
+    void adminInternalBeansDoNotLeakToExternalClients() {
+        for (String name :
+                List.of(
+                        "google-translation-client",
+                        "kakao-oauth2-client",
+                        "kakao-user-api",
+                        "kakao-admin-api",
+                        "apple-auth-api")) {
+            assertThat(feignClientFactory.getInstances(name, Client.class))
+                    .as("%s 에 adminInternal Client 가 보이면 안 된다", name)
+                    .doesNotContainKey("adminInternalFeignClient");
+            assertThat(feignClientFactory.getInstances(name, Retryer.class))
+                    .as("%s 에 adminInternal Retryer 가 보이면 안 된다", name)
+                    .doesNotContainKey("adminInternalFeignRetryer");
+        }
+        // 자기 클라이언트에는 그대로 적용된다 (Retryer 는 프로필 무관, trust-all Client 는 local 전용이라 test 에서는 없다)
+        assertThat(feignClientFactory.getInstances("admin-internal-client", Retryer.class))
+                .containsKey("adminInternalFeignRetryer");
+        assertThat(feignClientFactory.getInstances("admin-internal-client", Client.class))
+                .doesNotContainKey("adminInternalFeignClient");
     }
 
     @Test
