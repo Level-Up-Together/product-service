@@ -18,10 +18,10 @@ io.pinkspider.global.saga/
 ├── SagaStepResult.java           - 결과 (success/failure)
 ├── SagaResult.java               - 전체 Saga 결과
 ├── SagaExecutionLog.java         - 실행 로그
-├── SagaEventPublisher.java       - 이벤트 발행
-├── SagaInstance.java             - Saga 인스턴스 엔티티
-└── SagaStepLog.java              - Step 로그 엔티티
+└── SagaEventPublisher.java       - 이벤트 발행
 ```
+
+Saga 실행 상태는 DB 에 저장하지 않는다(`SagaExecutionLog` 는 메모리 목록). `saga_db`·`SagaInstance`·`SagaStepLog` 는 한 번도 쓰이지 않아 2026-10-29 정리 결정(ADR-003).
 
 ## 기존 Saga 예시: Mission Completion
 
@@ -108,7 +108,7 @@ public class {Saga}Saga {
 - 각 Step의 compensate는 execute의 정확한 역연산
 - 멱등성 보장 (여러 번 호출해도 동일 결과)
 - compensate 실패 시 로깅 + 알림 (수동 개입 필요)
-- 트랜잭션 매니저: `sagaTransactionManager` 또는 해당 서비스의 트랜잭션 매니저
+- 트랜잭션 매니저: 그 step 이 쓰는 서비스의 트랜잭션 매니저 (`sagaTransactionManager` 는 없다)
 
 ## 주의사항
 - Step 순서가 중요: 데이터 로드 → 비즈니스 로직 → 부수 효과 (경험치, 알림 등)

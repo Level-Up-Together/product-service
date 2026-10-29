@@ -1,7 +1,7 @@
 # ADR-003: Saga Pattern for Distributed Transactions
 
 **Date:** 2026-01-30
-**Status:** Accepted
+**Status:** Accepted — 2026-10-29 Persistence(`saga_db`) 부분 폐기, 맨 아래 "갱신 (2026-10-29)" 참고
 **Deciders:** Backend Team
 
 ## Context
@@ -405,3 +405,24 @@ kafkaTemplate.send("user-service.grant-exp.command", command);
 - [ADR-001: Multi-Service Monolith Architecture](./ADR-001-20260130.md)
 - [ADR-002: Event-Driven Cross-Service Communication](./ADR-002-20260130.md)
 - (Future) ADR-004: BFF API Aggregation Strategy
+
+## 갱신 (2026-10-29) — Persistence(`saga_db`) 폐기
+
+**결정:** Saga 실행 이력 저장(`saga_db`, `saga_instance`·`saga_step_log`)은 구현하지 않고 정리한다. Orchestration Saga 자체는 유지한다.
+
+**확인한 사실**
+- 저장 코드는 처음부터 없었다. 2025-12-07(`2811e5ef`·`1dbaebcc`)에 표·DataSource·Repository 만 만들었고, `SagaOrchestrator` 는 실행 로그를 메모리(`List<SagaExecutionLog>`)에만 쌓았다. Repository 를 부르는 코드는 한 번도 없었다.
+- 2026-02-13 platform 이전(`e1ddd403`)에서 `SagaDataSourceConfig` 가 빠졌다. 그 뒤 서버는 `saga_db` 에 접속하지 않는다.
+- prod `saga_db`: 표 2개 0행, `n_tup_ins` 0, 다른 접속 0. dev `saga_db`: 표 9개(saga 2개 + 다른 서비스의 빈 표 7개) 모두 0행.
+
+**지금 동작 (위 본문과 다른 점)**
+- `MissionCompletionSaga` 는 같은 프로세스 안에서 Facade 메서드를 순서대로 호출한다. 각 step 은 자기 서비스 트랜잭션 매니저로 따로 커밋하고, 필수 step 실패 시 앞 step 을 역순 보상한다.
+- 필수가 아닌 step(미션북 다이아·통계/업적·피드)은 응답 뒤 별도 실행기(`sagaTailExecutor`)에서 돈다. 실패는 로그만 남는다.
+- 실행 상태를 저장하지 않으므로 **요청 처리 중 서버가 종료되면 일부 step 만 반영된 채 남고, 재개·보상할 기록이 없다.** 보상 실패도 로그만 남는다(알림·수동 처리 경로 없음).
+- "Kafka 기반 분산 Saga"(Future Considerations)는 구현하지 않았다. Kafka 도 쓰지 않는다.
+
+**이유**
+- 단일 배포(Multi-Service Monolith)에서는 미션 완료 요청이 짧아 중간 종료 위험이 작다.
+- 실제 MSA 전환 때는 실행 이력 표보다 서비스 사이 메시지 전달(outbox·브로커)과 재시도 설계가 먼저다. 그때 Saga 상태 저장을 함께 다시 설계한다.
+
+**정리 범위:** product 테스트 설정·문서, platform `saga/persistence`·`SagaDataSourceProperties`, config-repository `spring.datasource.saga`, dev·prod `saga_db`(백업 후 삭제).

@@ -23,7 +23,6 @@ allowed-tools: Agent, Read, Grep, Glob, Bash, Write, Edit, mcp__postgres-user-db
 | meta_db | `mcp__postgres-meta-db__query` | common_codes, calendar_holidays, level_configs, attendance_rewards |
 | notification_db | `mcp__postgres-notification-db__query` | notifications, notification_preferences |
 | admin_db | `mcp__postgres-admin-db__query` | home_banners, featured_players, featured_guilds, featured_feeds |
-| saga_db | `mcp__postgres-saga-db__query` | saga_executions, saga_step_executions |
 
 ## 작업 흐름
 

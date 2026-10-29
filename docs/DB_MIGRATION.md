@@ -10,7 +10,7 @@ product-service 9개 DB 의 스키마 변경을 **서버 기동 시 Flyway 가 �
 | 스키마 변경(표·컬럼·인덱스) · 작은 멱등 수정 | `app/src/main/resources/db/migration/<db>/` | Flyway — product 기동 시 (`app.flyway.enabled=true` 환경만) |
 | 큰 데이터 보정(재산정·소급·백필) | `level-up-together-sql/queries/developing/<버전>/` → 적용 후 `done/migration/<버전>/` | 사람 — psql 수동, 런북에 시점 명시 |
 | `admin_db` (admin-service) | SQL 레포 | 사람 — admin-service 에는 Flyway 없음 |
-| `saga_db` | — | Flyway 대상 아님 (9개 DB 에 미포함) |
+| `saga_db` | — | **미사용** — 한 번도 쓰이지 않음(dev·prod 0행, 2026-10-29 확인). 정리·삭제 결정(ADR-003 갱신), Flyway 대상 아님 |
 
 ## 2. 동작 구조 (코드)
 

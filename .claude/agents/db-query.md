@@ -26,7 +26,6 @@ mcpServers:
 | mission_db | postgres-mission-db | mission, mission_participant, mission_execution, mission_category, daily_mission_instance |
 | guild_db | postgres-guild-db | guild, guild_member, guild_bulletin, guild_chat_message, guild_territory, guild_invitation, guild_direct_conversation |
 | meta_db | postgres-meta-db | common_code, calendar_holiday |
-| saga_db | postgres-saga-db | saga_instance, saga_step_log |
 | feed_db | postgres-feed-db | activity_feed, feed_like, feed_comment |
 | notification_db | postgres-notification-db | notification, notification_preference |
 | gamification_db | postgres-gamification-db | achievement, user_achievement, title, user_stats, attendance, event, season |

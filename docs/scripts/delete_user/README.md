@@ -39,7 +39,7 @@ docs/scripts/delete_user/
 | **notification_db** | `notification`, `notification_preference`, `device_token` | `user_id` |
 | **gamification_db** | `user_experience`, `user_stats`, `user_title`, `user_achievement`, `user_category_experience`, `experience_history`, `attendance_record`, `season_reward_history`, `daily_mvp_history`, `daily_mvp_category_stats` | `user_id` |
 | **admin_db** | `customer_inquiry`, `featured_player`, (선택) `content_report` | `user_id`, `reporter_id`, `target_user_id` |
-| meta_db / saga_db | (해당 없음) | - |
+| meta_db | (해당 없음) | - |
 
 ### 정책 결정이 필요한 항목 (기본 미삭제)
 
@@ -191,7 +191,7 @@ PGPASSWORD=... psql -h <db-host> -U lut -d feed_db \
 
 ## 향후 개선 아이디어
 
-- [ ] saga_db `saga_instance.payload` JSON에 user_id가 들어있을 가능성 — 별도 정합성 점검
+- [x] ~~saga_db `saga_instance.payload` JSON에 user_id가 들어있을 가능성~~ — saga_db 는 dev·prod 모두 0행·미사용(2026-10-29 확인), 정리 결정(ADR-003)
 - [ ] `content_report` 처리 정책 (마스킹 vs 삭제) 결정 후 옵션 추가
 - [ ] Redis 키 정리를 스크립트에 통합 (`--cleanup-cache` 옵션)
 - [ ] 삭제 이력을 audit log 테이블에 기록 (감사용)

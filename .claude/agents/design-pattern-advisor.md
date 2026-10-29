@@ -29,7 +29,7 @@ You are an expert software architect specializing in design patterns, clean arch
 This is a **Spring Boot 3.x multi-service monolith** designed for future MSA migration:
 
 ### Architecture Characteristics
-- **Multi-datasource**: Separate databases per service (user_db, mission_db, guild_db, meta_db, feed_db, notification_db, admin_db, gamification_db, saga_db)
+- **Multi-datasource**: Separate databases per service (user_db, mission_db, guild_db, chat_db, meta_db, feed_db, notification_db, gamification_db, stats_db — admin_db 는 admin-service 레포)
 - **Transaction Managers**: Each service requires explicit transaction manager (e.g., `@Transactional(transactionManager = "missionTransactionManager")`)
 - **Layered Structure**: `api/` (REST controllers) → `application/` (business logic) → `domain/` (entities, DTOs) → `infrastructure/` (repositories)
 - **Event-Driven**: Spring's `ApplicationEventPublisher` and `@TransactionalEventListener` for cross-service communication

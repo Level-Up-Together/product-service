@@ -133,7 +133,6 @@ graph TB
         NOTIF_DB[("notification_db")]
         GAMIF_DB[("gamification_db")]
         STATS_DB[("stats_db")]
-        SAGA_DB[("saga_db")]
     end
 
     subgraph External["External Services"]
@@ -160,7 +159,6 @@ graph TB
     NOTIF --> NOTIF_DB
     GAMIF --> GAMIF_DB
     STATS --> STATS_DB
-    SAGA --> SAGA_DB
 
     CACHE --> REDIS
 
@@ -170,7 +168,7 @@ graph TB
     classDef client fill:#9f7aea,stroke:#6b46c1,color:#fff
 
     class USER,MISSION,GUILD,CHAT,META,FEED,NOTIF,GAMIF,BFF,NOTICE,SUPPORT,STATS service
-    class USER_DB,MISSION_DB,GUILD_DB,CHAT_DB,META_DB,FEED_DB,NOTIF_DB,GAMIF_DB,STATS_DB,SAGA_DB db
+    class USER_DB,MISSION_DB,GUILD_DB,CHAT_DB,META_DB,FEED_DB,NOTIF_DB,GAMIF_DB,STATS_DB db
     class REDIS external
     class APP,WEB,ADMIN client
 ```
@@ -423,11 +421,6 @@ erDiagram
         fx_rate
     }
 
-    saga_db {
-        saga_instance PK
-        saga_step_log FK
-    }
-
     user_db ||--o{ mission_db : "creator_id"
     user_db ||--o{ guild_db : "master_id/member"
     user_db ||--o{ feed_db : "user_id"
@@ -457,9 +450,9 @@ erDiagram
 ./gradlew test
 
 # 모듈별 테스트 실행 (2026-10-29 기준)
-./gradlew :level-up-together-platform:kernel:test   # 204 tests
+./gradlew :level-up-together-platform:kernel:test   # 205 tests
 ./gradlew :level-up-together-platform:infra:test    # 98 tests (resolver/profanity 테스트는 service 모듈)
-./gradlew :level-up-together-platform:saga:test     # 90 tests
+./gradlew :level-up-together-platform:saga:test     # 72 tests
 ./gradlew :service:test                             # 5,081 tests
 ./gradlew :app:test                                 # 32 tests (@SpringBootTest·통합·벤치마크, 일부 @Disabled)
 

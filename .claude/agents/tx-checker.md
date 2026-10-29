@@ -26,7 +26,6 @@ maxTurns: 30
 | `leveluptogethermvp.notificationservice` | `notificationTransactionManager` |
 | `leveluptogethermvp.adminservice` | `adminTransactionManager` |
 | `leveluptogethermvp.gamificationservice` | `gamificationTransactionManager` |
-| `global.saga` | `sagaTransactionManager` |
 
 ## 검사 절차
 
