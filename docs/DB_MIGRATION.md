@@ -74,7 +74,7 @@ baseline 은 Flyway `baselineOnMigrate` 의미 그대로라 **빈 스키마(새�
 | prod | `true` | `1.1.3.12` | `product-service-prod.yml` (`a86d78b`, 2026-10-28 12:26) | v1.1.3 SQL(V001~V013)은 2026-10-28 psql 수동 적용. 릴리스 중엔 false 였다 |
 
 - prod 는 config 전환 이후 **첫 product 기동 때** 9개 DB 에 history 표 + baseline `1.1.3.12` 행만 생기고 적용 0건이다. 그 첫 기동은 2026-10-29 08:13~08:18 KST LUT-626 핫픽스 롤링 배포였다(배포 헬스체크 통과). classpath 최고 버전이 `V1_1_3_012` = baseline 이라 적용 파일은 없다. DB 에서 직접 확인하려면 `select to_regclass('flyway_schema_history')`.
-- **v1.1.4 가 prod 에서 Flyway 가 실제로 파일을 적용하는 첫 릴리스**다. 1.1.3.12 = product classpath 의 1.1.3 마지막 파일(`V1_1_3_012`); SQL 레포 V013 은 `admin_db` 라 product 와 무관.
+- **prod 에서 Flyway 가 실제로 적용하는 첫 파일은 LUT-666 핫픽스의 `gamification/V1_1_3_013`** 이다(2026-10-29 작성, `main` 핫픽스 → 운영 배포 때 자동 적용). 원래 계획은 v1.1.4 였다. 1.1.3.12 = product classpath 의 1.1.3 마지막 파일(`V1_1_3_012`); SQL 레포 V013 은 `admin_db` 라 product 와 무관.
 - dev 서버는 `develop`·`epic/**` push 로 배포된다(`gradle-dev.yml`) — 같은 dev DB 에 여러 브랜치가 번갈아 기동한다는 뜻이므로 3절의 번호 규칙을 지킬 것.
 
 ## 5. Flyway 에 넣을 것 / SQL 레포에 둘 것

@@ -99,4 +99,11 @@ public class DiamondBundlePurchase extends LocalDateTimeBaseEntity {
     @Column(name = "refunded_at")
     @Comment("환불 처리 일시 (LUT-401, 자동 감지는 후속 범위)")
     private LocalDateTime refundedAt;
+
+    /** LUT-666: 스토어 테스트 결제(iOS Sandbox·Google purchaseType=0) — KPI 매출·결제 유저에서 제외 */
+    @NotNull
+    @Column(name = "test_purchase", nullable = false)
+    @Comment("스토어 테스트 결제 여부 — iOS Sandbox·Google 테스트 구매 (LUT-666)")
+    @Builder.Default
+    private Boolean testPurchase = false;
 }

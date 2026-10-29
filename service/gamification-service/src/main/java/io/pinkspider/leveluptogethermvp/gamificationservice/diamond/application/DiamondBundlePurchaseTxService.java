@@ -41,6 +41,7 @@ public class DiamondBundlePurchaseTxService {
                         .diamondCount(bundle.getDiamondCount())
                         .priceAmount(verification.priceAmount())
                         .priceCurrency(verification.priceCurrency())
+                        .testPurchase(verification.testPurchase())
                         .build());
 
         return diamondService.grantPinkDiamonds(

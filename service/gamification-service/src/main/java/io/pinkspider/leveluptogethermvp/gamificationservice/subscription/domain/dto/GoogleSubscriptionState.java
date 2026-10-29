@@ -19,6 +19,7 @@ import java.time.LocalDateTime;
  * @param latestOrderId LUT-499: 최신 결제 주문 ID(GPA.xxxx) — 결제 이력의 거래 ID. 없으면 null
  * @param obfuscatedExternalAccountId LUT-507: 결제 시 앱이 실은 obfuscatedAccountId(= 앱 계정 토큰) — 실제 결제 계정
  *     판정용. 없으면 null
+ * @param testPurchase LUT-666: 응답에 {@code testPurchase} 가 있으면 true — 라이선스 테스터 결제(실매출 아님)
  */
 public record GoogleSubscriptionState(
         String productId,
@@ -30,7 +31,34 @@ public record GoogleSubscriptionState(
         String subscriptionState,
         String linkedPurchaseToken,
         String latestOrderId,
-        String obfuscatedExternalAccountId) {
+        String obfuscatedExternalAccountId,
+        boolean testPurchase) {
+
+    /** LUT-666 이전 시그니처 유지 — 테스트 결제 여부 미확보 경로용(실결제로 본다) */
+    public GoogleSubscriptionState(
+            String productId,
+            String basePlanId,
+            LocalDateTime startedAt,
+            LocalDateTime expiresAt,
+            boolean autoRenew,
+            boolean trial,
+            String subscriptionState,
+            String linkedPurchaseToken,
+            String latestOrderId,
+            String obfuscatedExternalAccountId) {
+        this(
+                productId,
+                basePlanId,
+                startedAt,
+                expiresAt,
+                autoRenew,
+                trial,
+                subscriptionState,
+                linkedPurchaseToken,
+                latestOrderId,
+                obfuscatedExternalAccountId,
+                false);
+    }
 
     /** LUT-507 이전 시그니처 유지 — 앱 계정 토큰 미확보 경로용 */
     public GoogleSubscriptionState(

@@ -21,6 +21,9 @@ import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
  *
  * <p>매출은 <b>금액 출처가 있는 행만</b> 합산한다(`price_source IS NOT NULL`, LUT-600). 금액 미상(Android 테스터 등)은 제외.
  * 환불은 음수.
+ *
+ * <p>LUT-666: 스토어 테스트 결제(`test_purchase = TRUE` — iOS Sandbox·TestFlight, Google 라이선스 테스터)는 구독
+ * 건수·활성 구독·매출·결제 유저 <b>모든</b> 지표에서 제외한다. 운영에 기록된 결제가 전부 테스터 결제였던 사고(2026-10-29)의 재발 방지.
  */
 public class GamificationSourceReader {
 
@@ -32,25 +35,29 @@ public class GamificationSourceReader {
 
     static final String COUNT_PAYMENT_EVENTS =
             "SELECT event_type, trial, COUNT(*) AS cnt FROM subscription_payment_history WHERE"
-                    + " occurred_at >= :from AND occurred_at < :to GROUP BY event_type, trial";
+                    + " occurred_at >= :from AND occurred_at < :to AND test_purchase = FALSE"
+                    + " GROUP BY event_type, trial";
     static final String COUNT_TRIAL_CONVERSIONS =
             "SELECT COUNT(*) FROM subscription_payment_history r WHERE r.event_type = 'RENEWAL' AND"
-                + " r.trial = FALSE AND r.occurred_at >= :from AND r.occurred_at < :to AND EXISTS"
-                + " (SELECT 1 FROM subscription_payment_history p   WHERE p.user_id = r.user_id AND"
-                + " p.event_type = 'PURCHASE' AND p.trial = TRUE   AND p.occurred_at <"
-                + " r.occurred_at) AND NOT EXISTS (SELECT 1 FROM subscription_payment_history x  "
-                + " WHERE x.user_id = r.user_id AND x.event_type = 'RENEWAL' AND x.trial = FALSE  "
-                + " AND x.occurred_at < r.occurred_at)";
+                + " r.trial = FALSE AND r.test_purchase = FALSE AND r.occurred_at >= :from AND"
+                + " r.occurred_at < :to AND EXISTS (SELECT 1 FROM subscription_payment_history p  "
+                + " WHERE p.user_id = r.user_id AND p.event_type = 'PURCHASE' AND p.trial = TRUE"
+                + " AND p.test_purchase = FALSE AND p.occurred_at < r.occurred_at) AND NOT EXISTS"
+                + " (SELECT 1 FROM subscription_payment_history x   WHERE x.user_id = r.user_id AND"
+                + " x.event_type = 'RENEWAL' AND x.trial = FALSE   AND x.test_purchase = FALSE AND"
+                + " x.occurred_at < r.occurred_at)";
     static final String COUNT_ACTIVE_SUBSCRIPTIONS =
-            "SELECT COUNT(*) FROM user_subscription WHERE expires_at > :asOf OR"
-                    + " (grace_period_expires_at IS NOT NULL AND grace_period_expires_at > :asOf)";
+            "SELECT COUNT(*) FROM user_subscription WHERE test_purchase = FALSE AND (expires_at >"
+                    + " :asOf OR (grace_period_expires_at IS NOT NULL AND grace_period_expires_at >"
+                    + " :asOf))";
     static final String COUNT_EXPIRED_NOT_RENEWED =
             "SELECT COUNT(*) FROM user_subscription WHERE expires_at >= :from AND expires_at < :to"
-                    + " AND (grace_period_expires_at IS NULL OR grace_period_expires_at < :to)";
+                    + " AND (grace_period_expires_at IS NULL OR grace_period_expires_at < :to)"
+                    + " AND test_purchase = FALSE";
 
     static final String REVENUE_FILTER =
             " AND price_amount IS NOT NULL AND price_currency IS NOT NULL AND price_source IS NOT"
-                    + " NULL";
+                    + " NULL AND test_purchase = FALSE";
     static final String SUBSCRIPTION_REVENUE_BY_CURRENCY =
             "SELECT price_currency AS currency, SUM(CASE WHEN event_type = 'REFUND' THEN"
                 + " -price_amount ELSE price_amount END) AS amount FROM"
@@ -66,11 +73,11 @@ public class GamificationSourceReader {
             "SELECT price_currency AS currency, SUM(price_amount) AS amount FROM"
                     + " diamond_bundle_purchase WHERE created_at >= :from AND created_at < :to AND"
                     + " status = 'PAID' AND price_amount IS NOT NULL AND price_currency IS NOT NULL"
-                    + " GROUP BY price_currency";
+                    + " AND test_purchase = FALSE GROUP BY price_currency";
     static final String DIAMOND_PAYING_USERS =
-            "SELECT DISTINCT user_id FROM diamond_bundle_purchase"
-                    + " WHERE created_at >= :from AND created_at < :to AND status = 'PAID'"
-                    + " AND price_amount > 0 AND price_currency IS NOT NULL";
+            "SELECT DISTINCT user_id FROM diamond_bundle_purchase WHERE created_at >= :from AND"
+                + " created_at < :to AND status = 'PAID' AND price_amount > 0 AND price_currency IS"
+                + " NOT NULL AND test_purchase = FALSE";
 
     static final String COHORT_SUBSCRIPTION_KRW =
             "SELECT COALESCE(SUM(CASE WHEN event_type = 'REFUND' THEN -price_amount ELSE"
@@ -84,11 +91,11 @@ public class GamificationSourceReader {
     static final String COHORT_DIAMOND_KRW =
             "SELECT COALESCE(SUM(price_amount), 0) FROM diamond_bundle_purchase WHERE user_id IN"
                 + " (:ids) AND created_at < :cutoff AND status = 'PAID' AND price_currency = 'KRW'"
-                + " AND price_amount IS NOT NULL";
+                + " AND price_amount IS NOT NULL AND test_purchase = FALSE";
     static final String COHORT_DIAMOND_PAYING =
             "SELECT DISTINCT user_id FROM diamond_bundle_purchase WHERE user_id IN (:ids)"
                     + " AND created_at < :cutoff AND status = 'PAID' AND price_amount > 0"
-                    + " AND price_currency IS NOT NULL";
+                    + " AND price_currency IS NOT NULL AND test_purchase = FALSE";
 
     private final NamedParameterJdbcTemplate jdbc;
 

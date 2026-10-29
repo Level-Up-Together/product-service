@@ -66,6 +66,8 @@ public class SubscriptionPaymentHistoryRecorder {
                         .priceAmount(price.amount())
                         .priceCurrency(price.currency())
                         .priceSource(price.source())
+                        // LUT-666: 테스트 결제 여부는 구매(구독 행)의 성질 — 호출자가 기록 직전에 최신 환경으로 맞춘다
+                        .testPurchase(Boolean.TRUE.equals(subscription.getTestPurchase()))
                         .transactionId(transactionId)
                         .expiresAt(expiresAt)
                         .occurredAt(occurredAt)

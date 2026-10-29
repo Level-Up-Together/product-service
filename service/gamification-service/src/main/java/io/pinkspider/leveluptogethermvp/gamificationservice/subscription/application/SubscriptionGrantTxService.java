@@ -60,6 +60,7 @@ public class SubscriptionGrantTxService {
                                     .trialUsed(result.trial())
                                     .originalTransactionId(result.originalTransactionId())
                                     .purchaseToken(result.purchaseToken())
+                                    .testPurchase(result.testPurchase())
                                     .build());
             // LUT-486: 최초 구매(행 신설) = PURCHASE 결제 이력
             paymentHistoryRecorder.record(
@@ -99,6 +100,8 @@ public class SubscriptionGrantTxService {
         if (result.purchaseToken() != null) {
             subscription.setPurchaseToken(result.purchaseToken());
         }
+        // LUT-666: 새 결제의 환경으로 갱신 — 같은 유저가 테스트 구독 뒤 실제 구독을 하면 실결제로 돌아온다
+        subscription.setTestPurchase(result.testPurchase());
         // LUT-486: 만료 엄격 연장 = 갱신 결제 이력 (웹훅과 이중 도착해도 늦은 쪽은 위 멱등 가드에서 걸러짐)
         paymentHistoryRecorder.record(
                 subscription,

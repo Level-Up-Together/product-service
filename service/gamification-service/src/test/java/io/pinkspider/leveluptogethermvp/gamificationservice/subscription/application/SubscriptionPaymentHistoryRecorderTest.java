@@ -88,6 +88,8 @@ class SubscriptionPaymentHistoryRecorderTest {
         assertThat(saved.getTransactionId()).isEqualTo("tx-1001");
         assertThat(saved.getExpiresAt()).isEqualTo(NOW.plusMonths(1));
         assertThat(saved.getOccurredAt()).isEqualTo(NOW);
+        // LUT-666: 실결제 구독이면 테스트 결제 아님
+        assertThat(saved.getTestPurchase()).isFalse();
     }
 
     @Test
@@ -136,5 +138,38 @@ class SubscriptionPaymentHistoryRecorderTest {
                 NOW);
 
         verify(repository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("LUT-666: 구독 행이 테스트 결제(Sandbox·라이선스 테스터)면 이력도 테스트 결제로 저장한다")
+    void recordCopiesTestPurchase() {
+        when(repository.existsByUserIdAndEventTypeAndExpiresAt(
+                        "user-1", SubscriptionPaymentEventType.RENEWAL, NOW.plusDays(1)))
+                .thenReturn(false);
+        when(priceResolver.resolve(
+                        new BigDecimal("4900.00"),
+                        "KRW",
+                        false,
+                        SubscriptionPlan.MONTHLY,
+                        "ios",
+                        NOW.toLocalDate()))
+                .thenReturn(new ResolvedPrice(new BigDecimal("4900.00"), "KRW", PriceSource.STORE));
+        UserSubscription sandbox = subscription();
+        sandbox.setTestPurchase(true);
+
+        recorder.record(
+                sandbox,
+                SubscriptionPaymentEventType.RENEWAL,
+                false,
+                new BigDecimal("4900.00"),
+                "KRW",
+                "tx-1002",
+                NOW.plusDays(1),
+                NOW);
+
+        ArgumentCaptor<SubscriptionPaymentHistory> captor =
+                ArgumentCaptor.forClass(SubscriptionPaymentHistory.class);
+        verify(repository).save(captor.capture());
+        assertThat(captor.getValue().getTestPurchase()).isTrue();
     }
 }
