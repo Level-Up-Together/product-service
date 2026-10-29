@@ -21,7 +21,7 @@ io.pinkspider.global.saga/
 └── SagaEventPublisher.java       - 이벤트 발행
 ```
 
-Saga 실행 상태는 DB 에 저장하지 않는다(`SagaExecutionLog` 는 메모리 목록). `saga_db`·`SagaInstance`·`SagaStepLog` 는 한 번도 쓰이지 않아 2026-10-29 정리 결정(ADR-003).
+Saga 실행 상태는 DB 에 저장하지 않는다(`SagaExecutionLog` 는 메모리 목록). `saga_db`·`SagaInstance`·`SagaStepLog` 는 한 번도 쓰이지 않아 2026-10-29 삭제(ADR-003·LUT-665).
 
 ## 기존 Saga 예시: Mission Completion
 

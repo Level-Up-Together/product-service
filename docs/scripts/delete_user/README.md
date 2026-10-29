@@ -191,7 +191,7 @@ PGPASSWORD=... psql -h <db-host> -U lut -d feed_db \
 
 ## 향후 개선 아이디어
 
-- [x] ~~saga_db `saga_instance.payload` JSON에 user_id가 들어있을 가능성~~ — saga_db 는 dev·prod 모두 0행·미사용(2026-10-29 확인), 정리 결정(ADR-003)
+- [x] ~~saga_db `saga_instance.payload` JSON에 user_id가 들어있을 가능성~~ — saga_db 는 dev·prod 모두 0행·미사용이라 2026-10-29 삭제(ADR-003·LUT-665)
 - [ ] `content_report` 처리 정책 (마스킹 vs 삭제) 결정 후 옵션 추가
 - [ ] Redis 키 정리를 스크립트에 통합 (`--cleanup-cache` 옵션)
 - [ ] 삭제 이력을 audit log 테이블에 기록 (감사용)

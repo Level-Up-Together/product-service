@@ -426,3 +426,5 @@ kafkaTemplate.send("user-service.grant-exp.command", command);
 - 실제 MSA 전환 때는 실행 이력 표보다 서비스 사이 메시지 전달(outbox·브로커)과 재시도 설계가 먼저다. 그때 Saga 상태 저장을 함께 다시 설계한다.
 
 **정리 범위:** product 테스트 설정·문서, platform `saga/persistence`·`SagaDataSourceProperties`, config-repository `spring.datasource.saga`, dev·prod `saga_db`(백업 후 삭제).
+
+**완료 (2026-10-29, LUT-665):** dev·prod `saga_db` 를 `pg_dump` 백업 후 `DROP DATABASE`(SQL 레포 `queries/developing/1.1.4/drop_saga_db.sh`). platform 클래스 삭제는 v1.1.4 platform 릴리스에 포함.

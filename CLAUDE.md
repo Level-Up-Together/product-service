@@ -49,7 +49,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
   GuildQueryFacade, GamificationQueryFacade, MissionQueryFacade)
 - `infra` — RedisConfig, JpaAuditingConfig, QueryDslConfig, JwtAuthenticationFilter, RestExceptionHandler,
   CryptoConverter
-- `saga` — SagaOrchestrator, AbstractSagaStep (실행 로그는 메모리에만 — `saga_db` 미사용, ADR-003 2026-10-29 갱신)
+- `saga` — SagaOrchestrator, AbstractSagaStep (실행 로그는 메모리에만 — `saga_db` 는 2026-10-29 삭제, ADR-003·LUT-665)
 
 ### Service Modules
 
@@ -474,7 +474,7 @@ public void run() { ...}
 미션 완료 등 다단계 비즈니스 로직은 `AbstractSagaStep<Context>` 상속하여 `executeInternal` / `compensateInternal`(보상 트랜잭션) 구현. 오케스트레이터는
 `missionservice/saga/MissionCompletionSaga.java` 참고 — Regular/Pinned 분기 + 10단계 step. 새 step 추가 시 `getStepName()`, 보상 로직,
 멱등성 고려 필수. 각 step 은 자기 서비스 트랜잭션 매니저로 따로 커밋한다.
-**Saga 실행 상태는 DB 에 저장하지 않는다**(오케스트레이터 메모리 로그만, `saga_db` 는 한 번도 쓰이지 않아 2026-10-29 정리 결정 — ADR-003).
+**Saga 실행 상태는 DB 에 저장하지 않는다**(오케스트레이터 메모리 로그만, `saga_db` 는 한 번도 쓰이지 않아 2026-10-29 dev·prod 삭제 — ADR-003·LUT-665).
 그래서 요청 처리 중 서버가 종료되면 일부 step 만 반영된 채 남고 복구 기록이 없다 — 긴 작업·외부 호출을 필수 step 에 넣지 말 것.
 
 ## 상점 · 다이아 경제 (gamificationservice/shop, LUT-327/348/349/350/354/356/401)
