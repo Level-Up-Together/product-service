@@ -125,8 +125,3 @@ Authorization: Bearer {{accessToken}}
 Accept: application/json
 Accept-Language: ko
 
-### ----------------------------------------------------------
-### 시즌 캐시 삭제 (내부용)
-### ----------------------------------------------------------
-DELETE {{baseUrl}}/api/v1/bff/season/cache
-Accept: application/json

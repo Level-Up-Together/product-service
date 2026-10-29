@@ -2,6 +2,7 @@ package io.pinkspider.leveluptogethermvp.userservice.oauth.api;
 
 import static com.epages.restdocs.apispec.ResourceDocumentation.headerWithName;
 import static com.epages.restdocs.apispec.ResourceDocumentation.resource;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
@@ -26,6 +27,7 @@ import io.pinkspider.util.MockUtil;
 import java.util.List;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration;
 import org.springframework.boot.autoconfigure.jdbc.DataSourceTransactionManagerAutoConfiguration;
@@ -33,6 +35,8 @@ import org.springframework.boot.autoconfigure.orm.jpa.HibernateJpaAutoConfigurat
 import org.springframework.boot.test.autoconfigure.restdocs.AutoConfigureRestDocs;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+import org.springframework.boot.test.system.CapturedOutput;
+import org.springframework.boot.test.system.OutputCaptureExtension;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.HttpHeaders;
 import org.springframework.restdocs.mockmvc.RestDocumentationRequestBuilders;
@@ -624,5 +628,28 @@ class Oauth2ControllerTest {
                                 .contentType("application/json;charset=UTF-8")
                                 .content(objectMapper.writeValueAsString(requestDto)))
                 .andExpect(MockMvcResultMatchers.status().isBadRequest());
+    }
+
+    @Test
+    @ExtendWith(OutputCaptureExtension.class)
+    @DisplayName("LUT-652: 콜백의 인가 code·id_token 은 로그에 남기지 않는다 (공급자만 기록)")
+    void createJwt_doesNotLogCodeOrIdToken(CapturedOutput output) throws Exception {
+        when(oauth2Service.createJwt(any(), any(), any(), any(), any(), any()))
+                .thenReturn(
+                        SocialLoginResponseDto.existingUser(
+                                MockUtil.readJsonFileToClass(
+                                        "fixture/userservice/oauth/mockCreateJwtResponseDto.json",
+                                        CreateJwtResponseDto.class)));
+
+        mockMvc.perform(
+                        RestDocumentationRequestBuilders.get("/oauth/callback/{provider}", "kakao")
+                                .param("code", "LUT652-SECRET-CODE")
+                                .param("id_token", "LUT652-SECRET-ID-TOKEN"))
+                .andExpect(MockMvcResultMatchers.status().isOk());
+
+        // 같은 로거의 INFO 가 실제로 찍히는 환경임을 먼저 확인 — 아니면 아래 단언이 무의미하다
+        assertThat(output).contains("provider=kakao");
+        assertThat(output).doesNotContain("LUT652-SECRET-CODE");
+        assertThat(output).doesNotContain("LUT652-SECRET-ID-TOKEN");
     }
 }

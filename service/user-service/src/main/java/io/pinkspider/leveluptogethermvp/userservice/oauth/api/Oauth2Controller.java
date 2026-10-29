@@ -61,9 +61,8 @@ public class Oauth2Controller {
             HttpServletRequest httpRequest)
             throws Exception {
 
+        // LUT-652: 인가 code·id_token(개인정보 담긴 서명 JWT)은 로그에 남기지 않는다 — 공급자만 기록
         log.info("provider={}", provider);
-        log.info("code={}", code);
-        log.info("id_token={}", idToken);
 
         SocialLoginResponseDto response =
                 oauth2Service.createJwt(httpRequest, provider, code, deviceType, deviceId, idToken);
