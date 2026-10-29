@@ -8,9 +8,16 @@ import javax.net.ssl.SSLContext;
 import javax.net.ssl.TrustManager;
 import javax.net.ssl.X509TrustManager;
 import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Profile;
 
-@Configuration
+/**
+ * admin-internal-client 전용 설정 — {@code @FeignClient(configuration = ...)} 로만 참조한다.
+ *
+ * <p>LUT-648: 예전엔 {@code @Configuration} 이 붙어 부모 컨텍스트에 등록되는 바람에 아래 trust-all {@link Client}·{@link
+ * Retryer} 가 자기 Client 가 없는 모든 Feign 클라이언트(카카오·애플·구글 번역)에 전역 적용됐다 — 외부 호출의 TLS 인증서·호스트 검증이 꺼지고, 멱등이
+ * 아닌 호출(카카오 unlink 등)도 재시도됐다. {@code @Configuration} 금지 규칙은 LUT-571, 가드는
+ * FeignClientConfigIsolationTest·FeignClientConfigScopeIntegrationTest.
+ */
 public class AdminInternalFeignConfig {
 
     @Bean
@@ -23,8 +30,12 @@ public class AdminInternalFeignConfig {
         return new Retryer.Default(1000, 2000, 3);
     }
 
-    /** 자체 서명 SSL 인증서를 허용하는 Feign Client 설정 로컬/개발 환경에서 HTTPS 호출을 위해 필요 */
+    /**
+     * 인증서·호스트 검증을 끈 Client — local 프로필 전용. dev(Sectigo)·prod(ACM, admin-api.level-up-together.com)는
+     * 정식 인증서라 기본 Client 로 검증한다(LUT-648 확인 2026-10-30). local 의 admin(:8444)만 자체 서명일 수 있어 남긴다.
+     */
     @Bean
+    @Profile("local")
     public Client adminInternalFeignClient() {
         try {
             TrustManager[] trustManagers =
