@@ -43,7 +43,7 @@ maxTurns: 30
 | gamificationservice | gamification_db | `gamification` | `gamificationTransactionManager` |
 | statsservice | stats_db | `stats` | `statsTransactionManager` |
 
-bffservice · noticeservice · supportservice 는 자체 DB 가 없다. `saga_db` 는 쓰지 않는다(Saga 실행 로그는 메모리만, 2026-10-29 정리 결정 — ADR-003).
+bffservice · noticeservice · supportservice 는 자체 DB 가 없다. `saga_db` 는 없다(한 번도 쓰이지 않아 2026-10-29 dev·prod 삭제, LUT-665 — Saga 실행 로그는 메모리만, ADR-003).
 
 ## 분석 절차
 
