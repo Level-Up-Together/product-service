@@ -180,4 +180,31 @@ class GamificationSourceReaderTest {
         assertThat(r.amountOf("KRW")).isEqualByComparingTo("9800.00");
         assertThat(r.payingUserIds()).containsExactlyInAnyOrder("u1", "u4");
     }
+
+    @Test
+    @DisplayName("LUT-666: 구독·다이아 집계 SQL 은 전부 스토어 테스트 결제를 뺀다 — 새 쿼리를 추가할 때도 이 목록에 넣을 것")
+    void paymentQueriesExcludeTestPurchases() {
+        assertThat(
+                        List.of(
+                                GamificationSourceReader.COUNT_PAYMENT_EVENTS,
+                                GamificationSourceReader.COUNT_ACTIVE_SUBSCRIPTIONS,
+                                GamificationSourceReader.COUNT_EXPIRED_NOT_RENEWED,
+                                GamificationSourceReader.SUBSCRIPTION_REVENUE_BY_CURRENCY,
+                                GamificationSourceReader.SUBSCRIPTION_PAYING_USERS,
+                                GamificationSourceReader.DIAMOND_REVENUE_BY_CURRENCY,
+                                GamificationSourceReader.DIAMOND_PAYING_USERS,
+                                GamificationSourceReader.COHORT_SUBSCRIPTION_KRW,
+                                GamificationSourceReader.COHORT_SUBSCRIPTION_PAYING,
+                                GamificationSourceReader.COHORT_DIAMOND_KRW,
+                                GamificationSourceReader.COHORT_DIAMOND_PAYING))
+                .allSatisfy(sql -> assertThat(sql).contains("test_purchase = FALSE"));
+        // 체험→유료 전환은 갱신 행(r)·체험 구매(p)·이전 갱신(x) 모두 실결제만 본다
+        assertThat(GamificationSourceReader.COUNT_TRIAL_CONVERSIONS)
+                .contains("r.test_purchase = FALSE")
+                .contains("p.test_purchase = FALSE")
+                .contains("x.test_purchase = FALSE");
+        // 활성 구독의 OR 조건이 테스트 결제 제외를 우회하지 않게 괄호로 묶는다
+        assertThat(GamificationSourceReader.COUNT_ACTIVE_SUBSCRIPTIONS)
+                .contains("WHERE test_purchase = FALSE AND (");
+    }
 }

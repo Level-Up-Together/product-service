@@ -169,7 +169,16 @@ public class IapVerificationService {
                         ? payload.getTransactionId()
                         : request.getTransactionId();
         return new IapVerificationResult(
-                transactionId, applePriceToDecimal(payload.getPrice()), payload.getCurrency());
+                transactionId,
+                applePriceToDecimal(payload.getPrice()),
+                payload.getCurrency(),
+                isAppleTestEnvironment(payload));
+    }
+
+    /** LUT-666: 운영 App Store 결제가 아닌지(Sandbox·Xcode·로컬 테스트). 환경을 모르면 실결제로 본다 */
+    static boolean isAppleTestEnvironment(JWSTransactionDecodedPayload payload) {
+        return payload.getEnvironment() != null
+                && payload.getEnvironment() != Environment.PRODUCTION;
     }
 
     /**
@@ -247,13 +256,17 @@ public class IapVerificationService {
                     signedDataVerifier(sandbox)
                             .verifyAndDecodeTransaction(info.getSignedTransactionInfo());
             return new IapVerificationResult(
-                    transactionId, applePriceToDecimal(payload.getPrice()), payload.getCurrency());
+                    transactionId,
+                    applePriceToDecimal(payload.getPrice()),
+                    payload.getCurrency(),
+                    sandbox || isAppleTestEnvironment(payload));
         } catch (Exception e) {
             log.warn(
                     "App Store Server API 가격 조회 실패, 가격 없이 진행: transactionId={}, error={}",
                     transactionId,
                     e.getMessage());
-            return IapVerificationResult.withoutPrice(transactionId);
+            // LUT-666: 가격은 못 얻어도 샌드박스 영수증(21007 재시도)이면 테스트 결제다
+            return IapVerificationResult.withoutPrice(transactionId, sandbox);
         }
     }
 
@@ -375,8 +388,10 @@ public class IapVerificationService {
                     json.hasNonNull("priceCurrencyCode")
                             ? json.path("priceCurrencyCode").asText()
                             : null;
+            // LUT-666: purchaseType 0 = 라이선스 테스터 테스트 구매(실결제엔 필드 없음, 1 프로모션·2 보상형)
+            boolean testPurchase = json.path("purchaseType").asInt(-1) == 0;
             return new IapVerificationResult(
-                    request.getPurchaseToken(), priceAmount, priceCurrency);
+                    request.getPurchaseToken(), priceAmount, priceCurrency, testPurchase);
         } catch (CustomException e) {
             throw e;
         } catch (Exception e) {

@@ -12,6 +12,7 @@ import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.apple.itunes.storekit.model.Environment;
 import com.apple.itunes.storekit.model.JWSTransactionDecodedPayload;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -118,7 +119,9 @@ class IapVerificationServiceTest {
                             "{\"status\":0,\"receipt\":{\"in_app\":["
                                 + "{\"product_id\":\"pink_100\",\"transaction_id\":\"tx-001\"}]}}");
 
-            assertThat(svc.verify(iosRequest()).transactionId()).isEqualTo("tx-001");
+            IapVerificationResult result = svc.verify(iosRequest());
+            assertThat(result.transactionId()).isEqualTo("tx-001");
+            assertThat(result.testPurchase()).isFalse();
         }
 
         @Test
@@ -134,7 +137,10 @@ class IapVerificationServiceTest {
                             "{\"status\":0,\"receipt\":{\"in_app\":["
                                 + "{\"product_id\":\"pink_100\",\"transaction_id\":\"tx-001\"}]}}");
 
-            assertThat(svc.verify(iosRequest()).transactionId()).isEqualTo("tx-001");
+            IapVerificationResult result = svc.verify(iosRequest());
+            assertThat(result.transactionId()).isEqualTo("tx-001");
+            // LUT-666: 샌드박스 영수증은 가격 조회가 실패해도 테스트 결제로 표시한다
+            assertThat(result.testPurchase()).isTrue();
         }
 
         @Test
@@ -217,7 +223,25 @@ class IapVerificationServiceTest {
                 assertThat(result.transactionId()).isEqualTo("tx-001");
                 assertThat(result.priceAmount()).isEqualByComparingTo("1.99");
                 assertThat(result.priceCurrency()).isEqualTo("USD");
+                assertThat(result.testPurchase()).isFalse();
                 verify(rest, never()).postForObject(any(String.class), any(), eq(String.class));
+            }
+
+            @Test
+            @DisplayName("LUT-666: Sandbox(TestFlight) 트랜잭션은 테스트 결제, Production 은 실결제")
+            void receiptless_environment_marksTestPurchase() {
+                IapVerificationService svc = spy(service(true));
+                svc.setRestTemplate(mock(RestTemplate.class));
+
+                doReturn(payload().environment(Environment.SANDBOX))
+                        .when(svc)
+                        .fetchAppleTransaction("tx-001");
+                assertThat(svc.verify(receiptlessRequest()).testPurchase()).isTrue();
+
+                doReturn(payload().environment(Environment.PRODUCTION))
+                        .when(svc)
+                        .fetchAppleTransaction("tx-001");
+                assertThat(svc.verify(receiptlessRequest()).testPurchase()).isFalse();
             }
 
             @Test
@@ -357,6 +381,39 @@ class IapVerificationServiceTest {
             assertThat(result.transactionId()).isEqualTo("token-001");
             assertThat(result.priceAmount()).isEqualByComparingTo(new BigDecimal("1.990000"));
             assertThat(result.priceCurrency()).isEqualTo("USD");
+            // LUT-666: purchaseType 이 없으면 실결제
+            assertThat(result.testPurchase()).isFalse();
+        }
+
+        @Test
+        @DisplayName("LUT-666: purchaseType 0(라이선스 테스터)은 테스트 결제, 1(프로모션)은 실결제로 본다")
+        void google_purchaseType_marksTestPurchase() throws Exception {
+            IapVerificationService svc =
+                    new IapVerificationService(
+                            true,
+                            APPLE_URL,
+                            APPLE_SANDBOX_URL,
+                            "io.pinkspider.lut",
+                            writeFakeServiceAccountJson().toString(),
+                            new IapAppleProperties());
+            RestTemplate rest = mock(RestTemplate.class);
+            svc.setRestTemplate(rest);
+            when(rest.postForObject(
+                            eq("https://oauth2.googleapis.com/token"), any(), eq(String.class)))
+                    .thenReturn("{\"access_token\":\"fake-token\"}");
+            when(rest.exchange(
+                            contains("/purchases/products/pink_100/tokens/token-001"),
+                            eq(org.springframework.http.HttpMethod.GET),
+                            any(),
+                            eq(String.class)))
+                    .thenReturn(
+                            org.springframework.http.ResponseEntity.ok(
+                                    "{\"purchaseState\":0,\"purchaseType\":0}"),
+                            org.springframework.http.ResponseEntity.ok(
+                                    "{\"purchaseState\":0,\"purchaseType\":1}"));
+
+            assertThat(svc.verify(androidRequest()).testPurchase()).isTrue();
+            assertThat(svc.verify(androidRequest()).testPurchase()).isFalse();
         }
 
         @Test

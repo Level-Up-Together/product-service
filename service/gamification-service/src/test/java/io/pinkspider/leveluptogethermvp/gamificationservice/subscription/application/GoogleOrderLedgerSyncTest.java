@@ -199,10 +199,34 @@ class GoogleOrderLedgerSyncTest {
             assertThat(rows.get(0).getPriceSource()).isEqualTo(PriceSource.STORE);
             assertThat(rows.get(0).getPriceAmount()).isEqualByComparingTo("4900.00");
             assertThat(rows.get(0).getTrial()).isFalse();
+            // LUT-666: 실결제 구독이면 백필 행도 테스트 결제 아님
+            assertThat(rows)
+                    .extracting(SubscriptionPaymentHistory::getTestPurchase)
+                    .containsOnly(false);
             verify(verificationService, never()).fetchGoogleOrder(BASE + "..1");
             verify(recorder, never())
                     .record(any(), any(), anyBoolean(), any(), any(), any(), any(), any());
             verify(metrics).ledgerRowsWritten("rtdn", 4);
+        }
+
+        @Test
+        @DisplayName("LUT-666: 라이선스 테스터 구독이면 백필하는 행도 테스트 결제로 저장한다")
+        void backfillCopiesTestPurchase() {
+            sub.setTestPurchase(true);
+            when(repository.findByUserIdAndTransactionIdStartingWith("user-1", BASE))
+                    .thenReturn(List.of(row(BASE, T0.plusMinutes(5), T0)));
+            when(verificationService.fetchGoogleOrder(BASE + "..1"))
+                    .thenReturn(Optional.of(order(1)));
+
+            int written =
+                    sync.syncRenewals(
+                            sub, BASE + "..1", false, T0.plusMinutes(10), T0.plusHours(1), false);
+
+            assertThat(written).isEqualTo(1);
+            ArgumentCaptor<SubscriptionPaymentHistory> saved =
+                    ArgumentCaptor.forClass(SubscriptionPaymentHistory.class);
+            verify(repository).save(saved.capture());
+            assertThat(saved.getValue().getTestPurchase()).isTrue();
         }
 
         @Test

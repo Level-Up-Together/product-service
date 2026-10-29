@@ -122,11 +122,12 @@ user_db · gamification_db · mission_db ─ *SourceReader(JDBC 읽기 전용) �
 
 ### 3.4 제외 규칙 (코드 기준)
 
-| 지표 | `users.provider='test'` 제외 | `excluded-user-ids` 제외 |
-|---|---|---|
-| signups, withdrawals, active_users, 코호트 멤버(리텐션·매출 분모), 채널별 가입자 | O | X |
-| dau/wau/mau/dau_*, REQUEST 리텐션의 활동 | **X** | O |
-| attendance_dau, ATTENDANCE 리텐션, 미션, 구독, 매출 | X | X |
+| 지표 | `users.provider='test'` 제외 | `excluded-user-ids` 제외 | 스토어 테스트 결제(`test_purchase`) 제외 |
+|---|---|---|---|
+| signups, withdrawals, active_users, 코호트 멤버(리텐션·매출 분모), 채널별 가입자 | O | X | — |
+| dau/wau/mau/dau_*, REQUEST 리텐션의 활동 | **X** | O | — |
+| attendance_dau, ATTENDANCE 리텐션, 미션 | X | X | — |
+| 구독, 결제 유저, 매출(일별·코호트) | X | X | **O** (LUT-666) |
 
 - 테스트 로그인(`/api/test/**`) 호출 자체는 수집에서 빠진다. 하지만 그 토큰으로 이후 보낸 `/api/**` 요청은 DAU 에 들어간다. 그래서 봇·테스트 계정은 `excluded-user-ids` 에 등록해야 DAU 에서 빠진다.
 - `excluded-user-ids` 에 있는 유저도 코호트 멤버로는 남는다(REQUEST 리텐션 분모에는 포함, 활동은 0).
@@ -145,11 +146,12 @@ user_db · gamification_db · mission_db ─ *SourceReader(JDBC 읽기 전용) �
 | `trial_conversions` | D 의 비체험 `RENEWAL` 중, 그 유저에게 이전 체험 `PURCHASE` 가 있고 이전 비체험 `RENEWAL` 은 없는 건(체험 뒤 첫 유료 갱신) |
 | `active_subscriptions` | D 끝 기준 `user_subscription.expires_at` 또는 `grace_period_expires_at` 이 아직 안 지난 행 수 |
 | `churned_subscriptions` | `expires_at` ∈ D 이고 유예도 D 안에 끝난 행 + D 의 `REFUND` 건수 |
-| `paying_users` | 금액 > 0 인 결제를 한 고유 유저 수. 구독(비환불, `price_source` 있음) + 다이아(`PAID`) |
+| `paying_users` | 금액 > 0 인 결제를 한 고유 유저 수. 구독(비환불, `price_source` 있음) + 다이아(`PAID`). 테스트 결제 제외(아래) |
 | `revenue_krw` | 아래 매출 규칙의 KRW 합(소수 2자리) |
 | `revenue_by_currency` | 통화별 원본 합 JSON(통화 정렬) |
 
 - ⚠ `active_subscriptions`·`churned_subscriptions` 는 **현재** `user_subscription` 행으로 계산한다(`started_at` 조건 없음, 유저당 1행 덮어쓰기). 오래된 날짜를 rebuild 하면 그 뒤에 생긴 구독이 섞이거나 갱신된 만료가 반영돼 **과거 값이 근사치**가 된다. 당일 계산값을 정본으로 본다.
+- **스토어 테스트 결제 제외** (LUT-666): 위 표의 구독 지표(`new_subscriptions`~`churned_subscriptions`)·`paying_users`·매출·코호트 매출은 `test_purchase = FALSE` 인 행만 센다(`subscription_payment_history`·`user_subscription`·`diamond_bundle_purchase`). iOS Sandbox(TestFlight·샌드박스 계정)·Google 라이선스 테스터 결제가 여기에 해당한다. 판정 규칙은 `SUBSCRIPTION_IAP.md` §9. 새 결제 쿼리를 추가하면 `GamificationSourceReaderTest.paymentQueriesExcludeTestPurchases` 목록에도 넣는다. 2026-10-29 이전 운영 스냅샷의 매출(58,800원)·결제 유저는 전부 테스트 결제였다 — 핫픽스 배포·백필 뒤 rebuild 로 다시 계산한다.
 - **매출 규칙**
   - 구독: `price_amount`·`price_currency`·`price_source` 가 모두 NOT NULL 인 행만 더한다. `STORE`/`LIST`/`TRIAL(0)` 이 모두 포함된다. `REFUND` 는 음수다(환불 행 금액은 보통 정가 `LIST`. `SUBSCRIPTION_IAP.md` §9 참고).
   - 다이아: `status='PAID'` 이고 금액·통화가 있는 행만 더한다. 환불 차감은 없다(`REFUNDED` 전환 로직 자체가 없음).

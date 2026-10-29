@@ -437,4 +437,84 @@ class SubscriptionGrantTxServiceTest {
         assertThat(updated.getPurchaseToken()).isEqualTo("token-002");
         assertThat(updated.getPlan()).isEqualTo(SubscriptionPlan.ANNUAL);
     }
+
+    private SubscriptionVerificationResult iosResult(
+            LocalDateTime expiresAt, boolean trial, boolean testPurchase) {
+        return new SubscriptionVerificationResult(
+                "membership_1m",
+                null,
+                "orig-tx-001",
+                null,
+                NOW.minusMonths(1),
+                expiresAt,
+                true,
+                trial,
+                "tx-001",
+                null,
+                null,
+                null,
+                null,
+                testPurchase);
+    }
+
+    @Test
+    @DisplayName("LUT-666: 신규 행은 검증 결과의 테스트 결제 여부를 싣는다 (기본은 실결제)")
+    void insertNewRow_carriesTestPurchase() {
+        when(userSubscriptionRepository.findByOriginalTransactionId("orig-tx-001"))
+                .thenReturn(Optional.empty());
+        when(userSubscriptionRepository.findByUserId(USER_ID)).thenReturn(Optional.empty());
+        when(userSubscriptionRepository.saveAndFlush(any(UserSubscription.class)))
+                .thenAnswer(inv -> inv.getArgument(0));
+
+        UserSubscription sandbox =
+                grantTxService.upsert(
+                        USER_ID,
+                        SubscriptionPlan.MONTHLY,
+                        "ios",
+                        iosResult(NOW.plusDays(1), false, true),
+                        NOW.plusDays(1),
+                        NOW);
+        assertThat(sandbox.getTestPurchase()).isTrue();
+
+        UserSubscription real =
+                grantTxService.upsert(
+                        USER_ID,
+                        SubscriptionPlan.MONTHLY,
+                        "ios",
+                        iosResult(NOW.plusMonths(1), false),
+                        NOW.plusMonths(1),
+                        NOW);
+        assertThat(real.getTestPurchase()).isFalse();
+    }
+
+    @Test
+    @DisplayName("LUT-666: 갱신(만료 연장) 때 새 결제의 환경으로 바꾼다 — 테스트 구독 뒤 실제 구독이면 실결제로 돌아온다")
+    void renewal_updatesTestPurchase() {
+        UserSubscription existing = existingRow(NOW.minusDays(1));
+        existing.setTestPurchase(true);
+        when(userSubscriptionRepository.findByOriginalTransactionId("orig-tx-001"))
+                .thenReturn(Optional.of(existing));
+        when(userSubscriptionRepository.findByUserId(USER_ID)).thenReturn(Optional.of(existing));
+
+        UserSubscription result =
+                grantTxService.upsert(
+                        USER_ID,
+                        SubscriptionPlan.MONTHLY,
+                        "ios",
+                        iosResult(NOW.plusMonths(1), false, false),
+                        NOW.plusMonths(1),
+                        NOW);
+
+        assertThat(result.getTestPurchase()).isFalse();
+        verify(paymentHistoryRecorder)
+                .record(
+                        eq(existing),
+                        eq(SubscriptionPaymentEventType.RENEWAL),
+                        eq(false),
+                        any(),
+                        any(),
+                        any(),
+                        eq(NOW.plusMonths(1)),
+                        eq(NOW));
+    }
 }

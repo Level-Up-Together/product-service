@@ -72,6 +72,7 @@ public class SubscriptionWebhookTxService {
                 && transferToPayerIfNeeded(subscription, transaction, renewalInfo)) {
             return;
         }
+        applyAppleEnvironment(subscription, transaction);
         switch (type) {
                 // 구매·갱신·플랜 변경 반영·오퍼 적용 — 트랜잭션 기준으로 동기화
             case "SUBSCRIBED", "DID_RENEW", "OFFER_REDEEMED", "DID_CHANGE_RENEWAL_PREF" ->
@@ -161,6 +162,7 @@ public class SubscriptionWebhookTxService {
             return;
         }
         JWSTransactionDecodedPayload transaction = snapshot.transaction();
+        applyAppleEnvironment(subscription, transaction);
         if (transaction.getRevocationDate() != null) {
             LocalDateTime revokedAt =
                     SubscriptionVerificationService.toLocalDateTime(
@@ -266,8 +268,21 @@ public class SubscriptionWebhookTxService {
                         SubscriptionVerificationService.applePriceToDecimal(transaction.getPrice()),
                         transaction.getCurrency(),
                         null,
-                        token);
+                        token,
+                        SubscriptionVerificationService.isAppleTestEnvironment(transaction));
         return transferToPayer(subscription, payerUserId, "ios", result, expiresAt);
+    }
+
+    /**
+     * LUT-666: 트랜잭션 환경(Sandbox/Production)을 구독 행에 반영 — 이후 기록되는 결제 이력이 이 값을 복사한다. JWS 에 환경이 없으면(구
+     * payload) 기존 값을 유지한다.
+     */
+    private void applyAppleEnvironment(
+            UserSubscription subscription, JWSTransactionDecodedPayload transaction) {
+        if (transaction.getEnvironment() != null) {
+            subscription.setTestPurchase(
+                    SubscriptionVerificationService.isAppleTestEnvironment(transaction));
+        }
     }
 
     private boolean transferToPayer(
@@ -367,7 +382,8 @@ public class SubscriptionWebhookTxService {
                             null,
                             null,
                             state.linkedPurchaseToken(),
-                            state.obfuscatedExternalAccountId());
+                            state.obfuscatedExternalAccountId(),
+                            state.testPurchase());
             if (transferToPayer(subscription, payerUserId, "android", result, state.expiresAt())) {
                 return;
             }
@@ -387,6 +403,7 @@ public class SubscriptionWebhookTxService {
         // 위 소유권 이전 가드의 `expiresAt != null` 은 이전 판정용이지 여기 null 방어가 아니다.
         subscription.setExpiresAt(state.expiresAt());
         subscription.setAutoRenew(state.autoRenew());
+        subscription.setTestPurchase(state.testPurchase());
         if (state.isInGracePeriod()) {
             // Google 은 유예 종료 시각을 직접 주지 않는다 — expiryTime 이 유예를 반영한 값이라 그대로 쓴다
             subscription.enterGracePeriod(state.expiresAt());

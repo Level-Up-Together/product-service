@@ -49,6 +49,8 @@ public class SubscriptionLedgerReconcileService {
             throw new CustomException("120702", "error.iap.verification_failed");
         }
 
+        // LUT-666: 테스트 결제 여부는 권한이 아니라 구매의 성질 — 백필되는 행이 맞는 값을 갖도록 재조회 결과로 맞춘다
+        subscription.setTestPurchase(state.testPurchase());
         long before = historyRepository.countByUserId(userId);
         int written =
                 ledgerSync.syncRenewals(

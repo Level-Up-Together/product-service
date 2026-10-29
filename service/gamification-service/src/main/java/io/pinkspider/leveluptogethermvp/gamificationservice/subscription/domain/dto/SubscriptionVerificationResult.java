@@ -22,6 +22,7 @@ import java.time.LocalDateTime;
  *     소유자까지 확인하는 데 쓴다. iOS/미확보는 null
  * @param appAccountToken LUT-507: 결제 시 앱이 실어 보낸 앱 계정 식별자(iOS appAccountToken / Android
  *     obfuscatedExternalAccountId) — 거래의 실제 결제 계정 판정용. 토큰 없이 결제된 예전 거래는 null
+ * @param testPurchase LUT-666: 스토어 테스트 결제(iOS Sandbox·TestFlight / Google 라이선스 테스터) — KPI 집계 제외 표시
  */
 public record SubscriptionVerificationResult(
         String storeProductId,
@@ -36,7 +37,40 @@ public record SubscriptionVerificationResult(
         BigDecimal priceAmount,
         String priceCurrency,
         String linkedPurchaseToken,
-        String appAccountToken) {
+        String appAccountToken,
+        boolean testPurchase) {
+
+    /** LUT-666 이전 시그니처 유지 — 테스트 결제 판정이 없는 경로(검증 비활성 등)는 실결제로 본다 */
+    public SubscriptionVerificationResult(
+            String storeProductId,
+            String basePlanId,
+            String originalTransactionId,
+            String purchaseToken,
+            LocalDateTime startedAt,
+            LocalDateTime expiresAt,
+            boolean autoRenew,
+            boolean trial,
+            String transactionId,
+            BigDecimal priceAmount,
+            String priceCurrency,
+            String linkedPurchaseToken,
+            String appAccountToken) {
+        this(
+                storeProductId,
+                basePlanId,
+                originalTransactionId,
+                purchaseToken,
+                startedAt,
+                expiresAt,
+                autoRenew,
+                trial,
+                transactionId,
+                priceAmount,
+                priceCurrency,
+                linkedPurchaseToken,
+                appAccountToken,
+                false);
+    }
 
     /** LUT-507 이전 시그니처 유지 — 앱 계정 토큰 미확보 경로용 */
     public SubscriptionVerificationResult(
