@@ -79,6 +79,25 @@ class DiamondBundlePurchaseTxServiceTest {
         assertThat(saved.getPriceCurrency()).isEqualTo("USD");
         assertThat(saved.getStatus()).isEqualTo(DiamondPurchaseStatus.PAID);
         assertThat(saved.getRefundedAt()).isNull();
+        assertThat(saved.getTestPurchase()).isFalse();
+    }
+
+    @Test
+    @DisplayName("LUT-666: 검증 결과가 테스트 결제(Sandbox·라이선스 테스터)면 구매 기록에도 표시한다")
+    void recordAndGrant_persistsTestPurchase() {
+        when(diamondService.grantPinkDiamonds(anyString(), anyInt(), anyLong(), anyString()))
+                .thenReturn(110);
+
+        txService.recordAndGrant(
+                USER_ID,
+                bundle(),
+                request(),
+                new IapVerificationResult("tx-001", new BigDecimal("1.99"), "USD", true));
+
+        ArgumentCaptor<DiamondBundlePurchase> captor =
+                ArgumentCaptor.forClass(DiamondBundlePurchase.class);
+        verify(purchaseRepository).saveAndFlush(captor.capture());
+        assertThat(captor.getValue().getTestPurchase()).isTrue();
     }
 
     @Test

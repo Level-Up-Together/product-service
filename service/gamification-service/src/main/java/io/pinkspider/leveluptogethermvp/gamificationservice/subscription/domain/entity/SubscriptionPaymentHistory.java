@@ -20,6 +20,7 @@ import java.time.LocalDateTime;
 import java.util.Objects;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.experimental.SuperBuilder;
@@ -105,6 +106,13 @@ public class SubscriptionPaymentHistory extends LocalDateTimeBaseEntity {
     @Column(name = "price_source", length = 10)
     @Comment("금액 출처 (STORE/LIST/TRIAL)")
     private PriceSource priceSource;
+
+    /** LUT-666: 스토어 테스트 결제(iOS Sandbox·Google 라이선스 테스터) — 기록 시점 구독 행의 값. KPI 매출·결제 지표에서 제외 */
+    @NotNull
+    @Column(name = "test_purchase", nullable = false)
+    @Comment("스토어 테스트 결제 여부 — iOS Sandbox·Google 라이선스 테스터 (LUT-666)")
+    @Builder.Default
+    private Boolean testPurchase = false;
 
     @Column(name = "transaction_id", length = 500)
     @Comment("결제 건 트랜잭션 ID (iOS transactionId — Android는 null)")

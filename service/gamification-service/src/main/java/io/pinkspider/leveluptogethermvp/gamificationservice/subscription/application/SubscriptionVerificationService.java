@@ -195,7 +195,18 @@ public class SubscriptionVerificationService {
                 null,
                 payload.getAppAccountToken() != null
                         ? payload.getAppAccountToken().toString()
-                        : null);
+                        : null,
+                isAppleTestEnvironment(payload));
+    }
+
+    /**
+     * LUT-666: Apple 트랜잭션이 운영 App Store 결제가 아닌지 — Sandbox(TestFlight·샌드박스 계정)·Xcode·로컬 테스트. 환경을
+     * 모르면(null) 실결제로 본다.
+     */
+    public static boolean isAppleTestEnvironment(JWSTransactionDecodedPayload payload) {
+        return payload != null
+                && payload.getEnvironment() != null
+                && payload.getEnvironment() != Environment.PRODUCTION;
     }
 
     /**
@@ -412,7 +423,8 @@ public class SubscriptionVerificationService {
                 null,
                 null,
                 state.linkedPurchaseToken(),
-                state.obfuscatedExternalAccountId());
+                state.obfuscatedExternalAccountId(),
+                state.testPurchase());
     }
 
     /**
@@ -480,6 +492,8 @@ public class SubscriptionVerificationService {
                     json.path("externalAccountIdentifiers")
                             .path("obfuscatedExternalAccountId")
                             .asText(null);
+            // LUT-666: 라이선스 테스터 결제면 testPurchase 객체가 붙는다(실결제엔 없음) — 원장·KPI 에서 실매출과 구분
+            boolean testPurchase = json.hasNonNull("testPurchase");
 
             return new GoogleSubscriptionState(
                     latest.path("productId").asText(),
@@ -491,7 +505,8 @@ public class SubscriptionVerificationService {
                     state,
                     linkedPurchaseToken,
                     latestOrderId,
-                    obfuscatedExternalAccountId);
+                    obfuscatedExternalAccountId,
+                    testPurchase);
         } catch (CustomException e) {
             throw e;
         } catch (Exception e) {

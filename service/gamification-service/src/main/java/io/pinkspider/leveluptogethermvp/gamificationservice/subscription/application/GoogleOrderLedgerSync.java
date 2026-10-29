@@ -275,6 +275,7 @@ public class GoogleOrderLedgerSync {
                         .priceAmount(price.amount())
                         .priceCurrency(price.currency())
                         .priceSource(price.source())
+                        .testPurchase(Boolean.TRUE.equals(subscription.getTestPurchase()))
                         .transactionId(orderId)
                         .expiresAt(expiresAt)
                         .occurredAt(occurredAt)

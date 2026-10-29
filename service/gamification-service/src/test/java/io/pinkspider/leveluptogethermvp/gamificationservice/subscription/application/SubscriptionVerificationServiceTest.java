@@ -10,6 +10,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.when;
 
+import com.apple.itunes.storekit.model.Environment;
 import com.apple.itunes.storekit.model.JWSTransactionDecodedPayload;
 import com.apple.itunes.storekit.model.OfferType;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -161,6 +162,36 @@ class SubscriptionVerificationServiceTest {
                     .fetchAppleTransaction("tx-001");
 
             assertThat(svc.verify(iosRequest()).trial()).isTrue();
+        }
+
+        @Test
+        @DisplayName("LUT-666: Sandbox(TestFlight)·Xcode 환경 트랜잭션은 테스트 결제, Production·환경 미상은 실결제")
+        void apple_environment_marksTestPurchase() {
+            SubscriptionVerificationService svc = spy(service(true));
+
+            doReturn(payload().environment(Environment.SANDBOX))
+                    .when(svc)
+                    .fetchAppleTransaction("tx-001");
+            assertThat(svc.verify(iosRequest()).testPurchase()).isTrue();
+
+            doReturn(payload().environment(Environment.XCODE))
+                    .when(svc)
+                    .fetchAppleTransaction("tx-001");
+            assertThat(svc.verify(iosRequest()).testPurchase()).isTrue();
+
+            doReturn(payload().environment(Environment.PRODUCTION))
+                    .when(svc)
+                    .fetchAppleTransaction("tx-001");
+            assertThat(svc.verify(iosRequest()).testPurchase()).isFalse();
+
+            doReturn(payload()).when(svc).fetchAppleTransaction("tx-001");
+            assertThat(svc.verify(iosRequest()).testPurchase()).isFalse();
+        }
+
+        @Test
+        @DisplayName("LUT-666: 환경 판정 헬퍼는 payload 가 없으면 실결제로 본다")
+        void isAppleTestEnvironment_nullPayload_false() {
+            assertThat(SubscriptionVerificationService.isAppleTestEnvironment(null)).isFalse();
         }
 
         @Test
@@ -588,6 +619,32 @@ class SubscriptionVerificationServiceTest {
 
             assertThat(result.transactionId()).isNull();
             assertThat(result.linkedPurchaseToken()).isNull();
+            // LUT-666: testPurchase 가 없으면 실결제
+            assertThat(result.testPurchase()).isFalse();
+        }
+
+        @Test
+        @DisplayName("LUT-666: 응답에 testPurchase 가 있으면(라이선스 테스터) 테스트 결제로 싣는다")
+        void google_testPurchase_marked() throws Exception {
+            RestTemplate rest = mock(RestTemplate.class);
+            SubscriptionVerificationService svc = serviceWithGoogle(rest);
+            when(rest.exchange(
+                            contains("/purchases/subscriptionsv2/tokens/token-001"),
+                            eq(HttpMethod.GET),
+                            any(),
+                            eq(String.class)))
+                    .thenReturn(
+                            ResponseEntity.ok(
+                                    "{"
+                                            + "\"subscriptionState\":\"SUBSCRIPTION_STATE_ACTIVE\","
+                                            + "\"testPurchase\":{},"
+                                            + "\"lineItems\":[{\"productId\":\"membership\","
+                                            + "\"expiryTime\":\"2027-09-04T00:00:00Z\","
+                                            + "\"autoRenewingPlan\":{\"autoRenewEnabled\":true},"
+                                            + "\"offerDetails\":{\"basePlanId\":\"1m\"}}]}"));
+
+            assertThat(svc.verify(androidRequest()).testPurchase()).isTrue();
+            assertThat(svc.fetchGoogleSubscription("token-001").testPurchase()).isTrue();
         }
 
         @Test

@@ -11,6 +11,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.apple.itunes.storekit.model.AutoRenewStatus;
+import com.apple.itunes.storekit.model.Environment;
 import com.apple.itunes.storekit.model.JWSRenewalInfoDecodedPayload;
 import com.apple.itunes.storekit.model.JWSTransactionDecodedPayload;
 import io.pinkspider.leveluptogethermvp.gamificationservice.subscription.domain.dto.AppleSubscriptionNotification;
@@ -1358,6 +1359,213 @@ class SubscriptionWebhookTxServiceTest {
             assertThat(sub.getExpiresAt()).isEqualTo(NOW.minusDays(4));
             assertThat(sub.getGracePeriodExpiresAt()).isNull();
             assertThat(sub.getAutoRenew()).isFalse();
+        }
+    }
+
+    @Nested
+    @DisplayName("LUT-666: 스토어 테스트 결제 표시")
+    class TestPurchaseTest {
+
+        private static final String PAYER = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee";
+
+        private UserSubscription androidRow(LocalDateTime expiresAt) {
+            UserSubscription sub = row(expiresAt);
+            sub.setPlatform("android");
+            sub.setProductId("membership");
+            sub.setBasePlanId("1m");
+            sub.setOriginalTransactionId(null);
+            sub.setPurchaseToken("token-001");
+            return sub;
+        }
+
+        @Test
+        @DisplayName("Apple 알림 — Sandbox(TestFlight) 트랜잭션이면 구독 행을 테스트 결제로 표시한 뒤 이력을 기록한다")
+        void appleSandboxMarksRow() {
+            UserSubscription sub = row(NOW.minusDays(1));
+            when(userSubscriptionRepository.findByOriginalTransactionId("orig-tx-001"))
+                    .thenReturn(Optional.of(sub));
+            LocalDateTime newExpiry =
+                    NOW.plusDays(1).truncatedTo(java.time.temporal.ChronoUnit.MILLIS);
+
+            webhookTxService.applyAppleNotification(
+                    new AppleSubscriptionNotification(
+                            "DID_RENEW",
+                            null,
+                            transaction("membership_1m", newExpiry)
+                                    .environment(Environment.SANDBOX),
+                            null));
+
+            assertThat(sub.getTestPurchase()).isTrue();
+            verify(paymentHistoryRecorder)
+                    .record(
+                            eq(sub),
+                            eq(SubscriptionPaymentEventType.RENEWAL),
+                            eq(false),
+                            any(),
+                            any(),
+                            any(),
+                            eq(newExpiry),
+                            any());
+        }
+
+        @Test
+        @DisplayName("Apple 알림 — Production 트랜잭션이면 실결제로 되돌리고, 환경이 없으면 기존 값을 유지한다")
+        void appleProductionClearsAndMissingKeeps() {
+            UserSubscription sub = row(NOW.plusDays(10));
+            sub.setTestPurchase(true);
+            when(userSubscriptionRepository.findByOriginalTransactionId("orig-tx-001"))
+                    .thenReturn(Optional.of(sub));
+
+            webhookTxService.applyAppleNotification(
+                    new AppleSubscriptionNotification(
+                            "PRICE_INCREASE",
+                            null,
+                            transaction("membership_1m", NOW.plusDays(10)),
+                            null));
+            assertThat(sub.getTestPurchase()).isTrue();
+
+            webhookTxService.applyAppleNotification(
+                    new AppleSubscriptionNotification(
+                            "PRICE_INCREASE",
+                            null,
+                            transaction("membership_1m", NOW.plusDays(10))
+                                    .environment(Environment.PRODUCTION),
+                            null));
+            assertThat(sub.getTestPurchase()).isFalse();
+        }
+
+        @Test
+        @DisplayName("Apple 자가 치유 스냅샷 — Sandbox 트랜잭션이면 테스트 결제로 표시한다")
+        void appleSnapshotSandboxMarksRow() {
+            UserSubscription sub = row(NOW.minusDays(1));
+            when(userSubscriptionRepository.findByOriginalTransactionId("orig-tx-001"))
+                    .thenReturn(Optional.of(sub));
+
+            webhookTxService.applyAppleSnapshot(
+                    "orig-tx-001",
+                    new io.pinkspider.leveluptogethermvp.gamificationservice.subscription.domain.dto
+                            .AppleSubscriptionSnapshot(
+                            transaction(
+                                            "membership_1m",
+                                            NOW.plusDays(1)
+                                                    .truncatedTo(
+                                                            java.time.temporal.ChronoUnit.MILLIS))
+                                    .environment(Environment.SANDBOX),
+                            null));
+
+            assertThat(sub.getTestPurchase()).isTrue();
+        }
+
+        @Test
+        @DisplayName("Apple 소유권 이전 — 이전 요청 결과에 테스트 결제 여부를 싣는다")
+        void appleTransferCarriesTestPurchase() {
+            UserSubscription expired = row(NOW.minusDays(2));
+            when(userSubscriptionRepository.findByOriginalTransactionId("orig-tx-001"))
+                    .thenReturn(Optional.of(expired));
+            LocalDateTime newExpiry =
+                    NOW.plusDays(1).truncatedTo(java.time.temporal.ChronoUnit.MILLIS);
+            when(grantTxService.upsert(any(), any(), any(), any(), any(), any()))
+                    .thenReturn(row(newExpiry));
+
+            webhookTxService.applyAppleNotification(
+                    new AppleSubscriptionNotification(
+                            "SUBSCRIBED",
+                            null,
+                            transaction("membership_1m", newExpiry)
+                                    .appAccountToken(java.util.UUID.fromString(PAYER))
+                                    .environment(Environment.SANDBOX),
+                            null));
+
+            org.mockito.ArgumentCaptor<
+                            io.pinkspider.leveluptogethermvp.gamificationservice.subscription.domain
+                                    .dto.SubscriptionVerificationResult>
+                    captor =
+                            org.mockito.ArgumentCaptor.forClass(
+                                    io.pinkspider.leveluptogethermvp.gamificationservice
+                                            .subscription.domain.dto.SubscriptionVerificationResult
+                                            .class);
+            verify(grantTxService)
+                    .upsert(eq(PAYER), any(), eq("ios"), captor.capture(), eq(newExpiry), any());
+            assertThat(captor.getValue().testPurchase()).isTrue();
+        }
+
+        @Test
+        @DisplayName("Google RTDN — testPurchase 상태면 구독 행을 테스트 결제로 표시하고, 아니면 실결제로 둔다")
+        void googleStateMarksRow() {
+            UserSubscription sub = androidRow(NOW.minusDays(1));
+            when(userSubscriptionRepository.findByPurchaseToken("token-001"))
+                    .thenReturn(Optional.of(sub));
+
+            webhookTxService.applyGoogleState(
+                    "token-001",
+                    new GoogleSubscriptionState(
+                            "membership",
+                            "1m",
+                            null,
+                            NOW.plusMinutes(5),
+                            true,
+                            false,
+                            "SUBSCRIPTION_STATE_ACTIVE",
+                            null,
+                            "GPA.1111..3",
+                            null,
+                            true));
+            assertThat(sub.getTestPurchase()).isTrue();
+
+            webhookTxService.applyGoogleState(
+                    "token-001",
+                    new GoogleSubscriptionState(
+                            "membership",
+                            "1m",
+                            null,
+                            NOW.plusMonths(1),
+                            true,
+                            false,
+                            "SUBSCRIPTION_STATE_ACTIVE"));
+            assertThat(sub.getTestPurchase()).isFalse();
+        }
+
+        @Test
+        @DisplayName("Google 소유권 이전 — 이전 요청 결과에 테스트 결제 여부를 싣는다")
+        void googleTransferCarriesTestPurchase() {
+            UserSubscription expiredOld = androidRow(NOW.minusDays(5));
+            when(userSubscriptionRepository.findByPurchaseToken("token-001"))
+                    .thenReturn(Optional.of(expiredOld));
+            when(grantTxService.upsert(any(), any(), any(), any(), any(), any()))
+                    .thenReturn(androidRow(NOW.plusMinutes(5)));
+
+            webhookTxService.applyGoogleState(
+                    "token-001",
+                    new GoogleSubscriptionState(
+                            "membership",
+                            "1m",
+                            null,
+                            NOW.plusMinutes(5),
+                            true,
+                            false,
+                            "SUBSCRIPTION_STATE_ACTIVE",
+                            null,
+                            "GPA.2222",
+                            PAYER,
+                            true));
+
+            org.mockito.ArgumentCaptor<
+                            io.pinkspider.leveluptogethermvp.gamificationservice.subscription.domain
+                                    .dto.SubscriptionVerificationResult>
+                    captor =
+                            org.mockito.ArgumentCaptor.forClass(
+                                    io.pinkspider.leveluptogethermvp.gamificationservice
+                                            .subscription.domain.dto.SubscriptionVerificationResult
+                                            .class);
+            verify(grantTxService)
+                    .upsert(
+                            eq(PAYER),
+                            any(),
+                            eq("android"),
+                            captor.capture(),
+                            eq(NOW.plusMinutes(5)),
+                            any());
+            assertThat(captor.getValue().testPurchase()).isTrue();
         }
     }
 }

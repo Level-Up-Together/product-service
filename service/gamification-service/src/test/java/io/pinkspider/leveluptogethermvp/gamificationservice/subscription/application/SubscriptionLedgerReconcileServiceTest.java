@@ -93,6 +93,33 @@ class SubscriptionLedgerReconcileServiceTest {
                         eq(true));
         // 구독 행은 건드리지 않는다
         assertThat(sub.getExpiresAt()).isEqualTo(NOW.minusMinutes(13));
+        assertThat(sub.getTestPurchase()).isFalse();
+    }
+
+    @Test
+    @DisplayName("LUT-666: Play 재조회가 라이선스 테스터 결제면 구독 행을 테스트 결제로 맞춘 뒤 대조한다")
+    void marksTestPurchaseBeforeSync() {
+        UserSubscription sub = row("android", "token-001");
+        when(userSubscriptionRepository.findByUserId("user-1")).thenReturn(Optional.of(sub));
+        when(verificationService.fetchGoogleSubscription("token-001"))
+                .thenReturn(
+                        new GoogleSubscriptionState(
+                                "membership",
+                                "1m",
+                                NOW.minusHours(1),
+                                NOW.minusMinutes(13),
+                                false,
+                                false,
+                                "SUBSCRIPTION_STATE_EXPIRED",
+                                null,
+                                "GPA.1..5",
+                                null,
+                                true));
+        when(historyRepository.countByUserId("user-1")).thenReturn(3L, 3L);
+
+        service.reconcileGoogle("user-1");
+
+        assertThat(sub.getTestPurchase()).isTrue();
     }
 
     @Test

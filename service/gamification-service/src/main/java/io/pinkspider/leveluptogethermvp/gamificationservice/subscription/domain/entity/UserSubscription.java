@@ -16,6 +16,7 @@ import jakarta.validation.constraints.NotNull;
 import java.time.LocalDateTime;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -116,6 +117,16 @@ public class UserSubscription extends LocalDateTimeBaseEntity {
     @Column(name = "purchase_token", length = 1000)
     @Comment("Android purchaseToken — 갱신 웹훅(RTDN) 매칭 키")
     private String purchaseToken;
+
+    /**
+     * LUT-666: 스토어 테스트 결제 — iOS Sandbox(TestFlight·샌드박스 계정) / Google 라이선스 테스터. 결제 단위가 아니라 구매(스토어
+     * 키)의 성질이라 행에 두고, 결제 이력은 기록 시점의 이 값을 복사한다. KPI 구독·매출 집계에서 제외한다.
+     */
+    @NotNull
+    @Column(name = "test_purchase", nullable = false)
+    @Comment("스토어 테스트 결제 여부 — iOS Sandbox·Google 라이선스 테스터 (LUT-666)")
+    @Builder.Default
+    private Boolean testPurchase = false;
 
     /** 시각 기준 상태 파생 — 만료 전 ACTIVE, 만료 후 유예기간 내 GRACE_PERIOD, 그 외 EXPIRED. */
     public SubscriptionStatus resolveStatus(LocalDateTime now) {
