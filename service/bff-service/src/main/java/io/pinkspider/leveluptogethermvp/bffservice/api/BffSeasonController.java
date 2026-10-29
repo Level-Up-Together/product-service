@@ -2,13 +2,11 @@ package io.pinkspider.leveluptogethermvp.bffservice.api;
 
 import io.pinkspider.global.annotation.CurrentUser;
 import io.pinkspider.global.api.ApiResult;
-import io.pinkspider.global.facade.GamificationQueryFacade;
 import io.pinkspider.leveluptogethermvp.bffservice.api.dto.SeasonDetailResponse;
 import io.pinkspider.leveluptogethermvp.bffservice.application.BffSeasonService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestHeader;
@@ -23,7 +21,6 @@ import org.springframework.web.bind.annotation.RestController;
 public class BffSeasonController {
 
     private final BffSeasonService bffSeasonService;
-    private final GamificationQueryFacade gamificationQueryFacade;
 
     /**
      * 시즌 상세 데이터 조회 (BFF)
@@ -68,18 +65,5 @@ public class BffSeasonController {
         SeasonDetailResponse response =
                 bffSeasonService.getCurrentSeasonDetail(userId, categoryName, acceptLanguage);
         return ResponseEntity.ok(ApiResult.<SeasonDetailResponse>builder().value(response).build());
-    }
-
-    /**
-     * 시즌 캐시 삭제 (내부용)
-     *
-     * <p>시즌 관련 Redis 캐시를 삭제합니다. - currentSeason: 현재 시즌 캐시 - seasonMvpData: 시즌 MVP 데이터 캐시
-     *
-     * @return 삭제 완료 메시지
-     */
-    @DeleteMapping("/cache")
-    public ResponseEntity<ApiResult<String>> evictSeasonCache() {
-        gamificationQueryFacade.evictAllSeasonCaches();
-        return ResponseEntity.ok(ApiResult.<String>builder().value("시즌 캐시 삭제 완료").build());
     }
 }

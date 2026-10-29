@@ -134,10 +134,6 @@ public class SecurityConfig {
                                         .requestMatchers("/terms/list")
                                         .permitAll()
 
-                                        // 내부 캐시 관리 API (운영용)
-                                        .requestMatchers("/api/v1/bff/season/cache")
-                                        .permitAll()
-
                                         // 내부 서비스 간 API (Admin Backend → MVP)
                                         .requestMatchers("/api/internal/**")
                                         .permitAll()
