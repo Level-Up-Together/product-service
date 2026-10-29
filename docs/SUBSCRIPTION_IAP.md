@@ -277,7 +277,7 @@ Play Console 수익 창출 설정(RTDN 토픽, 콘텐츠 "정기 결제·무효�
 - 구독은 결제 단위가 아니라 **구매(스토어 키)의 성질**이라 `user_subscription.test_purchase` 에 두고, verify(`SubscriptionGrantTxService`)·웹훅·자가 치유(`SubscriptionWebhookTxService`)·reconcile 이 기록 직전에 최신 값으로 맞춘다. 원장 행은 그 값을 복사한다(`SubscriptionPaymentHistoryRecorder`, `GoogleOrderLedgerSync`). 같은 유저가 테스트 구독 뒤 실제 구독을 하면 다음 결제부터 false 로 돌아온다.
 - 환경을 모르면(Apple JWS 에 environment 없음, 검증 비활성 dev) 실결제(false)로 본다. Apple 알림에 환경이 없으면 기존 값을 유지한다.
 - 이전 행 표시: SQL 레포 `queries/developing/hotfix-LUT-666/V001`. 규칙은 `expires_at - occurred_at < 2일`(실제 주기는 월·연, 테스트는 24시간·몇 분)인 PURCHASE/RENEWAL, 그 직후 REFUND, 최근 결제가 테스트인 구독 행. 다이아는 근거가 없어 건드리지 않는다(prod 3건은 금액 null 이라 원래 매출 밖).
-- prod 실측(2026-10-29): 원장 38행 전부 테스터 3명(iOS TestFlight 2명 24시간 갱신, Android 라이선스 테스터 1명 3~30분 갱신)이었다.
+- prod 실측(2026-10-29): 원장 37행 전부 테스터 3명(iOS TestFlight 2명 24시간 갱신, Android 라이선스 테스터 1명 3~30분 갱신)이었다.
 
 ## 10. 자가 치유 (LUT-499, `SubscriptionSelfHealService`)
 
