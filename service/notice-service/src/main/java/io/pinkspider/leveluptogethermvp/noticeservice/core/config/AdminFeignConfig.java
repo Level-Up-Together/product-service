@@ -4,10 +4,12 @@ import feign.Client;
 import feign.Logger;
 import feign.RequestInterceptor;
 import feign.Retryer;
+import io.pinkspider.global.feign.admin.AdminInternalApiKeyInterceptor;
 import java.security.cert.X509Certificate;
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.TrustManager;
 import javax.net.ssl.X509TrustManager;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
@@ -31,6 +33,13 @@ public class AdminFeignConfig {
     @Bean
     public Retryer adminFeignRetryer() {
         return new Retryer.Default(1000, 2000, 3);
+    }
+
+    /** LUT-686: admin 의 product 전용 경로(문의·신고 확인·내부 API)는 공유 키를 요구한다 — product 내부 API 키와 같은 값. */
+    @Bean
+    public RequestInterceptor adminInternalApiKeyInterceptor(
+            @Value("${app.security.internal-api.key:}") String internalApiKey) {
+        return new AdminInternalApiKeyInterceptor(internalApiKey);
     }
 
     /** 현재 요청의 Authorization 헤더를 Admin API 호출에 전달 */
