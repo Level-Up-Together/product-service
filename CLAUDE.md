@@ -786,6 +786,9 @@ UA로 덮어쓰지 않는 이유는 RN의 `Platform.OS`가 iPad에서도 `ios`�
 Prometheus/Grafana Alloy 스크레이프용 — 플랫폼 `JwtAuthenticationFilter` 는 `Bearer` 만 해석해 충돌 없음)로 키를 받아야 200 이다. 예전엔 SecurityConfig
 `permitAll` + exposure `*` 라 prod `api.level-up-together.com/showmethemoney/env` 가 공개돼 있었다. 운영 점검은 `curl -u alloy:$KEY …/prometheus`.
 ALB·배포 스크립트(`gradle-*.yml`) 헬스체크는 `/showmethemoney/health` 라 영향 없다. 키 미설정이면 기존처럼 fail-open.
+**노출 자체도 줄인다** (LUT-672·675, dev 2026-10-30 · prod 는 v1.1.4 운영 배포 때): config `product-service-{env}.yml` 의 `management.endpoints.web.exposure.include=health,info,prometheus`
+(공용 `actuator/*.yml` 의 `*` 를 덮어씀 — admin LUT-625 와 같은 방식)라 키가 있어도 `env`·`beans`·`heapdump` 등은 404 다. 힙 덤프는 서버에서 `jcmd <pid> GC.heap_dump`.
+공용 `actuator-{env}.yml` 의 `health.show-details` 는 `never` — 키 없이 공개되는 `/health` 는 `{"status":"UP"}` 만 준다.
 
 어드민 대시보드용 `GET /api/internal/users/statistics` 의 `total_users` 는 **탈퇴(WITHDRAWN) 제외**(LUT-603 — 예전엔 `count()` 라 익명화된
 탈퇴 행까지 세었다), 탈퇴 수는 `withdrawn_users`, 가입경로 분포(`users_by_provider`)도 탈퇴 제외라 합이 `total_users` 와 맞는다.
