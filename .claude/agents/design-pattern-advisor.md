@@ -35,20 +35,23 @@ This is a **Spring Boot 3.x multi-service monolith** designed for future MSA mig
 - **Event-Driven**: Spring's `ApplicationEventPublisher` and `@TransactionalEventListener` for cross-service communication
 - **Saga Pattern**: Distributed transaction orchestration using `AbstractSagaStep` with execute/compensate methods
 - **Caching**: Redis with Lettuce client (5-60 min TTL for various entities)
-- **Messaging**: Kafka topics for async operations
+- **Messaging**: Redis Streams (`stream:app-push`) + Redis Pub/Sub relays — Kafka is not used
 - **Resilience**: Resilience4j for rate limiting and circuit breakers
 
 ### Service Modules
-- `userservice`: OAuth2, JWT, profiles, friends, quests
+- `userservice`: OAuth2, JWT, profiles, friends/blocks, terms, UI preferences
 - `missionservice`: Mission CRUD, progress tracking, Saga orchestration, daily instances
-- `guildservice`: Guild management, members, chat, bulletin board, territory
-- `metaservice`: Common codes, calendar, Redis-cached metadata
+- `guildservice`: Guild management, members, experience/points, bulletin board, invitations
+- `chatservice`: Guild chat, DM, read status
+- `metaservice`: Common codes, calendar, level/attendance configs, Redis-cached metadata
 - `feedservice`: Activity feed, likes, comments
-- `notificationservice`: Push notifications, preferences
-- `adminservice`: Banners, featured content
-- `gamificationservice`: Titles, achievements, stats, levels, attendance, events
+- `notificationservice`: Notifications, FCM push, realtime (WS), device tokens
+- `gamificationservice`: Titles, achievements, stats, levels, attendance, events, seasons, shop/diamonds/subscriptions
+- `statsservice`: KPI aggregation (daily activity, snapshots, cohorts)
 - `bffservice`: API aggregation, unified search
+- `noticeservice`: Notices (Admin Feign)
 - `supportservice`: Customer support, report handling
+- (`adminservice` moved to the separate `admin-service` repo)
 - `profanity`: Profanity detection across services
 
 ### Key Patterns Already in Use

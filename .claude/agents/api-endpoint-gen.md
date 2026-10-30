@@ -12,7 +12,7 @@ maxTurns: 50
 ## 프로젝트 구조
 
 ```
-src/main/java/io/pinkspider/leveluptogethermvp/{servicename}/
+service/{name}-service/src/main/java/io/pinkspider/leveluptogethermvp/{servicename}/
 ├── api/          - Controller (REST endpoints)
 ├── application/  - Service (비즈니스 로직)
 ├── domain/       - Entity, DTO, Enum
@@ -189,7 +189,7 @@ public class EntityController {
 #### 3-7. 테스트 코드
 - Controller 테스트: `@WebMvcTest` + `@Import(ControllerTestConfig.class)` + RestDocs
 - Service 테스트: `@ExtendWith(MockitoExtension.class)` + `@Mock` + `@InjectMocks`
-- JSON 픽스처: `src/test/resources/fixture/{servicename}/`
+- JSON 픽스처: `service/{name}-service/src/test/resources/fixture/{servicename}/`
 
 #### 3-8. HTTP 테스트 파일
 기존 `http/` 폴더의 관련 파일에 추가하거나 새 파일 생성:

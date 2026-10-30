@@ -22,13 +22,15 @@ mcpServers:
 
 | DB | MCP 서버 | 주요 테이블 |
 |----|----------|-----------|
-| user_db | postgres-user-db | users, friendship, user_experience, user_title, user_quest, device_token, user_terms_agreement |
-| mission_db | postgres-mission-db | mission, mission_participant, mission_execution, mission_category, daily_mission_instance |
-| guild_db | postgres-guild-db | guild, guild_member, guild_bulletin, guild_chat_message, guild_territory, guild_invitation, guild_direct_conversation |
-| meta_db | postgres-meta-db | common_code, calendar_holiday |
-| feed_db | postgres-feed-db | activity_feed, feed_like, feed_comment |
-| notification_db | postgres-notification-db | notification, notification_preference |
-| gamification_db | postgres-gamification-db | achievement, user_achievement, title, user_stats, attendance, event, season |
+| user_db | postgres-user-db | users, friendship, user_term_agreements, terms, term_versions, user_blacklist, user_ui_preference |
+| mission_db | postgres-mission-db | mission, mission_participant, mission_execution, daily_mission_instance, mission_template, mission_comment |
+| guild_db | postgres-guild-db | guild, guild_member, guild_post, guild_post_comment, guild_invitation, guild_join_request, guild_member_daily_point |
+| chat_db | postgres-chat-db | guild_chat_message, guild_chat_participant, guild_chat_read_status, guild_direct_conversation, guild_direct_message |
+| meta_db | postgres-meta-db | common_code, mission_category, user_level_config, guild_level_config, attendance_reward_config, profanity_word |
+| feed_db | postgres-feed-db | activity_feed, feed_like, feed_comment, feed_comment_like |
+| notification_db | postgres-notification-db | notification, notification_preference, device_token, admin_push_campaign |
+| gamification_db | postgres-gamification-db | achievement, user_achievement, title, user_title, user_experience, user_stats, attendance_record, event, season, shop_item, user_item, user_diamond, user_subscription |
+| stats_db | (MCP 없음) | user_daily_activity, daily_kpi_snapshot, cohort_retention, cohort_revenue |
 | admin_db | postgres-admin-db | home_banner, featured_player, featured_guild, featured_feed |
 
 ## 쿼리 절차

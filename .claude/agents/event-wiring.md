@@ -10,8 +10,8 @@ maxTurns: 40
 
 ## 프로젝트 이벤트 아키텍처
 
-이벤트 클래스: `io.pinkspider.global.event/`
-이벤트 리스너: `io.pinkspider.global.event.listener/`
+이벤트 클래스: `io.pinkspider.global.event/` — platform kernel 레포(`../level-up-together-platform/kernel/src/main/java/io/pinkspider/global/event/`), `DomainEvent` 구현
+이벤트 리스너: 수신 서비스 안 `{servicename}/**/event/listener/` (예: `notificationservice/event/listener/NotificationEventListener`)
 
 ### 기존 이벤트 흐름 예시
 | 발행 서비스 | 이벤트 | 수신 리스너 | 처리 |
@@ -37,7 +37,7 @@ maxTurns: 40
 
 #### 3-1. Event 클래스
 ```java
-// src/main/java/io/pinkspider/global/event/{EventName}.java
+// level-up-together-platform/kernel/src/main/java/io/pinkspider/global/event/{EventName}.java (platform 을 먼저 push → SNAPSHOT 발행)
 public record {EventName}(
     String userId,
     Long entityId,
@@ -60,7 +60,7 @@ public void doAction(...) {
 
 #### 3-3. 수신 측 (EventListener)
 ```java
-// src/main/java/io/pinkspider/global/event/listener/{EventName}Listener.java
+// service/{name}-service/src/main/java/io/pinkspider/leveluptogethermvp/{servicename}/event/listener/{EventName}Listener.java
 // 또는 기존 리스너(NotificationEventListener 등)에 메서드 추가
 @Component
 @Slf4j
@@ -91,4 +91,4 @@ verify(eventPublisher).publishEvent(any({EventName}.class));
 - 이벤트 클래스는 record 사용 권장
 - 이벤트에 Entity 자체를 넣지 말고 필요한 ID/값만 포함 (직렬화 이슈 방지)
 - 리스너에서 다른 서비스를 호출할 때 해당 서비스의 트랜잭션 매니저 주의
-- Kafka 연동이 필요한 경우 (서비스 외부 통신): `io.pinkspider.global.kafka` 패키지 참조
+- Kafka 는 쓰지 않는다. 비동기 외부 전달은 Redis Stream(`stream:app-push`)·Pub/Sub 릴레이(CLAUDE.md "알림/푸시 파이프라인"·"WebSocket 실시간 전파") 참고

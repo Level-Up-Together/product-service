@@ -1,6 +1,6 @@
 # 사용자 데이터 일괄 삭제 스크립트
 
-특정 사용자의 데이터를 9개 데이터베이스 중 영향이 있는 8개 DB에서 일괄 삭제합니다.
+특정 사용자의 데이터를 8개 DB(product 7개 + `admin_db`)에서 일괄 삭제합니다. `meta_db` 는 유저 데이터가 없고, `stats_db`(LUT-598)는 스크립트 대상이 아닙니다.
 
 > ⚠️ **주의**: 모든 옵션은 destructive 작업입니다. dev에서 검증 후 prod에 적용하고, 실행 전 `--dry-run`으로 영향 범위를 반드시 확인하세요.
 
@@ -40,6 +40,8 @@ docs/scripts/delete_user/
 | **gamification_db** | `user_experience`, `user_stats`, `user_title`, `user_achievement`, `user_category_experience`, `experience_history`, `attendance_record`, `season_reward_history`, `daily_mvp_history`, `daily_mvp_category_stats` | `user_id` |
 | **admin_db** | `customer_inquiry`, `featured_player`, (선택) `content_report` | `user_id`, `reporter_id`, `target_user_id` |
 | meta_db | (해당 없음) | - |
+
+⚠ 스크립트는 2026-05 기준이라 그 뒤 생긴 유저 표는 지우지 않습니다. 예: user_db `user_ui_preference`, mission_db `mission_idempotency_key`, guild_db `guild_member_daily_point`, feed_db `feed_comment_like`, gamification_db `user_item`·`user_diamond`·`diamond_history`·`diamond_bundle_purchase`·`item_grant`·`item_push_send_log`·`user_subscription`·`subscription_payment_history`·`subscription_stipend`, stats_db `user_daily_activity`. 결제 기록은 재무 증적이라 지울지부터 정해야 합니다.
 
 ### 정책 결정이 필요한 항목 (기본 미삭제)
 

@@ -31,19 +31,20 @@ git log --oneline -5
 ```bash
 git diff --name-only          # unstaged
 git diff --cached --name-only # staged
-git diff develop --name-only  # develop 대비 전체 변경
+git diff epic/vX.Y.Z...HEAD --name-only  # 분기한 브랜치 대비 전체 변경 (hotfix 는 main)
 ```
 
 ## 2단계: 브랜치 관리
 
 ### 브랜치 네이밍 규칙
-- 패턴: `feature/QA-{번호}` (예: `feature/QA-7`)
-- develop 브랜치에서 분기
+CLAUDE.md "브랜치 흐름 (전 레포 공통, 2026-10-29)" 을 따른다.
+- 일반 수정: 진행 중인 `epic/vX.Y.Z` 에서 `feature/QA-{번호}` (예: `feature/QA-7`) 분기 → 끝나면 epic 에 머지
+- 운영 긴급 수정(핫픽스): `main` 에서 `hotfix/{티켓}` 분기 → `main` 머지·운영 배포 → 진행 중인 epic 에도 머지
 
 ### 브랜치가 없는 경우
 ```bash
-git checkout develop
-git pull origin develop
+git checkout epic/vX.Y.Z
+git pull origin epic/vX.Y.Z
 git checkout -b feature/QA-{번호}
 ```
 
@@ -198,7 +199,7 @@ git commit -m "{type}: [QA-{번호}] {설명}"
 - [ ] Web Frontend (추가 수정 필요 시 표시)
 
 ### 다음 단계
-- [ ] PR 생성 (develop ← feature/QA-{번호})
+- [ ] epic/vX.Y.Z ← feature/QA-{번호} 머지 (핫픽스는 main ← hotfix 후 epic 에도)
 - [ ] 코드 리뷰
-- [ ] staging 배포 후 검증
+- [ ] 개발 서버 배포 후 검증 (`epic/**` push → `gradle-dev.yml`)
 ```

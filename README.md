@@ -449,12 +449,12 @@ erDiagram
 # 전체 테스트 실행 (service + app, 5,100+ tests — platform 테스트는 포함되지 않음)
 ./gradlew test
 
-# 모듈별 테스트 실행 (2026-10-29 기준)
+# 모듈별 테스트 실행 (platform 2026-10-29 · service/app 2026-10-30 기준)
 ./gradlew :level-up-together-platform:kernel:test   # 205 tests
 ./gradlew :level-up-together-platform:infra:test    # 98 tests (resolver/profanity 테스트는 service 모듈)
 ./gradlew :level-up-together-platform:saga:test     # 72 tests
-./gradlew :service:test                             # 5,081 tests
-./gradlew :app:test                                 # 32 tests (@SpringBootTest·통합·벤치마크, 일부 @Disabled)
+./gradlew :service:test                             # 5,100 tests
+./gradlew :app:test                                 # 33 tests (@SpringBootTest·통합·벤치마크, 일부 @Disabled)
 
 # 단일 테스트 클래스 실행 (모듈 지정)
 ./gradlew :service:test --tests "*.Oauth2ControllerTest"
@@ -771,7 +771,7 @@ Redis를 활용한 캐싱으로 서비스 간 호출을 최소화하고 성능�
 
 ## 모니터링
 
-- **Actuator**: `/showmethemoney` (`/health` 만 공개, 나머지는 내부 API 키 필요 — LUT-605)
+- **Actuator**: `/showmethemoney` (`/health` 만 공개, 나머지는 내부 API 키 필요 — LUT-605). 노출도 `health,info,prometheus` 로 축소(LUT-672·675 — dev 2026-10-30, prod 는 v1.1.4 운영 배포 때)
 - **Metrics**: Micrometer + Prometheus(`/showmethemoney/prometheus`) → Grafana Cloud(Alloy 스크레이프). KPI 게이지 `lut_kpi_*`,
   HTTP 지연은 SLO 버킷(100ms·300ms·1s·3s)만 노출(LUT-615)
 

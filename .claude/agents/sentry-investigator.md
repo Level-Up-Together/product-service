@@ -64,4 +64,4 @@ Sentry MCP 도구를 사용하여:
 - Race condition (DataIntegrityViolationException)
 - OAuth 토큰 만료/갱신 실패
 - Redis 연결 타임아웃
-- Kafka consumer 처리 실패
+- Redis Stream(`stream:app-push`) consumer 처리 실패 (Kafka 미사용)

@@ -1,7 +1,7 @@
 # DB 마이그레이션 — Flyway + 릴리스 SQL (LUT-595)
 
 product-service 9개 DB 의 스키마 변경을 **서버 기동 시 Flyway 가 적용**하고, 큰 데이터 보정은 지금처럼 **`level-up-together-sql` 레포 + 사람이 수동 적용**한다.
-결정 배경은 [ADR-007](adr/ADR-007-Flyway%20Per-Database%20Migrations-20261023.md). 기준: `epic/v1.1.3`, 2026-10-29.
+결정 배경은 [ADR-007](adr/ADR-007-Flyway%20Per-Database%20Migrations-20261023.md). 기준: `epic/v1.1.4`, 2026-10-30.
 
 ## 1. 한눈에
 
@@ -9,7 +9,7 @@ product-service 9개 DB 의 스키마 변경을 **서버 기동 시 Flyway 가 �
 |---|---|---|
 | 스키마 변경(표·컬럼·인덱스) · 작은 멱등 수정 | `app/src/main/resources/db/migration/<db>/` | Flyway — product 기동 시 (`app.flyway.enabled=true` 환경만) |
 | 큰 데이터 보정(재산정·소급·백필) | `level-up-together-sql/queries/developing/<버전>/` → 적용 후 `done/migration/<버전>/` | 사람 — psql 수동, 런북에 시점 명시 |
-| `admin_db` (admin-service) | SQL 레포 | 사람 — admin-service 에는 Flyway 없음 |
+| `admin_db` (admin-service) | admin-service 레포 `app/src/main/resources/db/migration/admin/` (LUT-676, v1.1.4 부터 — 그 전은 SQL 레포) | admin-service 기동 시 Flyway (dev 2026-10-30 on, prod 는 v1.1.4 운영 배포 때 on). baseline `1.1.3.13`, 첫 파일 `V1_1_4_001` |
 | `saga_db` | — | **삭제됨**(2026-10-29, LUT-665) — 한 번도 쓰이지 않아 dev·prod 모두 백업 후 `DROP DATABASE`(ADR-003 갱신). 백업은 로컬 `~/lut-backup/saga_db_{dev,prod}_20261029_*.sql` |
 
 ## 2. 동작 구조 (코드)
@@ -74,7 +74,7 @@ baseline 은 Flyway `baselineOnMigrate` 의미 그대로라 **빈 스키마(새�
 | prod | `true` | `1.1.3.12` | `product-service-prod.yml` (`a86d78b`, 2026-10-28 12:26) | v1.1.3 SQL(V001~V013)은 2026-10-28 psql 수동 적용. 릴리스 중엔 false 였다 |
 
 - prod 는 config 전환 이후 **첫 product 기동 때** 9개 DB 에 history 표 + baseline `1.1.3.12` 행만 생기고 적용 0건이다. 그 첫 기동은 2026-10-29 08:13~08:18 KST LUT-626 핫픽스 롤링 배포였다(배포 헬스체크 통과). classpath 최고 버전이 `V1_1_3_012` = baseline 이라 적용 파일은 없다. DB 에서 직접 확인하려면 `select to_regclass('flyway_schema_history')`.
-- **prod 에서 Flyway 가 실제로 적용하는 첫 파일은 LUT-666 핫픽스의 `gamification/V1_1_3_013`** 이다(2026-10-29 작성, `main` 핫픽스 → 운영 배포 때 자동 적용). 원래 계획은 v1.1.4 였다. 1.1.3.12 = product classpath 의 1.1.3 마지막 파일(`V1_1_3_012`); SQL 레포 V013 은 `admin_db` 라 product 와 무관.
+- **prod 에서 Flyway 가 실제로 적용하는 첫 파일은 LUT-666 핫픽스의 `gamification/V1_1_3_013`** 이다(2026-10-29 작성, `main` 핫픽스 운영 배포 때 자동 적용). 원래 계획은 v1.1.4 였다. 1.1.3.12 = product classpath 의 1.1.3 마지막 파일(`V1_1_3_012`); SQL 레포 V013 은 `admin_db` 라 product 와 무관.
 - dev 서버는 `develop`·`epic/**` push 로 배포된다(`gradle-dev.yml`) — 같은 dev DB 에 여러 브랜치가 번갈아 기동한다는 뜻이므로 3절의 번호 규칙을 지킬 것.
 
 ## 5. Flyway 에 넣을 것 / SQL 레포에 둘 것
@@ -97,7 +97,7 @@ baseline 은 Flyway `baselineOnMigrate` 의미 그대로라 **빈 스키마(새�
 
 prod 는 ALB 뒤 2대를 **EC2 #1 → #2 순서로** 교체한다(`gradle-prod.yml`: deregister → drain → SSM 배포 → register → healthy 대기). 그래서:
 
-1. **스키마는 코드보다 먼저.** Flyway 분은 #1 기동 시 자동으로 먼저 적용된다. Flyway 밖의 스키마(admin_db 등)는 코드 배포 전에 수동 적용한다 — `validate` 때문에 빠지면 기동이 멈춘다.
+1. **스키마는 코드보다 먼저.** Flyway 분은 #1 기동 시 자동으로 먼저 적용된다. Flyway 밖의 스키마는 코드 배포 전에 수동 적용한다 — `validate` 때문에 빠지면 기동이 멈춘다. `admin_db` 는 v1.1.4 부터 admin-service 가 자기 기동 때 Flyway 로 적용한다(admin 은 `hbm2ddl=none` 이라 빠지면 기동이 아니라 호출이 500).
 2. **#1 이 새 스키마를 적용하는 동안 #2 는 옛 코드로 새 스키마를 본다.** 스키마 변경은 옛 코드에 무해해야 한다 → 추가만. **컬럼 이름 변경·삭제는 "새 컬럼 추가 → 코드 배포 → 다음 릴리스에 옛 컬럼 삭제"** 3단계로. 실제 사례: v1.1.3 V005 의 `send_time` RENAME 은 2026-10-28 롤링 창 동안 옛 프로세스에서 `send_time does not exist` 오류 15건을 냈다.
 3. **데이터 보정은 코드 배포·헬스 확인 뒤.** (v1.1.3 런북 `done/migration/1.1.3/apply_prod_v113.sh`: `schema` 단계 = 배포 전, `data` 단계 = 배포 후.)
 4. **DB 간 순서 의존을 만들지 않는다.** Flyway 는 DB 하나 안의 순서만 지킨다. 9개 Flyway 빈 사이의 실행 순서는 보장하지 않는다.
@@ -123,12 +123,12 @@ Redis 캐시(`@Cacheable`, 기본 TTL 없음)에 들어가는 엔티티에 컬�
 - [ ] `./gradlew :app:test --tests "*FlywayMigrationNamingTest"`
 - [ ] dev 배포 후 로그 `Flyway 완료: db=<db>, 적용 1건` 과 `flyway_schema_history` 행 확인
 - [ ] 적용된 뒤에는 그 파일을 고치지 않는다 — 수정은 새 파일
-- [ ] **새 DB 를 추가할 때**: DB 자체는 수동 `CREATE DATABASE`(Flyway 는 DB 를 만들지 않는다) · 폴더 + `FlywayMigrationNamingTest.DATABASES` · `XxxDataSourceConfig` 에 Flyway 빈 + `@DependsOn` · `DataSourceConfigWiringTest.CONFIGS` (⚠ 2026-10-29 현재 이 목록엔 `StatsDataSourceConfig` 가 빠져 있다)
+- [ ] **새 DB 를 추가할 때**: DB 자체는 수동 `CREATE DATABASE`(Flyway 는 DB 를 만들지 않는다) · 폴더 + `FlywayMigrationNamingTest.DATABASES` · `XxxDataSourceConfig` 에 Flyway 빈 + `@DependsOn` · `DataSourceConfigWiringTest.CONFIGS` (LUT-664 로 `StatsDataSourceConfig` 까지 9개)
 
 ## 9. 관련 코드 · 테스트 · 문서
 
 - 코드: `service/src/main/java/io/pinkspider/global/config/datasource/flyway/{FlywayMigration,FlywayMigrationProperties}.java`, `.../datasource/*DataSourceConfig.java`
-- 테스트: `FlywayMigrationTest`(service — on/off·지연 생성·구성값·기본값) · `DataSourceConfigWiringTest`(service — user 3빈 `@Primary`, EMF `@DependsOn`; 2026-10-23 dev 배포에서 `userEntityManagerFactory` 의 `@Primary` 가 떨어져 기동 실패한 뒤 추가, `94a4f1c9`) · `FlywayMigrationNamingTest`(app)
+- 테스트: `FlywayMigrationTest`(service — on/off·지연 생성·구성값·기본값) · `DataSourceConfigWiringTest`(service — user 3빈 `@Primary`, 9개 설정의 EMF `@DependsOn`; 2026-10-23 dev 배포에서 `userEntityManagerFactory` 의 `@Primary` 가 떨어져 기동 실패한 뒤 추가 `94a4f1c9`, stats 는 LUT-664 로 추가) · `FlywayMigrationNamingTest`(app)
 - 폴더 README: `app/src/main/resources/db/migration/README.md`
 - SQL 레포: `level-up-together-sql/CLAUDE.md`(폴더·번호 규칙), v1.1.3 운영 적용 스크립트 `done/migration/1.1.3/apply_prod_v113.sh`
 - 설정: `config-repository/product-service/product-service-{local,dev,prod}.yml` 의 `app.flyway`
