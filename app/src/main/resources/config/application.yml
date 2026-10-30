@@ -7,7 +7,7 @@ spring:
       thread-name-prefix: sched-
   application:
     name: product-service
-  # LUT-595: Boot 의 Flyway 자동설정은 DB 하나(primary)만 다루므로 끈다 — 8개 DB 는 app.flyway 로 직접 관리(FlywayMigration)
+  # LUT-595: Boot 의 Flyway 자동설정은 DB 하나(primary)만 다루므로 끈다 — 9개 DB 는 app.flyway 로 직접 관리(FlywayMigration)
   flyway:
     enabled: false
   jackson:
