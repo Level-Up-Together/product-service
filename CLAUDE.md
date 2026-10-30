@@ -780,6 +780,12 @@ UA로 덮어쓰지 않는 이유는 RN의 `Platform.OS`가 iPad에서도 `ios`�
 `app.security.internal-api.key`와 상수시간 비교 (키 미설정 시 fail-open). 도메인별 베이스 경로, 신고 처리 워크플로우(WARNING/SUSPEND/BAN) 매핑: [
 `docs/INTERNAL_API.md`](docs/INTERNAL_API.md)
 
+**product → admin 호출도 같은 키를 보낸다** (LUT-686, 2026-10-30): admin 의 product 전용 경로(유저 문의 `/api/v1/inquiries/**`·`/api/internal/**`·신고
+등록/`check`/`check-batch`)가 `X-Internal-Api-Key` 를 요구한다(admin `ProductCallKeyFilter`, 키 = admin 의 `app.mvp.internal-api-key` = 이 레포의
+`app.security.internal-api.key`). `AdminInternalApiKeyInterceptor` 를 admin 을 부르는 Feign 설정 3개(`AdminFeignConfig`·`ReportFeignConfig`·
+`AdminInternalFeignConfig`)가 `@Bean` 으로 등록한다 — 키가 비면(local) 헤더를 생략한다. 예전엔 이 경로들이 admin 의 IP 목록(비면 전체 허용)에만
+의존해 누구나 `X-User-Id` 만 바꿔 남의 1:1 문의를 읽고 쓸 수 있었다. **배포 순서는 product(키 전송) → admin(키 요구)**.
+
 **액추에이터도 같은 키로 보호된다** (LUT-605): `InternalApiKeyFilter` 가 `/showmethemoney/**` 중 **`/health`(하위 포함)만 공개**하고 나머지
 (`env`·`beans`·`metrics`·`prometheus`·`heapdump`·`threaddump`, base-path 자체)는 `X-Internal-Api-Key` 헤더 **또는 HTTP Basic 의 비밀번호**(사용자명 무관,
 Prometheus/Grafana Alloy 스크레이프용 — 플랫폼 `JwtAuthenticationFilter` 는 `Bearer` 만 해석해 충돌 없음)로 키를 받아야 200 이다. 예전엔 SecurityConfig

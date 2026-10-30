@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import feign.Client;
 import feign.RequestInterceptor;
 import feign.Retryer;
+import io.pinkspider.global.feign.admin.AdminInternalApiKeyInterceptor;
 import java.util.List;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -63,15 +64,48 @@ class FeignClientConfigScopeIntegrationTest {
     }
 
     @Test
-    @DisplayName("어드민 패스스루 클라이언트에는 각자의 Authorization 전달 인터셉터가 적용된다")
+    @DisplayName("LUT-686: admin 을 부르는 클라이언트 4종에만 내부 키 인터셉터가 있다 (외부 호출 클라이언트에는 없다)")
+    void adminClientsCarryInternalApiKeyInterceptor() {
+        for (String name :
+                List.of(
+                        "admin-notice-client",
+                        "admin-inquiry-client",
+                        "admin-report-client",
+                        "admin-internal-client")) {
+            assertThat(feignClientFactory.getInstances(name, RequestInterceptor.class))
+                    .as("%s 에 내부 키 인터셉터가 있어야 한다", name)
+                    .containsKey("adminInternalApiKeyInterceptor")
+                    .hasValueSatisfying(
+                            new org.assertj.core.api.Condition<>(
+                                    i -> i instanceof AdminInternalApiKeyInterceptor,
+                                    "AdminInternalApiKeyInterceptor 인스턴스"));
+        }
+        for (String name :
+                List.of(
+                        "google-translation-client",
+                        "kakao-oauth2-client",
+                        "kakao-user-api",
+                        "kakao-admin-api",
+                        "apple-auth-api")) {
+            assertThat(feignClientFactory.getInstances(name, RequestInterceptor.class))
+                    .as("%s 에 내부 키 인터셉터가 보이면 안 된다(내부 키 유출)", name)
+                    .doesNotContainKey("adminInternalApiKeyInterceptor");
+        }
+    }
+
+    @Test
+    @DisplayName("어드민 패스스루 클라이언트에는 각자의 Authorization 전달 인터셉터 + 내부 키 인터셉터(LUT-686)만 적용된다")
     void adminClientsKeepTheirOwnInterceptor() {
         assertThat(feignClientFactory.getInstances("admin-notice-client", RequestInterceptor.class))
-                .hasSize(1);
+                .containsOnlyKeys(
+                        "adminAuthorizationInterceptor", "adminInternalApiKeyInterceptor");
         assertThat(
                         feignClientFactory.getInstances(
                                 "admin-inquiry-client", RequestInterceptor.class))
-                .hasSize(1);
+                .containsOnlyKeys(
+                        "adminAuthorizationInterceptor", "adminInternalApiKeyInterceptor");
         assertThat(feignClientFactory.getInstances("admin-report-client", RequestInterceptor.class))
-                .hasSize(1);
+                .containsOnlyKeys(
+                        "reportAuthorizationInterceptor", "adminInternalApiKeyInterceptor");
     }
 }
