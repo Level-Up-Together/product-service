@@ -15,14 +15,16 @@ allowed-tools: Agent, Read, Grep, Glob, Bash, Write, Edit, mcp__postgres-user-db
 
 | DB | MCP 도구 | 주요 테이블 |
 |----|----------|-----------|
-| user_db | `mcp__postgres-user-db__query` | users, user_friends, user_quests, oauth_tokens |
-| mission_db | `mcp__postgres-mission-db__query` | missions, mission_participants, mission_executions, daily_mission_instances |
-| guild_db | `mcp__postgres-guild-db__query` | guilds, guild_members, guild_boards, guild_territories, guild_invitations |
-| feed_db | `mcp__postgres-feed-db__query` | feeds, feed_likes, feed_comments |
-| gamification_db | `mcp__postgres-gamification-db__query` | titles, user_titles, achievements, user_achievements, user_stats, seasons |
-| meta_db | `mcp__postgres-meta-db__query` | common_codes, calendar_holidays, level_configs, attendance_rewards |
-| notification_db | `mcp__postgres-notification-db__query` | notifications, notification_preferences |
-| admin_db | `mcp__postgres-admin-db__query` | home_banners, featured_players, featured_guilds, featured_feeds |
+| user_db | `mcp__postgres-user-db__query` | users, friendship, user_term_agreements, terms, term_versions, user_blacklist |
+| mission_db | `mcp__postgres-mission-db__query` | mission, mission_participant, mission_execution, daily_mission_instance |
+| guild_db | `mcp__postgres-guild-db__query` | guild, guild_member, guild_post, guild_post_comment, guild_invitation |
+| chat_db | `mcp__postgres-chat-db__query` | guild_chat_message, guild_chat_participant, guild_direct_conversation, guild_direct_message |
+| feed_db | `mcp__postgres-feed-db__query` | activity_feed, feed_like, feed_comment |
+| gamification_db | `mcp__postgres-gamification-db__query` | title, user_title, achievement, user_achievement, user_stats, season, user_item, user_subscription |
+| meta_db | `mcp__postgres-meta-db__query` | common_code, mission_category, user_level_config, attendance_reward_config, profanity_word |
+| notification_db | `mcp__postgres-notification-db__query` | notification, notification_preference, device_token |
+| stats_db | (MCP 없음) | user_daily_activity, daily_kpi_snapshot, cohort_retention, cohort_revenue |
+| admin_db | `mcp__postgres-admin-db__query` | home_banner, featured_player, featured_guild, featured_feed |
 
 ## 작업 흐름
 
@@ -39,9 +41,9 @@ allowed-tools: Agent, Read, Grep, Glob, Bash, Write, Edit, mcp__postgres-user-db
 4. 인덱스 추가 또는 쿼리 리팩토링 제안
 
 ### 스키마 변경 시
-1. JPA Entity 변경 사항 확인 (`service/{name}/src/main/java/.../domain/`)
-2. 대응하는 DDL 스크립트 생성
-3. SQL 스크립트를 `level-up-together-sql/queries/` 에 저장
+1. JPA Entity 변경 사항 확인 (`service/{name}-service/src/main/java/.../domain/`)
+2. 대응하는 DDL 스크립트 생성 — 규칙은 `entity-sync` 에이전트·`docs/DB_MIGRATION.md`
+3. product 9개 DB 스키마는 Flyway 파일 `app/src/main/resources/db/migration/<db>/` (엔티티와 같은 커밋), `admin_db` 는 admin-service 레포 Flyway(LUT-676). 큰 데이터 보정만 `level-up-together-sql/queries/developing/<버전>/`
 4. 롤백 스크립트도 함께 작성
 
 ## SQL 스크립트 경로

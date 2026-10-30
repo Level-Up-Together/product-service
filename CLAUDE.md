@@ -107,7 +107,7 @@ private final UserTitleRepository userTitleRepository; // 다른 서비스 DB �
 private final GamificationQueryFacade gamificationQueryFacade;
 ```
 
-Facade 인터페이스는 `lut-platform-kernel`에 정의, 각 서비스에서 구현. Facade DTO는 `io.pinkspider.global.facade.dto` (26개). Entity/Enum
+Facade 인터페이스는 `lut-platform-kernel`에 정의, 각 서비스에서 구현. Facade DTO는 `io.pinkspider.global.facade.dto` (27개). Entity/Enum
 import는 현행 유지 (MSA 전환 시 교체).
 
 ### API Response Format
@@ -149,8 +149,8 @@ All REST endpoints return `ApiResult<T>`:
 | `platform:kernel` | 205    | util/wrapper/aop/converter/api tests + `NotificationTypeTest`  |
 | `platform:infra`  | 98     | JwtUtil/JwtAuthenticationFilter/RestExceptionHandler/Crypto/Feign 등 (resolver/profanity 테스트는 `service`) |
 | `platform:saga`   | 72     | saga framework tests (persistence 엔티티 테스트 18개는 2026-10-29 삭제) |
-| `service`         | 5,081  | all service unit + controller tests                           |
-| `app`             | 32     | `@SpringBootTest` (full context) + 벤치마크/통합                  |
+| `service`         | 5,100  | all service unit + controller tests (2026-10-30)              |
+| `app`             | 33     | `@SpringBootTest` (full context) + 벤치마크/통합 (2026-10-30)      |
 
 **커버리지 게이트** (`service/build.gradle` `jacocoTestCoverageVerification`, `check`에 연결): INSTRUCTION 80% + **BRANCH 80%**
 두 룰. `jacocoExcludes`(config/dto/entity/enums/외부 의존 컴포넌트 등)가 리포트와 게이트에 동일 적용. 2026-09-30 기준 INSTRUCTION 91.8% /
@@ -456,7 +456,8 @@ public void run() { ...}
 
 ## DB 마이그레이션 — Flyway (LUT-595, `global/config/datasource/flyway`)
 
-**dev 는 Flyway, prod 는 v1.1.4 부터** (v1.1.3 운영 배포는 수동 psql, 직후 config prod `app.flyway.enabled=true`·`baseline-version=1.1.3.12`, 2026-10-28).
+**dev·prod 모두 Flyway** (dev 2026-10-23 · prod 는 v1.1.3 운영 배포를 수동 psql 로 마친 직후 config `app.flyway.enabled=true`·`baseline-version=1.1.3.12`, 2026-10-28).
+prod 첫 적용 파일은 LUT-666 핫픽스 `gamification/V1_1_3_013`(2026-10-29). `admin_db` 는 이 레포가 아니라 admin-service 자체 Flyway(LUT-676, v1.1.4 부터).
 상세 레퍼런스·새 마이그레이션 체크리스트: [`docs/DB_MIGRATION.md`](docs/DB_MIGRATION.md), 설계 결정: `docs/adr/ADR-007`. Boot 자동설정은 DB 하나만 다루므로
 `spring.flyway.enabled=false` 로 끄고, 9개 `XxxDataSourceConfig`(LUT-598 `stats` 포함) 가 각각 `xxxFlywayMigration` 빈(`initMethod=migrate`)을 두며 `xxxEntityManagerFactory`
 가 `@DependsOn` 한다 — Flyway 가 스키마를 맞춘 뒤 Hibernate `validate`(각 config 의 `jpaProperties()` 가 코드로 지정, yml `ddl-auto` 와 무관)가 돈다.

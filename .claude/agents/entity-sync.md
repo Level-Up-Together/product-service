@@ -24,9 +24,9 @@ maxTurns: 30
 
 | 변경 | 둘 곳 | 적용 |
 |---|---|---|
-| product 9개 DB 의 스키마(표·컬럼·인덱스·제약) · 작은 멱등 시드 | Flyway `db/migration/<db>/` — **엔티티와 같은 커밋** | product 기동 시 자동 (`app.flyway.enabled=true`: dev, prod 는 v1.1.4 부터) |
+| product 9개 DB 의 스키마(표·컬럼·인덱스·제약) · 작은 멱등 시드 | Flyway `db/migration/<db>/` — **엔티티와 같은 커밋** | product 기동 시 자동 (`app.flyway.enabled=true`: dev 2026-10-23, prod 2026-10-28 부터) |
 | 큰 데이터 보정(재산정·소급·백필) · "새 코드 배포 뒤" 같은 실행 시점 조건이 있는 수정 | SQL 레포 `queries/developing/<버전>/V###__lut###_desc.sql` | 사람 — psql, 런북에 시점 명시 |
-| `admin_db` | 이 레포 아님 — admin-service 엔티티 변경이면 SQL 레포 | 사람 — 코드 배포 전 |
+| `admin_db` | 이 레포 아님 — v1.1.4 부터 admin-service 레포 Flyway `app/src/main/resources/db/migration/admin/` (LUT-676, 엔티티와 같은 커밋) | admin-service 기동 시 자동 (dev 2026-10-30, prod 는 v1.1.4 운영 배포부터) |
 | 새 DB(`CREATE DATABASE`) | 런북 단계 | 사람 — Flyway 는 DB 를 만들지 않는다 |
 
 ## 서비스 → DB 폴더

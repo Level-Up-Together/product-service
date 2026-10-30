@@ -19,22 +19,22 @@ import io.pinkspider.leveluptogethermvp.{otherservice}.*
 ### 2. 이벤트 연결
 - 발행: `eventPublisher.publishEvent(new {Event}(...))`
 - 수신: `@TransactionalEventListener` 또는 `@EventListener`
-- 이벤트 클래스: `io.pinkspider.global.event/`
+- 이벤트 클래스: `io.pinkspider.global.event/` (platform kernel 레포 `../level-up-together-platform/kernel/`), 리스너: 각 서비스 `**/event/listener/`
 
 ### 3. Saga 연결
-- Saga Step에서 다른 서비스의 Repository/Service 호출
-- `io.pinkspider.leveluptogethermvp.missionservice.saga/`
+- Saga Step에서 다른 서비스 호출 (Facade 경유가 규칙)
+- `io.pinkspider.leveluptogethermvp.missionservice.saga/steps/`
 
-### 4. Kafka 연결
-- Producer: `io.pinkspider.global.kafka.producer/`
-- Consumer: `io.pinkspider.global.kafka.consumer/`
+### 4. Redis Stream / Pub/Sub 연결 (Kafka 미사용)
+- 푸시: Redis Stream `stream:app-push` (`AppPushMessageProducer` → `AppPushMessageConsumer`)
+- 실시간: Pub/Sub `notification:realtime`·`chat:guild:realtime`·`chat:dm:realtime` (퍼블리셔 → 릴레이, ADR-009)
 
 ## 분석 절차
 
 1. 지정된 서비스(또는 전체)의 import 문 스캔
 2. 이벤트 발행/수신 매핑
 3. Saga Step의 외부 서비스 참조 확인
-4. Kafka 토픽 기반 연결 확인
+4. Redis Stream·Pub/Sub 채널 기반 연결 확인
 
 ## 출력 형식
 
@@ -64,7 +64,7 @@ import io.pinkspider.leveluptogethermvp.{otherservice}.*
 | guild     |  ●   |         |  -    |  ●   |      |     ●(E)    |    ●(E)     |
 | ...       |      |         |       |      |      |             |             |
 
-● = 직접 의존, (E) = 이벤트 연결, (S) = Saga 연결, (K) = Kafka 연결
+● = 직접 의존, (E) = 이벤트 연결, (S) = Saga 연결, (R) = Redis Stream·Pub/Sub 연결
 ```
 
 ## 활용 시나리오

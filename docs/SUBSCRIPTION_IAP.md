@@ -62,7 +62,7 @@
 응답은 `bundle_id`, `diamond_count`, `balance`(블루+핑크), `blue_balance`, `pink_balance`, `already_processed` 다.
 
 - `status` 는 항상 `PAID` 로 저장한다. `REFUNDED` 전환 로직은 없다. RTDN `voidedPurchaseNotification` 은 구독 행만 찾으므로, 다이아 토큰이면 "RTDN 환불 매칭 구독 행 없음" 로그만 남는다.
-- ⚠ 이미 처리된 트랜잭션이면, 원래 지급받은 유저와 요청 유저를 대조하지 않고 요청 유저의 잔액으로 `already_processed=true` 를 응답한다. 이때 지급은 없다.
+- ⚠ 이미 처리된 트랜잭션이면, 원래 지급받은 유저와 요청 유저를 대조하지 않고 요청 유저의 잔액으로 `already_processed=true` 를 응답한다. 이때 지급은 없다(LUT-662, 2026-10-30 미수정).
 - RN(`iapService.ts`): 서버 지급이 성공한 뒤에만 `finishTransaction` 을 부른다. 스토어 결제 대기 상한 `STORE_PURCHASE_TIMEOUT_MS` 는 **60초**다(LUT-502, 이전 4분). 늦게 끝난 트랜잭션은 전역 리스너나 앱 재시작 때 `restorePendingPurchases` 가 멱등하게 다시 처리한다.
 - 어드민 결제이력은 `GET /api/internal/diamond-payments` 다. 필터는 `start_at`, `end_at`, `nickname`, `user_id`, `platform`, `bundle_id`, `status`, `page`, `size` 다.
 
@@ -154,7 +154,7 @@
 | 빈 payload, ASSN 서명 불량, RTDN 파싱 불가, 구독 알림 아님, Play 재조회 4xx·파싱 실패(`120702`), 매칭 행 없음, PENDING | 로그(+`dropped` 카운터)만 남기고 폐기 | 200 |
 | `StoreTransientException`(Play 5xx·네트워크·토큰 발급 일시 실패), DB 오류 | 예외를 전파한다. 플랫폼 `RestExceptionHandler` 가 500 을 낸다 | 5xx → 스토어/Pub/Sub 재시도 |
 
-- ⚠ 적용 중 `SubscriptionPlanMapping.resolve` 가 `120801`(매핑 없는 상품)을 던지면 잡지 않는다. 그러면 500 이 나고 Pub/Sub 가 보존 기간 동안 계속 재시도한다. 새 구독 상품을 추가할 때는 매핑부터 넣는다.
+- ⚠ 적용 중 `SubscriptionPlanMapping.resolve` 가 `120801`(매핑 없는 상품)을 던지면 잡지 않는다. 그러면 500 이 나고 Pub/Sub 가 보존 기간 동안 계속 재시도한다(LUT-661, 2026-10-30 미수정). 새 구독 상품을 추가할 때는 매핑부터 넣는다.
 
 ### 7.1 iOS — App Store Server Notifications V2
 
@@ -259,7 +259,7 @@ Play Console 수익 창출 설정(RTDN 토픽, 콘텐츠 "정기 결제·무효�
 
 - 결제일은 `occurred_at` 의 날짜 부분이다(UTC 저장값).
 - Android subscriptionsv2 는 통화도 주지 않는다. 그래서 verify·RTDN 경로는 KRW 정가가 된다.
-- **`REFUND` 행**: 스토어가 환불액을 주지 않으므로 3번 규칙에 따라 정가(`LIST`)로 채운다. KPI 에서는 음수로 합산된다.
+- **`REFUND` 행**: 스토어가 환불액을 주지 않으므로 3번 규칙에 따라 정가(`LIST`)로 채운다. KPI 에서는 음수로 합산된다. 실제 환불액과 다를 수 있다(LUT-663, 2026-10-30 미수정).
 - 시드: 월 4,900 / 연 44,000 KRW × ios·android, `effective_from=2026-01-01` (`db/migration/gamification/V1_1_3_010`·`011`). 정가를 바꿀 때는 새 `effective_from` 행을 **추가**한다(삭제 금지). uk 는 `(plan, platform, currency, effective_from)` 다.
 - 다이아 묶음에는 `price_source` 가 없다. 금액이 null 이면 미상이다.
 - 운영 Android 17건(2026-09-20, Play 라이선스 테스터 결제)은 실매출이 아니라서 null 로 두고 백필하지 않기로 했다(LUT-600).

@@ -11,7 +11,7 @@ maxTurns: 50
 ## 프로젝트 구조
 
 ```
-src/main/java/io/pinkspider/leveluptogethermvp/{servicename}/
+service/{name}-service/src/main/java/io/pinkspider/leveluptogethermvp/{servicename}/
 ├── api/            - REST Controller
 ├── application/    - Service (비즈니스 로직)
 ├── domain/
@@ -38,7 +38,7 @@ src/main/java/io/pinkspider/leveluptogethermvp/{servicename}/
 ### Step 3: 생성 파일 목록
 
 #### 3-1. DataSource 설정
-`src/main/java/io/pinkspider/global/config/datasource/{Service}DataSourceConfig.java`
+`service/src/main/java/io/pinkspider/global/config/datasource/{Service}DataSourceConfig.java`
 
 필수 요소:
 - `@EnableJpaRepositories(basePackages = "io.pinkspider.leveluptogethermvp.{servicename}")`
@@ -47,9 +47,10 @@ src/main/java/io/pinkspider/leveluptogethermvp/{servicename}/
 - `@Profile("!test & !push-test")`
 - HikariCP 설정 (기존 서비스 설정과 동일한 값 사용)
 - SSH 터널 연동
+- `{service}FlywayMigration` 빈(`initMethod = "migrate"`) + `{service}EntityManagerFactory` 의 `@DependsOn("{service}FlywayMigration")`, `jpaProperties()` 의 `hbm2ddl.auto=validate` (LUT-595)
 
 #### 3-2. DataSource Properties
-`src/main/java/io/pinkspider/global/properties/{Service}DataSourceProperties.java`
+`service/src/main/java/io/pinkspider/global/config/datasource/properties/{Service}DataSourceProperties.java`
 
 #### 3-3. 서비스 패키지 구조 전체
 ```
@@ -64,14 +65,15 @@ src/main/java/io/pinkspider/leveluptogethermvp/{servicename}/
 ```
 
 #### 3-4. 테스트 설정 (application-test.yml)
-H2 데이터베이스 설정 추가:
+H2 데이터베이스 설정 추가 — `app/src/main/resources/config/application-test.yml`·`application-push-test.yml` 의 `spring.datasource.{service}` + app 테스트의 `TestDataSourceConfig`(같은 이름의 H2 DataSource·EMF·TM):
 ```yaml
-{service}:
+spring:
   datasource:
-    jdbc-url: jdbc:h2:mem:{service}_db;DB_CLOSE_DELAY=-1;...
-    username: sa
-    password:
-    driver-class-name: org.h2.Driver
+    {service}:
+      jdbc-url: jdbc:h2:mem:{service}_db;MODE=PostgreSQL;DB_CLOSE_DELAY=-1;...
+      username: sa
+      password:
+      driver-class-name: org.h2.Driver
 ```
 
 ### Step 4: 빌드 검증
@@ -90,4 +92,5 @@ H2 데이터베이스 설정 추가:
 ## 주의사항
 - `userTransactionManager`가 `@Primary`이므로 새 서비스에는 절대 `@Primary` 붙이지 않기
 - application-test.yml의 H2 설정도 반드시 추가
+- 함께 손댈 곳 (선례: LUT-598 stats_db `7b7241ce`): `service/build.gradle` 의 main/test/test-resources `srcDirs` · Flyway 폴더 `app/src/main/resources/db/migration/{db}/` + `FlywayMigrationNamingTest.DATABASES` · `DataSourceConfigWiringTest.CONFIGS` · config-repository `spring.datasource.{service}` · DB 자체는 수동 `CREATE DATABASE`(`docs/DB_MIGRATION.md` 8절)
 - 기존 서비스의 HikariCP 풀 사이즈와 동일하게 설정

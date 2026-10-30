@@ -21,11 +21,14 @@ maxTurns: 30
 | `leveluptogethermvp.userservice` | `userTransactionManager` (Primary - 생략 가능하지만 명시 권장) |
 | `leveluptogethermvp.missionservice` | `missionTransactionManager` |
 | `leveluptogethermvp.guildservice` | `guildTransactionManager` |
+| `leveluptogethermvp.chatservice` | `chatTransactionManager` |
 | `leveluptogethermvp.metaservice` | `metaTransactionManager` |
 | `leveluptogethermvp.feedservice` | `feedTransactionManager` |
 | `leveluptogethermvp.notificationservice` | `notificationTransactionManager` |
-| `leveluptogethermvp.adminservice` | `adminTransactionManager` |
 | `leveluptogethermvp.gamificationservice` | `gamificationTransactionManager` |
+| `leveluptogethermvp.statsservice` | `statsTransactionManager` |
+
+`bffservice`·`noticeservice`·`supportservice` 는 자체 DB 가 없다. `adminservice` 는 별도 레포(admin-service)다.
 
 ## 검사 절차
 
