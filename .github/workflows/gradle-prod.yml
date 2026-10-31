@@ -29,7 +29,7 @@ concurrency:
 jobs:
   build:
     name: Build & Upload
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     outputs:
       jar_filename: ${{ steps.upload.outputs.jar_filename }}
 
@@ -124,7 +124,7 @@ jobs:
     name: Rolling Deploy
     needs: build
     if: ${{ github.event.inputs.skip_deploy != 'true' }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
 
     steps:
       - name: Configure AWS credentials
@@ -286,7 +286,7 @@ jobs:
   notify:
     name: Slack Notification
     needs: [build, deploy]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     if: always() && needs.deploy.result != 'skipped'
 
     steps:
