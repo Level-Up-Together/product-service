@@ -228,6 +228,8 @@ preflight(OPTIONS) 응답의 `Access-Control-Allow-Headers` 를 검증한다. �
 - 핫픽스를 epic 에도 머지하는 이유: 빠뜨리면 다음 릴리스(epic → `main`)에서 그 수정이 사라지거나 충돌한다.
 - 이 레포: `develop`·`epic/**` push → 개발 서버 배포(`gradle-dev.yml`), `main` push → 운영 롤링 배포(`gradle-prod.yml`). 운영 배포가 필요 없는 `main` 커밋(문서 등)은 메시지에 `[skip ci]`.
   platform 을 함께 바꿨으면 platform 의 같은 epic 을 먼저 push 한다(`X.Y.Z-SNAPSHOT` 발행 → 이 레포 dev 빌드가 받는다).
+  platform 핫픽스는 `X.Y.Z.N`(네 번째 자리, LUT-699)으로 발행된다 — 이 레포 핫픽스 브랜치에서 `gradle.properties` 의
+  `lutPlatformReleaseVersion=X.Y.Z.N` 으로 받는다(운영 빌드가 그 정식 버전을 찾는다). epic 에 머지할 때는 epic 값을 유지한다.
 
 ## 작업 완료 시 규칙
 
