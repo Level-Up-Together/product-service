@@ -12,6 +12,7 @@ import io.pinkspider.leveluptogethermvp.gamificationservice.domain.entity.Attend
 import io.pinkspider.leveluptogethermvp.gamificationservice.experience.application.UserExperienceService;
 import io.pinkspider.leveluptogethermvp.gamificationservice.infrastructure.AttendanceRecordRepository;
 import io.pinkspider.leveluptogethermvp.gamificationservice.stats.application.UserStatsService;
+import io.pinkspider.leveluptogethermvp.metaservice.appsetting.application.AppSettingCacheService;
 import io.pinkspider.leveluptogethermvp.metaservice.attendancerewardconfig.application.AttendanceRewardConfigCacheService;
 import io.pinkspider.leveluptogethermvp.metaservice.attendancerewardconfig.domain.entity.AttendanceRewardConfig;
 import io.pinkspider.leveluptogethermvp.metaservice.attendancerewardconfig.domain.enums.AttendanceRewardType;
@@ -45,6 +46,7 @@ public class AttendanceService {
     private final ApplicationEventPublisher eventPublisher;
     private final UserRepository userRepository;
     private final AttendanceRecordCreator attendanceRecordCreator;
+    private final AppSettingCacheService appSettingCacheService;
 
     private static final int DEFAULT_DAILY_EXP = 10;
     private static final Set<Integer> STREAK_MILESTONES = Set.of(7, 14, 30, 60, 90);
@@ -137,7 +139,27 @@ public class AttendanceService {
                 totalExp);
 
         return AttendanceCheckInResponse.success(
-                AttendanceResponse.from(savedRecord), baseExp, bonusExp, bonusReasons);
+                AttendanceResponse.from(savedRecord),
+                baseExp,
+                bonusExp,
+                bonusReasons,
+                isStoreReviewDue(savedRecord.getConsecutiveDays()));
+    }
+
+    /**
+     * LUT-708: 이번 연속 일수가 어드민 설정 마일스톤(meta app_setting, 기본 7·14·30)에 있으면 웹이 OS 평가 팝업을 요청한다. 설정 조회가
+     * 실패해도 출석 체크는 막지 않는다(false).
+     */
+    boolean isStoreReviewDue(Integer consecutiveDays) {
+        if (consecutiveDays == null || consecutiveDays <= 0) {
+            return false;
+        }
+        try {
+            return appSettingCacheService.getStoreReviewMilestoneDays().contains(consecutiveDays);
+        } catch (RuntimeException e) {
+            log.warn("스토어 평가 마일스톤 설정 조회 실패 — 요청 안 함: {}", e.getMessage());
+            return false;
+        }
     }
 
     public boolean hasCheckedInToday(String userId) {

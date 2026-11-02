@@ -2,7 +2,7 @@
 
 `/api/internal/**` 경로는 `SecurityConfig`에서 `permitAll`이지만 **공유 시크릿 헤더 인증 + VPC 내부 접근**으로 보호. Admin Backend가 MVP의 도메인 데이터를 읽거나 액션을 실행할 때 사용.
 
-> 2026-10-29 코드 기준 현행화 — `@RequestMapping("/api/internal…")` 컨트롤러 **40개 = 베이스 경로 40개**(중첩 경로 포함). chat·bff·notice·support 서비스에는 내부 API 컨트롤러가 없다.
+> 2026-10-29 코드 기준 현행화 — `@RequestMapping("/api/internal…")` 컨트롤러 **41개 = 베이스 경로 41개**(중첩 경로 포함, 2026-11-02 LUT-708 `app-settings` 추가). chat·bff·notice·support 서비스에는 내부 API 컨트롤러가 없다.
 
 ## 인증 (LUT-244)
 
@@ -70,6 +70,7 @@
 | `/api/internal/guild-level-configs` | 길드 레벨 설정(같은 엔드포인트 구성). 레벨 기준은 `cumulative_point` | Feign 전환(2026-02) · QA-99 · LUT-483 |
 | `/api/internal/attendance-reward-configs` | 출석 보상 설정. `GET /`·`/all`·`/active`·`/consecutive`·`/{id}` · `POST` · `PUT /{id}` · `PATCH /{id}/toggle-active` · `DELETE /{id}` | Feign 전환(2026-02) · QA-131 |
 | `/api/internal/mission-categories` | 미션 카테고리. `GET /`·`/all`·`/active`·`/{id}`·`/by-name/{name}`·`/by-ids` · `POST` · `PUT`/`DELETE /{id}` · `POST /{id}/toggle-active`(PATCH 아님) | Feign 전환(2026-02) |
+| `/api/internal/app-settings` | 어드민 서비스 설정(`app_setting` 키-값). `GET`/`PUT /store-review-milestones` — 스토어 인앱 평가 팝업을 요청할 연속 출석 일수 목록(기본 7·14·30, 1~365·최대 10개, 빈 목록=끔). 캐시 `appSettings`(TTL 없음, PUT 때 evict). 출석 체크인 응답 `store_review_due` 의 원천 | LUT-708 (2026-11-02) |
 | `/api/internal/profanity-words` | 금칙어. `GET /`·`/all`·`/active`·`/{id}` · `POST` · `PUT`/`DELETE /{id}` · `PATCH /{id}/toggle` | Feign 전환(2026-02) |
 
 ### gamification-service (gamification_db)

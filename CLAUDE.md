@@ -59,7 +59,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 | `missionservice`      | mission_db      | 미션 정의/진행/Saga, 미션북, daily instance(pinned) |
 | `guildservice`        | guild_db        | 길드, 멤버, 경험치, 게시판, 초대                       |
 | `chatservice`         | chat_db         | 길드 채팅, DM, 읽음 상태                           |
-| `metaservice`         | meta_db         | 공통 코드, 캘린더, 레벨/출석 보상·길드 레벨 설정 (Redis 캐시). 금칙어·콘텐츠 번역 캐시 저장소도 meta_db |
+| `metaservice`         | meta_db         | 공통 코드, 캘린더, 레벨/출석 보상·길드 레벨 설정, **어드민 서비스 설정 `app_setting`**(LUT-708) (Redis 캐시). 금칙어·콘텐츠 번역 캐시 저장소도 meta_db |
 | `feedservice`         | feed_db         | 피드 (CQRS Read Model), 좋아요, 댓글              |
 | `notificationservice` | notification_db | 알림 생성/조회, FCM 푸시, 실시간(WS), 디바이스 토큰      |
 | `gamificationservice` | gamification_db | 칭호, 업적, 통계, 경험치, 출석, 이벤트, 시즌, **상점/인벤토리/다이아** |
@@ -386,7 +386,7 @@ Redis Stream `stream:app-push` → `AppPushMessageConsumer` → `FcmPushService`
 | `missionCategories`, `activeMissionCategories`        | 1시간 | 마스터 데이터 (Admin evict+reload) |
 | `guildLevelConfigs`, `userLevelConfigs`               | 1시간 | 레벨 설정 (LUT-534 — 무기한 캐시가 컬럼 추가 후 스테일 JSON을 돌려줘 길드 레벨 강등 사고) |
 
-그 외 설정·조회 캐시(출석 보상, 업적, `profanityWords`, `userDetailedTitleInfo` 등)는 각 `*CacheService`의 `@Cacheable` 사용 — **기본 설정은 TTL 없음(무기한)**이라 evict 이벤트에 전적으로 의존한다.
+그 외 설정·조회 캐시(출석 보상, 업적, `profanityWords`, `userDetailedTitleInfo`, `appSettings`(LUT-708 — 엔티티가 아니라 파싱한 값만 캐시) 등)는 각 `*CacheService`의 `@Cacheable` 사용 — **기본 설정은 TTL 없음(무기한)**이라 evict 이벤트에 전적으로 의존한다.
 **캐시되는 엔티티에 컬럼을 추가할 때는 배포 직후 해당 키를 evict할 것** (LUT-534): 옛 JSON은 역직렬화 오류 없이 새 필드만 `null`로 살아남으므로 `RedisConfig`의 "오류 시 evict" 안전망에 걸리지 않는다. `@PostConstruct warmUpCache()`류 self-invocation은 캐시 프록시를 타지 않아 기동 시 갱신 효과가 없다.
 길드 레벨 재판정(`GuildExperienceService.processLevelUp`)은 **강등 금지**(포인트 단조 증가 → 레벨도 단조) — 재판정 결과가 현재 레벨보다 낮으면 warn 로그 후 유지.
 
@@ -634,6 +634,7 @@ list_price      = COMMON 유저 기준가 = 최대 할증가                    
   쿼리가 아니라 **데이터 정리(sql V009)** 로 제거 — 미션 상태로 소급 제외하면 활성이던 달의 정당한 미수행까지 빠진다.
 - **랭킹** `/api/v1/rankings` 14개: 전체·`/missions`·`/streaks`·`/achievements`·`/realtime`·`/level`·`/level/**`는 **비로그인 허용**(LUT-297,
   `SecurityConfig` permitAll + `SecurityConfigPublicEndpointTest`), `/my*`·`/nearby`는 인증 필요.
+- **출석 응답 `store_review_due`** (LUT-708, 2026-11-02): 체크인 응답에 "이번 연속 일수가 어드민 설정 마일스톤(meta `app_setting.store_review_milestone_days`, 기본 `7,14,30`)과 같은가" 를 서버가 판정해 싣는다. 웹은 그 값이 true 일 때만 OS 인앱 평가 팝업을 요청(LUT-609)하고, 값이 없으면(구 서버) 7·14·30 으로 폴백한다. "평가했는지" 는 OS 가 알려 주지 않으므로 목록의 각 시점에 1회씩 요청하고 끝낸다. 설정 조회 실패는 출석을 막지 않는다(false). 어드민은 `/api/admin/attendance-reward-configs/store-review-milestones`(권한 `attendance-config:*`).
 - **출석은 가입 당일부터 1일차** (LUT-597): 예전 `AttendanceController` 의 "가입 첫날 출석 제외" 규칙(2025-12-25, 이유 미기재)은 폐지됐다. `isNewUserToday` 가 UTC 날짜(JVM 기본)를 비교해 차단 창이 KST 09:00~다음날 09:00 로 어긋났고, 웹은 `already_checked_in` 응답을 조용히 삼켜 유저에게 아무 안내도 없었다. IR 리텐션 D1 정의(가입 다음 날 재방문)와 맞추기 위해 제거 — **배포 전 가입 코호트의 가입 당일 출석 행은 구조적으로 0건**이라 출석 기반 D0 는 그 구간에서 측정 불가. kernel `UserQueryFacade.isNewUserToday` 는 호환 위해 남아 있다(호출처 없음).
 - **스트릭 소스는 2종이고 섞으면 안 된다** (LUT-405/555): ① **연속 출석** = `attendance_record.consecutive_days` 체인
   (`AttendanceService.getCurrentStreak`, 유저 타임존, 오늘·어제 출석 없으면 0) — 업적 화면 "현재 n일 출석중"·공개 프로필

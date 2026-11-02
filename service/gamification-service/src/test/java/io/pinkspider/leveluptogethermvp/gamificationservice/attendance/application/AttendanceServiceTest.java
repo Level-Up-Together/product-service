@@ -22,6 +22,7 @@ import io.pinkspider.leveluptogethermvp.gamificationservice.domain.entity.Attend
 import io.pinkspider.leveluptogethermvp.gamificationservice.experience.application.UserExperienceService;
 import io.pinkspider.leveluptogethermvp.gamificationservice.infrastructure.AttendanceRecordRepository;
 import io.pinkspider.leveluptogethermvp.gamificationservice.stats.application.UserStatsService;
+import io.pinkspider.leveluptogethermvp.metaservice.appsetting.application.AppSettingCacheService;
 import io.pinkspider.leveluptogethermvp.metaservice.attendancerewardconfig.application.AttendanceRewardConfigCacheService;
 import io.pinkspider.leveluptogethermvp.metaservice.attendancerewardconfig.domain.entity.AttendanceRewardConfig;
 import io.pinkspider.leveluptogethermvp.metaservice.attendancerewardconfig.domain.enums.AttendanceRewardType;
@@ -58,6 +59,8 @@ class AttendanceServiceTest {
 
     @Mock private AttendanceRecordCreator attendanceRecordCreator;
 
+    @Mock private AppSettingCacheService appSettingCacheService;
+
     @InjectMocks private AttendanceService attendanceService;
 
     private static final String TEST_USER_ID = "test-user-123";
@@ -68,6 +71,10 @@ class AttendanceServiceTest {
         org.mockito.Mockito.lenient()
                 .when(userRepository.findById(anyString()))
                 .thenReturn(Optional.empty());
+        // LUT-708: 기본 마일스톤 7·14·30
+        org.mockito.Mockito.lenient()
+                .when(appSettingCacheService.getStoreReviewMilestoneDays())
+                .thenReturn(List.of(7, 14, 30));
     }
 
     private LocalDate today() {
@@ -691,6 +698,66 @@ class AttendanceServiceTest {
 
             // then
             assertThat(result).isEqualTo(42L);
+        }
+    }
+
+    @Nested
+    @DisplayName("LUT-708: 스토어 평가 팝업 요청 시점(store_review_due)")
+    class StoreReviewDue {
+
+        private AttendanceCheckInResponse checkInWithStreak(int consecutiveDays) {
+            LocalDate today = today();
+            AttendanceRecord savedRecord =
+                    createTestAttendanceRecord(1L, TEST_USER_ID, today, consecutiveDays);
+            when(attendanceRecordRepository.findByUserIdAndAttendanceDate(TEST_USER_ID, today))
+                    .thenReturn(Optional.empty());
+            when(attendanceRecordRepository.findByUserIdAndAttendanceDate(
+                            TEST_USER_ID, today.minusDays(1)))
+                    .thenReturn(
+                            Optional.of(
+                                    createTestAttendanceRecord(
+                                            2L,
+                                            TEST_USER_ID,
+                                            today.minusDays(1),
+                                            consecutiveDays - 1)));
+            when(rewardConfigCacheService.getConfigByRewardType(AttendanceRewardType.DAILY))
+                    .thenReturn(
+                            AttendanceRewardConfig.builder()
+                                    .rewardType(AttendanceRewardType.DAILY)
+                                    .rewardExp(10)
+                                    .build());
+            stubCreate(savedRecord);
+            return attendanceService.checkIn(TEST_USER_ID);
+        }
+
+        @Test
+        @DisplayName("연속 일수가 설정 마일스톤(기본 7)과 같으면 true")
+        void dueOnMilestone() {
+            assertThat(checkInWithStreak(7).getStoreReviewDue()).isTrue();
+        }
+
+        @Test
+        @DisplayName("마일스톤이 아니면 false, 이미 출석한 응답도 false")
+        void notDueOtherwise() {
+            assertThat(checkInWithStreak(5).getStoreReviewDue()).isFalse();
+
+            LocalDate today = today();
+            when(attendanceRecordRepository.findByUserIdAndAttendanceDate(TEST_USER_ID, today))
+                    .thenReturn(
+                            Optional.of(createTestAttendanceRecord(3L, TEST_USER_ID, today, 7)));
+            assertThat(attendanceService.checkIn(TEST_USER_ID).getStoreReviewDue()).isFalse();
+        }
+
+        @Test
+        @DisplayName("설정 조회가 실패하면 출석은 그대로 성공하고 false")
+        void settingFailureDoesNotBlockCheckIn() {
+            when(appSettingCacheService.getStoreReviewMilestoneDays())
+                    .thenThrow(new IllegalStateException("redis down"));
+
+            AttendanceCheckInResponse result = checkInWithStreak(14);
+
+            assertThat(result.isAlreadyCheckedIn()).isFalse();
+            assertThat(result.getStoreReviewDue()).isFalse();
         }
     }
 }
