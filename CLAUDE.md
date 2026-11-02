@@ -456,6 +456,7 @@ public void run() { ...}
 | `DailyMvpHistoryScheduler.saveDailyMvpHistory{Kst,Ast,Utc}` | `0 0 0 * * *` (Asia/Seoul·Asia/Riyadh·UTC) | 타임존별 일간 MVP 기록             |
 | `SeasonRewardScheduler.processEndedSeasonRewards`           | `0 0 3 * * *` KST           | 종료된 시즌 보상 자동 부여            |
 | `SubscriptionStipendScheduler.grantDailyStipends`           | `0 10 0 * * *` UTC          | 구독자 일일 블루다이아 1개 지급 (LUT-453, 멱등=구독ID+지급일) |
+| `SubscriptionLedgerReconcileScheduler.reconcileAndroidLedgers` | `0 30 0 * * *` UTC       | 활성·최근 만료(7일) Android 구독의 원장 증분 대조 + 초회 주문 STORE 정정 (LUT-677). 백필 카운터 `source=daily` 가 0 이 아니면 RTDN 경로 이상 |
 | `MissionIdempotencyKeyCleanupScheduler.cleanupExpiredKeys`  | `0 15 * * * *` KST (매시)    | 24시간 지난 미션 생성 멱등 키 삭제 (LUT-577) |
 | `UserActivityFlushScheduler.flushRecentDays`                 | `0 20 0 * * *` KST          | Redis `active:{날짜}` 활동 집합 → `stats_db.user_daily_activity` 적재(그제·어제 2일, 멱등) (LUT-598) |
 | `KpiSnapshotScheduler.buildDailySnapshot`                    | `0 40 0 * * *` KST          | 어제·그제 `daily_kpi_snapshot` + 최근 31일 `cohort_retention` + 13개월 전~당월 `cohort_revenue` 재계산(멱등) (LUT-601·660) |
@@ -589,6 +590,7 @@ list_price      = COMMON 유저 기준가 = 최대 할증가                    
   감사 로그도 없다. dev 구독이 2026-10-17 쯤 사라져 10/26 테스트 갱신 RTDN 9건이 구독 없는 토픽으로 발행돼 전부 폐기됐다. 2026-10-26 `lut-rtdn-dev-push`
   재생성(만료 없음·재시도 10s~600s). 운영 push 구독 `lut-rtdn-prod-push` 는 2026-10-28 v1.1.3 릴리스 때 같은 방식(만료 없음)으로 생성했다. 수신 여부는 `lut_rtdn_received_total`
   (`RtdnMetrics`, kind 라벨) 카운터로 본다 — 0 이 계속되면 전달 경로부터 의심.
+- **Android 원장 일일 정합** (LUT-677, `SubscriptionLedgerReconcileScheduler` 00:30 UTC): 활성·최근 만료(7일) Android 구독을 한 명씩 Play 재조회 → `syncRenewals(full=false, source="daily")` 로 빠진 연번을 채우고, 초회 주문(접미사 없는 `GPA.xxxx`, verify 가 정가 LIST 로 기록)도 `orders.get` 으로 STORE 정정한다(이미 STORE·무료 체험 행은 조회 안 함). RTDN 이 끊겨도 다음 날이면 원장이 맞는다. `lut_subscription_ledger_rows_written_total{source="daily"}` 는 **0 이 정상** — 양수면 RTDN 전달 경로(Pub/Sub push 구독) 점검, Grafana 알람 "Android 원장 일일 백필".
 - **Android 갱신 원장은 Play 주문 연번으로 완결한다** (LUT-617, `GoogleOrderLedgerSync`): RTDN·자가 치유·verify 는 "처리 시점의 `latestOrderId`
   1건"만 알지만 갱신 주문 ID 는 `GPA.xxxx..N` 연번이다. 만료가 늘어날 때 원장의 마지막 N 다음부터 최신 N 까지 **Orders API**(`orders.get`,
   `SubscriptionVerificationService.fetchGoogleOrder`)로 되짚어 실제 결제 시각(`createTime`)·금액(`total` → `price_source=STORE`)·이용 기간(`servicePeriodEnd`

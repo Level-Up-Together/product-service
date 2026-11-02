@@ -5,6 +5,7 @@ import io.pinkspider.leveluptogethermvp.gamificationservice.subscription.domain.
 import io.pinkspider.leveluptogethermvp.gamificationservice.subscription.domain.dto.ResolvedPrice;
 import io.pinkspider.leveluptogethermvp.gamificationservice.subscription.domain.entity.SubscriptionPaymentHistory;
 import io.pinkspider.leveluptogethermvp.gamificationservice.subscription.domain.entity.UserSubscription;
+import io.pinkspider.leveluptogethermvp.gamificationservice.subscription.domain.enums.PriceSource;
 import io.pinkspider.leveluptogethermvp.gamificationservice.subscription.domain.enums.SubscriptionPaymentEventType;
 import io.pinkspider.leveluptogethermvp.gamificationservice.subscription.infrastructure.SubscriptionPaymentHistoryRepository;
 import java.time.LocalDateTime;
@@ -48,6 +49,12 @@ public class GoogleOrderLedgerSync {
     /** 한 번에 되짚는 최대 주문 수 — 폭주 방지(월 구독 5년치) */
     static final int MAX_BACKFILL = 60;
 
+    public static final String SOURCE_RTDN = "rtdn";
+    public static final String SOURCE_RECONCILE = "reconcile";
+
+    /** LUT-677 일일 정합 스케줄러 — 이 라벨의 백필이 0 이 아니면 RTDN 전달 경로 이상 신호 */
+    public static final String SOURCE_DAILY = "daily";
+
     private final SubscriptionPaymentHistoryRepository repository;
     private final SubscriptionPaymentHistoryRecorder recorder;
     private final SubscriptionVerificationService verificationService;
@@ -73,11 +80,38 @@ public class GoogleOrderLedgerSync {
             LocalDateTime latestExpiresAt,
             LocalDateTime fallbackOccurredAt,
             boolean full) {
+        return syncRenewals(
+                subscription,
+                latestOrderId,
+                trial,
+                latestExpiresAt,
+                fallbackOccurredAt,
+                full,
+                full ? SOURCE_RECONCILE : SOURCE_RTDN);
+    }
+
+    /**
+     * @param source 카운터 라벨 — {@link #SOURCE_RTDN} / {@link #SOURCE_RECONCILE} / {@link
+     *     #SOURCE_DAILY}(LUT-677 일일 정합: 여기서 백필이 생기면 RTDN 전달 경로가 끊겼다는 신호)
+     */
+    @Transactional(transactionManager = "gamificationTransactionManager")
+    public int syncRenewals(
+            UserSubscription subscription,
+            String latestOrderId,
+            boolean trial,
+            LocalDateTime latestExpiresAt,
+            LocalDateTime fallbackOccurredAt,
+            boolean full,
+            String source) {
         LocalDateTime fallback =
                 fallbackOccurredAt != null ? fallbackOccurredAt : LocalDateTime.now();
         Matcher matcher = latestOrderId == null ? null : ORDER_ID.matcher(latestOrderId);
         if (matcher == null || !matcher.matches() || matcher.group(2) == null) {
             // 주문 ID 가 없거나 최초 주문(연번 없음) — 되짚을 갱신이 없다. 예전 방식 그대로 1건
+            // LUT-677: 초회 주문의 PURCHASE 행(verify 가 금액 없이 기록)은 주문 기준으로 한 번 정정
+            int corrected =
+                    latestOrderId == null ? 0 : correctInitialOrder(subscription, latestOrderId);
+            metrics.ledgerRowsWritten(source, corrected);
             recorder.record(
                     subscription,
                     SubscriptionPaymentEventType.RENEWAL,
@@ -87,7 +121,7 @@ public class GoogleOrderLedgerSync {
                     latestOrderId,
                     latestExpiresAt,
                     fallback);
-            return 1;
+            return 1 + corrected;
         }
 
         String base = matcher.group(1);
@@ -145,8 +179,71 @@ public class GoogleOrderLedgerSync {
                         orderId);
             }
         }
-        metrics.ledgerRowsWritten(full ? "reconcile" : "rtdn", written);
+        // LUT-677: 초회 주문(접미사 없음, PURCHASE)도 주문 기준 금액·시각으로 — 연번 대조 범위 밖이라 따로 본다
+        written += correctInitialOrder(subscription, base);
+        metrics.ledgerRowsWritten(source, written);
         return written;
+    }
+
+    /**
+     * LUT-677: 초회 주문(접미사 없는 {@code GPA.xxxx})의 {@code PURCHASE} 행을 orders.get 의 결제 시각·금액(STORE)으로 한
+     * 번 정정한다. verify 는 Google 이 금액을 주지 않아 정가(LIST)로 기록했다. 이미 STORE 이거나 무료 체험(TRIAL, 0원) 행이면 주문을
+     * 조회하지 않는다 — 매일 도는 정합이 같은 행을 반복 조회하지 않게.
+     *
+     * @return 정정한 행 수 0 또는 1
+     */
+    int correctInitialOrder(UserSubscription subscription, String baseOrderId) {
+        Optional<SubscriptionPaymentHistory> row =
+                repository
+                        .findByUserIdAndEventTypeAndTransactionId(
+                                subscription.getUserId(),
+                                SubscriptionPaymentEventType.PURCHASE,
+                                baseOrderId)
+                        .stream()
+                        .findFirst();
+        if (row.isEmpty()
+                || row.get().getPriceSource() == PriceSource.STORE
+                || Boolean.TRUE.equals(row.get().getTrial())) {
+            return 0;
+        }
+        Optional<GoogleOrder> order = lookup(baseOrderId);
+        if (order == null || order.isEmpty() || order.get().totalAmount() == null) {
+            return 0;
+        }
+        LocalDateTime occurredAt =
+                order.get().createTime() != null
+                        ? order.get().createTime()
+                        : row.get().getOccurredAt();
+        ResolvedPrice price =
+                priceResolver.resolve(
+                        order.get().totalAmount(),
+                        order.get().totalCurrency(),
+                        false,
+                        subscription.getPlan(),
+                        subscription.getPlatform(),
+                        (occurredAt != null ? occurredAt : LocalDateTime.now()).toLocalDate());
+        boolean changed =
+                row.get()
+                        .correctFromStoreOrder(
+                                baseOrderId,
+                                occurredAt,
+                                null,
+                                price.amount(),
+                                price.currency(),
+                                price.source());
+        if (!changed) {
+            return 0;
+        }
+        repository.flush();
+        log.info(
+                "구독 결제 이력 초회 주문 정정: userId={}, orderId={}, occurredAt={}, price={} {} ({})",
+                subscription.getUserId(),
+                baseOrderId,
+                occurredAt,
+                price.amount(),
+                price.currency(),
+                price.source());
+        return 1;
     }
 
     /** orders.get — 일시 실패·거부는 삼키고 null (호출자가 폴백), 404 는 Optional.empty */

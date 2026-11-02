@@ -210,7 +210,7 @@ Play Console 수익 창출 설정(RTDN 토픽, 콘텐츠 "정기 결제·무효�
 | `lut_rtdn_received_total` | `kind` = `test` / `voided` / `subscription-{type}` / `other` |
 | `lut_rtdn_dropped_total` | `reason` = `empty` / `unparseable` / `not_subscription` / `refetch_rejected` |
 | `lut_google_order_lookup_failed_total` | `reason` = `transient` / `rejected` / `not_found` |
-| `lut_subscription_ledger_rows_written_total` | `source` = `rtdn` / `reconcile` |
+| `lut_subscription_ledger_rows_written_total` | `source` = `rtdn` / `reconcile` / `daily`(LUT-677 일일 정합 — **0 이 정상**, 양수면 RTDN 경로 이상) |
 
 - 카운터는 처음 증가할 때 등록된다. 시리즈가 아예 없다면 "재기동 이후 수신 0건"이라는 뜻이다.
 - 라벨 값은 정해진 집합만 쓴다. Grafana Cloud Free 의 시리즈 한도 1만을 지키기 위해서다.
@@ -236,7 +236,7 @@ Play Console 수익 창출 설정(RTDN 토픽, 콘텐츠 "정기 결제·무효�
    - 조회에 실패했고 그게 최신 주문이면, 그래도 1건을 쓴다. `occurred_at` 은 RTDN `eventTimeMillis`(없으면 now), 금액은 `LIST` 폴백이다. 중간 주문의 실패는 다음 호출 때 다시 시도된다.
 5. 주문 조회는 best-effort 다. 실패해도 권한 동기화는 막지 않는다.
 
-- 한계: 최초 주문(접미사 없음)은 대조 범위 밖이다. `PURCHASE` 행의 금액은 `LIST`/`TRIAL` 로 남는다.
+- 초회 주문(접미사 없음)은 연번 대조 범위 밖이지만, LUT-677 부터 `correctInitialOrder` 가 `PURCHASE` 행을 `orders.get` 의 `createTime`·`total` 로 한 번 정정한다(`STORE`). 이미 `STORE` 이거나 무료 체험(`TRIAL`) 행은 조회하지 않는다. 호출마다(RTDN·자가 치유·reconcile·일일 정합) 같이 돈다.
 - dev 실측(작업 기록): subscriptionsv2 `expiryTime` 과 orders `servicePeriodEnd` 가 1~2초 다를 수 있다. 원장의 `expires_at` 은 주문 값을 기준으로 한다. Orders API 는 라이선스 테스터 주문도 돌려준다.
 
 ### 8.1 수동 대조 `POST /api/internal/subscription-payments/reconcile?user_id=` (`X-Internal-Api-Key`)
@@ -245,6 +245,18 @@ Play Console 수익 창출 설정(RTDN 토픽, 콘텐츠 "정기 결제·무효�
 - 오류: 구독 행이 없으면 `120803`, Android 가 아니거나 토큰이 없으면 `120804`, Play 재조회가 일시 실패하면 `120702`.
 - 응답: `user_id`, `latest_order_id`, `subscription_state`, `expires_at`, `rows_before`, `rows_after`, `rows_written`. 다시 호출하면 `rows_written=0` 이어야 한다(멱등).
 - 목록 API `GET /api/internal/subscription-payments` 의 필터는 `start_at`/`end_at`(ISO date-time), `nickname`, `user_id`, `platform`, `plan`, `event_type`, `page`, `size` 다.
+
+### 8.2 일일 정합 스케줄러 `SubscriptionLedgerReconcileScheduler` (LUT-677, 00:30 UTC)
+
+RTDN 전달이 끊기면(2026-10-17 dev Pub/Sub 구독 만료) 앱을 열거나 reconcile 을 수동 호출할 때까지 원장이 비어 있었다. 이제 매일 00:30 UTC(ShedLock `SubscriptionLedgerReconcileScheduler_reconcileAndroidLedgers`)에:
+
+1. `user_subscription` 에서 `platform='android'`·구매 토큰 있음·`expires_at > now-7일`(활성 + 최근 만료) 인 유저를 뽑는다.
+2. 유저마다 **별도 트랜잭션**으로 `SubscriptionLedgerReconcileService.reconcileGoogleIncremental` — Play `subscriptionsv2` 재조회 → `test_purchase` 갱신 → `syncRenewals(full=false, source="daily")`(마지막 연번 다음부터 + 초회 주문 정정). Play 일시 실패(`120702`)는 그 유저만 건너뛰고 다음 날 다시 본다.
+3. 요약 로그 `Android 원장 일일 정합 완료: DailyLedgerReconcileSummary[targets, synced, skipped, rowsWritten]`. `rowsWritten > 0` 이면 warn — RTDN 이 놓친 갱신이 있었다는 뜻이다.
+
+- 카운터 `lut_subscription_ledger_rows_written_total{source="daily"}` 는 **0 이 정상**. Grafana 알람 "Android 원장 일일 백필"(infra `monitoring/grafana/build_alert_rules.py`)이 하루 증가분 > 0 이면 경고한다 → Pub/Sub push 구독(§7.2)부터 확인.
+- 주문 조회는 `orders.get` 1건씩이다(`orders:batchGet` 은 안 쓴다 — 대상 수가 적고 기존 `lookup` 경로·카운터를 그대로 쓰기 위해). 한 유저 최대 `MAX_BACKFILL=60` 건.
+- 완료 조건 확인(dev): RTDN 을 끈 테스터 구독(월 플랜 5분 갱신)에서 다음 날 00:30 UTC 뒤 원장 연번이 빈칸 없이 이어지고, 초회 주문 행이 `price_source=STORE` 인지.
 
 ## 9. 금액 · `price_source` (LUT-401/600, `SubscriptionPriceResolver`)
 

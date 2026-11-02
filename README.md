@@ -712,6 +712,7 @@ IR 용 KPI(DAU/WAU/MAU·리텐션·LTV·CAC)의 원천. `stats_db`(LUT-598 신�
 | `DailyMvpHistoryScheduler`          | `0 0 0 * * *` (Asia/Seoul · Asia/Riyadh · UTC) | 타임존별 일간 MVP 히스토리 기록                       |
 | `SeasonRewardScheduler`             | `0 0 3 * * *` (KST)                | 종료된 시즌의 순위 보상 자동 부여                       |
 | `SubscriptionStipendScheduler`      | `0 10 0 * * *` (UTC)               | 구독자 일일 블루다이아 1개 지급 (LUT-453, 멱등=구독ID+지급일) + 푸시(LUT-489) |
+| `SubscriptionLedgerReconcileScheduler` | `0 30 0 * * *` (UTC)            | 활성·최근 만료 Android 구독 원장 증분 대조 + 초회 주문 STORE 정정 (LUT-677, 백필 `source=daily` 는 0 이 정상) |
 | `UserActivityFlushScheduler`        | `0 20 0 * * *` (KST)               | Redis `active:{날짜}` 활동 집합 → `stats_db.user_daily_activity` 적재 (그제·어제, 멱등, LUT-598) |
 | `KpiSnapshotScheduler`              | `0 40 0 * * *` (KST)               | 어제·그제 `daily_kpi_snapshot` + 최근 코호트 리텐션(창이 닫힌 지표만) + 13개월 전~당월 코호트 매출 재계산(창이 닫힌 점만, LUT-660) (멱등, LUT-601) |
 
