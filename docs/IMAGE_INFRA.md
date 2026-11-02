@@ -140,7 +140,7 @@ medium:missions/{userId}/{missionId}/{executionDate}_{uuid}_medium.{ext} (긴 �
 # application.yml (기본값)
 app:
   upload:
-    chat-image: # LUT-590 (profile-image / mission-image 도 같은 형태)
+    chat-image: # LUT-590 (profile-image / mission-image 도 같은 형태 — mission-image 기본 max-size 는 LUT-608 부터 10485760(10MB), 한 요청 최대 5장이라 spring.servlet.multipart.max-request-size 55MB)
       path: ${user.dir}/uploads/chats
       max-size: 5242880
       allowed-extensions: jpg,jpeg,png,gif,webp
