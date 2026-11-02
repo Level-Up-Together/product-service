@@ -99,7 +99,9 @@ public class SubscriptionWebhookService {
         JsonNode voided = notification.path("voidedPurchaseNotification");
         if (voided.hasNonNull("purchaseToken")) {
             metrics.received("voided");
-            webhookTxService.revokeByPurchaseToken(voided.path("purchaseToken").asText());
+            // LUT-663: 주문 ID 로 환불액(Orders API)을 찾는다 — 없으면 null
+            webhookTxService.revokeByPurchaseToken(
+                    voided.path("purchaseToken").asText(), voided.path("orderId").asText(null));
             return;
         }
 

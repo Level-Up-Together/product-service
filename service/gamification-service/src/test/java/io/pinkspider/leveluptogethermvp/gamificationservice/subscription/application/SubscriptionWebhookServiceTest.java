@@ -230,7 +230,7 @@ class SubscriptionWebhookServiceTest {
                             "{\"voidedPurchaseNotification\":{\"purchaseToken\":\"token-001\","
                                     + "\"orderId\":\"GPA.1234\",\"productType\":1}}"));
 
-            verify(webhookTxService).revokeByPurchaseToken("token-001");
+            verify(webhookTxService).revokeByPurchaseToken("token-001", "GPA.1234");
         }
 
         @Test

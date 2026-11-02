@@ -35,6 +35,18 @@ public interface SubscriptionPaymentHistoryRepository
 
     long countByUserId(String userId);
 
+    /** LUT-663: 환불액 폴백 — 같은 거래/주문 ID 의 원 결제 행(금액 있는 것) */
+    Optional<SubscriptionPaymentHistory>
+            findFirstByUserIdAndTransactionIdAndEventTypeNotAndPriceAmountIsNotNullOrderByOccurredAtDesc(
+                    String userId,
+                    String transactionId,
+                    SubscriptionPaymentEventType excludedEventType);
+
+    /** LUT-663: 환불액 폴백 — 그 유저의 최신 결제 행(금액 있는 것) */
+    Optional<SubscriptionPaymentHistory>
+            findFirstByUserIdAndEventTypeNotAndPriceAmountIsNotNullOrderByOccurredAtDesc(
+                    String userId, SubscriptionPaymentEventType excludedEventType);
+
     /**
      * LUT-488: 어드민 결제이력 통합 페이지 — 기간(occurred_at)/플랫폼/플랜/이벤트 필터 목록 조회. (:param IS NULL OR ...) 패턴의
      * PG 42P18 회피를 위한 boolean 플래그 분리는 {@code
