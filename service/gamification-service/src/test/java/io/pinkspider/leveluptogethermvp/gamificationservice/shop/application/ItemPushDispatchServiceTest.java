@@ -86,18 +86,32 @@ class ItemPushDispatchServiceTest {
 
     private ItemPushDispatchOutcome morning(List<ItemPushMessage> msgs, Set<LocalDate> completed) {
         return dispatchService.trySendForUser(
-                USER_ID, headItem, D, ItemPushSlot.BEFORE_ACTIVITY, MORNING, msgs, completed);
+                USER_ID, headItem, D, ItemPushSlot.BEFORE_ACTIVITY, MORNING, msgs, completed, null);
     }
 
     private ItemPushDispatchOutcome noon(List<ItemPushMessage> msgs, Set<LocalDate> completed) {
         return dispatchService.trySendForUser(
-                USER_ID, headItem, D, ItemPushSlot.INACTIVE, NOON, msgs, completed);
+                USER_ID, headItem, D, ItemPushSlot.INACTIVE, NOON, msgs, completed, null);
     }
 
     private ItemPushDispatchOutcome afternoon(
             List<ItemPushMessage> msgs, Set<LocalDate> completed) {
         return dispatchService.trySendForUser(
-                USER_ID, headItem, D, ItemPushSlot.AFTER_COMPLETE, AFTERNOON, msgs, completed);
+                USER_ID,
+                headItem,
+                D,
+                ItemPushSlot.AFTER_COMPLETE,
+                AFTERNOON,
+                msgs,
+                completed,
+                null);
+    }
+
+    /** LUT-543: 완료 이력 없는 유저 — 가입일(로컬)을 기산점으로 정오 판정. */
+    private ItemPushDispatchOutcome noonSignedUp(
+            List<ItemPushMessage> msgs, Set<LocalDate> completed, LocalDate signup) {
+        return dispatchService.trySendForUser(
+                USER_ID, headItem, D, ItemPushSlot.INACTIVE, NOON, msgs, completed, signup);
     }
 
     private Long publishedMessageId() {
@@ -656,21 +670,66 @@ class ItemPushDispatchServiceTest {
         }
 
         @Test
-        @DisplayName("연속 미완료 일수 — 어제부터 완료일 직전까지, 상한 14 초과는 15")
+        @DisplayName("연속 미완료 일수 — 어제부터 완료일 직전까지, 상한 90 초과는 91 (LUT-543)")
         void consecutiveDays() {
-            assertThat(dispatchService.consecutiveIncompleteDays(D, Set.of(D.minusDays(2))))
+            assertThat(dispatchService.consecutiveIncompleteDays(D, Set.of(D.minusDays(2)), null))
                     .isEqualTo(1);
-            assertThat(dispatchService.consecutiveIncompleteDays(D, Set.of(D.minusDays(3))))
+            assertThat(dispatchService.consecutiveIncompleteDays(D, Set.of(D.minusDays(3)), null))
                     .isEqualTo(2);
-            assertThat(dispatchService.consecutiveIncompleteDays(D, Set.of(D.minusDays(4))))
+            assertThat(dispatchService.consecutiveIncompleteDays(D, Set.of(D.minusDays(4)), null))
                     .isEqualTo(3);
-            assertThat(dispatchService.consecutiveIncompleteDays(D, Set.of())).isEqualTo(15);
+            assertThat(dispatchService.consecutiveIncompleteDays(D, Set.of(D.minusDays(91)), null))
+                    .isEqualTo(90);
+            assertThat(dispatchService.consecutiveIncompleteDays(D, Set.of(), null)).isEqualTo(91);
         }
 
         @Test
-        @DisplayName("정오 — k>14 (완료 이력 없음) 는 발송하지 않는다")
-        void noonStopsBeyond14() {
+        @DisplayName("LUT-543: 연속 미완료 일수 — 가입일 전날에서 멈춘다(가입 전은 미완료가 아니다), 완료일이 먼저면 완료일 기준")
+        void consecutiveDaysFromSignup() {
+            assertThat(dispatchService.consecutiveIncompleteDays(D, Set.of(), D.minusDays(7)))
+                    .isEqualTo(7);
+            assertThat(dispatchService.consecutiveIncompleteDays(D, Set.of(), YESTERDAY))
+                    .isEqualTo(1);
+            assertThat(dispatchService.consecutiveIncompleteDays(D, Set.of(), D)).isEqualTo(0);
+            assertThat(
+                            dispatchService.consecutiveIncompleteDays(
+                                    D, Set.of(D.minusDays(4)), D.minusDays(30)))
+                    .isEqualTo(3);
+            assertThat(dispatchService.consecutiveIncompleteDays(D, Set.of(), D.minusDays(200)))
+                    .isEqualTo(91);
+        }
+
+        @Test
+        @DisplayName("LUT-543: 정오 — k ∈ {30,60,90} 도 발송일이다 (장기 휴면 복귀 유도)")
+        void noonSendsOnLongMilestones() {
+            for (int k : new int[] {30, 60, 90}) {
+                assertThat(noon(fullSet, Set.of(D.minusDays(k + 1))))
+                        .as("k=%d", k)
+                        .isEqualTo(ItemPushDispatchOutcome.SENT);
+            }
+        }
+
+        @Test
+        @DisplayName("LUT-543: 정오 — k=29·k=91(90일 초과)·완료 이력 없음+가입일 모름 은 발송하지 않는다")
+        void noonStopsBeyond90() {
+            assertThat(noon(fullSet, Set.of(D.minusDays(30))))
+                    .isEqualTo(ItemPushDispatchOutcome.SKIP_BACKOFF);
+            assertThat(noon(fullSet, Set.of(D.minusDays(92))))
+                    .isEqualTo(ItemPushDispatchOutcome.SKIP_BACKOFF);
             assertThat(noon(fullSet, Set.of())).isEqualTo(ItemPushDispatchOutcome.SKIP_BACKOFF);
+        }
+
+        @Test
+        @DisplayName("LUT-543: 정오 — 완료 이력 없는 유저는 가입일부터 센다: 가입 7일째 발송, 8일째·가입 당일·가입 91일 초과는 스킵")
+        void noonUsesSignupAnchor() {
+            assertThat(noonSignedUp(fullSet, Set.of(), D.minusDays(7)))
+                    .isEqualTo(ItemPushDispatchOutcome.SENT);
+            assertThat(noonSignedUp(fullSet, Set.of(), D.minusDays(8)))
+                    .isEqualTo(ItemPushDispatchOutcome.SKIP_BACKOFF);
+            assertThat(noonSignedUp(fullSet, Set.of(), D))
+                    .isEqualTo(ItemPushDispatchOutcome.SKIP_BACKOFF);
+            assertThat(noonSignedUp(fullSet, Set.of(), D.minusDays(120)))
+                    .isEqualTo(ItemPushDispatchOutcome.SKIP_BACKOFF);
         }
     }
 }

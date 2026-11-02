@@ -65,6 +65,26 @@ class UserQueryFacadeServiceTest {
         verifyNoInteractions(userRepository);
     }
 
+    @Test
+    @DisplayName("LUT-543: 가입 시각 배치 조회 — 조회된 유저만 담고 createdAt 이 null 인 행은 뺀다")
+    void getCreatedAts_mapsRows() {
+        LocalDateTime t1 = LocalDateTime.of(2026, 7, 20, 20, 0);
+        when(userRepository.findCreatedAtsByIdIn(List.of("u1", "u2", "u3")))
+                .thenReturn(List.of(new Object[] {"u1", t1}, new Object[] {"u2", null}));
+
+        Map<String, LocalDateTime> result = facadeService.getCreatedAts(List.of("u1", "u2", "u3"));
+
+        assertThat(result).containsOnly(Map.entry("u1", t1));
+    }
+
+    @Test
+    @DisplayName("LUT-543: 가입 시각 조회 — 입력이 비거나 null 이면 빈 맵, 저장소 호출 없음")
+    void getCreatedAts_emptyOrNull() {
+        assertThat(facadeService.getCreatedAts(List.of())).isEmpty();
+        assertThat(facadeService.getCreatedAts(null)).isEmpty();
+        verifyNoInteractions(userRepository);
+    }
+
     @Nested
     @DisplayName("getActiveUserIds 테스트")
     class GetActiveUserIdsTest {

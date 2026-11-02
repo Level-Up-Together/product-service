@@ -22,6 +22,7 @@ import java.time.ZonedDateTime;
 import java.util.ArrayList;
 import java.util.EnumMap;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -64,10 +65,16 @@ public class ItemPushScheduler {
     private static final ZoneId DEFAULT_ZONE = ZoneId.of("Asia/Seoul");
 
     /**
-     * 상태 판정용 미션 완료 조회 창(일). 어제부터 거꾸로 센 연속 미완료 일수 k 를 최대 14 까지 구분하려면 오늘 기준 15일 전(어제-14일)까지의 완료 여부가
-     * 필요하다.
+     * 상태 판정용 미션 완료 조회 창(일). 어제부터 거꾸로 센 연속 미완료 일수 k 를 14 까지 구분하려면 오늘 기준 15일 전(어제-14일)까지의 완료 여부가
+     * 필요하다. 모든 후보가 매일 이 창을 조회한다(활동 유저는 완료 행이 많아 창을 넓히면 비용이 늘어난다).
      */
-    private static final int COMPLETION_WINDOW_DAYS = 15;
+    static final int COMPLETION_WINDOW_DAYS = 15;
+
+    /**
+     * LUT-543: 정오(INACTIVE) 백오프는 k 를 90 까지 구분해야 한다. 15일 창에 완료가 없는 유저(= 장기 휴면 후보)만 [오늘-91일, 오늘-15일)
+     * 을 추가 조회한다. 91 = 상한 90 + 1 이라 "90일 초과" 를 구분할 수 있다.
+     */
+    static final int BACKOFF_LOOKBACK_DAYS = ItemPushDispatchService.BACKOFF_MAX_DAYS + 1;
 
     // 테스트에서 고정 시각 주입용 (package-private setter)
     private Clock clock = Clock.systemUTC();
@@ -214,6 +221,65 @@ public class ItemPushScheduler {
         }
     }
 
+    /**
+     * LUT-543: 15일 창에 완료가 없는 유저만 [today-91, today-15) 완료 기록을 추가 조회해 {@code completedByUser} 에 합치고,
+     * 그래도 완료가 한 건도 없는 유저는 가입 시각(UTC → 유저 로컬 날짜)을 돌려준다(완료 이력 없는 신규 유저의 기산점). 둘 다 없으면 k 는 상한+1 로 포화돼
+     * 발송되지 않는다.
+     */
+    private Map<String, LocalDate> extendDormantHistory(
+            List<String> groupUsers,
+            Map<String, Set<LocalDate>> completedByUser,
+            LocalDate today,
+            ZoneId zone,
+            String tz,
+            LocalDateTime windowStartUtc) {
+        List<String> dormant =
+                groupUsers.stream()
+                        .filter(u -> completedByUser.getOrDefault(u, Set.of()).isEmpty())
+                        .toList();
+        if (dormant.isEmpty()) {
+            return Map.of();
+        }
+        LocalDateTime lookbackStartUtc =
+                today.minusDays(BACKOFF_LOOKBACK_DAYS)
+                        .atStartOfDay(zone)
+                        .withZoneSameInstant(ZoneOffset.UTC)
+                        .toLocalDateTime();
+        Map<String, Set<LocalDate>> older =
+                missionQueryFacade.findMissionCompletedLocalDates(
+                        dormant, lookbackStartUtc, windowStartUtc, tz);
+        older.forEach(
+                (userId, dates) ->
+                        completedByUser.merge(
+                                userId,
+                                dates,
+                                (a, b) -> {
+                                    Set<LocalDate> merged = new HashSet<>(a);
+                                    merged.addAll(b);
+                                    return merged;
+                                }));
+
+        List<String> neverCompleted =
+                dormant.stream()
+                        .filter(u -> completedByUser.getOrDefault(u, Set.of()).isEmpty())
+                        .toList();
+        if (neverCompleted.isEmpty()) {
+            return Map.of();
+        }
+        Map<String, LocalDate> signupByUser = new HashMap<>();
+        userQueryFacade
+                .getCreatedAts(neverCompleted)
+                .forEach(
+                        (userId, createdAtUtc) ->
+                                signupByUser.put(
+                                        userId,
+                                        createdAtUtc
+                                                .atZone(ZoneOffset.UTC)
+                                                .withZoneSameInstant(zone)
+                                                .toLocalDate()));
+        return signupByUser;
+    }
+
     /** 같은 타임존 후보 유저들에 대해 완료데이터를 한 번에 배치조회한 뒤 유저별 발송을 시도한다. */
     private void dispatchTzGroup(
             ShopItem item,
@@ -239,7 +305,14 @@ public class ItemPushScheduler {
                         .toLocalDateTime();
 
         Map<String, Set<LocalDate>> completedByUser =
-                missionQueryFacade.findMissionCompletedLocalDates(groupUsers, startUtc, endUtc, tz);
+                new HashMap<>(
+                        missionQueryFacade.findMissionCompletedLocalDates(
+                                groupUsers, startUtc, endUtc, tz));
+        Map<String, LocalDate> signupByUser = Map.of();
+        if (slot.slot() == ItemPushSlot.INACTIVE) {
+            signupByUser =
+                    extendDormantHistory(groupUsers, completedByUser, today, zone, tz, startUtc);
+        }
 
         // LUT-541: 슬롯이 매칭된 순간만 로그를 남긴다(유저·아이템·슬롯당 하루 1회) — 매 분 실행이라
         // 후보가 없는 틱까지 찍으면 로그가 폭주한다. 이 줄이 "그날 그 슬롯 잡이 실제로 돌았다"는 증거가 된다.
@@ -257,7 +330,8 @@ public class ItemPushScheduler {
                                 slot.slot(),
                                 slot.time(),
                                 itemMessages,
-                                completedByUser.getOrDefault(userId, Set.of()));
+                                completedByUser.getOrDefault(userId, Set.of()),
+                                signupByUser.get(userId));
                 tally.merge(outcome, 1, Integer::sum);
                 // LUT-545: 결과가 무엇이든 오늘 이 슬롯의 평가는 끝 — 창 안 다음 틱에서 재평가하지 않는다 (예외는 기록하지 않아 재시도됨)
                 markEvaluated(item.getId(), slot.slot(), userId, today);

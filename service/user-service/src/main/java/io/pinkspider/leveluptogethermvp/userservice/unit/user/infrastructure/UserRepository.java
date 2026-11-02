@@ -17,6 +17,10 @@ public interface UserRepository extends JpaRepository<Users, String> {
     @Query("SELECT u.id, u.preferredTimezone FROM Users u WHERE u.id IN :ids")
     List<Object[]> findPreferredTimezonesByIdIn(@Param("ids") java.util.Collection<String> ids);
 
+    /** LUT-543: 아이템 푸시 백오프 기산점(완료 이력 없는 유저의 가입일) — (userId, createdAt UTC) 쌍. */
+    @Query("SELECT u.id, u.createdAt FROM Users u WHERE u.id IN :ids")
+    List<Object[]> findCreatedAtsByIdIn(@Param("ids") java.util.Collection<String> ids);
+
     /**
      * @deprecated JPA @Convert가 쿼리 파라미터에 적용되지 않아 암호화된 이메일 조회 실패. {@link
      *     #findByEncryptedEmailAndProvider(String, String)} 사용 권장.
