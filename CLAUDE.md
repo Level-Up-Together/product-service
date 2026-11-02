@@ -748,6 +748,7 @@ uk 멱등) — 쪼개서 수행해도 몰아서 한 것과 같은 점수. "하�
 
 - **검증**: `@ModerateImage` 어노테이션 + `ImageModerationAspect` (AOP). `moderation.image.provider` 설정 (`none` / `onnx-nsfw` /
   `aws-rekognition`). 위반 시 `CustomException("000010", "error.moderation.inappropriate_image")`
+  `List<MultipartFile>`·`MultipartFile[]` 인자도 전부 검사한다(LUT-650 — 예전엔 단일 인자만 봐서 미션 인증 사진이 통과). 검수 실패(파일 못 읽음·추론 예외)는 `moderation.image.fail-open`(기본 true=통과)으로 정책을 정하고, 어느 쪽이든 error 로그 + `lut_image_moderation_fail_open_total` 카운터가 남는다(false 면 `000011 error.moderation.unavailable`). 상세는 `docs/IMAGE_INFRA.md`
 - **저장**: `@Profile("prod")`에서 S3 + CloudFront CDN, 그 외 로컬 파일시스템. 서비스별 Strategy (`S3*ImageStorageService` /
   `Local*ImageStorageService`)
 

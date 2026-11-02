@@ -6,7 +6,7 @@ ONNX Runtime 기반 NSFW 이미지 자동 검증 시스템 (`global.moderation`)
 
 ### 아키텍처: Strategy Pattern + AOP
 
-- `@ModerateImage` 어노테이션을 메서드에 적용하면 `MultipartFile` 파라미터를 자동 탐색하여 검증
+- `@ModerateImage` 어노테이션을 메서드에 적용하면 `MultipartFile` 파라미터를 자동 탐색하여 검증 — **`List<MultipartFile>`·`MultipartFile[]` 안의 파일도 전부**(LUT-650, 예전엔 단일 인자만 봐서 미션 인증 사진이 검수 없이 통과했다). 빈 파일·null 은 건너뛴다
 - `ImageModerationAspect`가 `@Around` 어드바이스로 검증 실행
 - `ModerationConfig`가 `moderation.image.provider` 설정에 따라 구현체 선택
 
@@ -24,10 +24,28 @@ ONNX Runtime 기반 NSFW 이미지 자동 검증 시스템 (`global.moderation`)
 moderation:
   image:
     provider: onnx-nsfw   # none | onnx-nsfw | aws-rekognition
+    fail-open: true       # LUT-650: 검수 실패 시 통과(true, 기본·현행) / 차단(false)
     onnx:
       model-path: classpath:models/nsfw.onnx
       nsfw-threshold: 0.8
 ```
+
+### 검수 실패 정책 · 지표 (LUT-650)
+
+검수 자체가 실패하는 경우 — 파일을 이미지로 못 읽음(`ImageIO` null, WebP 등 기본 Java 미지원 포맷) · 파일 읽기 I/O 실패 · 추론/API 예외 · 제공자 런타임 예외(또는 null 반환) —
+제공자는 `ImageModerationResult.failOpen(reason, provider)` 를 돌려주고(`safe=true` + `failOpen=true`), **정책은 `ImageModerationAspect` 한곳**에서 `moderation.image.fail-open` 으로 적용한다.
+
+| `fail-open` | 동작 | 남는 것 |
+|---|---|---|
+| `true` (기본, 현행 유지) | 그 파일은 통과 | error 로그 `이미지 검수 실패 → 통과(fail-open)` + 카운터 |
+| `false` | `CustomException("000011", "error.moderation.unavailable")` 로 차단 | error 로그 `… → 차단(fail-closed)` + 카운터 |
+
+예전엔 세 경우 모두 `safe()` 를 돌려줘 검수가 조용히 무력화돼도 알 수 없었다. 운영 검수를 켤 때(LUT-651) fail-closed 로 바꿀지는 결정 사항 — 설정만 바꾸면 된다.
+
+Micrometer 카운터(`ImageModerationMetrics`, `/showmethemoney/prometheus`):
+
+- `lut_image_moderation_checked_total{provider, result=safe|blocked}` — 판정이 난 검수
+- `lut_image_moderation_fail_open_total{provider, reason=unreadable|read_error|inference_error|exception}` — 검수 실패(통과·차단 정책과 무관하게 센다). **0 이 아니면 제공자 상태 점검**
 
 ### 적용된 서비스
 
@@ -42,6 +60,7 @@ moderation:
 ### 에러 코드
 
 부적절 이미지 감지 시: `CustomException("000010", "error.moderation.inappropriate_image")`
+검수 불가로 차단 시(`fail-open: false` 일 때만): `CustomException("000011", "error.moderation.unavailable")` (LUT-650)
 
 ---
 

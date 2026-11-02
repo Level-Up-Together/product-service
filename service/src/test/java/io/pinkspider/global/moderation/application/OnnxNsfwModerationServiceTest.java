@@ -96,7 +96,7 @@ class OnnxNsfwModerationServiceTest {
     class AnalyzeImageTest {
 
         @Test
-        @DisplayName("이미지를 읽을 수 없으면 안전한 결과를 반환한다")
+        @DisplayName("이미지를 읽을 수 없으면 fail-open 결과(unreadable)를 반환한다 (LUT-650)")
         void shouldReturnSafeWhenCannotReadImage() throws IOException {
             // given
             ModerationProperties properties = createProperties();
@@ -118,10 +118,14 @@ class OnnxNsfwModerationServiceTest {
 
             // then
             assertThat(result.isSafe()).isTrue();
+            assertThat(result.isFailOpen()).isTrue();
+            assertThat(result.getFailureReason())
+                    .isEqualTo(ImageModerationResult.REASON_UNREADABLE);
+            assertThat(result.getProvider()).isEqualTo("onnx-nsfw");
         }
 
         @Test
-        @DisplayName("IOException 발생 시 안전한 결과를 반환한다")
+        @DisplayName("IOException 발생 시 fail-open 결과(read_error)를 반환한다 (LUT-650)")
         void shouldReturnSafeOnIOException() throws IOException {
             // given
             ModerationProperties properties = createProperties();
@@ -141,6 +145,9 @@ class OnnxNsfwModerationServiceTest {
 
             // then
             assertThat(result.isSafe()).isTrue();
+            assertThat(result.isFailOpen()).isTrue();
+            assertThat(result.getFailureReason())
+                    .isEqualTo(ImageModerationResult.REASON_READ_ERROR);
         }
     }
 
@@ -149,7 +156,7 @@ class OnnxNsfwModerationServiceTest {
     class RunInferenceTest {
 
         @Test
-        @DisplayName("세션이 null이면 안전한 결과를 반환한다 (OrtException 핸들링)")
+        @DisplayName("세션이 null이면 fail-open 결과(inference_error)를 반환한다 (LUT-650)")
         void shouldReturnSafeOnOrtException() {
             // given — OrtSession이 null이면 NullPointerException → catch 블록에서 안전 처리
             // OrtSession은 final 메서드가 있어 mock 불가, 대신 실제 실패 시나리오 테스트
@@ -166,6 +173,9 @@ class OnnxNsfwModerationServiceTest {
 
             // then
             assertThat(result.isSafe()).isTrue();
+            assertThat(result.isFailOpen()).isTrue();
+            assertThat(result.getFailureReason())
+                    .isEqualTo(ImageModerationResult.REASON_INFERENCE_ERROR);
         }
     }
 
