@@ -314,8 +314,8 @@ class DailyMissionInstanceTest {
             // when
             int exp = instance.calculateExpByDuration();
 
-            // then: timedExp(240)=96 + 60 = 156 (LUT-568 — 이전 공식은 240 + 60 = 300)
-            assertThat(exp).isEqualTo(156);
+            // then: timedExp(240)=144 + 60 = 204 (LUT-568 — 이전 공식은 240 + 60 = 300)
+            assertThat(exp).isEqualTo(204);
         }
 
         @Test

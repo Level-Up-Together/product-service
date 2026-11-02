@@ -437,9 +437,9 @@ class CompleteExecutionStepTest {
             // when
             SagaStepResult result = completeExecutionStep.execute(context);
 
-            // then - 120(baseExp) 가 아니라 공식값(60 + 87/5 = 77), 자동완료 아님
+            // then - 120(baseExp) 가 아니라 공식값(60 + 87/5 = 125), 자동완료 아님
             assertThat(result.isSuccess()).isTrue();
-            assertThat(execution.getExpEarned()).isEqualTo(77);
+            assertThat(execution.getExpEarned()).isEqualTo(125);
             assertThat(execution.getIsAutoCompleted()).isNotEqualTo(Boolean.TRUE);
         }
 
@@ -488,9 +488,9 @@ class CompleteExecutionStepTest {
             // when
             SagaStepResult result = completeExecutionStep.execute(targetContext);
 
-            // then: timedExp(240)=96 + 50
+            // then: timedExp(240)=144 + 50
             assertThat(result.isSuccess()).isTrue();
-            assertThat(targetExecution.getExpEarned()).isEqualTo(146);
+            assertThat(targetExecution.getExpEarned()).isEqualTo(194);
             assertThat(targetContext.getFullCompletionBonusExp()).isEqualTo(50);
         }
 
@@ -509,8 +509,8 @@ class CompleteExecutionStepTest {
 
             // then
             assertThat(result.isSuccess()).isTrue();
-            assertThat(execution.getExpEarned()).isEqualTo(96);
-            assertThat(context.getUserExpEarned()).isEqualTo(96);
+            assertThat(execution.getExpEarned()).isEqualTo(144);
+            assertThat(context.getUserExpEarned()).isEqualTo(144);
         }
 
         @Test
@@ -527,7 +527,7 @@ class CompleteExecutionStepTest {
 
             // then
             assertThat(result.isSuccess()).isTrue();
-            assertThat(execution.getExpEarned()).isEqualTo(66);
+            assertThat(execution.getExpEarned()).isEqualTo(90);
         }
 
         @Test
