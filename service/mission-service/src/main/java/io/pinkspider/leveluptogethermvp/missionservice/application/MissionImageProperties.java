@@ -17,8 +17,11 @@ public class MissionImageProperties {
     /** 이미지 저장 경로 */
     private String path = "./uploads/missions";
 
-    /** 최대 파일 크기 (바이트) */
-    private long maxSize = 5242880; // 5MB
+    /**
+     * 최대 파일 크기 (바이트) — LUT-608: 5MB → 10MB (웹 mission-record 의
+     * 검사값·spring.servlet.multipart.max-file-size 와 같이 맞춘다)
+     */
+    private long maxSize = 10485760; // 10MB
 
     /** 허용되는 파일 확장자 (콤마로 구분) */
     private String allowedExtensions = "jpg,jpeg,png,gif,webp";

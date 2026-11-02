@@ -15,8 +15,9 @@ spring:
   servlet:
     multipart:
       enabled: true
+      # LUT-608: 미션 기록 사진 1장 10MB, 한 요청에 최대 5장 → 요청 전체 55MB (여유 포함)
       max-file-size: 10MB
-      max-request-size: 10MB
+      max-request-size: 55MB
 
 server:
   port: 8443
