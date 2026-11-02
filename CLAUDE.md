@@ -402,7 +402,7 @@ IR 용 KPI(DAU/WAU/MAU·리텐션)의 원천. 예전엔 "앱을 열었다" 신�
 
 상세 레퍼런스(지표 정의·제외 규칙·API·운영 점검): [`docs/KPI_STATS.md`](docs/KPI_STATS.md), 설계 결정: `docs/adr/ADR-008`.
 
-매일 00:40 KST(활동 flush 00:20 뒤) `KpiSnapshotScheduler` → `KpiRebuildService.runDaily` 가 어제·그제 `daily_kpi_snapshot` 과 창이 닫힌 `cohort_retention`, 전월·당월 `cohort_revenue` 를 upsert 한다(멱등). 소급은 `POST /api/internal/kpi/rebuild?from&to`(어제까지, 최대 400일) — 서버 기동 시 자동 실행 없음(LUT-595 원칙).
+매일 00:40 KST(활동 flush 00:20 뒤) `KpiSnapshotScheduler` → `KpiRebuildService.runDaily` 가 어제·그제 `daily_kpi_snapshot` 과 창이 닫힌 `cohort_retention`, 13개월 전~당월 코호트의 `cohort_revenue` 를 upsert 한다(멱등. LUT-660 — month_12 점이 닫히는 달까지. 예전엔 전월·당월만이라 오래된 코호트의 1·3·6·12개월 점이 수동 rebuild 로만 채워졌다). 소급은 `POST /api/internal/kpi/rebuild?from&to`(어제까지, 최대 400일) — 서버 기동 시 자동 실행 없음(LUT-595 원칙).
 
 - **원천 조회는 `infrastructure/source/*SourceReader`** — 다른 서비스 Repository/Service 를 import 하지 않고 각 DB 의 `DataSource` 빈에 `NamedParameterJdbcTemplate` 로 읽기 전용 SQL 을 던진다(`KpiSourceConfig`). KPI 는 읽기 모델이라 테이블 스키마 결합을 허용하며, MSA 전환 시 이 클래스들만 이벤트/API 로 바꾼다. SQL 을 고치면 dev DB 에서 먼저 실행해 볼 것(H2 통합 테스트 없음).
 - **날짜 경계 KST** (`KpiDates`): KST 날짜 → UTC 구간 `[D-1 15:00, D 15:00)`. 테스트 계정(`users.provider='test'`)은 **user_db 기반 지표**(가입·탈퇴·활성 유저·코호트 모수)에서만, 활동 제외 유저(`app.stats.activity.excluded-user-ids`, 2026-10 현재 config 미설정)는 DAU/WAU/MAU·REQUEST 리텐션에서만 빠진다 — 출석·미션·구독·매출은 제외 없음.
@@ -454,7 +454,7 @@ public void run() { ...}
 | `SubscriptionStipendScheduler.grantDailyStipends`           | `0 10 0 * * *` UTC          | 구독자 일일 블루다이아 1개 지급 (LUT-453, 멱등=구독ID+지급일) |
 | `MissionIdempotencyKeyCleanupScheduler.cleanupExpiredKeys`  | `0 15 * * * *` KST (매시)    | 24시간 지난 미션 생성 멱등 키 삭제 (LUT-577) |
 | `UserActivityFlushScheduler.flushRecentDays`                 | `0 20 0 * * *` KST          | Redis `active:{날짜}` 활동 집합 → `stats_db.user_daily_activity` 적재(그제·어제 2일, 멱등) (LUT-598) |
-| `KpiSnapshotScheduler.buildDailySnapshot`                    | `0 40 0 * * *` KST          | 어제·그제 `daily_kpi_snapshot` + 최근 31일 `cohort_retention` + 전월·당월 `cohort_revenue` 재계산(멱등) (LUT-601) |
+| `KpiSnapshotScheduler.buildDailySnapshot`                    | `0 40 0 * * *` KST          | 어제·그제 `daily_kpi_snapshot` + 최근 31일 `cohort_retention` + 13개월 전~당월 `cohort_revenue` 재계산(멱등) (LUT-601·660) |
 
 ## DB 마이그레이션 — Flyway (LUT-595, `global/config/datasource/flyway`)
 

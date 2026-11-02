@@ -88,7 +88,7 @@ user_db · gamification_db · mission_db ─ *SourceReader(JDBC 읽기 전용) �
   - `KpiRebuildService.runDaily(today)` 를 호출한다.
     - **그제·어제** 스냅샷을 다시 만든다.
     - 코호트 리텐션은 cohort `[어제−31, 어제]` 를 대상으로, `lastComplete=어제` 로 계산한다.
-    - 코호트 매출은 **전월·당월 코호트** 만 계산한다.
+    - 코호트 매출은 **13개월 전 ~ 당월 코호트**(month_12 점이 닫히는 달까지)를 매일 다시 계산한다(LUT-660). 예전엔 전월·당월만이라 오래된 코호트의 1·3·6·12개월 점이 수동 rebuild 없이는 비어 있었다.
   - 실패하면 `KPI 일별 스냅샷 실패` error 로그를 남기고 삼킨다.
 - **소급** `POST /api/internal/kpi/rebuild?from&to` (`KpiRebuildService.rebuild`)
   - from>to 면 바꿔서 처리한다.
