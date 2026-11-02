@@ -273,18 +273,26 @@ class ItemPushDispatchServiceTest {
     // ===================== B. 간격·상한 =====================
 
     @Nested
-    @DisplayName("B. 간격(유저+아이템 2일)·하루 1건 상한")
+    @DisplayName("B. 간격(유저+아이템 1일, LUT-680)·하루 1건 상한")
     class Interval {
 
         @Test
-        @DisplayName("B1: D일 발송 → D+1 은 어느 슬롯이든 미발송 (SKIP_INTERVAL)")
-        void skipsOnNextDay() {
+        @DisplayName("B1: D일 오후 발송 → D+1 아침은 발송 (간격 1일 — 매일 1건, LUT-680)")
+        void sendsOnNextDay() {
             when(sendLogRepository.findTopByUserIdAndShopItemIdAndSlotIsNotNullOrderBySendDateDesc(
                             USER_ID, ITEM_ID))
                     .thenReturn(Optional.of(lastSend(D.minusDays(1), ItemPushSlot.AFTER_COMPLETE)));
 
-            assertThat(morning(fullSet, Set.of(YESTERDAY)))
-                    .isEqualTo(ItemPushDispatchOutcome.SKIP_INTERVAL);
+            assertThat(morning(fullSet, Set.of(YESTERDAY))).isEqualTo(ItemPushDispatchOutcome.SENT);
+        }
+
+        @Test
+        @DisplayName("B1-2: 같은 날 이력(하루 1건 상한을 지나친 경우)은 간격 미경과로 스킵 — SKIP_INTERVAL 방어선")
+        void sameDaySkipsByInterval() {
+            when(sendLogRepository.findTopByUserIdAndShopItemIdAndSlotIsNotNullOrderBySendDateDesc(
+                            USER_ID, ITEM_ID))
+                    .thenReturn(Optional.of(lastSend(D, ItemPushSlot.BEFORE_ACTIVITY)));
+
             assertThat(afternoon(fullSet, Set.of(D)))
                     .isEqualTo(ItemPushDispatchOutcome.SKIP_INTERVAL);
             verify(eventPublisher, never()).publishEvent(any());
@@ -301,14 +309,13 @@ class ItemPushDispatchServiceTest {
         }
 
         @Test
-        @DisplayName("B3: D일 정오 INACTIVE 발송도 기산점 — D+1 아침 미발송")
-        void inactiveCountsAsInterval() {
+        @DisplayName("B3: D일 정오 INACTIVE 발송 뒤 D+1 아침 — 간격 1일이라 발송 (정오는 로테이션 무관, LUT-680 B 시나리오)")
+        void morningAfterInactiveNextDay() {
             when(sendLogRepository.findTopByUserIdAndShopItemIdAndSlotIsNotNullOrderBySendDateDesc(
                             USER_ID, ITEM_ID))
                     .thenReturn(Optional.of(lastSend(D.minusDays(1), ItemPushSlot.INACTIVE)));
 
-            assertThat(morning(fullSet, Set.of(YESTERDAY)))
-                    .isEqualTo(ItemPushDispatchOutcome.SKIP_INTERVAL);
+            assertThat(morning(fullSet, Set.of(YESTERDAY))).isEqualTo(ItemPushDispatchOutcome.SENT);
         }
 
         @Test
@@ -336,12 +343,12 @@ class ItemPushDispatchServiceTest {
     class Rotation {
 
         @Test
-        @DisplayName("C1: 직전 발송이 아침, 2일 경과, 아침 조건 충족 → 아침 스킵 (SKIP_ROTATION)")
+        @DisplayName("C1: 직전 발송이 어제 아침, 아침 조건 충족 → 오늘 아침 스킵 (SKIP_ROTATION, 아침→아침 2일)")
         void morningYieldsAfterMorning() {
             when(sendLogRepository.findTopByUserIdAndShopItemIdAndSlotIsNotNullOrderBySendDateDesc(
                             USER_ID, ITEM_ID))
                     .thenReturn(
-                            Optional.of(lastSend(D.minusDays(2), ItemPushSlot.BEFORE_ACTIVITY)));
+                            Optional.of(lastSend(D.minusDays(1), ItemPushSlot.BEFORE_ACTIVITY)));
 
             assertThat(morning(fullSet, Set.of(YESTERDAY)))
                     .isEqualTo(ItemPushDispatchOutcome.SKIP_ROTATION);
@@ -354,38 +361,38 @@ class ItemPushDispatchServiceTest {
             when(sendLogRepository.findTopByUserIdAndShopItemIdAndSlotIsNotNullOrderBySendDateDesc(
                             USER_ID, ITEM_ID))
                     .thenReturn(
-                            Optional.of(lastSend(D.minusDays(2), ItemPushSlot.BEFORE_ACTIVITY)));
+                            Optional.of(lastSend(D.minusDays(1), ItemPushSlot.BEFORE_ACTIVITY)));
 
             assertThat(afternoon(fullSet, Set.of(D))).isEqualTo(ItemPushDispatchOutcome.SENT);
         }
 
         @Test
-        @DisplayName("C3: 오후가 못 나갔으면 다음 날(3일 경과) 아침은 발송")
+        @DisplayName("C3: 오후가 못 나갔으면 그다음 날(2일 경과) 아침은 발송 — 아침 건너뛰기는 바로 다음 날 한 번만")
         void morningResumesNextDay() {
             when(sendLogRepository.findTopByUserIdAndShopItemIdAndSlotIsNotNullOrderBySendDateDesc(
                             USER_ID, ITEM_ID))
                     .thenReturn(
-                            Optional.of(lastSend(D.minusDays(3), ItemPushSlot.BEFORE_ACTIVITY)));
+                            Optional.of(lastSend(D.minusDays(2), ItemPushSlot.BEFORE_ACTIVITY)));
 
             assertThat(morning(fullSet, Set.of(YESTERDAY))).isEqualTo(ItemPushDispatchOutcome.SENT);
         }
 
         @Test
-        @DisplayName("C4: 직전 발송이 오후, 2일 경과 → 아침 발송")
+        @DisplayName("C4: 직전 발송이 어제 오후 → 오늘 아침 발송 (매일 아침·오후 번갈아, LUT-680 C7)")
         void morningAfterAfternoon() {
             when(sendLogRepository.findTopByUserIdAndShopItemIdAndSlotIsNotNullOrderBySendDateDesc(
                             USER_ID, ITEM_ID))
-                    .thenReturn(Optional.of(lastSend(D.minusDays(2), ItemPushSlot.AFTER_COMPLETE)));
+                    .thenReturn(Optional.of(lastSend(D.minusDays(1), ItemPushSlot.AFTER_COMPLETE)));
 
             assertThat(morning(fullSet, Set.of(YESTERDAY))).isEqualTo(ItemPushDispatchOutcome.SENT);
         }
 
         @Test
-        @DisplayName("C5: 직전 발송이 정오 INACTIVE, 2일 경과 → 아침 발송 (정오는 로테이션 무관)")
+        @DisplayName("C5: 직전 발송이 정오 INACTIVE, 어제 → 오늘 아침 발송 (정오는 로테이션 무관)")
         void morningAfterNoon() {
             when(sendLogRepository.findTopByUserIdAndShopItemIdAndSlotIsNotNullOrderBySendDateDesc(
                             USER_ID, ITEM_ID))
-                    .thenReturn(Optional.of(lastSend(D.minusDays(2), ItemPushSlot.INACTIVE)));
+                    .thenReturn(Optional.of(lastSend(D.minusDays(1), ItemPushSlot.INACTIVE)));
 
             assertThat(morning(fullSet, Set.of(YESTERDAY))).isEqualTo(ItemPushDispatchOutcome.SENT);
         }
@@ -397,7 +404,7 @@ class ItemPushDispatchServiceTest {
             when(sendLogRepository.findTopByUserIdAndShopItemIdAndSlotIsNotNullOrderBySendDateDesc(
                             USER_ID, ITEM_ID))
                     .thenReturn(
-                            Optional.of(lastSend(D.minusDays(2), ItemPushSlot.BEFORE_ACTIVITY)));
+                            Optional.of(lastSend(D.minusDays(1), ItemPushSlot.BEFORE_ACTIVITY)));
 
             assertThat(morning(fullSet, Set.of(YESTERDAY)))
                     .isEqualTo(ItemPushDispatchOutcome.SKIP_ROTATION);
