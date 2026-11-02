@@ -139,7 +139,7 @@ user_db · gamification_db · mission_db ─ *SourceReader(JDBC 읽기 전용) �
 | `signups` / `withdrawals` | `users.created_at` / `withdrawn_at` ∈ D |
 | `active_users` | D 끝 시점 기준으로 가입했고 탈퇴하지 않은 유저 수. 상태 무관(정지 포함) |
 | `dau` / `wau` / `mau` | `user_daily_activity` 고유 유저 수. 각각 D / D−6..D / D−29..D |
-| `dau_web` / `dau_ios` / `dau_android` | 그날 `device_types` 에 해당 기기가 있는 유저 수. `dau_ios` 는 ios+ipad 다. 여러 기기를 쓰면 중복되므로 합이 dau 이상일 수 있다. ⚠ **web 의 뜻**: 웹 브라우저로 요청한 유저다. 앱 웹뷰의 서버 렌더링 요청(Next 서버 → 백엔드)은 LUT-667 웹 배포 전까지 User-Agent 를 넘기지 않아 web 으로 잡혔다 — 운영 2026-10-28 ~ LUT-667 배포일의 `dau_web` 은 앱 사용자까지 포함한 부풀린 값이다(10-28: 14명 전원). 웹 `buildDeviceForwardHeaders` 가 수신 User-Agent·앱 기기 쿠키를 넘긴다 |
+| `dau_web` / `dau_ios` / `dau_android` | 그날 `device_types` 에 해당 기기가 있는 유저 수. `dau_ios` 는 ios+ipad 다. 여러 기기를 쓰면 중복되므로 합이 dau 이상일 수 있다. ⚠ **web 의 뜻**: 웹 브라우저로 요청한 유저다. 앱 웹뷰의 서버 렌더링 요청(Next 서버 → 백엔드)은 LUT-667 웹 배포 전까지 User-Agent 를 넘기지 않아 web 으로 잡혔다 — 운영 2026-10-28 ~ LUT-667 배포일의 `dau_web` 은 앱 사용자까지 포함한 부풀린 값이다(10-28: 14명 전원). 웹 `buildDeviceForwardHeaders` 가 수신 User-Agent·앱 기기 쿠키를 넘긴다. **그 뒤에도 부풀림이 이어졌다(LUT-707)**: RN 네이티브 호출(세션 복원마다 푸시 토큰 등록, 재발급, 구독 검증)이 `X-Device-Type` 없이 기본 UA(`okhttp`, `CFNetwork/Darwin`)로 와서 web 으로 폴백됐다 — 2026-10-28 ~ LUT-707 배포일(2026-11-02)까지의 `dau_web` 은 앱 사용자를 포함한 값(≈ dau)이다. 지금은 `DeviceTypeResolver` 가 이 UA 를 android/ios 로 판정한다 |
 | `attendance_dau` | `attendance_record` 에서 `attendance_date = D` 인 고유 유저 수. 소급 계산 가능 |
 | `mission_completions` / `mission_active_users` | `mission_execution` + `daily_mission_instance` 중 `status='COMPLETED'` 이고 `completed_at` ∈ D 인 건수 / 고유 유저 수(`mission_participant.user_id`) |
 | `new_subscriptions` / `trial_starts` | 원장 `PURCHASE` 건수(체험 포함) / 그중 `trial=true` |

@@ -73,6 +73,9 @@ class MissionStatisticsServiceTest {
                     List.of(execution(SEP1_1030_UTC, "운동"), execution(SEP1_2200_UTC, "독서"));
             List<DailyMissionInstance> instances = List.of(instance(SEP1_1030_UTC, "운동"));
 
+            // 2026-09 고정 조회라 2026-10-31 부터 "말일이 오늘−30일 이전" 게이팅에 걸린다(LUT-563) — 이 테스트는
+            // 집계 검증이므로 구독자로 둔다(LUT-707 에서 날짜 의존 실패 수정)
+            when(gamificationQueryFacade.isSubscriptionEntitled(USER_ID)).thenReturn(true);
             when(executionRepository.countScheduledInPeriod(anyString(), any(), any()))
                     .thenReturn(8L);
             when(dailyMissionInstanceRepository.countScheduledInPeriod(anyString(), any(), any()))
