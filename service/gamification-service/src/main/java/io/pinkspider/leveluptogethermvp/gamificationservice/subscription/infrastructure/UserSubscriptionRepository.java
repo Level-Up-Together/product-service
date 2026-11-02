@@ -31,4 +31,8 @@ public interface UserSubscriptionRepository extends JpaRepository<UserSubscripti
 
     /** LUT-451: Android 교차 계정 재사용 가드 + LUT-452 RTDN 웹훅 매칭 */
     Optional<UserSubscription> findByPurchaseToken(String purchaseToken);
+
+    /** LUT-677: 일일 원장 정합 대상 — 플랫폼별, 구매 토큰 있는, 만료가 기준 시각 이후(활성·최근 만료)인 구독 */
+    List<UserSubscription> findByPlatformAndPurchaseTokenIsNotNullAndExpiresAtAfter(
+            String platform, LocalDateTime expiresAfter);
 }
