@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import io.pinkspider.leveluptogethermvp.statsservice.activity.config.UserActivityProperties;
 import io.pinkspider.leveluptogethermvp.statsservice.activity.domain.entity.UserDailyActivity;
 import io.pinkspider.leveluptogethermvp.statsservice.activity.infrastructure.UserDailyActivityRepository;
+import io.pinkspider.leveluptogethermvp.statsservice.kpi.domain.ExcludedUsers;
 import io.pinkspider.leveluptogethermvp.statsservice.kpi.domain.KpiDates;
 import io.pinkspider.leveluptogethermvp.statsservice.kpi.domain.dto.DailyKpiValues;
 import io.pinkspider.leveluptogethermvp.statsservice.kpi.domain.dto.source.MissionDailyCounts;
@@ -81,7 +82,9 @@ public class KpiSnapshotService {
     DailyKpiValues compute(LocalDate date) {
         LocalDateTime from = KpiDates.utcStart(date);
         LocalDateTime to = KpiDates.utcEnd(date);
+        // LUT-678: 제외 유저는 활동(Java 필터)뿐 아니라 아래 모든 원천 SQL 에도 넘긴다
         Set<String> excluded = activityProperties.getExcludedUserIds();
+        ExcludedUsers excludedUsers = ExcludedUsers.of(excluded);
 
         // 활동 (요청 기반)
         List<UserDailyActivity> dayRows =
@@ -109,15 +112,16 @@ public class KpiSnapshotService {
                                         date.minusDays(29), date),
                                 excluded));
 
-        int attendanceDau = gamificationReader.countAttendanceUsers(date);
-        MissionDailyCounts mission = missionReader.countCompletions(from, to);
-        SubscriptionDailyCounts subs = gamificationReader.countSubscriptionEvents(from, to);
-        RevenueAggregate revenue = gamificationReader.aggregateRevenue(from, to);
+        int attendanceDau = gamificationReader.countAttendanceUsers(date, excludedUsers);
+        MissionDailyCounts mission = missionReader.countCompletions(from, to, excludedUsers);
+        SubscriptionDailyCounts subs =
+                gamificationReader.countSubscriptionEvents(from, to, excludedUsers);
+        RevenueAggregate revenue = gamificationReader.aggregateRevenue(from, to, excludedUsers);
 
         return new DailyKpiValues(
-                userReader.countSignups(from, to),
-                userReader.countWithdrawals(from, to),
-                userReader.countActiveUsersAsOf(to),
+                userReader.countSignups(from, to, excludedUsers),
+                userReader.countWithdrawals(from, to, excludedUsers),
+                userReader.countActiveUsersAsOf(to, excludedUsers),
                 dau,
                 wau,
                 mau,

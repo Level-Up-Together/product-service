@@ -3,6 +3,7 @@ package io.pinkspider.leveluptogethermvp.statsservice.kpi.application;
 import io.pinkspider.leveluptogethermvp.statsservice.activity.config.UserActivityProperties;
 import io.pinkspider.leveluptogethermvp.statsservice.activity.domain.entity.UserDailyActivity;
 import io.pinkspider.leveluptogethermvp.statsservice.activity.infrastructure.UserDailyActivityRepository;
+import io.pinkspider.leveluptogethermvp.statsservice.kpi.domain.ExcludedUsers;
 import io.pinkspider.leveluptogethermvp.statsservice.kpi.domain.KpiDates;
 import io.pinkspider.leveluptogethermvp.statsservice.kpi.domain.dto.source.AttendanceDay;
 import io.pinkspider.leveluptogethermvp.statsservice.kpi.domain.entity.CohortRetention;
@@ -58,8 +59,10 @@ public class CohortRetentionService {
         LocalDate windowStart = cohortFrom.plusDays(1);
         Map<LocalDate, Set<String>> requestActive = new HashMap<>();
         Map<LocalDate, Set<String>> attendanceActive = new HashMap<>();
+        // LUT-678: 제외 유저는 활동(Java)뿐 아니라 출석 SQL·코호트 모수(가입 SQL)에서도 뺀다
+        Set<String> excluded = activityProperties.getExcludedUserIds();
+        ExcludedUsers excludedUsers = ExcludedUsers.of(excluded);
         if (!windowStart.isAfter(windowEnd)) {
-            Set<String> excluded = activityProperties.getExcludedUserIds();
             for (UserDailyActivity a :
                     activityRepository.findAllByActivityDateBetween(windowStart, windowEnd)) {
                 if (excluded == null || !excluded.contains(a.getUserId())) {
@@ -68,7 +71,8 @@ public class CohortRetentionService {
                             .add(a.getUserId());
                 }
             }
-            for (AttendanceDay a : gamificationReader.findAttendance(windowStart, windowEnd)) {
+            for (AttendanceDay a :
+                    gamificationReader.findAttendance(windowStart, windowEnd, excludedUsers)) {
                 attendanceActive.computeIfAbsent(a.date(), d -> new HashSet<>()).add(a.userId());
             }
         }
@@ -80,7 +84,7 @@ public class CohortRetentionService {
                 cohort = cohort.plusDays(1)) {
             List<String> members =
                     userReader.findSignupUserIds(
-                            KpiDates.utcStart(cohort), KpiDates.utcEnd(cohort));
+                            KpiDates.utcStart(cohort), KpiDates.utcEnd(cohort), excludedUsers);
             for (RetentionMetric metric : RetentionMetric.values()) {
                 if (!metric.isClosed(cohort, lastCompleteDate)) {
                     continue;

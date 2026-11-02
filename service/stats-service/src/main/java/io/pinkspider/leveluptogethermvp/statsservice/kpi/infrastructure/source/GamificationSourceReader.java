@@ -1,5 +1,6 @@
 package io.pinkspider.leveluptogethermvp.statsservice.kpi.infrastructure.source;
 
+import io.pinkspider.leveluptogethermvp.statsservice.kpi.domain.ExcludedUsers;
 import io.pinkspider.leveluptogethermvp.statsservice.kpi.domain.dto.source.AttendanceDay;
 import io.pinkspider.leveluptogethermvp.statsservice.kpi.domain.dto.source.RevenueAggregate;
 import io.pinkspider.leveluptogethermvp.statsservice.kpi.domain.dto.source.SubscriptionDailyCounts;
@@ -24,18 +25,29 @@ import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
  *
  * <p>LUT-666: 스토어 테스트 결제(`test_purchase = TRUE` — iOS Sandbox·TestFlight, Google 라이선스 테스터)는 구독
  * 건수·활성 구독·매출·결제 유저 <b>모든</b> 지표에서 제외한다. 운영에 기록된 결제가 전부 테스터 결제였던 사고(2026-10-29)의 재발 방지.
+ *
+ * <p>LUT-678: 제외 유저({@link ExcludedUsers}, config 목록)는 일별 집계 SQL 전부({@code user_id NOT IN
+ * (:excluded)}) 에서 뺀다 — 출석·구독 건수·활성 구독·만료·매출·결제 유저. 코호트 매출 쿼리({@code COHORT_*})는 모수({@code user_id
+ * IN (:ids)}) 가 이미 걸러져 들어오므로 따로 안 건다. 새 일별 쿼리를 추가하면 {@code EXCLUDE_USERS} 를 붙이고 {@code
+ * GamificationSourceReaderTest} 목록에 넣을 것.
  */
 public class GamificationSourceReader {
 
+    /** LUT-678: 제외 유저(팀원·운영자·QA) — 빈 목록이면 센티널이 바인딩된다 */
+    static final String EXCLUDE_USERS = " AND user_id NOT IN (:excluded)";
+
     static final String COUNT_ATTENDANCE_USERS =
-            "SELECT COUNT(DISTINCT user_id) FROM attendance_record WHERE attendance_date = :date";
+            "SELECT COUNT(DISTINCT user_id) FROM attendance_record WHERE attendance_date = :date"
+                    + EXCLUDE_USERS;
     static final String FIND_ATTENDANCE =
             "SELECT user_id, attendance_date FROM attendance_record"
-                    + " WHERE attendance_date >= :from AND attendance_date <= :to";
+                    + " WHERE attendance_date >= :from AND attendance_date <= :to"
+                    + EXCLUDE_USERS;
 
     static final String COUNT_PAYMENT_EVENTS =
             "SELECT event_type, trial, COUNT(*) AS cnt FROM subscription_payment_history WHERE"
                     + " occurred_at >= :from AND occurred_at < :to AND test_purchase = FALSE"
+                    + EXCLUDE_USERS
                     + " GROUP BY event_type, trial";
     static final String COUNT_TRIAL_CONVERSIONS =
             "SELECT COUNT(*) FROM subscription_payment_history r WHERE r.event_type = 'RENEWAL' AND"
@@ -45,15 +57,17 @@ public class GamificationSourceReader {
                 + " AND p.test_purchase = FALSE AND p.occurred_at < r.occurred_at) AND NOT EXISTS"
                 + " (SELECT 1 FROM subscription_payment_history x   WHERE x.user_id = r.user_id AND"
                 + " x.event_type = 'RENEWAL' AND x.trial = FALSE   AND x.test_purchase = FALSE AND"
-                + " x.occurred_at < r.occurred_at)";
+                + " x.occurred_at < r.occurred_at) AND r.user_id NOT IN (:excluded)";
     static final String COUNT_ACTIVE_SUBSCRIPTIONS =
             "SELECT COUNT(*) FROM user_subscription WHERE test_purchase = FALSE AND (expires_at >"
                     + " :asOf OR (grace_period_expires_at IS NOT NULL AND grace_period_expires_at >"
-                    + " :asOf))";
+                    + " :asOf))"
+                    + EXCLUDE_USERS;
     static final String COUNT_EXPIRED_NOT_RENEWED =
             "SELECT COUNT(*) FROM user_subscription WHERE expires_at >= :from AND expires_at < :to"
                     + " AND (grace_period_expires_at IS NULL OR grace_period_expires_at < :to)"
-                    + " AND test_purchase = FALSE";
+                    + " AND test_purchase = FALSE"
+                    + EXCLUDE_USERS;
 
     static final String REVENUE_FILTER =
             " AND price_amount IS NOT NULL AND price_currency IS NOT NULL AND price_source IS NOT"
@@ -63,21 +77,26 @@ public class GamificationSourceReader {
                 + " -price_amount ELSE price_amount END) AS amount FROM"
                 + " subscription_payment_history WHERE occurred_at >= :from AND occurred_at < :to"
                     + REVENUE_FILTER
+                    + EXCLUDE_USERS
                     + " GROUP BY price_currency";
     static final String SUBSCRIPTION_PAYING_USERS =
             "SELECT DISTINCT user_id FROM subscription_payment_history"
                     + " WHERE occurred_at >= :from AND occurred_at < :to AND event_type <> 'REFUND'"
                     + " AND price_amount > 0"
-                    + REVENUE_FILTER;
+                    + REVENUE_FILTER
+                    + EXCLUDE_USERS;
     static final String DIAMOND_REVENUE_BY_CURRENCY =
             "SELECT price_currency AS currency, SUM(price_amount) AS amount FROM"
                     + " diamond_bundle_purchase WHERE created_at >= :from AND created_at < :to AND"
                     + " status = 'PAID' AND price_amount IS NOT NULL AND price_currency IS NOT NULL"
-                    + " AND test_purchase = FALSE GROUP BY price_currency";
+                    + " AND test_purchase = FALSE"
+                    + EXCLUDE_USERS
+                    + " GROUP BY price_currency";
     static final String DIAMOND_PAYING_USERS =
             "SELECT DISTINCT user_id FROM diamond_bundle_purchase WHERE created_at >= :from AND"
                 + " created_at < :to AND status = 'PAID' AND price_amount > 0 AND price_currency IS"
-                + " NOT NULL AND test_purchase = FALSE";
+                + " NOT NULL AND test_purchase = FALSE"
+                    + EXCLUDE_USERS;
 
     static final String COHORT_SUBSCRIPTION_KRW =
             "SELECT COALESCE(SUM(CASE WHEN event_type = 'REFUND' THEN -price_amount ELSE"
@@ -103,14 +122,16 @@ public class GamificationSourceReader {
         this.jdbc = jdbc;
     }
 
-    public int countAttendanceUsers(LocalDate date) {
-        return count(COUNT_ATTENDANCE_USERS, Map.of("date", date));
+    public int countAttendanceUsers(LocalDate date, ExcludedUsers excluded) {
+        return count(
+                COUNT_ATTENDANCE_USERS, Map.of("date", date, "excluded", excluded.sqlValues()));
     }
 
-    public List<AttendanceDay> findAttendance(LocalDate from, LocalDate to) {
+    public List<AttendanceDay> findAttendance(
+            LocalDate from, LocalDate to, ExcludedUsers excluded) {
         return jdbc.query(
                 FIND_ATTENDANCE,
-                Map.of("from", from, "to", to),
+                Map.of("from", from, "to", to, "excluded", excluded.sqlValues()),
                 (rs, i) ->
                         new AttendanceDay(
                                 rs.getString("user_id"),
@@ -121,8 +142,9 @@ public class GamificationSourceReader {
      * @param fromUtc 그날 시작, @param toUtc 그날 끝(exclusive) — 끝 시각이 "그날 기준 활성 구독" 판정 시점(asOf)
      */
     public SubscriptionDailyCounts countSubscriptionEvents(
-            LocalDateTime fromUtc, LocalDateTime toUtc) {
-        Map<String, Object> range = Map.of("from", fromUtc, "to", toUtc);
+            LocalDateTime fromUtc, LocalDateTime toUtc, ExcludedUsers excluded) {
+        Map<String, Object> range =
+                Map.of("from", fromUtc, "to", toUtc, "excluded", excluded.sqlValues());
         int purchases = 0;
         int trialStarts = 0;
         int refunds = 0;
@@ -140,15 +162,20 @@ public class GamificationSourceReader {
             }
         }
         int conversions = count(COUNT_TRIAL_CONVERSIONS, range);
-        int active = count(COUNT_ACTIVE_SUBSCRIPTIONS, Map.of("asOf", toUtc));
+        int active =
+                count(
+                        COUNT_ACTIVE_SUBSCRIPTIONS,
+                        Map.of("asOf", toUtc, "excluded", excluded.sqlValues()));
         int expired = count(COUNT_EXPIRED_NOT_RENEWED, range);
         return new SubscriptionDailyCounts(
                 purchases, trialStarts, conversions, refunds, active, expired);
     }
 
     /** 구독 + 다이아 묶음 매출 (통화별 합, 결제 유저 집합) */
-    public RevenueAggregate aggregateRevenue(LocalDateTime fromUtc, LocalDateTime toUtc) {
-        Map<String, Object> range = Map.of("from", fromUtc, "to", toUtc);
+    public RevenueAggregate aggregateRevenue(
+            LocalDateTime fromUtc, LocalDateTime toUtc, ExcludedUsers excluded) {
+        Map<String, Object> range =
+                Map.of("from", fromUtc, "to", toUtc, "excluded", excluded.sqlValues());
         RevenueAggregate subscription =
                 new RevenueAggregate(
                         amountsByCurrency(SUBSCRIPTION_REVENUE_BY_CURRENCY, range),

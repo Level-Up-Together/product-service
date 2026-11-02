@@ -1,5 +1,7 @@
 package io.pinkspider.leveluptogethermvp.statsservice.kpi.application;
 
+import io.pinkspider.leveluptogethermvp.statsservice.activity.config.UserActivityProperties;
+import io.pinkspider.leveluptogethermvp.statsservice.kpi.domain.ExcludedUsers;
 import io.pinkspider.leveluptogethermvp.statsservice.kpi.domain.KpiDates;
 import io.pinkspider.leveluptogethermvp.statsservice.kpi.domain.dto.source.RevenueAggregate;
 import io.pinkspider.leveluptogethermvp.statsservice.kpi.domain.entity.CohortRevenue;
@@ -33,6 +35,7 @@ public class CohortRevenueService {
     private final CohortRevenueRepository revenueRepository;
     private final UserSourceReader userReader;
     private final GamificationSourceReader gamificationReader;
+    private final UserActivityProperties activityProperties;
 
     /**
      * @param today 오늘(KST) — 아직 끝나지 않은 월은 건너뛴다
@@ -43,11 +46,15 @@ public class CohortRevenueService {
         if (fromMonth.isAfter(toMonth)) {
             return 0;
         }
+        // LUT-678: 제외 유저는 코호트 모수에서 빠진다 — 매출 SQL 은 모수(IN :ids) 기준이라 자동으로 같이 빠진다
+        ExcludedUsers excludedUsers = ExcludedUsers.of(activityProperties.getExcludedUserIds());
         int written = 0;
         for (YearMonth month = fromMonth; !month.isAfter(toMonth); month = month.plusMonths(1)) {
             List<String> members =
                     userReader.findSignupUserIds(
-                            KpiDates.utcMonthStart(month), KpiDates.utcMonthEnd(month));
+                            KpiDates.utcMonthStart(month),
+                            KpiDates.utcMonthEnd(month),
+                            excludedUsers);
             final String monthKey = KpiDates.monthKey(month);
             for (int n : MONTH_POINTS) {
                 final int point = n;

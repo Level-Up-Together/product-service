@@ -1,6 +1,8 @@
 package io.pinkspider.leveluptogethermvp.statsservice.kpi.application;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 
 import io.pinkspider.leveluptogethermvp.statsservice.kpi.domain.dto.CohortRetentionResponse;
@@ -24,6 +26,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
@@ -37,6 +40,12 @@ class KpiQueryServiceTest {
     @Mock
     private io.pinkspider.leveluptogethermvp.statsservice.kpi.infrastructure.source.UserSourceReader
             userReader;
+
+    @Spy
+    private io.pinkspider.leveluptogethermvp.statsservice.activity.config.UserActivityProperties
+            activityProperties =
+                    new io.pinkspider.leveluptogethermvp.statsservice.activity.config
+                            .UserActivityProperties();
 
     @InjectMocks private KpiQueryService service;
 
@@ -107,8 +116,9 @@ class KpiQueryServiceTest {
     @DisplayName("signupsByChannel: 월 범위를 UTC 구간으로 바꿔 user_db 를 읽는다 (from>to 스왑)")
     void signupsByChannel() {
         when(userReader.countSignupsByChannel(
-                        java.time.LocalDateTime.of(2026, 8, 31, 15, 0),
-                        java.time.LocalDateTime.of(2026, 10, 31, 15, 0)))
+                        eq(java.time.LocalDateTime.of(2026, 8, 31, 15, 0)),
+                        eq(java.time.LocalDateTime.of(2026, 10, 31, 15, 0)),
+                        any()))
                 .thenReturn(
                         List.of(
                                 new io.pinkspider.leveluptogethermvp.statsservice.kpi.domain.dto

@@ -6,6 +6,8 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import io.pinkspider.leveluptogethermvp.statsservice.activity.config.UserActivityProperties;
+import io.pinkspider.leveluptogethermvp.statsservice.kpi.domain.ExcludedUsers;
 import io.pinkspider.leveluptogethermvp.statsservice.kpi.domain.KpiDates;
 import io.pinkspider.leveluptogethermvp.statsservice.kpi.domain.dto.source.RevenueAggregate;
 import io.pinkspider.leveluptogethermvp.statsservice.kpi.domain.entity.CohortRevenue;
@@ -26,6 +28,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
@@ -35,6 +38,7 @@ class CohortRevenueServiceTest {
     @Mock private CohortRevenueRepository revenueRepository;
     @Mock private UserSourceReader userReader;
     @Mock private GamificationSourceReader gamificationReader;
+    @Spy private UserActivityProperties activityProperties = new UserActivityProperties();
 
     @InjectMocks private CohortRevenueService service;
 
@@ -45,7 +49,7 @@ class CohortRevenueServiceTest {
         LocalDate today =
                 LocalDate.of(2026, 10, 23); // 8월 코호트: n=0(9/1), n=1(10/1) 닫힘, n=3(12/1) 열림
         when(userReader.findSignupUserIds(
-                        KpiDates.utcMonthStart(month), KpiDates.utcMonthEnd(month)))
+                        eq(KpiDates.utcMonthStart(month)), eq(KpiDates.utcMonthEnd(month)), any()))
                 .thenReturn(List.of("u1", "u2"));
         when(gamificationReader.aggregateCohortRevenueKrw(
                         eq(List.of("u1", "u2")), eq(KpiDates.utcStart(LocalDate.of(2026, 9, 1)))))
@@ -89,7 +93,7 @@ class CohortRevenueServiceTest {
                 .isZero();
 
         YearMonth month = YearMonth.of(2026, 9);
-        when(userReader.findSignupUserIds(any(), any())).thenReturn(List.of());
+        when(userReader.findSignupUserIds(any(), any(), any())).thenReturn(List.of());
         when(gamificationReader.aggregateCohortRevenueKrw(eq(List.of()), any()))
                 .thenReturn(RevenueAggregate.empty());
         when(revenueRepository.findById(any(CohortRevenueId.class))).thenReturn(Optional.empty());
@@ -100,5 +104,23 @@ class CohortRevenueServiceTest {
                 service.rebuild(month, month, LocalDate.of(2026, 10, 23)); // n=0 만 닫힘(10/1 ≤ 10/23)
 
         assertThat(rows).isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("LUT-678: 제외 유저 목록이 코호트 모수(가입 SQL)에 전달된다 — 매출 SQL 은 모수 기준이라 자동으로 빠진다")
+    void passesExcludedUsersToCohortMembers() {
+        activityProperties.setExcludedUserIds(Set.of("ops-1"));
+        when(userReader.findSignupUserIds(any(), any(), any())).thenReturn(List.of());
+        when(gamificationReader.aggregateCohortRevenueKrw(eq(List.of()), any()))
+                .thenReturn(RevenueAggregate.empty());
+        when(revenueRepository.findById(any(CohortRevenueId.class))).thenReturn(Optional.empty());
+        when(revenueRepository.save(any(CohortRevenue.class)))
+                .thenAnswer(inv -> inv.getArgument(0));
+
+        service.rebuild(YearMonth.of(2026, 8), YearMonth.of(2026, 8), LocalDate.of(2026, 10, 23));
+
+        ArgumentCaptor<ExcludedUsers> captor = ArgumentCaptor.forClass(ExcludedUsers.class);
+        verify(userReader).findSignupUserIds(any(), any(), captor.capture());
+        assertThat(captor.getValue().contains("ops-1")).isTrue();
     }
 }
