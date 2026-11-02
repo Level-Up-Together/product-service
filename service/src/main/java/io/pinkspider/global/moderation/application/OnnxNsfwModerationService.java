@@ -72,12 +72,14 @@ public class OnnxNsfwModerationService implements ImageModerationService {
             BufferedImage image = ImageIO.read(imageFile.getInputStream());
             if (image == null) {
                 log.warn("이미지 파일을 읽을 수 없습니다: {}", imageFile.getOriginalFilename());
-                return ImageModerationResult.safe();
+                return ImageModerationResult.failOpen(
+                        ImageModerationResult.REASON_UNREADABLE, getProviderName());
             }
             return runInference(image);
         } catch (IOException e) {
             log.error("이미지 파일 읽기 실패: {}", e.getMessage());
-            return ImageModerationResult.safe();
+            return ImageModerationResult.failOpen(
+                    ImageModerationResult.REASON_READ_ERROR, getProviderName());
         }
     }
 
@@ -145,7 +147,8 @@ public class OnnxNsfwModerationService implements ImageModerationService {
             }
         } catch (Exception e) {
             log.error("ONNX 추론 실패: {}", e.getMessage());
-            return ImageModerationResult.safe();
+            return ImageModerationResult.failOpen(
+                    ImageModerationResult.REASON_INFERENCE_ERROR, getProviderName());
         }
     }
 

@@ -45,7 +45,8 @@ public class AwsRekognitionModerationService implements ImageModerationService {
             return analyzeImageBytes(imageBytes);
         } catch (IOException e) {
             log.error("이미지 파일 읽기 실패: {}", e.getMessage());
-            return ImageModerationResult.safe();
+            return ImageModerationResult.failOpen(
+                    ImageModerationResult.REASON_READ_ERROR, getProviderName());
         }
     }
 
