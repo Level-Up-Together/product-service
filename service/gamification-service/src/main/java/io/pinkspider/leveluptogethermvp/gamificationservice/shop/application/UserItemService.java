@@ -3,6 +3,7 @@ package io.pinkspider.leveluptogethermvp.gamificationservice.shop.application;
 import io.pinkspider.global.event.ItemEquippedEvent;
 import io.pinkspider.global.exception.CustomException;
 import io.pinkspider.global.facade.dto.EquippedItemRarityDto;
+import io.pinkspider.leveluptogethermvp.gamificationservice.shop.domain.dto.UserItemAdminResponse;
 import io.pinkspider.leveluptogethermvp.gamificationservice.shop.domain.dto.UserItemResponse;
 import io.pinkspider.leveluptogethermvp.gamificationservice.shop.domain.entity.ShopItem;
 import io.pinkspider.leveluptogethermvp.gamificationservice.shop.domain.entity.UserItem;
@@ -37,6 +38,14 @@ public class UserItemService {
     private final ShopItemRepository shopItemRepository;
     private final ApplicationEventPublisher eventPublisher;
     private final UserItemCreator userItemCreator;
+
+    /** LUT-657: 어드민 유저 상세 아이템 탭 — 보유 아이템 전부. 유저 조회(getMyItems)와 달리 기본 아이템 lazy 지급을 하지 않는다 */
+    @Transactional(transactionManager = "gamificationTransactionManager", readOnly = true)
+    public List<UserItemAdminResponse> getItemsForAdmin(String userId) {
+        return userItemRepository.findByUserIdWithItem(userId).stream()
+                .map(UserItemAdminResponse::from)
+                .toList();
+    }
 
     /** 내 인벤토리 조회 — 기본 아이템 미보유 시 lazy 지급 후 반환 */
     @Transactional(transactionManager = "gamificationTransactionManager")

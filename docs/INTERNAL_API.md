@@ -89,6 +89,7 @@
 | `/api/internal/shop-items/{itemId}/push-setting` | 장착 아이템 푸시 슬롯 시각. `GET` · `PUT`(`{before_activity_time 08:00~11:59, after_complete_time 12:00~20:59}` 둘 다 선택, `@Pattern` 검증) · `DELETE` | LUT-528 · LUT-573(아침/오후 2필드) |
 | `/api/internal/shop-items/{itemId}/push-messages` | 장착 아이템 푸시 대사(`trigger_type`: `ANY`/`BEFORE_ACTIVITY`/`AFTER_COMPLETE`/`INACTIVE`). `GET` · `POST` · `PUT /{messageId}` · `PATCH /{messageId}/toggle` · `DELETE /{messageId}` | LUT-516 · LUT-528(`trigger_type`) |
 | `/api/internal/shop-purchases` | 아이템 구매이력. `GET /?keyword=` | LUT-328 |
+| `/api/internal/users/{userId}/items` | 유저 보유 아이템 목록(착용 여부·희귀도 라벨/색 포함, 이미지 없음) — 어드민 유저 상세 "아이템" 탭 (LUT-657). 칭호 `/users/{userId}/titles` 는 user-service, 아이템은 gamification_db 라 여기 |
 | `/api/internal/item-grants` | 아이템 수동 지급/회수/이력. `POST`(보유 중이면 멱등 no-op, 이력 미기록·`already_owned` 응답, 지급 시 `ITEM_GRANTED` 알림) · `DELETE /{itemGrantId}`(인벤토리 삭제 + 이력 revoked 마킹, 재회수는 `120905`) · `GET /?keyword=` | LUT-472 |
 | `/api/internal/diamonds` | 다이아 원장 조회·소급 지급. `GET /user/{userId}/history` · `POST /migrate`(일회성 수동, 멱등) | QA-220 |
 | `/api/internal/diamond-bundles` | 핑크다이아 묶음상품 CRUD + 이미지. `GET /`·`/{id}` · `POST` · `PUT /{id}` · `PATCH /{id}/toggle-active` · `DELETE /{id}` · `POST /images` | LUT-356 |
