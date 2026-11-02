@@ -780,7 +780,7 @@ JWT 발급/만료/슬라이딩 로직의 백엔드·웹·앱별 동작과 환경
 
 소셜 로그인 연동 해제 정합(탈퇴 시 unlink/revoke, 카카오·Apple 수신 웹훅, 콘솔·config 등록 현황): [`docs/SOCIAL_ACCOUNT_LIFECYCLE.md`](docs/SOCIAL_ACCOUNT_LIFECYCLE.md)
 
-**회원 탈퇴에는 유예 기간이 없다** — `MyPageService.withdrawUser` 가 즉시 `WITHDRAWN` + 익명화(soft delete, 행 보존)하고 토큰 무효화·소셜 해제·`UserWithdrawnEvent` 를 낸다. 유일한 "유예"는 **재가입 cool-down**(QA-115, `app.user.withdrawal.cool-down-days` 기본 7일 — 같은 이메일+provider 가 `030001`). 어드민 **즉시 탈퇴**(LUT-584, `POST /api/internal/users/{id}/withdraw` → `withdrawUserByAdmin`)는 같은 정리를 하되 `users.withdrawal_cooldown_exempt=true` 로 cool-down 을 면제해 바로 재가입할 수 있다(`Oauth2Service.findExistingUser` 가 판정).
+**회원 탈퇴에는 유예 기간이 없다** — `MyPageService.withdrawUser` 가 즉시 `WITHDRAWN` + 익명화(soft delete, 행 보존)하고 토큰 무효화·소셜 해제·`UserWithdrawnEvent` 를 낸다. 유일한 "유예"는 **재가입 cool-down**(QA-115, `app.user.withdrawal.cool-down-days` 기본 7일 — 같은 이메일+provider 가 `030001`). 어드민 **즉시 탈퇴**(LUT-584, `POST /api/internal/users/{id}/withdraw` → `withdrawUserByAdmin`)는 같은 정리를 하되 `users.withdrawal_cooldown_exempt=true` 로 cool-down 을 면제해 바로 재가입할 수 있다(`Oauth2Service.findExistingUser` 가 판정). **완전 삭제**(DB 행 제거)는 `docs/scripts/delete_user/`(9개 DB, LUT-691 2026-11-02 현행화) — 결제 기록 3표(`user_subscription`·`subscription_payment_history`·`diamond_bundle_purchase`)는 지우지 않는다(유저 결정, 회계·환불 근거). 새 유저 표를 만들면 그 스크립트의 `count/`·`delete/` 에도 넣을 것.
 
 **세션 키는 `deviceId` 기준** (LUT-336) — `deviceType`은 세션 키의 일부가 아니다. 예전에는 재발급/로그아웃/모바일 로그인이 각각 다른 방식으로
 `deviceType`을 해석해(요청 본문 / `X-Device-Type` 헤더 / `"mobile"` 폴백) 같은 기기가 로그인은 `mobile`, 재발급은 `ios`로 기록되며 세션이
