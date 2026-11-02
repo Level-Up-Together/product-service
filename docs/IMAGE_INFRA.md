@@ -4,6 +4,18 @@
 
 ONNX Runtime 기반 NSFW 이미지 자동 검증 시스템 (`global.moderation`).
 
+### 동봉 모델 · 전처리 (LUT-651)
+
+- 모델은 **jar 에 동봉**: `app/src/main/resources/models/nsfw.onnx` (23.6 MB, Yahoo open_nsfw ResNet-50 의 ONNX 변환본 — PyPI `opennsfw-onnx` 0.1.0 휠에서 복사,
+  BSD-2-Clause). 출처·SHA-256·입출력 명세는 같은 폴더 `README.md`, 라이선스 원문은 `LICENSE-open_nsfw-BSD-2-Clause.txt`. 기본 `model-path: classpath:models/nsfw.onnx`.
+- 입력 `input:0` `[N,224,224,3]` **NHWC**, BGR, 평균 `[104,117,123]` 차감 / 출력 `outputs` `[N,2]` = `[sfw, nsfw]`. `OnnxNsfwModerationService` 가 기동 시 세션 입력 모양으로
+  레이아웃을 자동 감지한다(`[N,3,224,224]` 면 NCHW). **예전 코드는 NCHW 고정이라 이 모델에서 추론이 항상 실패**했고(LUT-650 전엔 조용히 safe), 전처리도 참조 구현
+  (256 bilinear 리사이즈 → 가운데 224 자르기 → BGR 평균 차감)으로 맞췄다. JPEG 재인코딩 단계만 생략.
+- 런타임 `onnxruntime 1.17.3` jar 에 linux-x64·**linux-aarch64**(prod t4g)·osx 네이티브 동봉 — 별도 설치 없음. `app` 모듈 `OnnxNsfwModelSmokeTest` 가 실제 로드·추론을 검사한다.
+- 로컬 측정(2026-11-02, Apple M 시리즈, 정상 샘플 PNG 6장 1920×1080~3840×2160): 세션 로드 37 ms · 추론 30~80 ms/장(첫 호출 372 ms 워밍업) · 전처리 2~4 ms ·
+  모델만 올린 JVM 최대 RSS 113 MB(13 MB PNG 6장 디코딩 포함 시 423 MB) · nsfw 점수 0.0004~0.014(임계값 0.8). dev(x86_64)·prod(arm64) 측정은 배포 뒤 Jira LUT-651.
+- 한계: NSFW 한 축만 판정 — 폭력·혐오는 거르지 않는다(`blocked-categories` 는 Rekognition 전용).
+
 ### 아키텍처: Strategy Pattern + AOP
 
 - `@ModerateImage` 어노테이션을 메서드에 적용하면 `MultipartFile` 파라미터를 자동 탐색하여 검증 — **`List<MultipartFile>`·`MultipartFile[]` 안의 파일도 전부**(LUT-650, 예전엔 단일 인자만 봐서 미션 인증 사진이 검수 없이 통과했다). 빈 파일·null 은 건너뛴다
