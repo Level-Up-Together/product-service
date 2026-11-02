@@ -17,6 +17,7 @@ import io.pinkspider.leveluptogethermvp.userservice.home.api.dto.HomeBannerRespo
 import io.pinkspider.leveluptogethermvp.userservice.home.api.dto.MvpGuildResponse;
 import io.pinkspider.leveluptogethermvp.userservice.home.api.dto.TodayPlayerResponse;
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.entity.Users;
+import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.enums.UserStatus;
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.infrastructure.UserRepository;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -39,6 +40,9 @@ import org.springframework.stereotype.Service;
 @Slf4j
 @RequiredArgsConstructor
 public class HomeService {
+
+    /** 홈 "오늘의 MVP" 표시 인원 */
+    static final int TODAY_PLAYER_LIMIT = 5;
 
     private final AdminInternalFeignClient adminInternalFeignClient;
     private final GamificationQueryFacade gamificationQueryFacadeService;
@@ -89,10 +93,10 @@ public class HomeService {
                 startZoned.withZoneSameInstant(ZoneId.of("UTC")).toLocalDateTime();
         LocalDateTime endDate = endZoned.withZoneSameInstant(ZoneId.of("UTC")).toLocalDateTime();
 
-        // 상위 5명 조회
+        // 상위 5명 — 탈퇴 회원을 건너뛰어도 5명을 채우도록 후보는 2배로 뽑는다 (LUT-703)
         List<Object[]> topGainers =
                 gamificationQueryFacadeService.findTopExpGainersByPeriod(
-                        startDate, endDate, PageRequest.of(0, 5));
+                        startDate, endDate, PageRequest.of(0, TODAY_PLAYER_LIMIT * 2));
 
         if (topGainers.isEmpty()) {
             return List.of();
@@ -122,12 +126,15 @@ public class HomeService {
         int rank = 1;
 
         for (Object[] row : topGainers) {
+            if (result.size() >= TODAY_PLAYER_LIMIT) {
+                break;
+            }
             String odayUserId = (String) row[0];
             Long earnedExp = ((Number) row[1]).longValue();
 
             Users user = userMap.get(odayUserId);
-            if (user == null) {
-                continue;
+            if (!isDisplayable(user)) {
+                continue; // 없는 유저·탈퇴 회원은 순위를 소비하지 않고 다음 후보로 (LUT-703)
             }
 
             Integer level = levelMap.getOrDefault(odayUserId, 1);
@@ -278,8 +285,8 @@ public class HomeService {
             if (addedUserIds.contains(userId)) continue;
 
             Users user = userMap.get(userId);
-            if (user == null) {
-                continue;
+            if (!isDisplayable(user)) {
+                continue; // 없는 유저·탈퇴 회원 제외 (LUT-703)
             }
 
             Integer level = levelMap.getOrDefault(userId, 1);
@@ -305,6 +312,11 @@ public class HomeService {
                             itemRarityMap.getOrDefault(userId, List.of())));
             addedUserIds.add(userId);
         }
+    }
+
+    /** LUT-703: 탈퇴(WITHDRAWN, 익명화) 회원은 홈 MVP 에 내보내지 않는다 — 경험치 이력은 남아 상위에 잡힐 수 있다 */
+    private static boolean isDisplayable(Users user) {
+        return user != null && user.getStatus() != UserStatus.WITHDRAWN;
     }
 
     /** LUT-424: 장착 아이템 희귀도 배치 조회 — 썸네일 표식용 데코 데이터라 실패해도 홈 응답은 유지한다. */
