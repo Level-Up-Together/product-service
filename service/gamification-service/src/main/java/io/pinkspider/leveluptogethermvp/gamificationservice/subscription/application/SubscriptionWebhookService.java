@@ -3,6 +3,7 @@ package io.pinkspider.leveluptogethermvp.gamificationservice.subscription.applic
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.pinkspider.global.exception.CustomException;
+import io.pinkspider.leveluptogethermvp.gamificationservice.subscription.domain.SubscriptionPlanMapping;
 import io.pinkspider.leveluptogethermvp.gamificationservice.subscription.domain.dto.AppleSubscriptionNotification;
 import io.pinkspider.leveluptogethermvp.gamificationservice.subscription.domain.dto.GoogleSubscriptionState;
 import java.nio.charset.StandardCharsets;
@@ -17,8 +18,8 @@ import org.springframework.stereotype.Service;
 /**
  * LUT-452: 스토어 구독 웹훅 수신 처리 — ASSN V2 / Google RTDN.
  *
- * <p><b>응답 규약</b>: 영구 실패(서명 불량·파싱 불가·미매칭)는 여기서 삼키고 정상 반환한다 — 스토어가 재전송해도 결과가 같아 재시도가 무의미하기 때문. DB 오류
- * 등 일시 실패만 예외를 전파해 5xx 로 재전송을 받는다. 상태 적용은 전부 수렴형이라 at-least-once 멱등.
+ * <p><b>응답 규약</b>: 영구 실패(서명 불량·파싱 불가·미매칭·매핑 없는 상품 120801)는 여기서 삼키고 정상 반환한다 — 스토어가 재전송해도 결과가 같아 재시도가
+ * 무의미하기 때문. DB 오류 등 일시 실패만 예외를 전파해 5xx 로 재전송을 받는다. 상태 적용은 전부 수렴형이라 at-least-once 멱등.
  *
  * <p><b>인증</b>: JWT 없이 열린 경로(permitAll) — Apple 은 signedPayload JWS 서명 검증이 인증이고, Google 은 페이로드를
  * 신뢰하지 않고 purchaseToken 으로 Play API 를 재조회해 위조를 무력화한다.
@@ -56,7 +57,25 @@ public class SubscriptionWebhookService {
             log.info("ASSN TEST 알림 수신 확인");
             return;
         }
-        webhookTxService.applyAppleNotification(notification);
+        try {
+            webhookTxService.applyAppleNotification(notification);
+        } catch (CustomException e) {
+            if (!isUnknownProduct(e)) {
+                throw e;
+            }
+            // LUT-661: 매핑 없는 상품 — 코드에 플랜 매핑을 넣기 전까지 재전송해도 같으니 폐기한다(500 이면 Apple 이 계속 재전송)
+            log.error(
+                    "ASSN 매핑 없는 상품 — 폐기: type={}, productId={}",
+                    notification.notificationType(),
+                    notification.transaction() == null
+                            ? null
+                            : notification.transaction().getProductId());
+        }
+    }
+
+    /** 매핑에 없는 상품(120801) — 웹훅에서는 영구 실패로 보고 폐기한다 (LUT-661) */
+    private static boolean isUnknownProduct(CustomException e) {
+        return SubscriptionPlanMapping.UNKNOWN_PRODUCT_CODE.equals(e.getCode());
     }
 
     /**
@@ -115,7 +134,20 @@ public class SubscriptionWebhookService {
             return;
         }
         // LUT-617: 이벤트 발생 시각 — 주문 조회가 안 될 때 결제 이력 occurred_at 의 폴백 (처리 시점 now 보다 정확)
-        webhookTxService.applyGoogleState(purchaseToken, state, parseEventTime(notification));
+        try {
+            webhookTxService.applyGoogleState(purchaseToken, state, parseEventTime(notification));
+        } catch (CustomException e) {
+            if (!isUnknownProduct(e)) {
+                throw e;
+            }
+            // LUT-661: 매핑 없는 상품 — 500 이면 Pub/Sub 가 보존 기간 내내 재시도하므로 카운터만 남기고 폐기
+            metrics.dropped("unknown_product");
+            log.error(
+                    "RTDN 매핑 없는 상품 — 폐기: type={}, productId={}, basePlanId={}",
+                    type,
+                    state.productId(),
+                    state.basePlanId());
+        }
     }
 
     /**
