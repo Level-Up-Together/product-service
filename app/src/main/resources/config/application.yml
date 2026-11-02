@@ -57,10 +57,9 @@ app:
     enabled: false
     baseline-version: 1.1.3.7
 
-  # LUT-593: 레벨 도달 보상 아이템. sprout-item-id 는 환경별 shop_item_id (dev 6 / prod 15 — config-repository 에서 설정).
+  # LUT-593/607: 가입 즉시 지급하는 성장의 새싹(레벨업 트리거는 LUT-607 에서 제거). sprout-item-id 는 환경별 shop_item_id (dev 6 / prod 15 — config-repository 에서 설정).
   # 비어 있으면 지급하지 않는다.
   level-reward:
-    sprout-level: 5
     sprout-item-id:
   upload:
     profile-image:

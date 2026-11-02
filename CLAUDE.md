@@ -568,13 +568,14 @@ list_price      = COMMON 유저 기준가 = 최대 할증가                    
 **비로그인 열람 (LUT-350)** — `userId == null`이면 보유 아이템 없음 + 레벨 1(COMMON)로 계산한다. 화면에 보이는 값이 곧 가입 후 낼 값이라
 로그인해도 가격이 오르지 않는다.
 
-### 레벨 도달 보상 아이템 (LUT-593, `experience/application/LevelRewardItemService`)
+### 가입 보상 아이템 — 성장의 새싹 (LUT-593 → LUT-607, `experience/application/LevelRewardItemService`)
 
-레벨 **4 이하 → 5 이상**이 되는 레벨업(4→6 건너뜀 포함)에 **성장의 새싹**을 미착용으로 지급하고 `ITEM_GRANTED` 알림(딥링크 인벤토리)을 보낸다.
+**회원가입 완료 직후**(`UserSignedUpEventListener`, 가입 트랜잭션 커밋 후 비동기 — 기본 칭호·기본 아이템과 같은 지점) **성장의 새싹**을 미착용으로 지급하고
+`ITEM_GRANTED` 알림(딥링크 인벤토리)을 보낸다(LUT-607). 신규 가입 환영 모달의 확인 버튼이 인벤토리로 가므로 가입 직후 보여야 한다. 예전(LUT-593)의
+"레벨 4 이하 → 5 이상" 레벨업 트리거와 `sprout-level` 설정은 제거됐다 — 클래스·설정·이벤트 이름의 `LevelReward` 는 그때 이름(플랫폼 이벤트 호환 유지).
 `shop_item_id` 는 환경별(dev 6 / prod 15)이라 `app.level-reward.sprout-item-id`(config-repository)로 받고, 비어 있으면 미지급.
-보유 중이면(구매·시즌 보상 포함) 지급·알림 모두 없음(`UserItemService.grantItem` null). **5→6 은 대상이 아니다** — 관리자 회수분이 되살아나지
-않게 하기 위함이고, 미지급 유저 보정은 백필 SQL(1.1.3 V007, 이름 `'성장의 새싹'` 으로 id 해석·알림 없음) 몫. 지급 실패는 레벨업을 되돌리지
-않는다(REQUIRES_NEW 행 생성이라 예외를 잡아도 호출자 트랜잭션 무오염).
+보유 중이면(구매·시즌 보상 포함) 지급·알림 모두 없음(`UserItemService.grantItem` null). 지급 실패는 가입을 막지 않는다(리스너가 단계별로 예외를 삼킨다).
+기존 유저 보정은 SQL 레포 1.1.4 `V002`(user_db 비탈퇴 유저 → gamification_db, 이름 `'성장의 새싹'` 으로 id 해석·알림 없음) 몫.
 
 ## 구독 (gamificationservice/subscription, LUT-450~453 · 486 · 499)
 
