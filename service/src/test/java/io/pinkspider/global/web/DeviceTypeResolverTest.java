@@ -49,6 +49,31 @@ class DeviceTypeResolverTest {
     }
 
     @Test
+    @DisplayName("RN 네이티브 fetch 기본 UA(okhttp / CFNetwork·Darwin)도 앱으로 판정한다 (LUT-707)")
+    void derivesNativeAppUserAgents() {
+        // 네이티브 호출(푸시 토큰 등록·재발급·구독 검증)은 X-Device-Type 없이 기본 UA 로 온다.
+        // web 으로 폴백하면 앱 유저가 매일 web 활동으로도 적립돼 DAU web 이 부풀었다.
+        assertThat(resolver.resolve(requestWithUserAgent("okhttp/4.12.0"), null))
+                .isEqualTo("android");
+        assertThat(
+                        resolver.resolve(
+                                requestWithUserAgent(
+                                        "LevelUpTogether/33 CFNetwork/1568.100.1 Darwin/24.0.0"),
+                                null))
+                .isEqualTo("ios");
+        // iPad 네이티브도 ios — RN Platform.OS 와 같다
+        assertThat(resolver.resolve(requestWithUserAgent("LevelUpTogether/33 Darwin/24.0.0"), null))
+                .isEqualTo("ios");
+        // 대소문자 무관
+        assertThat(resolver.fromUserAgent("OkHttp/5.0.0")).isEqualTo("android");
+        // 클라이언트 값이 있으면 여전히 그 값이 우선
+        assertThat(resolver.resolve(requestWithUserAgent("okhttp/4.12.0"), "ios")).isEqualTo("ios");
+        // 일반 브라우저·서버 클라이언트는 그대로 web
+        assertThat(resolver.fromUserAgent("curl/8.7.1")).isEqualTo("web");
+        assertThat(resolver.fromUserAgent("Java/21.0.2")).isEqualTo("web");
+    }
+
+    @Test
     @DisplayName("레거시 'mobile' 은 플랫폼 미지정으로 보고 UA 추정에 맡긴다")
     void legacyMobileFallsBackToUserAgent() {
         // 예전 모바일 로그인 기본값. ios/android 를 특정하지 못해 재발급 값과 어긋났다
