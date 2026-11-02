@@ -1,5 +1,7 @@
 package io.pinkspider.leveluptogethermvp.statsservice.kpi.application;
 
+import io.pinkspider.leveluptogethermvp.statsservice.activity.config.UserActivityProperties;
+import io.pinkspider.leveluptogethermvp.statsservice.kpi.domain.ExcludedUsers;
 import io.pinkspider.leveluptogethermvp.statsservice.kpi.domain.KpiDates;
 import io.pinkspider.leveluptogethermvp.statsservice.kpi.domain.dto.CohortRetentionResponse;
 import io.pinkspider.leveluptogethermvp.statsservice.kpi.domain.dto.CohortRevenueResponse;
@@ -29,6 +31,7 @@ public class KpiQueryService {
     private final CohortRetentionRepository retentionRepository;
     private final CohortRevenueRepository revenueRepository;
     private final UserSourceReader userReader;
+    private final UserActivityProperties activityProperties;
 
     public List<DailyKpiSnapshotResponse> daily(LocalDate from, LocalDate to) {
         LocalDate start = from.isAfter(to) ? to : from;
@@ -60,7 +63,9 @@ public class KpiQueryService {
         YearMonth start = fromMonth.isAfter(toMonth) ? toMonth : fromMonth;
         YearMonth end = fromMonth.isAfter(toMonth) ? fromMonth : toMonth;
         return userReader.countSignupsByChannel(
-                KpiDates.utcMonthStart(start), KpiDates.utcMonthEnd(end));
+                KpiDates.utcMonthStart(start),
+                KpiDates.utcMonthEnd(end),
+                ExcludedUsers.of(activityProperties.getExcludedUserIds()));
     }
 
     public List<CohortRevenueResponse> revenueCohorts(YearMonth fromMonth, YearMonth toMonth) {

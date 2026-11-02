@@ -8,6 +8,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import io.pinkspider.leveluptogethermvp.statsservice.kpi.domain.ExcludedUsers;
 import io.pinkspider.leveluptogethermvp.statsservice.kpi.domain.dto.source.AttendanceDay;
 import io.pinkspider.leveluptogethermvp.statsservice.kpi.domain.dto.source.RevenueAggregate;
 import io.pinkspider.leveluptogethermvp.statsservice.kpi.domain.dto.source.SubscriptionDailyCounts;
@@ -71,9 +72,13 @@ class GamificationSourceReaderTest {
                             return List.of(mapper.mapRow(resultSet, 0));
                         });
 
-        assertThat(reader().countAttendanceUsers(LocalDate.of(2026, 10, 22))).isEqualTo(9);
+        assertThat(reader().countAttendanceUsers(LocalDate.of(2026, 10, 22), ExcludedUsers.none()))
+                .isEqualTo(9);
         List<AttendanceDay> days =
-                reader().findAttendance(LocalDate.of(2026, 10, 1), LocalDate.of(2026, 10, 31));
+                reader().findAttendance(
+                                LocalDate.of(2026, 10, 1),
+                                LocalDate.of(2026, 10, 31),
+                                ExcludedUsers.none());
         assertThat(days).containsExactly(new AttendanceDay("u1", LocalDate.of(2026, 10, 22)));
     }
 
@@ -103,7 +108,8 @@ class GamificationSourceReaderTest {
                         eq(Integer.class)))
                 .thenReturn(2);
 
-        SubscriptionDailyCounts c = reader().countSubscriptionEvents(FROM, TO);
+        SubscriptionDailyCounts c =
+                reader().countSubscriptionEvents(FROM, TO, ExcludedUsers.none());
 
         assertThat(c.newSubscriptions()).isEqualTo(3);
         assertThat(c.trialStarts()).isEqualTo(2);
@@ -137,7 +143,7 @@ class GamificationSourceReaderTest {
                         eq(String.class)))
                 .thenReturn(List.of("u2", "u3"));
 
-        RevenueAggregate r = reader().aggregateRevenue(FROM, TO);
+        RevenueAggregate r = reader().aggregateRevenue(FROM, TO, ExcludedUsers.none());
 
         assertThat(r.amountOf("KRW")).isEqualByComparingTo("6000.00");
         assertThat(r.byCurrency()).containsOnlyKeys("KRW");
@@ -206,5 +212,45 @@ class GamificationSourceReaderTest {
         // 활성 구독의 OR 조건이 테스트 결제 제외를 우회하지 않게 괄호로 묶는다
         assertThat(GamificationSourceReader.COUNT_ACTIVE_SUBSCRIPTIONS)
                 .contains("WHERE test_purchase = FALSE AND (");
+    }
+
+    @Test
+    @DisplayName(
+            "LUT-678: 일별 집계 SQL 전부가 제외 유저를 뺀다(user_id NOT IN) — 코호트 쿼리는 모수가 이미 걸러져 들어오므로 제외 조건 없음")
+    void dailyQueriesExcludeUsers() {
+        assertThat(
+                        List.of(
+                                GamificationSourceReader.COUNT_ATTENDANCE_USERS,
+                                GamificationSourceReader.FIND_ATTENDANCE,
+                                GamificationSourceReader.COUNT_PAYMENT_EVENTS,
+                                GamificationSourceReader.COUNT_TRIAL_CONVERSIONS,
+                                GamificationSourceReader.COUNT_ACTIVE_SUBSCRIPTIONS,
+                                GamificationSourceReader.COUNT_EXPIRED_NOT_RENEWED,
+                                GamificationSourceReader.SUBSCRIPTION_REVENUE_BY_CURRENCY,
+                                GamificationSourceReader.SUBSCRIPTION_PAYING_USERS,
+                                GamificationSourceReader.DIAMOND_REVENUE_BY_CURRENCY,
+                                GamificationSourceReader.DIAMOND_PAYING_USERS))
+                .allSatisfy(sql -> assertThat(sql).contains("user_id NOT IN (:excluded)"));
+        // GROUP BY 쿼리는 제외 조건이 GROUP BY 앞에
+        assertThat(GamificationSourceReader.COUNT_PAYMENT_EVENTS)
+                .containsSubsequence("user_id NOT IN (:excluded)", "GROUP BY");
+        assertThat(GamificationSourceReader.SUBSCRIPTION_REVENUE_BY_CURRENCY)
+                .containsSubsequence("user_id NOT IN (:excluded)", "GROUP BY");
+        assertThat(GamificationSourceReader.DIAMOND_REVENUE_BY_CURRENCY)
+                .containsSubsequence("user_id NOT IN (:excluded)", "GROUP BY");
+        // 체험→유료 전환은 바깥 갱신 행(r) 기준으로 뺀다
+        assertThat(GamificationSourceReader.COUNT_TRIAL_CONVERSIONS)
+                .contains("r.user_id NOT IN (:excluded)");
+        assertThat(
+                        List.of(
+                                GamificationSourceReader.COHORT_SUBSCRIPTION_KRW,
+                                GamificationSourceReader.COHORT_SUBSCRIPTION_PAYING,
+                                GamificationSourceReader.COHORT_DIAMOND_KRW,
+                                GamificationSourceReader.COHORT_DIAMOND_PAYING))
+                .allSatisfy(
+                        sql ->
+                                assertThat(sql)
+                                        .contains("user_id IN (:ids)")
+                                        .doesNotContain(":excluded"));
     }
 }
