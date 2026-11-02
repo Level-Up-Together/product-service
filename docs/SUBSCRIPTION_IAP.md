@@ -54,10 +54,10 @@
    - **iOS + receipt 없음** (LUT-498, StoreKit 2): `getTransactionInfo` 로 JWS를 검증한다. 상품이 다르면 `120703`. `revocationDate` 가 있으면(환불됨) `120702`. 가격·통화는 같은 응답에서 얻는다.
    - **Android**: `purchases/products/{productId}/tokens/{token}` 의 `purchaseState≠0`(취소·보류)이면 `120702`. `priceAmountMicros`, `priceCurrencyCode` 를 파싱한다.
    - 단위 변환: Apple 가격은 밀리유닛(÷1,000), Google 은 마이크로(÷1,000,000)다.
-3. 같은 `store_transaction_id` 가 이미 있으면 지급하지 않고 `already_processed=true` 와 현재 잔액을 돌려준다.
+3. 같은 `store_transaction_id` 가 이미 있으면 지급하지 않고 `already_processed=true` 와 현재 잔액을 돌려준다. **단 기존 행의 `user_id` 가 요청 유저와 다르면 `120705`** (LUT-662 — 같은 기기에서 계정을 바꾼 뒤 미완료 결제가 재전달되는 경우. 예전엔 성공으로 응답해 앱에는 결제 완료로 보였지만 다이아는 늘지 않았다). RN 은 이 코드를 받으면 트랜잭션을 finish 한다(이미 다른 계정에 지급된 결제라 재전달해도 소용없다).
 4. `DiamondBundlePurchaseTxService.recordAndGrant`(`gamificationTransactionManager`)가 구매 행을 `saveAndFlush` 한다. 유니크 위반은 여기서 먼저 걸린다. 그 뒤 `DiamondService.grantPinkDiamonds`(`DiamondType.PINK_PURCHASE`)를 호출한다.
 5. `UserDiamond`(`@Version`) 낙관락 충돌이 나면 최대 3회까지 재시도한다. 대기는 50ms×시도 횟수다(LUT-504). 트랜잭션 전체가 롤백되므로 구매 기록은 중복되지 않는다. 3회를 다 쓰면 예외를 그대로 던지고, 클라이언트는 pending 을 유지한다.
-6. 동시 요청으로 `DataIntegrityViolationException` 이 나면 기존 기록을 읽어 `already_processed` 로 응답한다.
+6. 동시 요청으로 `DataIntegrityViolationException` 이 나면 기존 기록을 읽어 `already_processed` 로 응답한다(여기서도 다른 계정 것이면 `120705`).
 
 응답은 `bundle_id`, `diamond_count`, `balance`(블루+핑크), `blue_balance`, `pink_balance`, `already_processed` 다.
 
@@ -311,6 +311,7 @@ CustomException 은 플랫폼 `RestExceptionHandler` 에서 HTTP 500 + `code` �
 | `120702` | `error.iap.verification_failed` | 스토어 검증 실패, 환불된 트랜잭션, Android PENDING, Play 4xx·파싱 실패, 클라이언트·내부 API 경로의 스토어 일시 장애, 토큰 발급 실패 |
 | `120703` | `error.iap.product_mismatch` | 묶음 `store_product_id` 불일치, 영수증·트랜잭션 상품 불일치, iOS 만료 없는 트랜잭션(구독 아님) |
 | `120704` | `error.iap.bundle_not_available` | 묶음이 없거나 비활성 |
+| `120705` | `error.iap.purchase_owned_by_other_account` | 같은 `store_transaction_id` 를 다른 계정이 다시 보냄 — 원 구매자만 멱등 성공 (LUT-662). RN 은 finish, 웹은 "다른 계정에서 이미 받은 결제" 안내 |
 | `120801` | `error.subscription.unknown_product` | 3키 매핑에 없음 |
 | `120802` | `error.subscription.transaction_already_used` | 소유권 정책(§5) — 토큰 불일치 또는 다른 계정 보유 |
 | `120803` | `error.subscription.not_found` | reconcile 대상 구독 행 없음 |
