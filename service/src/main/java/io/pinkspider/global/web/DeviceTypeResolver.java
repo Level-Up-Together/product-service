@@ -49,7 +49,14 @@ public class DeviceTypeResolver {
         return KNOWN.contains(lower) ? lower : null;
     }
 
-    /** User-Agent 기반 추정. 판정 불가 시 web. */
+    /**
+     * User-Agent 기반 추정. 판정 불가 시 web.
+     *
+     * <p>웹뷰·브라우저 UA(iphone/ipad/android)뿐 아니라 RN 네이티브 fetch 의 기본 UA 도 앱으로 판정한다(LUT-707): Android 는
+     * {@code okhttp/4.x}, iOS 는 {@code LevelUpTogether/33 CFNetwork/… Darwin/…}. 네이티브 호출(푸시 토큰
+     * 등록·토큰 재발급·구독 검증)은 {@code X-Device-Type} 없이 오는데, 이 UA 를 web 으로 폴백하면 앱 유저가 매일 web 활동으로도 적립돼 DAU
+     * web 이 부풀었다. iPad 네이티브도 ios 로 본다 — RN {@code Platform.OS} 와 같다.
+     */
     public String fromUserAgent(String userAgent) {
         if (userAgent == null || userAgent.isBlank()) {
             return WEB;
@@ -63,6 +70,12 @@ public class DeviceTypeResolver {
         }
         if (ua.contains("android")) {
             return ANDROID;
+        }
+        if (ua.contains("okhttp")) {
+            return ANDROID;
+        }
+        if (ua.contains("cfnetwork") || ua.contains("darwin")) {
+            return IOS;
         }
         return WEB;
     }

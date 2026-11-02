@@ -777,6 +777,8 @@ JWT 발급/만료/슬라이딩 로직의 백엔드·웹·앱별 동작과 환경
 갈라졌다. 지금은 `DeviceTypeResolver` 한 곳에서 정규화한다 — **클라이언트가 보낸 값 우선**, 없을 때만 User-Agent 추정, 최종 폴백 `web`.
 UA로 덮어쓰지 않는 이유는 RN의 `Platform.OS`가 iPad에서도 `ios`를 주는데 서버가 `ipad`로 판정하면 같은 기기 값이 호출마다 달라지기 때문이다.
 알려진 값은 `web` / `ios` / `ipad` / `android` 4개이며, 레거시 `"mobile"`은 미지정으로 취급한다.
+UA 추정은 웹뷰·브라우저 UA(iphone/ipad/android) 외에 **RN 네이티브 fetch 기본 UA 도 앱으로 본다**(LUT-707): `okhttp` → android, `CFNetwork`/`Darwin` → ios.
+RN 네이티브 호출(푸시 토큰 등록·재발급·구독 검증)은 `X-Device-Type` 를 안 보내는데, web 으로 폴백하면 앱 유저가 매일 web 활동으로도 적립돼 DAU web 이 부풀었다(LUT-667 의 웹 서버 fetch 수정만으로는 절반).
 
 ## Internal API (Admin Backend ↔ MVP)
 
