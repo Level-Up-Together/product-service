@@ -259,7 +259,7 @@ Play Console 수익 창출 설정(RTDN 토픽, 콘텐츠 "정기 결제·무효�
 
 - 결제일은 `occurred_at` 의 날짜 부분이다(UTC 저장값).
 - Android subscriptionsv2 는 통화도 주지 않는다. 그래서 verify·RTDN 경로는 KRW 정가가 된다.
-- **`REFUND` 행**: 스토어가 환불액을 주지 않으므로 3번 규칙에 따라 정가(`LIST`)로 채운다. KPI 에서는 음수로 합산된다. 실제 환불액과 다를 수 있다(LUT-663, 2026-10-30 미수정).
+- **`REFUND` 행** (LUT-663, 2026-11-02): `SubscriptionRefundAmountResolver` 가 금액을 정한다 — ① iOS 는 환불 알림/스냅샷 거래의 `price`(밀리유닛)·`currency`, Android 는 RTDN `voidedPurchaseNotification.orderId` 로 `orders.get` 의 `total`(`STORE`) → ② 같은 거래/주문 ID 의 원 결제 행 금액 → ③ 그 유저의 최신 결제 행 금액 → ④ 없으면 3번 규칙대로 정가(`LIST`). Android REVOKED(12) 알림은 주문 ID 가 없어 ②③ 로 간다. 주문 조회 실패는 `lut_rtdn_order_lookup_failed_total` 에 남고 권한 종료를 막지 않는다. KPI 에서는 음수로 합산된다. ⚠ 두 스토어 알림 모두 부분 환불 금액은 주지 않아 부분 환불도 전액으로 기록된다(예전엔 통화까지 틀렸다 — 달러 결제 환불이 원화 정가로 빠졌다).
 - 시드: 월 4,900 / 연 44,000 KRW × ios·android, `effective_from=2026-01-01` (`db/migration/gamification/V1_1_3_010`·`011`). 정가를 바꿀 때는 새 `effective_from` 행을 **추가**한다(삭제 금지). uk 는 `(plan, platform, currency, effective_from)` 다.
 - 다이아 묶음에는 `price_source` 가 없다. 금액이 null 이면 미상이다.
 - 운영 Android 17건(2026-09-20, Play 라이선스 테스터 결제)은 실매출이 아니라서 null 로 두고 백필하지 않기로 했다(LUT-600).
