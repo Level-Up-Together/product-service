@@ -27,6 +27,9 @@ public class CohortRevenueService {
 
     static final int[] MONTH_POINTS = {0, 1, 3, 6, 12};
 
+    /** 가장 늦게 닫히는 점(month_12) — 코호트 월 + 13개월 1일에 창이 닫힌다 */
+    static final int MAX_MONTH_POINT = 12;
+
     private final CohortRevenueRepository revenueRepository;
     private final UserSourceReader userReader;
     private final GamificationSourceReader gamificationReader;

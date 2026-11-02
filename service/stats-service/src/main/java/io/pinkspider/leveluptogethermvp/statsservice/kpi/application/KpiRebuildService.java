@@ -22,6 +22,12 @@ public class KpiRebuildService {
 
     static final int MAX_DAYS = 400;
 
+    /**
+     * 매일 다시 계산할 코호트 매출의 월 범위(당월 기준 몇 달 전부터). month_n 점은 코호트 월 + n+1 개월 1일에 창이 닫히므로 month_12 가 닫히는
+     * 13개월 전 코호트까지 포함해야 오래된 코호트의 1·3·6·12개월 점이 수동 rebuild 없이 채워진다(LUT-660 — 예전엔 전월·당월만).
+     */
+    static final int DAILY_REVENUE_MONTHS_BACK = CohortRevenueService.MAX_MONTH_POINT + 1;
+
     private final KpiSnapshotService snapshotService;
     private final CohortRetentionService retentionService;
     private final CohortRevenueService revenueService;
@@ -60,7 +66,7 @@ public class KpiRebuildService {
         return new KpiRebuildResponse(start, end, days, retentionRows, revenueRows);
     }
 
-    /** 스케줄러용: 어제·그제 스냅샷 + 창이 닫히는 코호트(최근 31일) + 전월·당월 코호트 매출 */
+    /** 스케줄러용: 어제·그제 스냅샷 + 창이 닫히는 코호트(최근 31일) + 13개월 전~당월 코호트 매출(창이 닫힌 점만) */
     public KpiRebuildResponse runDaily(LocalDate today) {
         LocalDate yesterday = today.minusDays(1);
         snapshotService.build(yesterday.minusDays(1));
@@ -68,7 +74,9 @@ public class KpiRebuildService {
         LocalDate cohortFrom = yesterday.minusDays(RetentionMetric.MAX_OFFSET_DAYS + 1L);
         int retentionRows = retentionService.rebuild(cohortFrom, yesterday, yesterday);
         YearMonth thisMonth = YearMonth.from(today);
-        int revenueRows = revenueService.rebuild(thisMonth.minusMonths(1), thisMonth, today);
+        int revenueRows =
+                revenueService.rebuild(
+                        thisMonth.minusMonths(DAILY_REVENUE_MONTHS_BACK), thisMonth, today);
         return new KpiRebuildResponse(
                 yesterday.minusDays(1), yesterday, 2, retentionRows, revenueRows);
     }

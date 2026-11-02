@@ -2,6 +2,7 @@ package io.pinkspider.leveluptogethermvp.statsservice.kpi.application;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -65,14 +66,15 @@ class KpiRebuildServiceTest {
     }
 
     @Test
-    @DisplayName("runDaily: 어제·그제 스냅샷, 최근 31일 코호트, 전월·당월 매출")
+    @DisplayName("runDaily: 어제·그제 스냅샷, 최근 31일 코호트, 13개월 전~당월 코호트 매출 (LUT-660)")
     void runDaily() {
         when(retentionService.rebuild(
                         LocalDate.of(2026, 9, 21),
                         LocalDate.of(2026, 10, 22),
                         LocalDate.of(2026, 10, 22)))
                 .thenReturn(7);
-        when(revenueService.rebuild(YearMonth.of(2026, 9), YearMonth.of(2026, 10), TODAY))
+        // 2025-09 코호트의 month_12 점은 2026-10-01 에 창이 닫힌다 — 당월(2026-10)에서 13개월 전까지 포함해야 자동으로 채워진다
+        when(revenueService.rebuild(YearMonth.of(2025, 9), YearMonth.of(2026, 10), TODAY))
                 .thenReturn(3);
 
         KpiRebuildResponse r = service.runDaily(TODAY);
@@ -82,6 +84,20 @@ class KpiRebuildServiceTest {
         assertThat(r.snapshotDays()).isEqualTo(2);
         assertThat(r.retentionRows()).isEqualTo(7);
         assertThat(r.revenueRows()).isEqualTo(3);
+    }
+
+    @Test
+    @DisplayName("runDaily 매출 범위는 month_12 가 닫히는 13개월 전 코호트부터다 — 전월·당월만 돌리면 오래된 점이 비는 회귀 방지")
+    void runDailyRevenueRangeCoversLastClosingPoint() {
+        LocalDate today = LocalDate.of(2026, 11, 1);
+        when(revenueService.rebuild(YearMonth.of(2025, 10), YearMonth.of(2026, 11), today))
+                .thenReturn(5);
+
+        KpiRebuildResponse r = service.runDaily(today);
+
+        assertThat(KpiRebuildService.DAILY_REVENUE_MONTHS_BACK).isEqualTo(13);
+        assertThat(r.revenueRows()).isEqualTo(5);
+        verify(revenueService, never()).rebuild(eq(YearMonth.of(2026, 10)), any(), any());
     }
 
     @Test
