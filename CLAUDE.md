@@ -793,7 +793,7 @@ RN 네이티브 호출(푸시 토큰 등록·재발급·구독 검증)은 `X-Dev
 ## Internal API (Admin Backend ↔ MVP)
 
 `/api/internal/**` — VPC 내부 접근 + 공유 시크릿 헤더 인증(LUT-244). `InternalApiKeyFilter`가 `X-Internal-Api-Key` 헤더를
-`app.security.internal-api.key`와 상수시간 비교 (키 미설정 시 fail-open). 도메인별 베이스 경로, 신고 처리 워크플로우(WARNING/SUSPEND/BAN) 매핑: [
+`app.security.internal-api.key`와 상수시간 비교 (키 미설정 시 fail-open). **운영은 ALB 에서 한 번 더 막는다**(LUT-673, 2026-11-02): `api.level-up-together.com/api/internal/*` 는 우리 EC2 EIP 2개(admin 이 도는 lut-ec2-2 포함)에서 온 요청만 product 로 가고 그 외 출발지는 고정 404(infra `alb.tf` 규칙 7·8). 운영자 수동 호출(KPI 소급·활동 flush·구독 reconcile)은 SSH 로 서버에 들어가 `https://localhost:8443` + 키로 부른다(sql 레포 `kpi_rebuild_prod.sh` 방식) — 노트북에서 공개 도메인으로는 404 가 정상이다. dev(홈서버, ALB 없음)는 키 필터만. 도메인별 베이스 경로, 신고 처리 워크플로우(WARNING/SUSPEND/BAN) 매핑: [
 `docs/INTERNAL_API.md`](docs/INTERNAL_API.md)
 
 **product → admin 호출도 같은 키를 보낸다** (LUT-686, 2026-10-30): admin 의 product 전용 경로(유저 문의 `/api/v1/inquiries/**`·`/api/internal/**`·신고
