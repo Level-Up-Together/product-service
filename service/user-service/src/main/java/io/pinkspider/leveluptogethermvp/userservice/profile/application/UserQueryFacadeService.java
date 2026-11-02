@@ -8,6 +8,7 @@ import io.pinkspider.leveluptogethermvp.userservice.friend.application.FriendSer
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.entity.Users;
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.infrastructure.UserRepository;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 import lombok.RequiredArgsConstructor;
@@ -156,6 +157,21 @@ public class UserQueryFacadeService implements UserQueryFacade {
         // 조회되지 않은(탈퇴/삭제 등) 유저도 기본값으로 채워 항상 요청 ID 전체를 담아 돌려준다.
         for (String userId : userIds) {
             byId.putIfAbsent(userId, "Asia/Seoul");
+        }
+        return byId;
+    }
+
+    /** LUT-543: 가입 시각(UTC) 배치 조회 — 조회되지 않은 유저·값이 없는 행은 결과에서 빠진다. */
+    @Override
+    public Map<String, LocalDateTime> getCreatedAts(java.util.Collection<String> userIds) {
+        if (userIds == null || userIds.isEmpty()) {
+            return java.util.Map.of();
+        }
+        Map<String, LocalDateTime> byId = new java.util.HashMap<>();
+        for (Object[] row : userRepository.findCreatedAtsByIdIn(userIds)) {
+            if (row[1] != null) {
+                byId.put((String) row[0], (LocalDateTime) row[1]);
+            }
         }
         return byId;
     }
