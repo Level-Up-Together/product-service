@@ -151,10 +151,10 @@
 
 | 상황 | 처리 | HTTP |
 |---|---|---|
-| 빈 payload, ASSN 서명 불량, RTDN 파싱 불가, 구독 알림 아님, Play 재조회 4xx·파싱 실패(`120702`), 매칭 행 없음, PENDING | 로그(+`dropped` 카운터)만 남기고 폐기 | 200 |
+| 빈 payload, ASSN 서명 불량, RTDN 파싱 불가, 구독 알림 아님, Play 재조회 4xx·파싱 실패(`120702`), 매칭 행 없음, PENDING, **매핑 없는 상품(`120801`, LUT-661 — RTDN 은 `dropped{reason=unknown_product}`)** | 로그(+`dropped` 카운터)만 남기고 폐기 | 200 |
 | `StoreTransientException`(Play 5xx·네트워크·토큰 발급 일시 실패), DB 오류 | 예외를 전파한다. 플랫폼 `RestExceptionHandler` 가 500 을 낸다 | 5xx → 스토어/Pub/Sub 재시도 |
 
-- ⚠ 적용 중 `SubscriptionPlanMapping.resolve` 가 `120801`(매핑 없는 상품)을 던지면 잡지 않는다. 그러면 500 이 나고 Pub/Sub 가 보존 기간 동안 계속 재시도한다(LUT-661, 2026-10-30 미수정). 새 구독 상품을 추가할 때는 매핑부터 넣는다.
+- 적용 중 `SubscriptionPlanMapping.resolve` 가 `120801`(매핑 없는 상품)을 던지면 웹훅 서비스가 잡아 error 로그(`ASSN/RTDN 매핑 없는 상품 — 폐기`)만 남기고 200 으로 끝낸다(LUT-661, 2026-11-02). 예전엔 잡지 않아 500 → Pub/Sub 가 보존 기간 동안 계속 재시도했다. 그 알림은 사라지므로 **새 구독 상품을 추가할 때는 매핑부터 넣고**, 로그에 이 줄이 보이면 매핑을 추가한 뒤 reconcile/자가 치유로 상태를 맞춘다.
 
 ### 7.1 iOS — App Store Server Notifications V2
 
@@ -327,9 +327,9 @@ CustomException 은 플랫폼 `RestExceptionHandler` 에서 HTTP 500 + `code` �
    - Cloud Monitoring 에서 `pubsub.googleapis.com/topic/send_message_operation_count`(발행)와 `subscription/push_request_count`(ack 응답 코드)를 비교한다. 발행은 있는데 push 가 0 이면 구독 문제다.
    - 서버 로그 grep 키워드:
      - `RTDN 구독 동기화` / `RTDN 매칭 구독 행 없음`
-     - `RTDN 상태 재조회 실패 — 폐기`
+     - `RTDN 상태 재조회 실패 — 폐기` / `RTDN 매핑 없는 상품 — 폐기`(LUT-661, `lut_rtdn_dropped_total{reason="unknown_product"}`)
      - `구독 결제 이력 백필` / `Google 주문 조회 일시 실패`
-2. **ASSN 확인**: 로그 `ASSN TEST 알림 수신 확인`·`ASSN 구독 동기화`·`ASSN 매칭 구독 행 없음`·`ASSN 서명 검증 실패 — 폐기` 를 본다(카운터 없음).
+2. **ASSN 확인**: 로그 `ASSN TEST 알림 수신 확인`·`ASSN 구독 동기화`·`ASSN 매칭 구독 행 없음`·`ASSN 서명 검증 실패 — 폐기`·`ASSN 매핑 없는 상품 — 폐기` 를 본다(카운터 없음).
 3. **Android 원장에 빠진 것이 의심될 때**
    ```bash
    curl -s -X POST -H "X-Internal-Api-Key: $KEY" "$BASE/api/internal/subscription-payments/reconcile?user_id=<user-uuid>"
