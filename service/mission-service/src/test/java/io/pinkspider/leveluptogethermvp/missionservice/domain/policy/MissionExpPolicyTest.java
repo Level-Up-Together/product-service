@@ -22,14 +22,15 @@ class MissionExpPolicyTest {
             "33, 33",
             "59, 59",
             "60, 60",
-            "61, 60", // 초과 1분은 5분 단위 미달 → 0
-            "64, 60",
-            "65, 61",
-            "120, 72",
-            "180, 84",
-            "240, 96", // 티켓 예시: 60 + 36
-            "480, 144",
-            "1000, 144" // 480분 상한
+            "90, 90", // LUT-696: 120분까지 분당 1 (예전 60분 기준이면 66)
+            "120, 120",
+            "121, 120", // 초과 1분은 5분 단위 미달 → 0
+            "124, 120",
+            "125, 121",
+            "180, 132",
+            "240, 144", // 티켓 예시: 120 + 24
+            "480, 144", // 240분 상한
+            "1000, 144"
         })
         void timedExp(long minutes, int expected) {
             assertThat(MissionExpPolicy.timedExp(minutes)).isEqualTo(expected);
@@ -42,10 +43,10 @@ class MissionExpPolicyTest {
         }
 
         @Test
-        @DisplayName("쪼개기 유인 없음 — 10분×6회와 60분×1회가 같다")
+        @DisplayName("쪼개기 유인 없음 — 10분×12회와 120분×1회가 같다")
         void timedExp_noSplitIncentiveUpToOneHour() {
-            int split = 6 * MissionExpPolicy.timedExp(10);
-            int whole = MissionExpPolicy.timedExp(60);
+            int split = 12 * MissionExpPolicy.timedExp(10);
+            int whole = MissionExpPolicy.timedExp(120);
             assertThat(split).isEqualTo(whole);
         }
     }
@@ -95,9 +96,10 @@ class MissionExpPolicyTest {
     class AutoCompleteExpTest {
 
         @Test
-        @DisplayName("설정값 120 은 96 으로 클램프된다 (방치가 정상 완료보다 유리해지지 않도록)")
+        @DisplayName("설정값 200 은 144 로 클램프된다 (방치가 정상 완료보다 유리해지지 않도록)")
         void clampsToFourHourCompletion() {
-            assertThat(MissionExpPolicy.autoCompleteExp(120)).isEqualTo(96);
+            assertThat(MissionExpPolicy.autoCompleteExp(200)).isEqualTo(144);
+            assertThat(MissionExpPolicy.autoCompleteExp(120)).isEqualTo(120);
         }
 
         @Test
