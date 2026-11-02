@@ -118,6 +118,57 @@ class DiamondBundlePurchaseServiceTest {
     }
 
     @Test
+    @DisplayName("LUT-662: 같은 트랜잭션을 다른 계정이 보내면 120705 로 거절한다 (멱등 성공 아님, 지급·잔액 조회 없음)")
+    void purchase_sameTransactionOtherAccount_rejected() {
+        when(diamondBundleRepository.findById(1L)).thenReturn(Optional.of(bundle(1L, "pink_100")));
+        when(iapVerificationService.verify(any())).thenReturn(VERIFICATION);
+        DiamondBundlePurchase ownedByOther =
+                DiamondBundlePurchase.builder()
+                        .userId("user-other")
+                        .bundleId(1L)
+                        .platform("ios")
+                        .storeProductId("pink_100")
+                        .storeTransactionId(TX_ID)
+                        .diamondCount(100)
+                        .build();
+        when(purchaseRepository.findByStoreTransactionId(TX_ID))
+                .thenReturn(Optional.of(ownedByOther));
+
+        assertThatThrownBy(() -> purchaseService.purchase(USER_ID, 1L, request("pink_100")))
+                .isInstanceOf(CustomException.class)
+                .hasMessageContaining("error.iap.purchase_owned_by_other_account");
+
+        verify(purchaseTxService, never()).recordAndGrant(anyString(), any(), any(), any());
+        verify(diamondService, never()).getBalances(anyString());
+    }
+
+    @Test
+    @DisplayName("LUT-662: race 뒤 재조회한 기존 기록이 다른 계정 것이어도 120705 로 거절한다")
+    void purchase_race_otherAccount_rejected() {
+        when(diamondBundleRepository.findById(1L)).thenReturn(Optional.of(bundle(1L, "pink_100")));
+        when(iapVerificationService.verify(any())).thenReturn(VERIFICATION);
+        when(purchaseRepository.findByStoreTransactionId(TX_ID))
+                .thenReturn(Optional.empty())
+                .thenReturn(
+                        Optional.of(
+                                DiamondBundlePurchase.builder()
+                                        .userId("user-other")
+                                        .bundleId(1L)
+                                        .platform("ios")
+                                        .storeProductId("pink_100")
+                                        .storeTransactionId(TX_ID)
+                                        .diamondCount(100)
+                                        .build()));
+        when(purchaseTxService.recordAndGrant(eq(USER_ID), any(), any(), eq(VERIFICATION)))
+                .thenThrow(new DataIntegrityViolationException("uk_bundle_purchase_transaction"));
+
+        assertThatThrownBy(() -> purchaseService.purchase(USER_ID, 1L, request("pink_100")))
+                .isInstanceOf(CustomException.class)
+                .hasMessageContaining("error.iap.purchase_owned_by_other_account");
+        verify(diamondService, never()).getBalances(anyString());
+    }
+
+    @Test
     @DisplayName("동시 재요청 race — 유니크 위반이면 기존 기록으로 멱등 응답한다")
     void purchase_race_uniqueViolation_returnsExisting() {
         when(diamondBundleRepository.findById(1L)).thenReturn(Optional.of(bundle(1L, "pink_100")));

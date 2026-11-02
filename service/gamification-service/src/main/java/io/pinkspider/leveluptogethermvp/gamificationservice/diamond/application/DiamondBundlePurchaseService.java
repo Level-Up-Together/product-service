@@ -23,6 +23,10 @@ import org.springframework.stereotype.Service;
  *
  * <p>LUT-504: 같은 유저의 지급이 동시에 들어오면(앱 기동 시 고아 트랜잭션 여러 건 재전달) {@code UserDiamond} 낙관적 락(@Version)이
  * 충돌한다. 트랜잭션 전체가 롤백돼 구매 기록도 남지 않으므로 짧게 재시도하면 두 건 모두 지급된다 — 500 으로 끝내면 클라이언트가 finish 를 못 해 큐에 남는다.
+ *
+ * <p>LUT-662: 같은 {@code store_transaction_id} 를 <b>다른 계정</b>이 보내면(같은 기기에서 계정을 바꾼 뒤 미완료 결제 재전달 등) 멱등
+ * 성공이 아니라 {@code 120705} 로 거절한다. 예전엔 "이미 처리됨" 성공을 돌려줘 앱에는 결제 완료로 보였지만 그 계정의 다이아는 늘지 않아 CS 원인이 됐다.
+ * 다이아를 두 번 주지는 않았으므로 금전 피해는 없다. RN 은 이 코드를 받으면 트랜잭션을 finish 해(이미 지급된 결제) 재시작마다 되풀이되는 재전달을 끝낸다.
  */
 @Service
 @RequiredArgsConstructor
@@ -37,6 +41,12 @@ public class DiamondBundlePurchaseService {
 
     /** 낙관적 락 충돌 재시도 횟수 — 동시 재전달은 보통 2~3건이라 이 안에서 해소된다 */
     static final int OPTIMISTIC_LOCK_MAX_ATTEMPTS = 3;
+
+    /** LUT-662: 같은 스토어 결제를 다른 계정이 다시 보냄 */
+    static final String PURCHASE_OWNED_BY_OTHER_ACCOUNT_CODE = "120705";
+
+    static final String PURCHASE_OWNED_BY_OTHER_ACCOUNT_MESSAGE =
+            "error.iap.purchase_owned_by_other_account";
 
     public DiamondBundlePurchaseResponse purchase(
             String userId, Long bundleId, DiamondBundlePurchaseRequest request) {
@@ -135,6 +145,17 @@ public class DiamondBundlePurchaseService {
 
     private DiamondBundlePurchaseResponse alreadyProcessed(
             String userId, DiamondBundlePurchase purchase) {
+        // LUT-662: 원 구매자가 아니면 거절 — 소유자를 모르는 행(없음)은 예전처럼 멱등 성공으로 둔다
+        String owner = purchase.getUserId();
+        if (owner != null && !owner.equals(userId)) {
+            log.warn(
+                    "핑크다이아 결제 다른 계정 재요청 거절: requestUserId={}, ownerUserId={}, tx={}",
+                    userId,
+                    owner,
+                    purchase.getStoreTransactionId());
+            throw new CustomException(
+                    PURCHASE_OWNED_BY_OTHER_ACCOUNT_CODE, PURCHASE_OWNED_BY_OTHER_ACCOUNT_MESSAGE);
+        }
         UserDiamondBalanceResponse balances = diamondService.getBalances(userId);
         log.info("핑크다이아 묶음 구매 멱등 재요청: userId={}, tx={}", userId, purchase.getStoreTransactionId());
         return new DiamondBundlePurchaseResponse(

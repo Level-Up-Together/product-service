@@ -495,7 +495,7 @@ prod 첫 적용 파일은 LUT-666 핫픽스 `gamification/V1_1_3_013`(2026-10-29
 **IAP 결제** (LUT-354): 앱 전용(웹은 '앱에서 결제' 모달). 흐름: 웹 상점 → RN 브릿지(`requestIapPurchase`)
 → react-native-iap 스토어 결제 → RN이 `POST /api/v1/diamond-bundles/{id}/purchase`로 영수증 전달
 → `IapVerificationService` 검증(iOS verifyReceipt·21007 샌드박스 재시도 / Android Play Developer API·서비스계정 JWT)
-→ 멱등 지급(`diamond_bundle_purchase.store_transaction_id` 유니크) → RN `finishTransaction`(지급 성공 후에만 —
+→ 멱등 지급(`diamond_bundle_purchase.store_transaction_id` 유니크 — **다른 계정이 같은 결제를 보내면 `120705`**, LUT-662) → RN `finishTransaction`(지급 성공 후에만 —
 실패 시 pending 유지, 앱 재시작 시 `restorePendingPurchases`가 멱등 재처리). 가격 표시는 스토어
 `localizedPrice`만 사용(국가/환율별 상이 — 서버 저장가 표시 금지). `iap.verification.enabled=false`(기본)면
 검증 스킵(dev용) — **prod는 config에 활성화 + Apple/Google 자격증명 필수**.
