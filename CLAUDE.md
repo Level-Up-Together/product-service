@@ -150,7 +150,7 @@ All REST endpoints return `ApiResult<T>`:
 | `platform:infra`  | 98     | JwtUtil/JwtAuthenticationFilter/RestExceptionHandler/Crypto/Feign 등 (resolver/profanity 테스트는 `service`) |
 | `platform:saga`   | 72     | saga framework tests (persistence 엔티티 테스트 18개는 2026-10-29 삭제) |
 | `service`         | 5,100  | all service unit + controller tests (2026-10-30)              |
-| `app`             | 33     | `@SpringBootTest` (full context) + 벤치마크/통합 (2026-10-30)      |
+| `app`             | 34     | `@SpringBootTest` (full context) + 벤치마크/통합 (2026-11-02, LUT-653 이벤트 전파 통합 테스트 추가) |
 
 **커버리지 게이트** (`service/build.gradle` `jacocoTestCoverageVerification`, `check`에 연결): INSTRUCTION 80% + **BRANCH 80%**
 두 룰. `jacocoExcludes`(config/dto/entity/enums/외부 의존 컴포넌트 등)가 리포트와 게이트에 동일 적용. 2026-09-30 기준 INSTRUCTION 91.8% /
@@ -293,6 +293,10 @@ public void handleEvent(YourEvent event) { ...}
 ```
 
 **주요 이벤트 흐름 매핑은 [`docs/EVENT_FLOWS.md`](docs/EVENT_FLOWS.md) 참조** (서비스별 발행/수신 30+ 매핑, 자동 피드 생성 축소 규칙 포함).
+
+**AFTER_COMMIT 리스너 안에서 재발행한 이벤트의 수신자는 `fallbackExecution = true` 필수** (LUT-653): 커밋 후 콜백은 트랜잭션 동기화가 해제된 뒤라
+재발행 이벤트는 "활성 트랜잭션 없음"으로 버려진다. 레벨업 → `UserLevelUpProfileSyncListener` → `UserProfileChangedEvent` → `*ProfileSnapshotEventListener` 4개가 그 경우였고
+미션 댓글 `user_level` 이 레벨업 뒤에도 옛 값이었다. 단위 테스트는 publisher 를 mock 해 못 잡으니 실제 트랜잭션 통합 테스트(app `UserLevelUpSnapshotSyncIntegrationTest`)로 확인한다.
 
 ## 알림/푸시 파이프라인 (Kafka 미사용)
 

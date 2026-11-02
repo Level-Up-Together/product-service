@@ -94,8 +94,9 @@
 - **동기**(커밋 후 발행 스레드에서 실행): `FeedProjectionEventListener`, `ChatEventListener`, `HomeCacheEvictListener`, `UserLevelUpProfileSyncListener`.
 - **`fallbackExecution = true`**(트랜잭션 밖 발행도 실행): `FeedProjectionEventListener`(`TitleEquippedEvent` 제외), `ChatEventListener` 전부,
   `UserSignedUpEventListener`, `UserWithdrawnEventListener`(guild), `NotificationEventListener.handleContentReported`. 그 외는 트랜잭션 밖에서 발행하면 실행되지 않는다.
-- ⚠ `UserLevelUpProfileSyncListener` 는 동기 AFTER_COMMIT 콜백 안(트랜잭션 동기화 해제 후)에서 `UserProfileChangedEvent` 를 발행하는데, 수신 `*ProfileSnapshotEventListener` 는
-  `fallbackExecution` 이 없어 **이벤트를 버린다** — dev 로그로 재현 확인(2026-10-28 레벨업에 스냅샷 동기화 로그 0건). 영향은 레벨을 저장하는 미션 댓글 `userLevel`. 수정은 LUT-653.
+- `UserLevelUpProfileSyncListener` 는 동기 AFTER_COMMIT 콜백 안(트랜잭션 동기화 해제 후)에서 `UserProfileChangedEvent` 를 발행한다. 수신 `*ProfileSnapshotEventListener` 4개는
+  LUT-653(2026-11-02)부터 `fallbackExecution = true` 라 이 경로도 받는다 — 그 전엔 "활성 트랜잭션 없음"으로 **버려져** 레벨업 뒤 미션 댓글 `userLevel` 이 옛 값으로 남았다(dev 로그 재현 2026-10-28). 각 리스너 테스트가 어노테이션을 가드하고, app `UserLevelUpSnapshotSyncIntegrationTest` 가 실제 트랜잭션으로 "레벨업 → 미션 댓글 레벨 갱신" 을 확인한다. 이미 어긋난 행은 SQL 레포 1.1.4 V001 로 보정.
+  **규칙**: AFTER_COMMIT 리스너 안에서 이벤트를 재발행하면 그 수신자는 반드시 `fallbackExecution = true` 여야 한다.
 
 ## 이벤트를 쓰지 않는 흐름 · 짝이 없는 이벤트
 
