@@ -198,6 +198,49 @@ class HomeServiceTest {
         }
 
         @Test
+        @DisplayName("탈퇴 회원은 건너뛰고 다음 순위로 5명을 채운다 — 후보는 2배로 조회 (LUT-703)")
+        void getTodayPlayers_excludesWithdrawnAndFillsFive() {
+            // given: 6명 중 2위가 탈퇴 회원
+            List<String> ids = List.of("u1", "u2", "u3", "u4", "u5", "u6");
+            List<Object[]> topGainers = new ArrayList<>();
+            long exp = 600;
+            for (String id : ids) {
+                topGainers.add(new Object[] {id, exp--});
+            }
+            List<Users> users = new ArrayList<>();
+            for (String id : ids) {
+                Users u = Users.builder().nickname("n-" + id).build();
+                org.springframework.test.util.ReflectionTestUtils.setField(u, "id", id);
+                if (id.equals("u2")) {
+                    org.springframework.test.util.ReflectionTestUtils.setField(
+                            u,
+                            "status",
+                            io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.enums
+                                    .UserStatus.WITHDRAWN);
+                }
+                users.add(u);
+            }
+            when(gamificationQueryFacadeService.findTopExpGainersByPeriod(
+                            any(),
+                            any(),
+                            eq(org.springframework.data.domain.PageRequest.of(0, 10))))
+                    .thenReturn(topGainers);
+            when(userRepository.findAllById(ids)).thenReturn(users);
+            when(gamificationQueryFacadeService.getUserLevelMap(ids)).thenReturn(Map.of());
+            when(gamificationQueryFacadeService.getEquippedTitlesByUserIds(ids))
+                    .thenReturn(Map.of());
+
+            // when
+            List<TodayPlayerResponse> result = homeService.getTodayPlayers();
+
+            // then: u2 제외, u1·u3·u4·u5·u6 가 1~5위
+            assertThat(result).hasSize(5);
+            assertThat(result.stream().map(TodayPlayerResponse::getUserId))
+                    .containsExactly("u1", "u3", "u4", "u5", "u6");
+            assertThat(result.get(1).getRank()).isEqualTo(2);
+        }
+
+        @Test
         @DisplayName("경험치 획득자가 없으면 빈 목록을 반환한다")
         void getTodayPlayers_emptyList() {
             // given
