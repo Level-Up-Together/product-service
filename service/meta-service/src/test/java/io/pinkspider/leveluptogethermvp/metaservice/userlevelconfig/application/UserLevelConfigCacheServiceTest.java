@@ -31,18 +31,18 @@ import org.springframework.data.domain.Pageable;
 @ExtendWith(MockitoExtension.class)
 class UserLevelConfigCacheServiceTest {
 
-    @Mock
-    private UserLevelConfigRepository userLevelConfigRepository;
+    @Mock private UserLevelConfigRepository userLevelConfigRepository;
 
-    @InjectMocks
-    private UserLevelConfigCacheService userLevelConfigCacheService;
+    @InjectMocks private UserLevelConfigCacheService userLevelConfigCacheService;
 
-    private UserLevelConfig createUserLevelConfig(Long id, int level, int requiredExp, Integer cumulativeExp) {
-        UserLevelConfig config = UserLevelConfig.builder()
-            .level(level)
-            .requiredExp(requiredExp)
-            .cumulativeExp(cumulativeExp)
-            .build();
+    private UserLevelConfig createUserLevelConfig(
+            Long id, int level, int requiredExp, Integer cumulativeExp) {
+        UserLevelConfig config =
+                UserLevelConfig.builder()
+                        .level(level)
+                        .requiredExp(requiredExp)
+                        .cumulativeExp(cumulativeExp)
+                        .build();
         setId(config, id);
         return config;
     }
@@ -57,7 +57,8 @@ class UserLevelConfigCacheServiceTest {
             // given
             UserLevelConfig level1 = createUserLevelConfig(1L, 1, 100, 100);
             UserLevelConfig level2 = createUserLevelConfig(2L, 2, 200, 300);
-            when(userLevelConfigRepository.findAllByOrderByLevelAsc()).thenReturn(List.of(level1, level2));
+            when(userLevelConfigRepository.findAllByOrderByLevelAsc())
+                    .thenReturn(List.of(level1, level2));
 
             // when
             List<UserLevelConfig> result = userLevelConfigCacheService.getAllLevelConfigs();
@@ -73,7 +74,8 @@ class UserLevelConfigCacheServiceTest {
         @DisplayName("유저 레벨 설정이 없으면 빈 목록을 반환한다")
         void getAllLevelConfigs_empty() {
             // given
-            when(userLevelConfigRepository.findAllByOrderByLevelAsc()).thenReturn(Collections.emptyList());
+            when(userLevelConfigRepository.findAllByOrderByLevelAsc())
+                    .thenReturn(Collections.emptyList());
 
             // when
             List<UserLevelConfig> result = userLevelConfigCacheService.getAllLevelConfigs();
@@ -128,7 +130,8 @@ class UserLevelConfigCacheServiceTest {
             UserLevelConfig level1 = createUserLevelConfig(1L, 1, 100, 100);
             UserLevelConfig level2 = createUserLevelConfig(2L, 2, 200, 300);
             UserLevelConfig level3 = createUserLevelConfig(3L, 3, 300, 600);
-            when(userLevelConfigRepository.findAllByOrderByLevelAsc()).thenReturn(List.of(level1, level2, level3));
+            when(userLevelConfigRepository.findAllByOrderByLevelAsc())
+                    .thenReturn(List.of(level1, level2, level3));
 
             // when
             var result = userLevelConfigCacheService.getLevelByTotalExp(350);
@@ -158,7 +161,8 @@ class UserLevelConfigCacheServiceTest {
             // given
             UserLevelConfig level1 = createUserLevelConfig(1L, 1, 100, 100);
             UserLevelConfig level2 = createUserLevelConfig(2L, 2, 200, 300);
-            when(userLevelConfigRepository.findAllByOrderByLevelAsc()).thenReturn(List.of(level1, level2));
+            when(userLevelConfigRepository.findAllByOrderByLevelAsc())
+                    .thenReturn(List.of(level1, level2));
 
             // when
             var result = userLevelConfigCacheService.getLevelByTotalExp(9999);
@@ -172,7 +176,8 @@ class UserLevelConfigCacheServiceTest {
         @DisplayName("레벨 설정이 없으면 빈 Optional을 반환한다")
         void getLevelByTotalExp_noConfigs_returnsEmpty() {
             // given
-            when(userLevelConfigRepository.findAllByOrderByLevelAsc()).thenReturn(Collections.emptyList());
+            when(userLevelConfigRepository.findAllByOrderByLevelAsc())
+                    .thenReturn(Collections.emptyList());
 
             // when
             var result = userLevelConfigCacheService.getLevelByTotalExp(500);
@@ -193,7 +198,8 @@ class UserLevelConfigCacheServiceTest {
             UserLevelConfig level1 = createUserLevelConfig(1L, 1, 100, 100);
             UserLevelConfig level2 = createUserLevelConfig(2L, 2, 200, 300);
             UserLevelConfig level3 = createUserLevelConfig(3L, 10, 1000, 5000);
-            when(userLevelConfigRepository.findAllByOrderByLevelAsc()).thenReturn(List.of(level1, level2, level3));
+            when(userLevelConfigRepository.findAllByOrderByLevelAsc())
+                    .thenReturn(List.of(level1, level2, level3));
 
             // when
             Integer result = userLevelConfigCacheService.getMaxLevel();
@@ -206,7 +212,8 @@ class UserLevelConfigCacheServiceTest {
         @DisplayName("레벨 설정이 없으면 0을 반환한다")
         void getMaxLevel_noConfigs_returnsZero() {
             // given
-            when(userLevelConfigRepository.findAllByOrderByLevelAsc()).thenReturn(Collections.emptyList());
+            when(userLevelConfigRepository.findAllByOrderByLevelAsc())
+                    .thenReturn(Collections.emptyList());
 
             // when
             Integer result = userLevelConfigCacheService.getMaxLevel();
@@ -229,7 +236,8 @@ class UserLevelConfigCacheServiceTest {
             when(userLevelConfigRepository.save(any(UserLevelConfig.class))).thenReturn(saved);
 
             // when
-            UserLevelConfig result = userLevelConfigCacheService.createOrUpdateLevelConfig(5, 500, 2000);
+            UserLevelConfig result =
+                    userLevelConfigCacheService.createOrUpdateLevelConfig(5, 500, 2000);
 
             // then
             assertThat(result).isNotNull();
@@ -247,7 +255,8 @@ class UserLevelConfigCacheServiceTest {
             when(userLevelConfigRepository.save(existing)).thenReturn(saved);
 
             // when
-            UserLevelConfig result = userLevelConfigCacheService.createOrUpdateLevelConfig(3, 400, 900);
+            UserLevelConfig result =
+                    userLevelConfigCacheService.createOrUpdateLevelConfig(3, 400, 900);
 
             // then
             assertThat(existing.getRequiredExp()).isEqualTo(400);
@@ -266,10 +275,12 @@ class UserLevelConfigCacheServiceTest {
             // given
             UserLevelConfig config1 = createUserLevelConfig(1L, 1, 100, 100);
             UserLevelConfig config2 = createUserLevelConfig(2L, 2, 200, 300);
-            when(userLevelConfigRepository.findAllByOrderByLevelAsc()).thenReturn(List.of(config1, config2));
+            when(userLevelConfigRepository.findAllByOrderByLevelAsc())
+                    .thenReturn(List.of(config1, config2));
 
             // when
-            List<UserLevelConfigResponse> result = userLevelConfigCacheService.getAllLevelConfigResponses();
+            List<UserLevelConfigResponse> result =
+                    userLevelConfigCacheService.getAllLevelConfigResponses();
 
             // then
             assertThat(result).hasSize(2);
@@ -281,10 +292,12 @@ class UserLevelConfigCacheServiceTest {
         @DisplayName("레벨 설정이 없으면 빈 목록을 반환한다")
         void getAllLevelConfigResponses_empty() {
             // given
-            when(userLevelConfigRepository.findAllByOrderByLevelAsc()).thenReturn(Collections.emptyList());
+            when(userLevelConfigRepository.findAllByOrderByLevelAsc())
+                    .thenReturn(Collections.emptyList());
 
             // when
-            List<UserLevelConfigResponse> result = userLevelConfigCacheService.getAllLevelConfigResponses();
+            List<UserLevelConfigResponse> result =
+                    userLevelConfigCacheService.getAllLevelConfigResponses();
 
             // then
             assertThat(result).isEmpty();
@@ -361,8 +374,8 @@ class UserLevelConfigCacheServiceTest {
 
             // when & then
             assertThatThrownBy(() -> userLevelConfigCacheService.getLevelConfigById(999L))
-                .isInstanceOf(CustomException.class)
-                .hasMessageContaining("error.user_level.not_found");
+                    .isInstanceOf(CustomException.class)
+                    .hasMessageContaining("error.user_level.not_found");
         }
     }
 
@@ -378,7 +391,8 @@ class UserLevelConfigCacheServiceTest {
             when(userLevelConfigRepository.findByLevel(3)).thenReturn(Optional.of(config));
 
             // when
-            UserLevelConfigResponse result = userLevelConfigCacheService.getLevelConfigResponseByLevel(3);
+            UserLevelConfigResponse result =
+                    userLevelConfigCacheService.getLevelConfigResponseByLevel(3);
 
             // then
             assertThat(result).isNotNull();
@@ -394,8 +408,8 @@ class UserLevelConfigCacheServiceTest {
 
             // when & then
             assertThatThrownBy(() -> userLevelConfigCacheService.getLevelConfigResponseByLevel(999))
-                .isInstanceOf(CustomException.class)
-                .hasMessageContaining("error.user_level.not_found");
+                    .isInstanceOf(CustomException.class)
+                    .hasMessageContaining("error.user_level.not_found");
         }
     }
 
@@ -407,11 +421,12 @@ class UserLevelConfigCacheServiceTest {
         @DisplayName("유저 레벨 설정을 생성한다")
         void createLevelConfig_success() {
             // given
-            UserLevelConfigRequest request = UserLevelConfigRequest.builder()
-                .level(5)
-                .requiredExp(500)
-                .cumulativeExp(2000)
-                .build();
+            UserLevelConfigRequest request =
+                    UserLevelConfigRequest.builder()
+                            .level(5)
+                            .requiredExp(500)
+                            .cumulativeExp(2000)
+                            .build();
             UserLevelConfig saved = createUserLevelConfig(5L, 5, 500, 2000);
 
             when(userLevelConfigRepository.existsByLevel(5)).thenReturn(false);
@@ -431,18 +446,19 @@ class UserLevelConfigCacheServiceTest {
         @DisplayName("이미 존재하는 레벨로 생성 시 CustomException을 던진다")
         void createLevelConfig_duplicateLevel_throwsException() {
             // given
-            UserLevelConfigRequest request = UserLevelConfigRequest.builder()
-                .level(3)
-                .requiredExp(300)
-                .cumulativeExp(600)
-                .build();
+            UserLevelConfigRequest request =
+                    UserLevelConfigRequest.builder()
+                            .level(3)
+                            .requiredExp(300)
+                            .cumulativeExp(600)
+                            .build();
 
             when(userLevelConfigRepository.existsByLevel(3)).thenReturn(true);
 
             // when & then
             assertThatThrownBy(() -> userLevelConfigCacheService.createLevelConfig(request))
-                .isInstanceOf(CustomException.class)
-                .hasMessageContaining("error.user_level.duplicate");
+                    .isInstanceOf(CustomException.class)
+                    .hasMessageContaining("error.user_level.duplicate");
 
             verify(userLevelConfigRepository, never()).save(any());
         }
@@ -457,18 +473,20 @@ class UserLevelConfigCacheServiceTest {
         void updateLevelConfig_success() {
             // given
             UserLevelConfig existing = createUserLevelConfig(1L, 3, 300, 600);
-            UserLevelConfigRequest request = UserLevelConfigRequest.builder()
-                .level(3)
-                .requiredExp(400)
-                .cumulativeExp(900)
-                .build();
+            UserLevelConfigRequest request =
+                    UserLevelConfigRequest.builder()
+                            .level(3)
+                            .requiredExp(400)
+                            .cumulativeExp(900)
+                            .build();
             UserLevelConfig saved = createUserLevelConfig(1L, 3, 400, 900);
 
             when(userLevelConfigRepository.findById(1L)).thenReturn(Optional.of(existing));
             when(userLevelConfigRepository.save(existing)).thenReturn(saved);
 
             // when
-            UserLevelConfigResponse result = userLevelConfigCacheService.updateLevelConfig(1L, request);
+            UserLevelConfigResponse result =
+                    userLevelConfigCacheService.updateLevelConfig(1L, request);
 
             // then
             assertThat(result).isNotNull();
@@ -482,19 +500,20 @@ class UserLevelConfigCacheServiceTest {
         void updateLevelConfig_duplicateLevel_throwsException() {
             // given
             UserLevelConfig existing = createUserLevelConfig(1L, 3, 300, 600);
-            UserLevelConfigRequest request = UserLevelConfigRequest.builder()
-                .level(4)
-                .requiredExp(400)
-                .cumulativeExp(1000)
-                .build();
+            UserLevelConfigRequest request =
+                    UserLevelConfigRequest.builder()
+                            .level(4)
+                            .requiredExp(400)
+                            .cumulativeExp(1000)
+                            .build();
 
             when(userLevelConfigRepository.findById(1L)).thenReturn(Optional.of(existing));
             when(userLevelConfigRepository.existsByLevel(4)).thenReturn(true);
 
             // when & then
             assertThatThrownBy(() -> userLevelConfigCacheService.updateLevelConfig(1L, request))
-                .isInstanceOf(CustomException.class)
-                .hasMessageContaining("error.user_level.duplicate");
+                    .isInstanceOf(CustomException.class)
+                    .hasMessageContaining("error.user_level.duplicate");
 
             verify(userLevelConfigRepository, never()).save(any());
         }
@@ -504,11 +523,12 @@ class UserLevelConfigCacheServiceTest {
         void updateLevelConfig_sameLevel_noExistCheck() {
             // given
             UserLevelConfig existing = createUserLevelConfig(1L, 3, 300, 600);
-            UserLevelConfigRequest request = UserLevelConfigRequest.builder()
-                .level(3)
-                .requiredExp(350)
-                .cumulativeExp(700)
-                .build();
+            UserLevelConfigRequest request =
+                    UserLevelConfigRequest.builder()
+                            .level(3)
+                            .requiredExp(350)
+                            .cumulativeExp(700)
+                            .build();
 
             when(userLevelConfigRepository.findById(1L)).thenReturn(Optional.of(existing));
             when(userLevelConfigRepository.save(existing)).thenReturn(existing);
@@ -525,18 +545,19 @@ class UserLevelConfigCacheServiceTest {
         @DisplayName("존재하지 않는 ID 수정 시 CustomException을 던진다")
         void updateLevelConfig_notFound_throwsException() {
             // given
-            UserLevelConfigRequest request = UserLevelConfigRequest.builder()
-                .level(5)
-                .requiredExp(500)
-                .cumulativeExp(2000)
-                .build();
+            UserLevelConfigRequest request =
+                    UserLevelConfigRequest.builder()
+                            .level(5)
+                            .requiredExp(500)
+                            .cumulativeExp(2000)
+                            .build();
 
             when(userLevelConfigRepository.findById(999L)).thenReturn(Optional.empty());
 
             // when & then
             assertThatThrownBy(() -> userLevelConfigCacheService.updateLevelConfig(999L, request))
-                .isInstanceOf(CustomException.class)
-                .hasMessageContaining("error.user_level.not_found");
+                    .isInstanceOf(CustomException.class)
+                    .hasMessageContaining("error.user_level.not_found");
         }
     }
 
@@ -565,8 +586,8 @@ class UserLevelConfigCacheServiceTest {
 
             // when & then
             assertThatThrownBy(() -> userLevelConfigCacheService.deleteLevelConfig(999L))
-                .isInstanceOf(CustomException.class)
-                .hasMessageContaining("error.user_level.not_found");
+                    .isInstanceOf(CustomException.class)
+                    .hasMessageContaining("error.user_level.not_found");
 
             verify(userLevelConfigRepository, never()).deleteById(any());
         }

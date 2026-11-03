@@ -19,47 +19,48 @@ import org.mockito.junit.jupiter.MockitoExtension;
 @ExtendWith(MockitoExtension.class)
 class UserCategoryExperienceCheckStrategyTest {
 
-    @Mock
-    private UserCategoryExperienceRepository userCategoryExperienceRepository;
+    @Mock private UserCategoryExperienceRepository userCategoryExperienceRepository;
 
-    @InjectMocks
-    private UserCategoryExperienceCheckStrategy strategy;
+    @InjectMocks private UserCategoryExperienceCheckStrategy strategy;
 
     private static final String TEST_USER_ID = "test-user-123";
 
-    private Achievement createTestAchievement(Long id, String dataField, String operator, int requiredCount) {
-        Achievement achievement = Achievement.builder()
-            .name("테스트 업적")
-            .checkLogicDataSource("USER_CATEGORY_EXPERIENCE")
-            .checkLogicDataField(dataField)
-            .comparisonOperator(operator)
-            .requiredCount(requiredCount)
-            .build();
+    private Achievement createTestAchievement(
+            Long id, String dataField, String operator, int requiredCount) {
+        Achievement achievement =
+                Achievement.builder()
+                        .name("테스트 업적")
+                        .checkLogicDataSource("USER_CATEGORY_EXPERIENCE")
+                        .checkLogicDataField(dataField)
+                        .comparisonOperator(operator)
+                        .requiredCount(requiredCount)
+                        .build();
         setId(achievement, id);
         return achievement;
     }
 
-    private Achievement createTestAchievementWithMissionCategory(Long id, String dataField, String operator,
-                                                                  int requiredCount, Long missionCategoryId) {
-        Achievement achievement = Achievement.builder()
-            .name("테스트 업적")
-            .checkLogicDataSource("USER_CATEGORY_EXPERIENCE")
-            .checkLogicDataField(dataField)
-            .comparisonOperator(operator)
-            .requiredCount(requiredCount)
-            .missionCategoryId(missionCategoryId)
-            .build();
+    private Achievement createTestAchievementWithMissionCategory(
+            Long id, String dataField, String operator, int requiredCount, Long missionCategoryId) {
+        Achievement achievement =
+                Achievement.builder()
+                        .name("테스트 업적")
+                        .checkLogicDataSource("USER_CATEGORY_EXPERIENCE")
+                        .checkLogicDataField(dataField)
+                        .comparisonOperator(operator)
+                        .requiredCount(requiredCount)
+                        .missionCategoryId(missionCategoryId)
+                        .build();
         setId(achievement, id);
         return achievement;
     }
 
     private UserCategoryExperience createCategoryExperience(Long categoryId, Long totalExp) {
         return UserCategoryExperience.builder()
-            .userId(TEST_USER_ID)
-            .categoryId(categoryId)
-            .categoryName("테스트 카테고리")
-            .totalExp(totalExp)
-            .build();
+                .userId(TEST_USER_ID)
+                .categoryId(categoryId)
+                .categoryName("테스트 카테고리")
+                .totalExp(totalExp)
+                .build();
     }
 
     @Nested
@@ -87,7 +88,7 @@ class UserCategoryExperienceCheckStrategyTest {
             // given
             UserCategoryExperience categoryExp = createCategoryExperience(1L, 500L);
             when(userCategoryExperienceRepository.findByUserIdAndCategoryId(TEST_USER_ID, 1L))
-                .thenReturn(Optional.of(categoryExp));
+                    .thenReturn(Optional.of(categoryExp));
 
             // when
             Object result = strategy.fetchCurrentValue(TEST_USER_ID, "category_1");
@@ -101,7 +102,7 @@ class UserCategoryExperienceCheckStrategyTest {
         void fetchCurrentValue_noCategoryExp_returnsZero() {
             // given
             when(userCategoryExperienceRepository.findByUserIdAndCategoryId(TEST_USER_ID, 1L))
-                .thenReturn(Optional.empty());
+                    .thenReturn(Optional.empty());
 
             // when
             Object result = strategy.fetchCurrentValue(TEST_USER_ID, "category_1");
@@ -152,7 +153,7 @@ class UserCategoryExperienceCheckStrategyTest {
             Achievement achievement = createTestAchievement(1L, "category_1", "GTE", 500);
             UserCategoryExperience categoryExp = createCategoryExperience(1L, 1000L);
             when(userCategoryExperienceRepository.findByUserIdAndCategoryId(TEST_USER_ID, 1L))
-                .thenReturn(Optional.of(categoryExp));
+                    .thenReturn(Optional.of(categoryExp));
 
             // when
             boolean result = strategy.checkCondition(TEST_USER_ID, achievement);
@@ -168,7 +169,7 @@ class UserCategoryExperienceCheckStrategyTest {
             Achievement achievement = createTestAchievement(1L, "category_1", "GTE", 500);
             UserCategoryExperience categoryExp = createCategoryExperience(1L, 500L);
             when(userCategoryExperienceRepository.findByUserIdAndCategoryId(TEST_USER_ID, 1L))
-                .thenReturn(Optional.of(categoryExp));
+                    .thenReturn(Optional.of(categoryExp));
 
             // when
             boolean result = strategy.checkCondition(TEST_USER_ID, achievement);
@@ -184,7 +185,7 @@ class UserCategoryExperienceCheckStrategyTest {
             Achievement achievement = createTestAchievement(1L, "category_1", "GTE", 1000);
             UserCategoryExperience categoryExp = createCategoryExperience(1L, 500L);
             when(userCategoryExperienceRepository.findByUserIdAndCategoryId(TEST_USER_ID, 1L))
-                .thenReturn(Optional.of(categoryExp));
+                    .thenReturn(Optional.of(categoryExp));
 
             // when
             boolean result = strategy.checkCondition(TEST_USER_ID, achievement);
@@ -210,10 +211,11 @@ class UserCategoryExperienceCheckStrategyTest {
         @DisplayName("dataField=categoryExp + missionCategoryId 조합으로 체크한다")
         void checkCondition_categoryExp_withMissionCategoryId() {
             // given: master 데이터 형식 (dataField="categoryExp", missionCategoryId=2)
-            Achievement achievement = createTestAchievementWithMissionCategory(1L, "categoryExp", "GTE", 500, 2L);
+            Achievement achievement =
+                    createTestAchievementWithMissionCategory(1L, "categoryExp", "GTE", 500, 2L);
             UserCategoryExperience categoryExp = createCategoryExperience(2L, 1000L);
             when(userCategoryExperienceRepository.findByUserIdAndCategoryId(TEST_USER_ID, 2L))
-                .thenReturn(Optional.of(categoryExp));
+                    .thenReturn(Optional.of(categoryExp));
 
             // when
             boolean result = strategy.checkCondition(TEST_USER_ID, achievement);
@@ -226,7 +228,8 @@ class UserCategoryExperienceCheckStrategyTest {
         @DisplayName("categoryExp인데 missionCategoryId가 null이면 false를 반환한다")
         void checkCondition_categoryExp_nullMissionCategoryId() {
             // given
-            Achievement achievement = createTestAchievementWithMissionCategory(1L, "categoryExp", "GTE", 500, null);
+            Achievement achievement =
+                    createTestAchievementWithMissionCategory(1L, "categoryExp", "GTE", 500, null);
 
             // when
             boolean result = strategy.checkCondition(TEST_USER_ID, achievement);
@@ -244,10 +247,11 @@ class UserCategoryExperienceCheckStrategyTest {
         @DisplayName("dataField=categoryExp + missionCategoryId로 경험치를 조회한다")
         void fetchCurrentValue_categoryExp_withMissionCategoryId() {
             // given
-            Achievement achievement = createTestAchievementWithMissionCategory(1L, "categoryExp", "GTE", 500, 3L);
+            Achievement achievement =
+                    createTestAchievementWithMissionCategory(1L, "categoryExp", "GTE", 500, 3L);
             UserCategoryExperience categoryExp = createCategoryExperience(3L, 750L);
             when(userCategoryExperienceRepository.findByUserIdAndCategoryId(TEST_USER_ID, 3L))
-                .thenReturn(Optional.of(categoryExp));
+                    .thenReturn(Optional.of(categoryExp));
 
             // when
             Object result = strategy.fetchCurrentValue(TEST_USER_ID, achievement);
@@ -260,10 +264,11 @@ class UserCategoryExperienceCheckStrategyTest {
         @DisplayName("dataField가 'category_{id}' 형식이면 해당 ID 사용")
         void fetchCurrentValue_categoryUnderscoreId_priority() {
             // given: dataField가 'category_5' + missionCategoryId=99 → dataField 우선
-            Achievement achievement = createTestAchievementWithMissionCategory(1L, "category_5", "GTE", 500, 99L);
+            Achievement achievement =
+                    createTestAchievementWithMissionCategory(1L, "category_5", "GTE", 500, 99L);
             UserCategoryExperience categoryExp = createCategoryExperience(5L, 333L);
             when(userCategoryExperienceRepository.findByUserIdAndCategoryId(TEST_USER_ID, 5L))
-                .thenReturn(Optional.of(categoryExp));
+                    .thenReturn(Optional.of(categoryExp));
 
             // when
             Object result = strategy.fetchCurrentValue(TEST_USER_ID, achievement);

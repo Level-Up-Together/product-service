@@ -6,6 +6,13 @@
   "user_nickname": "댓글작성자",
   "user_profile_image_url": null,
   "user_level": 5,
+  "user_left_title": "용감한",
+  "user_left_title_rarity": "RARE",
+  "user_right_title": "전사",
+  "user_right_title_rarity": "RARE",
+  "equipped_item_rarities": [
+    {"item_type": "HEAD", "rarity": "EPIC"}
+  ],
   "content": "축하합니다!",
   "is_deleted": false,
   "is_edited": false,

@@ -27,12 +27,16 @@ import org.hibernate.annotations.Comment;
 @SuperBuilder
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @AllArgsConstructor
-@Table(name = "feed_comment_like",
-    uniqueConstraints = @UniqueConstraint(name = "uk_feed_comment_like", columnNames = {"comment_id", "user_id"}),
-    indexes = {
-        @Index(name = "idx_feed_comment_like_comment", columnList = "comment_id"),
-        @Index(name = "idx_feed_comment_like_user", columnList = "user_id")
-    })
+@Table(
+        name = "feed_comment_like",
+        uniqueConstraints =
+                @UniqueConstraint(
+                        name = "uk_feed_comment_like",
+                        columnNames = {"comment_id", "user_id"}),
+        indexes = {
+            @Index(name = "idx_feed_comment_like_comment", columnList = "comment_id"),
+            @Index(name = "idx_feed_comment_like_user", columnList = "user_id")
+        })
 @Comment("피드 댓글 좋아요")
 public class FeedCommentLike extends LocalDateTimeBaseEntity {
 

@@ -9,10 +9,7 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
-/**
- * 통합검색 BFF 응답 DTO
- * 피드, 미션, 사용자, 길드를 한 번에 검색하여 반환합니다.
- */
+/** 통합검색 BFF 응답 DTO 피드, 미션, 사용자, 길드를 한 번에 검색하여 반환합니다. */
 @Getter
 @Builder
 @NoArgsConstructor
@@ -20,29 +17,19 @@ import lombok.NoArgsConstructor;
 @JsonNaming(SnakeCaseStrategy.class)
 public class UnifiedSearchResponse {
 
-    /**
-     * 피드 검색 결과
-     */
+    /** 피드 검색 결과 */
     private List<FeedSearchItem> feeds;
 
-    /**
-     * 미션 검색 결과
-     */
+    /** 미션 검색 결과 */
     private List<MissionSearchItem> missions;
 
-    /**
-     * 사용자 검색 결과
-     */
+    /** 사용자 검색 결과 */
     private List<UserSearchItem> users;
 
-    /**
-     * 길드 검색 결과
-     */
+    /** 길드 검색 결과 */
     private List<GuildSearchItem> guilds;
 
-    /**
-     * 전체 검색 결과 수
-     */
+    /** 전체 검색 결과 수 */
     private int totalCount;
 
     @Getter

@@ -6,24 +6,25 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import io.pinkspider.global.enums.NotificationType;
+import io.pinkspider.global.messaging.producer.AppPushMessageProducer;
 import io.pinkspider.leveluptogethermvp.notificationservice.domain.dto.NotificationPreferenceRequest;
 import io.pinkspider.leveluptogethermvp.notificationservice.domain.dto.NotificationPreferenceResponse;
 import io.pinkspider.leveluptogethermvp.notificationservice.domain.dto.NotificationResponse;
 import io.pinkspider.leveluptogethermvp.notificationservice.domain.dto.NotificationSummaryResponse;
 import io.pinkspider.leveluptogethermvp.notificationservice.domain.entity.Notification;
 import io.pinkspider.leveluptogethermvp.notificationservice.domain.entity.NotificationPreference;
-import io.pinkspider.global.enums.NotificationType;
-import io.pinkspider.global.messaging.producer.AppPushMessageProducer;
 import io.pinkspider.leveluptogethermvp.notificationservice.infrastructure.NotificationPreferenceRepository;
 import io.pinkspider.leveluptogethermvp.notificationservice.infrastructure.NotificationRepository;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Locale;
 import java.util.Optional;
-import org.springframework.dao.DataIntegrityViolationException;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -31,6 +32,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
@@ -39,55 +41,56 @@ import org.springframework.data.domain.Pageable;
 @ExtendWith(MockitoExtension.class)
 class NotificationServiceTest {
 
-    @Mock
-    private NotificationRepository notificationRepository;
+    @Mock private NotificationRepository notificationRepository;
+
+    @Mock private NotificationPreferenceRepository preferenceRepository;
+
+    @Mock private AppPushMessageProducer appPushMessageProducer;
+
+    @Mock private DeviceTokenService deviceTokenService;
+
+    @Mock private org.springframework.context.MessageSource messageSource;
 
     @Mock
-    private NotificationPreferenceRepository preferenceRepository;
+    private io.pinkspider.leveluptogethermvp.userservice.unit.user.infrastructure.UserRepository
+            userRepository;
 
     @Mock
-    private AppPushMessageProducer appPushMessageProducer;
+    private io.pinkspider.leveluptogethermvp.notificationservice.realtime
+                    .NotificationRealtimePublisher
+            realtimePublisher;
 
-    @Mock
-    private DeviceTokenService deviceTokenService;
+    @Mock private NotificationCreator notificationCreator;
 
-    @Mock
-    private org.springframework.context.MessageSource messageSource;
-
-    @Mock
-    private io.pinkspider.leveluptogethermvp.userservice.unit.user.infrastructure.UserRepository userRepository;
-
-    @Mock
-    private io.pinkspider.leveluptogethermvp.notificationservice.realtime.NotificationRealtimePublisher realtimePublisher;
-
-    @InjectMocks
-    private NotificationService notificationService;
+    @InjectMocks private NotificationService notificationService;
 
     private static final String TEST_USER_ID = "test-user-123";
 
     private Notification createTestNotification(Long id, String userId, NotificationType type) {
-        Notification notification = Notification.builder()
-            .userId(userId)
-            .notificationType(type)
-            .title("테스트 알림")
-            .message("테스트 메시지")
-            .isRead(false)
-            .isPushed(false)
-            .build();
+        Notification notification =
+                Notification.builder()
+                        .userId(userId)
+                        .notificationType(type)
+                        .title("테스트 알림")
+                        .message("테스트 메시지")
+                        .isRead(false)
+                        .isPushed(false)
+                        .build();
         setId(notification, id);
         return notification;
     }
 
     private NotificationPreference createTestPreference(Long id, String userId) {
-        NotificationPreference preference = NotificationPreference.builder()
-            .userId(userId)
-            .pushEnabled(true)
-            .friendNotifications(true)
-            .guildNotifications(true)
-            .socialNotifications(true)
-            .systemNotifications(true)
-            .quietHoursEnabled(false)
-            .build();
+        NotificationPreference preference =
+                NotificationPreference.builder()
+                        .userId(userId)
+                        .pushEnabled(true)
+                        .friendNotifications(true)
+                        .guildNotifications(true)
+                        .socialNotifications(true)
+                        .systemNotifications(true)
+                        .quietHoursEnabled(false)
+                        .build();
         setId(preference, id);
         return preference;
     }
@@ -101,14 +104,18 @@ class NotificationServiceTest {
         void createNotification_success() {
             // given
             NotificationPreference preference = createTestPreference(1L, TEST_USER_ID);
-            Notification savedNotification = createTestNotification(1L, TEST_USER_ID, NotificationType.SYSTEM);
+            Notification savedNotification =
+                    createTestNotification(1L, TEST_USER_ID, NotificationType.CONTENT_REPORTED);
 
-            when(preferenceRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.of(preference));
-            when(notificationRepository.save(any(Notification.class))).thenReturn(savedNotification);
+            when(preferenceRepository.findByUserId(TEST_USER_ID))
+                    .thenReturn(Optional.of(preference));
+            when(notificationRepository.save(any(Notification.class)))
+                    .thenReturn(savedNotification);
 
             // when
-            NotificationResponse result = notificationService.createNotification(
-                TEST_USER_ID, NotificationType.SYSTEM, "테스트", "메시지");
+            NotificationResponse result =
+                    notificationService.createNotification(
+                            TEST_USER_ID, NotificationType.CONTENT_REPORTED, "테스트", "메시지");
 
             // then
             assertThat(result).isNotNull();
@@ -122,17 +129,20 @@ class NotificationServiceTest {
         @DisplayName("알림 설정이 비활성화되어 있으면 알림을 생성하지 않는다")
         void createNotification_categoryDisabled_returnsNull() {
             // given
-            NotificationPreference preference = NotificationPreference.builder()
-                .userId(TEST_USER_ID)
-                .friendNotifications(false)  // 친구 알림 비활성화
-                .build();
+            NotificationPreference preference =
+                    NotificationPreference.builder()
+                            .userId(TEST_USER_ID)
+                            .friendNotifications(false) // 친구 알림 비활성화
+                            .build();
             setId(preference, 1L);
 
-            when(preferenceRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.of(preference));
+            when(preferenceRepository.findByUserId(TEST_USER_ID))
+                    .thenReturn(Optional.of(preference));
 
             // when
-            NotificationResponse result = notificationService.createNotification(
-                TEST_USER_ID, NotificationType.FRIEND_REQUEST, "친구 요청", "메시지");
+            NotificationResponse result =
+                    notificationService.createNotification(
+                            TEST_USER_ID, NotificationType.FRIEND_REQUEST, "친구 요청", "메시지");
 
             // then
             assertThat(result).isNull();
@@ -144,17 +154,22 @@ class NotificationServiceTest {
         @DisplayName("알림 설정이 없으면 기본 설정을 생성하고 알림을 생성한다")
         void createNotification_noPreference_createsDefault() {
             // given
-            NotificationPreference newPreference = NotificationPreference.createDefault(TEST_USER_ID);
+            NotificationPreference newPreference =
+                    NotificationPreference.createDefault(TEST_USER_ID);
             setId(newPreference, 1L);
-            Notification savedNotification = createTestNotification(1L, TEST_USER_ID, NotificationType.SYSTEM);
+            Notification savedNotification =
+                    createTestNotification(1L, TEST_USER_ID, NotificationType.CONTENT_REPORTED);
 
             when(preferenceRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.empty());
-            when(preferenceRepository.save(any(NotificationPreference.class))).thenReturn(newPreference);
-            when(notificationRepository.save(any(Notification.class))).thenReturn(savedNotification);
+            when(preferenceRepository.save(any(NotificationPreference.class)))
+                    .thenReturn(newPreference);
+            when(notificationRepository.save(any(Notification.class)))
+                    .thenReturn(savedNotification);
 
             // when
-            NotificationResponse result = notificationService.createNotification(
-                TEST_USER_ID, NotificationType.SYSTEM, "테스트", "메시지");
+            NotificationResponse result =
+                    notificationService.createNotification(
+                            TEST_USER_ID, NotificationType.CONTENT_REPORTED, "테스트", "메시지");
 
             // then
             assertThat(result).isNotNull();
@@ -166,29 +181,110 @@ class NotificationServiceTest {
         void createNotification_withReference_success() {
             // given
             NotificationPreference preference = createTestPreference(1L, TEST_USER_ID);
-            Notification savedNotification = Notification.builder()
-                .userId(TEST_USER_ID)
-                .notificationType(NotificationType.GUILD_INVITE)
-                .title("길드 초대")
-                .message("테스트 길드에 초대되었습니다")
-                .referenceType("GUILD")
-                .referenceId(100L)
-                .actionUrl("/guild/100")
-                .build();
+            Notification savedNotification =
+                    Notification.builder()
+                            .userId(TEST_USER_ID)
+                            .notificationType(NotificationType.GUILD_INVITE)
+                            .title("길드 초대")
+                            .message("테스트 길드에 초대되었습니다")
+                            .referenceType("GUILD")
+                            .referenceId(100L)
+                            .actionUrl("/guild/100")
+                            .build();
             setId(savedNotification, 1L);
 
-            when(preferenceRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.of(preference));
-            when(notificationRepository.save(any(Notification.class))).thenReturn(savedNotification);
+            when(preferenceRepository.findByUserId(TEST_USER_ID))
+                    .thenReturn(Optional.of(preference));
+            when(notificationRepository.save(any(Notification.class)))
+                    .thenReturn(savedNotification);
 
             // when
-            NotificationResponse result = notificationService.createNotification(
-                TEST_USER_ID, NotificationType.GUILD_INVITE, "길드 초대",
-                "테스트 길드에 초대되었습니다", "GUILD", 100L, "/guild/100");
+            NotificationResponse result =
+                    notificationService.createNotification(
+                            TEST_USER_ID,
+                            NotificationType.GUILD_INVITE,
+                            "길드 초대",
+                            "테스트 길드에 초대되었습니다",
+                            "GUILD",
+                            100L,
+                            "/guild/100");
 
             // then
             assertThat(result).isNotNull();
             assertThat(result.getReferenceType()).isEqualTo("GUILD");
             assertThat(result.getReferenceId()).isEqualTo(100L);
+        }
+    }
+
+    @Nested
+    @DisplayName("is_pushed 마킹 테스트 (LUT-301)")
+    class MarkAsPushedTest {
+
+        @Test
+        @DisplayName("푸시 스트림 적재에 성공하면 알림에 is_pushed/pushed_at 이 마킹된다")
+        void createNotification_pushEnqueued_marksAsPushed() {
+            NotificationPreference preference = createTestPreference(1L, TEST_USER_ID);
+            Notification savedNotification =
+                    createTestNotification(1L, TEST_USER_ID, NotificationType.CONTENT_REPORTED);
+
+            when(preferenceRepository.findByUserId(TEST_USER_ID))
+                    .thenReturn(Optional.of(preference));
+            when(notificationRepository.save(any(Notification.class)))
+                    .thenReturn(savedNotification);
+
+            notificationService.createNotification(
+                    TEST_USER_ID, NotificationType.CONTENT_REPORTED, "테스트", "메시지");
+
+            verify(appPushMessageProducer).sendMessage(any());
+            assertThat(savedNotification.getIsPushed()).isTrue();
+            assertThat(savedNotification.getPushedAt()).isNotNull();
+        }
+
+        @Test
+        @DisplayName("푸시 스트림 적재가 실패하면 is_pushed 는 false 로 남는다")
+        void createNotification_pushEnqueueFails_notMarked() {
+            NotificationPreference preference = createTestPreference(1L, TEST_USER_ID);
+            Notification savedNotification =
+                    createTestNotification(1L, TEST_USER_ID, NotificationType.CONTENT_REPORTED);
+
+            when(preferenceRepository.findByUserId(TEST_USER_ID))
+                    .thenReturn(Optional.of(preference));
+            when(notificationRepository.save(any(Notification.class)))
+                    .thenReturn(savedNotification);
+            doThrow(new RuntimeException("stream down"))
+                    .when(appPushMessageProducer)
+                    .sendMessage(any());
+
+            notificationService.createNotification(
+                    TEST_USER_ID, NotificationType.CONTENT_REPORTED, "테스트", "메시지");
+
+            assertThat(savedNotification.getIsPushed()).isFalse();
+            assertThat(savedNotification.getPushedAt()).isNull();
+        }
+
+        @Test
+        @DisplayName("푸시 비활성화 사용자는 is_pushed 가 마킹되지 않는다")
+        void createNotification_pushDisabled_notMarked() {
+            NotificationPreference preference =
+                    NotificationPreference.builder()
+                            .userId(TEST_USER_ID)
+                            .pushEnabled(false)
+                            .systemNotifications(true)
+                            .build();
+            setId(preference, 1L);
+            Notification savedNotification =
+                    createTestNotification(1L, TEST_USER_ID, NotificationType.CONTENT_REPORTED);
+
+            when(preferenceRepository.findByUserId(TEST_USER_ID))
+                    .thenReturn(Optional.of(preference));
+            when(notificationRepository.save(any(Notification.class)))
+                    .thenReturn(savedNotification);
+
+            notificationService.createNotification(
+                    TEST_USER_ID, NotificationType.CONTENT_REPORTED, "테스트", "메시지");
+
+            verify(appPushMessageProducer, never()).sendMessage(any());
+            assertThat(savedNotification.getIsPushed()).isFalse();
         }
     }
 
@@ -201,17 +297,20 @@ class NotificationServiceTest {
         void getNotifications_success() {
             // given
             Pageable pageable = PageRequest.of(0, 10);
-            List<Notification> notifications = List.of(
-                createTestNotification(1L, TEST_USER_ID, NotificationType.SYSTEM),
-                createTestNotification(2L, TEST_USER_ID, NotificationType.FRIEND_REQUEST)
-            );
+            List<Notification> notifications =
+                    List.of(
+                            createTestNotification(
+                                    1L, TEST_USER_ID, NotificationType.CONTENT_REPORTED),
+                            createTestNotification(
+                                    2L, TEST_USER_ID, NotificationType.FRIEND_REQUEST));
             Page<Notification> page = new PageImpl<>(notifications, pageable, 2);
 
             when(notificationRepository.findByUserIdOrderByCreatedAtDesc(TEST_USER_ID, pageable))
-                .thenReturn(page);
+                    .thenReturn(page);
 
             // when
-            Page<NotificationResponse> result = notificationService.getNotifications(TEST_USER_ID, pageable);
+            Page<NotificationResponse> result =
+                    notificationService.getNotifications(TEST_USER_ID, pageable);
 
             // then
             assertThat(result.getContent()).hasSize(2);
@@ -226,10 +325,11 @@ class NotificationServiceTest {
             Page<Notification> emptyPage = new PageImpl<>(List.of(), pageable, 0);
 
             when(notificationRepository.findByUserIdOrderByCreatedAtDesc(TEST_USER_ID, pageable))
-                .thenReturn(emptyPage);
+                    .thenReturn(emptyPage);
 
             // when
-            Page<NotificationResponse> result = notificationService.getNotifications(TEST_USER_ID, pageable);
+            Page<NotificationResponse> result =
+                    notificationService.getNotifications(TEST_USER_ID, pageable);
 
             // then
             assertThat(result.getContent()).isEmpty();
@@ -245,15 +345,19 @@ class NotificationServiceTest {
         @DisplayName("읽지 않은 알림 목록을 조회한다")
         void getUnreadNotifications_success() {
             // given
-            List<Notification> unreadNotifications = List.of(
-                createTestNotification(1L, TEST_USER_ID, NotificationType.SYSTEM),
-                createTestNotification(2L, TEST_USER_ID, NotificationType.FRIEND_REQUEST)
-            );
+            List<Notification> unreadNotifications =
+                    List.of(
+                            createTestNotification(
+                                    1L, TEST_USER_ID, NotificationType.CONTENT_REPORTED),
+                            createTestNotification(
+                                    2L, TEST_USER_ID, NotificationType.FRIEND_REQUEST));
 
-            when(notificationRepository.findUnreadByUserId(TEST_USER_ID)).thenReturn(unreadNotifications);
+            when(notificationRepository.findUnreadByUserId(TEST_USER_ID))
+                    .thenReturn(unreadNotifications);
 
             // when
-            List<NotificationResponse> result = notificationService.getUnreadNotifications(TEST_USER_ID);
+            List<NotificationResponse> result =
+                    notificationService.getUnreadNotifications(TEST_USER_ID);
 
             // then
             assertThat(result).hasSize(2);
@@ -271,7 +375,8 @@ class NotificationServiceTest {
             when(notificationRepository.countUnreadByUserId(TEST_USER_ID)).thenReturn(5);
 
             // when
-            NotificationSummaryResponse result = notificationService.getNotificationSummary(TEST_USER_ID);
+            NotificationSummaryResponse result =
+                    notificationService.getNotificationSummary(TEST_USER_ID);
 
             // then
             assertThat(result.getUnreadCount()).isEqualTo(5);
@@ -284,7 +389,8 @@ class NotificationServiceTest {
             when(notificationRepository.countUnreadByUserId(TEST_USER_ID)).thenReturn(0);
 
             // when
-            NotificationSummaryResponse result = notificationService.getNotificationSummary(TEST_USER_ID);
+            NotificationSummaryResponse result =
+                    notificationService.getNotificationSummary(TEST_USER_ID);
 
             // then
             assertThat(result.getUnreadCount()).isZero();
@@ -300,12 +406,16 @@ class NotificationServiceTest {
         void markAsRead_success() {
             // given
             Long notificationId = 1L;
-            Notification notification = createTestNotification(notificationId, TEST_USER_ID, NotificationType.SYSTEM);
+            Notification notification =
+                    createTestNotification(
+                            notificationId, TEST_USER_ID, NotificationType.CONTENT_REPORTED);
 
-            when(notificationRepository.findById(notificationId)).thenReturn(Optional.of(notification));
+            when(notificationRepository.findById(notificationId))
+                    .thenReturn(Optional.of(notification));
 
             // when
-            NotificationResponse result = notificationService.markAsRead(TEST_USER_ID, notificationId);
+            NotificationResponse result =
+                    notificationService.markAsRead(TEST_USER_ID, notificationId);
 
             // then
             assertThat(result).isNotNull();
@@ -322,8 +432,8 @@ class NotificationServiceTest {
 
             // when & then
             assertThatThrownBy(() -> notificationService.markAsRead(TEST_USER_ID, notificationId))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessage("알림을 찾을 수 없습니다.");
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessage("알림을 찾을 수 없습니다.");
         }
 
         @Test
@@ -332,14 +442,17 @@ class NotificationServiceTest {
             // given
             Long notificationId = 1L;
             String otherUserId = "other-user-456";
-            Notification notification = createTestNotification(notificationId, otherUserId, NotificationType.SYSTEM);
+            Notification notification =
+                    createTestNotification(
+                            notificationId, otherUserId, NotificationType.CONTENT_REPORTED);
 
-            when(notificationRepository.findById(notificationId)).thenReturn(Optional.of(notification));
+            when(notificationRepository.findById(notificationId))
+                    .thenReturn(Optional.of(notification));
 
             // when & then
             assertThatThrownBy(() -> notificationService.markAsRead(TEST_USER_ID, notificationId))
-                .isInstanceOf(IllegalStateException.class)
-                .hasMessage("본인의 알림만 읽음 처리할 수 있습니다.");
+                    .isInstanceOf(IllegalStateException.class)
+                    .hasMessage("본인의 알림만 읽음 처리할 수 있습니다.");
         }
     }
 
@@ -371,9 +484,12 @@ class NotificationServiceTest {
         void deleteNotification_success() {
             // given
             Long notificationId = 1L;
-            Notification notification = createTestNotification(notificationId, TEST_USER_ID, NotificationType.SYSTEM);
+            Notification notification =
+                    createTestNotification(
+                            notificationId, TEST_USER_ID, NotificationType.CONTENT_REPORTED);
 
-            when(notificationRepository.findById(notificationId)).thenReturn(Optional.of(notification));
+            when(notificationRepository.findById(notificationId))
+                    .thenReturn(Optional.of(notification));
 
             // when
             notificationService.deleteNotification(TEST_USER_ID, notificationId);
@@ -391,9 +507,12 @@ class NotificationServiceTest {
             when(notificationRepository.findById(notificationId)).thenReturn(Optional.empty());
 
             // when & then
-            assertThatThrownBy(() -> notificationService.deleteNotification(TEST_USER_ID, notificationId))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessage("알림을 찾을 수 없습니다.");
+            assertThatThrownBy(
+                            () ->
+                                    notificationService.deleteNotification(
+                                            TEST_USER_ID, notificationId))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessage("알림을 찾을 수 없습니다.");
         }
 
         @Test
@@ -402,14 +521,20 @@ class NotificationServiceTest {
             // given
             Long notificationId = 1L;
             String otherUserId = "other-user-456";
-            Notification notification = createTestNotification(notificationId, otherUserId, NotificationType.SYSTEM);
+            Notification notification =
+                    createTestNotification(
+                            notificationId, otherUserId, NotificationType.CONTENT_REPORTED);
 
-            when(notificationRepository.findById(notificationId)).thenReturn(Optional.of(notification));
+            when(notificationRepository.findById(notificationId))
+                    .thenReturn(Optional.of(notification));
 
             // when & then
-            assertThatThrownBy(() -> notificationService.deleteNotification(TEST_USER_ID, notificationId))
-                .isInstanceOf(IllegalStateException.class)
-                .hasMessage("본인의 알림만 삭제할 수 있습니다.");
+            assertThatThrownBy(
+                            () ->
+                                    notificationService.deleteNotification(
+                                            TEST_USER_ID, notificationId))
+                    .isInstanceOf(IllegalStateException.class)
+                    .hasMessage("본인의 알림만 삭제할 수 있습니다.");
         }
     }
 
@@ -454,10 +579,12 @@ class NotificationServiceTest {
             // given
             NotificationPreference preference = createTestPreference(1L, TEST_USER_ID);
 
-            when(preferenceRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.of(preference));
+            when(preferenceRepository.findByUserId(TEST_USER_ID))
+                    .thenReturn(Optional.of(preference));
 
             // when
-            NotificationPreferenceResponse result = notificationService.getPreferences(TEST_USER_ID);
+            NotificationPreferenceResponse result =
+                    notificationService.getPreferences(TEST_USER_ID);
 
             // then
             assertThat(result).isNotNull();
@@ -468,14 +595,17 @@ class NotificationServiceTest {
         @DisplayName("알림 설정이 없으면 기본 설정을 생성하여 반환한다")
         void getPreferences_createsDefault() {
             // given
-            NotificationPreference newPreference = NotificationPreference.createDefault(TEST_USER_ID);
+            NotificationPreference newPreference =
+                    NotificationPreference.createDefault(TEST_USER_ID);
             setId(newPreference, 1L);
 
             when(preferenceRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.empty());
-            when(preferenceRepository.save(any(NotificationPreference.class))).thenReturn(newPreference);
+            when(preferenceRepository.save(any(NotificationPreference.class)))
+                    .thenReturn(newPreference);
 
             // when
-            NotificationPreferenceResponse result = notificationService.getPreferences(TEST_USER_ID);
+            NotificationPreferenceResponse result =
+                    notificationService.getPreferences(TEST_USER_ID);
 
             // then
             assertThat(result).isNotNull();
@@ -492,18 +622,21 @@ class NotificationServiceTest {
         void updatePreferences_success() {
             // given
             NotificationPreference preference = createTestPreference(1L, TEST_USER_ID);
-            NotificationPreferenceRequest request = NotificationPreferenceRequest.builder()
-                .pushEnabled(false)
-                .friendNotifications(false)
-                .quietHoursEnabled(true)
-                .quietHoursStart("22:00")
-                .quietHoursEnd("08:00")
-                .build();
+            NotificationPreferenceRequest request =
+                    NotificationPreferenceRequest.builder()
+                            .pushEnabled(false)
+                            .friendNotifications(false)
+                            .quietHoursEnabled(true)
+                            .quietHoursStart("22:00")
+                            .quietHoursEnd("08:00")
+                            .build();
 
-            when(preferenceRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.of(preference));
+            when(preferenceRepository.findByUserId(TEST_USER_ID))
+                    .thenReturn(Optional.of(preference));
 
             // when
-            NotificationPreferenceResponse result = notificationService.updatePreferences(TEST_USER_ID, request);
+            NotificationPreferenceResponse result =
+                    notificationService.updatePreferences(TEST_USER_ID, request);
 
             // then
             assertThat(result).isNotNull();
@@ -517,19 +650,22 @@ class NotificationServiceTest {
         void updatePreferences_partialUpdate() {
             // given
             NotificationPreference preference = createTestPreference(1L, TEST_USER_ID);
-            NotificationPreferenceRequest request = NotificationPreferenceRequest.builder()
-                .pushEnabled(false)  // 이것만 업데이트
-                .build();
+            NotificationPreferenceRequest request =
+                    NotificationPreferenceRequest.builder()
+                            .pushEnabled(false) // 이것만 업데이트
+                            .build();
 
-            when(preferenceRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.of(preference));
+            when(preferenceRepository.findByUserId(TEST_USER_ID))
+                    .thenReturn(Optional.of(preference));
 
             // when
-            NotificationPreferenceResponse result = notificationService.updatePreferences(TEST_USER_ID, request);
+            NotificationPreferenceResponse result =
+                    notificationService.updatePreferences(TEST_USER_ID, request);
 
             // then
             assertThat(preference.getPushEnabled()).isFalse();
-            assertThat(preference.getFriendNotifications()).isTrue();  // 기존 값 유지
-            assertThat(preference.getGuildNotifications()).isTrue();  // 기존 값 유지
+            assertThat(preference.getFriendNotifications()).isTrue(); // 기존 값 유지
+            assertThat(preference.getGuildNotifications()).isTrue(); // 기존 값 유지
         }
     }
 
@@ -541,7 +677,8 @@ class NotificationServiceTest {
         @DisplayName("만료된 알림을 삭제한다")
         void cleanupExpiredNotifications_success() {
             // given
-            when(notificationRepository.deleteExpiredNotifications(any(LocalDateTime.class))).thenReturn(10);
+            when(notificationRepository.deleteExpiredNotifications(any(LocalDateTime.class)))
+                    .thenReturn(10);
 
             // when
             int result = notificationService.cleanupExpiredNotifications();
@@ -560,14 +697,17 @@ class NotificationServiceTest {
         void sendNotification_normalType_usesEnumMetadata() {
             // given
             NotificationPreference preference = createTestPreference(1L, TEST_USER_ID);
-            Notification savedNotification = createTestNotification(1L, TEST_USER_ID, NotificationType.FRIEND_REQUEST);
+            Notification savedNotification =
+                    createTestNotification(1L, TEST_USER_ID, NotificationType.FRIEND_REQUEST);
 
-            when(preferenceRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.of(preference));
-            when(notificationRepository.save(any(Notification.class))).thenReturn(savedNotification);
+            when(preferenceRepository.findByUserId(TEST_USER_ID))
+                    .thenReturn(Optional.of(preference));
+            when(notificationRepository.save(any(Notification.class)))
+                    .thenReturn(savedNotification);
 
             // when
-            notificationService.sendNotification(TEST_USER_ID, NotificationType.FRIEND_REQUEST,
-                100L, null, "테스터");
+            notificationService.sendNotification(
+                    TEST_USER_ID, NotificationType.FRIEND_REQUEST, 100L, null, "테스터");
 
             // then
             verify(notificationRepository).save(any(Notification.class));
@@ -575,24 +715,49 @@ class NotificationServiceTest {
         }
 
         @Test
-        @DisplayName("중복 방지 타입은 saveAndFlush를 사용한다")
-        void sendNotification_dedupType_usesSaveAndFlush() {
+        @DisplayName("LUT-539: 중복 방지 타입은 크리에이터(REQUIRES_NEW)로 생성하고 id 로 재조회한 managed 행을 쓴다")
+        void sendNotification_dedupType_usesCreatorAndRefetch() {
             // given
             NotificationPreference preference = createTestPreference(1L, TEST_USER_ID);
-            Notification savedNotification = createTestNotification(1L, TEST_USER_ID, NotificationType.TITLE_ACQUIRED);
+            Notification savedNotification =
+                    createTestNotification(1L, TEST_USER_ID, NotificationType.TITLE_ACQUIRED);
 
             when(notificationRepository.existsByUserIdAndNotificationTypeAndReferenceId(
-                TEST_USER_ID, NotificationType.TITLE_ACQUIRED, 1L)).thenReturn(false);
-            when(preferenceRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.of(preference));
-            when(notificationRepository.saveAndFlush(any(Notification.class))).thenReturn(savedNotification);
+                            TEST_USER_ID, NotificationType.TITLE_ACQUIRED, 1L))
+                    .thenReturn(false);
+            when(preferenceRepository.findByUserId(TEST_USER_ID))
+                    .thenReturn(Optional.of(preference));
+            when(notificationCreator.create(
+                            eq(TEST_USER_ID),
+                            eq(NotificationType.TITLE_ACQUIRED),
+                            anyString(),
+                            anyString(),
+                            any(),
+                            eq(1L),
+                            any(),
+                            eq("rarity:COMMON")))
+                    .thenReturn(1L);
+            when(notificationRepository.findById(1L)).thenReturn(Optional.of(savedNotification));
 
             // when
-            notificationService.sendNotification(TEST_USER_ID, NotificationType.TITLE_ACQUIRED,
-                1L, "rarity:COMMON", "초보 모험가");
+            notificationService.sendNotification(
+                    TEST_USER_ID, NotificationType.TITLE_ACQUIRED, 1L, "rarity:COMMON", "초보 모험가");
 
-            // then
-            verify(notificationRepository).saveAndFlush(any(Notification.class));
+            // then — insert 는 크리에이터, 이 트랜잭션에서는 save/saveAndFlush 를 직접 호출하지 않는다
+            verify(notificationCreator)
+                    .create(
+                            eq(TEST_USER_ID),
+                            eq(NotificationType.TITLE_ACQUIRED),
+                            anyString(),
+                            anyString(),
+                            any(),
+                            eq(1L),
+                            any(),
+                            eq("rarity:COMMON"));
             verify(notificationRepository, never()).save(any(Notification.class));
+            verify(notificationRepository, never()).saveAndFlush(any(Notification.class));
+            // 재조회한 행으로 실시간 발행
+            verify(realtimePublisher).publish(eq(TEST_USER_ID), any());
         }
 
         @Test
@@ -600,31 +765,73 @@ class NotificationServiceTest {
         void sendNotification_duplicateExists_skips() {
             // given
             when(notificationRepository.existsByUserIdAndNotificationTypeAndReferenceId(
-                TEST_USER_ID, NotificationType.ACHIEVEMENT_COMPLETED, 1L)).thenReturn(true);
+                            TEST_USER_ID, NotificationType.ACHIEVEMENT_COMPLETED, 1L))
+                    .thenReturn(true);
 
             // when
-            notificationService.sendNotification(TEST_USER_ID, NotificationType.ACHIEVEMENT_COMPLETED,
-                1L, null, "미션 마스터");
+            notificationService.sendNotification(
+                    TEST_USER_ID, NotificationType.ACHIEVEMENT_COMPLETED, 1L, null, "미션 마스터");
 
             // then
             verify(notificationRepository, never()).save(any());
-            verify(notificationRepository, never()).saveAndFlush(any());
+            verify(notificationCreator, never())
+                    .create(any(), any(), any(), any(), any(), any(), any(), any());
         }
 
         @Test
-        @DisplayName("DataIntegrityViolationException 발생 시 무시한다")
+        @DisplayName("LUT-539: 크리에이터의 DataIntegrityViolationException(동시 생성)은 삼키고 실시간/푸시도 보내지 않는다")
         void sendNotification_dataIntegrityViolation_ignored() {
             // given
             when(notificationRepository.existsByUserIdAndNotificationTypeAndReferenceId(
-                TEST_USER_ID, NotificationType.TITLE_ACQUIRED, 1L)).thenReturn(false);
+                            TEST_USER_ID, NotificationType.TITLE_ACQUIRED, 1L))
+                    .thenReturn(false);
             NotificationPreference preference = createTestPreference(1L, TEST_USER_ID);
-            when(preferenceRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.of(preference));
-            when(notificationRepository.saveAndFlush(any(Notification.class)))
-                .thenThrow(new DataIntegrityViolationException("Duplicate entry"));
+            when(preferenceRepository.findByUserId(TEST_USER_ID))
+                    .thenReturn(Optional.of(preference));
+            when(notificationCreator.create(
+                            eq(TEST_USER_ID),
+                            eq(NotificationType.TITLE_ACQUIRED),
+                            anyString(),
+                            anyString(),
+                            any(),
+                            eq(1L),
+                            any(),
+                            any()))
+                    .thenThrow(new DataIntegrityViolationException("Duplicate entry"));
 
             // when & then - 예외 발생하지 않음
-            notificationService.sendNotification(TEST_USER_ID, NotificationType.TITLE_ACQUIRED,
-                1L, "rarity:LEGENDARY", "전설적인 모험가");
+            notificationService.sendNotification(
+                    TEST_USER_ID,
+                    NotificationType.TITLE_ACQUIRED,
+                    1L,
+                    "rarity:LEGENDARY",
+                    "전설적인 모험가");
+            verify(realtimePublisher, never()).publish(any(), any());
+            verify(appPushMessageProducer, never()).sendMessage(any());
+        }
+
+        @Test
+        @DisplayName("LUT-539: 생성 후 id 재조회에 행이 없으면 IllegalStateException")
+        void sendNotification_missingAfterCreate_throws() {
+            when(notificationRepository.existsByUserIdAndNotificationTypeAndReferenceId(
+                            TEST_USER_ID, NotificationType.TITLE_ACQUIRED, 1L))
+                    .thenReturn(false);
+            when(preferenceRepository.findByUserId(TEST_USER_ID))
+                    .thenReturn(Optional.of(createTestPreference(1L, TEST_USER_ID)));
+            when(notificationCreator.create(any(), any(), any(), any(), any(), any(), any(), any()))
+                    .thenReturn(42L);
+            when(notificationRepository.findById(42L)).thenReturn(Optional.empty());
+
+            assertThatThrownBy(
+                            () ->
+                                    notificationService.sendNotification(
+                                            TEST_USER_ID,
+                                            NotificationType.TITLE_ACQUIRED,
+                                            1L,
+                                            null,
+                                            "x"))
+                    .isInstanceOf(IllegalStateException.class)
+                    .hasMessageContaining("42");
         }
 
         @Test
@@ -632,14 +839,17 @@ class NotificationServiceTest {
         void sendNotification_guildInvite_success() {
             // given
             NotificationPreference preference = createTestPreference(1L, TEST_USER_ID);
-            Notification savedNotification = createTestNotification(1L, TEST_USER_ID, NotificationType.GUILD_INVITE);
+            Notification savedNotification =
+                    createTestNotification(1L, TEST_USER_ID, NotificationType.GUILD_INVITE);
 
-            when(preferenceRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.of(preference));
-            when(notificationRepository.save(any(Notification.class))).thenReturn(savedNotification);
+            when(preferenceRepository.findByUserId(TEST_USER_ID))
+                    .thenReturn(Optional.of(preference));
+            when(notificationRepository.save(any(Notification.class)))
+                    .thenReturn(savedNotification);
 
             // when
-            notificationService.sendNotification(TEST_USER_ID, NotificationType.GUILD_INVITE,
-                1L, null, "마스터닉네임", "테스트 길드");
+            notificationService.sendNotification(
+                    TEST_USER_ID, NotificationType.GUILD_INVITE, 1L, null, "마스터닉네임", "테스트 길드");
 
             // then
             verify(notificationRepository).save(any(Notification.class));
@@ -649,17 +859,19 @@ class NotificationServiceTest {
         @DisplayName("카테고리 비활성화 시 알림을 생성하지 않는다")
         void sendNotification_categoryDisabled_skips() {
             // given
-            NotificationPreference preference = NotificationPreference.builder()
-                .userId(TEST_USER_ID)
-                .friendNotifications(false)
-                .build();
+            NotificationPreference preference =
+                    NotificationPreference.builder()
+                            .userId(TEST_USER_ID)
+                            .friendNotifications(false)
+                            .build();
             setId(preference, 1L);
 
-            when(preferenceRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.of(preference));
+            when(preferenceRepository.findByUserId(TEST_USER_ID))
+                    .thenReturn(Optional.of(preference));
 
             // when
-            notificationService.sendNotification(TEST_USER_ID, NotificationType.FRIEND_REQUEST,
-                100L, null, "테스터");
+            notificationService.sendNotification(
+                    TEST_USER_ID, NotificationType.FRIEND_REQUEST, 100L, null, "테스터");
 
             // then
             verify(notificationRepository, never()).save(any());
@@ -675,10 +887,13 @@ class NotificationServiceTest {
         void notifyContentReported_success() {
             // given
             NotificationPreference preference = createTestPreference(1L, TEST_USER_ID);
-            Notification savedNotification = createTestNotification(1L, TEST_USER_ID, NotificationType.CONTENT_REPORTED);
+            Notification savedNotification =
+                    createTestNotification(1L, TEST_USER_ID, NotificationType.CONTENT_REPORTED);
 
-            when(preferenceRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.of(preference));
-            when(notificationRepository.save(any(Notification.class))).thenReturn(savedNotification);
+            when(preferenceRepository.findByUserId(TEST_USER_ID))
+                    .thenReturn(Optional.of(preference));
+            when(notificationRepository.save(any(Notification.class)))
+                    .thenReturn(savedNotification);
 
             // when
             notificationService.notifyContentReported(TEST_USER_ID, "피드");
@@ -693,10 +908,13 @@ class NotificationServiceTest {
             // given
             Long guildId = 100L;
             NotificationPreference preference = createTestPreference(1L, TEST_USER_ID);
-            Notification savedNotification = createTestNotification(1L, TEST_USER_ID, NotificationType.CONTENT_REPORTED);
+            Notification savedNotification =
+                    createTestNotification(1L, TEST_USER_ID, NotificationType.CONTENT_REPORTED);
 
-            when(preferenceRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.of(preference));
-            when(notificationRepository.save(any(Notification.class))).thenReturn(savedNotification);
+            when(preferenceRepository.findByUserId(TEST_USER_ID))
+                    .thenReturn(Optional.of(preference));
+            when(notificationRepository.save(any(Notification.class)))
+                    .thenReturn(savedNotification);
 
             // when
             notificationService.notifyGuildContentReported(TEST_USER_ID, "길드 공지", guildId);
@@ -714,25 +932,30 @@ class NotificationServiceTest {
         @DisplayName("pushEnabled가 false이면 푸시 알림을 전송하지 않는다")
         void createNotification_pushDisabled_doesNotSendPush() {
             // given
-            NotificationPreference preference = NotificationPreference.builder()
-                .userId(TEST_USER_ID)
-                .pushEnabled(false)
-                .friendNotifications(true)
-                .guildNotifications(true)
-                .socialNotifications(true)
-                .systemNotifications(true)
-                .quietHoursEnabled(false)
-                .build();
+            NotificationPreference preference =
+                    NotificationPreference.builder()
+                            .userId(TEST_USER_ID)
+                            .pushEnabled(false)
+                            .friendNotifications(true)
+                            .guildNotifications(true)
+                            .socialNotifications(true)
+                            .systemNotifications(true)
+                            .quietHoursEnabled(false)
+                            .build();
             setId(preference, 1L);
 
-            Notification savedNotification = createTestNotification(1L, TEST_USER_ID, NotificationType.SYSTEM);
+            Notification savedNotification =
+                    createTestNotification(1L, TEST_USER_ID, NotificationType.CONTENT_REPORTED);
 
-            when(preferenceRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.of(preference));
-            when(notificationRepository.save(any(Notification.class))).thenReturn(savedNotification);
+            when(preferenceRepository.findByUserId(TEST_USER_ID))
+                    .thenReturn(Optional.of(preference));
+            when(notificationRepository.save(any(Notification.class)))
+                    .thenReturn(savedNotification);
 
             // when
-            NotificationResponse result = notificationService.createNotification(
-                TEST_USER_ID, NotificationType.SYSTEM, "제목", "내용");
+            NotificationResponse result =
+                    notificationService.createNotification(
+                            TEST_USER_ID, NotificationType.CONTENT_REPORTED, "제목", "내용");
 
             // then
             assertThat(result).isNotNull();
@@ -744,14 +967,18 @@ class NotificationServiceTest {
         void createNotification_pushEnabled_noQuietHours_sendsPush() {
             // given
             NotificationPreference preference = createTestPreference(1L, TEST_USER_ID);
-            Notification savedNotification = createTestNotification(1L, TEST_USER_ID, NotificationType.SYSTEM);
+            Notification savedNotification =
+                    createTestNotification(1L, TEST_USER_ID, NotificationType.CONTENT_REPORTED);
 
-            when(preferenceRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.of(preference));
-            when(notificationRepository.save(any(Notification.class))).thenReturn(savedNotification);
+            when(preferenceRepository.findByUserId(TEST_USER_ID))
+                    .thenReturn(Optional.of(preference));
+            when(notificationRepository.save(any(Notification.class)))
+                    .thenReturn(savedNotification);
 
             // when
-            NotificationResponse result = notificationService.createNotification(
-                TEST_USER_ID, NotificationType.SYSTEM, "제목", "내용");
+            NotificationResponse result =
+                    notificationService.createNotification(
+                            TEST_USER_ID, NotificationType.CONTENT_REPORTED, "제목", "내용");
 
             // then
             assertThat(result).isNotNull();
@@ -762,27 +989,32 @@ class NotificationServiceTest {
         @DisplayName("quietHoursEnabled=true이지만 start/end가 null이면 푸시 알림을 전송한다")
         void createNotification_quietHoursEnabled_nullStartEnd_sendsPush() {
             // given
-            NotificationPreference preference = NotificationPreference.builder()
-                .userId(TEST_USER_ID)
-                .pushEnabled(true)
-                .friendNotifications(true)
-                .guildNotifications(true)
-                .socialNotifications(true)
-                .systemNotifications(true)
-                .quietHoursEnabled(true)
-                .quietHoursStart(null)
-                .quietHoursEnd(null)
-                .build();
+            NotificationPreference preference =
+                    NotificationPreference.builder()
+                            .userId(TEST_USER_ID)
+                            .pushEnabled(true)
+                            .friendNotifications(true)
+                            .guildNotifications(true)
+                            .socialNotifications(true)
+                            .systemNotifications(true)
+                            .quietHoursEnabled(true)
+                            .quietHoursStart(null)
+                            .quietHoursEnd(null)
+                            .build();
             setId(preference, 1L);
 
-            Notification savedNotification = createTestNotification(1L, TEST_USER_ID, NotificationType.SYSTEM);
+            Notification savedNotification =
+                    createTestNotification(1L, TEST_USER_ID, NotificationType.CONTENT_REPORTED);
 
-            when(preferenceRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.of(preference));
-            when(notificationRepository.save(any(Notification.class))).thenReturn(savedNotification);
+            when(preferenceRepository.findByUserId(TEST_USER_ID))
+                    .thenReturn(Optional.of(preference));
+            when(notificationRepository.save(any(Notification.class)))
+                    .thenReturn(savedNotification);
 
             // when
-            NotificationResponse result = notificationService.createNotification(
-                TEST_USER_ID, NotificationType.SYSTEM, "제목", "내용");
+            NotificationResponse result =
+                    notificationService.createNotification(
+                            TEST_USER_ID, NotificationType.CONTENT_REPORTED, "제목", "내용");
 
             // then
             assertThat(result).isNotNull();
@@ -795,36 +1027,42 @@ class NotificationServiceTest {
         void createNotification_userWithTimezone_quietHoursCheck() {
             // given
             io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.entity.Users user =
-                io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.entity.Users.builder()
-                    .id(TEST_USER_ID)
-                    .email("test@example.com")
-                    .nickname("testNick")
-                    .provider("google")
-                    .preferredTimezone("Asia/Seoul")
-                    .build();
+                    io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.entity.Users
+                            .builder()
+                            .id(TEST_USER_ID)
+                            .email("test@example.com")
+                            .nickname("testNick")
+                            .provider("google")
+                            .preferredTimezone("Asia/Seoul")
+                            .build();
 
-            NotificationPreference preference = NotificationPreference.builder()
-                .userId(TEST_USER_ID)
-                .pushEnabled(true)
-                .friendNotifications(true)
-                .guildNotifications(true)
-                .socialNotifications(true)
-                .systemNotifications(true)
-                .quietHoursEnabled(true)
-                .quietHoursStart("02:00")
-                .quietHoursEnd("04:00")
-                .build();
+            NotificationPreference preference =
+                    NotificationPreference.builder()
+                            .userId(TEST_USER_ID)
+                            .pushEnabled(true)
+                            .friendNotifications(true)
+                            .guildNotifications(true)
+                            .socialNotifications(true)
+                            .systemNotifications(true)
+                            .quietHoursEnabled(true)
+                            .quietHoursStart("02:00")
+                            .quietHoursEnd("04:00")
+                            .build();
             setId(preference, 1L);
 
-            Notification savedNotification = createTestNotification(1L, TEST_USER_ID, NotificationType.SYSTEM);
+            Notification savedNotification =
+                    createTestNotification(1L, TEST_USER_ID, NotificationType.CONTENT_REPORTED);
 
-            when(preferenceRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.of(preference));
-            when(notificationRepository.save(any(Notification.class))).thenReturn(savedNotification);
+            when(preferenceRepository.findByUserId(TEST_USER_ID))
+                    .thenReturn(Optional.of(preference));
+            when(notificationRepository.save(any(Notification.class)))
+                    .thenReturn(savedNotification);
             when(userRepository.findById(TEST_USER_ID)).thenReturn(Optional.of(user));
 
             // when
-            NotificationResponse result = notificationService.createNotification(
-                TEST_USER_ID, NotificationType.SYSTEM, "제목", "내용");
+            NotificationResponse result =
+                    notificationService.createNotification(
+                            TEST_USER_ID, NotificationType.CONTENT_REPORTED, "제목", "내용");
 
             // then
             assertThat(result).isNotNull();
@@ -841,21 +1079,24 @@ class NotificationServiceTest {
         void updatePreferences_allFields_success() {
             // given
             NotificationPreference preference = createTestPreference(1L, TEST_USER_ID);
-            NotificationPreferenceRequest request = NotificationPreferenceRequest.builder()
-                .pushEnabled(false)
-                .friendNotifications(false)
-                .guildNotifications(false)
-                .socialNotifications(false)
-                .systemNotifications(false)
-                .quietHoursEnabled(true)
-                .quietHoursStart("22:00")
-                .quietHoursEnd("08:00")
-                .build();
+            NotificationPreferenceRequest request =
+                    NotificationPreferenceRequest.builder()
+                            .pushEnabled(false)
+                            .friendNotifications(false)
+                            .guildNotifications(false)
+                            .socialNotifications(false)
+                            .systemNotifications(false)
+                            .quietHoursEnabled(true)
+                            .quietHoursStart("22:00")
+                            .quietHoursEnd("08:00")
+                            .build();
 
-            when(preferenceRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.of(preference));
+            when(preferenceRepository.findByUserId(TEST_USER_ID))
+                    .thenReturn(Optional.of(preference));
 
             // when
-            NotificationPreferenceResponse result = notificationService.updatePreferences(TEST_USER_ID, request);
+            NotificationPreferenceResponse result =
+                    notificationService.updatePreferences(TEST_USER_ID, request);
 
             // then
             assertThat(result).isNotNull();
@@ -879,22 +1120,32 @@ class NotificationServiceTest {
         void createNotification_withIconUrl_success() {
             // given
             NotificationPreference preference = createTestPreference(1L, TEST_USER_ID);
-            Notification savedNotification = Notification.builder()
-                .userId(TEST_USER_ID)
-                .notificationType(NotificationType.TITLE_ACQUIRED)
-                .title("칭호 획득")
-                .message("새 칭호를 획득했습니다")
-                .iconUrl("rarity:LEGENDARY")
-                .build();
+            Notification savedNotification =
+                    Notification.builder()
+                            .userId(TEST_USER_ID)
+                            .notificationType(NotificationType.TITLE_ACQUIRED)
+                            .title("칭호 획득")
+                            .message("새 칭호를 획득했습니다")
+                            .iconUrl("rarity:LEGENDARY")
+                            .build();
             setId(savedNotification, 1L);
 
-            when(preferenceRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.of(preference));
-            when(notificationRepository.save(any(Notification.class))).thenReturn(savedNotification);
+            when(preferenceRepository.findByUserId(TEST_USER_ID))
+                    .thenReturn(Optional.of(preference));
+            when(notificationRepository.save(any(Notification.class)))
+                    .thenReturn(savedNotification);
 
             // when
-            NotificationResponse result = notificationService.createNotification(
-                TEST_USER_ID, NotificationType.TITLE_ACQUIRED, "칭호 획득",
-                "새 칭호를 획득했습니다", "TITLE", 1L, "/achievement", "rarity:LEGENDARY");
+            NotificationResponse result =
+                    notificationService.createNotification(
+                            TEST_USER_ID,
+                            NotificationType.TITLE_ACQUIRED,
+                            "칭호 획득",
+                            "새 칭호를 획득했습니다",
+                            "TITLE",
+                            1L,
+                            "/achievement",
+                            "rarity:LEGENDARY");
 
             // then
             assertThat(result).isNotNull();
@@ -911,10 +1162,13 @@ class NotificationServiceTest {
         void saveInquiryRepliedInApp_success() {
             // given
             NotificationPreference preference = createTestPreference(1L, TEST_USER_ID);
-            Notification savedNotification = createTestNotification(1L, TEST_USER_ID, NotificationType.INQUIRY_REPLIED);
+            Notification savedNotification =
+                    createTestNotification(1L, TEST_USER_ID, NotificationType.INQUIRY_REPLIED);
 
-            when(preferenceRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.of(preference));
-            when(notificationRepository.save(any(Notification.class))).thenReturn(savedNotification);
+            when(preferenceRepository.findByUserId(TEST_USER_ID))
+                    .thenReturn(Optional.of(preference));
+            when(notificationRepository.save(any(Notification.class)))
+                    .thenReturn(savedNotification);
 
             // when
             notificationService.saveInquiryRepliedInApp(TEST_USER_ID, 10L, "서비스 문의");
@@ -948,10 +1202,13 @@ class NotificationServiceTest {
         void saveInquiryRepliedInApp_nullTitle_success() {
             // given
             NotificationPreference preference = createTestPreference(1L, TEST_USER_ID);
-            Notification savedNotification = createTestNotification(1L, TEST_USER_ID, NotificationType.INQUIRY_REPLIED);
+            Notification savedNotification =
+                    createTestNotification(1L, TEST_USER_ID, NotificationType.INQUIRY_REPLIED);
 
-            when(preferenceRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.of(preference));
-            when(notificationRepository.save(any(Notification.class))).thenReturn(savedNotification);
+            when(preferenceRepository.findByUserId(TEST_USER_ID))
+                    .thenReturn(Optional.of(preference));
+            when(notificationRepository.save(any(Notification.class)))
+                    .thenReturn(savedNotification);
 
             // when
             notificationService.saveInquiryRepliedInApp(TEST_USER_ID, 10L, null);
@@ -970,17 +1227,20 @@ class NotificationServiceTest {
         void localizePushText_success() {
             // given
             io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.entity.Users user =
-                io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.entity.Users.builder()
-                    .id(TEST_USER_ID)
-                    .email("test@example.com")
-                    .nickname("testNick")
-                    .provider("google")
-                    .preferredLocale("ko")
-                    .build();
+                    io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.entity.Users
+                            .builder()
+                            .id(TEST_USER_ID)
+                            .email("test@example.com")
+                            .nickname("testNick")
+                            .provider("google")
+                            .preferredLocale("ko")
+                            .build();
             when(userRepository.findById(TEST_USER_ID)).thenReturn(Optional.of(user));
 
             // when
-            String[] result = notificationService.localizePushText(TEST_USER_ID, NotificationType.FRIEND_REQUEST, "닉네임");
+            String[] result =
+                    notificationService.localizePushText(
+                            TEST_USER_ID, NotificationType.FRIEND_REQUEST, "닉네임");
 
             // then
             assertThat(result).hasSize(2);
@@ -994,7 +1254,9 @@ class NotificationServiceTest {
             when(userRepository.findById(TEST_USER_ID)).thenReturn(Optional.empty());
 
             // when
-            String[] result = notificationService.localizePushText(TEST_USER_ID, NotificationType.SYSTEM);
+            String[] result =
+                    notificationService.localizePushText(
+                            TEST_USER_ID, NotificationType.CONTENT_REPORTED);
 
             // then
             assertThat(result).hasSize(2);
@@ -1010,37 +1272,43 @@ class NotificationServiceTest {
         void createNotification_quietHoursNightRange_pushSkipped() {
             // given
             io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.entity.Users user =
-                io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.entity.Users.builder()
-                    .id(TEST_USER_ID)
-                    .email("test@example.com")
-                    .nickname("testNick")
-                    .provider("google")
-                    .preferredTimezone("Asia/Seoul")
-                    .build();
+                    io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.entity.Users
+                            .builder()
+                            .id(TEST_USER_ID)
+                            .email("test@example.com")
+                            .nickname("testNick")
+                            .provider("google")
+                            .preferredTimezone("Asia/Seoul")
+                            .build();
 
             // start > end (야간 범위) → 현재 시간이 어디든 예외 없이 실행
-            NotificationPreference preference = NotificationPreference.builder()
-                .userId(TEST_USER_ID)
-                .pushEnabled(true)
-                .friendNotifications(true)
-                .guildNotifications(true)
-                .socialNotifications(true)
-                .systemNotifications(true)
-                .quietHoursEnabled(true)
-                .quietHoursStart("00:00")  // 항상 quiet에 걸리도록 넓은 범위
-                .quietHoursEnd("23:59")
-                .build();
+            NotificationPreference preference =
+                    NotificationPreference.builder()
+                            .userId(TEST_USER_ID)
+                            .pushEnabled(true)
+                            .friendNotifications(true)
+                            .guildNotifications(true)
+                            .socialNotifications(true)
+                            .systemNotifications(true)
+                            .quietHoursEnabled(true)
+                            .quietHoursStart("00:00") // 항상 quiet에 걸리도록 넓은 범위
+                            .quietHoursEnd("23:59")
+                            .build();
             setId(preference, 1L);
 
-            Notification savedNotification = createTestNotification(1L, TEST_USER_ID, NotificationType.SYSTEM);
+            Notification savedNotification =
+                    createTestNotification(1L, TEST_USER_ID, NotificationType.CONTENT_REPORTED);
 
-            when(preferenceRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.of(preference));
-            when(notificationRepository.save(any(Notification.class))).thenReturn(savedNotification);
+            when(preferenceRepository.findByUserId(TEST_USER_ID))
+                    .thenReturn(Optional.of(preference));
+            when(notificationRepository.save(any(Notification.class)))
+                    .thenReturn(savedNotification);
             when(userRepository.findById(TEST_USER_ID)).thenReturn(Optional.of(user));
 
             // when
-            NotificationResponse result = notificationService.createNotification(
-                TEST_USER_ID, NotificationType.SYSTEM, "제목", "내용");
+            NotificationResponse result =
+                    notificationService.createNotification(
+                            TEST_USER_ID, NotificationType.CONTENT_REPORTED, "제목", "내용");
 
             // then
             assertThat(result).isNotNull();
@@ -1052,32 +1320,38 @@ class NotificationServiceTest {
         void createNotification_invalidTimezone_handledGracefully() {
             // given
             io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.entity.Users user =
-                io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.entity.Users.builder()
-                    .id(TEST_USER_ID)
-                    .email("test@example.com")
-                    .nickname("testNick")
-                    .provider("google")
-                    .preferredTimezone("Invalid/Zone")  // 잘못된 timezone
-                    .build();
+                    io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.entity.Users
+                            .builder()
+                            .id(TEST_USER_ID)
+                            .email("test@example.com")
+                            .nickname("testNick")
+                            .provider("google")
+                            .preferredTimezone("Invalid/Zone") // 잘못된 timezone
+                            .build();
 
-            NotificationPreference preference = NotificationPreference.builder()
-                .userId(TEST_USER_ID)
-                .pushEnabled(true)
-                .systemNotifications(true)
-                .quietHoursEnabled(true)
-                .quietHoursStart("22:00")
-                .quietHoursEnd("08:00")
-                .build();
+            NotificationPreference preference =
+                    NotificationPreference.builder()
+                            .userId(TEST_USER_ID)
+                            .pushEnabled(true)
+                            .systemNotifications(true)
+                            .quietHoursEnabled(true)
+                            .quietHoursStart("22:00")
+                            .quietHoursEnd("08:00")
+                            .build();
             setId(preference, 1L);
 
-            Notification savedNotification = createTestNotification(1L, TEST_USER_ID, NotificationType.SYSTEM);
-            when(preferenceRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.of(preference));
-            when(notificationRepository.save(any(Notification.class))).thenReturn(savedNotification);
+            Notification savedNotification =
+                    createTestNotification(1L, TEST_USER_ID, NotificationType.CONTENT_REPORTED);
+            when(preferenceRepository.findByUserId(TEST_USER_ID))
+                    .thenReturn(Optional.of(preference));
+            when(notificationRepository.save(any(Notification.class)))
+                    .thenReturn(savedNotification);
             when(userRepository.findById(TEST_USER_ID)).thenReturn(Optional.of(user));
 
             // when - 예외 없이 실행
-            NotificationResponse result = notificationService.createNotification(
-                TEST_USER_ID, NotificationType.SYSTEM, "제목", "내용");
+            NotificationResponse result =
+                    notificationService.createNotification(
+                            TEST_USER_ID, NotificationType.CONTENT_REPORTED, "제목", "내용");
 
             // then
             assertThat(result).isNotNull();
@@ -1126,8 +1400,11 @@ class NotificationServiceTest {
         void markAsRead_syncBadgeCount() {
             // given
             Long notificationId = 1L;
-            Notification notification = createTestNotification(notificationId, TEST_USER_ID, NotificationType.SYSTEM);
-            when(notificationRepository.findById(notificationId)).thenReturn(Optional.of(notification));
+            Notification notification =
+                    createTestNotification(
+                            notificationId, TEST_USER_ID, NotificationType.CONTENT_REPORTED);
+            when(notificationRepository.findById(notificationId))
+                    .thenReturn(Optional.of(notification));
             when(notificationRepository.countUnreadByUserId(TEST_USER_ID)).thenReturn(2);
 
             // when
@@ -1147,14 +1424,17 @@ class NotificationServiceTest {
         void sendNotification_pushEnabledNoQuietHours_pushSent() {
             // given
             NotificationPreference preference = createTestPreference(1L, TEST_USER_ID);
-            Notification savedNotification = createTestNotification(1L, TEST_USER_ID, NotificationType.SYSTEM);
+            Notification savedNotification =
+                    createTestNotification(1L, TEST_USER_ID, NotificationType.CONTENT_REPORTED);
 
-            when(preferenceRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.of(preference));
-            when(notificationRepository.save(any(Notification.class))).thenReturn(savedNotification);
+            when(preferenceRepository.findByUserId(TEST_USER_ID))
+                    .thenReturn(Optional.of(preference));
+            when(notificationRepository.save(any(Notification.class)))
+                    .thenReturn(savedNotification);
 
             // when
-            notificationService.sendNotification(TEST_USER_ID, NotificationType.SYSTEM,
-                null, null);
+            notificationService.sendNotification(
+                    TEST_USER_ID, NotificationType.CONTENT_REPORTED, null, null);
 
             // then
             verify(notificationRepository).save(any(Notification.class));
@@ -1170,13 +1450,200 @@ class NotificationServiceTest {
         @DisplayName("만료된 알림이 없으면 0을 반환한다")
         void cleanupExpiredNotifications_noExpired_returnsZero() {
             // given
-            when(notificationRepository.deleteExpiredNotifications(any(LocalDateTime.class))).thenReturn(0);
+            when(notificationRepository.deleteExpiredNotifications(any(LocalDateTime.class)))
+                    .thenReturn(0);
 
             // when
             int result = notificationService.cleanupExpiredNotifications();
 
             // then
             assertThat(result).isZero();
+        }
+    }
+
+    @Nested
+    @DisplayName("sendNotification locale 의존 인자 테스트 (LUT-410)")
+    class SendNotificationLocalizedArgsTest {
+
+        @Test
+        @DisplayName("수신자 preferredLocale 로 콜백 인자를 생성해 메시지에 반영한다")
+        void sendNotification_localizedArgs_usesRecipientLocale() {
+            // given: 일본어 사용자
+            io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.entity.Users user =
+                    io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.entity.Users
+                            .builder()
+                            .id(TEST_USER_ID)
+                            .email("test@example.com")
+                            .nickname("testNick")
+                            .provider("google")
+                            .preferredLocale("ja")
+                            .build();
+            NotificationPreference preference = createTestPreference(1L, TEST_USER_ID);
+            Notification saved =
+                    createTestNotification(1L, TEST_USER_ID, NotificationType.ITEM_PURCHASED);
+
+            when(userRepository.findById(TEST_USER_ID)).thenReturn(Optional.of(user));
+            when(notificationRepository.existsByUserIdAndNotificationTypeAndReferenceId(
+                            TEST_USER_ID, NotificationType.ITEM_PURCHASED, 3L))
+                    .thenReturn(false);
+            when(preferenceRepository.findByUserId(TEST_USER_ID))
+                    .thenReturn(Optional.of(preference));
+            // LUT-539: dedup 타입 insert 는 크리에이터(REQUIRES_NEW) → id 재조회
+            when(notificationCreator.create(any(), any(), any(), any(), any(), any(), any(), any()))
+                    .thenReturn(1L);
+            when(notificationRepository.findById(1L)).thenReturn(Optional.of(saved));
+            when(messageSource.getMessage(
+                            eq("notification.item_purchased.title"),
+                            any(),
+                            anyString(),
+                            any(java.util.Locale.class)))
+                    .thenReturn("アイテム購入完了！");
+            when(messageSource.getMessage(
+                            eq("notification.item_purchased.message"),
+                            any(),
+                            anyString(),
+                            any(java.util.Locale.class)))
+                    .thenReturn("『{0}』アイテムを獲得しました！");
+
+            // when: locale 에 따라 다른 아이템명을 돌려주는 콜백
+            notificationService.sendLocalizedNotification(
+                    TEST_USER_ID,
+                    NotificationType.ITEM_PURCHASED,
+                    3L,
+                    null,
+                    locale ->
+                            new Object[] {
+                                "ja".equals(locale.getLanguage()) ? "メディックの翼" : "Medic Wings"
+                            });
+
+            // then: ja 아이템명이 메시지에 들어가고 actionUrl 은 인벤토리 (크리에이터에 전달된 인자로 검증)
+            org.mockito.ArgumentCaptor<String> messageCaptor =
+                    org.mockito.ArgumentCaptor.forClass(String.class);
+            org.mockito.ArgumentCaptor<String> actionUrlCaptor =
+                    org.mockito.ArgumentCaptor.forClass(String.class);
+            verify(notificationCreator)
+                    .create(
+                            eq(TEST_USER_ID),
+                            eq(NotificationType.ITEM_PURCHASED),
+                            anyString(),
+                            messageCaptor.capture(),
+                            any(),
+                            eq(3L),
+                            actionUrlCaptor.capture(),
+                            any());
+            assertThat(messageCaptor.getValue()).isEqualTo("『メディックの翼』アイテムを獲得しました！");
+            assertThat(actionUrlCaptor.getValue()).isEqualTo("/mypage/inventory");
+        }
+    }
+
+    @Nested
+    @DisplayName("actionUrl 서비스 교정 (LUT-580)")
+    class ActionUrlOverrideTest {
+
+        @Test
+        @DisplayName(
+                "GUILD_INVITE 는 kernel 패턴(/guild-invitations/{id}) 대신 /guild 로 저장한다 — 푸시 탭 404 방지")
+        void guildInviteActionUrlIsGuildHome() {
+            // given: GUILD_INVITE 는 dedup 타입이 아니라 notificationRepository.save 경로를 탄다
+            NotificationPreference preference = createTestPreference(1L, TEST_USER_ID);
+            Notification saved =
+                    createTestNotification(1L, TEST_USER_ID, NotificationType.GUILD_INVITE);
+            when(userRepository.findById(TEST_USER_ID)).thenReturn(Optional.empty());
+            when(preferenceRepository.findByUserId(TEST_USER_ID))
+                    .thenReturn(Optional.of(preference));
+            when(notificationRepository.save(any(Notification.class))).thenReturn(saved);
+            when(messageSource.getMessage(anyString(), any(), anyString(), any(Locale.class)))
+                    .thenReturn("길드 초대");
+
+            // when
+            notificationService.sendNotification(
+                    TEST_USER_ID, NotificationType.GUILD_INVITE, 123L, null, "초대자", "길드명");
+
+            // then: 저장되는 알림(= 푸시 data.action_url 의 원천)의 actionUrl 이 /guild
+            org.mockito.ArgumentCaptor<Notification> captor =
+                    org.mockito.ArgumentCaptor.forClass(Notification.class);
+            verify(notificationRepository).save(captor.capture());
+            assertThat(captor.getValue().getActionUrl()).isEqualTo("/guild");
+            assertThat(captor.getValue().getReferenceId()).isEqualTo(123L);
+        }
+
+        @Test
+        @DisplayName("오버라이드가 없는 타입은 kernel 이 해석한 actionUrl 을 그대로 쓴다")
+        void otherTypesKeepResolvedActionUrl() {
+            assertThat(
+                            NotificationService.resolveActionUrlOverride(
+                                    NotificationType.GUILD_JOIN_APPROVED, "/guild/7"))
+                    .isEqualTo("/guild/7");
+            assertThat(
+                            NotificationService.resolveActionUrlOverride(
+                                    NotificationType.GUILD_INVITE, "/guild-invitations/123"))
+                    .isEqualTo("/guild");
+        }
+    }
+
+    @Nested
+    @DisplayName("sendEquippedItemPush 테스트 (LUT-516)")
+    class SendEquippedItemPushTest {
+
+        private io.pinkspider.global.event.EquippedItemPushDueEvent event(
+                String message, String messageEn, String messageAr, String messageJa) {
+            return new io.pinkspider.global.event.EquippedItemPushDueEvent(
+                    TEST_USER_ID,
+                    100L,
+                    1L,
+                    "시련의 장미",
+                    "Rose",
+                    "وردة",
+                    "バラ",
+                    message,
+                    messageEn,
+                    messageAr,
+                    messageJa,
+                    "/mypage/inventory");
+        }
+
+        @Test
+        @DisplayName("ITEM_PUSH 카테고리를 끈 유저에게는 발송하지 않는다")
+        void skipsWhenCategoryOff() {
+            NotificationPreference preference =
+                    NotificationPreference.builder()
+                            .userId(TEST_USER_ID)
+                            .itemPushNotifications(false)
+                            .build();
+            setId(preference, 1L);
+            when(preferenceRepository.findByUserId(TEST_USER_ID))
+                    .thenReturn(Optional.of(preference));
+
+            notificationService.sendEquippedItemPush(event("안녕", null, null, null));
+
+            verify(notificationRepository, never()).save(any());
+        }
+
+        @Test
+        @DisplayName("수신자 locale 로 제목·본문을 만들고 {nickname} 을 치환해 저장한다")
+        void localizesAndSubstitutesNickname() {
+            NotificationPreference preference = createTestPreference(1L, TEST_USER_ID);
+            when(preferenceRepository.findByUserId(TEST_USER_ID))
+                    .thenReturn(Optional.of(preference));
+            io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.entity.Users user =
+                    io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.entity.Users
+                            .builder()
+                            .nickname("루미")
+                            .preferredLocale("ko")
+                            .build();
+            when(userRepository.findById(TEST_USER_ID)).thenReturn(Optional.of(user));
+            when(notificationRepository.save(any(Notification.class)))
+                    .thenAnswer(inv -> inv.getArgument(0));
+
+            notificationService.sendEquippedItemPush(
+                    event("{nickname}님, 시련의 장미가 부르고 있어요.", "en", "ar", "ja"));
+
+            org.mockito.ArgumentCaptor<Notification> captor =
+                    org.mockito.ArgumentCaptor.forClass(Notification.class);
+            verify(notificationRepository).save(captor.capture());
+            assertThat(captor.getValue().getTitle()).isEqualTo("시련의 장미");
+            assertThat(captor.getValue().getMessage()).isEqualTo("루미님, 시련의 장미가 부르고 있어요.");
+            assertThat(captor.getValue().getActionUrl()).isEqualTo("/mypage/inventory");
         }
     }
 }

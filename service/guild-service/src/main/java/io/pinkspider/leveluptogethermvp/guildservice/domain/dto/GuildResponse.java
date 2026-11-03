@@ -32,6 +32,9 @@ public class GuildResponse {
     private Integer currentLevel;
     private Integer currentExp;
     private Integer totalExp;
+    // LUT-483: 누적 활동 포인트 — 길드 랭킹·레벨의 기준값 (EXP 는 표기용으로 유지)
+    private Integer totalPoint;
+    private Integer currentPoint;
     private Long categoryId;
     private String categoryName;
     private String categoryIcon;
@@ -48,68 +51,75 @@ public class GuildResponse {
 
     public static GuildResponse from(Guild guild) {
         return GuildResponse.builder()
-            .id(guild.getId())
-            .name(guild.getName())
-            .description(guild.getDescription())
-            .visibility(guild.getVisibility())
-            .joinType(guild.getJoinType())
-            .masterId(guild.getMasterId())
-            .maxMembers(guild.getMaxMembers())
-            .imageUrl(guild.getImageUrl())
-            .currentLevel(guild.getCurrentLevel())
-            .currentExp(guild.getCurrentExp())
-            .totalExp(guild.getTotalExp())
-            .categoryId(guild.getCategoryId())
-            .baseAddress(guild.getBaseAddress())
-            .baseLatitude(guild.getBaseLatitude())
-            .baseLongitude(guild.getBaseLongitude())
-            .createdAt(guild.getCreatedAt())
-            .build();
+                .id(guild.getId())
+                .name(guild.getName())
+                .description(guild.getDescription())
+                .visibility(guild.getVisibility())
+                .joinType(guild.getJoinType())
+                .masterId(guild.getMasterId())
+                .maxMembers(guild.getMaxMembers())
+                .imageUrl(guild.getImageUrl())
+                .currentLevel(guild.getCurrentLevel())
+                .currentExp(guild.getCurrentExp())
+                .totalExp(guild.getTotalExp())
+                .totalPoint(guild.getTotalPoint())
+                .currentPoint(guild.getCurrentPoint())
+                .categoryId(guild.getCategoryId())
+                .baseAddress(guild.getBaseAddress())
+                .baseLatitude(guild.getBaseLatitude())
+                .baseLongitude(guild.getBaseLongitude())
+                .createdAt(guild.getCreatedAt())
+                .build();
     }
 
     public static GuildResponse from(Guild guild, int memberCount) {
         return GuildResponse.builder()
-            .id(guild.getId())
-            .name(guild.getName())
-            .description(guild.getDescription())
-            .visibility(guild.getVisibility())
-            .joinType(guild.getJoinType())
-            .masterId(guild.getMasterId())
-            .maxMembers(guild.getMaxMembers())
-            .currentMemberCount(memberCount)
-            .imageUrl(guild.getImageUrl())
-            .currentLevel(guild.getCurrentLevel())
-            .currentExp(guild.getCurrentExp())
-            .totalExp(guild.getTotalExp())
-            .categoryId(guild.getCategoryId())
-            .baseAddress(guild.getBaseAddress())
-            .baseLatitude(guild.getBaseLatitude())
-            .baseLongitude(guild.getBaseLongitude())
-            .createdAt(guild.getCreatedAt())
-            .build();
+                .id(guild.getId())
+                .name(guild.getName())
+                .description(guild.getDescription())
+                .visibility(guild.getVisibility())
+                .joinType(guild.getJoinType())
+                .masterId(guild.getMasterId())
+                .maxMembers(guild.getMaxMembers())
+                .currentMemberCount(memberCount)
+                .imageUrl(guild.getImageUrl())
+                .currentLevel(guild.getCurrentLevel())
+                .currentExp(guild.getCurrentExp())
+                .totalExp(guild.getTotalExp())
+                .totalPoint(guild.getTotalPoint())
+                .currentPoint(guild.getCurrentPoint())
+                .categoryId(guild.getCategoryId())
+                .baseAddress(guild.getBaseAddress())
+                .baseLatitude(guild.getBaseLatitude())
+                .baseLongitude(guild.getBaseLongitude())
+                .createdAt(guild.getCreatedAt())
+                .build();
     }
 
-    public static GuildResponse from(Guild guild, int memberCount, String categoryName, String categoryIcon) {
+    public static GuildResponse from(
+            Guild guild, int memberCount, String categoryName, String categoryIcon) {
         return GuildResponse.builder()
-            .id(guild.getId())
-            .name(guild.getName())
-            .description(guild.getDescription())
-            .visibility(guild.getVisibility())
-            .joinType(guild.getJoinType())
-            .masterId(guild.getMasterId())
-            .maxMembers(guild.getMaxMembers())
-            .currentMemberCount(memberCount)
-            .imageUrl(guild.getImageUrl())
-            .currentLevel(guild.getCurrentLevel())
-            .currentExp(guild.getCurrentExp())
-            .totalExp(guild.getTotalExp())
-            .categoryId(guild.getCategoryId())
-            .categoryName(categoryName)
-            .categoryIcon(categoryIcon)
-            .baseAddress(guild.getBaseAddress())
-            .baseLatitude(guild.getBaseLatitude())
-            .baseLongitude(guild.getBaseLongitude())
-            .createdAt(guild.getCreatedAt())
-            .build();
+                .id(guild.getId())
+                .name(guild.getName())
+                .description(guild.getDescription())
+                .visibility(guild.getVisibility())
+                .joinType(guild.getJoinType())
+                .masterId(guild.getMasterId())
+                .maxMembers(guild.getMaxMembers())
+                .currentMemberCount(memberCount)
+                .imageUrl(guild.getImageUrl())
+                .currentLevel(guild.getCurrentLevel())
+                .currentExp(guild.getCurrentExp())
+                .totalExp(guild.getTotalExp())
+                .totalPoint(guild.getTotalPoint())
+                .currentPoint(guild.getCurrentPoint())
+                .categoryId(guild.getCategoryId())
+                .categoryName(categoryName)
+                .categoryIcon(categoryIcon)
+                .baseAddress(guild.getBaseAddress())
+                .baseLatitude(guild.getBaseLatitude())
+                .baseLongitude(guild.getBaseLongitude())
+                .createdAt(guild.getCreatedAt())
+                .build();
     }
 }

@@ -8,9 +8,7 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
-/**
- * 프로필 이미지 변경 요청 DTO
- */
+/** 프로필 이미지 변경 요청 DTO */
 @Getter
 @NoArgsConstructor
 @AllArgsConstructor

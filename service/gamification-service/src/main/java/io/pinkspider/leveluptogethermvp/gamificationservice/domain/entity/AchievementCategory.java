@@ -20,10 +20,7 @@ import lombok.Setter;
 import lombok.experimental.SuperBuilder;
 import org.hibernate.annotations.Comment;
 
-/**
- * 업적 카테고리
- * 업적의 분류를 정의하며, 관리자가 동적으로 추가/삭제할 수 있습니다.
- */
+/** 업적 카테고리 업적의 분류를 정의하며, 관리자가 동적으로 추가/삭제할 수 있습니다. */
 @Entity
 @Getter
 @Setter
@@ -31,16 +28,16 @@ import org.hibernate.annotations.Comment;
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @AllArgsConstructor
 @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
-@Table(name = "achievement_category",
-    uniqueConstraints = @UniqueConstraint(
-        name = "uk_achievement_category_code",
-        columnNames = {"code"}
-    ),
-    indexes = {
-        @Index(name = "idx_achievement_category_sort", columnList = "sort_order"),
-        @Index(name = "idx_achievement_category_active", columnList = "is_active")
-    }
-)
+@Table(
+        name = "achievement_category",
+        uniqueConstraints =
+                @UniqueConstraint(
+                        name = "uk_achievement_category_code",
+                        columnNames = {"code"}),
+        indexes = {
+            @Index(name = "idx_achievement_category_sort", columnList = "sort_order"),
+            @Index(name = "idx_achievement_category_active", columnList = "is_active")
+        })
 @Comment("업적 카테고리")
 public class AchievementCategory extends LocalDateTimeBaseEntity {
 

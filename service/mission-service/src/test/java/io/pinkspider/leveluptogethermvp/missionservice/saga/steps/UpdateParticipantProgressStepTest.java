@@ -3,17 +3,16 @@ package io.pinkspider.leveluptogethermvp.missionservice.saga.steps;
 import static io.pinkspider.global.test.TestReflectionUtils.setId;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import io.pinkspider.global.enums.MissionStatus;
 import io.pinkspider.global.saga.SagaStepResult;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.Mission;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.MissionExecution;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.MissionParticipant;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.ExecutionStatus;
-import io.pinkspider.global.enums.MissionStatus;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionType;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionVisibility;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.ParticipantStatus;
@@ -22,7 +21,6 @@ import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.MissionExe
 import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.MissionParticipantRepository;
 import io.pinkspider.leveluptogethermvp.missionservice.saga.MissionCompletionContext;
 import java.time.LocalDate;
-import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -36,17 +34,13 @@ import org.mockito.junit.jupiter.MockitoExtension;
 @DisplayName("UpdateParticipantProgressStep 단위 테스트")
 class UpdateParticipantProgressStepTest {
 
-    @Mock
-    private MissionExecutionRepository executionRepository;
+    @Mock private MissionExecutionRepository executionRepository;
 
-    @Mock
-    private MissionParticipantRepository participantRepository;
+    @Mock private MissionParticipantRepository participantRepository;
 
-    @Mock
-    private DailyMissionInstanceRepository dailyMissionInstanceRepository;
+    @Mock private DailyMissionInstanceRepository dailyMissionInstanceRepository;
 
-    @InjectMocks
-    private UpdateParticipantProgressStep updateParticipantProgressStep;
+    @InjectMocks private UpdateParticipantProgressStep updateParticipantProgressStep;
 
     private static final String TEST_USER_ID = "test-user-123";
     private static final Long PARTICIPANT_ID = 1L;
@@ -57,23 +51,25 @@ class UpdateParticipantProgressStepTest {
 
     @BeforeEach
     void setUp() {
-        mission = Mission.builder()
-            .title("30일 운동 챌린지")
-            .description("매일 운동하기")
-            .creatorId(TEST_USER_ID)
-            .status(MissionStatus.IN_PROGRESS)
-            .visibility(MissionVisibility.PUBLIC)
-            .type(MissionType.PERSONAL)
-            .durationDays(30)
-            .build();
+        mission =
+                Mission.builder()
+                        .title("30일 운동 챌린지")
+                        .description("매일 운동하기")
+                        .creatorId(TEST_USER_ID)
+                        .status(MissionStatus.IN_PROGRESS)
+                        .visibility(MissionVisibility.PUBLIC)
+                        .type(MissionType.PERSONAL)
+                        .durationDays(30)
+                        .build();
         setId(mission, 1L);
 
-        participant = MissionParticipant.builder()
-            .mission(mission)
-            .userId(TEST_USER_ID)
-            .status(ParticipantStatus.IN_PROGRESS)
-            .progress(0)
-            .build();
+        participant =
+                MissionParticipant.builder()
+                        .mission(mission)
+                        .userId(TEST_USER_ID)
+                        .status(ParticipantStatus.IN_PROGRESS)
+                        .progress(0)
+                        .build();
         setId(participant, PARTICIPANT_ID);
 
         context = new MissionCompletionContext(1L, TEST_USER_ID, null);
@@ -95,26 +91,30 @@ class UpdateParticipantProgressStepTest {
         @DisplayName("정상적으로 참가자 진행도를 업데이트한다")
         void execute_success() {
             // given
-            MissionExecution execution1 = MissionExecution.builder()
-                .participant(participant)
-                .executionDate(LocalDate.now().minusDays(1))
-                .status(ExecutionStatus.COMPLETED)
-                .build();
-            MissionExecution execution2 = MissionExecution.builder()
-                .participant(participant)
-                .executionDate(LocalDate.now())
-                .status(ExecutionStatus.COMPLETED)
-                .build();
-            MissionExecution execution3 = MissionExecution.builder()
-                .participant(participant)
-                .executionDate(LocalDate.now().plusDays(1))
-                .status(ExecutionStatus.PENDING)
-                .build();
+            MissionExecution execution1 =
+                    MissionExecution.builder()
+                            .participant(participant)
+                            .executionDate(LocalDate.now().minusDays(1))
+                            .status(ExecutionStatus.COMPLETED)
+                            .build();
+            MissionExecution execution2 =
+                    MissionExecution.builder()
+                            .participant(participant)
+                            .executionDate(LocalDate.now())
+                            .status(ExecutionStatus.COMPLETED)
+                            .build();
+            MissionExecution execution3 =
+                    MissionExecution.builder()
+                            .participant(participant)
+                            .executionDate(LocalDate.now().plusDays(1))
+                            .status(ExecutionStatus.PENDING)
+                            .build();
 
-            when(executionRepository.countByParticipantIdAndStatus(PARTICIPANT_ID, ExecutionStatus.COMPLETED))
-                .thenReturn(2L);
+            when(executionRepository.countByParticipantIdAndStatus(
+                            PARTICIPANT_ID, ExecutionStatus.COMPLETED))
+                    .thenReturn(2L);
             when(participantRepository.save(any(MissionParticipant.class)))
-                .thenAnswer(invocation -> invocation.getArgument(0));
+                    .thenAnswer(invocation -> invocation.getArgument(0));
 
             // when
             SagaStepResult result = updateParticipantProgressStep.execute(context);
@@ -145,10 +145,11 @@ class UpdateParticipantProgressStepTest {
         @DisplayName("실행 기록이 없으면 진행도가 0%이다")
         void execute_zeroProgressWhenNoExecutions() {
             // given
-            when(executionRepository.countByParticipantIdAndStatus(PARTICIPANT_ID, ExecutionStatus.COMPLETED))
-                .thenReturn(0L);
+            when(executionRepository.countByParticipantIdAndStatus(
+                            PARTICIPANT_ID, ExecutionStatus.COMPLETED))
+                    .thenReturn(0L);
             when(participantRepository.save(any(MissionParticipant.class)))
-                .thenAnswer(invocation -> invocation.getArgument(0));
+                    .thenAnswer(invocation -> invocation.getArgument(0));
 
             // when
             SagaStepResult result = updateParticipantProgressStep.execute(context);
@@ -162,21 +163,24 @@ class UpdateParticipantProgressStepTest {
         @DisplayName("모든 수행이 완료되면 진행도가 100%이다")
         void execute_fullProgressWhenAllCompleted() {
             // given
-            MissionExecution execution1 = MissionExecution.builder()
-                .participant(participant)
-                .executionDate(LocalDate.now().minusDays(1))
-                .status(ExecutionStatus.COMPLETED)
-                .build();
-            MissionExecution execution2 = MissionExecution.builder()
-                .participant(participant)
-                .executionDate(LocalDate.now())
-                .status(ExecutionStatus.COMPLETED)
-                .build();
+            MissionExecution execution1 =
+                    MissionExecution.builder()
+                            .participant(participant)
+                            .executionDate(LocalDate.now().minusDays(1))
+                            .status(ExecutionStatus.COMPLETED)
+                            .build();
+            MissionExecution execution2 =
+                    MissionExecution.builder()
+                            .participant(participant)
+                            .executionDate(LocalDate.now())
+                            .status(ExecutionStatus.COMPLETED)
+                            .build();
 
-            when(executionRepository.countByParticipantIdAndStatus(PARTICIPANT_ID, ExecutionStatus.COMPLETED))
-                .thenReturn(2L);
+            when(executionRepository.countByParticipantIdAndStatus(
+                            PARTICIPANT_ID, ExecutionStatus.COMPLETED))
+                    .thenReturn(2L);
             when(participantRepository.save(any(MissionParticipant.class)))
-                .thenAnswer(invocation -> invocation.getArgument(0));
+                    .thenAnswer(invocation -> invocation.getArgument(0));
 
             // when
             SagaStepResult result = updateParticipantProgressStep.execute(context);
@@ -191,10 +195,11 @@ class UpdateParticipantProgressStepTest {
         void execute_oneCompletedAfterMissed_completes() {
             // given — MISSED 1건 + COMPLETED 1건 (자정 markMissed 후 사용자 수행 시나리오)
             participant.setStatus(ParticipantStatus.IN_PROGRESS);
-            when(executionRepository.countByParticipantIdAndStatus(PARTICIPANT_ID, ExecutionStatus.COMPLETED))
-                .thenReturn(1L);
+            when(executionRepository.countByParticipantIdAndStatus(
+                            PARTICIPANT_ID, ExecutionStatus.COMPLETED))
+                    .thenReturn(1L);
             when(participantRepository.save(any(MissionParticipant.class)))
-                .thenAnswer(invocation -> invocation.getArgument(0));
+                    .thenAnswer(invocation -> invocation.getArgument(0));
 
             // when
             SagaStepResult result = updateParticipantProgressStep.execute(context);
@@ -216,12 +221,13 @@ class UpdateParticipantProgressStepTest {
             // given
             participant.updateProgress(50);
             context.addCompensationData(
-                MissionCompletionContext.CompensationKeys.PARTICIPANT_PROGRESS_BEFORE, 10);
+                    MissionCompletionContext.CompensationKeys.PARTICIPANT_PROGRESS_BEFORE, 10);
             context.addCompensationData(
-                MissionCompletionContext.CompensationKeys.PARTICIPANT_STATUS_BEFORE, ParticipantStatus.IN_PROGRESS);
+                    MissionCompletionContext.CompensationKeys.PARTICIPANT_STATUS_BEFORE,
+                    ParticipantStatus.IN_PROGRESS);
 
             when(participantRepository.save(any(MissionParticipant.class)))
-                .thenAnswer(invocation -> invocation.getArgument(0));
+                    .thenAnswer(invocation -> invocation.getArgument(0));
 
             // when
             SagaStepResult result = updateParticipantProgressStep.compensate(context);

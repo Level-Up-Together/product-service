@@ -16,10 +16,9 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 /**
- * JWT 인증 실패(010102 무효 refresh / 010105 블랙리스트 / 010106 절대 상한 초과)를
- * 500이 아닌 401로 응답한다. 클라이언트(RN/웹)가 서버 장애와 구분해 재로그인 플로우로
- * 진입할 수 있게 하기 위함. 예기치 못한 오류(TOKEN_REISSUE_FAILED 등 CustomException)는
- * 기존대로 플랫폼 RestExceptionHandler 가 500으로 처리한다.
+ * JWT 인증 실패(010102 무효 refresh / 010105 블랙리스트 / 010106 절대 상한 초과)를 500이 아닌 401로 응답한다. 클라이언트(RN/웹)가 서버
+ * 장애와 구분해 재로그인 플로우로 진입할 수 있게 하기 위함. 예기치 못한 오류(TOKEN_REISSUE_FAILED 등 CustomException)는 기존대로 플랫폼
+ * RestExceptionHandler 가 500으로 처리한다.
  */
 @RestControllerAdvice(annotations = RestController.class)
 @Order(Ordered.HIGHEST_PRECEDENCE)

@@ -3,9 +3,9 @@ package io.pinkspider.leveluptogethermvp.missionservice.domain.entity;
 import static io.pinkspider.global.test.TestReflectionUtils.setId;
 import static org.assertj.core.api.Assertions.assertThat;
 
+import io.pinkspider.global.enums.MissionStatus;
 import io.pinkspider.global.test.TestReflectionUtils;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.ExecutionStatus;
-import io.pinkspider.global.enums.MissionStatus;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionType;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionVisibility;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.ParticipantStatus;
@@ -26,33 +26,36 @@ class MissionExecutionTest {
 
     @BeforeEach
     void setUp() {
-        mission = Mission.builder()
-            .title("30분 독서")
-            .description("매일 30분 독서하기")
-            .creatorId(TEST_USER_ID)
-            .status(MissionStatus.IN_PROGRESS)
-            .visibility(MissionVisibility.PRIVATE)
-            .type(MissionType.PERSONAL)
-            .categoryId(1L)
-            .categoryName("독서")
-            .expPerCompletion(30)
-            .build();
+        mission =
+                Mission.builder()
+                        .title("30분 독서")
+                        .description("매일 30분 독서하기")
+                        .creatorId(TEST_USER_ID)
+                        .status(MissionStatus.IN_PROGRESS)
+                        .visibility(MissionVisibility.PRIVATE)
+                        .type(MissionType.PERSONAL)
+                        .categoryId(1L)
+                        .categoryName("독서")
+                        .expPerCompletion(30)
+                        .build();
         setId(mission, 1L);
 
-        participant = MissionParticipant.builder()
-            .mission(mission)
-            .userId(TEST_USER_ID)
-            .status(ParticipantStatus.ACCEPTED)
-            .build();
+        participant =
+                MissionParticipant.builder()
+                        .mission(mission)
+                        .userId(TEST_USER_ID)
+                        .status(ParticipantStatus.ACCEPTED)
+                        .build();
         setId(participant, 1L);
     }
 
     private MissionExecution createExecution(LocalDate date) {
-        MissionExecution execution = MissionExecution.builder()
-            .participant(participant)
-            .executionDate(date)
-            .status(ExecutionStatus.PENDING)
-            .build();
+        MissionExecution execution =
+                MissionExecution.builder()
+                        .participant(participant)
+                        .executionDate(date)
+                        .status(ExecutionStatus.PENDING)
+                        .build();
         setId(execution, 1L);
         return execution;
     }
@@ -67,7 +70,8 @@ class MissionExecutionTest {
             // given
             MissionExecution execution = createExecution(LocalDate.now().minusDays(1));
             execution.start();
-            TestReflectionUtils.setField(execution, "startedAt", LocalDateTime.now().minusMinutes(35));
+            TestReflectionUtils.setField(
+                    execution, "startedAt", LocalDateTime.now().minusMinutes(35));
 
             // when
             boolean result = execution.autoCompleteForDateChange(10);
@@ -86,7 +90,8 @@ class MissionExecutionTest {
             // given
             MissionExecution execution = createExecution(LocalDate.now().minusDays(1));
             execution.start();
-            TestReflectionUtils.setField(execution, "startedAt", LocalDateTime.now().minusMinutes(10));
+            TestReflectionUtils.setField(
+                    execution, "startedAt", LocalDateTime.now().minusMinutes(10));
 
             // when
             boolean result = execution.autoCompleteForDateChange(10);
@@ -131,7 +136,8 @@ class MissionExecutionTest {
             // given - 30분 전 시작
             MissionExecution execution = createExecution(LocalDate.now().minusDays(1));
             execution.start();
-            TestReflectionUtils.setField(execution, "startedAt", LocalDateTime.now().minusMinutes(30));
+            TestReflectionUtils.setField(
+                    execution, "startedAt", LocalDateTime.now().minusMinutes(30));
 
             // when
             boolean result = execution.autoCompleteForDateChange(10);
@@ -151,7 +157,8 @@ class MissionExecutionTest {
             // given - 5시간 전 시작 (QA-212: 자동종료 임계 4시간 초과)
             MissionExecution execution = createExecution(LocalDate.now().minusDays(1));
             execution.start();
-            TestReflectionUtils.setField(execution, "startedAt", LocalDateTime.now().minusMinutes(300));
+            TestReflectionUtils.setField(
+                    execution, "startedAt", LocalDateTime.now().minusMinutes(300));
 
             // when
             boolean result = execution.autoCompleteForDateChange(10);

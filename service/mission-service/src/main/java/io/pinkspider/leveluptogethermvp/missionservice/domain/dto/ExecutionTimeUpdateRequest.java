@@ -7,9 +7,5 @@ import java.time.LocalDateTime;
 
 @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
 public record ExecutionTimeUpdateRequest(
-    @NotNull(message = "시작 시간은 필수입니다.")
-    LocalDateTime startedAt,
-
-    @NotNull(message = "종료 시간은 필수입니다.")
-    LocalDateTime completedAt
-) {}
+        @NotNull(message = "시작 시간은 필수입니다.") LocalDateTime startedAt,
+        @NotNull(message = "종료 시간은 필수입니다.") LocalDateTime completedAt) {}

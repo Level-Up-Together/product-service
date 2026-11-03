@@ -20,6 +20,7 @@ sourceSets {
         'bff-service/src/main/java',
         'notice-service/src/main/java',
         'support-service/src/main/java',
+        'stats-service/src/main/java',
     ]
     test.java.srcDirs = [
         'src/test/java',
@@ -35,6 +36,7 @@ sourceSets {
         'bff-service/src/test/java',
         'notice-service/src/test/java',
         'support-service/src/test/java',
+        'stats-service/src/test/java',
     ]
     test.resources.srcDirs = [
         'shared-test/src/test/resources',
@@ -49,6 +51,7 @@ sourceSets {
         'bff-service/src/test/resources',
         'notice-service/src/test/resources',
         'support-service/src/test/resources',
+        'stats-service/src/test/resources',
     ]
 }
 
@@ -57,6 +60,10 @@ dependencies {
     api "io.pinkspider:lut-platform-kernel:${rootProject.ext.lutPlatformVersion}"
     api "io.pinkspider:lut-platform-infra:${rootProject.ext.lutPlatformVersion}"
     implementation "io.pinkspider:lut-platform-saga:${rootProject.ext.lutPlatformVersion}"
+
+    // LUT-595: Flyway (버전은 Spring Boot BOM). Flyway 10 부터 PostgreSQL 지원 모듈이 분리됨
+    implementation 'org.flywaydb:flyway-core'
+    implementation 'org.flywaydb:flyway-database-postgresql'
 
     // Spring starters (MVP-specific)
     api 'org.springframework.boot:spring-boot-starter-oauth2-client'
@@ -100,6 +107,12 @@ dependencies {
     // ONNX Runtime (이미지 모더레이션 NSFW 모델)
     implementation 'com.microsoft.onnxruntime:onnxruntime:1.17.3'
 
+    // Thumbnailator (LUT-400: 업로드 시점 썸네일/리사이즈 변형 생성)
+    implementation 'net.coobird:thumbnailator:0.4.20'
+
+    // Apple App Store Server API (LUT-401: IAP 결제 실제 가격/통화 확보)
+    implementation 'com.apple.itunes.storekit:app-store-server-library:5.2.0'
+
     // GeoIP (user-service)
     implementation 'com.maxmind.geoip2:geoip2:4.2.0'
 
@@ -134,6 +147,35 @@ jacoco {
     toolVersion = "0.8.11"
 }
 
+// 커버리지 집계 제외 목록 — 리포트와 검증 게이트가 같은 기준을 써야 한다
+ext.jacocoExcludes = [
+        '**/Q*.class',
+        '**/config/**',
+        '**/constants/**',
+        '**/dto/**',
+        '**/entity/**',
+        '**/enums/**',
+        '**/exception/**',
+        '**/generated/**',
+        '**/properties/**',
+        '**/pagenation/**',
+        '**/types/**',
+        '**/DgsConstants*.class',
+        '**/*Application.class',
+        // 외부 의존성 (S3, Firebase, Redis Consumer, AWS Rekognition)
+        '**/S3*ImageStorageService.class',
+        '**/Local*ImageStorageService.class',
+        '**/FcmPushService.class',
+        '**/AppPushMessageConsumer.class',
+        '**/AwsRekognitionModerationService.class',
+        // WebSocket 컨트롤러 (통합 테스트 대상)
+        '**/*WebSocketController.class',
+        // Admin 내부 API 컨트롤러
+        '**/*InternalController.class',
+        // HTTP 요청 의존 컴포넌트
+        '**/DeviceIdentifier.class'
+]
+
 jacocoTestReport {
     dependsOn test
     reports {
@@ -143,33 +185,36 @@ jacocoTestReport {
     }
     afterEvaluate {
         classDirectories.setFrom(files(classDirectories.files.collect {
-            fileTree(dir: it, exclude: [
-                    '**/Q*.class',
-                    '**/config/**',
-                    '**/constants/**',
-                    '**/dto/**',
-                    '**/entity/**',
-                    '**/enums/**',
-                    '**/exception/**',
-                    '**/generated/**',
-                    '**/properties/**',
-                    '**/pagenation/**',
-                    '**/types/**',
-                    '**/DgsConstants*.class',
-                    '**/*Application.class',
-                    // 외부 의존성 (S3, Firebase, Redis Consumer, AWS Rekognition)
-                    '**/S3*ImageStorageService.class',
-                    '**/Local*ImageStorageService.class',
-                    '**/FcmPushService.class',
-                    '**/AppPushMessageConsumer.class',
-                    '**/AwsRekognitionModerationService.class',
-                    // WebSocket 컨트롤러 (통합 테스트 대상)
-                    '**/*WebSocketController.class',
-                    // Admin 내부 API 컨트롤러
-                    '**/*InternalController.class',
-                    // HTTP 요청 의존 컴포넌트
-                    '**/DeviceIdentifier.class'
-            ])
+            fileTree(dir: it, exclude: jacocoExcludes)
         }))
     }
 }
+
+// 커버리지 게이트 — INSTRUCTION 80% + BRANCH 80% 미만이면 build 실패.
+// 이전에는 app 모듈에만 룰이 있어 실코드(service)가 검증되지 않았다 — check 에 연결해 CI(clean build)에서 강제.
+// BRANCH 를 별도 룰로 두는 이유: 명령어 커버리지는 if 의 한쪽 경로만 지나도 채워지지만, 분기 커버리지는
+// 양쪽 경로를 모두 요구해 조건 로직 회귀를 더 잘 잡는다.
+jacocoTestCoverageVerification {
+    dependsOn test
+    afterEvaluate {
+        classDirectories.setFrom(files(classDirectories.files.collect {
+            fileTree(dir: it, exclude: jacocoExcludes)
+        }))
+    }
+    violationRules {
+        rule {
+            limit {
+                counter = 'INSTRUCTION'
+                value = 'COVEREDRATIO'
+                minimum = 0.80
+            }
+            limit {
+                counter = 'BRANCH'
+                value = 'COVEREDRATIO'
+                minimum = 0.80
+            }
+        }
+    }
+}
+
+check.dependsOn jacocoTestCoverageVerification

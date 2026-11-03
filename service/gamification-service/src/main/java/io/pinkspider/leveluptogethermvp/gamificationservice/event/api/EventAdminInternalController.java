@@ -20,10 +20,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-/**
- * Admin 내부 API 컨트롤러 - Event
- * 인증 불필요 (SecurityConfig에서 /api/internal/** permitAll)
- */
+/** Admin 내부 API 컨트롤러 - Event 인증 불필요 (SecurityConfig에서 /api/internal/** permitAll) */
 @RestController
 @RequestMapping("/api/internal/events")
 @RequiredArgsConstructor
@@ -36,51 +33,54 @@ public class EventAdminInternalController {
             @RequestParam(required = false) String keyword,
             @RequestParam(required = false, defaultValue = "0") int page,
             @RequestParam(required = false, defaultValue = "20") int size,
-            @RequestParam(name = "sort_by", required = false, defaultValue = "startAt") String sortBy,
-            @RequestParam(name = "sort_direction", required = false, defaultValue = "DESC") String sortDirection) {
-        Sort sort = "ASC".equalsIgnoreCase(sortDirection)
-            ? Sort.by(sortBy).ascending()
-            : Sort.by(sortBy).descending();
+            @RequestParam(name = "sort_by", required = false, defaultValue = "startAt")
+                    String sortBy,
+            @RequestParam(name = "sort_direction", required = false, defaultValue = "DESC")
+                    String sortDirection) {
+        Sort sort =
+                "ASC".equalsIgnoreCase(sortDirection)
+                        ? Sort.by(sortBy).ascending()
+                        : Sort.by(sortBy).descending();
         return ApiResult.<EventAdminPageResponse>builder()
-            .value(eventAdminService.searchEvents(keyword, PageRequest.of(page, size, sort)))
-            .build();
+                .value(eventAdminService.searchEvents(keyword, PageRequest.of(page, size, sort)))
+                .build();
     }
 
     @GetMapping("/active")
     public ApiResult<List<EventAdminResponse>> getActiveEvents() {
         return ApiResult.<List<EventAdminResponse>>builder()
-            .value(eventAdminService.getActiveEvents())
-            .build();
+                .value(eventAdminService.getActiveEvents())
+                .build();
     }
 
     @GetMapping("/current")
     public ApiResult<List<EventAdminResponse>> getCurrentEvents() {
         return ApiResult.<List<EventAdminResponse>>builder()
-            .value(eventAdminService.getCurrentEvents())
-            .build();
+                .value(eventAdminService.getCurrentEvents())
+                .build();
     }
 
     @GetMapping("/{id}")
     public ApiResult<EventAdminResponse> getEvent(@PathVariable Long id) {
         return ApiResult.<EventAdminResponse>builder()
-            .value(eventAdminService.getEvent(id))
-            .build();
+                .value(eventAdminService.getEvent(id))
+                .build();
     }
 
     @PostMapping
-    public ApiResult<EventAdminResponse> createEvent(@Valid @RequestBody EventAdminRequest request) {
+    public ApiResult<EventAdminResponse> createEvent(
+            @Valid @RequestBody EventAdminRequest request) {
         return ApiResult.<EventAdminResponse>builder()
-            .value(eventAdminService.createEvent(request))
-            .build();
+                .value(eventAdminService.createEvent(request))
+                .build();
     }
 
     @PutMapping("/{id}")
     public ApiResult<EventAdminResponse> updateEvent(
-            @PathVariable Long id,
-            @Valid @RequestBody EventAdminRequest request) {
+            @PathVariable Long id, @Valid @RequestBody EventAdminRequest request) {
         return ApiResult.<EventAdminResponse>builder()
-            .value(eventAdminService.updateEvent(id, request))
-            .build();
+                .value(eventAdminService.updateEvent(id, request))
+                .build();
     }
 
     @DeleteMapping("/{id}")

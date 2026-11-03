@@ -9,11 +9,13 @@ import org.springframework.security.oauth2.client.web.OAuth2AuthorizationRequest
 import org.springframework.security.oauth2.core.endpoint.OAuth2AuthorizationRequest;
 import org.springframework.web.util.UriComponentsBuilder;
 
-public class CustomOAuth2AuthorizationRequestResolver implements OAuth2AuthorizationRequestResolver {
+public class CustomOAuth2AuthorizationRequestResolver
+        implements OAuth2AuthorizationRequestResolver {
 
     private final ClientRegistrationRepository clientRegistrationRepository;
 
-    public CustomOAuth2AuthorizationRequestResolver(ClientRegistrationRepository clientRegistrationRepository) {
+    public CustomOAuth2AuthorizationRequestResolver(
+            ClientRegistrationRepository clientRegistrationRepository) {
         this.clientRegistrationRepository = clientRegistrationRepository;
     }
 
@@ -31,7 +33,8 @@ public class CustomOAuth2AuthorizationRequestResolver implements OAuth2Authoriza
         }
 
         String provider = matcher.group(1); // 추출된 provider 값
-        ClientRegistration clientRegistration = clientRegistrationRepository.findByRegistrationId(provider);
+        ClientRegistration clientRegistration =
+                clientRegistrationRepository.findByRegistrationId(provider);
         if (clientRegistration == null) {
             return null;
         }
@@ -41,24 +44,26 @@ public class CustomOAuth2AuthorizationRequestResolver implements OAuth2Authoriza
         String redirectUri = clientRegistration.getRedirectUri();
 
         // OAuth2 로그인 URL 반환
-        String authUrl = UriComponentsBuilder.fromUriString(authorizationUri)
-            .queryParam("client_id", clientId)
-            .queryParam("redirect_uri", redirectUri)
-            .queryParam("response_type", "code")
-            .queryParam("scope", String.join(" ", clientRegistration.getScopes()))
-            .build()
-            .toUriString();
+        String authUrl =
+                UriComponentsBuilder.fromUriString(authorizationUri)
+                        .queryParam("client_id", clientId)
+                        .queryParam("redirect_uri", redirectUri)
+                        .queryParam("response_type", "code")
+                        .queryParam("scope", String.join(" ", clientRegistration.getScopes()))
+                        .build()
+                        .toUriString();
 
         return OAuth2AuthorizationRequest.authorizationCode()
-            .authorizationUri(authUrl)
-            .clientId(clientId)
-            .redirectUri(redirectUri)
-            .scopes(clientRegistration.getScopes())
-            .build();
+                .authorizationUri(authUrl)
+                .clientId(clientId)
+                .redirectUri(redirectUri)
+                .scopes(clientRegistration.getScopes())
+                .build();
     }
 
     @Override
-    public OAuth2AuthorizationRequest resolve(HttpServletRequest request, String clientRegistrationId) {
+    public OAuth2AuthorizationRequest resolve(
+            HttpServletRequest request, String clientRegistrationId) {
         return resolve(request); // 기본 `resolve()` 메서드 사용
     }
 }

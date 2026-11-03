@@ -23,7 +23,6 @@ import lombok.Setter;
 import lombok.experimental.SuperBuilder;
 import org.hibernate.annotations.UuidGenerator;
 
-
 @Entity
 @Getter
 @SuperBuilder
@@ -44,11 +43,27 @@ public class Users extends LocalDateTimeBaseEntity {
     @NotNull
     private String email;
 
-    @Column
-    private String picture;
+    @Column private String picture;
 
-    @NotNull
-    private String provider;
+    @NotNull private String provider;
+
+    /**
+     * LUT-476: 소셜 공급자의 사용자 고유 ID (kakao 회원번호 / apple·google sub). 소셜 측 연결 해제 웹훅(사용자 식별이 이 값으로만 옴)과
+     * 탈퇴 시 unlink 호출에 사용. 로그인 시점에 저장/백필되므로 그 전의 기존 유저는 null 일 수 있다.
+     */
+    @Column(name = "provider_user_id")
+    private String providerUserId;
+
+    /**
+     * LUT-477: Apple refresh token (CryptoUtils AES 암호화 저장) — 탈퇴 시 /auth/revoke 용. 로그인 시
+     * authorization code 교환으로 확보되며, code 를 안 보내는 구 클라이언트는 null.
+     */
+    @Column(name = "apple_refresh_token", columnDefinition = "TEXT")
+    private String appleRefreshToken;
+
+    /** LUT-477: refresh token 을 발급받은 client_id (revoke 시 동일 값 필요 — 웹=서비스 ID, iOS=번들 ID) */
+    @Column(name = "apple_client_id")
+    private String appleClientId;
 
     @lombok.Builder.Default
     @Column(name = "nickname_set", nullable = false)
@@ -82,26 +97,50 @@ public class Users extends LocalDateTimeBaseEntity {
     @Column(name = "preferred_timezone", length = 50, nullable = false)
     private String preferredTimezone = "Asia/Seoul";
 
+    // ===== LUT-599: 가입 유입 채널 (CAC 원천). 가입 시 SignupChannelPolicy 가 1회 기록, 이후 불변. 배포 전 가입자는 null
+    // =====
+    @Column(name = "signup_channel", length = 50)
+    private String signupChannel;
+
+    @Column(name = "utm_source", length = 100)
+    private String utmSource;
+
+    @Column(name = "utm_medium", length = 100)
+    private String utmMedium;
+
+    @Column(name = "utm_campaign", length = 100)
+    private String utmCampaign;
+
+    @Column(name = "signup_device_type", length = 20)
+    private String signupDeviceType;
+
+    @Column(name = "invite_code", length = 50)
+    private String inviteCode;
+
     @lombok.Builder.Default
     @Column(name = "preferred_feed_visibility", length = 20, nullable = false)
     private String preferredFeedVisibility = "PUBLIC";
 
-    /**
-     * 신고 처리로 정지된 누적 횟수. 영구강퇴 자동 전환 임계값 판정에 사용.
-     */
+    /** 신고 처리로 정지된 누적 횟수. 영구강퇴 자동 전환 임계값 판정에 사용. */
     @lombok.Builder.Default
     @Column(name = "suspension_count", nullable = false)
     private Integer suspensionCount = 0;
 
-    /**
-     * 신고 처리로 받은 경고 누적 횟수. 자동 정지 임계값 판정에 사용.
-     */
+    /** 신고 처리로 받은 경고 누적 횟수. 자동 정지 임계값 판정에 사용. */
     @lombok.Builder.Default
     @Column(name = "warning_count", nullable = false)
     private Integer warningCount = 0;
 
     @Column(name = "withdrawn_at")
     private LocalDateTime withdrawnAt;
+
+    /**
+     * LUT-584: 어드민 즉시 탈퇴로 처리된 계정 — 재가입 cool-down(QA-115, 기본 7일) 면제. 일반 탈퇴는 false 라 cool-down 이 그대로
+     * 적용된다.
+     */
+    @lombok.Builder.Default
+    @Column(name = "withdrawal_cooldown_exempt", nullable = false)
+    private boolean withdrawalCooldownExempt = false;
 
     @Setter
     @OneToMany(mappedBy = "users")
@@ -135,6 +174,17 @@ public class Users extends LocalDateTimeBaseEntity {
         this.preferredTimezone = preferredTimezone;
     }
 
+    /** LUT-476: 로그인 시 소셜 공급자 사용자 ID 저장/백필 */
+    public void updateProviderUserId(String providerUserId) {
+        this.providerUserId = providerUserId;
+    }
+
+    /** LUT-477: 로그인 시 Apple refresh token(암호화된 값) 저장/갱신 */
+    public void updateAppleTokens(String encryptedRefreshToken, String appleClientId) {
+        this.appleRefreshToken = encryptedRefreshToken;
+        this.appleClientId = appleClientId;
+    }
+
     public void updatePreferredFeedVisibility(String preferredFeedVisibility) {
         this.preferredFeedVisibility = preferredFeedVisibility;
     }
@@ -150,16 +200,12 @@ public class Users extends LocalDateTimeBaseEntity {
         return nicknameSet;
     }
 
-    /**
-     * 상태 변경 (Admin용)
-     */
+    /** 상태 변경 (Admin용) */
     public void updateStatus(UserStatus status) {
         this.status = status;
     }
 
-    /**
-     * 정지 카운트 증가 후 새 카운트 반환 (신고 처리 후크용)
-     */
+    /** 정지 카운트 증가 후 새 카운트 반환 (신고 처리 후크용) */
     public int incrementSuspensionCount() {
         if (this.suspensionCount == null) {
             this.suspensionCount = 0;
@@ -168,9 +214,7 @@ public class Users extends LocalDateTimeBaseEntity {
         return this.suspensionCount;
     }
 
-    /**
-     * 경고 카운트 증가 후 새 카운트 반환 (신고 처리 후크용)
-     */
+    /** 경고 카운트 증가 후 새 카운트 반환 (신고 처리 후크용) */
     public int incrementWarningCount() {
         if (this.warningCount == null) {
             this.warningCount = 0;
@@ -179,28 +223,33 @@ public class Users extends LocalDateTimeBaseEntity {
         return this.warningCount;
     }
 
-    /**
-     * 경고 카운트 초기화 (자동 정지 전환 시 호출).
-     * 정지 후에는 0부터 다시 누적되어 사용자에게 회복 기회를 부여.
-     */
+    /** 경고 카운트 초기화 (자동 정지 전환 시 호출). 정지 후에는 0부터 다시 누적되어 사용자에게 회복 기회를 부여. */
     public void resetWarningCount() {
         this.warningCount = 0;
     }
 
-    /**
-     * 회원 탈퇴 처리. withdrawnAt 을 기록하여 cool-down 기반 재가입 정책(QA-115)에서 사용한다.
-     */
+    /** 회원 탈퇴 처리. withdrawnAt 을 기록하여 cool-down 기반 재가입 정책(QA-115)에서 사용한다. */
     public void withdraw() {
         this.status = UserStatus.WITHDRAWN;
         this.nickname = "탈퇴한 사용자";
         this.picture = null;
         this.bio = null;
+        // LUT-477: revoke 는 withdraw 전에 수행됨 — 사용 끝난 토큰은 보관하지 않는다
+        this.appleRefreshToken = null;
+        this.appleClientId = null;
         this.withdrawnAt = LocalDateTime.now();
     }
 
     /**
-     * 표시용 이름 반환 (닉네임 > 이메일 앞부분)
+     * LUT-584: 어드민 즉시 탈퇴. 일반 탈퇴와 같은 익명화·상태 전환을 하되, 재가입 cool-down 을 면제해 "가입유예 기간 없이" 바로 다시 가입할 수 있게
+     * 표시한다.
      */
+    public void withdrawByAdmin() {
+        withdraw();
+        this.withdrawalCooldownExempt = true;
+    }
+
+    /** 표시용 이름 반환 (닉네임 > 이메일 앞부분) */
     public String getDisplayName() {
         if (nickname != null && !nickname.isBlank()) {
             return nickname;

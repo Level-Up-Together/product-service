@@ -31,23 +31,20 @@ import org.springframework.data.domain.Pageable;
 @ExtendWith(MockitoExtension.class)
 class DiamondServiceTest {
 
-    @Mock
-    private UserDiamondRepository userDiamondRepository;
+    @Mock private UserDiamondRepository userDiamondRepository;
 
-    @Mock
-    private DiamondHistoryRepository diamondHistoryRepository;
+    @Mock private DiamondHistoryRepository diamondHistoryRepository;
 
-    @InjectMocks
-    private DiamondService diamondService;
+    @InjectMocks private DiamondService diamondService;
 
     private static final String USER_ID = "user-1";
 
     private UserDiamond diamond(int balance, int lastRewardedLevel) {
         return UserDiamond.builder()
-            .userId(USER_ID)
-            .balance(balance)
-            .lastRewardedLevel(lastRewardedLevel)
-            .build();
+                .userId(USER_ID)
+                .balance(balance)
+                .lastRewardedLevel(lastRewardedLevel)
+                .build();
     }
 
     @Nested
@@ -119,7 +116,7 @@ class DiamondServiceTest {
         void createsUserDiamondIfAbsent() {
             when(userDiamondRepository.findByUserId(USER_ID)).thenReturn(Optional.empty());
             when(userDiamondRepository.save(any(UserDiamond.class)))
-                .thenAnswer(inv -> inv.getArgument(0));
+                    .thenAnswer(inv -> inv.getArgument(0));
 
             int granted = diamondService.awardLevelUpDiamonds(USER_ID, 2);
 
@@ -183,7 +180,8 @@ class DiamondServiceTest {
         @DisplayName("최초 목표달성 시 1개 지급하고 '{미션명} 목표달성' 설명을 기록한다")
         void awardsFirstAchievement() {
             when(diamondHistoryRepository.existsByUserIdAndTypeAndSourceId(
-                USER_ID, DiamondType.MISSION_BOOK, 77L)).thenReturn(false);
+                            USER_ID, DiamondType.MISSION_BOOK, 77L))
+                    .thenReturn(false);
             UserDiamond diamond = diamond(3, 5);
             when(userDiamondRepository.findByUserId(USER_ID)).thenReturn(Optional.of(diamond));
 
@@ -204,7 +202,8 @@ class DiamondServiceTest {
         @DisplayName("이미 지급된 템플릿에는 재지급하지 않는다")
         void skipsAlreadyAwardedTemplate() {
             when(diamondHistoryRepository.existsByUserIdAndTypeAndSourceId(
-                USER_ID, DiamondType.MISSION_BOOK, 77L)).thenReturn(true);
+                            USER_ID, DiamondType.MISSION_BOOK, 77L))
+                    .thenReturn(true);
 
             boolean awarded = diamondService.awardMissionBookDiamond(USER_ID, 77L, "아침 스트레칭");
 
@@ -219,6 +218,44 @@ class DiamondServiceTest {
 
             assertThat(awarded).isFalse();
             verify(diamondHistoryRepository, never()).save(any());
+        }
+    }
+
+    @Nested
+    @DisplayName("awardSubscriptionStipend 테스트 (LUT-453)")
+    class AwardSubscriptionStipendTest {
+
+        @Test
+        @DisplayName("블루 다이아를 지급하고 원장에 type=SUBSCRIPTION + 구독 ID 를 기록한다")
+        void awardsStipendWithSubscriptionSource() {
+            UserDiamond diamond = diamond(3, 5);
+            when(userDiamondRepository.findByUserId(USER_ID)).thenReturn(Optional.of(diamond));
+
+            int balanceAfter = diamondService.awardSubscriptionStipend(USER_ID, 77L, 1);
+
+            assertThat(diamond.getBalance()).isEqualTo(4); // 블루(무상) 지급
+            assertThat(balanceAfter).isEqualTo(diamond.getTotalBalance());
+
+            ArgumentCaptor<DiamondHistory> captor = ArgumentCaptor.forClass(DiamondHistory.class);
+            verify(diamondHistoryRepository).save(captor.capture());
+            DiamondHistory history = captor.getValue();
+            assertThat(history.getType()).isEqualTo(DiamondType.SUBSCRIPTION);
+            assertThat(history.getSourceId()).isEqualTo(77L);
+            assertThat(history.getAmount()).isEqualTo(1);
+            assertThat(history.getPinkAmount()).isZero(); // 핑크(유상) 아님
+            assertThat(history.getDescription()).isEqualTo("구독 일일 스티펜드");
+        }
+
+        @Test
+        @DisplayName("다이아 행이 없는 유저는 생성 후 지급한다")
+        void createsUserDiamondIfAbsent() {
+            when(userDiamondRepository.findByUserId(USER_ID)).thenReturn(Optional.empty());
+            when(userDiamondRepository.save(any(UserDiamond.class)))
+                    .thenAnswer(inv -> inv.getArgument(0));
+
+            int balanceAfter = diamondService.awardSubscriptionStipend(USER_ID, 77L, 1);
+
+            assertThat(balanceAfter).isEqualTo(1);
         }
     }
 
@@ -252,7 +289,31 @@ class DiamondServiceTest {
             when(userDiamondRepository.findByUserId(USER_ID)).thenReturn(Optional.of(diamond));
 
             assertThatThrownBy(() -> diamondService.spendDiamonds(USER_ID, 3, 9L, "프로필 테두리"))
-                .isInstanceOf(IllegalStateException.class);
+                    .isInstanceOf(IllegalStateException.class);
+        }
+
+        @Test
+        @DisplayName("가격 0원도 잔액 변동 없이 SHOP 이력을 기록한다 (LUT-328)")
+        void recordsZeroAmountSpend() {
+            UserDiamond diamond = diamond(10, 5);
+            when(userDiamondRepository.findByUserId(USER_ID)).thenReturn(Optional.of(diamond));
+
+            int balanceAfter = diamondService.spendDiamonds(USER_ID, 0, 9L, "무료 아이템");
+
+            assertThat(balanceAfter).isEqualTo(10);
+
+            ArgumentCaptor<DiamondHistory> captor = ArgumentCaptor.forClass(DiamondHistory.class);
+            verify(diamondHistoryRepository).save(captor.capture());
+            assertThat(captor.getValue().getAmount()).isZero();
+            assertThat(captor.getValue().getBalanceAfter()).isEqualTo(10);
+            assertThat(captor.getValue().getDescription()).isEqualTo("무료 아이템 구매");
+        }
+
+        @Test
+        @DisplayName("음수 차감량은 예외가 발생한다")
+        void failsOnNegativeAmount() {
+            assertThatThrownBy(() -> diamondService.spendDiamonds(USER_ID, -1, 9L, "프로필 테두리"))
+                    .isInstanceOf(IllegalArgumentException.class);
         }
     }
 
@@ -263,21 +324,22 @@ class DiamondServiceTest {
         @Test
         @DisplayName("이력과 현재 잔액을 함께 반환한다")
         void returnsHistoryWithBalance() {
-            DiamondHistory history = DiamondHistory.builder()
-                .userId(USER_ID)
-                .type(DiamondType.LEVEL_UP)
-                .sourceId(2L)
-                .amount(1)
-                .balanceAfter(1)
-                .description("Lv.2 레벨업 보상")
-                .build();
+            DiamondHistory history =
+                    DiamondHistory.builder()
+                            .userId(USER_ID)
+                            .type(DiamondType.LEVEL_UP)
+                            .sourceId(2L)
+                            .amount(1)
+                            .balanceAfter(1)
+                            .description("Lv.2 레벨업 보상")
+                            .build();
             when(diamondHistoryRepository.findByUserIdOrderByIdDesc(USER_ID, PageRequest.of(0, 10)))
-                .thenReturn(new PageImpl<>(List.of(history)));
+                    .thenReturn(new PageImpl<>(List.of(history)));
             when(userDiamondRepository.findByUserId(USER_ID))
-                .thenReturn(Optional.of(diamond(1, 2)));
+                    .thenReturn(Optional.of(diamond(1, 2)));
 
             UserDiamondHistoryAdminPageResponse result =
-                diamondService.getUserDiamondHistory(USER_ID, PageRequest.of(0, 10));
+                    diamondService.getUserDiamondHistory(USER_ID, PageRequest.of(0, 10));
 
             assertThat(result.content()).hasSize(1);
             assertThat(result.content().get(0).type()).isEqualTo("LEVEL_UP");
@@ -291,11 +353,11 @@ class DiamondServiceTest {
         void returnsEmptyForNoHistory() {
             Pageable pageable = PageRequest.of(0, 10);
             when(diamondHistoryRepository.findByUserIdOrderByIdDesc(USER_ID, pageable))
-                .thenReturn(new PageImpl<>(List.of()));
+                    .thenReturn(new PageImpl<>(List.of()));
             when(userDiamondRepository.findByUserId(USER_ID)).thenReturn(Optional.empty());
 
             UserDiamondHistoryAdminPageResponse result =
-                diamondService.getUserDiamondHistory(USER_ID, pageable);
+                    diamondService.getUserDiamondHistory(USER_ID, pageable);
 
             assertThat(result.content()).isEmpty();
             assertThat(result.currentBalance()).isZero();
@@ -310,7 +372,7 @@ class DiamondServiceTest {
         @DisplayName("현재 보유 다이아 잔액을 반환한다")
         void returnsBalance() {
             when(userDiamondRepository.findByUserId(USER_ID))
-                .thenReturn(Optional.of(diamond(42, 42)));
+                    .thenReturn(Optional.of(diamond(42, 42)));
 
             assertThat(diamondService.getBalance(USER_ID)).isEqualTo(42);
         }
@@ -321,6 +383,119 @@ class DiamondServiceTest {
             when(userDiamondRepository.findByUserId(USER_ID)).thenReturn(Optional.empty());
 
             assertThat(diamondService.getBalance(USER_ID)).isZero();
+        }
+    }
+
+    @Nested
+    @DisplayName("spendDiamonds 합산 차감 테스트 (LUT-354: 블루 우선 소진)")
+    class SpendCombinedTest {
+
+        @Test
+        @DisplayName("블루가 충분하면 블루만 차감하고 pink_amount는 0이다")
+        void blueSufficient_spendsBlueOnly() {
+            UserDiamond d = diamond(100, 5);
+            d.setPinkBalance(50);
+            when(userDiamondRepository.findByUserId(USER_ID)).thenReturn(Optional.of(d));
+
+            int balanceAfter = diamondService.spendDiamonds(USER_ID, 80, 1L, "날개");
+
+            assertThat(balanceAfter).isEqualTo(70); // (100-80) + 50
+            assertThat(d.getBalance()).isEqualTo(20);
+            assertThat(d.getPinkBalance()).isEqualTo(50);
+
+            ArgumentCaptor<DiamondHistory> captor = ArgumentCaptor.forClass(DiamondHistory.class);
+            verify(diamondHistoryRepository).save(captor.capture());
+            assertThat(captor.getValue().getAmount()).isEqualTo(-80);
+            assertThat(captor.getValue().getPinkAmount()).isZero();
+            assertThat(captor.getValue().getBalanceAfter()).isEqualTo(70);
+        }
+
+        @Test
+        @DisplayName("블루가 부족하면 블루 전량 소진 후 부족분만 핑크에서 뺀다")
+        void blueInsufficient_spendsPinkRemainder() {
+            UserDiamond d = diamond(30, 5);
+            d.setPinkBalance(100);
+            when(userDiamondRepository.findByUserId(USER_ID)).thenReturn(Optional.of(d));
+
+            int balanceAfter = diamondService.spendDiamonds(USER_ID, 80, 1L, "날개");
+
+            assertThat(balanceAfter).isEqualTo(50); // 0 + (100-50)
+            assertThat(d.getBalance()).isZero();
+            assertThat(d.getPinkBalance()).isEqualTo(50);
+
+            ArgumentCaptor<DiamondHistory> captor = ArgumentCaptor.forClass(DiamondHistory.class);
+            verify(diamondHistoryRepository).save(captor.capture());
+            assertThat(captor.getValue().getAmount()).isEqualTo(-80);
+            assertThat(captor.getValue().getPinkAmount()).isEqualTo(-50); // 유상 소진분 구분 기록
+        }
+
+        @Test
+        @DisplayName("합산 잔액이 부족하면 예외가 발생하고 아무것도 차감되지 않는다")
+        void totalInsufficient_throws() {
+            UserDiamond d = diamond(30, 5);
+            d.setPinkBalance(20);
+            when(userDiamondRepository.findByUserId(USER_ID)).thenReturn(Optional.of(d));
+
+            assertThatThrownBy(() -> diamondService.spendDiamonds(USER_ID, 80, 1L, "날개"))
+                    .isInstanceOf(IllegalStateException.class);
+            assertThat(d.getBalance()).isEqualTo(30);
+            assertThat(d.getPinkBalance()).isEqualTo(20);
+            verify(diamondHistoryRepository, never()).save(any());
+        }
+    }
+
+    @Nested
+    @DisplayName("grantPinkDiamonds 테스트 (LUT-354: IAP 지급)")
+    class GrantPinkTest {
+
+        @Test
+        @DisplayName("핑크다이아를 지급하고 PINK_PURCHASE 원장을 남긴다")
+        void grantsPinkAndRecordsLedger() {
+            UserDiamond d = diamond(10, 5);
+            when(userDiamondRepository.findByUserId(USER_ID)).thenReturn(Optional.of(d));
+
+            int balanceAfter = diamondService.grantPinkDiamonds(USER_ID, 100, 3L, "핑크다이아 100개");
+
+            assertThat(balanceAfter).isEqualTo(110);
+            assertThat(d.getPinkBalance()).isEqualTo(100);
+
+            ArgumentCaptor<DiamondHistory> captor = ArgumentCaptor.forClass(DiamondHistory.class);
+            verify(diamondHistoryRepository).save(captor.capture());
+            assertThat(captor.getValue().getType()).isEqualTo(DiamondType.PINK_PURCHASE);
+            assertThat(captor.getValue().getAmount()).isEqualTo(100);
+            assertThat(captor.getValue().getPinkAmount()).isEqualTo(100);
+            assertThat(captor.getValue().getBalanceAfter()).isEqualTo(110);
+        }
+    }
+
+    @Nested
+    @DisplayName("getBalances 테스트 (LUT-356: 블루/핑크 분리)")
+    class GetBalancesTest {
+
+        @Test
+        @DisplayName("블루/핑크 잔액과 합계를 반환한다")
+        void returnsSplitBalances() {
+            UserDiamond d = diamond(1000, 5);
+            d.setPinkBalance(200);
+            when(userDiamondRepository.findByUserId(USER_ID)).thenReturn(Optional.of(d));
+
+            var result = diamondService.getBalances(USER_ID);
+
+            assertThat(result.getBalance()).isEqualTo(1200);
+            assertThat(result.getBlueBalance()).isEqualTo(1000);
+            assertThat(result.getPinkBalance()).isEqualTo(200);
+        }
+
+        @Test
+        @DisplayName("행이 없으면 전부 0을 반환한다")
+        void returnsZeroWhenAbsent() {
+            when(userDiamondRepository.findByUserId(USER_ID)).thenReturn(Optional.empty());
+
+            var result = diamondService.getBalances(USER_ID);
+
+            assertThat(result.getBalance()).isZero();
+            assertThat(result.getBlueBalance()).isZero();
+            assertThat(result.getPinkBalance()).isZero();
         }
     }
 }

@@ -12,7 +12,6 @@ import io.pinkspider.leveluptogethermvp.gamificationservice.event.infrastructure
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -24,30 +23,30 @@ import org.mockito.junit.jupiter.MockitoExtension;
 @ExtendWith(MockitoExtension.class)
 class EventServiceTest {
 
-    @Mock
-    private EventRepository eventRepository;
+    @Mock private EventRepository eventRepository;
 
-    @InjectMocks
-    private EventService eventService;
+    @InjectMocks private EventService eventService;
 
     private static final String LOCALE_KO = "ko";
     private static final String LOCALE_EN = "en";
 
-    private Event createMockEvent(Long id, String name, LocalDateTime startAt, LocalDateTime endAt) {
-        Event event = Event.builder()
-            .name(name)
-            .nameEn(name + " (EN)")
-            .nameAr(name + " (AR)")
-            .description("테스트 이벤트 설명")
-            .descriptionEn("Test event description")
-            .descriptionAr("وصف حدث الاختبار")
-            .imageUrl("/uploads/events/test-image.png")
-            .startAt(startAt)
-            .endAt(endAt)
-            .rewardTitleId(1L)
-            .rewardTitleName("테스트 칭호")
-            .isActive(true)
-            .build();
+    private Event createMockEvent(
+            Long id, String name, LocalDateTime startAt, LocalDateTime endAt) {
+        Event event =
+                Event.builder()
+                        .name(name)
+                        .nameEn(name + " (EN)")
+                        .nameAr(name + " (AR)")
+                        .description("테스트 이벤트 설명")
+                        .descriptionEn("Test event description")
+                        .descriptionAr("وصف حدث الاختبار")
+                        .imageUrl("/uploads/events/test-image.png")
+                        .startAt(startAt)
+                        .endAt(endAt)
+                        .rewardTitleId(1L)
+                        .rewardTitleName("테스트 칭호")
+                        .isActive(true)
+                        .build();
         setId(event, id);
         return event;
     }
@@ -65,7 +64,7 @@ class EventServiceTest {
             Event event2 = createMockEvent(2L, "이벤트2", now.minusDays(1), now.plusDays(10));
 
             when(eventRepository.findCurrentEvents(any(LocalDateTime.class)))
-                .thenReturn(List.of(event1, event2));
+                    .thenReturn(List.of(event1, event2));
 
             // when
             List<EventResponse> result = eventService.getCurrentEvents(LOCALE_KO);
@@ -81,8 +80,7 @@ class EventServiceTest {
         @DisplayName("진행중인 이벤트가 없으면 빈 목록을 반환한다")
         void getCurrentEvents_empty() {
             // given
-            when(eventRepository.findCurrentEvents(any(LocalDateTime.class)))
-                .thenReturn(List.of());
+            when(eventRepository.findCurrentEvents(any(LocalDateTime.class))).thenReturn(List.of());
 
             // when
             List<EventResponse> result = eventService.getCurrentEvents(LOCALE_KO);
@@ -99,7 +97,7 @@ class EventServiceTest {
             Event event = createMockEvent(1L, "이벤트1", now.minusDays(5), now.plusDays(5));
 
             when(eventRepository.findCurrentEvents(any(LocalDateTime.class)))
-                .thenReturn(List.of(event));
+                    .thenReturn(List.of(event));
 
             // when
             List<EventResponse> result = eventService.getCurrentEvents(LOCALE_EN);
@@ -123,7 +121,7 @@ class EventServiceTest {
             Event upcomingEvent = createMockEvent(2L, "예정 이벤트", now.plusDays(1), now.plusDays(10));
 
             when(eventRepository.findActiveOrUpcomingEvents(any(LocalDateTime.class)))
-                .thenReturn(List.of(currentEvent, upcomingEvent));
+                    .thenReturn(List.of(currentEvent, upcomingEvent));
 
             // when
             List<EventResponse> result = eventService.getActiveOrUpcomingEvents(LOCALE_KO);
@@ -139,7 +137,7 @@ class EventServiceTest {
         void getActiveOrUpcomingEvents_empty() {
             // given
             when(eventRepository.findActiveOrUpcomingEvents(any(LocalDateTime.class)))
-                .thenReturn(List.of());
+                    .thenReturn(List.of());
 
             // when
             List<EventResponse> result = eventService.getActiveOrUpcomingEvents(LOCALE_KO);
@@ -183,8 +181,8 @@ class EventServiceTest {
 
             // when & then
             assertThatThrownBy(() -> eventService.getEvent(999L, LOCALE_KO))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("이벤트를 찾을 수 없습니다");
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessageContaining("이벤트를 찾을 수 없습니다");
         }
 
         @Test

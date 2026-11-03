@@ -10,6 +10,7 @@ import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.Index;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
@@ -32,8 +33,10 @@ import org.hibernate.annotations.OnDeleteAction;
 @SuperBuilder
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @AllArgsConstructor
-@Table(name = "mission_participant",
-    uniqueConstraints = @UniqueConstraint(columnNames = {"mission_id", "user_id"}))
+@Table(
+        name = "mission_participant",
+        uniqueConstraints = @UniqueConstraint(columnNames = {"mission_id", "user_id"}),
+        indexes = @Index(name = "idx_mission_participant_user", columnList = "user_id"))
 @Comment("미션 참여자")
 public class MissionParticipant extends LocalDateTimeBaseEntity {
 
@@ -98,7 +101,8 @@ public class MissionParticipant extends LocalDateTimeBaseEntity {
 
     public void updateProgress(int progressValue) {
         // ACCEPTED 또는 IN_PROGRESS 상태에서 진행률 업데이트 가능
-        if (this.status != ParticipantStatus.ACCEPTED && this.status != ParticipantStatus.IN_PROGRESS) {
+        if (this.status != ParticipantStatus.ACCEPTED
+                && this.status != ParticipantStatus.IN_PROGRESS) {
             throw new IllegalStateException("활성 상태에서만 진행률을 업데이트할 수 있습니다.");
         }
         if (progressValue < 0 || progressValue > 100) {

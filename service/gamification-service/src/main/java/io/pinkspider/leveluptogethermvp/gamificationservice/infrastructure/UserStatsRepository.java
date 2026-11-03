@@ -27,7 +27,9 @@ public interface UserStatsRepository extends JpaRepository<UserStats, Long> {
     Page<UserStats> findAllByOrderByTotalAchievementsCompletedDesc(Pageable pageable);
 
     // 유저의 랭킹 순위 조회
-    @Query("SELECT COUNT(us) + 1 FROM UserStats us WHERE us.rankingPoints > (SELECT us2.rankingPoints FROM UserStats us2 WHERE us2.userId = :userId)")
+    @Query(
+            "SELECT COUNT(us) + 1 FROM UserStats us WHERE us.rankingPoints > (SELECT"
+                    + " us2.rankingPoints FROM UserStats us2 WHERE us2.userId = :userId)")
     Long findUserRank(@Param("userId") String userId);
 
     /**
@@ -39,9 +41,7 @@ public interface UserStatsRepository extends JpaRepository<UserStats, Long> {
     @Query("SELECT COUNT(us) + 1 FROM UserStats us WHERE us.rankingPoints > :rankingPoints")
     long calculateRank(@Param("rankingPoints") long rankingPoints);
 
-    /**
-     * 전체 사용자 수 조회 (랭킹 퍼센타일 계산용)
-     */
+    /** 전체 사용자 수 조회 (랭킹 퍼센타일 계산용) */
     @Query("SELECT COUNT(us) FROM UserStats us")
     long countTotalUsers();
 }

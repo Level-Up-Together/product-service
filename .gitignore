@@ -73,3 +73,6 @@ firebase-service-account.json
 /docs/prod-logs/
 /app/test-logs/
 /service/src/test/java/io/pinkspider/leveluptogethermvp/util/EmailDecryptionDebugTest.java
+
+# IAP 서명 키 등 로컬 보관 시크릿 (LUT-456 dev 실검증 — 커밋 금지, config는 cipher 사용)
+/secrets/

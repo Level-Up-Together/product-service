@@ -3,7 +3,6 @@ package io.pinkspider.leveluptogethermvp.userservice.core.resolver;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.when;
 
-import java.util.Set;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -20,8 +19,7 @@ import org.springframework.security.oauth2.core.endpoint.OAuth2AuthorizationRequ
 @ExtendWith(MockitoExtension.class)
 class CustomOAuth2AuthorizationRequestResolverTest {
 
-    @Mock
-    private ClientRegistrationRepository clientRegistrationRepository;
+    @Mock private ClientRegistrationRepository clientRegistrationRepository;
 
     private CustomOAuth2AuthorizationRequestResolver resolver;
 
@@ -32,13 +30,13 @@ class CustomOAuth2AuthorizationRequestResolverTest {
 
     private ClientRegistration buildClientRegistration(String registrationId) {
         return ClientRegistration.withRegistrationId(registrationId)
-            .clientId("client-id-" + registrationId)
-            .authorizationGrantType(AuthorizationGrantType.AUTHORIZATION_CODE)
-            .redirectUri("https://app.example.com/callback")
-            .authorizationUri("https://accounts.google.com/o/oauth2/auth")
-            .tokenUri("https://oauth2.googleapis.com/token")
-            .scope("openid")
-            .build();
+                .clientId("client-id-" + registrationId)
+                .authorizationGrantType(AuthorizationGrantType.AUTHORIZATION_CODE)
+                .redirectUri("https://app.example.com/callback")
+                .authorizationUri("https://accounts.google.com/o/oauth2/auth")
+                .tokenUri("https://oauth2.googleapis.com/token")
+                .scope("openid")
+                .build();
     }
 
     @Nested
@@ -65,7 +63,8 @@ class CustomOAuth2AuthorizationRequestResolverTest {
             // given
             MockHttpServletRequest request = new MockHttpServletRequest();
             request.setRequestURI("/oauth2/authorization/unknown-provider");
-            when(clientRegistrationRepository.findByRegistrationId("unknown-provider")).thenReturn(null);
+            when(clientRegistrationRepository.findByRegistrationId("unknown-provider"))
+                    .thenReturn(null);
 
             // when
             OAuth2AuthorizationRequest result = resolver.resolve(request);
@@ -81,7 +80,8 @@ class CustomOAuth2AuthorizationRequestResolverTest {
             MockHttpServletRequest request = new MockHttpServletRequest();
             request.setRequestURI("/oauth2/authorization/google");
             ClientRegistration registration = buildClientRegistration("google");
-            when(clientRegistrationRepository.findByRegistrationId("google")).thenReturn(registration);
+            when(clientRegistrationRepository.findByRegistrationId("google"))
+                    .thenReturn(registration);
 
             // when
             OAuth2AuthorizationRequest result = resolver.resolve(request);
@@ -100,7 +100,8 @@ class CustomOAuth2AuthorizationRequestResolverTest {
             MockHttpServletRequest request = new MockHttpServletRequest();
             request.setRequestURI("/oauth2/authorization/kakao");
             ClientRegistration registration = buildClientRegistration("kakao");
-            when(clientRegistrationRepository.findByRegistrationId("kakao")).thenReturn(registration);
+            when(clientRegistrationRepository.findByRegistrationId("kakao"))
+                    .thenReturn(registration);
 
             // when
             OAuth2AuthorizationRequest result = resolver.resolve(request);
@@ -124,7 +125,8 @@ class CustomOAuth2AuthorizationRequestResolverTest {
             MockHttpServletRequest request = new MockHttpServletRequest();
             request.setRequestURI("/oauth2/authorization/google");
             ClientRegistration registration = buildClientRegistration("google");
-            when(clientRegistrationRepository.findByRegistrationId("google")).thenReturn(registration);
+            when(clientRegistrationRepository.findByRegistrationId("google"))
+                    .thenReturn(registration);
 
             // when
             OAuth2AuthorizationRequest result = resolver.resolve(request, "ignored-id");

@@ -5,6 +5,13 @@ import io.pinkspider.leveluptogethermvp.gamificationservice.season.domain.entity
 import io.pinkspider.leveluptogethermvp.gamificationservice.season.infrastructure.SeasonRepository;
 import io.pinkspider.leveluptogethermvp.gamificationservice.season.infrastructure.SeasonRewardHistoryRepository;
 import jakarta.annotation.PreDestroy;
+import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.ZoneOffset;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ScheduledFuture;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
@@ -13,23 +20,13 @@ import org.springframework.scheduling.TaskScheduler;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler;
 import org.springframework.stereotype.Component;
 
-import java.time.Instant;
-import java.time.LocalDateTime;
-import java.time.ZoneOffset;
-import java.util.List;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ScheduledFuture;
-
 /**
  * 시즌 종료 시각에 단발성으로 보상 처리 작업을 등록/취소하는 매니저.
  *
- * - 시즌 생성 시 종료 시각에 단발 작업 등록
- * - 시즌 수정 시 기존 작업 취소 + 재등록
- * - 시즌 삭제/비활성화 시 작업 취소
- * - 서버 시작 시 DB에서 미처리 시즌을 읽어 작업 복원
+ * <p>- 시즌 생성 시 종료 시각에 단발 작업 등록 - 시즌 수정 시 기존 작업 취소 + 재등록 - 시즌 삭제/비활성화 시 작업 취소 - 서버 시작 시 DB에서 미처리 시즌을
+ * 읽어 작업 복원
  *
- * 안전망으로 SeasonRewardScheduler(매일 새벽 3시 KST)는 그대로 유지됨.
+ * <p>안전망으로 SeasonRewardScheduler(매일 새벽 3시 KST)는 그대로 유지됨.
  */
 @Component
 @RequiredArgsConstructor
@@ -57,9 +54,7 @@ public class SeasonScheduledTaskManager {
         return scheduler;
     }
 
-    /**
-     * 서버 시작 시 등록되어야 할 모든 시즌 작업을 복원
-     */
+    /** 서버 시작 시 등록되어야 할 모든 시즌 작업을 복원 */
     @EventListener(ApplicationReadyEvent.class)
     public void restorePendingSeasonTasks() {
         log.info("시즌 보상 작업 복원 시작");
@@ -80,11 +75,11 @@ public class SeasonScheduledTaskManager {
         log.info("시즌 보상 작업 복원 완료: ended={}, upcoming={}", seasons.size(), futureSeasons.size());
     }
 
-    /**
-     * 시즌 종료 시각에 보상 처리 작업 등록 (이미 등록된 작업이 있으면 취소 후 재등록)
-     */
+    /** 시즌 종료 시각에 보상 처리 작업 등록 (이미 등록된 작업이 있으면 취소 후 재등록) */
     public void schedule(Season season) {
-        if (season == null || !Boolean.TRUE.equals(season.getIsActive()) || season.getEndAt() == null) {
+        if (season == null
+                || !Boolean.TRUE.equals(season.getIsActive())
+                || season.getEndAt() == null) {
             return;
         }
 
@@ -103,17 +98,13 @@ public class SeasonScheduledTaskManager {
             return;
         }
 
-        ScheduledFuture<?> future = taskScheduler.schedule(
-            () -> safeProcessRewards(seasonId, "종료 시각 도달"),
-            endInstant
-        );
+        ScheduledFuture<?> future =
+                taskScheduler.schedule(() -> safeProcessRewards(seasonId, "종료 시각 도달"), endInstant);
         scheduledTasks.put(seasonId, future);
         log.info("시즌 보상 작업 등록: seasonId={}, endAt={} (UTC)", seasonId, season.getEndAt());
     }
 
-    /**
-     * 등록된 시즌 작업 취소
-     */
+    /** 등록된 시즌 작업 취소 */
     public void cancel(Long seasonId) {
         ScheduledFuture<?> existing = scheduledTasks.remove(seasonId);
         if (existing != null && !existing.isDone()) {
@@ -122,15 +113,10 @@ public class SeasonScheduledTaskManager {
         }
     }
 
-    /**
-     * 즉시 보상 처리 (어드민 트리거 또는 복원 시 사용)
-     */
+    /** 즉시 보상 처리 (어드민 트리거 또는 복원 시 사용) */
     public void triggerImmediately(Long seasonId, String reason) {
         log.info("시즌 보상 즉시 처리 트리거: seasonId={}, reason={}", seasonId, reason);
-        taskScheduler.schedule(
-            () -> safeProcessRewards(seasonId, reason),
-            Instant.now()
-        );
+        taskScheduler.schedule(() -> safeProcessRewards(seasonId, reason), Instant.now());
     }
 
     private void safeProcessRewards(Long seasonId, String reason) {

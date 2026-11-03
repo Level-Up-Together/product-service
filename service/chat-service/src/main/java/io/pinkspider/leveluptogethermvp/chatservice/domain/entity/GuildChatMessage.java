@@ -28,12 +28,13 @@ import org.hibernate.annotations.Comment;
 @SuperBuilder
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @AllArgsConstructor
-@Table(name = "guild_chat_message",
-    indexes = {
-        @Index(name = "idx_chat_guild", columnList = "guild_id"),
-        @Index(name = "idx_chat_guild_created", columnList = "guild_id, created_at DESC"),
-        @Index(name = "idx_chat_sender", columnList = "sender_id")
-    })
+@Table(
+        name = "guild_chat_message",
+        indexes = {
+            @Index(name = "idx_chat_guild", columnList = "guild_id"),
+            @Index(name = "idx_chat_guild_created", columnList = "guild_id, created_at DESC"),
+            @Index(name = "idx_chat_sender", columnList = "sender_id")
+        })
 @Comment("길드 채팅 메시지")
 public class GuildChatMessage extends LocalDateTimeBaseEntity {
 
@@ -89,42 +90,47 @@ public class GuildChatMessage extends LocalDateTimeBaseEntity {
     @Comment("삭제 시간")
     private LocalDateTime deletedAt;
 
-    public static GuildChatMessage createTextMessage(Long guildId, String senderId,
-                                                      String senderNickname, String content) {
+    public static GuildChatMessage createTextMessage(
+            Long guildId, String senderId, String senderNickname, String content) {
         return GuildChatMessage.builder()
-            .guildId(guildId)
-            .senderId(senderId)
-            .senderNickname(senderNickname)
-            .messageType(ChatMessageType.TEXT)
-            .content(content)
-            .build();
+                .guildId(guildId)
+                .senderId(senderId)
+                .senderNickname(senderNickname)
+                .messageType(ChatMessageType.TEXT)
+                .content(content)
+                .build();
     }
 
-    public static GuildChatMessage createSystemMessage(Long guildId, ChatMessageType type,
-                                                        String content) {
+    public static GuildChatMessage createSystemMessage(
+            Long guildId, ChatMessageType type, String content) {
         return GuildChatMessage.builder()
-            .guildId(guildId)
-            .messageType(type)
-            .content(content)
-            .build();
+                .guildId(guildId)
+                .messageType(type)
+                .content(content)
+                .build();
     }
 
-    public static GuildChatMessage createSystemMessage(Long guildId, ChatMessageType type,
-                                                        String content, String referenceType,
-                                                        Long referenceId) {
+    public static GuildChatMessage createSystemMessage(
+            Long guildId,
+            ChatMessageType type,
+            String content,
+            String referenceType,
+            Long referenceId) {
         return GuildChatMessage.builder()
-            .guildId(guildId)
-            .messageType(type)
-            .content(content)
-            .referenceType(referenceType)
-            .referenceId(referenceId)
-            .build();
+                .guildId(guildId)
+                .messageType(type)
+                .content(content)
+                .referenceType(referenceType)
+                .referenceId(referenceId)
+                .build();
     }
 
     public void delete() {
         this.isDeleted = true;
         this.deletedAt = LocalDateTime.now();
         this.content = "[삭제된 메시지입니다]";
+        // LUT-590: 삭제된 메시지의 사진이 계속 보이지 않게 함께 걷어낸다 (파일 정리는 서비스가 커밋 후 수행)
+        this.imageUrl = null;
     }
 
     public boolean isSystemMessage() {

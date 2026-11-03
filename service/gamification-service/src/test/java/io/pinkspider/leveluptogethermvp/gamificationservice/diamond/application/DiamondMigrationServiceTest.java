@@ -29,28 +29,23 @@ import org.springframework.data.domain.Pageable;
 @ExtendWith(MockitoExtension.class)
 class DiamondMigrationServiceTest {
 
-    @Mock
-    private UserExperienceRepository userExperienceRepository;
+    @Mock private UserExperienceRepository userExperienceRepository;
 
-    @Mock
-    private DiamondHistoryRepository diamondHistoryRepository;
+    @Mock private DiamondHistoryRepository diamondHistoryRepository;
 
-    @Mock
-    private DiamondService diamondService;
+    @Mock private DiamondService diamondService;
 
-    @Mock
-    private MissionQueryFacade missionQueryFacade;
+    @Mock private MissionQueryFacade missionQueryFacade;
 
-    @InjectMocks
-    private DiamondMigrationService migrationService;
+    @InjectMocks private DiamondMigrationService migrationService;
 
     private UserExperience userExp(String userId, int level) {
         return UserExperience.builder()
-            .userId(userId)
-            .currentLevel(level)
-            .currentExp(0)
-            .totalExp(0)
-            .build();
+                .userId(userId)
+                .currentLevel(level)
+                .currentExp(0)
+                .totalExp(0)
+                .build();
     }
 
     @Test
@@ -58,16 +53,16 @@ class DiamondMigrationServiceTest {
     void migratesLevelAndMissionBookDiamonds() {
         UserExperience user1 = userExp("user-1", 10);
         when(userExperienceRepository.findAll(any(Pageable.class)))
-            .thenReturn(new PageImpl<>(List.of(user1)));
+                .thenReturn(new PageImpl<>(List.of(user1)));
 
         when(diamondService.awardLevelUpDiamondsAggregated("user-1", 10)).thenReturn(9);
         when(missionQueryFacade.findClearedMissionBookTemplateIds("user-1"))
-            .thenReturn(Set.of(101L, 102L));
+                .thenReturn(Set.of(101L, 102L));
         when(diamondHistoryRepository.findAwardedSourceIds(
-            eq("user-1"), eq(DiamondType.MISSION_BOOK), anySet()))
-            .thenReturn(List.of(101L)); // 101 은 이미 지급됨
+                        eq("user-1"), eq(DiamondType.MISSION_BOOK), anySet()))
+                .thenReturn(List.of(101L)); // 101 은 이미 지급됨
         when(missionQueryFacade.getMissionBookTemplateTitles(Set.of(102L)))
-            .thenReturn(Map.of(102L, "아침 명상"));
+                .thenReturn(Map.of(102L, "아침 명상"));
         when(diamondService.awardMissionBookDiamond("user-1", 102L, "아침 명상")).thenReturn(true);
 
         DiamondMigrationResultResponse result = migrationService.migrate();
@@ -82,7 +77,7 @@ class DiamondMigrationServiceTest {
     @DisplayName("클리어한 미션북이 없으면 미션북 지급을 건너뛴다")
     void skipsMissionBookWhenNoneCleared() {
         when(userExperienceRepository.findAll(any(Pageable.class)))
-            .thenReturn(new PageImpl<>(List.of(userExp("user-1", 3))));
+                .thenReturn(new PageImpl<>(List.of(userExp("user-1", 3))));
         when(diamondService.awardLevelUpDiamondsAggregated("user-1", 3)).thenReturn(2);
         when(missionQueryFacade.findClearedMissionBookTemplateIds("user-1")).thenReturn(Set.of());
 
@@ -98,12 +93,13 @@ class DiamondMigrationServiceTest {
         UserExperience bad = userExp("bad-user", 5);
         UserExperience good = userExp("good-user", 2);
         when(userExperienceRepository.findAll(any(Pageable.class)))
-            .thenReturn(new PageImpl<>(List.of(bad, good)));
+                .thenReturn(new PageImpl<>(List.of(bad, good)));
 
         when(diamondService.awardLevelUpDiamondsAggregated("bad-user", 5))
-            .thenThrow(new RuntimeException("boom"));
+                .thenThrow(new RuntimeException("boom"));
         when(diamondService.awardLevelUpDiamondsAggregated("good-user", 2)).thenReturn(1);
-        when(missionQueryFacade.findClearedMissionBookTemplateIds("good-user")).thenReturn(Set.of());
+        when(missionQueryFacade.findClearedMissionBookTemplateIds("good-user"))
+                .thenReturn(Set.of());
 
         DiamondMigrationResultResponse result = migrationService.migrate();
 

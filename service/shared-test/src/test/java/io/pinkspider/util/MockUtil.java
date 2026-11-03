@@ -12,8 +12,13 @@ public class MockUtil {
 
     public static <T> T readJsonFileToClass(String jsonFileName, Class<T> ofClass) {
         try {
-            File resource = new File(
-                Objects.requireNonNull(MockUtil.class.getClassLoader().getResource(jsonFileName)).getFile());
+            File resource =
+                    new File(
+                            Objects.requireNonNull(
+                                            MockUtil.class
+                                                    .getClassLoader()
+                                                    .getResource(jsonFileName))
+                                    .getFile());
 
             byte[] bytes = Files.readAllBytes(resource.toPath());
             String text = new String(bytes, StandardCharsets.UTF_8);
@@ -29,8 +34,13 @@ public class MockUtil {
 
     public static <T> T readJsonFileToClassList(String jsonFileName, TypeReference<T> typeRef) {
         try {
-            File resource = new File(
-                Objects.requireNonNull(MockUtil.class.getClassLoader().getResource(jsonFileName)).getFile());
+            File resource =
+                    new File(
+                            Objects.requireNonNull(
+                                            MockUtil.class
+                                                    .getClassLoader()
+                                                    .getResource(jsonFileName))
+                                    .getFile());
             byte[] bytes = Files.readAllBytes(resource.toPath());
             String text = new String(bytes, StandardCharsets.UTF_8);
 
@@ -45,8 +55,13 @@ public class MockUtil {
 
     public static <T> T convertJsonToProjection(String jsonFileName, Class<T> ofClass) {
         try {
-            File resource = new File(
-                Objects.requireNonNull(MockUtil.class.getClassLoader().getResource(jsonFileName)).getFile());
+            File resource =
+                    new File(
+                            Objects.requireNonNull(
+                                            MockUtil.class
+                                                    .getClassLoader()
+                                                    .getResource(jsonFileName))
+                                    .getFile());
 
             byte[] bytes = Files.readAllBytes(resource.toPath());
             String text = new String(bytes, StandardCharsets.UTF_8);
@@ -63,8 +78,13 @@ public class MockUtil {
 
     public static <T> T convertJsonToProjectionList(String jsonFileName, TypeReference<T> typeRef) {
         try {
-            File resource = new File(
-                Objects.requireNonNull(MockUtil.class.getClassLoader().getResource(jsonFileName)).getFile());
+            File resource =
+                    new File(
+                            Objects.requireNonNull(
+                                            MockUtil.class
+                                                    .getClassLoader()
+                                                    .getResource(jsonFileName))
+                                    .getFile());
             byte[] bytes = Files.readAllBytes(resource.toPath());
             String text = new String(bytes, StandardCharsets.UTF_8);
 

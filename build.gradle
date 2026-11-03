@@ -35,7 +35,7 @@ subprojects {
 
     spotless {
         java {
-            target 'src/**/*.java'
+            target 'src/**/*.java', '*-service/src/**/*.java', 'shared-test/src/**/*.java'
             targetExclude '**/build/generated/**', '**/build/**'
             googleJavaFormat('1.22.0').aosp().reflowLongStrings()
             removeUnusedImports()

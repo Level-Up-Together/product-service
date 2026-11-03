@@ -28,12 +28,13 @@ import org.hibernate.annotations.Comment;
 @SuperBuilder
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @AllArgsConstructor
-@Table(name = "mission_comment",
-    indexes = {
-        @Index(name = "idx_mission_comment_mission", columnList = "mission_id"),
-        @Index(name = "idx_mission_comment_user", columnList = "user_id"),
-        @Index(name = "idx_mission_comment_created", columnList = "created_at DESC")
-    })
+@Table(
+        name = "mission_comment",
+        indexes = {
+            @Index(name = "idx_mission_comment_mission", columnList = "mission_id"),
+            @Index(name = "idx_mission_comment_user", columnList = "user_id"),
+            @Index(name = "idx_mission_comment_created", columnList = "created_at DESC")
+        })
 @Comment("미션 댓글")
 public class MissionComment extends LocalDateTimeBaseEntity {
 

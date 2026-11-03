@@ -6,9 +6,4 @@ import java.time.LocalDateTime;
 
 @JsonNaming(SnakeCaseStrategy.class)
 public record UserBlacklistAdminRequest(
-    String blacklistType,
-    String reason,
-    LocalDateTime endedAt,
-    Long adminId
-) {
-}
+        String blacklistType, String reason, LocalDateTime endedAt, Long adminId) {}

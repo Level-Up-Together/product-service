@@ -8,13 +8,11 @@ import lombok.Builder;
 @Builder
 @JsonNaming(SnakeCaseStrategy.class)
 public record UserGuildInfoAdminResponse(
-    Long guildId,
-    String guildName,
-    String guildImageUrl,
-    Integer guildLevel,
-    String role,
-    LocalDateTime joinedAt,
-    Integer memberCount,
-    Integer maxMembers
-) {
-}
+        Long guildId,
+        String guildName,
+        String guildImageUrl,
+        Integer guildLevel,
+        String role,
+        LocalDateTime joinedAt,
+        Integer memberCount,
+        Integer maxMembers) {}

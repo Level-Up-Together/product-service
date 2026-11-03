@@ -22,13 +22,13 @@ import lombok.experimental.SuperBuilder;
 import org.hibernate.annotations.Comment;
 
 @Entity
-@Table(name = "season_reward_history",
-    indexes = {
-        @Index(name = "idx_season_reward_history_season", columnList = "season_id"),
-        @Index(name = "idx_season_reward_history_user", columnList = "user_id"),
-        @Index(name = "idx_season_reward_history_status", columnList = "season_id, status")
-    }
-)
+@Table(
+        name = "season_reward_history",
+        indexes = {
+            @Index(name = "idx_season_reward_history_season", columnList = "season_id"),
+            @Index(name = "idx_season_reward_history_user", columnList = "user_id"),
+            @Index(name = "idx_season_reward_history_status", columnList = "season_id, status")
+        })
 @Getter
 @Setter
 @SuperBuilder
@@ -67,6 +67,15 @@ public class SeasonRewardHistory extends LocalDateTimeBaseEntity {
     @Column(name = "title_id", nullable = false)
     @Comment("부여된 칭호 ID")
     private Long titleId;
+
+    /** LUT-339: 지급된 보상 아이템 (NULL이면 칭호만 지급) */
+    @Column(name = "item_id")
+    @Comment("보상 아이템 ID")
+    private Long itemId;
+
+    @Column(name = "item_name", length = 100)
+    @Comment("보상 아이템 이름 (비정규화)")
+    private String itemName;
 
     @Column(name = "title_name", length = 100)
     @Comment("부여된 칭호 이름")

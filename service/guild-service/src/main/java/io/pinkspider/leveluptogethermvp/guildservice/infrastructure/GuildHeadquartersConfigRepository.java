@@ -7,8 +7,11 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
 
 @Repository
-public interface GuildHeadquartersConfigRepository extends JpaRepository<GuildHeadquartersConfig, Long> {
+public interface GuildHeadquartersConfigRepository
+        extends JpaRepository<GuildHeadquartersConfig, Long> {
 
-    @Query("SELECT c FROM GuildHeadquartersConfig c WHERE c.isActive = true ORDER BY c.id ASC LIMIT 1")
+    @Query(
+            "SELECT c FROM GuildHeadquartersConfig c WHERE c.isActive = true ORDER BY c.id ASC"
+                    + " LIMIT 1")
     Optional<GuildHeadquartersConfig> findActiveConfig();
 }

@@ -25,11 +25,8 @@ public class CryptoMetaDataRedisConfig {
 
     @EventListener(ApplicationReadyEvent.class)
     public void initCryptoMetaData() {
-        CryptoMetaData cryptoMetaData = CryptoMetaData.builder()
-            .secretKey(secretKey)
-            .iv(iv)
-            .cipher(cipher)
-            .build();
+        CryptoMetaData cryptoMetaData =
+                CryptoMetaData.builder().secretKey(secretKey).iv(iv).cipher(cipher).build();
 
         CryptoMetaDataLoader.createCryptoMetaDataInRedis(cryptoMetaData);
         log.info("CryptoMetaData initialized in Redis - cipher: {}", cipher);

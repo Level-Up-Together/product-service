@@ -5,23 +5,26 @@ import feign.Logger;
 import feign.Request;
 import feign.RequestInterceptor;
 import feign.Retryer;
-import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
-import org.springframework.web.context.request.RequestContextHolder;
-import org.springframework.web.context.request.ServletRequestAttributes;
-
+import io.pinkspider.global.feign.admin.AdminInternalApiKeyInterceptor;
+import java.security.cert.X509Certificate;
+import java.util.concurrent.TimeUnit;
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.TrustManager;
 import javax.net.ssl.X509TrustManager;
-import java.security.cert.X509Certificate;
-import java.util.concurrent.TimeUnit;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.annotation.Bean;
+import org.springframework.web.context.request.RequestContextHolder;
+import org.springframework.web.context.request.ServletRequestAttributes;
 
 /**
- * 신고 상태 확인용 FeignClient 설정
- * - 짧은 타임아웃 (연결 1초, 읽기 2초)
- * - 재시도 없음 (실패 시 빠르게 fallback)
+ * 신고 상태 확인용 FeignClient 설정 - 짧은 타임아웃 (연결 1초, 읽기 2초) - 재시도 없음 (실패 시 빠르게 fallback)
+ *
+ * <p>Feign 클라이언트 전용 설정. {@code @FeignClient(configuration = ...)} 로만 참조되어 클라이언트별 자식 컨텍스트에 로드된다.
+ *
+ * <p>⚠ {@code @Configuration} 을 붙이지 말 것 — 컴포넌트 스캔으로 부모 컨텍스트에 올라가면 아래 {@code RequestInterceptor}(현재
+ * 요청의 Authorization 전달)와 trust-all {@code Client} 가 Google 번역·카카오 등 모든 Feign 클라이언트에 전역 적용된다. 실제로
+ * prod 에서 유저 JWT 가 Google Translation API 로 전달돼 401 이 났다.
  */
-@Configuration
 public class ReportFeignConfig {
 
     private static final String AUTHORIZATION_HEADER = "Authorization";
@@ -31,33 +34,36 @@ public class ReportFeignConfig {
         return Logger.Level.BASIC;
     }
 
-    /**
-     * 재시도 없음 - 실패 시 바로 반환
-     */
+    /** 재시도 없음 - 실패 시 바로 반환 */
     @Bean
     public Retryer reportFeignRetryer() {
         return Retryer.NEVER_RETRY;
     }
 
-    /**
-     * 짧은 타임아웃 설정
-     * - Connection timeout: 1초
-     * - Read timeout: 2초
-     */
+    /** 짧은 타임아웃 설정 - Connection timeout: 1초 - Read timeout: 2초 */
     @Bean
     public Request.Options reportFeignRequestOptions() {
         return new Request.Options(
-            1, TimeUnit.SECONDS,  // Connection timeout
-            2, TimeUnit.SECONDS,  // Read timeout
-            true                   // Follow redirects
-        );
+                1,
+                TimeUnit.SECONDS, // Connection timeout
+                2,
+                TimeUnit.SECONDS, // Read timeout
+                true // Follow redirects
+                );
+    }
+
+    /** LUT-686: admin 의 product 전용 경로(문의·신고 확인·내부 API)는 공유 키를 요구한다 — product 내부 API 키와 같은 값. */
+    @Bean
+    public RequestInterceptor adminInternalApiKeyInterceptor(
+            @Value("${app.security.internal-api.key:}") String internalApiKey) {
+        return new AdminInternalApiKeyInterceptor(internalApiKey);
     }
 
     @Bean
     public RequestInterceptor reportAuthorizationInterceptor() {
         return requestTemplate -> {
             ServletRequestAttributes attributes =
-                (ServletRequestAttributes) RequestContextHolder.getRequestAttributes();
+                    (ServletRequestAttributes) RequestContextHolder.getRequestAttributes();
             if (attributes != null) {
                 String authHeader = attributes.getRequest().getHeader(AUTHORIZATION_HEADER);
                 if (authHeader != null && !authHeader.isEmpty()) {
@@ -70,30 +76,28 @@ public class ReportFeignConfig {
     @Bean
     public Client reportFeignClient() {
         try {
-            TrustManager[] trustManagers = new TrustManager[]{
-                new X509TrustManager() {
-                    @Override
-                    public void checkClientTrusted(X509Certificate[] chain, String authType) {
-                    }
+            TrustManager[] trustManagers =
+                    new TrustManager[] {
+                        new X509TrustManager() {
+                            @Override
+                            public void checkClientTrusted(
+                                    X509Certificate[] chain, String authType) {}
 
-                    @Override
-                    public void checkServerTrusted(X509Certificate[] chain, String authType) {
-                    }
+                            @Override
+                            public void checkServerTrusted(
+                                    X509Certificate[] chain, String authType) {}
 
-                    @Override
-                    public X509Certificate[] getAcceptedIssuers() {
-                        return new X509Certificate[0];
-                    }
-                }
-            };
+                            @Override
+                            public X509Certificate[] getAcceptedIssuers() {
+                                return new X509Certificate[0];
+                            }
+                        }
+                    };
 
             SSLContext sslContext = SSLContext.getInstance("TLS");
             sslContext.init(null, trustManagers, new java.security.SecureRandom());
 
-            return new Client.Default(
-                sslContext.getSocketFactory(),
-                (hostname, session) -> true
-            );
+            return new Client.Default(sslContext.getSocketFactory(), (hostname, session) -> true);
         } catch (Exception e) {
             throw new RuntimeException("Failed to create Feign client with SSL bypass", e);
         }

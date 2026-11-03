@@ -9,17 +9,18 @@ import static org.mockito.Mockito.when;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.pinkspider.global.component.LmObjectMapper;
+import io.pinkspider.global.security.JwtUtil;
 import io.pinkspider.global.validation.KoreanTextNormalizer;
 import io.pinkspider.global.validation.NoProfanityValidator;
 import io.pinkspider.global.validation.ProfanityDetectionMode;
-import io.pinkspider.leveluptogethermvp.profanity.application.ProfanityDetectionEngine;
-import io.pinkspider.leveluptogethermvp.profanity.application.ProfanityValidationService;
-import io.pinkspider.leveluptogethermvp.profanity.domain.dto.ProfanityDetectionResult;
-import io.pinkspider.global.security.JwtUtil;
+import io.pinkspider.leveluptogethermvp.chatservice.application.ChatImageProperties;
 import io.pinkspider.leveluptogethermvp.gamificationservice.event.application.EventImageProperties;
 import io.pinkspider.leveluptogethermvp.gamificationservice.shop.application.ShopItemImageProperties;
 import io.pinkspider.leveluptogethermvp.guildservice.application.GuildImageProperties;
 import io.pinkspider.leveluptogethermvp.missionservice.application.MissionImageProperties;
+import io.pinkspider.leveluptogethermvp.profanity.application.ProfanityDetectionEngine;
+import io.pinkspider.leveluptogethermvp.profanity.application.ProfanityValidationService;
+import io.pinkspider.leveluptogethermvp.profanity.domain.dto.ProfanityDetectionResult;
 import io.pinkspider.leveluptogethermvp.userservice.mypage.application.ProfileImageProperties;
 import io.pinkspider.leveluptogethermvp.userservice.oauth.application.MultiDeviceTokenService;
 import java.util.List;
@@ -52,7 +53,6 @@ public class ControllerTestConfig implements WebMvcConfigurer {
         return new LmObjectMapper();
     }
 
-
     @Bean
     public MultiDeviceTokenService multiDeviceTokenService() {
         return mock(MultiDeviceTokenService.class);
@@ -61,9 +61,8 @@ public class ControllerTestConfig implements WebMvcConfigurer {
     // Security 완전 비활성화
     @Bean
     public SecurityFilterChain testSecurityFilterChain(HttpSecurity http) throws Exception {
-        http
-            .csrf(csrf -> csrf.disable())
-            .authorizeHttpRequests(auth -> auth.anyRequest().permitAll());
+        http.csrf(csrf -> csrf.disable())
+                .authorizeHttpRequests(auth -> auth.anyRequest().permitAll());
         return http.build();
     }
 
@@ -87,13 +86,14 @@ public class ControllerTestConfig implements WebMvcConfigurer {
             KoreanTextNormalizer koreanTextNormalizer) {
         ProfanityDetectionEngine mock = mock(ProfanityDetectionEngine.class);
         when(mock.detect(anyString(), any(ProfanityDetectionMode.class), anyBoolean(), anyInt()))
-            .thenReturn(ProfanityDetectionResult.notDetected());
+                .thenReturn(ProfanityDetectionResult.notDetected());
         return mock;
     }
 
     @Bean
     @Primary
-    public NoProfanityValidator noProfanityValidator(ProfanityDetectionEngine profanityDetectionEngine) {
+    public NoProfanityValidator noProfanityValidator(
+            ProfanityDetectionEngine profanityDetectionEngine) {
         return new NoProfanityValidator(profanityDetectionEngine);
     }
 
@@ -116,6 +116,15 @@ public class ControllerTestConfig implements WebMvcConfigurer {
         properties.setMaxSize(5242880);
         properties.setAllowedExtensions("jpg,jpeg,png,gif,webp");
         properties.setUrlPrefix("/uploads/missions");
+        return properties;
+    }
+
+    // 채팅·DM 이미지 업로드 설정 Mock (LUT-590 — ChatImageWebConfig 가 슬라이스에 올라온다)
+    @Bean
+    public ChatImageProperties chatImageProperties() {
+        ChatImageProperties properties = new ChatImageProperties();
+        properties.setPath("/tmp/test-uploads/chats");
+        properties.setUrlPrefix("/uploads/chats");
         return properties;
     }
 

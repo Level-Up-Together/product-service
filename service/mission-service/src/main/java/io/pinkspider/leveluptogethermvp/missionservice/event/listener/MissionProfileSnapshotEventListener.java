@@ -11,10 +11,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.event.TransactionPhase;
 import org.springframework.transaction.event.TransactionalEventListener;
 
-/**
- * 사용자 프로필 변경 시 Mission DB 스냅샷 동기화
- * MSA 전환 시 Kafka Consumer로 대체 예정
- */
+/** 사용자 프로필 변경 시 Mission DB 스냅샷 동기화 MSA 전환 시 Kafka Consumer로 대체 예정 */
 @Component
 @Slf4j
 @RequiredArgsConstructor
@@ -23,11 +20,17 @@ public class MissionProfileSnapshotEventListener {
     private final MissionCommentRepository missionCommentRepository;
 
     @Async(EVENT_EXECUTOR)
-    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    // LUT-653: 레벨업 경로는 UserLevelUpProfileSyncListener 가 AFTER_COMMIT 콜백 안(트랜잭션 동기화 해제 뒤)에서 재발행한다 —
+    // fallbackExecution 이 없으면 "활성 트랜잭션 없음"으로 버려져 레벨 스냅샷이 갱신되지 않았다
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT, fallbackExecution = true)
     public void handleUserProfileChanged(UserProfileChangedEvent event) {
         try {
-            int commentCount = missionCommentRepository.updateUserProfileByUserId(
-                event.userId(), event.nickname(), event.profileImageUrl(), event.level());
+            int commentCount =
+                    missionCommentRepository.updateUserProfileByUserId(
+                            event.userId(),
+                            event.nickname(),
+                            event.profileImageUrl(),
+                            event.level());
             log.info("Mission 스냅샷 동기화: userId={}, comments={}", event.userId(), commentCount);
         } catch (Exception e) {
             log.error("MissionProfileSync 실패: {}", e.getMessage(), e);

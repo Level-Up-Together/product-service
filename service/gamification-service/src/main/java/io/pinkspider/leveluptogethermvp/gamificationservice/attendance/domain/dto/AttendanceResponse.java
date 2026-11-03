@@ -27,14 +27,14 @@ public class AttendanceResponse {
 
     public static AttendanceResponse from(AttendanceRecord record) {
         return AttendanceResponse.builder()
-            .id(record.getId())
-            .userId(record.getUserId())
-            .attendanceDate(record.getAttendanceDate())
-            .consecutiveDays(record.getConsecutiveDays())
-            .rewardExp(record.getRewardExp())
-            .bonusRewardExp(record.getBonusRewardExp())
-            .totalRewardExp(record.getTotalRewardExp())
-            .createdAt(record.getCreatedAt())
-            .build();
+                .id(record.getId())
+                .userId(record.getUserId())
+                .attendanceDate(record.getAttendanceDate())
+                .consecutiveDays(record.getConsecutiveDays())
+                .rewardExp(record.getRewardExp())
+                .bonusRewardExp(record.getBonusRewardExp())
+                .totalRewardExp(record.getTotalRewardExp())
+                .createdAt(record.getCreatedAt())
+                .build();
     }
 }

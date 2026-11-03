@@ -1,8 +1,8 @@
 package io.pinkspider.leveluptogethermvp.userservice.profile.application;
 
+import io.pinkspider.global.facade.GamificationQueryFacade;
 import io.pinkspider.global.facade.dto.TitleInfoDto;
 import io.pinkspider.global.facade.dto.UserProfileInfo;
-import io.pinkspider.global.facade.GamificationQueryFacade;
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.entity.Users;
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.infrastructure.UserRepository;
 import java.util.List;
@@ -15,11 +15,7 @@ import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-/**
- * 사용자 프로필 캐싱 서비스
- * - 피드 생성, 길드 멤버 조회 등에서 사용되는 사용자 정보 캐싱
- * - 다수의 서비스 호출을 하나로 통합하여 성능 개선
- */
+/** 사용자 프로필 캐싱 서비스 - 피드 생성, 길드 멤버 조회 등에서 사용되는 사용자 정보 캐싱 - 다수의 서비스 호출을 하나로 통합하여 성능 개선 */
 @Service
 @Slf4j
 @Transactional(readOnly = true)
@@ -28,16 +24,15 @@ public class UserProfileCacheService {
     private final UserRepository userRepository;
     private final GamificationQueryFacade gamificationQueryFacadeService;
 
-    public UserProfileCacheService(UserRepository userRepository,
-                                    GamificationQueryFacade gamificationQueryFacadeService) {
+    public UserProfileCacheService(
+            UserRepository userRepository, GamificationQueryFacade gamificationQueryFacadeService) {
         this.userRepository = userRepository;
         this.gamificationQueryFacadeService = gamificationQueryFacadeService;
     }
 
     /**
-     * 사용자 프로필 정보 조회 (캐싱)
-     * - nickname, picture, level, titleName, titleRarity, titleColorCode 포함
-     * - TTL: 5분 (RedisConfig에서 설정)
+     * 사용자 프로필 정보 조회 (캐싱) - nickname, picture, level, titleName, titleRarity, titleColorCode 포함 -
+     * TTL: 5분 (RedisConfig에서 설정)
      */
     @Cacheable(value = "userProfile", key = "#userId")
     public UserProfileInfo getUserProfile(String userId) {
@@ -54,55 +49,38 @@ public class UserProfileCacheService {
         int level = gamificationQueryFacadeService.getUserLevel(userId);
 
         // 사용자 칭호 조회 (캐시 사용)
-        TitleInfoDto titleInfo = gamificationQueryFacadeService.getCombinedEquippedTitleInfo(userId);
+        TitleInfoDto titleInfo =
+                gamificationQueryFacadeService.getCombinedEquippedTitleInfo(userId);
 
         return new UserProfileInfo(
-            userId,
-            user.getNickname(),
-            user.getPicture(),
-            level,
-            titleInfo.name(),
-            titleInfo.rarity(),
-            titleInfo.colorCode()
-        );
+                userId,
+                user.getNickname(),
+                user.getPicture(),
+                level,
+                titleInfo.name(),
+                titleInfo.rarity(),
+                titleInfo.colorCode());
     }
 
-    /**
-     * 사용자 프로필 캐시 무효화
-     * - 닉네임, 프로필 사진, 레벨, 칭호 변경 시 호출
-     */
-    /**
-     * 여러 사용자 프로필 배치 조회
-     * - 개별 캐시 활용 (userId별 @Cacheable)
-     * - 랭킹, 멤버 목록 등 배치 조회에 사용
-     */
+    /** 사용자 프로필 캐시 무효화 - 닉네임, 프로필 사진, 레벨, 칭호 변경 시 호출 */
+    /** 여러 사용자 프로필 배치 조회 - 개별 캐시 활용 (userId별 @Cacheable) - 랭킹, 멤버 목록 등 배치 조회에 사용 */
     public Map<String, UserProfileInfo> getUserProfiles(List<String> userIds) {
         if (userIds == null || userIds.isEmpty()) {
             return Map.of();
         }
         return userIds.stream()
-            .distinct()
-            .collect(Collectors.toMap(
-                Function.identity(),
-                this::getUserProfile
-            ));
+                .distinct()
+                .collect(Collectors.toMap(Function.identity(), this::getUserProfile));
     }
 
-    /**
-     * 사용자 닉네임만 조회 (캐시 활용)
-     * - 채팅 알림, 이벤트 발행 등 닉네임만 필요한 경우
-     */
+    /** 사용자 닉네임만 조회 (캐시 활용) - 채팅 알림, 이벤트 발행 등 닉네임만 필요한 경우 */
     public String getUserNickname(String userId) {
         return getUserProfile(userId).nickname();
     }
 
-    /**
-     * 사용자 이메일 조회 (캐싱 없음 — 문의 등록 등 드문 호출용)
-     */
+    /** 사용자 이메일 조회 (캐싱 없음 — 문의 등록 등 드문 호출용) */
     public String getUserEmail(String userId) {
-        return userRepository.findById(userId)
-            .map(Users::getEmail)
-            .orElse(null);
+        return userRepository.findById(userId).map(Users::getEmail).orElse(null);
     }
 
     @CacheEvict(value = "userProfile", key = "#userId")

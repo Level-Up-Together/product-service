@@ -36,11 +36,15 @@ public class MissionTemplateAdminService {
     public MissionTemplateAdminPageResponse searchTemplates(String keyword, Pageable pageable) {
         Page<MissionTemplateAdminResponse> page;
         if (keyword != null && !keyword.isBlank()) {
-            page = templateRepository.searchTemplatesAdmin(keyword, pageable)
-                .map(MissionTemplateAdminResponse::from);
+            page =
+                    templateRepository
+                            .searchTemplatesAdmin(keyword, pageable)
+                            .map(MissionTemplateAdminResponse::from);
         } else {
-            page = templateRepository.findAllByOrderByCreatedAtDesc(pageable)
-                .map(MissionTemplateAdminResponse::from);
+            page =
+                    templateRepository
+                            .findAllByOrderByCreatedAtDesc(pageable)
+                            .map(MissionTemplateAdminResponse::from);
         }
         return MissionTemplateAdminPageResponse.from(page);
     }
@@ -48,14 +52,19 @@ public class MissionTemplateAdminService {
     @Transactional(readOnly = true, transactionManager = "missionTransactionManager")
     public List<MissionTemplateAdminResponse> getAllTemplates() {
         return templateRepository.findAll().stream()
-            .map(MissionTemplateAdminResponse::from)
-            .collect(Collectors.toList());
+                .map(MissionTemplateAdminResponse::from)
+                .collect(Collectors.toList());
     }
 
     @Transactional(readOnly = true, transactionManager = "missionTransactionManager")
     public MissionTemplateAdminResponse getTemplate(Long id) {
-        MissionTemplate template = templateRepository.findById(id)
-            .orElseThrow(() -> new CustomException("050201", "error.mission.template.not_found"));
+        MissionTemplate template =
+                templateRepository
+                        .findById(id)
+                        .orElseThrow(
+                                () ->
+                                        new CustomException(
+                                                "050201", "error.mission.template.not_found"));
         return MissionTemplateAdminResponse.from(template);
     }
 
@@ -66,7 +75,8 @@ public class MissionTemplateAdminService {
         String customCategory = null;
 
         if (request.categoryId() != null) {
-            MissionCategoryResponse categoryResponse = missionCategoryService.getCategory(request.categoryId());
+            MissionCategoryResponse categoryResponse =
+                    missionCategoryService.getCategory(request.categoryId());
             if (!categoryResponse.getIsActive()) {
                 throw new IllegalArgumentException("비활성화된 카테고리입니다.");
             }
@@ -76,40 +86,61 @@ public class MissionTemplateAdminService {
             customCategory = request.customCategory().trim();
         }
 
-        MissionTemplate template = MissionTemplate.builder()
-            .title(request.title())
-            .titleEn(request.titleEn())
-            .titleAr(request.titleAr())
-            .titleJa(request.titleJa())
-            .description(request.description())
-            .descriptionEn(request.descriptionEn())
-            .descriptionAr(request.descriptionAr())
-            .descriptionJa(request.descriptionJa())
-            .visibility(request.visibility() != null ? MissionVisibility.valueOf(request.visibility()) : MissionVisibility.PUBLIC)
-            .source(request.source() != null ? MissionSource.valueOf(request.source()) : MissionSource.SYSTEM)
-            .participationType(request.participationType() != null
-                ? MissionParticipationType.valueOf(request.participationType()) : MissionParticipationType.DIRECT)
-            .missionInterval(request.missionInterval() != null
-                ? MissionInterval.valueOf(request.missionInterval()) : MissionInterval.DAILY)
-            .durationMinutes(request.durationMinutes())
-            .bonusExpOnFullCompletion(request.bonusExpOnFullCompletion() != null ? request.bonusExpOnFullCompletion() : 50)
-            .isPinned(Boolean.TRUE.equals(request.isPinned()))
-            .targetDurationMinutes(request.targetDurationMinutes())
-            .dailyExecutionLimit(request.dailyExecutionLimit())
-            .categoryId(categoryId)
-            .categoryName(categoryName)
-            .customCategory(customCategory)
-            .creatorId("ADMIN")
-            .build();
+        MissionTemplate template =
+                MissionTemplate.builder()
+                        .title(request.title())
+                        .titleEn(request.titleEn())
+                        .titleAr(request.titleAr())
+                        .titleJa(request.titleJa())
+                        .description(request.description())
+                        .descriptionEn(request.descriptionEn())
+                        .descriptionAr(request.descriptionAr())
+                        .descriptionJa(request.descriptionJa())
+                        .visibility(
+                                request.visibility() != null
+                                        ? MissionVisibility.valueOf(request.visibility())
+                                        : MissionVisibility.PUBLIC)
+                        .source(
+                                request.source() != null
+                                        ? MissionSource.valueOf(request.source())
+                                        : MissionSource.SYSTEM)
+                        .participationType(
+                                request.participationType() != null
+                                        ? MissionParticipationType.valueOf(
+                                                request.participationType())
+                                        : MissionParticipationType.DIRECT)
+                        .missionInterval(
+                                request.missionInterval() != null
+                                        ? MissionInterval.valueOf(request.missionInterval())
+                                        : MissionInterval.DAILY)
+                        .durationMinutes(request.durationMinutes())
+                        .bonusExpOnFullCompletion(
+                                request.bonusExpOnFullCompletion() != null
+                                        ? request.bonusExpOnFullCompletion()
+                                        : 50)
+                        .isPinned(Boolean.TRUE.equals(request.isPinned()))
+                        .targetDurationMinutes(request.targetDurationMinutes())
+                        .dailyExecutionLimit(request.dailyExecutionLimit())
+                        .categoryId(categoryId)
+                        .categoryName(categoryName)
+                        .customCategory(customCategory)
+                        .creatorId("ADMIN")
+                        .build();
 
         MissionTemplate saved = templateRepository.save(template);
         log.info("미션 템플릿 생성 (Admin): {} (ID: {})", request.title(), saved.getId());
         return MissionTemplateAdminResponse.from(saved);
     }
 
-    public MissionTemplateAdminResponse updateTemplate(Long id, MissionTemplateAdminRequest request) {
-        MissionTemplate template = templateRepository.findById(id)
-            .orElseThrow(() -> new CustomException("050201", "error.mission.template.not_found"));
+    public MissionTemplateAdminResponse updateTemplate(
+            Long id, MissionTemplateAdminRequest request) {
+        MissionTemplate template =
+                templateRepository
+                        .findById(id)
+                        .orElseThrow(
+                                () ->
+                                        new CustomException(
+                                                "050201", "error.mission.template.not_found"));
 
         template.setTitle(request.title());
         template.setTitleEn(request.titleEn());
@@ -126,7 +157,8 @@ public class MissionTemplateAdminService {
             template.setSource(MissionSource.valueOf(request.source()));
         }
         if (request.participationType() != null) {
-            template.setParticipationType(MissionParticipationType.valueOf(request.participationType()));
+            template.setParticipationType(
+                    MissionParticipationType.valueOf(request.participationType()));
         }
         if (request.missionInterval() != null) {
             template.setMissionInterval(MissionInterval.valueOf(request.missionInterval()));
@@ -141,7 +173,8 @@ public class MissionTemplateAdminService {
 
         // 카테고리 처리: categoryId가 있으면 카테고리 이름 조회 (스냅샷 패턴)
         if (request.categoryId() != null) {
-            MissionCategoryResponse categoryResponse = missionCategoryService.getCategory(request.categoryId());
+            MissionCategoryResponse categoryResponse =
+                    missionCategoryService.getCategory(request.categoryId());
             if (!categoryResponse.getIsActive()) {
                 throw new IllegalArgumentException("비활성화된 카테고리입니다.");
             }
@@ -161,11 +194,12 @@ public class MissionTemplateAdminService {
         MissionTemplate saved = templateRepository.save(template);
 
         // QA-160: 복제된 미션들에 어드민 정책값 전파 (duration/target/bonusExp).
-        int propagated = missionRepository.updateRewardFieldsByBaseMissionId(
-            id,
-            saved.getDurationMinutes(),
-            saved.getTargetDurationMinutes(),
-            saved.getBonusExpOnFullCompletion());
+        int propagated =
+                missionRepository.updateRewardFieldsByBaseMissionId(
+                        id,
+                        saved.getDurationMinutes(),
+                        saved.getTargetDurationMinutes(),
+                        saved.getBonusExpOnFullCompletion());
         if (propagated > 0) {
             log.info("템플릿 정책 전파: templateId={}, 업데이트된 미션 {}개", id, propagated);
         }
@@ -190,6 +224,6 @@ public class MissionTemplateAdminService {
     @Transactional(readOnly = true, transactionManager = "missionTransactionManager")
     public Long countBySourceAndParticipationType(String source, String participationType) {
         return templateRepository.countBySourceAndParticipationType(
-            MissionSource.valueOf(source), MissionParticipationType.valueOf(participationType));
+                MissionSource.valueOf(source), MissionParticipationType.valueOf(participationType));
     }
 }

@@ -18,8 +18,9 @@ public class GuildHelper {
     private final MissionCategoryService missionCategoryService;
 
     public Guild findActiveGuildById(Long guildId) {
-        return guildRepository.findByIdAndIsActiveTrue(guildId)
-            .orElseThrow(() -> new IllegalArgumentException("길드를 찾을 수 없습니다: " + guildId));
+        return guildRepository
+                .findByIdAndIsActiveTrue(guildId)
+                .orElseThrow(() -> new IllegalArgumentException("길드를 찾을 수 없습니다: " + guildId));
     }
 
     public void validateMaster(Guild guild, String userId) {
@@ -29,14 +30,21 @@ public class GuildHelper {
     }
 
     public GuildResponse buildGuildResponseWithCategory(Guild guild, int memberCount) {
+        return buildGuildResponseWithCategory(guild, memberCount, null);
+    }
+
+    /** LUT-255: locale에 맞는 카테고리명으로 응답 구성 (locale null이면 한국어 기본값) */
+    public GuildResponse buildGuildResponseWithCategory(
+            Guild guild, int memberCount, String locale) {
         String categoryName = null;
         String categoryIcon = null;
 
         if (guild.getCategoryId() != null) {
             try {
-                MissionCategoryResponse category = missionCategoryService.getCategory(guild.getCategoryId());
+                MissionCategoryResponse category =
+                        missionCategoryService.getCategory(guild.getCategoryId());
                 if (category != null) {
-                    categoryName = category.getName();
+                    categoryName = category.getLocalizedName(locale);
                     categoryIcon = category.getIcon();
                 }
             } catch (Exception e) {

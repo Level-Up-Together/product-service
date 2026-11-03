@@ -1,9 +1,9 @@
 package io.pinkspider.leveluptogethermvp.feedservice.event.listener;
 
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
-import static org.mockito.ArgumentMatchers.anyLong;
 
 import io.pinkspider.global.event.MissionDeletedEvent;
 import io.pinkspider.global.event.MissionFeedImageChangedEvent;
@@ -22,11 +22,9 @@ import org.mockito.junit.jupiter.MockitoExtension;
 @DisplayName("MissionFeedEventListener 테스트")
 class MissionFeedEventListenerTest {
 
-    @Mock
-    private FeedCommandService feedCommandService;
+    @Mock private FeedCommandService feedCommandService;
 
-    @InjectMocks
-    private MissionFeedEventListener eventListener;
+    @InjectMocks private MissionFeedEventListener eventListener;
 
     @Nested
     @DisplayName("피드 이미지 변경 이벤트")
@@ -38,7 +36,7 @@ class MissionFeedEventListenerTest {
             List<String> urls = List.of("https://example.com/image.jpg");
             var event = new MissionFeedImageChangedEvent("user-123", 1L, urls);
             eventListener.handleFeedImageChanged(event);
-            verify(feedCommandService).updateFeedImagesByExecutionId(1L, urls);
+            verify(feedCommandService).updateFeedImagesByExecutionId(1L, "user-123", urls);
         }
 
         @Test
@@ -46,7 +44,7 @@ class MissionFeedEventListenerTest {
         void shouldDeleteFeedImage() {
             var event = MissionFeedImageChangedEvent.single("user-123", 1L, null);
             eventListener.handleFeedImageChanged(event);
-            verify(feedCommandService).updateFeedImagesByExecutionId(1L, List.of());
+            verify(feedCommandService).updateFeedImagesByExecutionId(1L, "user-123", List.of());
         }
 
         @Test
@@ -55,7 +53,8 @@ class MissionFeedEventListenerTest {
             List<String> urls = List.of("https://example.com/image.jpg");
             var event = new MissionFeedImageChangedEvent("user-123", 1L, urls);
             doThrow(new RuntimeException("DB error"))
-                .when(feedCommandService).updateFeedImagesByExecutionId(1L, urls);
+                    .when(feedCommandService)
+                    .updateFeedImagesByExecutionId(1L, "user-123", urls);
             eventListener.handleFeedImageChanged(event);
         }
     }
@@ -69,7 +68,7 @@ class MissionFeedEventListenerTest {
         void shouldDeleteFeedByExecutionId() {
             var event = new MissionFeedUnsharedEvent("user-123", 1L);
             eventListener.handleFeedUnshared(event);
-            verify(feedCommandService).deleteFeedByExecutionId(1L);
+            verify(feedCommandService).deleteFeedByExecutionId(1L, "user-123");
         }
 
         @Test
@@ -77,7 +76,8 @@ class MissionFeedEventListenerTest {
         void shouldNotPropagateException() {
             var event = new MissionFeedUnsharedEvent("user-123", 1L);
             doThrow(new RuntimeException("DB error"))
-                .when(feedCommandService).deleteFeedByExecutionId(1L);
+                    .when(feedCommandService)
+                    .deleteFeedByExecutionId(1L, "user-123");
             eventListener.handleFeedUnshared(event);
         }
     }

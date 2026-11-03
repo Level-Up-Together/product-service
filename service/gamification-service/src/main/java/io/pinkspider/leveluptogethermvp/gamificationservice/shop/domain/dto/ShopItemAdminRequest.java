@@ -36,11 +36,27 @@ public class ShopItemAdminRequest {
     @Size(max = 50, message = "아이템명(일본어)은 50자 이하이어야 합니다.")
     private String nameJa;
 
+    @Size(max = 2000, message = "아이템 설명은 2000자 이하이어야 합니다.")
+    private String description;
+
+    @Size(max = 2000, message = "아이템 설명(영어)은 2000자 이하이어야 합니다.")
+    private String descriptionEn;
+
+    @Size(max = 2000, message = "아이템 설명(아랍어)은 2000자 이하이어야 합니다.")
+    private String descriptionAr;
+
+    @Size(max = 2000, message = "아이템 설명(일본어)은 2000자 이하이어야 합니다.")
+    private String descriptionJa;
+
     @NotNull(message = "아이템 타입은 필수입니다.")
     private ShopItemType itemType;
 
     @NotNull(message = "희귀도는 필수입니다.")
     private TitleRarity rarity;
+
+    /** LUT-341: EFFECT 타입 전용 이펙트 코드 — 그 외 타입에서는 null로 정규화된다 */
+    @Size(max = 50, message = "이펙트 코드는 50자 이하이어야 합니다.")
+    private String effectCode;
 
     @Size(max = 500, message = "이미지 URL은 500자 이하이어야 합니다.")
     private String imageUrl;

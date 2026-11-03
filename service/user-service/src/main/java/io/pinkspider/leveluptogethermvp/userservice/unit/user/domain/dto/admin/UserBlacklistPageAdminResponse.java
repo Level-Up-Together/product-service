@@ -8,12 +8,10 @@ import lombok.Builder;
 @Builder
 @JsonNaming(SnakeCaseStrategy.class)
 public record UserBlacklistPageAdminResponse(
-    List<BlacklistListItemAdminResponse> content,
-    int page,
-    int size,
-    long totalElements,
-    int totalPages,
-    boolean first,
-    boolean last
-) {
-}
+        List<BlacklistListItemAdminResponse> content,
+        int page,
+        int size,
+        long totalElements,
+        int totalPages,
+        boolean first,
+        boolean last) {}

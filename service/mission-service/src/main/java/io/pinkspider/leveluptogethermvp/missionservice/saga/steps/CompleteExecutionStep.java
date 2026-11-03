@@ -7,20 +7,20 @@ import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.MissionExec
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.MissionParticipant;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.ExecutionStatus;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionExecutionMode;
-import java.time.Duration;
-import java.util.function.Predicate;
+import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionSource;
+import io.pinkspider.leveluptogethermvp.missionservice.domain.policy.MissionExpPolicy;
 import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.DailyMissionInstanceRepository;
 import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.MissionExecutionRepository;
 import io.pinkspider.leveluptogethermvp.missionservice.saga.MissionCompletionContext;
+import java.time.Duration;
+import java.util.function.Predicate;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
-/**
- * Step 2: 미션 수행 완료 처리
- */
+/** Step 2: 미션 수행 완료 처리 */
 @Slf4j
 @Component
 @RequiredArgsConstructor
@@ -63,12 +63,16 @@ public class CompleteExecutionStep implements SagaStep<MissionCompletionContext>
             // SIMPLE 모드: 일일 EXP 한도(10회) 도달 시 EXP=0으로 처리
             Mission mission = context.getMission();
             boolean awardSimpleExp = true;
+            long simpleCompletedBefore = -1;
             if (mission != null && mission.getExecutionMode() == MissionExecutionMode.SIMPLE) {
-                long regular = executionRepository.countSimpleCompletedByUserIdAndDate(
-                    context.getUserId(), execution.getExecutionDate());
-                long pinned = dailyMissionInstanceRepository.countSimpleCompletedByUserIdAndDate(
-                    context.getUserId(), execution.getExecutionDate());
-                if ((regular + pinned) >= MissionExecutionMode.SIMPLE_DAILY_LIMIT) {
+                long regular =
+                        executionRepository.countSimpleCompletedByUserIdAndDate(
+                                context.getUserId(), execution.getExecutionDate());
+                long pinned =
+                        dailyMissionInstanceRepository.countSimpleCompletedByUserIdAndDate(
+                                context.getUserId(), execution.getExecutionDate());
+                simpleCompletedBefore = regular + pinned;
+                if (simpleCompletedBefore >= MissionExecutionMode.SIMPLE_DAILY_LIMIT) {
                     awardSimpleExp = false;
                     context.setDailySimpleExpCapped(true);
                 }
@@ -80,21 +84,43 @@ public class CompleteExecutionStep implements SagaStep<MissionCompletionContext>
                 execution.setNote(context.getNote());
             }
 
+            // LUT-568: 체크 일일 마일스톤(3·5개째) — 한도 초과로 EXP 0 인 완료도 횟수에 포함. 일일 한도와 같은
+            // 날짜 경계(executionDate)를 쓴다.
+            if (simpleCompletedBefore >= 0) {
+                context.markDailyMilestone(simpleCompletedBefore + 1);
+            }
+
             // SIMPLE 모드는 complete()에서 이미 고정 EXP(또는 한도 도달 시 0) 설정됨 — 오버라이드 불필요
             if (mission != null && mission.getExecutionMode() != MissionExecutionMode.SIMPLE) {
-                long elapsed = Duration.between(execution.getStartedAt(), execution.getCompletedAt()).toMinutes();
+                long elapsed =
+                        Duration.between(execution.getStartedAt(), execution.getCompletedAt())
+                                .toMinutes();
 
-                if (mission.getTargetDurationMinutes() != null && mission.getTargetDurationMinutes() > 0) {
+                if (mission.getTargetDurationMinutes() != null
+                        && mission.getTargetDurationMinutes() > 0) {
                     // 목표시간 설정 미션: 목표시간 기반 XP (2시간 제한 미적용)
-                    if (elapsed >= mission.getTargetDurationMinutes()) {
-                        // QA-153: 추가 보상은 bonusExpOnFullCompletion. 이전엔 expPerCompletion 을 잘못 가산.
-                        int bonus = mission.getBonusExpOnFullCompletion() != null
-                            ? mission.getBonusExpOnFullCompletion() : 0;
-                        execution.setExpEarned(mission.getTargetDurationMinutes() + bonus);
-                        context.setFullCompletionBonusGranted(true);
-                        context.setFullCompletionBonusExp(bonus);
+                    // LUT-568: 타이머 공식(60분까지 분당 1, 초과 5분당 1)을 목표분·실제분 모두에 적용
+                    int target = mission.getTargetDurationMinutes();
+                    if (elapsed >= target) {
+                        int targetExp = MissionExpPolicy.timedExp(target);
+                        if (mission.getSource() == MissionSource.SYSTEM) {
+                            // 미션북(SYSTEM): 목표 달성 보너스 지급
+                            // QA-153: 추가 보상은 bonusExpOnFullCompletion. 이전엔 expPerCompletion 을 잘못
+                            // 가산.
+                            int bonus =
+                                    mission.getBonusExpOnFullCompletion() != null
+                                            ? mission.getBonusExpOnFullCompletion()
+                                            : 0;
+                            execution.setExpEarned(targetExp + bonus);
+                            context.setFullCompletionBonusGranted(true);
+                            context.setFullCompletionBonusExp(bonus);
+                        } else {
+                            // LUT-551: 유저 생성 타이머 미션의 목표시간은 "최대 목표시간"(자동 종료 상한)일 뿐
+                            // 보너스 대상이 아니다 — 목표분 공식값으로 캡 (30분 미션 = 30 EXP, 240분 = 96).
+                            execution.setExpEarned(targetExp);
+                        }
                     } else {
-                        execution.setExpEarned((int) Math.max(1, elapsed));
+                        execution.setExpEarned(MissionExpPolicy.timedExp(elapsed));
                     }
                 }
                 // QA-212: 목표시간 미설정 미션의 수동 완료는 complete() 의 시간 기반 EXP
@@ -111,19 +137,27 @@ public class CompleteExecutionStep implements SagaStep<MissionCompletionContext>
 
             executionRepository.save(execution);
 
-            log.info("Execution completed: id={}, durationExp={}", execution.getId(), execution.getExpEarned());
+            log.info(
+                    "Execution completed: id={}, durationExp={}",
+                    execution.getId(),
+                    execution.getExpEarned());
 
             // 일반 미션(isPinned=false)인 경우 미래 PENDING execution 삭제
             // 일반 미션은 한 번 완료하면 미래 수행 일정이 필요 없음
             MissionParticipant participant = context.getParticipant();
-            if (mission != null && !Boolean.TRUE.equals(mission.getIsPinned()) && participant != null) {
-                int deletedCount = executionRepository.deleteFuturePendingExecutions(
-                    participant.getId(),
-                    execution.getExecutionDate()
-                );
+            if (mission != null
+                    && !Boolean.TRUE.equals(mission.getIsPinned())
+                    && participant != null) {
+                int deletedCount =
+                        executionRepository.deleteFuturePendingExecutions(
+                                participant.getId(), execution.getExecutionDate());
                 if (deletedCount > 0) {
-                    log.info("일반 미션 완료 후 미래 PENDING execution 삭제: missionId={}, participantId={}, deletedCount={}",
-                        mission.getId(), participant.getId(), deletedCount);
+                    log.info(
+                            "일반 미션 완료 후 미래 PENDING execution 삭제: missionId={}, participantId={},"
+                                    + " deletedCount={}",
+                            mission.getId(),
+                            participant.getId(),
+                            deletedCount);
                 }
             }
 
@@ -148,9 +182,10 @@ public class CompleteExecutionStep implements SagaStep<MissionCompletionContext>
 
         try {
             // 이전 상태로 복원
-            ExecutionStatus previousStatus = context.getCompensationData(
-                MissionCompletionContext.CompensationKeys.EXECUTION_STATUS_BEFORE,
-                ExecutionStatus.class);
+            ExecutionStatus previousStatus =
+                    context.getCompensationData(
+                            MissionCompletionContext.CompensationKeys.EXECUTION_STATUS_BEFORE,
+                            ExecutionStatus.class);
 
             if (previousStatus != null) {
                 execution.setStatus(previousStatus);
@@ -158,7 +193,10 @@ public class CompleteExecutionStep implements SagaStep<MissionCompletionContext>
                 execution.setExpEarned(0);
                 execution.setNote(null);
                 executionRepository.save(execution);
-                log.info("Execution compensated: id={}, restoredStatus={}", execution.getId(), previousStatus);
+                log.info(
+                        "Execution compensated: id={}, restoredStatus={}",
+                        execution.getId(),
+                        previousStatus);
             }
 
             return SagaStepResult.success("수행 완료 보상됨");

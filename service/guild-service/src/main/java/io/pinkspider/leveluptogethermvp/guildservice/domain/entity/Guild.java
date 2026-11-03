@@ -110,6 +110,22 @@ public class Guild extends LocalDateTimeBaseEntity {
     @Builder.Default
     private Integer totalExp = 0;
 
+    // LUT-483: 길드 랭킹·레벨의 기준값. 길드원 개인의 일간 길드미션 EXP 를 10 단위 사다리
+    // (상한 60 = 6점)로 점수화한 합의 누적. 단조 증가만 하며 회수 로직이 없다.
+    @Column(name = "total_point", nullable = false)
+    @Comment("총 누적 활동 포인트 (랭킹·레벨 기준)")
+    @Builder.Default
+    private Integer totalPoint = 0;
+
+    @Column(name = "current_point", nullable = false)
+    @Comment("현재 레벨에서의 포인트")
+    @Builder.Default
+    private Integer currentPoint = 0;
+
+    @Column(name = "last_point_at")
+    @Comment("마지막 포인트 적립 시각 (랭킹 동점 처리용 — 먼저 도달한 길드 우선)")
+    private java.time.LocalDateTime lastPointAt;
+
     @NotNull
     @Column(name = "category_id", nullable = false)
     @Comment("카테고리 ID (mission_category 참조)")
@@ -126,6 +142,10 @@ public class Guild extends LocalDateTimeBaseEntity {
     @Column(name = "base_longitude")
     @Comment("거점 경도")
     private Double baseLongitude;
+
+    @Column(name = "invite_code", unique = true, length = 20)
+    @Comment("초대 링크 코드 (추측 불가 랜덤, 길드당 1개·불변, LUT-519)")
+    private String inviteCode;
 
     @Builder.Default
     @OneToMany(mappedBy = "guild")
@@ -155,9 +175,7 @@ public class Guild extends LocalDateTimeBaseEntity {
         this.masterId = newMasterId;
     }
 
-    /**
-     * 신고 처리로 길드 차단. 후속 멤버/콘텐츠 처리는 운영자 수동.
-     */
+    /** 신고 처리로 길드 차단. 후속 멤버/콘텐츠 처리는 운영자 수동. */
     public void banFromReport(String reason) {
         this.isBanned = true;
         this.bannedAt = java.time.LocalDateTime.now();
@@ -166,6 +184,13 @@ public class Guild extends LocalDateTimeBaseEntity {
 
     public void deactivate() {
         this.isActive = false;
+    }
+
+    /** LUT-483: 포인트 적립 — 단조 증가만 한다 */
+    public void addPoint(int point) {
+        this.totalPoint += point;
+        this.currentPoint += point;
+        this.lastPointAt = java.time.LocalDateTime.now();
     }
 
     public void addExperience(int exp) {
@@ -180,5 +205,13 @@ public class Guild extends LocalDateTimeBaseEntity {
 
     public void updateMaxMembersByLevel(int newMaxMembers) {
         this.maxMembers = newMaxMembers;
+    }
+
+    /** LUT-526: 길드 최대 정원 기본 인원(레벨 1 정원) 상수. 최대 정원 = BASE_MAX_MEMBERS + (길드 레벨 - 1). */
+    public static final int BASE_MAX_MEMBERS = 10;
+
+    /** LUT-526: 레벨별 최대 정원 = 기본 인원(10) + (길드 레벨 - 1). 레벨이 1 오를 때마다 +1. 예) 레벨 1 → 10, 레벨 3 → 12. */
+    public static int maxMembersForLevel(int level) {
+        return BASE_MAX_MEMBERS + (level - 1);
     }
 }

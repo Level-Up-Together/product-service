@@ -25,12 +25,12 @@ import org.hibernate.annotations.Comment;
 @SuperBuilder
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @AllArgsConstructor
-@Table(name = "user_stats",
-    uniqueConstraints = @UniqueConstraint(
-        name = "uk_user_stats_user_id",
-        columnNames = {"user_id"}
-    )
-)
+@Table(
+        name = "user_stats",
+        uniqueConstraints =
+                @UniqueConstraint(
+                        name = "uk_user_stats_user_id",
+                        columnNames = {"user_id"}))
 @Comment("유저 통계")
 public class UserStats extends LocalDateTimeBaseEntity {
 
@@ -111,7 +111,7 @@ public class UserStats extends LocalDateTimeBaseEntity {
     private Integer friendCount = 0;
 
     @Column(name = "guild_join_count", nullable = false)
-    @Comment("길드 가입 횟수")
+    @Comment("가입해 본 distinct 길드 수 (LUT-418: 재가입 중복 집계 방지)")
     @Builder.Default
     private Integer guildJoinCount = 0;
 
@@ -165,6 +165,12 @@ public class UserStats extends LocalDateTimeBaseEntity {
         } else if (lastActivityDate.equals(today)) {
             // 같은 날 중복 호출 - 아무것도 하지 않음
             return;
+        } else if (today.isBefore(lastActivityDate)) {
+            // LUT-405: 과거 날짜 유입은 무시한다. 호출자마다 날짜의 시계가 달라
+            // (출석=유저 타임존, 미션 완료=서버 UTC) KST 00~09시 미션 완료가 어제 날짜로
+            // 들어오던 케이스 — 리셋하면 streak 이 파괴되고 lastActivityDate 까지 역행해
+            // 이후 비교도 연쇄적으로 꼬인다.
+            return;
         } else if (lastActivityDate.plusDays(1).equals(today)) {
             // 연속
             this.currentStreak++;
@@ -209,10 +215,6 @@ public class UserStats extends LocalDateTimeBaseEntity {
         }
     }
 
-    public void incrementGuildJoinCount() {
-        this.guildJoinCount++;
-    }
-
     public void incrementCommentsReceived() {
         this.totalCommentsReceived++;
     }
@@ -225,12 +227,12 @@ public class UserStats extends LocalDateTimeBaseEntity {
 
     private void updateRankingPoints() {
         // 랭킹 포인트 계산: 미션완료*10 + 전체완료*50 + 길드미션*15 + 연속일수*5 + 업적*100
-        this.rankingPoints = (long) (
-            totalMissionCompletions * 10 +
-            totalMissionFullCompletions * 50 +
-            totalGuildMissionCompletions * 15 +
-            maxStreak * 5 +
-            totalAchievementsCompleted * 100
-        );
+        this.rankingPoints =
+                (long)
+                        (totalMissionCompletions * 10
+                                + totalMissionFullCompletions * 50
+                                + totalGuildMissionCompletions * 15
+                                + maxStreak * 5
+                                + totalAchievementsCompleted * 100);
     }
 }

@@ -1,10 +1,13 @@
 package io.pinkspider.leveluptogethermvp.chatservice.application;
 
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 import io.pinkspider.global.event.GuildMemberJoinedChatNotifyEvent;
 import io.pinkspider.global.event.GuildMemberKickedChatNotifyEvent;
 import io.pinkspider.global.event.GuildMemberLeftChatNotifyEvent;
+import io.pinkspider.global.event.GuildMemberRemovedEvent;
+import io.pinkspider.global.event.UserWithdrawnEvent;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -16,11 +19,11 @@ import org.mockito.junit.jupiter.MockitoExtension;
 @ExtendWith(MockitoExtension.class)
 class ChatEventListenerTest {
 
-    @Mock
-    private GuildChatService guildChatService;
+    @Mock private GuildChatService guildChatService;
 
-    @InjectMocks
-    private ChatEventListener chatEventListener;
+    @Mock private GuildDirectMessageService guildDirectMessageService;
+
+    @InjectMocks private ChatEventListener chatEventListener;
 
     @Nested
     @DisplayName("handleMemberJoined 테스트")
@@ -32,7 +35,8 @@ class ChatEventListenerTest {
             // given
             Long guildId = 1L;
             String nickname = "테스트유저";
-            GuildMemberJoinedChatNotifyEvent event = new GuildMemberJoinedChatNotifyEvent(guildId, nickname);
+            GuildMemberJoinedChatNotifyEvent event =
+                    new GuildMemberJoinedChatNotifyEvent(guildId, nickname);
 
             // when
             chatEventListener.handleMemberJoined(event);
@@ -52,7 +56,8 @@ class ChatEventListenerTest {
             // given
             Long guildId = 2L;
             String nickname = "탈퇴유저";
-            GuildMemberLeftChatNotifyEvent event = new GuildMemberLeftChatNotifyEvent(guildId, nickname);
+            GuildMemberLeftChatNotifyEvent event =
+                    new GuildMemberLeftChatNotifyEvent(guildId, nickname);
 
             // when
             chatEventListener.handleMemberLeft(event);
@@ -72,13 +77,80 @@ class ChatEventListenerTest {
             // given
             Long guildId = 3L;
             String nickname = "추방유저";
-            GuildMemberKickedChatNotifyEvent event = new GuildMemberKickedChatNotifyEvent(guildId, nickname);
+            GuildMemberKickedChatNotifyEvent event =
+                    new GuildMemberKickedChatNotifyEvent(guildId, nickname);
 
             // when
             chatEventListener.handleMemberKicked(event);
 
             // then
             verify(guildChatService).notifyMemberKick(guildId, nickname);
+        }
+    }
+
+    @Nested
+    @DisplayName("DM 대화방 정리 테스트 (LUT-287)")
+    class DmCleanupTest {
+
+        @Test
+        @DisplayName("길드 탈퇴/추방 이벤트 수신 시 해당 길드의 DM 대화방을 비활성화한다")
+        void handleGuildMemberRemoved_deactivatesGuildConversations() {
+            // given
+            GuildMemberRemovedEvent event = new GuildMemberRemovedEvent("user-1", 1L);
+            when(guildDirectMessageService.deactivateConversations(1L, "user-1")).thenReturn(2);
+
+            // when
+            chatEventListener.handleGuildMemberRemoved(event);
+
+            // then
+            verify(guildDirectMessageService).deactivateConversations(1L, "user-1");
+        }
+
+        @Test
+        @DisplayName("회원 탈퇴 이벤트 수신 시 전 길드의 DM 대화방을 비활성화한다")
+        void handleUserWithdrawn_deactivatesAllConversations() {
+            // given
+            UserWithdrawnEvent event = new UserWithdrawnEvent("user-1");
+            when(guildDirectMessageService.deactivateConversationsForUser("user-1")).thenReturn(3);
+
+            // when
+            chatEventListener.handleUserWithdrawn(event);
+
+            // then
+            verify(guildDirectMessageService).deactivateConversationsForUser("user-1");
+        }
+    }
+
+    @Nested
+    @DisplayName("단체 채팅 참여 상태 정리 테스트 (LUT-471)")
+    class GroupChatParticipantCleanupTest {
+
+        @Test
+        @DisplayName("길드 탈퇴/추방 이벤트 수신 시 단체 채팅 참여자를 비활성화한다")
+        void handleGuildMemberRemoved_deactivatesChatParticipant() {
+            // given
+            GuildMemberRemovedEvent event = new GuildMemberRemovedEvent("user-1", 1L);
+            when(guildChatService.deactivateParticipant(1L, "user-1")).thenReturn(true);
+
+            // when
+            chatEventListener.handleGuildMemberRemoved(event);
+
+            // then
+            verify(guildChatService).deactivateParticipant(1L, "user-1");
+        }
+
+        @Test
+        @DisplayName("회원 탈퇴 이벤트 수신 시 전 길드의 단체 채팅 참여자를 비활성화한다")
+        void handleUserWithdrawn_deactivatesAllChatParticipants() {
+            // given
+            UserWithdrawnEvent event = new UserWithdrawnEvent("user-1");
+            when(guildChatService.deactivateParticipantsForUser("user-1")).thenReturn(2);
+
+            // when
+            chatEventListener.handleUserWithdrawn(event);
+
+            // then
+            verify(guildChatService).deactivateParticipantsForUser("user-1");
         }
     }
 }

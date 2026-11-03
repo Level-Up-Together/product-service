@@ -71,13 +71,28 @@ generateJava {
 
 // OpenAPI / RestDocs
 // Controller 테스트가 :service 모듈에서 실행되므로 snippets 경로를 service 모듈로 지정
+// LUT-709: 문서 버전 = 릴리스 버전(gradle.properties lutPlatformReleaseVersion) + 커밋 해시. Gradle version(0.1.1-SNAPSHOT, jar 이름)과는 분리한다.
+def apiDocVersion() {
+    def release = project.findProperty('lutPlatformReleaseVersion') ?: project.version
+    def sha = ''
+    try {
+        sha = providers.exec {
+            commandLine 'git', 'rev-parse', '--short', 'HEAD'
+            ignoreExitValue = true
+        }.standardOutput.asText.map { it.trim() }.getOrElse('')
+    } catch (ignored) {
+        sha = ''
+    }
+    return sha ? "${release} (${sha})" : "${release}"
+}
+
 openapi3 {
     def serverIp = System.getenv('LUT_IP') ?: 'dev.level-up-together.com'
     def serverPort = System.getenv('USER_SERVICE_PORT') ?: '8443'
-    server = "http://${serverIp}:${serverPort}"
+    server = "https://${serverIp}:${serverPort}"   // 8443 은 https — http 면 Swagger "Try it out" 이 실패한다 (LUT-709)
     title = rootProject.name + " API 문서"
     description = rootProject.name + "API 문서 입니다. 작성된 테스트 코드 기반으로 생성됩니다."
-    version = getVersion()
+    version = apiDocVersion()
     snippetsDirectory = project(':service').file("build/generated-snippets")
     outputDirectory = "build/resources/main/restdocs"
     outputFileNamePrefix = rootProject.name + "-api"
@@ -196,7 +211,7 @@ jacocoTestCoverageVerification {
     violationRules {
         rule {
             limit {
-                minimum = 0.70
+                minimum = 0.75
             }
         }
     }

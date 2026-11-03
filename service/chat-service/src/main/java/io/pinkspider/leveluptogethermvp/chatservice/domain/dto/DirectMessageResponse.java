@@ -43,15 +43,15 @@ public class DirectMessageResponse {
 
     public static DirectMessageResponse from(GuildDirectMessage message) {
         return DirectMessageResponse.builder()
-            .id(message.getId())
-            .conversationId(message.getConversation().getId())
-            .senderId(message.getSenderId())
-            .senderNickname(message.getSenderNickname())
-            .content(message.getContent())
-            .imageUrl(message.getImageUrl())
-            .isRead(message.getIsRead())
-            .readAt(message.getReadAt())
-            .createdAt(message.getCreatedAt())
-            .build();
+                .id(message.getId())
+                .conversationId(message.getConversation().getId())
+                .senderId(message.getSenderId())
+                .senderNickname(message.getSenderNickname())
+                .content(message.getContent())
+                .imageUrl(message.getImageUrl())
+                .isRead(message.getIsRead())
+                .readAt(message.getReadAt())
+                .createdAt(message.getCreatedAt())
+                .build();
     }
 }

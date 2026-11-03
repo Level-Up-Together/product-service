@@ -22,29 +22,30 @@ import org.mockito.junit.jupiter.MockitoExtension;
 @ExtendWith(MockitoExtension.class)
 class NoticeServiceTest {
 
-    @Mock
-    private AdminNoticeFeignClient adminNoticeFeignClient;
+    @Mock private AdminNoticeFeignClient adminNoticeFeignClient;
 
-    @InjectMocks
-    private NoticeService noticeService;
+    @InjectMocks private NoticeService noticeService;
 
     private NoticeResponse createMockNoticeResponse(Long id, NoticeType type) {
         return NoticeResponse.builder()
-            .id(id)
-            .title("테스트 공지사항 " + id)
-            .content("테스트 공지사항 내용입니다.")
-            .noticeType(type)
-            .noticeTypeName(type.getDescription())
-            .priority(1)
-            .startAt(LocalDateTime.now().minusDays(1))
-            .endAt(LocalDateTime.now().plusDays(30))
-            .isActive(true)
-            .isPopup(false)
-            .createdBy("admin")
-            .modifiedBy("admin")
-            .createdAt(LocalDateTime.now())
-            .modifiedAt(LocalDateTime.now())
-            .build();
+                .id(id)
+                .title("테스트 공지사항 " + id)
+                .content("테스트 공지사항 내용입니다.")
+                .contentEn("Test notice content.")
+                .contentJa("テスト お知らせの内容です。")
+                .contentAr("محتوى الإشعار التجريبي.")
+                .noticeType(type)
+                .noticeTypeName(type.getDescription())
+                .priority(1)
+                .startAt(LocalDateTime.now().minusDays(1))
+                .endAt(LocalDateTime.now().plusDays(30))
+                .isActive(true)
+                .isPopup(false)
+                .createdBy("admin")
+                .modifiedBy("admin")
+                .createdAt(LocalDateTime.now())
+                .modifiedAt(LocalDateTime.now())
+                .build();
     }
 
     @Nested
@@ -55,11 +56,12 @@ class NoticeServiceTest {
         @DisplayName("활성 공지사항 목록을 정상적으로 조회한다")
         void getActiveNotices_success() {
             // given
-            List<NoticeResponse> notices = List.of(
-                createMockNoticeResponse(1L, NoticeType.GENERAL),
-                createMockNoticeResponse(2L, NoticeType.EVENT)
-            );
-            AdminNoticeApiResponse apiResponse = new AdminNoticeApiResponse("0000", "success", notices);
+            List<NoticeResponse> notices =
+                    List.of(
+                            createMockNoticeResponse(1L, NoticeType.GENERAL),
+                            createMockNoticeResponse(2L, NoticeType.EVENT));
+            AdminNoticeApiResponse apiResponse =
+                    new AdminNoticeApiResponse("0000", "success", notices);
 
             when(adminNoticeFeignClient.getActiveNotices()).thenReturn(apiResponse);
 
@@ -91,7 +93,8 @@ class NoticeServiceTest {
         @DisplayName("Feign Client 응답의 value가 null인 경우 빈 목록을 반환한다")
         void getActiveNotices_nullValue_returnsEmptyList() {
             // given
-            AdminNoticeApiResponse apiResponse = new AdminNoticeApiResponse("0000", "success", null);
+            AdminNoticeApiResponse apiResponse =
+                    new AdminNoticeApiResponse("0000", "success", null);
             when(adminNoticeFeignClient.getActiveNotices()).thenReturn(apiResponse);
 
             // when
@@ -106,7 +109,7 @@ class NoticeServiceTest {
         void getActiveNotices_exception_returnsEmptyList() {
             // given
             when(adminNoticeFeignClient.getActiveNotices())
-                .thenThrow(new RuntimeException("Connection refused"));
+                    .thenThrow(new RuntimeException("Connection refused"));
 
             // when
             List<NoticeResponse> result = noticeService.getActiveNotices();
@@ -126,7 +129,8 @@ class NoticeServiceTest {
             // given
             Long noticeId = 1L;
             NoticeResponse notice = createMockNoticeResponse(noticeId, NoticeType.MAINTENANCE);
-            AdminNoticeSingleApiResponse apiResponse = new AdminNoticeSingleApiResponse("0000", "success", notice);
+            AdminNoticeSingleApiResponse apiResponse =
+                    new AdminNoticeSingleApiResponse("0000", "success", notice);
 
             when(adminNoticeFeignClient.getNoticeById(anyLong())).thenReturn(apiResponse);
 
@@ -138,6 +142,9 @@ class NoticeServiceTest {
             assertThat(result.getId()).isEqualTo(noticeId);
             assertThat(result.getNoticeType()).isEqualTo(NoticeType.MAINTENANCE);
             assertThat(result.getTitle()).isEqualTo("테스트 공지사항 1");
+            assertThat(result.getContentEn()).isEqualTo("Test notice content.");
+            assertThat(result.getContentJa()).isEqualTo("テスト お知らせの内容です。");
+            assertThat(result.getContentAr()).isEqualTo("محتوى الإشعار التجريبي.");
         }
 
         @Test
@@ -157,7 +164,8 @@ class NoticeServiceTest {
         @DisplayName("Feign Client 응답의 value가 null인 경우 null을 반환한다")
         void getNoticeById_nullValue_returnsNull() {
             // given
-            AdminNoticeSingleApiResponse apiResponse = new AdminNoticeSingleApiResponse("0000", "success", null);
+            AdminNoticeSingleApiResponse apiResponse =
+                    new AdminNoticeSingleApiResponse("0000", "success", null);
             when(adminNoticeFeignClient.getNoticeById(anyLong())).thenReturn(apiResponse);
 
             // when
@@ -172,7 +180,7 @@ class NoticeServiceTest {
         void getNoticeById_exception_returnsNull() {
             // given
             when(adminNoticeFeignClient.getNoticeById(anyLong()))
-                .thenThrow(new RuntimeException("Connection refused"));
+                    .thenThrow(new RuntimeException("Connection refused"));
 
             // when
             NoticeResponse result = noticeService.getNoticeById(1L);

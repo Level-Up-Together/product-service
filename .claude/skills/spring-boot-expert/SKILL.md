@@ -56,7 +56,7 @@ public record ResponseDto(Long userId, String missionTitle) {}
 ```java
 public class YourException extends CustomException {
     public YourException() {
-        super("XXYYZZ", "에러 메시지"); // 6자리: 서비스2 + 카테고리2 + 일련번호2
+        super("XXYYZZ", "error.xxx.yyy"); // 6자리: 서비스2 + 카테고리2 + 일련번호2, 메시지는 i18n 키 (한국어 하드코딩 금지)
     }
 }
 ```

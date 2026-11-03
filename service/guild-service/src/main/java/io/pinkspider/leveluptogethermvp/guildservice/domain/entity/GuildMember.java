@@ -11,6 +11,7 @@ import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.Index;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
@@ -32,9 +33,10 @@ import org.hibernate.annotations.Comment;
 @SuperBuilder
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @AllArgsConstructor
-@Table(name = "guild_member", uniqueConstraints = {
-    @UniqueConstraint(columnNames = {"guild_id", "user_id"})
-})
+@Table(
+        name = "guild_member",
+        uniqueConstraints = {@UniqueConstraint(columnNames = {"guild_id", "user_id"})},
+        indexes = {@Index(name = "idx_guild_member_user", columnList = "user_id")})
 @Comment("길드 멤버")
 public class GuildMember extends LocalDateTimeBaseEntity {
 
@@ -114,9 +116,7 @@ public class GuildMember extends LocalDateTimeBaseEntity {
         this.leftAt = LocalDateTime.now();
     }
 
-    /**
-     * 재가입 처리 (탈퇴/추방 후 재가입 시 사용)
-     */
+    /** 재가입 처리 (탈퇴/추방 후 재가입 시 사용) */
     public void rejoin() {
         this.status = GuildMemberStatus.ACTIVE;
         this.role = GuildMemberRole.MEMBER;
@@ -124,9 +124,7 @@ public class GuildMember extends LocalDateTimeBaseEntity {
         this.leftAt = null;
     }
 
-    /**
-     * 탈퇴 또는 추방된 상태인지 확인
-     */
+    /** 탈퇴 또는 추방된 상태인지 확인 */
     public boolean hasLeft() {
         return this.status == GuildMemberStatus.LEFT || this.status == GuildMemberStatus.KICKED;
     }

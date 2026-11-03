@@ -22,8 +22,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
- * Admin 내부 API 컨트롤러 - AttendanceRewardConfig
- * 인증 불필요 (SecurityConfig에서 /api/internal/** permitAll)
+ * Admin 내부 API 컨트롤러 - AttendanceRewardConfig 인증 불필요 (SecurityConfig에서 /api/internal/** permitAll)
  */
 @RestController
 @RequestMapping("/api/internal/attendance-reward-configs")
@@ -38,65 +37,68 @@ public class AttendanceRewardConfigInternalController {
             @RequestParam(required = false, defaultValue = "0") int page,
             @RequestParam(required = false, defaultValue = "20") int size,
             @RequestParam(name = "sort_by", required = false, defaultValue = "id") String sortBy,
-            @RequestParam(name = "sort_direction", required = false, defaultValue = "DESC") String sortDirection) {
-        Sort sort = "ASC".equalsIgnoreCase(sortDirection)
-            ? Sort.by(sortBy).ascending()
-            : Sort.by(sortBy).descending();
+            @RequestParam(name = "sort_direction", required = false, defaultValue = "DESC")
+                    String sortDirection) {
+        Sort sort =
+                "ASC".equalsIgnoreCase(sortDirection)
+                        ? Sort.by(sortBy).ascending()
+                        : Sort.by(sortBy).descending();
         return ApiResult.<AttendanceRewardConfigPageResponse>builder()
-            .value(attendanceRewardConfigCacheService.searchConfigs(keyword, PageRequest.of(page, size, sort)))
-            .build();
+                .value(
+                        attendanceRewardConfigCacheService.searchConfigs(
+                                keyword, PageRequest.of(page, size, sort)))
+                .build();
     }
 
     @GetMapping("/all")
     public ApiResult<List<AttendanceRewardConfigResponse>> getAllConfigs() {
         return ApiResult.<List<AttendanceRewardConfigResponse>>builder()
-            .value(attendanceRewardConfigCacheService.getAllConfigResponses())
-            .build();
+                .value(attendanceRewardConfigCacheService.getAllConfigResponses())
+                .build();
     }
 
     @GetMapping("/active")
     public ApiResult<List<AttendanceRewardConfigResponse>> getActiveConfigs() {
         return ApiResult.<List<AttendanceRewardConfigResponse>>builder()
-            .value(attendanceRewardConfigCacheService.getActiveConfigResponses())
-            .build();
+                .value(attendanceRewardConfigCacheService.getActiveConfigResponses())
+                .build();
     }
 
     @GetMapping("/consecutive")
     public ApiResult<List<AttendanceRewardConfigResponse>> getActiveConsecutiveRewards() {
         return ApiResult.<List<AttendanceRewardConfigResponse>>builder()
-            .value(attendanceRewardConfigCacheService.getActiveConsecutiveRewardResponses())
-            .build();
+                .value(attendanceRewardConfigCacheService.getActiveConsecutiveRewardResponses())
+                .build();
     }
 
     @GetMapping("/{id}")
     public ApiResult<AttendanceRewardConfigResponse> getConfig(@PathVariable Long id) {
         return ApiResult.<AttendanceRewardConfigResponse>builder()
-            .value(attendanceRewardConfigCacheService.getConfigById(id))
-            .build();
+                .value(attendanceRewardConfigCacheService.getConfigById(id))
+                .build();
     }
 
     @PostMapping
     public ApiResult<AttendanceRewardConfigResponse> createConfig(
             @Valid @RequestBody AttendanceRewardConfigRequest request) {
         return ApiResult.<AttendanceRewardConfigResponse>builder()
-            .value(attendanceRewardConfigCacheService.createConfig(request))
-            .build();
+                .value(attendanceRewardConfigCacheService.createConfig(request))
+                .build();
     }
 
     @PutMapping("/{id}")
     public ApiResult<AttendanceRewardConfigResponse> updateConfig(
-            @PathVariable Long id,
-            @Valid @RequestBody AttendanceRewardConfigRequest request) {
+            @PathVariable Long id, @Valid @RequestBody AttendanceRewardConfigRequest request) {
         return ApiResult.<AttendanceRewardConfigResponse>builder()
-            .value(attendanceRewardConfigCacheService.updateConfig(id, request))
-            .build();
+                .value(attendanceRewardConfigCacheService.updateConfig(id, request))
+                .build();
     }
 
     @PatchMapping("/{id}/toggle-active")
     public ApiResult<AttendanceRewardConfigResponse> toggleActiveStatus(@PathVariable Long id) {
         return ApiResult.<AttendanceRewardConfigResponse>builder()
-            .value(attendanceRewardConfigCacheService.toggleActiveStatus(id))
-            .build();
+                .value(attendanceRewardConfigCacheService.toggleActiveStatus(id))
+                .build();
     }
 
     @DeleteMapping("/{id}")

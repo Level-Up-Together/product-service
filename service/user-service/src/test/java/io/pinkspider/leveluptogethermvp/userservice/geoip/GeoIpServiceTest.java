@@ -19,8 +19,7 @@ class GeoIpServiceTest {
 
     private GeoIpService geoIpService;
 
-    @Mock
-    private HttpServletRequest request;
+    @Mock private HttpServletRequest request;
 
     @BeforeEach
     void setUp() throws Exception {
@@ -170,7 +169,8 @@ class GeoIpServiceTest {
             setField("licenseKey", "test-key");
             setField("accountId", 12345);
 
-            // This will fail because the MaxMind API call will fail, but it won't be treated as private IP
+            // This will fail because the MaxMind API call will fail, but it won't be treated as
+            // private IP
             GeoIpResult result = geoIpService.lookupCountry("172.32.0.1");
             // The API call will fail and return empty, but the important thing is
             // it wasn't rejected as a private IP (it attempted the lookup)

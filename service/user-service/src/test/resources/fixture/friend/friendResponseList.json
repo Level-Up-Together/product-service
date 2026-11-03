@@ -8,7 +8,17 @@
     "friend_title": "초보 모험가",
     "status": "ACCEPTED",
     "friends_since": "2025-01-15T10:30:00",
-    "is_online": true
+    "is_online": true,
+    "equipped_item_rarities": [
+      {
+        "item_type": "HEAD",
+        "rarity": "EPIC"
+      },
+      {
+        "item_type": "BASIC",
+        "rarity": "RARE"
+      }
+    ]
   },
   {
     "friendship_id": 2,
@@ -19,6 +29,7 @@
     "friend_title": "숙련된 모험가",
     "status": "ACCEPTED",
     "friends_since": "2025-01-10T08:00:00",
-    "is_online": false
+    "is_online": false,
+    "equipped_item_rarities": []
   }
 ]

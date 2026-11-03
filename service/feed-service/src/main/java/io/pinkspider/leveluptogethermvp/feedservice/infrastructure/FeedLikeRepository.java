@@ -15,14 +15,15 @@ public interface FeedLikeRepository extends JpaRepository<FeedLike, Long> {
 
     boolean existsByFeedIdAndUserId(Long feedId, String userId);
 
-    @Query("SELECT fl.feed.id FROM FeedLike fl WHERE fl.userId = :userId AND fl.feed.id IN :feedIds")
-    List<Long> findLikedFeedIds(@Param("userId") String userId, @Param("feedIds") List<Long> feedIds);
+    @Query(
+            "SELECT fl.feed.id FROM FeedLike fl WHERE fl.userId = :userId AND fl.feed.id IN"
+                    + " :feedIds")
+    List<Long> findLikedFeedIds(
+            @Param("userId") String userId, @Param("feedIds") List<Long> feedIds);
 
     int countByFeedId(Long feedId);
 
-    /**
-     * 특정 유저가 작성한 피드들에 받은 총 좋아요 수
-     */
+    /** 특정 유저가 작성한 피드들에 받은 총 좋아요 수 */
     @Query("SELECT COUNT(fl) FROM FeedLike fl WHERE fl.feed.userId = :userId")
     long countLikesReceivedByUser(@Param("userId") String userId);
 }

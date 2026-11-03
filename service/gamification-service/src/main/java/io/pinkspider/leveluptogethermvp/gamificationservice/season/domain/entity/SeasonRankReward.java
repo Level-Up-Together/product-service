@@ -23,17 +23,17 @@ import lombok.experimental.SuperBuilder;
 import org.hibernate.annotations.Comment;
 
 @Entity
-@Table(name = "season_rank_reward",
-    uniqueConstraints = @UniqueConstraint(
-        name = "uk_season_rank_reward",
-        columnNames = {"season_id", "category_id", "rank_start", "rank_end"}
-    ),
-    indexes = {
-        @Index(name = "idx_season_rank_reward_season", columnList = "season_id"),
-        @Index(name = "idx_season_rank_reward_active", columnList = "season_id, is_active"),
-        @Index(name = "idx_season_rank_reward_category", columnList = "season_id, category_id")
-    }
-)
+@Table(
+        name = "season_rank_reward",
+        uniqueConstraints =
+                @UniqueConstraint(
+                        name = "uk_season_rank_reward",
+                        columnNames = {"season_id", "category_id", "rank_start", "rank_end"}),
+        indexes = {
+            @Index(name = "idx_season_rank_reward_season", columnList = "season_id"),
+            @Index(name = "idx_season_rank_reward_active", columnList = "season_id, is_active"),
+            @Index(name = "idx_season_rank_reward_category", columnList = "season_id, category_id")
+        })
 @Getter
 @Setter
 @SuperBuilder
@@ -77,6 +77,15 @@ public class SeasonRankReward extends LocalDateTimeBaseEntity {
     @Comment("보상 칭호 희귀도 (비정규화)")
     private String titleRarity;
 
+    /** LUT-339: 보상 아이템 — 칭호와 동시 부여 가능. NULL이면 칭호만 지급 */
+    @Column(name = "item_id")
+    @Comment("보상 아이템 ID (shop_item, NULL이면 미지급)")
+    private Long itemId;
+
+    @Column(name = "item_name", length = 100)
+    @Comment("보상 아이템 이름 (비정규화)")
+    private String itemName;
+
     @Column(name = "category_id")
     @Comment("카테고리 ID (NULL이면 전체 랭킹)")
     private Long categoryId;
@@ -95,16 +104,12 @@ public class SeasonRankReward extends LocalDateTimeBaseEntity {
     @Builder.Default
     private Boolean isActive = true;
 
-    /**
-     * 주어진 순위가 이 보상 구간에 해당하는지 확인
-     */
+    /** 주어진 순위가 이 보상 구간에 해당하는지 확인 */
     public boolean containsRank(int rank) {
         return rank >= rankStart && rank <= rankEnd;
     }
 
-    /**
-     * 순위 구간 표시 문자열 (예: "1위", "2~5위")
-     */
+    /** 순위 구간 표시 문자열 (예: "1위", "2~5위") */
     public String getRankRangeDisplay() {
         if (rankStart.equals(rankEnd)) {
             return rankStart + "위";
@@ -112,16 +117,36 @@ public class SeasonRankReward extends LocalDateTimeBaseEntity {
         return rankStart + "~" + rankEnd + "위";
     }
 
-    /**
-     * 전체 랭킹 여부 확인
-     */
+    /** LUT-414: 순위 구간 영어 표기 (예: "Rank 1", "Rank 2-5") */
+    public String getRankRangeDisplayEn() {
+        if (rankStart.equals(rankEnd)) {
+            return "Rank " + rankStart;
+        }
+        return "Rank " + rankStart + "-" + rankEnd;
+    }
+
+    /** LUT-414: 순위 구간 아랍어 표기 (예: "المركز 1", "المراكز 2-5") */
+    public String getRankRangeDisplayAr() {
+        if (rankStart.equals(rankEnd)) {
+            return "المركز " + rankStart;
+        }
+        return "المراكز " + rankStart + "-" + rankEnd;
+    }
+
+    /** LUT-414: 순위 구간 일본어 표기 (예: "1位", "2~5位") */
+    public String getRankRangeDisplayJa() {
+        if (rankStart.equals(rankEnd)) {
+            return rankStart + "位";
+        }
+        return rankStart + "~" + rankEnd + "位";
+    }
+
+    /** 전체 랭킹 여부 확인 */
     public boolean isOverallRanking() {
         return categoryId == null;
     }
 
-    /**
-     * 랭킹 타입 표시 문자열 (예: "전체", "운동")
-     */
+    /** 랭킹 타입 표시 문자열 (예: "전체", "운동") */
     public String getRankingTypeDisplay() {
         return categoryId == null ? "전체" : categoryName;
     }

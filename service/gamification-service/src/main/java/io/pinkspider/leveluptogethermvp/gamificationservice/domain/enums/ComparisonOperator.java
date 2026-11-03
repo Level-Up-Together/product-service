@@ -5,9 +5,7 @@ import com.fasterxml.jackson.annotation.JsonValue;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 
-/**
- * 업적 체크 로직의 비교 연산자
- */
+/** 업적 체크 로직의 비교 연산자 */
 @Getter
 @RequiredArgsConstructor
 public enum ComparisonOperator {
@@ -43,7 +41,7 @@ public enum ComparisonOperator {
      * 두 값을 비교합니다.
      *
      * @param currentValue 현재 값
-     * @param targetValue  목표 값
+     * @param targetValue 목표 값
      * @return 조건 충족 여부
      */
     public boolean compare(Number currentValue, Number targetValue) {
@@ -67,7 +65,7 @@ public enum ComparisonOperator {
      * boolean 값을 비교합니다. (EQ와 NE만 지원)
      *
      * @param currentValue 현재 값
-     * @param targetValue  목표 값
+     * @param targetValue 목표 값
      * @return 조건 충족 여부
      */
     public boolean compareBoolean(Boolean currentValue, Boolean targetValue) {

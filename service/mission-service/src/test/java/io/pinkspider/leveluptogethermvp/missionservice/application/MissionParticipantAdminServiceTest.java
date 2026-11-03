@@ -38,35 +38,43 @@ import org.springframework.data.domain.Pageable;
 @ExtendWith(MockitoExtension.class)
 class MissionParticipantAdminServiceTest {
 
-    @Mock
-    private MissionParticipantRepository participantRepository;
+    @Mock private MissionParticipantRepository participantRepository;
 
-    @Mock
-    private MissionExecutionRepository executionRepository;
+    @Mock private MissionExecutionRepository executionRepository;
 
-    @Mock
-    private UserQueryFacade userQueryFacade;
+    @Mock private UserQueryFacade userQueryFacade;
 
-    @InjectMocks
-    private MissionParticipantAdminService service;
+    @InjectMocks private MissionParticipantAdminService service;
 
     /** 네이티브 UNION 쿼리 프로젝션 테스트 스텁 */
     private record EventRow(
-        Long getParticipantId,
-        Long getMissionId,
-        String getMissionTitle,
-        String getMissionType,
-        String getMissionSource,
-        String getGuildName,
-        String getStatus,
-        Integer getExpEarned,
-        LocalDateTime getEventAt
-    ) implements UserMissionEventRow {}
+            Long getParticipantId,
+            Long getMissionId,
+            String getMissionTitle,
+            String getMissionType,
+            String getMissionSource,
+            String getGuildName,
+            String getStatus,
+            Integer getExpEarned,
+            LocalDateTime getEventAt)
+            implements UserMissionEventRow {}
 
     private static EventRow row(
-        String missionType, String missionSource, String guildName, String status, Integer expEarned) {
-        return new EventRow(1L, 10L, "테스트 미션", missionType, missionSource, guildName, status,
-            expEarned, LocalDateTime.of(2026, 7, 1, 9, 30, 0));
+            String missionType,
+            String missionSource,
+            String guildName,
+            String status,
+            Integer expEarned) {
+        return new EventRow(
+                1L,
+                10L,
+                "테스트 미션",
+                missionType,
+                missionSource,
+                guildName,
+                status,
+                expEarned,
+                LocalDateTime.of(2026, 7, 1, 9, 30, 0));
     }
 
     @Nested
@@ -78,11 +86,18 @@ class MissionParticipantAdminServiceTest {
         void mapsInProgressToStarted() {
             Pageable pageable = PageRequest.of(0, 10);
             when(participantRepository.searchUserMissionEvents(
-                eq("user-1"), isNull(), isNull(), isNull(), isNull(), any(Pageable.class)))
-                .thenReturn(new PageImpl<>(List.of(row("PERSONAL", "USER", null, "IN_PROGRESS", 0))));
+                            eq("user-1"),
+                            isNull(),
+                            isNull(),
+                            isNull(),
+                            isNull(),
+                            any(Pageable.class)))
+                    .thenReturn(
+                            new PageImpl<>(
+                                    List.of(row("PERSONAL", "USER", null, "IN_PROGRESS", 0))));
 
             UserMissionHistoryAdminPageResponse result =
-                service.getUserMissionHistory("user-1", null, null, null, null, pageable);
+                    service.getUserMissionHistory("user-1", null, null, null, null, pageable);
 
             assertThat(result.content()).hasSize(1);
             UserMissionHistoryAdminResponse mapped = result.content().get(0);
@@ -98,11 +113,18 @@ class MissionParticipantAdminServiceTest {
         void mapsMissionBookExecution() {
             Pageable pageable = PageRequest.of(0, 10);
             when(participantRepository.searchUserMissionEvents(
-                eq("user-1"), isNull(), isNull(), isNull(), isNull(), any(Pageable.class)))
-                .thenReturn(new PageImpl<>(List.of(row("PERSONAL", "SYSTEM", null, "COMPLETED", 120))));
+                            eq("user-1"),
+                            isNull(),
+                            isNull(),
+                            isNull(),
+                            isNull(),
+                            any(Pageable.class)))
+                    .thenReturn(
+                            new PageImpl<>(
+                                    List.of(row("PERSONAL", "SYSTEM", null, "COMPLETED", 120))));
 
             UserMissionHistoryAdminPageResponse result =
-                service.getUserMissionHistory("user-1", null, null, null, null, pageable);
+                    service.getUserMissionHistory("user-1", null, null, null, null, pageable);
 
             UserMissionHistoryAdminResponse mapped = result.content().get(0);
             assertThat(mapped.missionType()).isEqualTo("MISSION_BOOK");
@@ -115,11 +137,18 @@ class MissionParticipantAdminServiceTest {
         void completedWithNullExpFallsBackToZero() {
             Pageable pageable = PageRequest.of(0, 10);
             when(participantRepository.searchUserMissionEvents(
-                eq("user-1"), isNull(), isNull(), isNull(), isNull(), any(Pageable.class)))
-                .thenReturn(new PageImpl<>(List.of(row("PERSONAL", "USER", null, "COMPLETED", null))));
+                            eq("user-1"),
+                            isNull(),
+                            isNull(),
+                            isNull(),
+                            isNull(),
+                            any(Pageable.class)))
+                    .thenReturn(
+                            new PageImpl<>(
+                                    List.of(row("PERSONAL", "USER", null, "COMPLETED", null))));
 
             UserMissionHistoryAdminPageResponse result =
-                service.getUserMissionHistory("user-1", null, null, null, null, pageable);
+                    service.getUserMissionHistory("user-1", null, null, null, null, pageable);
 
             assertThat(result.content().get(0).expEarned()).isEqualTo(0);
         }
@@ -130,12 +159,18 @@ class MissionParticipantAdminServiceTest {
             Pageable pageable = PageRequest.of(0, 10);
             // 실제 데이터: 길드 미션은 type=GUILD 이지만 source 는 USER 로 저장된다.
             when(participantRepository.searchUserMissionEvents(
-                eq("user-1"), isNull(), isNull(), isNull(), isNull(), any(Pageable.class)))
-                .thenReturn(new PageImpl<>(
-                    List.of(row("GUILD", "USER", "확신의루미길드", "COMPLETED", 30))));
+                            eq("user-1"),
+                            isNull(),
+                            isNull(),
+                            isNull(),
+                            isNull(),
+                            any(Pageable.class)))
+                    .thenReturn(
+                            new PageImpl<>(
+                                    List.of(row("GUILD", "USER", "확신의루미길드", "COMPLETED", 30))));
 
             UserMissionHistoryAdminPageResponse result =
-                service.getUserMissionHistory("user-1", null, null, null, null, pageable);
+                    service.getUserMissionHistory("user-1", null, null, null, null, pageable);
 
             UserMissionHistoryAdminResponse mapped = result.content().get(0);
             assertThat(mapped.missionType()).isEqualTo("GUILD");
@@ -147,12 +182,18 @@ class MissionParticipantAdminServiceTest {
         void nonGuildHidesGuildName() {
             Pageable pageable = PageRequest.of(0, 10);
             when(participantRepository.searchUserMissionEvents(
-                eq("user-1"), isNull(), isNull(), isNull(), isNull(), any(Pageable.class)))
-                .thenReturn(new PageImpl<>(
-                    List.of(row("PERSONAL", "USER", "잘못된길드명", "COMPLETED", 10))));
+                            eq("user-1"),
+                            isNull(),
+                            isNull(),
+                            isNull(),
+                            isNull(),
+                            any(Pageable.class)))
+                    .thenReturn(
+                            new PageImpl<>(
+                                    List.of(row("PERSONAL", "USER", "잘못된길드명", "COMPLETED", 10))));
 
             UserMissionHistoryAdminPageResponse result =
-                service.getUserMissionHistory("user-1", null, null, null, null, pageable);
+                    service.getUserMissionHistory("user-1", null, null, null, null, pageable);
 
             assertThat(result.content().get(0).guildName()).isNull();
         }
@@ -164,12 +205,22 @@ class MissionParticipantAdminServiceTest {
             LocalDate start = LocalDate.of(2026, 6, 1);
             LocalDate end = LocalDate.of(2026, 6, 30);
             when(participantRepository.searchUserMissionEvents(
-                eq("user-1"), eq("PERSONAL"), eq("SYSTEM"), eq(start), eq(end), any(Pageable.class)))
-                .thenReturn(new PageImpl<>(List.of()));
+                            eq("user-1"),
+                            eq("PERSONAL"),
+                            eq("SYSTEM"),
+                            eq(start),
+                            eq(end),
+                            any(Pageable.class)))
+                    .thenReturn(new PageImpl<>(List.of()));
 
             UserMissionHistoryAdminPageResponse result =
-                service.getUserMissionHistory(
-                    "user-1", MissionType.PERSONAL, MissionSource.SYSTEM, start, end, pageable);
+                    service.getUserMissionHistory(
+                            "user-1",
+                            MissionType.PERSONAL,
+                            MissionSource.SYSTEM,
+                            start,
+                            end,
+                            pageable);
 
             assertThat(result.content()).isEmpty();
         }
@@ -179,11 +230,16 @@ class MissionParticipantAdminServiceTest {
         void emptyHistory() {
             Pageable pageable = PageRequest.of(0, 10);
             when(participantRepository.searchUserMissionEvents(
-                eq("user-1"), isNull(), isNull(), isNull(), isNull(), any(Pageable.class)))
-                .thenReturn(new PageImpl<>(List.of()));
+                            eq("user-1"),
+                            isNull(),
+                            isNull(),
+                            isNull(),
+                            isNull(),
+                            any(Pageable.class)))
+                    .thenReturn(new PageImpl<>(List.of()));
 
             UserMissionHistoryAdminPageResponse result =
-                service.getUserMissionHistory("user-1", null, null, null, null, pageable);
+                    service.getUserMissionHistory("user-1", null, null, null, null, pageable);
 
             assertThat(result.content()).isEmpty();
         }
@@ -191,20 +247,27 @@ class MissionParticipantAdminServiceTest {
 
     /** LUT-239: 길드 미션 기록 네이티브 UNION 쿼리 프로젝션 테스트 스텁 */
     private record GuildEventRow(
-        Long getParticipantId,
-        Long getMissionId,
-        String getMissionTitle,
-        Boolean getIsPinned,
-        String getUserId,
-        String getStatus,
-        Integer getExpEarned,
-        LocalDateTime getEventAt
-    ) implements GuildMissionEventRow {}
+            Long getParticipantId,
+            Long getMissionId,
+            String getMissionTitle,
+            Boolean getIsPinned,
+            String getUserId,
+            String getStatus,
+            Integer getExpEarned,
+            LocalDateTime getEventAt)
+            implements GuildMissionEventRow {}
 
     private static GuildEventRow guildRow(
-        String userId, Boolean isPinned, String status, Integer expEarned) {
-        return new GuildEventRow(1L, 10L, "길드 미션", isPinned, userId, status,
-            expEarned, LocalDateTime.of(2026, 7, 13, 23, 51, 0));
+            String userId, Boolean isPinned, String status, Integer expEarned) {
+        return new GuildEventRow(
+                1L,
+                10L,
+                "길드 미션",
+                isPinned,
+                userId,
+                status,
+                expEarned,
+                LocalDateTime.of(2026, 7, 13, 23, 51, 0));
     }
 
     @Nested
@@ -216,14 +279,17 @@ class MissionParticipantAdminServiceTest {
         void fillsNicknameFromFacade() {
             Pageable pageable = PageRequest.of(0, 10);
             when(participantRepository.searchGuildMissionEvents(
-                eq("100"), isNull(), isNull(), any(Pageable.class)))
-                .thenReturn(new PageImpl<>(List.of(guildRow("user-1", true, "COMPLETED", 34))));
+                            eq("100"), isNull(), isNull(), any(Pageable.class)))
+                    .thenReturn(new PageImpl<>(List.of(guildRow("user-1", true, "COMPLETED", 34))));
             when(userQueryFacade.getUserProfiles(List.of("user-1")))
-                .thenReturn(Map.of("user-1",
-                    new UserProfileInfo("user-1", "핑스파이더", null, 1, null, null, null)));
+                    .thenReturn(
+                            Map.of(
+                                    "user-1",
+                                    new UserProfileInfo(
+                                            "user-1", "핑스파이더", null, 1, null, null, null)));
 
             GuildMissionHistoryAdminPageResponse result =
-                service.getGuildMissionHistory(100L, null, null, pageable);
+                    service.getGuildMissionHistory(100L, null, null, pageable);
 
             assertThat(result.content()).hasSize(1);
             GuildMissionHistoryAdminResponse mapped = result.content().get(0);
@@ -240,14 +306,18 @@ class MissionParticipantAdminServiceTest {
         void mapsInProgressToStarted() {
             Pageable pageable = PageRequest.of(0, 10);
             when(participantRepository.searchGuildMissionEvents(
-                eq("100"), isNull(), isNull(), any(Pageable.class)))
-                .thenReturn(new PageImpl<>(List.of(guildRow("user-1", false, "IN_PROGRESS", 0))));
+                            eq("100"), isNull(), isNull(), any(Pageable.class)))
+                    .thenReturn(
+                            new PageImpl<>(List.of(guildRow("user-1", false, "IN_PROGRESS", 0))));
             when(userQueryFacade.getUserProfiles(List.of("user-1")))
-                .thenReturn(Map.of("user-1",
-                    new UserProfileInfo("user-1", "핑스파이더", null, 1, null, null, null)));
+                    .thenReturn(
+                            Map.of(
+                                    "user-1",
+                                    new UserProfileInfo(
+                                            "user-1", "핑스파이더", null, 1, null, null, null)));
 
             GuildMissionHistoryAdminPageResponse result =
-                service.getGuildMissionHistory(100L, null, null, pageable);
+                    service.getGuildMissionHistory(100L, null, null, pageable);
 
             GuildMissionHistoryAdminResponse mapped = result.content().get(0);
             assertThat(mapped.status()).isEqualTo("STARTED");
@@ -260,12 +330,13 @@ class MissionParticipantAdminServiceTest {
         void missingProfileFallsBackToNullNickname() {
             Pageable pageable = PageRequest.of(0, 10);
             when(participantRepository.searchGuildMissionEvents(
-                eq("100"), isNull(), isNull(), any(Pageable.class)))
-                .thenReturn(new PageImpl<>(List.of(guildRow("user-2", false, "COMPLETED", 120))));
+                            eq("100"), isNull(), isNull(), any(Pageable.class)))
+                    .thenReturn(
+                            new PageImpl<>(List.of(guildRow("user-2", false, "COMPLETED", 120))));
             when(userQueryFacade.getUserProfiles(List.of("user-2"))).thenReturn(Map.of());
 
             GuildMissionHistoryAdminPageResponse result =
-                service.getGuildMissionHistory(100L, null, null, pageable);
+                    service.getGuildMissionHistory(100L, null, null, pageable);
 
             assertThat(result.content().get(0).userNickname()).isNull();
         }
@@ -275,11 +346,11 @@ class MissionParticipantAdminServiceTest {
         void emptyHistorySkipsProfileLookup() {
             Pageable pageable = PageRequest.of(0, 10);
             when(participantRepository.searchGuildMissionEvents(
-                eq("100"), isNull(), isNull(), any(Pageable.class)))
-                .thenReturn(new PageImpl<>(List.of()));
+                            eq("100"), isNull(), isNull(), any(Pageable.class)))
+                    .thenReturn(new PageImpl<>(List.of()));
 
             GuildMissionHistoryAdminPageResponse result =
-                service.getGuildMissionHistory(100L, null, null, pageable);
+                    service.getGuildMissionHistory(100L, null, null, pageable);
 
             assertThat(result.content()).isEmpty();
             verify(userQueryFacade, never()).getUserProfiles(any());
@@ -292,11 +363,11 @@ class MissionParticipantAdminServiceTest {
             LocalDate start = LocalDate.of(2026, 7, 1);
             LocalDate end = LocalDate.of(2026, 7, 14);
             when(participantRepository.searchGuildMissionEvents(
-                eq("100"), eq(start), eq(end), any(Pageable.class)))
-                .thenReturn(new PageImpl<>(List.of()));
+                            eq("100"), eq(start), eq(end), any(Pageable.class)))
+                    .thenReturn(new PageImpl<>(List.of()));
 
             GuildMissionHistoryAdminPageResponse result =
-                service.getGuildMissionHistory(100L, start, end, pageable);
+                    service.getGuildMissionHistory(100L, start, end, pageable);
 
             assertThat(result.content()).isEmpty();
         }

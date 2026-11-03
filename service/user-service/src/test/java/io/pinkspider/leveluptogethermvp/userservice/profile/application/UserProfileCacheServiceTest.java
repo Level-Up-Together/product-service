@@ -2,7 +2,6 @@ package io.pinkspider.leveluptogethermvp.userservice.profile.application;
 
 import static io.pinkspider.global.test.TestReflectionUtils.setId;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import io.pinkspider.global.enums.TitleRarity;
@@ -24,14 +23,11 @@ import org.mockito.junit.jupiter.MockitoExtension;
 @DisplayName("UserProfileCacheService 테스트")
 class UserProfileCacheServiceTest {
 
-    @Mock
-    private UserRepository userRepository;
+    @Mock private UserRepository userRepository;
 
-    @Mock
-    private GamificationQueryFacade gamificationQueryFacadeService;
+    @Mock private GamificationQueryFacade gamificationQueryFacadeService;
 
-    @InjectMocks
-    private UserProfileCacheService userProfileCacheService;
+    @InjectMocks private UserProfileCacheService userProfileCacheService;
 
     @Nested
     @DisplayName("getUserProfile 테스트")
@@ -42,17 +38,19 @@ class UserProfileCacheServiceTest {
         void shouldReturnFullProfileWhenAllDataExists() {
             // given
             String userId = "user-123";
-            Users user = Users.builder()
-                .nickname("테스트유저")
-                .picture("http://example.com/photo.jpg")
-                .build();
+            Users user =
+                    Users.builder()
+                            .nickname("테스트유저")
+                            .picture("http://example.com/photo.jpg")
+                            .build();
             setId(user, userId);
 
             TitleInfoDto titleInfo = new TitleInfoDto("전설적인 모험가", TitleRarity.LEGENDARY, "#FFD700");
 
             when(userRepository.findById(userId)).thenReturn(Optional.of(user));
             when(gamificationQueryFacadeService.getUserLevel(userId)).thenReturn(15);
-            when(gamificationQueryFacadeService.getCombinedEquippedTitleInfo(userId)).thenReturn(titleInfo);
+            when(gamificationQueryFacadeService.getCombinedEquippedTitleInfo(userId))
+                    .thenReturn(titleInfo);
 
             // when
             UserProfileInfo result = userProfileCacheService.getUserProfile(userId);
@@ -90,16 +88,15 @@ class UserProfileCacheServiceTest {
         void shouldReturnDefaultLevelWhenNoExperience() {
             // given
             String userId = "user-new";
-            Users user = Users.builder()
-                .nickname("신규유저")
-                .build();
+            Users user = Users.builder().nickname("신규유저").build();
             setId(user, userId);
 
             TitleInfoDto titleInfo = new TitleInfoDto(null, null, null);
 
             when(userRepository.findById(userId)).thenReturn(Optional.of(user));
             when(gamificationQueryFacadeService.getUserLevel(userId)).thenReturn(1);
-            when(gamificationQueryFacadeService.getCombinedEquippedTitleInfo(userId)).thenReturn(titleInfo);
+            when(gamificationQueryFacadeService.getCombinedEquippedTitleInfo(userId))
+                    .thenReturn(titleInfo);
 
             // when
             UserProfileInfo result = userProfileCacheService.getUserProfile(userId);
@@ -113,16 +110,15 @@ class UserProfileCacheServiceTest {
         void shouldReturnNullTitleWhenNoTitle() {
             // given
             String userId = "user-no-title";
-            Users user = Users.builder()
-                .nickname("칭호없는유저")
-                .build();
+            Users user = Users.builder().nickname("칭호없는유저").build();
             setId(user, userId);
 
             TitleInfoDto titleInfo = new TitleInfoDto(null, null, null);
 
             when(userRepository.findById(userId)).thenReturn(Optional.of(user));
             when(gamificationQueryFacadeService.getUserLevel(userId)).thenReturn(5);
-            when(gamificationQueryFacadeService.getCombinedEquippedTitleInfo(userId)).thenReturn(titleInfo);
+            when(gamificationQueryFacadeService.getCombinedEquippedTitleInfo(userId))
+                    .thenReturn(titleInfo);
 
             // when
             UserProfileInfo result = userProfileCacheService.getUserProfile(userId);
@@ -147,5 +143,4 @@ class UserProfileCacheServiceTest {
             userProfileCacheService.evictUserProfileCache(userId);
         }
     }
-
 }

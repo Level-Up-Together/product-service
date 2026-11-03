@@ -20,8 +20,7 @@ public class CreateJwtResponseDto {
 
     private String refreshToken;
 
-    @Builder.Default
-    private String tokenType = "Bearer";
+    @Builder.Default private String tokenType = "Bearer";
 
     private String expiredTime;
 

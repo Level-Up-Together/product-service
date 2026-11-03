@@ -31,18 +31,19 @@ public class MvpHistoryAdminResponse {
 
     public static MvpHistoryAdminResponse from(DailyMvpHistory history) {
         return MvpHistoryAdminResponse.builder()
-            .mvpDate(history.getMvpDate())
-            .mvpRank(history.getMvpRank())
-            .userId(history.getUserId())
-            .nickname(history.getNickname())
-            .picture(history.getPicture())
-            .userLevel(history.getUserLevel())
-            .earnedExp(history.getEarnedExp())
-            .topCategoryName(history.getTopCategoryName())
-            .topCategoryId(history.getTopCategoryId())
-            .topCategoryExp(history.getTopCategoryExp())
-            .titleName(history.getTitleName())
-            .titleRarity(history.getTitleRarity() != null ? history.getTitleRarity().name() : null)
-            .build();
+                .mvpDate(history.getMvpDate())
+                .mvpRank(history.getMvpRank())
+                .userId(history.getUserId())
+                .nickname(history.getNickname())
+                .picture(history.getPicture())
+                .userLevel(history.getUserLevel())
+                .earnedExp(history.getEarnedExp())
+                .topCategoryName(history.getTopCategoryName())
+                .topCategoryId(history.getTopCategoryId())
+                .topCategoryExp(history.getTopCategoryExp())
+                .titleName(history.getTitleName())
+                .titleRarity(
+                        history.getTitleRarity() != null ? history.getTitleRarity().name() : null)
+                .build();
     }
 }

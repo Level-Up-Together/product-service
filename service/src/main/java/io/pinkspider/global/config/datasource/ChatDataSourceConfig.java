@@ -3,6 +3,8 @@ package io.pinkspider.global.config.datasource;
 import com.zaxxer.hikari.HikariConfig;
 import com.zaxxer.hikari.HikariDataSource;
 import io.pinkspider.global.component.SshTunnel;
+import io.pinkspider.global.config.datasource.flyway.FlywayMigration;
+import io.pinkspider.global.config.datasource.flyway.FlywayMigrationProperties;
 import io.pinkspider.global.config.datasource.properties.ChatDataSourceProperties;
 import jakarta.persistence.EntityManagerFactory;
 import java.util.Properties;
@@ -11,6 +13,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.DependsOn;
 import org.springframework.context.annotation.Profile;
 import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 import org.springframework.lang.Nullable;
@@ -67,6 +70,15 @@ public class ChatDataSourceConfig {
         return new HikariDataSource(cfg);
     }
 
+    /** LUT-595: Flyway → JPA 순서 보장. {@code app.flyway.enabled=false} 면 no-op */
+    @Bean(name = "chatFlywayMigration", initMethod = "migrate")
+    public FlywayMigration chatFlywayMigration(
+            @Qualifier("chatDataSource") DataSource dataSource,
+            FlywayMigrationProperties flywayProperties) {
+        return FlywayMigration.forDatabase("chat", dataSource, flywayProperties);
+    }
+
+    @DependsOn("chatFlywayMigration")
     @Bean(name = "chatEntityManagerFactory")
     public LocalContainerEntityManagerFactoryBean chatEntityManagerFactory(
             @Qualifier("chatDataSource") DataSource dataSource) {

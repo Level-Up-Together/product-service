@@ -1,0 +1,27 @@
+### ============================================================
+### 기록 통계 (Record Statistics) APIs — LUT-454
+### ============================================================
+
+### ----------------------------------------------------------
+### 전체 기간 기록 요약 — 누적 달성/스트릭/등급 도달 이력
+### (무료/구독 게이팅은 프론트 담당)
+### ----------------------------------------------------------
+GET {{baseUrl}}/api/v1/statistics/summary
+Authorization: Bearer {{accessToken}}
+Accept: application/json
+
+### ----------------------------------------------------------
+### 월간 기록 리포트 — 달성률/스트릭/카테고리·요일·시간대 분포
+### year_month 생략 시 당월. 무료 유저는 최근 30일 범위 월만
+### (과거 월은 050301 구독 필요)
+### ----------------------------------------------------------
+GET {{baseUrl}}/api/v1/missions/statistics/monthly?year_month=2026-09
+Authorization: Bearer {{accessToken}}
+X-Timezone: Asia/Seoul
+Accept: application/json
+
+### 당월 (파라미터 생략)
+GET {{baseUrl}}/api/v1/missions/statistics/monthly
+Authorization: Bearer {{accessToken}}
+X-Timezone: Asia/Seoul
+Accept: application/json

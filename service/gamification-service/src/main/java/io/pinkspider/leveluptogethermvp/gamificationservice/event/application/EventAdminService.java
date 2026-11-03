@@ -31,11 +31,12 @@ public class EventAdminService {
     public EventAdminPageResponse searchEvents(String keyword, Pageable pageable) {
         Page<EventAdminResponse> page;
         if (keyword != null && !keyword.isBlank()) {
-            page = eventRepository.searchByKeyword(keyword, pageable)
-                .map(EventAdminResponse::from);
+            page = eventRepository.searchByKeyword(keyword, pageable).map(EventAdminResponse::from);
         } else {
-            page = eventRepository.findAllByOrderByStartAtDesc(pageable)
-                .map(EventAdminResponse::from);
+            page =
+                    eventRepository
+                            .findAllByOrderByStartAtDesc(pageable)
+                            .map(EventAdminResponse::from);
         }
         return EventAdminPageResponse.from(page);
     }
@@ -43,21 +44,23 @@ public class EventAdminService {
     @Transactional(readOnly = true, transactionManager = "gamificationTransactionManager")
     public List<EventAdminResponse> getActiveEvents() {
         return eventRepository.findByIsActiveTrueOrderByStartAtDesc().stream()
-            .map(EventAdminResponse::from)
-            .collect(Collectors.toList());
+                .map(EventAdminResponse::from)
+                .collect(Collectors.toList());
     }
 
     @Transactional(readOnly = true, transactionManager = "gamificationTransactionManager")
     public List<EventAdminResponse> getCurrentEvents() {
         return eventRepository.findCurrentEvents(LocalDateTime.now()).stream()
-            .map(EventAdminResponse::from)
-            .collect(Collectors.toList());
+                .map(EventAdminResponse::from)
+                .collect(Collectors.toList());
     }
 
     @Transactional(readOnly = true, transactionManager = "gamificationTransactionManager")
     public EventAdminResponse getEvent(Long id) {
-        Event event = eventRepository.findById(id)
-            .orElseThrow(() -> new CustomException("120101", "error.event.not_found"));
+        Event event =
+                eventRepository
+                        .findById(id)
+                        .orElseThrow(() -> new CustomException("120101", "error.event.not_found"));
         return EventAdminResponse.from(event);
     }
 
@@ -66,22 +69,23 @@ public class EventAdminService {
 
         String rewardTitleName = resolveRewardTitleName(request.rewardTitleId());
 
-        Event event = Event.builder()
-            .name(request.name())
-            .nameEn(request.nameEn())
-            .nameAr(request.nameAr())
-            .nameJa(request.nameJa())
-            .description(request.description())
-            .descriptionEn(request.descriptionEn())
-            .descriptionAr(request.descriptionAr())
-            .descriptionJa(request.descriptionJa())
-            .imageUrl(request.imageUrl())
-            .startAt(request.startAt())
-            .endAt(request.endAt())
-            .rewardTitleId(request.rewardTitleId())
-            .rewardTitleName(rewardTitleName)
-            .isActive(request.isActive() != null ? request.isActive() : true)
-            .build();
+        Event event =
+                Event.builder()
+                        .name(request.name())
+                        .nameEn(request.nameEn())
+                        .nameAr(request.nameAr())
+                        .nameJa(request.nameJa())
+                        .description(request.description())
+                        .descriptionEn(request.descriptionEn())
+                        .descriptionAr(request.descriptionAr())
+                        .descriptionJa(request.descriptionJa())
+                        .imageUrl(request.imageUrl())
+                        .startAt(request.startAt())
+                        .endAt(request.endAt())
+                        .rewardTitleId(request.rewardTitleId())
+                        .rewardTitleName(rewardTitleName)
+                        .isActive(request.isActive() != null ? request.isActive() : true)
+                        .build();
 
         Event saved = eventRepository.save(event);
         log.info("이벤트 생성: {} (ID: {})", request.name(), saved.getId());
@@ -89,8 +93,10 @@ public class EventAdminService {
     }
 
     public EventAdminResponse updateEvent(Long id, EventAdminRequest request) {
-        Event event = eventRepository.findById(id)
-            .orElseThrow(() -> new CustomException("120101", "error.event.not_found"));
+        Event event =
+                eventRepository
+                        .findById(id)
+                        .orElseThrow(() -> new CustomException("120101", "error.event.not_found"));
 
         validateEventDates(request.startAt(), request.endAt());
 
@@ -119,8 +125,10 @@ public class EventAdminService {
     }
 
     public void deleteEvent(Long id) {
-        Event event = eventRepository.findById(id)
-            .orElseThrow(() -> new CustomException("120101", "error.event.not_found"));
+        Event event =
+                eventRepository
+                        .findById(id)
+                        .orElseThrow(() -> new CustomException("120101", "error.event.not_found"));
         log.info("이벤트 삭제: {} (ID: {})", event.getName(), id);
         eventRepository.delete(event);
     }
@@ -135,8 +143,6 @@ public class EventAdminService {
         if (rewardTitleId == null) {
             return null;
         }
-        return titleRepository.findById(rewardTitleId)
-            .map(Title::getName)
-            .orElse(null);
+        return titleRepository.findById(rewardTitleId).map(Title::getName).orElse(null);
     }
 }

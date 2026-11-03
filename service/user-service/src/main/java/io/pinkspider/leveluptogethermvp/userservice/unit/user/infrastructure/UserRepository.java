@@ -13,35 +13,59 @@ import org.springframework.data.repository.query.Param;
 
 public interface UserRepository extends JpaRepository<Users, String> {
 
+    /** LUT-529: 아이템 푸시 스케줄러 배치 TZ 조회 — (userId, preferredTimezone) 쌍. */
+    @Query("SELECT u.id, u.preferredTimezone FROM Users u WHERE u.id IN :ids")
+    List<Object[]> findPreferredTimezonesByIdIn(@Param("ids") java.util.Collection<String> ids);
+
+    /** LUT-543: 아이템 푸시 백오프 기산점(완료 이력 없는 유저의 가입일) — (userId, createdAt UTC) 쌍. */
+    @Query("SELECT u.id, u.createdAt FROM Users u WHERE u.id IN :ids")
+    List<Object[]> findCreatedAtsByIdIn(@Param("ids") java.util.Collection<String> ids);
+
     /**
-     * @deprecated JPA @Convert가 쿼리 파라미터에 적용되지 않아 암호화된 이메일 조회 실패.
-     * {@link #findByEncryptedEmailAndProvider(String, String)} 사용 권장.
+     * @deprecated JPA @Convert가 쿼리 파라미터에 적용되지 않아 암호화된 이메일 조회 실패. {@link
+     *     #findByEncryptedEmailAndProvider(String, String)} 사용 권장.
      */
     @Deprecated
     Optional<Users> findByEmailAndProvider(String email, String provider);
 
     /**
-     * 암호화된 이메일과 provider로 사용자 조회 (중복 가입 확인용)
-     * 이메일은 호출 전에 CryptoUtils.encryptAes()로 암호화해야 함
-     * provider는 대소문자 무시 (LOWER 함수 사용)
+     * 탈퇴 이력 조회 (cool-down 판정용). 재가입→재탈퇴 반복으로 WITHDRAWN row 가 여러 개일 수 있어 List 로 반환하며, 최신 탈퇴가 첫 번째로
+     * 오도록 정렬한다. (LUT-258)
      */
-    @Query(value = "SELECT * FROM users WHERE email = :encryptedEmail AND LOWER(provider) = LOWER(:provider)", nativeQuery = true)
-    Optional<Users> findByEncryptedEmailAndProvider(
-        @Param("encryptedEmail") String encryptedEmail,
-        @Param("provider") String provider
-    );
+    @Query(
+            value =
+                    "SELECT * FROM users WHERE email = :encryptedEmail AND LOWER(provider) ="
+                        + " LOWER(:provider) AND status = 'WITHDRAWN' ORDER BY withdrawn_at DESC"
+                        + " NULLS LAST, created_at DESC",
+            nativeQuery = true)
+    List<Users> findWithdrawnByEncryptedEmailAndProvider(
+            @Param("encryptedEmail") String encryptedEmail, @Param("provider") String provider);
 
     /**
-     * QA-115: cool-down 기반 재가입 정책에서, 활성 사용자(WITHDRAWN 제외)만 조회한다.
-     * completeSignup 중복 체크에서 사용해 WITHDRAWN row 가 있어도 새 가입이 허용되도록 한다.
+     * QA-115: cool-down 기반 재가입 정책에서, 활성 사용자(WITHDRAWN 제외)만 조회한다. completeSignup 중복 체크에서 사용해
+     * WITHDRAWN row 가 있어도 새 가입이 허용되도록 한다.
      */
-    @Query(value = "SELECT * FROM users WHERE email = :encryptedEmail AND LOWER(provider) = LOWER(:provider) AND status <> 'WITHDRAWN'", nativeQuery = true)
+    @Query(
+            value =
+                    "SELECT * FROM users WHERE email = :encryptedEmail AND LOWER(provider) ="
+                            + " LOWER(:provider) AND status <> 'WITHDRAWN'",
+            nativeQuery = true)
     Optional<Users> findActiveByEncryptedEmailAndProvider(
-        @Param("encryptedEmail") String encryptedEmail,
-        @Param("provider") String provider
-    );
+            @Param("encryptedEmail") String encryptedEmail, @Param("provider") String provider);
 
     List<Users> findAllByIdIn(List<String> userIds);
+
+    /**
+     * LUT-476: 소셜 웹훅(연결 해제 통지)에서 공급자 사용자 ID 로 활성 계정 조회. provider_user_id 는 로그인 시 백필되므로 미백필 유저는 조회되지
+     * 않을 수 있다.
+     */
+    @Query(
+            value =
+                    "SELECT * FROM users WHERE LOWER(provider) = LOWER(:provider) AND"
+                        + " provider_user_id = :providerUserId AND status <> 'WITHDRAWN' LIMIT 1",
+            nativeQuery = true)
+    Optional<Users> findActiveByProviderAndProviderUserId(
+            @Param("provider") String provider, @Param("providerUserId") String providerUserId);
 
     // 닉네임 중복 확인 (자신 제외)
     boolean existsByNicknameAndIdNot(String nickname, String userId);
@@ -55,41 +79,66 @@ public interface UserRepository extends JpaRepository<Users, String> {
     // 닉네임으로 사용자 조회
     Optional<Users> findByNickname(String nickname);
 
-    /**
-     * 닉네임으로 사용자 검색 (닉네임이 설정된 활성 사용자만)
-     */
-    @Query("SELECT u FROM Users u WHERE u.nicknameSet = true " +
-           "AND u.status = 'ACTIVE' " +
-           "AND LOWER(u.nickname) LIKE LOWER(CONCAT('%', :keyword, '%'))")
+    /** 닉네임으로 사용자 검색 (닉네임이 설정된 활성 사용자만) */
+    @Query(
+            "SELECT u FROM Users u WHERE u.nicknameSet = true "
+                    + "AND u.status = 'ACTIVE' "
+                    + "AND LOWER(u.nickname) LIKE LOWER(CONCAT('%', :keyword, '%'))")
     Page<Users> searchByNickname(@Param("keyword") String keyword, Pageable pageable);
 
-    /**
-     * 주어진 사용자 ID 목록 중 활성(ACTIVE) 상태인 사용자 ID만 반환
-     */
+    /** LUT-328: 닉네임 부분일치 사용자 ID 검색 (어드민 구매이력 닉네임 검색용) */
+    @Query(
+            "SELECT u.id FROM Users u WHERE u.nicknameSet = true "
+                    + "AND u.status = 'ACTIVE' "
+                    + "AND LOWER(u.nickname) LIKE LOWER(CONCAT('%', :keyword, '%'))")
+    List<String> findIdsByNicknameContaining(@Param("keyword") String keyword, Pageable pageable);
+
+    /** 주어진 사용자 ID 목록 중 활성(ACTIVE) 상태인 사용자 ID만 반환 */
     @Query("SELECT u.id FROM Users u WHERE u.id IN :userIds AND u.status = 'ACTIVE'")
     List<String> findActiveUserIds(@Param("userIds") List<String> userIds);
 
+    /** LUT-508: 활성(ACTIVE) 유저 ID 전체 — 관리자 푸시 전체 발송 대상 */
+    @Query("SELECT u.id FROM Users u WHERE u.status = 'ACTIVE' ORDER BY u.createdAt ASC, u.id ASC")
+    List<String> findAllActiveUserIds();
+
     // ========== Admin Internal API 전용 ==========
 
-    @Query("SELECT u FROM Users u WHERE " +
-        "(:keyword IS NULL OR u.nickname LIKE %:keyword%) AND " +
-        "(:provider IS NULL OR u.provider = :provider)")
+    @Query(
+            "SELECT u FROM Users u WHERE "
+                    + "(:keyword IS NULL OR u.nickname LIKE %:keyword%) AND "
+                    + "(:provider IS NULL OR u.provider = :provider)")
     Page<Users> searchUsersForAdmin(
-        @Param("keyword") String keyword,
-        @Param("provider") String provider,
-        Pageable pageable);
+            @Param("keyword") String keyword,
+            @Param("provider") String provider,
+            Pageable pageable);
 
-    @Query(value = "SELECT * FROM users WHERE email = :encryptedEmail", nativeQuery = true)
+    /**
+     * 이메일 단독 조회 (어드민용). 동일 이메일 row 가 여러 개일 수 있으므로(타 provider, 탈퇴 후 재가입) 활성 계정 우선 + 최신 가입 순으로 1건만
+     * 반환한다. (LUT-258)
+     */
+    @Query(
+            value =
+                    "SELECT * FROM users WHERE email = :encryptedEmail ORDER BY CASE WHEN status ="
+                            + " 'WITHDRAWN' THEN 1 ELSE 0 END, created_at DESC LIMIT 1",
+            nativeQuery = true)
     Optional<Users> findByEncryptedEmail(@Param("encryptedEmail") String encryptedEmail);
 
     @Query("SELECT COUNT(u) FROM Users u WHERE u.createdAt >= :date")
     long countNewUsersSince(@Param("date") LocalDateTime date);
 
-    @Query("SELECT u.provider, COUNT(u) FROM Users u GROUP BY u.provider")
-    List<Object[]> countUsersByProvider();
+    /** LUT-603: 어드민 통계 — 탈퇴(WITHDRAWN) 를 뺀 현재 유저 수 */
+    long countByStatusNot(UserStatus status);
 
-    @Query("SELECT FUNCTION('DATE', u.createdAt), COUNT(u) FROM Users u " +
-        "WHERE u.createdAt BETWEEN :start AND :end " +
-        "GROUP BY FUNCTION('DATE', u.createdAt) ORDER BY FUNCTION('DATE', u.createdAt)")
-    List<Object[]> countDailyNewUsers(@Param("start") LocalDateTime start, @Param("end") LocalDateTime end);
+    long countByStatus(UserStatus status);
+
+    /** LUT-603: 가입경로 분포 — 탈퇴 유저 제외(전체 사용자 수와 합이 맞도록) */
+    @Query("SELECT u.provider, COUNT(u) FROM Users u WHERE u.status <> :status GROUP BY u.provider")
+    List<Object[]> countUsersByProviderExcluding(@Param("status") UserStatus status);
+
+    @Query(
+            "SELECT FUNCTION('DATE', u.createdAt), COUNT(u) FROM Users u WHERE u.createdAt BETWEEN"
+                    + " :start AND :end GROUP BY FUNCTION('DATE', u.createdAt) ORDER BY"
+                    + " FUNCTION('DATE', u.createdAt)")
+    List<Object[]> countDailyNewUsers(
+            @Param("start") LocalDateTime start, @Param("end") LocalDateTime end);
 }

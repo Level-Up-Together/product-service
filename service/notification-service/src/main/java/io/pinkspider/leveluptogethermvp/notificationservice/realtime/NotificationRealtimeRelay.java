@@ -12,10 +12,10 @@ import org.springframework.stereotype.Component;
 
 /**
  * 알림 실시간 릴레이 (QA-224)
- * <p>
- * Redis pub/sub 채널({@link NotificationRealtimePublisher#CHANNEL})을 구독하여,
- * 이 인스턴스에 연결된 해당 유저의 WebSocket 세션으로 STOMP 메시지를 전달한다.
- * 목적지: /user/queue/notifications (user destination — 세션 단위로 격리되어 타 유저 구독 불가)
+ *
+ * <p>Redis pub/sub 채널({@link NotificationRealtimePublisher#CHANNEL})을 구독하여, 이 인스턴스에 연결된 해당 유저의
+ * WebSocket 세션으로 STOMP 메시지를 전달한다. 목적지: /user/queue/notifications (user destination — 세션 단위로 격리되어 타
+ * 유저 구독 불가)
  */
 @Slf4j
 @Component

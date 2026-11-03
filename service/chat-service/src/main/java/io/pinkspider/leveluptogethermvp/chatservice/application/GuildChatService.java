@@ -1,6 +1,9 @@
 package io.pinkspider.leveluptogethermvp.chatservice.application;
 
 import io.pinkspider.global.event.GuildChatMessageEvent;
+import io.pinkspider.global.facade.GuildQueryFacade;
+import io.pinkspider.global.facade.UserQueryFacade;
+import io.pinkspider.global.facade.dto.GuildBasicInfo;
 import io.pinkspider.leveluptogethermvp.chatservice.domain.dto.ChatMessageRequest;
 import io.pinkspider.leveluptogethermvp.chatservice.domain.dto.ChatMessageResponse;
 import io.pinkspider.leveluptogethermvp.chatservice.domain.dto.ChatParticipantResponse;
@@ -12,9 +15,6 @@ import io.pinkspider.leveluptogethermvp.chatservice.domain.enums.ChatMessageType
 import io.pinkspider.leveluptogethermvp.chatservice.infrastructure.GuildChatMessageRepository;
 import io.pinkspider.leveluptogethermvp.chatservice.infrastructure.GuildChatParticipantRepository;
 import io.pinkspider.leveluptogethermvp.chatservice.infrastructure.GuildChatReadStatusRepository;
-import io.pinkspider.global.facade.GuildQueryFacade;
-import io.pinkspider.global.facade.dto.GuildBasicInfo;
-import io.pinkspider.global.facade.UserQueryFacade;
 import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.List;
@@ -40,15 +40,17 @@ public class GuildChatService {
     private final GuildQueryFacade guildQueryFacadeService;
     private final UserQueryFacade userQueryFacadeService;
     private final ApplicationEventPublisher eventPublisher;
+    private final ChatImageService chatImageService;
 
     @Transactional(transactionManager = "chatTransactionManager")
-    public ChatMessageResponse sendMessage(Long guildId, String userId, String nickname,
-                                            ChatMessageRequest request) {
+    public ChatMessageResponse sendMessage(
+            Long guildId, String userId, String nickname, ChatMessageRequest request) {
         GuildBasicInfo guildInfo = guildQueryFacadeService.getGuildBasicInfo(guildId);
         if (guildInfo == null) {
             throw new IllegalArgumentException("길드를 찾을 수 없습니다: " + guildId);
         }
         validateMembership(guildId, userId);
+        chatImageService.validateImageUrl(request.getImageUrl(), guildId, userId);
 
         String effectiveNickname = nickname;
         if (effectiveNickname == null || effectiveNickname.isBlank()) {
@@ -57,42 +59,47 @@ public class GuildChatService {
 
         GuildChatMessage message;
         if (request.getImageUrl() != null && !request.getImageUrl().isEmpty()) {
-            message = GuildChatMessage.builder()
-                .guildId(guildId)
-                .senderId(userId)
-                .senderNickname(effectiveNickname)
-                .messageType(ChatMessageType.IMAGE)
-                .content(request.getContent() != null ? request.getContent() : "")
-                .imageUrl(request.getImageUrl())
-                .build();
+            message =
+                    GuildChatMessage.builder()
+                            .guildId(guildId)
+                            .senderId(userId)
+                            .senderNickname(effectiveNickname)
+                            .messageType(ChatMessageType.IMAGE)
+                            .content(request.getContent() != null ? request.getContent() : "")
+                            .imageUrl(request.getImageUrl())
+                            .build();
         } else {
-            message = GuildChatMessage.createTextMessage(guildId, userId, effectiveNickname, request.getContent());
+            message =
+                    GuildChatMessage.createTextMessage(
+                            guildId, userId, effectiveNickname, request.getContent());
         }
 
         GuildChatMessage saved = chatMessageRepository.save(message);
         log.debug("채팅 메시지 전송: guildId={}, userId={}", guildId, userId);
 
-        List<String> memberIds = guildQueryFacadeService.getActiveMemberUserIds(guildId).stream()
-            .filter(memberId -> !memberId.equals(userId))
-            .toList();
+        List<String> memberIds =
+                guildQueryFacadeService.getActiveMemberUserIds(guildId).stream()
+                        .filter(memberId -> !memberId.equals(userId))
+                        .toList();
 
         if (!memberIds.isEmpty()) {
-            eventPublisher.publishEvent(new GuildChatMessageEvent(
-                userId,
-                effectiveNickname,
-                guildId,
-                guildInfo.name(),
-                saved.getId(),
-                saved.getContent(),
-                memberIds
-            ));
+            eventPublisher.publishEvent(
+                    new GuildChatMessageEvent(
+                            userId,
+                            effectiveNickname,
+                            guildId,
+                            guildInfo.name(),
+                            saved.getId(),
+                            saved.getContent(),
+                            memberIds));
         }
 
         return ChatMessageResponse.from(saved);
     }
 
     @Transactional(transactionManager = "chatTransactionManager")
-    public ChatMessageResponse sendSystemMessage(Long guildId, ChatMessageType type, String content) {
+    public ChatMessageResponse sendSystemMessage(
+            Long guildId, ChatMessageType type, String content) {
         validateGuildExists(guildId);
         GuildChatMessage message = GuildChatMessage.createSystemMessage(guildId, type, content);
         GuildChatMessage saved = chatMessageRepository.save(message);
@@ -100,83 +107,117 @@ public class GuildChatService {
     }
 
     @Transactional(transactionManager = "chatTransactionManager")
-    public ChatMessageResponse sendSystemMessage(Long guildId, ChatMessageType type, String content,
-                                                  String referenceType, Long referenceId) {
+    public ChatMessageResponse sendSystemMessage(
+            Long guildId,
+            ChatMessageType type,
+            String content,
+            String referenceType,
+            Long referenceId) {
         validateGuildExists(guildId);
-        GuildChatMessage message = GuildChatMessage.createSystemMessage(
-            guildId, type, content, referenceType, referenceId);
+        GuildChatMessage message =
+                GuildChatMessage.createSystemMessage(
+                        guildId, type, content, referenceType, referenceId);
         GuildChatMessage saved = chatMessageRepository.save(message);
         return ChatMessageResponse.from(saved);
     }
 
+    /**
+     * LUT-373: 차단한 유저의 메시지 제외 목록 (viewer 기준 단방향 — 피드와 동일 정책). JPQL NOT IN 은 빈 리스트에서 오동작하므로 항상 매치되지
+     * 않는 센티널을 넣는다. 차단 조회 실패가 채팅 조회 전체를 막지 않도록 예외는 미차단으로 처리한다.
+     */
+    private List<String> resolveExcludedSenderIds(String userId) {
+        if (userId == null) {
+            return List.of("__none__");
+        }
+        try {
+            List<String> blocked = userQueryFacadeService.getBlockedUserIds(userId);
+            return (blocked == null || blocked.isEmpty()) ? List.of("__none__") : blocked;
+        } catch (Exception e) {
+            log.warn("차단 목록 조회 실패 — 필터 없이 진행: userId={}", userId);
+            return List.of("__none__");
+        }
+    }
+
     public Page<ChatMessageResponse> getMessages(Long guildId, String userId, Pageable pageable) {
         validateMembership(guildId, userId);
-        return chatMessageRepository.findByGuildIdOrderByCreatedAtDesc(guildId, pageable)
-            .map(ChatMessageResponse::from);
+        return chatMessageRepository
+                .findByGuildIdOrderByCreatedAtDesc(
+                        guildId, resolveExcludedSenderIds(userId), pageable)
+                .map(ChatMessageResponse::from);
     }
 
-    public List<ChatMessageResponse> getNewMessages(Long guildId, String userId, LocalDateTime since) {
+    public List<ChatMessageResponse> getNewMessages(
+            Long guildId, String userId, LocalDateTime since) {
         validateMembership(guildId, userId);
-        return chatMessageRepository.findNewMessages(guildId, since).stream()
-            .map(ChatMessageResponse::from)
-            .toList();
+        return chatMessageRepository
+                .findNewMessages(guildId, since, resolveExcludedSenderIds(userId))
+                .stream()
+                .map(ChatMessageResponse::from)
+                .toList();
     }
 
-    public List<ChatMessageResponse> getMessagesAfterId(Long guildId, String userId, Long lastMessageId) {
+    public List<ChatMessageResponse> getMessagesAfterId(
+            Long guildId, String userId, Long lastMessageId) {
         validateMembership(guildId, userId);
-        return chatMessageRepository.findMessagesAfterId(guildId, lastMessageId).stream()
-            .map(ChatMessageResponse::from)
-            .toList();
+        return chatMessageRepository
+                .findMessagesAfterId(guildId, lastMessageId, resolveExcludedSenderIds(userId))
+                .stream()
+                .map(ChatMessageResponse::from)
+                .toList();
     }
 
-    public Page<ChatMessageResponse> getMessagesBeforeId(Long guildId, String userId,
-                                                          Long beforeId, Pageable pageable) {
+    public Page<ChatMessageResponse> getMessagesBeforeId(
+            Long guildId, String userId, Long beforeId, Pageable pageable) {
         validateMembership(guildId, userId);
-        return chatMessageRepository.findMessagesBeforeId(guildId, beforeId, pageable)
-            .map(ChatMessageResponse::from);
+        return chatMessageRepository
+                .findMessagesBeforeId(guildId, beforeId, resolveExcludedSenderIds(userId), pageable)
+                .map(ChatMessageResponse::from);
     }
 
-    public Page<ChatMessageResponse> searchMessages(Long guildId, String userId,
-                                                     String keyword, Pageable pageable) {
+    public Page<ChatMessageResponse> searchMessages(
+            Long guildId, String userId, String keyword, Pageable pageable) {
         validateMembership(guildId, userId);
-        return chatMessageRepository.searchMessages(guildId, keyword, pageable)
-            .map(ChatMessageResponse::from);
+        return chatMessageRepository
+                .searchMessages(guildId, keyword, resolveExcludedSenderIds(userId), pageable)
+                .map(ChatMessageResponse::from);
     }
 
     @Transactional(transactionManager = "chatTransactionManager")
     public void deleteMessage(Long guildId, Long messageId, String userId) {
-        GuildChatMessage message = chatMessageRepository.findById(messageId)
-            .orElseThrow(() -> new IllegalArgumentException("메시지를 찾을 수 없습니다."));
+        GuildChatMessage message =
+                chatMessageRepository
+                        .findById(messageId)
+                        .orElseThrow(() -> new IllegalArgumentException("메시지를 찾을 수 없습니다."));
 
         if (!message.getGuildId().equals(guildId)) {
             throw new IllegalArgumentException("해당 길드의 메시지가 아닙니다.");
         }
 
         // 본인 메시지이거나 길드 마스터만 삭제 가능
-        if (!message.getSenderId().equals(userId) && !guildQueryFacadeService.isMaster(guildId, userId)) {
+        if (!message.getSenderId().equals(userId)
+                && !guildQueryFacadeService.isMaster(guildId, userId)) {
             throw new IllegalStateException("본인 메시지 또는 길드 마스터만 삭제할 수 있습니다.");
         }
 
+        String imageUrl = message.getImageUrl();
         message.delete();
+        chatImageService.deleteAfterCommit(imageUrl, message.getGuildId(), message.getSenderId());
         log.info("채팅 메시지 삭제: messageId={}, deletedBy={}", messageId, userId);
     }
 
     @Transactional(transactionManager = "chatTransactionManager")
     public void notifyMemberJoin(Long guildId, String memberNickname) {
-        sendSystemMessage(guildId, ChatMessageType.SYSTEM_JOIN,
-            memberNickname + "님이 길드에 가입했습니다.");
+        sendSystemMessage(guildId, ChatMessageType.SYSTEM_JOIN, memberNickname + "님이 길드에 가입했습니다.");
     }
 
     @Transactional(transactionManager = "chatTransactionManager")
     public void notifyMemberLeave(Long guildId, String memberNickname) {
-        sendSystemMessage(guildId, ChatMessageType.SYSTEM_LEAVE,
-            memberNickname + "님이 길드를 떠났습니다.");
+        sendSystemMessage(guildId, ChatMessageType.SYSTEM_LEAVE, memberNickname + "님이 길드를 떠났습니다.");
     }
 
     @Transactional(transactionManager = "chatTransactionManager")
     public void notifyMemberKick(Long guildId, String memberNickname) {
-        sendSystemMessage(guildId, ChatMessageType.SYSTEM_KICK,
-            memberNickname + "님이 추방되었습니다.");
+        sendSystemMessage(guildId, ChatMessageType.SYSTEM_KICK, memberNickname + "님이 추방되었습니다.");
     }
 
     private void validateGuildExists(Long guildId) {
@@ -203,35 +244,52 @@ public class GuildChatService {
         int memberCount = guildQueryFacadeService.getActiveMemberCount(guildId);
         int participantCount = (int) participantRepository.countActiveParticipants(guildId);
 
-        GuildChatReadStatus readStatus = readStatusRepository.findByGuildIdAndUserId(guildId, userId)
-            .orElse(null);
+        GuildChatReadStatus readStatus =
+                readStatusRepository.findByGuildIdAndUserId(guildId, userId).orElse(null);
 
         Long lastReadMessageId = readStatus != null ? readStatus.getLastReadMessageId() : 0L;
 
-        int unreadCount = readStatus != null
-            ? readStatusRepository.countUnreadMessagesForUser(guildId, readStatus.getLastReadMessageId())
-            : (int) chatMessageRepository.countByGuildId(guildId);
+        // LUT-384: 차단한 유저의 메시지는 안읽음 카운트에서도 제외 — 메시지 탭 레드닷이 이 값에서 파생된다
+        List<String> excludedSenderIds = resolveExcludedSenderIds(userId);
+        int unreadCount =
+                readStatus != null
+                        ? readStatusRepository.countUnreadMessagesForUser(
+                                guildId, readStatus.getLastReadMessageId(), excludedSenderIds)
+                        : (int) chatMessageRepository.countByGuildId(guildId, excludedSenderIds);
 
-        return ChatRoomInfoResponse.of(guildInfo.id(), guildInfo.name(), guildInfo.imageUrl(),
-            memberCount, participantCount, unreadCount, lastReadMessageId);
+        return ChatRoomInfoResponse.of(
+                guildInfo.id(),
+                guildInfo.name(),
+                guildInfo.imageUrl(),
+                memberCount,
+                participantCount,
+                unreadCount,
+                lastReadMessageId);
     }
 
     @Transactional(transactionManager = "chatTransactionManager")
     public void markAsRead(Long guildId, String userId, Long messageId) {
         validateMembership(guildId, userId);
 
-        GuildChatMessage message = chatMessageRepository.findById(messageId)
-            .orElseThrow(() -> new IllegalArgumentException("메시지를 찾을 수 없습니다: " + messageId));
+        GuildChatMessage message =
+                chatMessageRepository
+                        .findById(messageId)
+                        .orElseThrow(
+                                () -> new IllegalArgumentException("메시지를 찾을 수 없습니다: " + messageId));
 
         if (!message.getGuildId().equals(guildId)) {
             throw new IllegalArgumentException("해당 길드의 메시지가 아닙니다.");
         }
 
-        GuildChatReadStatus readStatus = readStatusRepository.findByGuildIdAndUserId(guildId, userId)
-            .orElseGet(() -> {
-                GuildChatReadStatus newStatus = GuildChatReadStatus.create(guildId, userId);
-                return readStatusRepository.save(newStatus);
-            });
+        GuildChatReadStatus readStatus =
+                readStatusRepository
+                        .findByGuildIdAndUserId(guildId, userId)
+                        .orElseGet(
+                                () -> {
+                                    GuildChatReadStatus newStatus =
+                                            GuildChatReadStatus.create(guildId, userId);
+                                    return readStatusRepository.save(newStatus);
+                                });
 
         readStatus.updateLastRead(message);
         log.debug("메시지 읽음 처리: guildId={}, userId={}, messageId={}", guildId, userId, messageId);
@@ -241,11 +299,14 @@ public class GuildChatService {
     public void initializeReadStatus(Long guildId, String userId) {
         validateGuildExists(guildId);
 
-        readStatusRepository.findByGuildIdAndUserId(guildId, userId)
-            .orElseGet(() -> {
-                GuildChatReadStatus newStatus = GuildChatReadStatus.create(guildId, userId);
-                return readStatusRepository.save(newStatus);
-            });
+        readStatusRepository
+                .findByGuildIdAndUserId(guildId, userId)
+                .orElseGet(
+                        () -> {
+                            GuildChatReadStatus newStatus =
+                                    GuildChatReadStatus.create(guildId, userId);
+                            return readStatusRepository.save(newStatus);
+                        });
         log.debug("읽음 상태 초기화: guildId={}, userId={}", guildId, userId);
     }
 
@@ -255,19 +316,22 @@ public class GuildChatService {
         log.debug("읽음 상태 삭제: guildId={}, userId={}", guildId, userId);
     }
 
-    public Page<ChatMessageResponse> getMessagesWithUnreadCount(Long guildId, String userId, Pageable pageable) {
+    public Page<ChatMessageResponse> getMessagesWithUnreadCount(
+            Long guildId, String userId, Pageable pageable) {
         validateMembership(guildId, userId);
 
-        Page<GuildChatMessage> messages = chatMessageRepository.findByGuildIdOrderByCreatedAtDesc(guildId, pageable);
+        Page<GuildChatMessage> messages =
+                chatMessageRepository.findByGuildIdOrderByCreatedAtDesc(
+                        guildId, resolveExcludedSenderIds(userId), pageable);
         int totalParticipants = (int) participantRepository.countActiveParticipants(guildId);
 
-        List<Long> messageIds = messages.getContent().stream()
-            .map(GuildChatMessage::getId)
-            .toList();
+        List<Long> messageIds =
+                messages.getContent().stream().map(GuildChatMessage::getId).toList();
 
         Map<Long, Long> readerCountMap = new HashMap<>();
         if (!messageIds.isEmpty()) {
-            List<Object[]> results = readStatusRepository.countReadersForMessages(guildId, messageIds);
+            List<Object[]> results =
+                    readStatusRepository.countReadersForMessages(guildId, messageIds);
             for (Object[] result : results) {
                 Long msgId = (Long) result[0];
                 Long readCount = (Long) result[1];
@@ -275,13 +339,16 @@ public class GuildChatService {
             }
         }
 
-        List<ChatMessageResponse> responses = messages.getContent().stream()
-            .map(msg -> {
-                long readCount = readerCountMap.getOrDefault(msg.getId(), 0L);
-                int unreadCount = Math.max(0, totalParticipants - (int) readCount);
-                return ChatMessageResponse.from(msg, unreadCount);
-            })
-            .toList();
+        List<ChatMessageResponse> responses =
+                messages.getContent().stream()
+                        .map(
+                                msg -> {
+                                    long readCount = readerCountMap.getOrDefault(msg.getId(), 0L);
+                                    int unreadCount =
+                                            Math.max(0, totalParticipants - (int) readCount);
+                                    return ChatMessageResponse.from(msg, unreadCount);
+                                })
+                        .toList();
 
         return new PageImpl<>(responses, pageable, messages.getTotalElements());
     }
@@ -309,21 +376,31 @@ public class GuildChatService {
         }
         final String finalNickname = effectiveNickname;
 
-        GuildChatParticipant participant = participantRepository.findByGuildIdAndUserId(guildId, userId)
-            .map(existing -> {
-                if (!existing.isParticipating()) {
-                    existing.rejoin(finalNickname);
-                    sendSystemMessage(guildId, ChatMessageType.SYSTEM_JOIN,
-                        finalNickname + "님이 채팅방에 입장했습니다.");
-                }
-                return existing;
-            })
-            .orElseGet(() -> {
-                GuildChatParticipant newParticipant = GuildChatParticipant.create(guildId, userId, finalNickname);
-                sendSystemMessage(guildId, ChatMessageType.SYSTEM_JOIN,
-                    finalNickname + "님이 채팅방에 입장했습니다.");
-                return participantRepository.save(newParticipant);
-            });
+        GuildChatParticipant participant =
+                participantRepository
+                        .findByGuildIdAndUserId(guildId, userId)
+                        .map(
+                                existing -> {
+                                    if (!existing.isParticipating()) {
+                                        existing.rejoin(finalNickname);
+                                        sendSystemMessage(
+                                                guildId,
+                                                ChatMessageType.SYSTEM_JOIN,
+                                                finalNickname + "님이 채팅방에 입장했습니다.");
+                                    }
+                                    return existing;
+                                })
+                        .orElseGet(
+                                () -> {
+                                    GuildChatParticipant newParticipant =
+                                            GuildChatParticipant.create(
+                                                    guildId, userId, finalNickname);
+                                    sendSystemMessage(
+                                            guildId,
+                                            ChatMessageType.SYSTEM_JOIN,
+                                            finalNickname + "님이 채팅방에 입장했습니다.");
+                                    return participantRepository.save(newParticipant);
+                                });
 
         initializeReadStatus(guildId, userId);
 
@@ -341,15 +418,61 @@ public class GuildChatService {
         }
         final String finalNickname = effectiveNickname;
 
-        participantRepository.findByGuildIdAndUserId(guildId, userId)
-            .ifPresent(participant -> {
-                if (participant.isParticipating()) {
-                    participant.leave();
-                    sendSystemMessage(guildId, ChatMessageType.SYSTEM_LEAVE,
-                        finalNickname + "님이 채팅방에서 퇴장했습니다.");
-                    log.info("채팅방 퇴장: guildId={}, userId={}, nickname={}", guildId, userId, finalNickname);
-                }
-            });
+        participantRepository
+                .findByGuildIdAndUserId(guildId, userId)
+                .ifPresent(
+                        participant -> {
+                            if (participant.isParticipating()) {
+                                participant.leave();
+                                sendSystemMessage(
+                                        guildId,
+                                        ChatMessageType.SYSTEM_LEAVE,
+                                        finalNickname + "님이 채팅방에서 퇴장했습니다.");
+                                log.info(
+                                        "채팅방 퇴장: guildId={}, userId={}, nickname={}",
+                                        guildId,
+                                        userId,
+                                        finalNickname);
+                            }
+                        });
+    }
+
+    /**
+     * 길드 탈퇴/추방 시 단체 채팅 참여 상태 정리 (LUT-471)
+     *
+     * <p>비활성화하지 않으면 participant_count 가 현재 길드원 수를 초과해 노출된다. 읽음 상태도 함께 삭제해 메시지별 안읽음 집계(readers
+     * count)에 잔존하지 않게 한다. 이미 길드원이 아닌 유저의 정리이므로 validateMembership 을 거치지 않는다.
+     *
+     * @return 참여 중이던 참여자를 비활성화했으면 true
+     */
+    @Transactional(transactionManager = "chatTransactionManager")
+    public boolean deactivateParticipant(Long guildId, String userId) {
+        boolean deactivated =
+                participantRepository
+                        .findByGuildIdAndUserId(guildId, userId)
+                        .filter(GuildChatParticipant::isParticipating)
+                        .map(
+                                participant -> {
+                                    participant.leave();
+                                    return true;
+                                })
+                        .orElse(false);
+        readStatusRepository.deleteByGuildIdAndUserId(guildId, userId);
+        return deactivated;
+    }
+
+    /**
+     * 회원 탈퇴 시 전 길드의 단체 채팅 참여 상태 정리 (LUT-471)
+     *
+     * @return 비활성화된 참여자 수
+     */
+    @Transactional(transactionManager = "chatTransactionManager")
+    public int deactivateParticipantsForUser(String userId) {
+        List<GuildChatParticipant> participants =
+                participantRepository.findAllActiveByUserId(userId);
+        participants.forEach(GuildChatParticipant::leave);
+        readStatusRepository.deleteByUserId(userId);
+        return participants.size();
     }
 
     public boolean isParticipating(Long guildId, String userId) {
@@ -360,8 +483,8 @@ public class GuildChatService {
     public List<ChatParticipantResponse> getActiveParticipants(Long guildId, String userId) {
         validateMembership(guildId, userId);
         return participantRepository.findActiveParticipants(guildId).stream()
-            .map(ChatParticipantResponse::from)
-            .toList();
+                .map(ChatParticipantResponse::from)
+                .toList();
     }
 
     public long getParticipantCount(Long guildId, String userId) {

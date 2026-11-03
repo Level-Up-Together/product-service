@@ -1,17 +1,17 @@
 package io.pinkspider.leveluptogethermvp.supportservice.application;
 
 import io.pinkspider.global.exception.CustomException;
+import io.pinkspider.global.facade.UserQueryFacade;
+import io.pinkspider.global.facade.dto.UserProfileInfo;
 import io.pinkspider.leveluptogethermvp.supportservice.api.dto.InquiryCreateRequest;
 import io.pinkspider.leveluptogethermvp.supportservice.api.dto.InquiryResponse;
 import io.pinkspider.leveluptogethermvp.supportservice.api.dto.InquiryType;
 import io.pinkspider.leveluptogethermvp.supportservice.api.dto.InquiryTypeOption;
-import java.util.Arrays;
 import io.pinkspider.leveluptogethermvp.supportservice.core.feignclient.AdminInquiryApiResponse;
 import io.pinkspider.leveluptogethermvp.supportservice.core.feignclient.AdminInquiryFeignClient;
 import io.pinkspider.leveluptogethermvp.supportservice.core.feignclient.AdminInquiryPageApiResponse;
 import io.pinkspider.leveluptogethermvp.supportservice.core.feignclient.AdminInquiryTypesApiResponse;
-import io.pinkspider.global.facade.UserQueryFacade;
-import io.pinkspider.global.facade.dto.UserProfileInfo;
+import java.util.Arrays;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -24,9 +24,7 @@ public class CustomerInquiryService {
     private final AdminInquiryFeignClient adminInquiryFeignClient;
     private final UserQueryFacade userQueryFacadeService;
 
-    /**
-     * 문의 등록
-     */
+    /** 문의 등록 */
     public InquiryResponse createInquiry(String userId, InquiryCreateRequest request) {
         try {
             if (!userQueryFacadeService.userExistsById(userId)) {
@@ -38,17 +36,17 @@ public class CustomerInquiryService {
 
             // QA-94: HTTP 헤더 ISO-8859-1 한계 → 한글 닉네임은 Base64(UTF-8)로 별도 전달
             String nickname = profile.nickname();
-            String nicknameB64 = nickname != null
-                ? java.util.Base64.getEncoder().encodeToString(nickname.getBytes(java.nio.charset.StandardCharsets.UTF_8))
-                : null;
+            String nicknameB64 =
+                    nickname != null
+                            ? java.util.Base64.getEncoder()
+                                    .encodeToString(
+                                            nickname.getBytes(
+                                                    java.nio.charset.StandardCharsets.UTF_8))
+                            : null;
 
-            AdminInquiryApiResponse response = adminInquiryFeignClient.createInquiry(
-                userId,
-                nickname,
-                nicknameB64,
-                email,
-                request
-            );
+            AdminInquiryApiResponse response =
+                    adminInquiryFeignClient.createInquiry(
+                            userId, nickname, nicknameB64, email, request);
 
             if (response != null && response.getValue() != null) {
                 log.info("문의 등록 성공: userId={}, type={}", userId, request.getInquiryType());
@@ -64,15 +62,17 @@ public class CustomerInquiryService {
         }
     }
 
-    /**
-     * 내 문의 목록 조회
-     */
+    /** 내 문의 목록 조회 */
     public AdminInquiryPageApiResponse.PageValue getMyInquiries(String userId, int page, int size) {
         try {
-            AdminInquiryPageApiResponse response = adminInquiryFeignClient.getMyInquiries(userId, page, size);
+            AdminInquiryPageApiResponse response =
+                    adminInquiryFeignClient.getMyInquiries(userId, page, size);
 
             if (response != null && response.getValue() != null) {
-                log.debug("내 문의 목록 조회: userId={}, count={}", userId, response.getValue().getTotalElements());
+                log.debug(
+                        "내 문의 목록 조회: userId={}, count={}",
+                        userId,
+                        response.getValue().getTotalElements());
                 return response.getValue();
             }
 
@@ -83,9 +83,7 @@ public class CustomerInquiryService {
         }
     }
 
-    /**
-     * 문의 상세 조회
-     */
+    /** 문의 상세 조회 */
     public InquiryResponse getInquiry(Long id, String userId) {
         try {
             AdminInquiryApiResponse response = adminInquiryFeignClient.getInquiry(id, userId);
@@ -102,9 +100,7 @@ public class CustomerInquiryService {
         }
     }
 
-    /**
-     * 문의 유형 목록 조회 (enum 배열)
-     */
+    /** 문의 유형 목록 조회 (enum 배열) */
     public InquiryType[] getInquiryTypes() {
         try {
             AdminInquiryTypesApiResponse response = adminInquiryFeignClient.getInquiryTypes();
@@ -120,12 +116,10 @@ public class CustomerInquiryService {
         }
     }
 
-    /**
-     * 문의 유형 옵션 목록 조회 (value, label 포함)
-     */
+    /** 문의 유형 옵션 목록 조회 (value, label 포함) */
     public InquiryTypeOption[] getInquiryTypeOptions() {
         return Arrays.stream(InquiryType.values())
-            .map(InquiryTypeOption::from)
-            .toArray(InquiryTypeOption[]::new);
+                .map(InquiryTypeOption::from)
+                .toArray(InquiryTypeOption[]::new);
     }
 }

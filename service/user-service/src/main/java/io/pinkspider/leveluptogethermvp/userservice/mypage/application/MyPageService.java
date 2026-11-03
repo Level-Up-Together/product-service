@@ -4,6 +4,7 @@ import io.pinkspider.global.domain.ContentReviewChecker;
 import io.pinkspider.global.enums.ReportTargetType;
 import io.pinkspider.global.enums.TitlePosition;
 import io.pinkspider.global.event.UserProfileChangedEvent;
+import io.pinkspider.global.event.UserWithdrawnEvent;
 import io.pinkspider.global.exception.CustomException;
 import io.pinkspider.global.facade.GamificationQueryFacade;
 import io.pinkspider.global.facade.GuildQueryFacade;
@@ -14,6 +15,7 @@ import io.pinkspider.global.facade.dto.UserExperienceDto;
 import io.pinkspider.global.facade.dto.UserStatsDto;
 import io.pinkspider.global.facade.dto.UserTitleDto;
 import io.pinkspider.global.moderation.annotation.ModerateImage;
+import io.pinkspider.global.policy.LevelRarityPolicy;
 import io.pinkspider.leveluptogethermvp.metaservice.userlevelconfig.application.UserLevelConfigCacheService;
 import io.pinkspider.leveluptogethermvp.metaservice.userlevelconfig.domain.entity.UserLevelConfig;
 import io.pinkspider.leveluptogethermvp.userservice.core.application.UserExistsCacheService;
@@ -60,37 +62,46 @@ public class MyPageService {
     private final ProfileImageStorageService profileImageStorageService;
     private final GuildQueryFacade guildQueryFacadeService;
     private final MissionQueryFacade missionQueryFacadeService;
+    private final io.pinkspider.leveluptogethermvp.metaservice.application.MissionCategoryService
+            missionCategoryService;
     private final ContentReviewChecker contentReviewChecker;
     private final ApplicationEventPublisher eventPublisher;
     private final UserProfileCacheService userProfileCacheService;
     private final UserExistsCacheService userExistsCacheService;
     private final MultiDeviceTokenService multiDeviceTokenService;
+    private final io.pinkspider.leveluptogethermvp.userservice.oauth.application.SocialUnlinkService
+            socialUnlinkService;
 
-    /**
-     * MyPage 전체 데이터 조회
-     */
+    /** MyPage 전체 데이터 조회 */
     public MyPageResponse getMyPage(String userId) {
         Users user = findUserOrThrow(userId);
 
         return MyPageResponse.builder()
-            .profile(buildProfileInfo(user, userId))
-            .experience(buildExperienceInfo(userId))
-            .userInfo(buildUserInfo(user, userId))
-            .build();
+                .profile(buildProfileInfo(user, userId))
+                .experience(buildExperienceInfo(userId))
+                .userInfo(buildUserInfo(user, userId))
+                .build();
     }
 
     /**
      * 공개 프로필 조회 (타인이 볼 수 있는 정보)
      *
-     * @param targetUserId  조회할 사용자 ID
+     * @param targetUserId 조회할 사용자 ID
      * @param currentUserId 현재 로그인한 사용자 ID (null 가능)
      * @return 공개 프로필 정보
      */
     public PublicProfileResponse getPublicProfile(String targetUserId, String currentUserId) {
+        return getPublicProfile(targetUserId, currentUserId, null);
+    }
+
+    /** LUT-257: locale은 진행중 미션 카테고리명 다국어 처리(Accept-Language)에 사용 */
+    public PublicProfileResponse getPublicProfile(
+            String targetUserId, String currentUserId, String locale) {
         Users user = findUserOrThrow(targetUserId);
 
         // 장착된 칭호 조회
-        List<UserTitleDto> equippedTitles = gamificationQueryFacadeService.getEquippedTitlesByUserId(targetUserId);
+        List<UserTitleDto> equippedTitles =
+                gamificationQueryFacadeService.getEquippedTitlesByUserId(targetUserId);
         PublicProfileResponse.EquippedTitleInfo leftTitle = null;
         PublicProfileResponse.EquippedTitleInfo rightTitle = null;
 
@@ -108,34 +119,46 @@ public class MyPageService {
         // 통계 정보
         UserStatsDto stats = gamificationQueryFacadeService.getOrCreateUserStats(targetUserId);
 
-        LocalDate startDate = user.getCreatedAt() != null
-            ? user.getCreatedAt().toLocalDate()
-            : LocalDate.now();
+        LocalDate startDate =
+                user.getCreatedAt() != null ? user.getCreatedAt().toLocalDate() : LocalDate.now();
         // QA-221: 함께한 일수 = 가입일부터의 경과일이 아니라 실제 출석한 일수
         long daysSinceJoined = gamificationQueryFacadeService.countAttendanceDays(targetUserId);
+        // LUT-555: 연속 출석 일수 — 업적 화면과 같은 출석 체인 (user_stats streak 아님)
+        int consecutiveDays =
+                gamificationQueryFacadeService.getCurrentAttendanceStreak(targetUserId);
 
         // 보유 칭호 수
         long titlesCount = gamificationQueryFacadeService.countUserTitles(targetUserId);
 
+        // LUT-340: 친구 수 (프로필 통계 노출용, 탈퇴 유저 제외)
+        int friendsCount = friendshipRepository.countFriends(targetUserId);
+
         // 소속 길드 목록 조회
-        List<GuildMembershipInfo> guildMemberships = guildQueryFacadeService.getUserGuildMemberships(targetUserId);
+        List<GuildMembershipInfo> guildMemberships =
+                guildQueryFacadeService.getUserGuildMemberships(targetUserId);
         List<Long> guildIds = guildMemberships.stream().map(GuildMembershipInfo::guildId).toList();
-        Map<Long, Integer> memberCountMap = guildQueryFacadeService.countActiveMembersByGuildIds(guildIds);
-        List<PublicProfileResponse.GuildInfo> guilds = guildMemberships.stream()
-            .map(m -> toGuildInfo(m, memberCountMap.getOrDefault(m.guildId(), 0)))
-            .collect(Collectors.toList());
+        Map<Long, Integer> memberCountMap =
+                guildQueryFacadeService.countActiveMembersByGuildIds(guildIds);
+        List<PublicProfileResponse.GuildInfo> guilds =
+                guildMemberships.stream()
+                        .map(m -> toGuildInfo(m, memberCountMap.getOrDefault(m.guildId(), 0)))
+                        .collect(Collectors.toList());
 
         // 본인 여부
         boolean isOwner = targetUserId.equals(currentUserId);
-        log.debug("getPublicProfile: targetUserId={}, currentUserId={}, isOwner={}",
-            targetUserId, currentUserId, isOwner);
+        log.debug(
+                "getPublicProfile: targetUserId={}, currentUserId={}, isOwner={}",
+                targetUserId,
+                currentUserId,
+                isOwner);
 
         // 친구 관계 상태 조회 (본인이 아니고 로그인한 경우에만)
         String friendshipStatusStr = "NONE";
         Long friendRequestId = null;
         if (!isOwner && currentUserId != null) {
             try {
-                Optional<Friendship> friendshipOpt = friendshipRepository.findFriendship(currentUserId, targetUserId);
+                Optional<Friendship> friendshipOpt =
+                        friendshipRepository.findFriendship(currentUserId, targetUserId);
                 if (friendshipOpt.isPresent()) {
                     Friendship friendship = friendshipOpt.get();
                     FriendshipStatus status = friendship.getStatus();
@@ -152,47 +175,203 @@ public class MyPageService {
                     } else if (status == FriendshipStatus.REJECTED) {
                         // 거절된 경우: 새로운 친구 요청 가능 (NONE으로 표시)
                         friendshipStatusStr = "NONE";
-                        log.debug("Friendship was rejected: currentUserId={}, targetUserId={}", currentUserId, targetUserId);
+                        log.debug(
+                                "Friendship was rejected: currentUserId={}, targetUserId={}",
+                                currentUserId,
+                                targetUserId);
                     } else if (status == FriendshipStatus.BLOCKED) {
-                        // 차단된 경우
-                        friendshipStatusStr = "BLOCKED";
+                        // LUT-367: 차단 주체 구분 — 내가 차단한 경우만 BLOCKED 노출.
+                        // 피차단자에게는 차단 사실을 드러내지 않는다 (NONE — 친구요청은 서버가 차단)
+                        friendshipStatusStr =
+                                friendship.getUserId().equals(currentUserId) ? "BLOCKED" : "NONE";
                     }
                 }
             } catch (Exception e) {
-                log.error("친구 관계 조회 중 오류 발생: currentUserId={}, targetUserId={}, error={}",
-                    currentUserId, targetUserId, e.getMessage(), e);
+                log.error(
+                        "친구 관계 조회 중 오류 발생: currentUserId={}, targetUserId={}, error={}",
+                        currentUserId,
+                        targetUserId,
+                        e.getMessage(),
+                        e);
                 // 오류 발생 시 기본값 NONE 유지
             }
         }
 
         // 신고 처리중 여부 확인
-        boolean isUnderReview = contentReviewChecker.isUnderReview(ReportTargetType.USER_PROFILE, targetUserId);
+        boolean isUnderReview =
+                contentReviewChecker.isUnderReview(ReportTargetType.USER_PROFILE, targetUserId);
+
+        // LUT-257: 현재 실시간 진행중인 미션 (공개범위 판정 후 마스킹)
+        PublicProfileResponse.InProgressMissionInfo inProgressMission =
+                buildInProgressMission(
+                        targetUserId,
+                        currentUserId,
+                        isOwner,
+                        "ACCEPTED".equals(friendshipStatusStr),
+                        guildIds,
+                        locale);
+
+        // LUT-296: 장착중 아이템 (조회 실패 시 빈 목록 — 프로필 응답 자체는 유지)
+        java.util.List<PublicProfileResponse.EquippedItemInfo> equippedItems;
+        try {
+            equippedItems =
+                    gamificationQueryFacadeService.getEquippedItemsByUserId(targetUserId).stream()
+                            .map(this::toPublicEquippedItemInfo)
+                            .collect(Collectors.toList());
+        } catch (Exception e) {
+            log.warn("장착 아이템 조회 실패 - 빈 목록으로 대체: userId={}, error={}", targetUserId, e.getMessage());
+            equippedItems = java.util.List.of();
+        }
 
         return PublicProfileResponse.builder()
-            .userId(targetUserId)
-            .nickname(user.getDisplayName())
-            .profileImageUrl(user.getPicture())
-            .bio(user.getBio())
-            .leftTitle(leftTitle)
-            .rightTitle(rightTitle)
-            .level(level)
-            .startDate(startDate)
-            .daysSinceJoined(daysSinceJoined)
-            .clearedMissionsCount(stats.totalMissionCompletions())
-            .acquiredTitlesCount((int) titlesCount)
-            .guilds(guilds)
-            .isOwner(isOwner)
-            .friendshipStatus(friendshipStatusStr)
-            .friendRequestId(friendRequestId)
-            .isUnderReview(isUnderReview)
-            .build();
+                .userId(targetUserId)
+                .nickname(user.getDisplayName())
+                .profileImageUrl(user.getPicture())
+                .bio(user.getBio())
+                .leftTitle(leftTitle)
+                .rightTitle(rightTitle)
+                .level(level)
+                .rarity(LevelRarityPolicy.fromLevel(level).name())
+                .startDate(startDate)
+                .daysSinceJoined(daysSinceJoined)
+                .clearedMissionsCount(stats.totalMissionCompletions())
+                .acquiredTitlesCount((int) titlesCount)
+                .friendsCount(friendsCount)
+                .consecutiveDays(consecutiveDays)
+                .guilds(guilds)
+                .isOwner(isOwner)
+                .isSubscriber(safeIsSubscriber(targetUserId))
+                .friendshipStatus(friendshipStatusStr)
+                .friendRequestId(friendRequestId)
+                .isUnderReview(isUnderReview)
+                .inProgressMission(inProgressMission)
+                .equippedItems(equippedItems)
+                .build();
+    }
+
+    /** LUT-455: 구독자 뱃지 여부 — 표시 부가 정보라 실패 시 false 폴백 */
+    private boolean safeIsSubscriber(String userId) {
+        try {
+            return gamificationQueryFacadeService.isSubscriptionEntitled(userId);
+        } catch (Exception e) {
+            log.warn("구독자 여부 조회 실패 - false 폴백: userId={}, error={}", userId, e.getMessage());
+            return false;
+        }
+    }
+
+    /** LUT-296: 파사드 아이템 DTO → 프로필 장착 아이템 정보 */
+    private PublicProfileResponse.EquippedItemInfo toPublicEquippedItemInfo(
+            io.pinkspider.global.facade.dto.UserItemDto item) {
+        return PublicProfileResponse.EquippedItemInfo.builder()
+                .shopItemId(item.shopItemId())
+                .name(item.name())
+                .nameEn(item.nameEn())
+                .nameAr(item.nameAr())
+                .nameJa(item.nameJa())
+                .description(item.description())
+                .descriptionEn(item.descriptionEn())
+                .descriptionAr(item.descriptionAr())
+                .descriptionJa(item.descriptionJa())
+                .itemType(item.itemType())
+                .rarity(item.rarity() != null ? item.rarity().name() : null)
+                .imageUrl(item.imageUrl())
+                .imagePosition(item.imagePosition())
+                .effectCode(item.effectCode())
+                .build();
+    }
+
+    /**
+     * LUT-257: 진행중 미션의 공개범위 판정. PUBLIC=전원, FRIENDS_ONLY=친구, GUILD_ONLY=대상과 같은 길드,
+     * FRIENDS_AND_GUILD=친구∪길드, PRIVATE=본인만. 비노출 시 미션ID/미션명을 null 로 마스킹하고 is_visible=false 로 내린다.
+     * 카테고리는 공개범위와 무관하게 항상 내려간다 (LUT-283).
+     */
+    private PublicProfileResponse.InProgressMissionInfo buildInProgressMission(
+            String targetUserId,
+            String currentUserId,
+            boolean isOwner,
+            boolean isFriend,
+            java.util.List<Long> targetGuildIds,
+            String locale) {
+        try {
+            return missionQueryFacadeService
+                    .findInProgressMission(targetUserId, locale)
+                    .map(
+                            m -> {
+                                boolean visible =
+                                        isOwner
+                                                || isMissionVisibleToViewer(
+                                                        m.visibility(),
+                                                        currentUserId,
+                                                        isFriend,
+                                                        targetGuildIds);
+                                return PublicProfileResponse.InProgressMissionInfo.builder()
+                                        .missionId(visible ? m.missionId() : null)
+                                        .categoryId(m.categoryId())
+                                        .categoryName(
+                                                localizeCategoryName(
+                                                        m.categoryId(), m.categoryName(), locale))
+                                        .title(visible ? m.title() : null)
+                                        .visibility(m.visibility())
+                                        .isVisible(visible)
+                                        .startedAt(m.startedAt())
+                                        .build();
+                            })
+                    .orElse(null);
+        } catch (Exception e) {
+            log.warn(
+                    "진행중 미션 조회 실패 - 프로필에서 생략: targetUserId={}, error={}",
+                    targetUserId,
+                    e.getMessage());
+            return null;
+        }
+    }
+
+    private boolean isMissionVisibleToViewer(
+            String visibility,
+            String currentUserId,
+            boolean isFriend,
+            java.util.List<Long> targetGuildIds) {
+        if ("PUBLIC".equals(visibility)) {
+            return true;
+        }
+        if (currentUserId == null) {
+            return false;
+        }
+        boolean friendAllowed =
+                "FRIENDS_ONLY".equals(visibility) || "FRIENDS_AND_GUILD".equals(visibility);
+        if (friendAllowed && isFriend) {
+            return true;
+        }
+        boolean guildAllowed =
+                "GUILD_ONLY".equals(visibility) || "FRIENDS_AND_GUILD".equals(visibility);
+        if (guildAllowed && targetGuildIds != null && !targetGuildIds.isEmpty()) {
+            java.util.Set<Long> viewerGuildIds =
+                    guildQueryFacadeService.getUserGuildMemberships(currentUserId).stream()
+                            .map(io.pinkspider.global.facade.dto.GuildMembershipInfo::guildId)
+                            .collect(java.util.stream.Collectors.toSet());
+            return targetGuildIds.stream().anyMatch(viewerGuildIds::contains);
+        }
+        return false;
+    }
+
+    /** LUT-257: 카테고리명 다국어 — categoryId가 있으면 메타에서 locale 반영, 없으면(커스텀) 스냅샷 사용 */
+    private String localizeCategoryName(Long categoryId, String fallbackName, String locale) {
+        if (categoryId == null || locale == null) {
+            return fallbackName;
+        }
+        try {
+            var category = missionCategoryService.getCategory(categoryId);
+            return category != null ? category.getLocalizedName(locale) : fallbackName;
+        } catch (Exception e) {
+            return fallbackName;
+        }
     }
 
     /**
      * 자기소개 수정
      *
      * @param userId 사용자 ID
-     * @param bio    새 자기소개
+     * @param bio 새 자기소개
      * @return 업데이트된 프로필 정보
      */
     @Transactional
@@ -206,6 +385,13 @@ public class MyPageService {
         log.info("언어 설정 변경: userId={}, locale={}", userId, locale);
     }
 
+    /** 선호 언어 조회 (LUT-256) — 웹뷰 쿠키 유실 시 복원용. 미설정(레거시) 유저는 기본값 'en'. */
+    public String getPreferredLocale(String userId) {
+        Users user = findUserOrThrow(userId);
+        String locale = user.getPreferredLocale();
+        return locale != null && !locale.isBlank() ? locale : "en";
+    }
+
     public String getPreferredFeedVisibility(String userId) {
         Users user = findUserOrThrow(userId);
         return user.getPreferredFeedVisibility();
@@ -217,7 +403,8 @@ public class MyPageService {
             throw new CustomException("VISIBILITY_001", "error.visibility.empty");
         }
         try {
-            io.pinkspider.leveluptogethermvp.feedservice.domain.enums.FeedVisibility.valueOf(feedVisibility);
+            io.pinkspider.leveluptogethermvp.feedservice.domain.enums.FeedVisibility.valueOf(
+                    feedVisibility);
         } catch (IllegalArgumentException e) {
             throw new CustomException("VISIBILITY_002", "error.visibility.invalid");
         }
@@ -255,9 +442,7 @@ public class MyPageService {
         return buildProfileInfo(user, userId);
     }
 
-    /**
-     * 프로필 이미지 변경 (URL 직접 지정)
-     */
+    /** 프로필 이미지 변경 (URL 직접 지정) */
     @Transactional
     public ProfileInfo updateProfileImage(String userId, ProfileUpdateRequest request) {
         Users user = findUserOrThrow(userId);
@@ -267,8 +452,9 @@ public class MyPageService {
 
         userProfileCacheService.evictUserProfileCache(userId);
         int level = gamificationQueryFacadeService.getUserLevel(userId);
-        eventPublisher.publishEvent(new UserProfileChangedEvent(
-            userId, user.getNickname(), request.getProfileImageUrl(), level));
+        eventPublisher.publishEvent(
+                new UserProfileChangedEvent(
+                        userId, user.getNickname(), request.getProfileImageUrl(), level));
 
         log.info("프로필 이미지 변경: userId={}", userId);
 
@@ -278,7 +464,7 @@ public class MyPageService {
     /**
      * 프로필 이미지 업로드
      *
-     * @param userId    사용자 ID
+     * @param userId 사용자 ID
      * @param imageFile 업로드할 이미지 파일
      * @return 업데이트된 프로필 정보
      */
@@ -307,19 +493,18 @@ public class MyPageService {
 
         userProfileCacheService.evictUserProfileCache(userId);
         int level = gamificationQueryFacadeService.getUserLevel(userId);
-        eventPublisher.publishEvent(new UserProfileChangedEvent(
-            userId, user.getNickname(), newImageUrl, level));
+        eventPublisher.publishEvent(
+                new UserProfileChangedEvent(userId, user.getNickname(), newImageUrl, level));
 
         log.info("프로필 이미지 업로드: userId={}, newImageUrl={}", userId, newImageUrl);
 
         return buildProfileInfo(user, userId);
     }
 
-    /**
-     * 보유 칭호 목록 조회
-     */
+    /** 보유 칭호 목록 조회 */
     public UserTitleListResponse getUserTitles(String userId) {
-        List<UserTitleDto> userTitles = gamificationQueryFacadeService.getUserTitlesWithTitleInfo(userId);
+        List<UserTitleDto> userTitles =
+                gamificationQueryFacadeService.getUserTitlesWithTitleInfo(userId);
 
         Long equippedLeftId = null;
         Long equippedRightId = null;
@@ -334,23 +519,22 @@ public class MyPageService {
             }
         }
 
-        List<UserTitleItem> titleItems = userTitles.stream()
-            .map(this::toUserTitleItem)
-            .collect(Collectors.toList());
+        List<UserTitleItem> titleItems =
+                userTitles.stream().map(this::toUserTitleItem).collect(Collectors.toList());
 
         return UserTitleListResponse.builder()
-            .totalCount(titleItems.size())
-            .titles(titleItems)
-            .equippedLeftId(equippedLeftId)
-            .equippedRightId(equippedRightId)
-            .build();
+                .totalCount(titleItems.size())
+                .titles(titleItems)
+                .equippedLeftId(equippedLeftId)
+                .equippedRightId(equippedRightId)
+                .build();
     }
 
     /**
      * 닉네임 중복 확인
      *
      * @param nickname 확인할 닉네임
-     * @param userId   현재 사용자 ID (자신은 제외, null이면 전체 검사)
+     * @param userId 현재 사용자 ID (자신은 제외, null이면 전체 검사)
      * @return 사용 가능 여부
      */
     public boolean isNicknameAvailable(String nickname, String userId) {
@@ -370,7 +554,7 @@ public class MyPageService {
     /**
      * 닉네임 변경
      *
-     * @param userId   사용자 ID
+     * @param userId 사용자 ID
      * @param nickname 새 닉네임
      * @return 업데이트된 프로필 정보
      */
@@ -390,8 +574,8 @@ public class MyPageService {
 
         userProfileCacheService.evictUserProfileCache(userId);
         int level = gamificationQueryFacadeService.getUserLevel(userId);
-        eventPublisher.publishEvent(new UserProfileChangedEvent(
-            userId, nickname, user.getPicture(), level));
+        eventPublisher.publishEvent(
+                new UserProfileChangedEvent(userId, nickname, user.getPicture(), level));
 
         log.info("닉네임 변경: userId={}, newNickname={}", userId, nickname);
 
@@ -409,9 +593,7 @@ public class MyPageService {
         return !user.isNicknameSet();
     }
 
-    /**
-     * 닉네임 유효성 검사
-     */
+    /** 닉네임 유효성 검사 */
     private void validateNickname(String nickname) {
         if (nickname == null || nickname.trim().isEmpty()) {
             throw new CustomException("NICKNAME_002", "error.nickname.empty");
@@ -428,18 +610,17 @@ public class MyPageService {
         }
     }
 
-    /**
-     * 칭호 변경 (좌측/우측 동시 변경) — TitleService에 위임
-     */
+    /** 칭호 변경 (좌측/우측 동시 변경) — TitleService에 위임 */
     public TitleChangeResponse changeTitles(String userId, TitleChangeRequest request) {
-        TitleChangeResultDto result = gamificationQueryFacadeService.changeTitles(
-            userId, request.getLeftUserTitleId(), request.getRightUserTitleId());
+        TitleChangeResultDto result =
+                gamificationQueryFacadeService.changeTitles(
+                        userId, request.getLeftUserTitleId(), request.getRightUserTitleId());
 
         return TitleChangeResponse.builder()
-            .message("칭호가 변경되었습니다.")
-            .leftTitle(toEquippedTitleInfo(result.leftTitle()))
-            .rightTitle(toEquippedTitleInfo(result.rightTitle()))
-            .build();
+                .message("칭호가 변경되었습니다.")
+                .leftTitle(toEquippedTitleInfo(result.leftTitle()))
+                .rightTitle(toEquippedTitleInfo(result.rightTitle()))
+                .build();
     }
 
     /**
@@ -449,10 +630,30 @@ public class MyPageService {
      */
     @Transactional
     public void withdrawUser(String userId) {
+        withdraw(userId, null, null);
+    }
+
+    /**
+     * LUT-584: 어드민 즉시 탈퇴 — 일반 탈퇴와 같은 정리(프로필 이미지 삭제·소셜 연동 해제·토큰 무효화·캐시 evict·탈퇴 이벤트)를 수행하고, 재가입
+     * cool-down(QA-115) 을 면제해 "가입유예 기간 없이" 바로 재가입할 수 있게 한다.
+     *
+     * @param userId 대상 사용자 ID
+     * @param adminId 처리 어드민 ID (로그용)
+     * @param reason 처리 사유 (선택, 로그용)
+     */
+    @Transactional
+    public void withdrawUserByAdmin(String userId, Long adminId, String reason) {
+        withdraw(userId, adminId, reason);
+    }
+
+    private void withdraw(String userId, Long adminId, String reason) {
+        boolean byAdmin = adminId != null;
         Users user = findUserOrThrow(userId);
 
         // 이미 탈퇴한 사용자인지 확인
-        if (user.getStatus() == io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.enums.UserStatus.WITHDRAWN) {
+        if (user.getStatus()
+                == io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.enums.UserStatus
+                        .WITHDRAWN) {
             throw new CustomException("USER_002", "error.user.withdrawn");
         }
 
@@ -461,8 +662,15 @@ public class MyPageService {
             profileImageStorageService.delete(user.getPicture());
         }
 
-        // 사용자 상태를 WITHDRAWN으로 변경
-        user.withdraw();
+        // LUT-476: 소셜 로그인 연동 해제 (kakao unlink 등) — best-effort, 실패해도 탈퇴 진행
+        socialUnlinkService.unlinkOnWithdrawal(user);
+
+        // 사용자 상태를 WITHDRAWN으로 변경 (어드민 즉시 탈퇴는 재가입 cool-down 면제 표시 동반)
+        if (byAdmin) {
+            user.withdrawByAdmin();
+        } else {
+            user.withdraw();
+        }
         userRepository.save(user);
 
         // 모든 디바이스의 JWT 토큰 즉시 무효화
@@ -472,19 +680,32 @@ public class MyPageService {
         userExistsCacheService.evictUserExistsCache(userId);
         userProfileCacheService.evictUserProfileCache(userId);
 
-        log.info("회원 탈퇴 처리 완료: userId={}", userId);
+        // LUT-287: 크로스 서비스 정리(길드 멤버십 정리, DM 대화방 비활성화)를 위한 탈퇴 이벤트 발행
+        eventPublisher.publishEvent(new UserWithdrawnEvent(userId));
+
+        if (byAdmin) {
+            log.info(
+                    "회원 탈퇴 처리 완료(어드민 즉시 탈퇴, 재가입 cool-down 면제): userId={}, adminId={}, reason={}",
+                    userId,
+                    adminId,
+                    reason);
+        } else {
+            log.info("회원 탈퇴 처리 완료: userId={}", userId);
+        }
     }
 
     // ============== Private Helper Methods ==============
 
     private Users findUserOrThrow(String userId) {
-        return userRepository.findById(userId)
-            .orElseThrow(() -> new CustomException("USER_001", "error.user.not_found"));
+        return userRepository
+                .findById(userId)
+                .orElseThrow(() -> new CustomException("USER_001", "error.user.not_found"));
     }
 
     private ProfileInfo buildProfileInfo(Users user, String userId) {
         // 장착된 칭호 조회
-        List<UserTitleDto> equippedTitles = gamificationQueryFacadeService.getEquippedTitlesByUserId(userId);
+        List<UserTitleDto> equippedTitles =
+                gamificationQueryFacadeService.getEquippedTitlesByUserId(userId);
 
         EquippedTitleInfo leftTitle = null;
         EquippedTitleInfo rightTitle = null;
@@ -501,142 +722,160 @@ public class MyPageService {
         int friendCount = friendshipRepository.countFriends(userId);
 
         return ProfileInfo.builder()
-            .userId(userId)
-            .nickname(user.getDisplayName())
-            .profileImageUrl(user.getPicture())
-            .bio(user.getBio())
-            .leftTitle(leftTitle)
-            .rightTitle(rightTitle)
-            .followerCount(friendCount)
-            .followingCount(friendCount)
-            .email(user.getEmail())
-            .provider(user.getProvider())
-            .build();
+                .userId(userId)
+                .nickname(user.getDisplayName())
+                .profileImageUrl(user.getPicture())
+                .bio(user.getBio())
+                .leftTitle(leftTitle)
+                .rightTitle(rightTitle)
+                .followerCount(friendCount)
+                .followingCount(friendCount)
+                .email(user.getEmail())
+                .provider(user.getProvider())
+                .build();
     }
 
     private ExperienceInfo buildExperienceInfo(String userId) {
-        UserExperienceDto userExp = gamificationQueryFacadeService.getOrCreateUserExperience(userId);
+        UserExperienceDto userExp =
+                gamificationQueryFacadeService.getOrCreateUserExperience(userId);
 
         Integer nextLevelRequiredExp = getNextLevelRequiredExp(userExp.currentLevel());
 
         // EXP 퍼센테이지 계산: 현재 레벨 내 경험치 / 다음 레벨 필요 경험치 * 100
         int expForPercentage = userExp.currentExp() != null ? userExp.currentExp() : 0;
-        double expPercentage = nextLevelRequiredExp != null && nextLevelRequiredExp > 0
-            ? (double) expForPercentage / nextLevelRequiredExp * 100
-            : 0;
+        double expPercentage =
+                nextLevelRequiredExp != null && nextLevelRequiredExp > 0
+                        ? (double) expForPercentage / nextLevelRequiredExp * 100
+                        : 0;
+
+        int currentLevel = userExp.currentLevel() != null ? userExp.currentLevel() : 1;
 
         return ExperienceInfo.builder()
-            .currentLevel(userExp.currentLevel())
-            .currentExp(userExp.currentExp())
-            .totalExp(userExp.totalExp())
-            .nextLevelRequiredExp(nextLevelRequiredExp)
-            .expPercentage(Math.min(100, expPercentage))
-            .expForPercentage(expForPercentage)
-            .build();
+                .currentLevel(userExp.currentLevel())
+                .currentExp(userExp.currentExp())
+                .totalExp(userExp.totalExp())
+                .nextLevelRequiredExp(nextLevelRequiredExp)
+                .expPercentage(Math.min(100, expPercentage))
+                .expForPercentage(expForPercentage)
+                .rarity(LevelRarityPolicy.fromLevel(currentLevel).name())
+                .build();
     }
 
     private UserInfo buildUserInfo(Users user, String userId) {
         UserStatsDto stats = gamificationQueryFacadeService.getOrCreateUserStats(userId);
 
         // 가입일 (createdAt)
-        LocalDate startDate = user.getCreatedAt() != null
-            ? user.getCreatedAt().toLocalDate()
-            : LocalDate.now();
+        LocalDate startDate =
+                user.getCreatedAt() != null ? user.getCreatedAt().toLocalDate() : LocalDate.now();
 
         // QA-221: 함께한 일수 = 가입일부터의 경과일이 아니라 실제 출석한 일수
         long daysSinceJoined = gamificationQueryFacadeService.countAttendanceDays(userId);
 
         // 랭킹 퍼센타일 계산 (상위 X%)
-        Double rankingPercentile = gamificationQueryFacadeService.calculateRankingPercentile(stats.rankingPoints());
+        Double rankingPercentile =
+                gamificationQueryFacadeService.calculateRankingPercentile(stats.rankingPoints());
 
         // 보유 칭호 수
         long titlesCount = gamificationQueryFacadeService.countUserTitles(userId);
 
         return UserInfo.builder()
-            .startDate(startDate)
-            .daysSinceJoined(daysSinceJoined)
-            .clearedMissionsCount(stats.totalMissionCompletions())
-            // QA-158: 유니크 미션북(mission_template) 클리어 수. UserStats 누적값이 아닌 실시간 distinct count.
-            .clearedMissionBooksCount(missionQueryFacadeService.countClearedMissionBookTemplates(userId))
-            .rankingPercentile(rankingPercentile)
-            .acquiredTitlesCount((int) titlesCount)
-            .rankingPoints(stats.rankingPoints())
-            .build();
+                .startDate(startDate)
+                .daysSinceJoined(daysSinceJoined)
+                .clearedMissionsCount(stats.totalMissionCompletions())
+                // QA-158: 유니크 미션북(mission_template) 클리어 수. UserStats 누적값이 아닌 실시간 distinct count.
+                .clearedMissionBooksCount(
+                        missionQueryFacadeService.countClearedMissionBookTemplates(userId))
+                .rankingPercentile(rankingPercentile)
+                .acquiredTitlesCount((int) titlesCount)
+                .rankingPoints(stats.rankingPoints())
+                .build();
     }
 
     private EquippedTitleInfo toEquippedTitleInfo(UserTitleDto userTitle) {
         return EquippedTitleInfo.builder()
-            .userTitleId(userTitle.id())
-            .titleId(userTitle.titleId())
-            .name(userTitle.titleName())
-            .nameEn(userTitle.titleNameEn())
-            .nameAr(userTitle.titleNameAr())
-            .displayName(userTitle.titleName())
-            .rarity(userTitle.titleRarity() != null ? userTitle.titleRarity().name() : null)
-            .colorCode(userTitle.titleColorCode())
-            .iconUrl(userTitle.titleIconUrl())
-            .build();
+                .userTitleId(userTitle.id())
+                .titleId(userTitle.titleId())
+                .name(userTitle.titleName())
+                .nameEn(userTitle.titleNameEn())
+                .nameAr(userTitle.titleNameAr())
+                // LUT-370: nameJa 매핑 누락으로 일본어 칭호가 항상 null → ja 만 한국어 폴백되던 원인
+                .nameJa(userTitle.titleNameJa())
+                .displayName(userTitle.titleName())
+                .rarity(userTitle.titleRarity() != null ? userTitle.titleRarity().name() : null)
+                .colorCode(userTitle.titleColorCode())
+                .iconUrl(userTitle.titleIconUrl())
+                .build();
     }
 
-    private PublicProfileResponse.EquippedTitleInfo toPublicEquippedTitleInfo(UserTitleDto userTitle) {
+    private PublicProfileResponse.EquippedTitleInfo toPublicEquippedTitleInfo(
+            UserTitleDto userTitle) {
         return PublicProfileResponse.EquippedTitleInfo.builder()
-            .titleId(userTitle.titleId())
-            .name(userTitle.titleName())
-            .nameEn(userTitle.titleNameEn())
-            .nameAr(userTitle.titleNameAr())
-            .displayName(userTitle.titleName())
-            .rarity(userTitle.titleRarity() != null ? userTitle.titleRarity().name() : null)
-            .colorCode(userTitle.titleColorCode())
-            .iconUrl(userTitle.titleIconUrl())
-            .build();
+                .titleId(userTitle.titleId())
+                .name(userTitle.titleName())
+                .nameEn(userTitle.titleNameEn())
+                .nameAr(userTitle.titleNameAr())
+                // LUT-370: nameJa 매핑 누락 — toEquippedTitleInfo 와 동일 결함
+                .nameJa(userTitle.titleNameJa())
+                .displayName(userTitle.titleName())
+                .rarity(userTitle.titleRarity() != null ? userTitle.titleRarity().name() : null)
+                .colorCode(userTitle.titleColorCode())
+                .iconUrl(userTitle.titleIconUrl())
+                .build();
     }
 
-    private PublicProfileResponse.GuildInfo toGuildInfo(GuildMembershipInfo membership, int memberCount) {
+    private PublicProfileResponse.GuildInfo toGuildInfo(
+            GuildMembershipInfo membership, int memberCount) {
         return PublicProfileResponse.GuildInfo.builder()
-            .guildId(membership.guildId())
-            .name(membership.guildName())
-            .imageUrl(membership.guildImageUrl())
-            .level(membership.guildLevel())
-            .memberCount(memberCount)
-            .build();
+                .guildId(membership.guildId())
+                .name(membership.guildName())
+                .imageUrl(membership.guildImageUrl())
+                .level(membership.guildLevel())
+                .memberCount(memberCount)
+                .build();
     }
 
     private UserTitleItem toUserTitleItem(UserTitleDto userTitle) {
         return UserTitleItem.builder()
-            .userTitleId(userTitle.id())
-            .titleId(userTitle.titleId())
-            .name(userTitle.titleName())
-            .nameEn(userTitle.titleNameEn())
-            .nameAr(userTitle.titleNameAr())
-            .nameJa(userTitle.titleNameJa())
-            .displayName(userTitle.titleName())
-            .description(userTitle.titleDescription())
-            .descriptionEn(userTitle.titleDescriptionEn())
-            .descriptionAr(userTitle.titleDescriptionAr())
-            .descriptionJa(userTitle.titleDescriptionJa())
-            .rarity(userTitle.titleRarity() != null ? userTitle.titleRarity().name() : null)
-            .positionType(userTitle.titlePositionType() != null ? userTitle.titlePositionType().name() : null)
-            .colorCode(userTitle.titleColorCode())
-            .iconUrl(userTitle.titleIconUrl())
-            .isEquipped(userTitle.isEquipped())
-            .equippedPosition(userTitle.equippedPosition() != null
-                ? userTitle.equippedPosition().name()
-                : null)
-            .acquiredAt(userTitle.acquiredAt())
-            .build();
+                .userTitleId(userTitle.id())
+                .titleId(userTitle.titleId())
+                .name(userTitle.titleName())
+                .nameEn(userTitle.titleNameEn())
+                .nameAr(userTitle.titleNameAr())
+                .nameJa(userTitle.titleNameJa())
+                .displayName(userTitle.titleName())
+                .description(userTitle.titleDescription())
+                .descriptionEn(userTitle.titleDescriptionEn())
+                .descriptionAr(userTitle.titleDescriptionAr())
+                .descriptionJa(userTitle.titleDescriptionJa())
+                .rarity(userTitle.titleRarity() != null ? userTitle.titleRarity().name() : null)
+                .positionType(
+                        userTitle.titlePositionType() != null
+                                ? userTitle.titlePositionType().name()
+                                : null)
+                .colorCode(userTitle.titleColorCode())
+                .iconUrl(userTitle.titleIconUrl())
+                .isEquipped(userTitle.isEquipped())
+                .equippedPosition(
+                        userTitle.equippedPosition() != null
+                                ? userTitle.equippedPosition().name()
+                                : null)
+                .acquiredAt(userTitle.acquiredAt())
+                .build();
     }
 
     private Integer getNextLevelRequiredExp(int currentLevel) {
         // 다음 레벨의 required_exp를 조회 (레벨 1→2로 가려면 레벨 2의 required_exp가 필요)
-        UserLevelConfig nextConfig = userLevelConfigCacheService.getLevelConfigByLevel(currentLevel + 1);
+        UserLevelConfig nextConfig =
+                userLevelConfigCacheService.getLevelConfigByLevel(currentLevel + 1);
         if (nextConfig != null && nextConfig.getRequiredExp() > 0) {
             return nextConfig.getRequiredExp();
         }
         // 현재 레벨 config의 required_exp로 폴백 (0이 아닌 경우만)
-        UserLevelConfig currentConfig = userLevelConfigCacheService.getLevelConfigByLevel(currentLevel);
+        UserLevelConfig currentConfig =
+                userLevelConfigCacheService.getLevelConfigByLevel(currentLevel);
         if (currentConfig != null && currentConfig.getRequiredExp() > 0) {
             return currentConfig.getRequiredExp();
         }
-        return 100 + (currentLevel - 1) * 50;  // 기본 공식
+        return 100 + (currentLevel - 1) * 50; // 기본 공식
     }
 }

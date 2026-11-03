@@ -1,6 +1,6 @@
 # 사용자 데이터 일괄 삭제 스크립트
 
-특정 사용자의 데이터를 9개 데이터베이스 중 영향이 있는 8개 DB에서 일괄 삭제합니다.
+특정 사용자의 데이터를 9개 DB(product 8개 + `admin_db`)에서 일괄 삭제합니다. `meta_db` 는 유저 데이터가 없습니다. **결제 기록 3표(`user_subscription`·`subscription_payment_history`·`diamond_bundle_purchase`)는 지우지 않습니다**(LUT-691 결정 2026-11-02 — 회계·환불 대응 근거). 평상시 탈퇴는 `MyPageService.withdrawUser` 의 익명화(soft delete)이고, 이 스크립트는 완전 삭제가 꼭 필요할 때만 쓴다.
 
 > ⚠️ **주의**: 모든 옵션은 destructive 작업입니다. dev에서 검증 후 prod에 적용하고, 실행 전 `--dry-run`으로 영향 범위를 반드시 확인하세요.
 
@@ -19,6 +19,7 @@ docs/scripts/delete_user/
     │   ├── feed_db.sql
     │   ├── notification_db.sql
     │   ├── gamification_db.sql
+    │   ├── stats_db.sql
     │   └── admin_db.sql
     └── count/                    # 사전 검증용 (영향 row 수 출력)
         ├── user_db.sql
@@ -31,15 +32,18 @@ docs/scripts/delete_user/
 
 | DB | 테이블 | 매칭 컬럼 |
 |---|---|---|
-| **user_db** | `users`, `friendship`, `user_term_agreements`, `user_blacklist`, `daily_mvp_exclusion` | `id`, `user_id` + **`friend_id`(양방향)** |
-| **mission_db** | `mission`, `mission_template`, `mission_participant`, `mission_comment` | `creator_id`, `user_id` |
-| **guild_db** | `guild_member`, `guild_invitation`, `guild_post`, `guild_post_comment`, `guild_join_request`, `guild_experience_history` | `user_id`, `inviter_id/invitee_id`, `author_id`, `requester_id/processed_by`, `contributor_id` |
+| **user_db** | `users`, `friendship`, `user_term_agreements`, `user_blacklist`, `daily_mvp_exclusion`, `user_ui_preference` | `id`, `user_id` + **`friend_id`(양방향)** |
+| **mission_db** | `mission`(→ participant·execution·instance·image 는 FK CASCADE), `mission_template`, `mission_participant`, `mission_comment`, `mission_idempotency_key`, `mission_state_history`(FK 없음 — 직접 삭제) | `creator_id`, `user_id`, `triggered_by` |
+| **guild_db** | `guild_member`, `guild_member_daily_point`, `guild_invitation`, `guild_post`, `guild_post_comment`, `guild_join_request`(requester 행 삭제 · `processed_by` 는 NULL), `guild_experience_history`(`contributor_id` 를 NULL — 길드 이력은 보존) | `user_id`, `inviter_id/invitee_id`, `author_id`, `requester_id`, (NULL) `processed_by`·`contributor_id` |
 | **chat_db** | `guild_chat_participant`, `guild_chat_read_status`, `guild_chat_message`, `guild_direct_conversation`, `guild_direct_message` | `user_id`, `sender_id`, `user_id_1/2` |
-| **feed_db** | `activity_feed`, `feed_comment`, `feed_like` | `user_id` |
+| **feed_db** | `activity_feed`, `feed_comment`, `feed_like`, `feed_comment_like` | `user_id` |
 | **notification_db** | `notification`, `notification_preference`, `device_token` | `user_id` |
-| **gamification_db** | `user_experience`, `user_stats`, `user_title`, `user_achievement`, `user_category_experience`, `experience_history`, `attendance_record`, `season_reward_history`, `daily_mvp_history`, `daily_mvp_category_stats` | `user_id` |
+| **gamification_db** | `user_experience`, `user_stats`, `user_title`, `user_achievement`, `user_category_experience`, `experience_history`, `attendance_record`, `season_reward_history`, `daily_mvp_history`, `daily_mvp_category_stats`, `user_item`, `item_grant`, `item_push_send_log`, `user_diamond`, `diamond_history`, `subscription_stipend` · **보존**: `user_subscription`, `subscription_payment_history`, `diamond_bundle_purchase` | `user_id` |
+| **stats_db** | `user_daily_activity` (스냅샷 표는 집계라 유저 행 없음 — 과거 DAU 를 맞추려면 `kpi/rebuild`) | `user_id` |
 | **admin_db** | `customer_inquiry`, `featured_player`, (선택) `content_report` | `user_id`, `reporter_id`, `target_user_id` |
-| meta_db / saga_db | (해당 없음) | - |
+| meta_db | (해당 없음) | - |
+
+2026-11-02(LUT-691) 전 엔티티 대조로 현행화했다(84개 엔티티·9개 DB). 새 유저 표를 만들면 해당 DB 의 `count/`·`delete/` 두 파일에 같이 넣을 것. 남는 흔적: 다른 사용자 행에 복사된 닉네임·프로필 스냅샷(채팅·피드·미션 댓글·MVP 이력)은 그 행이 남는 한 유지되고, 피드·댓글의 `like_count`/`comment_count` 비정규화 값은 갱신되지 않는다. `meta_db.content_translation` 의 번역 캐시는 user_id 로 못 찾는다.
 
 ### 정책 결정이 필요한 항목 (기본 미삭제)
 
@@ -47,6 +51,7 @@ docs/scripts/delete_user/
 |---|---|---|
 | **길드 마스터인 길드** | `guild_db.guild.master_id` | 미삭제 — `delete/guild_db.sql`이 사전에 해당 길드 목록 출력 → 마스터 위임/통째 삭제/보존 중 수동 결정 |
 | **신고 이력** | `admin_db.content_report` (reporter_id, target_user_id) | 미삭제 — 감사용 보존 권장. 필요 시 `delete/admin_db.sql`의 주석 해제 |
+| **결제 기록** | `gamification_db.user_subscription`·`subscription_payment_history`·`diamond_bundle_purchase` | **미삭제(결정 완료, LUT-691 2026-11-02)** — 회계·환불·스토어 분쟁 대응 근거. `user_id` 는 그대로 남지만 users 행이 없어 사람을 특정할 수 없다. 스토어 키 유니크 제약도 유지돼 같은 스토어 구독을 다른 계정이 이어받는 규칙(LUT-507)이 그대로 동작한다. `user_diamond`·`diamond_history` 는 지운다(구매 사실은 `diamond_bundle_purchase` 에 남는다) |
 
 ## 환경별 DB 위치
 
@@ -191,7 +196,7 @@ PGPASSWORD=... psql -h <db-host> -U lut -d feed_db \
 
 ## 향후 개선 아이디어
 
-- [ ] saga_db `saga_instance.payload` JSON에 user_id가 들어있을 가능성 — 별도 정합성 점검
+- [x] ~~saga_db `saga_instance.payload` JSON에 user_id가 들어있을 가능성~~ — saga_db 는 dev·prod 모두 0행·미사용이라 2026-10-29 삭제(ADR-003·LUT-665)
 - [ ] `content_report` 처리 정책 (마스킹 vs 삭제) 결정 후 옵션 추가
 - [ ] Redis 키 정리를 스크립트에 통합 (`--cleanup-cache` 옵션)
 - [ ] 삭제 이력을 audit log 테이블에 기록 (감사용)

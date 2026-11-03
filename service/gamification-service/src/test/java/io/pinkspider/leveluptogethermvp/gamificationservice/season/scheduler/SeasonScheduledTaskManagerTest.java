@@ -2,7 +2,6 @@ package io.pinkspider.leveluptogethermvp.gamificationservice.season.scheduler;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -16,7 +15,6 @@ import java.lang.reflect.Field;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
-import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ScheduledFuture;
 import org.junit.jupiter.api.BeforeEach;
@@ -33,30 +31,24 @@ import org.springframework.scheduling.TaskScheduler;
 /**
  * SeasonScheduledTaskManager 단위 테스트.
  *
- * <p>특히 {@code end_at}이 UTC LocalDateTime으로 저장되어 있다는 가정 하에
- * 정확한 Instant로 변환하는지 회귀 방지 검증한다 (QA-103 후속 수정).
+ * <p>특히 {@code end_at}이 UTC LocalDateTime으로 저장되어 있다는 가정 하에 정확한 Instant로 변환하는지 회귀 방지 검증한다 (QA-103 후속
+ * 수정).
  */
 @ExtendWith(MockitoExtension.class)
 @DisplayName("SeasonScheduledTaskManager 단위 테스트")
 class SeasonScheduledTaskManagerTest {
 
-    @Mock
-    private SeasonRepository seasonRepository;
+    @Mock private SeasonRepository seasonRepository;
 
-    @Mock
-    private SeasonRewardHistoryRepository rewardHistoryRepository;
+    @Mock private SeasonRewardHistoryRepository rewardHistoryRepository;
 
-    @Mock
-    private SeasonRewardProcessorService rewardProcessorService;
+    @Mock private SeasonRewardProcessorService rewardProcessorService;
 
-    @Mock
-    private TaskScheduler taskScheduler;
+    @Mock private TaskScheduler taskScheduler;
 
-    @Mock
-    private ScheduledFuture<?> scheduledFuture;
+    @Mock private ScheduledFuture<?> scheduledFuture;
 
-    @InjectMocks
-    private SeasonScheduledTaskManager manager;
+    @InjectMocks private SeasonScheduledTaskManager manager;
 
     @BeforeEach
     void setUp() throws Exception {
@@ -71,14 +63,15 @@ class SeasonScheduledTaskManagerTest {
     class ScheduleTest {
 
         @Test
-        @DisplayName("end_at(UTC LocalDateTime)을 UTC offset으로 변환하여 정확한 Instant에 등록한다 (QA-103 회귀 방지)")
+        @DisplayName(
+                "end_at(UTC LocalDateTime)을 UTC offset으로 변환하여 정확한 Instant에 등록한다 (QA-103 회귀 방지)")
         void schedule_convertsEndAtAsUtc() {
             // given: 충분히 먼 미래 (현재 시각 영향 배제)
             LocalDateTime endAtUtc = LocalDateTime.of(2099, 4, 27, 23, 30, 0);
             Season season = buildSeason(8L, endAtUtc, true);
 
             when(taskScheduler.schedule(any(Runnable.class), any(Instant.class)))
-                .thenAnswer(inv -> scheduledFuture);
+                    .thenAnswer(inv -> scheduledFuture);
 
             // when
             manager.schedule(season);
@@ -91,10 +84,11 @@ class SeasonScheduledTaskManagerTest {
             assertThat(instantCaptor.getValue()).isEqualTo(expectedUtcInstant);
 
             // KST 기반 (틀린 변환) 결과와는 달라야 함 — 9시간 차이
-            Instant wrongKstInstant = endAtUtc.atZone(java.time.ZoneId.of("Asia/Seoul")).toInstant();
+            Instant wrongKstInstant =
+                    endAtUtc.atZone(java.time.ZoneId.of("Asia/Seoul")).toInstant();
             assertThat(instantCaptor.getValue()).isNotEqualTo(wrongKstInstant);
             assertThat(java.time.Duration.between(instantCaptor.getValue(), wrongKstInstant).abs())
-                .isEqualTo(java.time.Duration.ofHours(9));
+                    .isEqualTo(java.time.Duration.ofHours(9));
         }
 
         @Test
@@ -105,7 +99,7 @@ class SeasonScheduledTaskManagerTest {
             Season season = buildSeason(8L, pastEndAt, true);
             when(rewardHistoryRepository.existsBySeasonId(8L)).thenReturn(false);
             when(taskScheduler.schedule(any(Runnable.class), any(Instant.class)))
-                .thenAnswer(inv -> scheduledFuture);
+                    .thenAnswer(inv -> scheduledFuture);
 
             // when
             manager.schedule(season);
@@ -168,7 +162,7 @@ class SeasonScheduledTaskManagerTest {
             LocalDateTime endAt = LocalDateTime.of(2027, 1, 1, 0, 0);
             Season season = buildSeason(8L, endAt, true);
             when(taskScheduler.schedule(any(Runnable.class), any(Instant.class)))
-                .thenAnswer(inv -> scheduledFuture);
+                    .thenAnswer(inv -> scheduledFuture);
             when(scheduledFuture.isDone()).thenReturn(false);
 
             // when: 두 번 등록
@@ -192,7 +186,7 @@ class SeasonScheduledTaskManagerTest {
             LocalDateTime endAt = LocalDateTime.of(2027, 1, 1, 0, 0);
             Season season = buildSeason(8L, endAt, true);
             when(taskScheduler.schedule(any(Runnable.class), any(Instant.class)))
-                .thenAnswer(inv -> scheduledFuture);
+                    .thenAnswer(inv -> scheduledFuture);
             when(scheduledFuture.isDone()).thenReturn(false);
             manager.schedule(season);
 
@@ -231,12 +225,13 @@ class SeasonScheduledTaskManagerTest {
     // === Helpers ===
 
     private Season buildSeason(Long id, LocalDateTime endAt, boolean isActive) {
-        Season season = Season.builder()
-            .title("Test Season")
-            .startAt(endAt != null ? endAt.minusDays(7) : null)
-            .endAt(endAt)
-            .isActive(isActive)
-            .build();
+        Season season =
+                Season.builder()
+                        .title("Test Season")
+                        .startAt(endAt != null ? endAt.minusDays(7) : null)
+                        .endAt(endAt)
+                        .isActive(isActive)
+                        .build();
         try {
             Field idField = Season.class.getDeclaredField("id");
             idField.setAccessible(true);
@@ -247,16 +242,16 @@ class SeasonScheduledTaskManagerTest {
         return season;
     }
 
-    private static void replaceField(Object target, String fieldName, Object value) throws Exception {
+    private static void replaceField(Object target, String fieldName, Object value)
+            throws Exception {
         Field field = target.getClass().getDeclaredField(fieldName);
         field.setAccessible(true);
         field.set(target, value);
     }
 
-    /**
-     * AssertJ Instant.isCloseTo helper — 임의 millis 허용 범위.
-     */
+    /** AssertJ Instant.isCloseTo helper — 임의 millis 허용 범위. */
     private static org.assertj.core.data.TemporalUnitOffset within(long millis) {
-        return new org.assertj.core.data.TemporalUnitWithinOffset(millis, java.time.temporal.ChronoUnit.MILLIS);
+        return new org.assertj.core.data.TemporalUnitWithinOffset(
+                millis, java.time.temporal.ChronoUnit.MILLIS);
     }
 }

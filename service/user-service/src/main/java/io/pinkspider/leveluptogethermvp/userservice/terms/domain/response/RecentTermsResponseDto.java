@@ -9,9 +9,8 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 /**
- * 최근 약관 목록 응답 DTO
- * - Native Query 결과 매핑용 class-based DTO
- * - Interface projection 대신 class 사용 (TupleBackedMap 버그 방지)
+ * 최근 약관 목록 응답 DTO - Native Query 결과 매핑용 class-based DTO - Interface projection 대신 class 사용
+ * (TupleBackedMap 버그 방지)
  */
 @Getter
 @Setter

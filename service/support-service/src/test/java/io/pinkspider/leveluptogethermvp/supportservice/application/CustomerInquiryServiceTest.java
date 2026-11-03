@@ -10,6 +10,8 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 
 import io.pinkspider.global.exception.CustomException;
+import io.pinkspider.global.facade.UserQueryFacade;
+import io.pinkspider.global.facade.dto.UserProfileInfo;
 import io.pinkspider.leveluptogethermvp.supportservice.api.dto.InquiryCreateRequest;
 import io.pinkspider.leveluptogethermvp.supportservice.api.dto.InquiryResponse;
 import io.pinkspider.leveluptogethermvp.supportservice.api.dto.InquiryStatus;
@@ -19,8 +21,6 @@ import io.pinkspider.leveluptogethermvp.supportservice.core.feignclient.AdminInq
 import io.pinkspider.leveluptogethermvp.supportservice.core.feignclient.AdminInquiryFeignClient;
 import io.pinkspider.leveluptogethermvp.supportservice.core.feignclient.AdminInquiryPageApiResponse;
 import io.pinkspider.leveluptogethermvp.supportservice.core.feignclient.AdminInquiryTypesApiResponse;
-import io.pinkspider.global.facade.UserQueryFacade;
-import io.pinkspider.global.facade.dto.UserProfileInfo;
 import java.util.List;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -33,14 +33,11 @@ import org.mockito.junit.jupiter.MockitoExtension;
 @ExtendWith(MockitoExtension.class)
 class CustomerInquiryServiceTest {
 
-    @Mock
-    private AdminInquiryFeignClient adminInquiryFeignClient;
+    @Mock private AdminInquiryFeignClient adminInquiryFeignClient;
 
-    @Mock
-    private UserQueryFacade userQueryFacadeService;
+    @Mock private UserQueryFacade userQueryFacadeService;
 
-    @InjectMocks
-    private CustomerInquiryService customerInquiryService;
+    @InjectMocks private CustomerInquiryService customerInquiryService;
 
     private static final String TEST_USER_ID = "test-user-123";
 
@@ -52,20 +49,20 @@ class CustomerInquiryServiceTest {
 
     private InquiryResponse createTestInquiryResponse(Long id) {
         return InquiryResponse.builder()
-            .id(id)
-            .inquiryType(InquiryType.BUG)
-            .title("테스트 문의")
-            .content("테스트 내용")
-            .status(InquiryStatus.PENDING)
-            .build();
+                .id(id)
+                .inquiryType(InquiryType.BUG)
+                .title("테스트 문의")
+                .content("테스트 내용")
+                .status(InquiryStatus.PENDING)
+                .build();
     }
 
     private InquiryCreateRequest createTestRequest() {
         return InquiryCreateRequest.builder()
-            .inquiryType(InquiryType.BUG)
-            .title("테스트 문의")
-            .content("테스트 내용")
-            .build();
+                .inquiryType(InquiryType.BUG)
+                .title("테스트 문의")
+                .content("테스트 내용")
+                .build();
     }
 
     @Nested
@@ -79,14 +76,19 @@ class CustomerInquiryServiceTest {
             UserProfileInfo profile = createTestProfile();
             InquiryCreateRequest request = createTestRequest();
             InquiryResponse inquiryResponse = createTestInquiryResponse(1L);
-            AdminInquiryApiResponse apiResponse = new AdminInquiryApiResponse("0000", "success", inquiryResponse);
+            AdminInquiryApiResponse apiResponse =
+                    new AdminInquiryApiResponse("0000", "success", inquiryResponse);
 
             when(userQueryFacadeService.userExistsById(TEST_USER_ID)).thenReturn(true);
             when(userQueryFacadeService.getUserProfile(TEST_USER_ID)).thenReturn(profile);
             when(userQueryFacadeService.getUserEmail(TEST_USER_ID)).thenReturn(TEST_EMAIL);
             when(adminInquiryFeignClient.createInquiry(
-                eq(TEST_USER_ID), eq(profile.nickname()), anyString(), eq(TEST_EMAIL), any(InquiryCreateRequest.class)
-            )).thenReturn(apiResponse);
+                            eq(TEST_USER_ID),
+                            eq(profile.nickname()),
+                            anyString(),
+                            eq(TEST_EMAIL),
+                            any(InquiryCreateRequest.class)))
+                    .thenReturn(apiResponse);
 
             // when
             InquiryResponse result = customerInquiryService.createInquiry(TEST_USER_ID, request);
@@ -107,8 +109,8 @@ class CustomerInquiryServiceTest {
 
             // when & then
             assertThatThrownBy(() -> customerInquiryService.createInquiry(TEST_USER_ID, request))
-                .isInstanceOf(CustomException.class)
-                .hasMessageContaining("error.user.not_found");
+                    .isInstanceOf(CustomException.class)
+                    .hasMessageContaining("error.user.not_found");
         }
 
         @Test
@@ -121,13 +123,14 @@ class CustomerInquiryServiceTest {
             when(userQueryFacadeService.userExistsById(TEST_USER_ID)).thenReturn(true);
             when(userQueryFacadeService.getUserProfile(TEST_USER_ID)).thenReturn(profile);
             when(userQueryFacadeService.getUserEmail(TEST_USER_ID)).thenReturn(TEST_EMAIL);
-            when(adminInquiryFeignClient.createInquiry(anyString(), anyString(), anyString(), anyString(), any()))
-                .thenReturn(null);
+            when(adminInquiryFeignClient.createInquiry(
+                            anyString(), anyString(), anyString(), anyString(), any()))
+                    .thenReturn(null);
 
             // when & then
             assertThatThrownBy(() -> customerInquiryService.createInquiry(TEST_USER_ID, request))
-                .isInstanceOf(CustomException.class)
-                .hasMessageContaining("error.inquiry.create_failed");
+                    .isInstanceOf(CustomException.class)
+                    .hasMessageContaining("error.inquiry.create_failed");
         }
 
         @Test
@@ -140,13 +143,14 @@ class CustomerInquiryServiceTest {
             when(userQueryFacadeService.userExistsById(TEST_USER_ID)).thenReturn(true);
             when(userQueryFacadeService.getUserProfile(TEST_USER_ID)).thenReturn(profile);
             when(userQueryFacadeService.getUserEmail(TEST_USER_ID)).thenReturn(TEST_EMAIL);
-            when(adminInquiryFeignClient.createInquiry(anyString(), anyString(), anyString(), anyString(), any()))
-                .thenThrow(new RuntimeException("API 연결 실패"));
+            when(adminInquiryFeignClient.createInquiry(
+                            anyString(), anyString(), anyString(), anyString(), any()))
+                    .thenThrow(new RuntimeException("API 연결 실패"));
 
             // when & then
             assertThatThrownBy(() -> customerInquiryService.createInquiry(TEST_USER_ID, request))
-                .isInstanceOf(CustomException.class)
-                .hasMessageContaining("error.inquiry.create_failed");
+                    .isInstanceOf(CustomException.class)
+                    .hasMessageContaining("error.inquiry.create_failed");
         }
     }
 
@@ -158,16 +162,20 @@ class CustomerInquiryServiceTest {
         @DisplayName("내 문의 목록을 조회한다")
         void getMyInquiries_success() {
             // given
-            List<InquiryResponse> content = List.of(createTestInquiryResponse(1L), createTestInquiryResponse(2L));
-            AdminInquiryPageApiResponse.PageValue pageValue = new AdminInquiryPageApiResponse.PageValue(
-                content, 1, 10, 10, 0, true, true, false
-            );
-            AdminInquiryPageApiResponse apiResponse = new AdminInquiryPageApiResponse("0000", "success", pageValue);
+            List<InquiryResponse> content =
+                    List.of(createTestInquiryResponse(1L), createTestInquiryResponse(2L));
+            AdminInquiryPageApiResponse.PageValue pageValue =
+                    new AdminInquiryPageApiResponse.PageValue(
+                            content, 1, 10, 10, 0, true, true, false);
+            AdminInquiryPageApiResponse apiResponse =
+                    new AdminInquiryPageApiResponse("0000", "success", pageValue);
 
-            when(adminInquiryFeignClient.getMyInquiries(TEST_USER_ID, 0, 10)).thenReturn(apiResponse);
+            when(adminInquiryFeignClient.getMyInquiries(TEST_USER_ID, 0, 10))
+                    .thenReturn(apiResponse);
 
             // when
-            AdminInquiryPageApiResponse.PageValue result = customerInquiryService.getMyInquiries(TEST_USER_ID, 0, 10);
+            AdminInquiryPageApiResponse.PageValue result =
+                    customerInquiryService.getMyInquiries(TEST_USER_ID, 0, 10);
 
             // then
             assertThat(result).isNotNull();
@@ -179,10 +187,12 @@ class CustomerInquiryServiceTest {
         @DisplayName("API 응답이 null이면 null 반환")
         void getMyInquiries_nullResponse_returnsNull() {
             // given
-            when(adminInquiryFeignClient.getMyInquiries(anyString(), anyInt(), anyInt())).thenReturn(null);
+            when(adminInquiryFeignClient.getMyInquiries(anyString(), anyInt(), anyInt()))
+                    .thenReturn(null);
 
             // when
-            AdminInquiryPageApiResponse.PageValue result = customerInquiryService.getMyInquiries(TEST_USER_ID, 0, 10);
+            AdminInquiryPageApiResponse.PageValue result =
+                    customerInquiryService.getMyInquiries(TEST_USER_ID, 0, 10);
 
             // then
             assertThat(result).isNull();
@@ -193,12 +203,12 @@ class CustomerInquiryServiceTest {
         void getMyInquiries_apiException_throwsCustomException() {
             // given
             when(adminInquiryFeignClient.getMyInquiries(anyString(), anyInt(), anyInt()))
-                .thenThrow(new RuntimeException("API 연결 실패"));
+                    .thenThrow(new RuntimeException("API 연결 실패"));
 
             // when & then
             assertThatThrownBy(() -> customerInquiryService.getMyInquiries(TEST_USER_ID, 0, 10))
-                .isInstanceOf(CustomException.class)
-                .hasMessageContaining("error.inquiry.list_failed");
+                    .isInstanceOf(CustomException.class)
+                    .hasMessageContaining("error.inquiry.list_failed");
         }
     }
 
@@ -212,9 +222,11 @@ class CustomerInquiryServiceTest {
             // given
             Long inquiryId = 1L;
             InquiryResponse inquiryResponse = createTestInquiryResponse(inquiryId);
-            AdminInquiryApiResponse apiResponse = new AdminInquiryApiResponse("0000", "success", inquiryResponse);
+            AdminInquiryApiResponse apiResponse =
+                    new AdminInquiryApiResponse("0000", "success", inquiryResponse);
 
-            when(adminInquiryFeignClient.getInquiry(inquiryId, TEST_USER_ID)).thenReturn(apiResponse);
+            when(adminInquiryFeignClient.getInquiry(inquiryId, TEST_USER_ID))
+                    .thenReturn(apiResponse);
 
             // when
             InquiryResponse result = customerInquiryService.getInquiry(inquiryId, TEST_USER_ID);
@@ -242,12 +254,12 @@ class CustomerInquiryServiceTest {
         void getInquiry_apiException_throwsCustomException() {
             // given
             when(adminInquiryFeignClient.getInquiry(anyLong(), anyString()))
-                .thenThrow(new RuntimeException("API 연결 실패"));
+                    .thenThrow(new RuntimeException("API 연결 실패"));
 
             // when & then
             assertThatThrownBy(() -> customerInquiryService.getInquiry(1L, TEST_USER_ID))
-                .isInstanceOf(CustomException.class)
-                .hasMessageContaining("error.inquiry.read_failed");
+                    .isInstanceOf(CustomException.class)
+                    .hasMessageContaining("error.inquiry.read_failed");
         }
     }
 
@@ -260,7 +272,8 @@ class CustomerInquiryServiceTest {
         void getInquiryTypes_success() {
             // given
             InquiryType[] types = InquiryType.values();
-            AdminInquiryTypesApiResponse apiResponse = new AdminInquiryTypesApiResponse("0000", "success", types);
+            AdminInquiryTypesApiResponse apiResponse =
+                    new AdminInquiryTypesApiResponse("0000", "success", types);
 
             when(adminInquiryFeignClient.getInquiryTypes()).thenReturn(apiResponse);
 
@@ -291,7 +304,7 @@ class CustomerInquiryServiceTest {
         void getInquiryTypes_apiException_returnsDefaultValues() {
             // given
             when(adminInquiryFeignClient.getInquiryTypes())
-                .thenThrow(new RuntimeException("API 연결 실패"));
+                    .thenThrow(new RuntimeException("API 연결 실패"));
 
             // when
             InquiryType[] result = customerInquiryService.getInquiryTypes();

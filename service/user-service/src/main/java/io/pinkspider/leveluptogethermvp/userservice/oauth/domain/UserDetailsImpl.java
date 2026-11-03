@@ -10,30 +10,28 @@ import org.springframework.security.core.userdetails.UserDetails;
 
 public class UserDetailsImpl implements UserDetails {
 
-    @Serial
-    private static final long serialVersionUID = 1L;
+    @Serial private static final long serialVersionUID = 1L;
 
-    @Getter
-    private final String memberId;
+    @Getter private final String memberId;
 
     private final String userId;
 
     private final String password;
 
-//    @Getter
-//    private final MemberActivityModeEnum activityMode;
+    //    @Getter
+    //    private final MemberActivityModeEnum activityMode;
 
-    @Getter
-    private final Integer passwordFailCount;
+    @Getter private final Integer passwordFailCount;
 
     private Collection<? extends GrantedAuthority> authorities;
 
     @Builder
-    public UserDetailsImpl(String memberId, String userId, String password, Integer passwordFailCount) {
+    public UserDetailsImpl(
+            String memberId, String userId, String password, Integer passwordFailCount) {
         this.memberId = memberId;
         this.userId = userId;
         this.password = password;
-//        this.activityMode = activityMode;
+        //        this.activityMode = activityMode;
         this.passwordFailCount = passwordFailCount;
     }
 

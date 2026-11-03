@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -52,6 +53,8 @@ class GuildExperienceServiceTest {
 
     @Mock private ApplicationEventPublisher eventPublisher;
 
+    @Mock private GuildPointService guildPointService;
+
     @InjectMocks private GuildExperienceService guildExperienceService;
 
     private Guild testGuild;
@@ -74,12 +77,15 @@ class GuildExperienceServiceTest {
                         .build();
         setId(testGuild, 1L);
 
-        // 어드민 설정 (QA-204 재현): L1 누적 0, L2 누적 6020
+        // 어드민 설정 — LUT-483: 레벨 판정 기준은 포인트(cumulative_point). L1 누적 0, L2 누적 30점.
+        // EXP 값은 표기용 잔존 필드.
         level1Config =
                 GuildLevelConfig.builder()
                         .level(1)
                         .requiredExp(6020)
                         .cumulativeExp(0)
+                        .requiredPoint(0)
+                        .cumulativePoint(0)
                         .maxMembers(20)
                         .title("신생 길드")
                         .build();
@@ -88,6 +94,8 @@ class GuildExperienceServiceTest {
                         .level(2)
                         .requiredExp(8000)
                         .cumulativeExp(6020)
+                        .requiredPoint(30)
+                        .cumulativePoint(30)
                         .maxMembers(30)
                         .title("성장 길드")
                         .build();
@@ -103,53 +111,93 @@ class GuildExperienceServiceTest {
             when(guildRepository.findByIdAndIsActiveTrue(1L)).thenReturn(Optional.of(testGuild));
             when(guildLevelConfigCacheService.getAllLevelConfigs())
                     .thenReturn(List.of(level1Config, level2Config));
-            when(guildLevelConfigCacheService.getLevelConfigByLevel(anyInt())).thenReturn(level1Config);
+            when(guildLevelConfigCacheService.getLevelConfigByLevel(anyInt()))
+                    .thenReturn(level1Config);
             when(historyRepository.save(any(GuildExperienceHistory.class)))
                     .thenAnswer(inv -> inv.getArgument(0));
 
             GuildExperienceResponse response =
                     guildExperienceService.addExperience(
-                            1L, 100, GuildExpSourceType.GUILD_MISSION_EXECUTION, 1L, testUserId, "미션 완료 보상");
+                            1L,
+                            100,
+                            GuildExpSourceType.GUILD_MISSION_EXECUTION,
+                            1L,
+                            testUserId,
+                            "미션 완료 보상");
 
             assertThat(response).isNotNull();
             assertThat(response.getGuildId()).isEqualTo(1L);
             assertThat(response.getCurrentExp()).isEqualTo(100);
             verify(historyRepository).save(any(GuildExperienceHistory.class));
+            // LUT-483: 길드 미션 EXP 는 일간 포인트로도 적립된다
+            verify(guildPointService).accruePoints(testGuild, testUserId, 100);
         }
 
         @Test
-        @DisplayName("QA-204: 누적 92 는 레벨2(누적 6020)에 못 미쳐 레벨 1로 계산된다")
-        void addExperience_92ExpStaysLevel1() {
+        @DisplayName("LUT-483: 길드미션이 아닌 EXP 는 포인트를 적립하지 않는다")
+        void addExperience_nonGuildMission_noPointAccrual() {
             when(guildRepository.findByIdAndIsActiveTrue(1L)).thenReturn(Optional.of(testGuild));
             when(guildLevelConfigCacheService.getAllLevelConfigs())
                     .thenReturn(List.of(level1Config, level2Config));
-            when(guildLevelConfigCacheService.getLevelConfigByLevel(anyInt())).thenReturn(level1Config);
+            when(guildLevelConfigCacheService.getLevelConfigByLevel(anyInt()))
+                    .thenReturn(level1Config);
             when(historyRepository.save(any(GuildExperienceHistory.class)))
                     .thenAnswer(inv -> inv.getArgument(0));
 
             guildExperienceService.addExperience(
-                    1L, 92, GuildExpSourceType.GUILD_MISSION_EXECUTION, 1L, testUserId, "미션 완료 보상");
+                    1L, 100, GuildExpSourceType.ADMIN_GRANT, 1L, testUserId, "어드민 조정");
 
-            assertThat(testGuild.getCurrentLevel()).isEqualTo(1);
-            assertThat(testGuild.getCurrentExp()).isEqualTo(92);
+            verify(guildPointService, never()).accruePoints(any(), any(), anyInt());
         }
 
         @Test
-        @DisplayName("QA-204: 누적 6020 도달 시 레벨 2로 올라가고 maxMembers 가 갱신된다")
-        void addExperience_reaching6020LevelsUpToLevel2() {
+        @DisplayName("LUT-483: EXP 가 아무리 쌓여도 포인트가 기준(누적 30) 미달이면 레벨 1이다")
+        void addExperience_expDoesNotLevelUpWithoutPoints() {
+            when(guildRepository.findByIdAndIsActiveTrue(1L)).thenReturn(Optional.of(testGuild));
+            when(guildLevelConfigCacheService.getAllLevelConfigs())
+                    .thenReturn(List.of(level1Config, level2Config));
+            when(guildLevelConfigCacheService.getLevelConfigByLevel(anyInt()))
+                    .thenReturn(level1Config);
+            when(historyRepository.save(any(GuildExperienceHistory.class)))
+                    .thenAnswer(inv -> inv.getArgument(0));
+            // 포인트 미적립 (accruePoints 목이 아무것도 안 함)
+
+            guildExperienceService.addExperience(
+                    1L,
+                    6020,
+                    GuildExpSourceType.GUILD_MISSION_EXECUTION,
+                    1L,
+                    testUserId,
+                    "미션 완료 보상");
+
+            assertThat(testGuild.getCurrentLevel()).isEqualTo(1);
+            assertThat(testGuild.getTotalExp()).isEqualTo(6020);
+        }
+
+        @Test
+        @DisplayName("LUT-483: 누적 포인트가 30 에 도달하면 레벨 2로 올라가고 maxMembers 가 갱신된다")
+        void addExperience_reachingPoint30LevelsUpToLevel2() {
             when(guildRepository.findByIdAndIsActiveTrue(1L)).thenReturn(Optional.of(testGuild));
             when(guildLevelConfigCacheService.getAllLevelConfigs())
                     .thenReturn(List.of(level1Config, level2Config));
             when(guildLevelConfigCacheService.getLevelConfigByLevel(2)).thenReturn(level2Config);
             when(historyRepository.save(any(GuildExperienceHistory.class)))
                     .thenAnswer(inv -> inv.getArgument(0));
+            // 포인트 적립 목: 30점 도달 시뮬레이션
+            when(guildPointService.accruePoints(any(Guild.class), any(), anyInt()))
+                    .thenAnswer(
+                            inv -> {
+                                Guild g = inv.getArgument(0);
+                                g.addPoint(30);
+                                return 30;
+                            });
 
             guildExperienceService.addExperience(
-                    1L, 6020, GuildExpSourceType.GUILD_MISSION_EXECUTION, 1L, testUserId, "미션 완료 보상");
+                    1L, 60, GuildExpSourceType.GUILD_MISSION_EXECUTION, 1L, testUserId, "미션 완료 보상");
 
             assertThat(testGuild.getCurrentLevel()).isEqualTo(2);
-            assertThat(testGuild.getCurrentExp()).isEqualTo(0); // 6020 - 6020
-            assertThat(testGuild.getMaxMembers()).isEqualTo(30); // L2 config maxMembers
+            assertThat(testGuild.getCurrentPoint()).isEqualTo(0); // 30 - 30 (레벨 내 포인트)
+            assertThat(testGuild.getMaxMembers()).isEqualTo(11); // LUT-526: 레벨 2 정원 = 10 + (2-1)
         }
 
         @Test
@@ -157,16 +205,85 @@ class GuildExperienceServiceTest {
         void addExperience_noHigherConfigStaysLevel1() {
             when(guildRepository.findByIdAndIsActiveTrue(1L)).thenReturn(Optional.of(testGuild));
             // L1 설정만 존재
-            when(guildLevelConfigCacheService.getAllLevelConfigs()).thenReturn(List.of(level1Config));
-            when(guildLevelConfigCacheService.getLevelConfigByLevel(anyInt())).thenReturn(level1Config);
+            when(guildLevelConfigCacheService.getAllLevelConfigs())
+                    .thenReturn(List.of(level1Config));
+            when(guildLevelConfigCacheService.getLevelConfigByLevel(anyInt()))
+                    .thenReturn(level1Config);
             when(historyRepository.save(any(GuildExperienceHistory.class)))
                     .thenAnswer(inv -> inv.getArgument(0));
 
             guildExperienceService.addExperience(
-                    1L, 999999, GuildExpSourceType.GUILD_MISSION_EXECUTION, 1L, testUserId, "미션 완료 보상");
+                    1L,
+                    999999,
+                    GuildExpSourceType.GUILD_MISSION_EXECUTION,
+                    1L,
+                    testUserId,
+                    "미션 완료 보상");
 
             assertThat(testGuild.getCurrentLevel()).isEqualTo(1);
-            assertThat(testGuild.getMaxMembers()).isEqualTo(20); // L1 config maxMembers
+            assertThat(testGuild.getMaxMembers()).isEqualTo(10); // LUT-526: 레벨 1 정원 = 10
+        }
+
+        @Test
+        @DisplayName("LUT-534: 설정 캐시가 스테일(cumulativePoint 전부 null)이어도 레벨·포인트·정원이 유지된다")
+        void addExperience_staleConfigWithoutCumulativePoint_keepsLevel() {
+            // prod 사고 재현: 147pt 레벨 3 길드, LUT-483 이전 직렬화본(포인트 필드 없음)
+            testGuild.setCurrentLevel(3);
+            testGuild.setCurrentPoint(57);
+            testGuild.setTotalPoint(147);
+            testGuild.setMaxMembers(12);
+            GuildLevelConfig staleL1 =
+                    GuildLevelConfig.builder().level(1).requiredExp(0).cumulativeExp(0).build();
+            GuildLevelConfig staleL2 =
+                    GuildLevelConfig.builder()
+                            .level(2)
+                            .requiredExp(6020)
+                            .cumulativeExp(6020)
+                            .build();
+            when(guildRepository.findByIdAndIsActiveTrue(1L)).thenReturn(Optional.of(testGuild));
+            when(guildLevelConfigCacheService.getAllLevelConfigs())
+                    .thenReturn(List.of(staleL1, staleL2));
+            when(guildLevelConfigCacheService.getLevelConfigByLevel(anyInt()))
+                    .thenReturn(level1Config);
+            when(historyRepository.save(any(GuildExperienceHistory.class)))
+                    .thenAnswer(inv -> inv.getArgument(0));
+
+            guildExperienceService.addExperience(
+                    1L, 28, GuildExpSourceType.GUILD_MISSION_EXECUTION, 1L, testUserId, "미션 완료 보상");
+
+            assertThat(testGuild.getCurrentLevel()).isEqualTo(3);
+            assertThat(testGuild.getCurrentPoint()).isEqualTo(57);
+            assertThat(testGuild.getMaxMembers()).isEqualTo(12);
+            verify(eventPublisher, never()).publishEvent(any());
+        }
+
+        @Test
+        @DisplayName("LUT-534: 어드민이 임계값을 올려 재판정 레벨이 낮아져도 강등하지 않는다")
+        void addExperience_raisedThreshold_doesNotDemote() {
+            testGuild.setCurrentLevel(2);
+            testGuild.setCurrentPoint(0);
+            testGuild.setTotalPoint(30);
+            testGuild.setMaxMembers(11);
+            GuildLevelConfig raisedL2 =
+                    GuildLevelConfig.builder()
+                            .level(2)
+                            .requiredPoint(50)
+                            .cumulativePoint(50)
+                            .maxMembers(30)
+                            .build();
+            when(guildRepository.findByIdAndIsActiveTrue(1L)).thenReturn(Optional.of(testGuild));
+            when(guildLevelConfigCacheService.getAllLevelConfigs())
+                    .thenReturn(List.of(level1Config, raisedL2));
+            when(guildLevelConfigCacheService.getLevelConfigByLevel(anyInt()))
+                    .thenReturn(level1Config);
+            when(historyRepository.save(any(GuildExperienceHistory.class)))
+                    .thenAnswer(inv -> inv.getArgument(0));
+
+            guildExperienceService.addExperience(
+                    1L, 10, GuildExpSourceType.GUILD_MISSION_EXECUTION, 1L, testUserId, "미션 완료 보상");
+
+            assertThat(testGuild.getCurrentLevel()).isEqualTo(2);
+            assertThat(testGuild.getMaxMembers()).isEqualTo(11);
         }
 
         @Test
@@ -232,7 +349,8 @@ class GuildExperienceServiceTest {
                             .expAmount(100)
                             .description("테스트")
                             .build();
-            Page<GuildExperienceHistory> historyPage = new PageImpl<>(List.of(history), pageable, 1);
+            Page<GuildExperienceHistory> historyPage =
+                    new PageImpl<>(List.of(history), pageable, 1);
 
             when(historyRepository.findByGuildIdOrderByCreatedAtDesc(1L, pageable))
                     .thenReturn(historyPage);
@@ -256,33 +374,39 @@ class GuildExperienceServiceTest {
             testGuild.addExperience(500);
 
             when(guildRepository.findByIdAndIsActiveTrue(1L)).thenReturn(Optional.of(testGuild));
-            when(guildLevelConfigCacheService.getLevelConfigByLevel(anyInt())).thenReturn(level1Config);
             when(historyRepository.save(any(GuildExperienceHistory.class)))
                     .thenAnswer(inv -> inv.getArgument(0));
 
             GuildExperienceResponse response =
                     guildExperienceService.subtractExperience(
-                            1L, 200, GuildExpSourceType.GUILD_MISSION_EXECUTION, 1L, testUserId, "보상 트랜잭션 취소");
+                            1L,
+                            200,
+                            GuildExpSourceType.GUILD_MISSION_EXECUTION,
+                            1L,
+                            testUserId,
+                            "보상 트랜잭션 취소");
 
             assertThat(response).isNotNull();
             assertThat(testGuild.getCurrentExp()).isEqualTo(300);
         }
 
         @Test
-        @DisplayName("경험치 차감으로 0 이하가 되면 레벨1로 초기화된다")
-        void subtractExperience_levelDownToMinimum() {
+        @DisplayName("경험치 차감으로 0 이하가 되어도 0 에서 멈춘다 (음수 없음)")
+        void subtractExperience_floorsAtZero() {
             testGuild.addExperience(100);
 
             when(guildRepository.findByIdAndIsActiveTrue(1L)).thenReturn(Optional.of(testGuild));
-            when(guildLevelConfigCacheService.getAllLevelConfigs())
-                    .thenReturn(List.of(level1Config, level2Config));
-            when(guildLevelConfigCacheService.getLevelConfigByLevel(anyInt())).thenReturn(level1Config);
             when(historyRepository.save(any(GuildExperienceHistory.class)))
                     .thenAnswer(inv -> inv.getArgument(0));
 
             GuildExperienceResponse response =
                     guildExperienceService.subtractExperience(
-                            1L, 200, GuildExpSourceType.GUILD_MISSION_EXECUTION, 1L, testUserId, "보상 취소");
+                            1L,
+                            200,
+                            GuildExpSourceType.GUILD_MISSION_EXECUTION,
+                            1L,
+                            testUserId,
+                            "보상 취소");
 
             assertThat(response).isNotNull();
             assertThat(testGuild.getCurrentLevel()).isEqualTo(1);
@@ -291,28 +415,30 @@ class GuildExperienceServiceTest {
         }
 
         @Test
-        @DisplayName("경험치 차감 시 누적 경험치 기반으로 레벨이 재계산된다")
-        void subtractExperience_levelDownWithCumulativeExp() {
+        @DisplayName("LUT-483: 경험치 차감은 레벨에 영향을 주지 않는다 (레벨 기준 = 포인트)")
+        void subtractExperience_doesNotChangeLevel() {
             // 레벨2(강제 세팅), totalExp 6100, currentExp 80
             TestReflectionUtils.setField(testGuild, "totalExp", 6100);
             TestReflectionUtils.setField(testGuild, "currentExp", 80);
             TestReflectionUtils.setField(testGuild, "currentLevel", 2);
 
             when(guildRepository.findByIdAndIsActiveTrue(1L)).thenReturn(Optional.of(testGuild));
-            when(guildLevelConfigCacheService.getAllLevelConfigs())
-                    .thenReturn(List.of(level1Config, level2Config));
-            when(guildLevelConfigCacheService.getLevelConfigByLevel(anyInt())).thenReturn(level1Config);
             when(historyRepository.save(any(GuildExperienceHistory.class)))
                     .thenAnswer(inv -> inv.getArgument(0));
 
-            // 200 차감 → currentExp 80-200 = -120 → processLevelDown(totalExp 5900)
             GuildExperienceResponse response =
                     guildExperienceService.subtractExperience(
-                            1L, 200, GuildExpSourceType.GUILD_MISSION_EXECUTION, 1L, testUserId, "보상 취소");
+                            1L,
+                            200,
+                            GuildExpSourceType.GUILD_MISSION_EXECUTION,
+                            1L,
+                            testUserId,
+                            "보상 취소");
 
-            // 5900 < 6020 → 레벨 1
+            // LUT-483: 레벨은 포인트 기준 — EXP 차감으로 레벨이 떨어지지 않는다
             assertThat(response).isNotNull();
-            assertThat(testGuild.getCurrentLevel()).isEqualTo(1);
+            assertThat(testGuild.getCurrentLevel()).isEqualTo(2);
+            assertThat(testGuild.getTotalExp()).isEqualTo(5900);
         }
 
         @Test
@@ -341,7 +467,8 @@ class GuildExperienceServiceTest {
         @Test
         @DisplayName("모든 레벨 설정을 조회한다")
         void getAllLevelConfigs_success() {
-            when(guildLevelConfigCacheService.getAllLevelConfigs()).thenReturn(List.of(level1Config));
+            when(guildLevelConfigCacheService.getAllLevelConfigs())
+                    .thenReturn(List.of(level1Config));
 
             List<GuildLevelConfig> configs = guildExperienceService.getAllLevelConfigs();
 

@@ -6,7 +6,8 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
 @Repository
-public interface NotificationPreferenceRepository extends JpaRepository<NotificationPreference, Long> {
+public interface NotificationPreferenceRepository
+        extends JpaRepository<NotificationPreference, Long> {
 
     Optional<NotificationPreference> findByUserId(String userId);
 

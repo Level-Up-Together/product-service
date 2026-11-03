@@ -5,7 +5,4 @@ import com.fasterxml.jackson.databind.annotation.JsonNaming;
 
 @JsonNaming(SnakeCaseStrategy.class)
 public record CategoryMissionStatsAdminResponse(
-    String categoryName,
-    long executionCount,
-    long totalExp
-) {}
+        String categoryName, long executionCount, long totalExp) {}

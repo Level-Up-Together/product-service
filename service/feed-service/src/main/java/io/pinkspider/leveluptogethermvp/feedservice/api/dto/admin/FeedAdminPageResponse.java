@@ -9,23 +9,22 @@ import org.springframework.data.domain.Page;
 @Builder
 @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
 public record FeedAdminPageResponse(
-    List<FeedAdminResponse> content,
-    int page,
-    int size,
-    long totalElements,
-    int totalPages,
-    boolean first,
-    boolean last
-) {
+        List<FeedAdminResponse> content,
+        int page,
+        int size,
+        long totalElements,
+        int totalPages,
+        boolean first,
+        boolean last) {
     public static FeedAdminPageResponse from(Page<FeedAdminResponse> responsePage) {
         return FeedAdminPageResponse.builder()
-            .content(responsePage.getContent())
-            .page(responsePage.getNumber())
-            .size(responsePage.getSize())
-            .totalElements(responsePage.getTotalElements())
-            .totalPages(responsePage.getTotalPages())
-            .first(responsePage.isFirst())
-            .last(responsePage.isLast())
-            .build();
+                .content(responsePage.getContent())
+                .page(responsePage.getNumber())
+                .size(responsePage.getSize())
+                .totalElements(responsePage.getTotalElements())
+                .totalPages(responsePage.getTotalPages())
+                .first(responsePage.isFirst())
+                .last(responsePage.isLast())
+                .build();
     }
 }

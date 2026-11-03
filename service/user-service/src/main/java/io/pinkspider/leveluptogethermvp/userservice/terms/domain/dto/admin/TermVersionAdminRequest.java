@@ -4,8 +4,4 @@ import com.fasterxml.jackson.databind.PropertyNamingStrategies.SnakeCaseStrategy
 import com.fasterxml.jackson.databind.annotation.JsonNaming;
 
 @JsonNaming(SnakeCaseStrategy.class)
-public record TermVersionAdminRequest(
-    String version,
-    String content
-) {
-}
+public record TermVersionAdminRequest(String version, String content) {}

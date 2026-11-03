@@ -2,22 +2,23 @@ package io.pinkspider.leveluptogethermvp.bffservice.application;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.when;
 
-import io.pinkspider.leveluptogethermvp.bffservice.api.dto.UnifiedSearchResponse;
-import io.pinkspider.leveluptogethermvp.guildservice.domain.entity.Guild;
-import io.pinkspider.leveluptogethermvp.guildservice.domain.enums.GuildVisibility;
-import io.pinkspider.leveluptogethermvp.guildservice.infrastructure.GuildRepository;
-import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.Mission;
 import io.pinkspider.global.enums.MissionStatus;
-import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionType;
-import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionVisibility;
-import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.MissionRepository;
+import io.pinkspider.leveluptogethermvp.bffservice.api.dto.UnifiedSearchResponse;
 import io.pinkspider.leveluptogethermvp.feedservice.domain.entity.ActivityFeed;
 import io.pinkspider.leveluptogethermvp.feedservice.domain.enums.ActivityType;
 import io.pinkspider.leveluptogethermvp.feedservice.domain.enums.FeedVisibility;
 import io.pinkspider.leveluptogethermvp.feedservice.infrastructure.ActivityFeedRepository;
+import io.pinkspider.leveluptogethermvp.guildservice.domain.entity.Guild;
+import io.pinkspider.leveluptogethermvp.guildservice.domain.enums.GuildVisibility;
+import io.pinkspider.leveluptogethermvp.guildservice.infrastructure.GuildRepository;
+import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.Mission;
+import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionType;
+import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionVisibility;
+import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.MissionRepository;
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.entity.Users;
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.infrastructure.UserRepository;
 import java.util.Collections;
@@ -27,7 +28,6 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.Page;
@@ -37,20 +37,18 @@ import org.springframework.data.domain.Pageable;
 @ExtendWith(MockitoExtension.class)
 class BffSearchServiceTest {
 
-    @Mock
-    private ActivityFeedRepository activityFeedRepository;
+    @Mock private ActivityFeedRepository activityFeedRepository;
 
-    @Mock
-    private MissionRepository missionRepository;
+    @Mock private MissionRepository missionRepository;
 
-    @Mock
-    private UserRepository userRepository;
+    @Mock private UserRepository userRepository;
 
-    @Mock
-    private GuildRepository guildRepository;
+    @Mock private GuildRepository guildRepository;
 
-    @InjectMocks
     private BffSearchService bffSearchService;
+
+    // 테스트용 동기 Executor - CompletableFuture가 즉시 실행되도록 함
+    private final java.util.concurrent.Executor directExecutor = Runnable::run;
 
     private ActivityFeed testFeed;
     private Mission testMission;
@@ -59,45 +57,58 @@ class BffSearchServiceTest {
 
     @BeforeEach
     void setUp() {
-        testFeed = ActivityFeed.builder()
-            .id(1L)
-            .userId("test-user-id")
-            .userNickname("테스터")
-            .activityType(ActivityType.MISSION_COMPLETED)
-            .title("미션 완료!")
-            .description("테스트 미션을 완료했습니다.")
-            .visibility(FeedVisibility.PUBLIC)
-            .build();
+        // BffSearchService 수동 생성 (Executor 주입을 위해)
+        bffSearchService =
+                new BffSearchService(
+                        activityFeedRepository,
+                        missionRepository,
+                        userRepository,
+                        guildRepository,
+                        directExecutor);
 
-        testMission = Mission.builder()
-            .id(1L)
-            .title("테스트 미션")
-            .description("테스트 미션 설명")
-            .creatorId("test-user-id")
-            .status(MissionStatus.OPEN)
-            .visibility(MissionVisibility.PUBLIC)
-            .type(MissionType.PERSONAL)
-            .categoryId(1L)
-            .categoryName("자기계발")
-            .build();
+        testFeed =
+                ActivityFeed.builder()
+                        .id(1L)
+                        .userId("test-user-id")
+                        .userNickname("테스터")
+                        .activityType(ActivityType.MISSION_COMPLETED)
+                        .title("미션 완료!")
+                        .description("테스트 미션을 완료했습니다.")
+                        .visibility(FeedVisibility.PUBLIC)
+                        .build();
 
-        testUser = Users.builder()
-            .id("test-user-id")
-            .nickname("테스터")
-            .email("test@example.com")
-            .provider("google")
-            .nicknameSet(true)
-            .build();
+        testMission =
+                Mission.builder()
+                        .id(1L)
+                        .title("테스트 미션")
+                        .description("테스트 미션 설명")
+                        .creatorId("test-user-id")
+                        .status(MissionStatus.OPEN)
+                        .visibility(MissionVisibility.PUBLIC)
+                        .type(MissionType.PERSONAL)
+                        .categoryId(1L)
+                        .categoryName("자기계발")
+                        .build();
 
-        testGuild = Guild.builder()
-            .id(1L)
-            .name("테스트 길드")
-            .description("테스트 길드 설명")
-            .visibility(GuildVisibility.PUBLIC)
-            .masterId("test-user-id")
-            .categoryId(1L)
-            .isActive(true)
-            .build();
+        testUser =
+                Users.builder()
+                        .id("test-user-id")
+                        .nickname("테스터")
+                        .email("test@example.com")
+                        .provider("google")
+                        .nicknameSet(true)
+                        .build();
+
+        testGuild =
+                Guild.builder()
+                        .id(1L)
+                        .name("테스트 길드")
+                        .description("테스트 길드 설명")
+                        .visibility(GuildVisibility.PUBLIC)
+                        .masterId("test-user-id")
+                        .categoryId(1L)
+                        .isActive(true)
+                        .build();
     }
 
     @Nested
@@ -116,14 +127,15 @@ class BffSearchServiceTest {
             Page<Users> userPage = new PageImpl<>(List.of(testUser));
             Page<Guild> guildPage = new PageImpl<>(List.of(testGuild));
 
-            when(activityFeedRepository.searchByKeyword(anyString(), any(Pageable.class)))
-                .thenReturn(feedPage);
+            when(activityFeedRepository.searchByKeyword(
+                            anyString(), anyList(), any(Pageable.class)))
+                    .thenReturn(feedPage);
             when(missionRepository.searchByKeyword(anyString(), any(Pageable.class)))
-                .thenReturn(missionPage);
+                    .thenReturn(missionPage);
             when(userRepository.searchByNickname(anyString(), any(Pageable.class)))
-                .thenReturn(userPage);
+                    .thenReturn(userPage);
             when(guildRepository.searchPublicGuilds(anyString(), any(Pageable.class)))
-                .thenReturn(guildPage);
+                    .thenReturn(guildPage);
 
             // when
             UnifiedSearchResponse response = bffSearchService.search(keyword, limit);
@@ -183,14 +195,15 @@ class BffSearchServiceTest {
             Page<Users> emptyUserPage = new PageImpl<>(Collections.emptyList());
             Page<Guild> emptyGuildPage = new PageImpl<>(Collections.emptyList());
 
-            when(activityFeedRepository.searchByKeyword(anyString(), any(Pageable.class)))
-                .thenReturn(emptyFeedPage);
+            when(activityFeedRepository.searchByKeyword(
+                            anyString(), anyList(), any(Pageable.class)))
+                    .thenReturn(emptyFeedPage);
             when(missionRepository.searchByKeyword(anyString(), any(Pageable.class)))
-                .thenReturn(emptyMissionPage);
+                    .thenReturn(emptyMissionPage);
             when(userRepository.searchByNickname(anyString(), any(Pageable.class)))
-                .thenReturn(emptyUserPage);
+                    .thenReturn(emptyUserPage);
             when(guildRepository.searchPublicGuilds(anyString(), any(Pageable.class)))
-                .thenReturn(emptyGuildPage);
+                    .thenReturn(emptyGuildPage);
 
             // when
             UnifiedSearchResponse response = bffSearchService.search(keyword, limit);
@@ -215,14 +228,15 @@ class BffSearchServiceTest {
             Page<Users> userPage = new PageImpl<>(List.of(testUser));
             Page<Guild> guildPage = new PageImpl<>(List.of(testGuild));
 
-            when(activityFeedRepository.searchByKeyword(anyString(), any(Pageable.class)))
-                .thenThrow(new RuntimeException("피드 검색 실패"));
+            when(activityFeedRepository.searchByKeyword(
+                            anyString(), anyList(), any(Pageable.class)))
+                    .thenThrow(new RuntimeException("피드 검색 실패"));
             when(missionRepository.searchByKeyword(anyString(), any(Pageable.class)))
-                .thenReturn(missionPage);
+                    .thenReturn(missionPage);
             when(userRepository.searchByNickname(anyString(), any(Pageable.class)))
-                .thenReturn(userPage);
+                    .thenReturn(userPage);
             when(guildRepository.searchPublicGuilds(anyString(), any(Pageable.class)))
-                .thenReturn(guildPage);
+                    .thenReturn(guildPage);
 
             // when
             UnifiedSearchResponse response = bffSearchService.search(keyword, limit);
@@ -247,14 +261,15 @@ class BffSearchServiceTest {
             Page<Users> userPage = new PageImpl<>(List.of(testUser));
             Page<Guild> guildPage = new PageImpl<>(List.of(testGuild));
 
-            when(activityFeedRepository.searchByKeyword(anyString(), any(Pageable.class)))
-                .thenReturn(feedPage);
+            when(activityFeedRepository.searchByKeyword(
+                            anyString(), anyList(), any(Pageable.class)))
+                    .thenReturn(feedPage);
             when(missionRepository.searchByKeyword(anyString(), any(Pageable.class)))
-                .thenThrow(new RuntimeException("미션 검색 실패"));
+                    .thenThrow(new RuntimeException("미션 검색 실패"));
             when(userRepository.searchByNickname(anyString(), any(Pageable.class)))
-                .thenReturn(userPage);
+                    .thenReturn(userPage);
             when(guildRepository.searchPublicGuilds(anyString(), any(Pageable.class)))
-                .thenReturn(guildPage);
+                    .thenReturn(guildPage);
 
             // when
             UnifiedSearchResponse response = bffSearchService.search(keyword, limit);
@@ -279,14 +294,15 @@ class BffSearchServiceTest {
             Page<Mission> missionPage = new PageImpl<>(List.of(testMission));
             Page<Guild> guildPage = new PageImpl<>(List.of(testGuild));
 
-            when(activityFeedRepository.searchByKeyword(anyString(), any(Pageable.class)))
-                .thenReturn(feedPage);
+            when(activityFeedRepository.searchByKeyword(
+                            anyString(), anyList(), any(Pageable.class)))
+                    .thenReturn(feedPage);
             when(missionRepository.searchByKeyword(anyString(), any(Pageable.class)))
-                .thenReturn(missionPage);
+                    .thenReturn(missionPage);
             when(userRepository.searchByNickname(anyString(), any(Pageable.class)))
-                .thenThrow(new RuntimeException("사용자 검색 실패"));
+                    .thenThrow(new RuntimeException("사용자 검색 실패"));
             when(guildRepository.searchPublicGuilds(anyString(), any(Pageable.class)))
-                .thenReturn(guildPage);
+                    .thenReturn(guildPage);
 
             // when
             UnifiedSearchResponse response = bffSearchService.search(keyword, limit);
@@ -311,14 +327,15 @@ class BffSearchServiceTest {
             Page<Mission> missionPage = new PageImpl<>(List.of(testMission));
             Page<Users> userPage = new PageImpl<>(List.of(testUser));
 
-            when(activityFeedRepository.searchByKeyword(anyString(), any(Pageable.class)))
-                .thenReturn(feedPage);
+            when(activityFeedRepository.searchByKeyword(
+                            anyString(), anyList(), any(Pageable.class)))
+                    .thenReturn(feedPage);
             when(missionRepository.searchByKeyword(anyString(), any(Pageable.class)))
-                .thenReturn(missionPage);
+                    .thenReturn(missionPage);
             when(userRepository.searchByNickname(anyString(), any(Pageable.class)))
-                .thenReturn(userPage);
+                    .thenReturn(userPage);
             when(guildRepository.searchPublicGuilds(anyString(), any(Pageable.class)))
-                .thenThrow(new RuntimeException("길드 검색 실패"));
+                    .thenThrow(new RuntimeException("길드 검색 실패"));
 
             // when
             UnifiedSearchResponse response = bffSearchService.search(keyword, limit);
@@ -344,14 +361,15 @@ class BffSearchServiceTest {
             Page<Users> userPage = new PageImpl<>(List.of(testUser));
             Page<Guild> guildPage = new PageImpl<>(List.of(testGuild));
 
-            when(activityFeedRepository.searchByKeyword(anyString(), any(Pageable.class)))
-                .thenReturn(feedPage);
+            when(activityFeedRepository.searchByKeyword(
+                            anyString(), anyList(), any(Pageable.class)))
+                    .thenReturn(feedPage);
             when(missionRepository.searchByKeyword(anyString(), any(Pageable.class)))
-                .thenReturn(missionPage);
+                    .thenReturn(missionPage);
             when(userRepository.searchByNickname(anyString(), any(Pageable.class)))
-                .thenReturn(userPage);
+                    .thenReturn(userPage);
             when(guildRepository.searchPublicGuilds(anyString(), any(Pageable.class)))
-                .thenReturn(guildPage);
+                    .thenReturn(guildPage);
 
             // when
             UnifiedSearchResponse response = bffSearchService.search(keyword, limit);

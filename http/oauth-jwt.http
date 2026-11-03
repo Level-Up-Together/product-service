@@ -68,6 +68,25 @@ Accept: application/json
 }
 
 ### ----------------------------------------------------------
+### 모바일 앱용 소셜 로그인 - Apple (LUT-477)
+### id_token 외에 authorization code 를 함께 보내면 서버가
+### refresh token 을 교환·저장한다 (탈퇴 시 revoke 용, 미전송 시 로그인만 진행)
+### iOS 네이티브는 redirect_uri 불필요, Android 웹 기반 SIWA 만 함께 전송
+### ----------------------------------------------------------
+POST {{baseUrl}}/oauth/mobile/login
+Content-Type: application/json
+Accept: application/json
+
+{
+  "provider": "apple",
+  "access_token": "apple-id-token-from-native-sdk",
+  "device_type": "ios",
+  "device_id": "device-unique-id",
+  "authorization_code": "apple-authorization-code",
+  "authorization_code_redirect_uri": "https://dev.level-up-together.com/oauth/callback/apple"
+}
+
+### ----------------------------------------------------------
 ### JWT 토큰 갱신 (Reissue)
 ### ----------------------------------------------------------
 POST {{baseUrl}}/jwt/reissue

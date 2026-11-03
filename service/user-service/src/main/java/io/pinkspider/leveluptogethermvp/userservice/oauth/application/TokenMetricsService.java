@@ -22,9 +22,9 @@ public class TokenMetricsService {
     public void recordTokenRefresh(String userId, boolean refreshTokenRenewed) {
         // 토큰 갱신 카운터
         Counter.builder("token.refresh.count")
-            .tag("renewed", String.valueOf(refreshTokenRenewed))
-            .register(meterRegistry)
-            .increment();
+                .tag("renewed", String.valueOf(refreshTokenRenewed))
+                .register(meterRegistry)
+                .increment();
 
         // 사용자별 갱신 기록
         String key = "metrics:token_refresh:" + userId;
@@ -33,9 +33,7 @@ public class TokenMetricsService {
     }
 
     public void recordTokenRenewal(String userId) {
-        Counter.builder("token.renewal.count")
-            .register(meterRegistry)
-            .increment();
+        Counter.builder("token.renewal.count").register(meterRegistry).increment();
 
         String key = "metrics:token_renewal:" + userId;
         redisTemplate.opsForValue().increment(key);

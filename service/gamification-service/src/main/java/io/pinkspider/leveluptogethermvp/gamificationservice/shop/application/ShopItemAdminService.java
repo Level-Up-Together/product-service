@@ -2,6 +2,7 @@ package io.pinkspider.leveluptogethermvp.gamificationservice.shop.application;
 
 import io.pinkspider.global.enums.TitleRarity;
 import io.pinkspider.global.exception.CustomException;
+import io.pinkspider.global.image.ImageContentValidator;
 import io.pinkspider.leveluptogethermvp.gamificationservice.shop.domain.dto.ShopItemAdminPageResponse;
 import io.pinkspider.leveluptogethermvp.gamificationservice.shop.domain.dto.ShopItemAdminRequest;
 import io.pinkspider.leveluptogethermvp.gamificationservice.shop.domain.dto.ShopItemAdminResponse;
@@ -17,9 +18,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
-/**
- * 상점 아이템 어드민 서비스 (QA-225)
- */
+/** 상점 아이템 어드민 서비스 (QA-225) */
 @Service
 @RequiredArgsConstructor
 @Slf4j
@@ -28,13 +27,19 @@ public class ShopItemAdminService {
 
     private final ShopItemRepository shopItemRepository;
     private final ShopItemImageStorageService imageStorageService;
+    private final ImageContentValidator imageContentValidator;
 
     @Transactional(readOnly = true, transactionManager = "gamificationTransactionManager")
     public ShopItemAdminPageResponse searchShopItems(
-            String keyword, ShopItemType itemType, TitleRarity rarity, Boolean isActive, Pageable pageable) {
-        Page<ShopItemAdminResponse> page = shopItemRepository
-            .search(keyword, itemType, rarity, isActive, pageable)
-            .map(ShopItemAdminResponse::from);
+            String keyword,
+            ShopItemType itemType,
+            TitleRarity rarity,
+            Boolean isActive,
+            Pageable pageable) {
+        Page<ShopItemAdminResponse> page =
+                shopItemRepository
+                        .search(keyword, itemType, rarity, isActive, pageable)
+                        .map(ShopItemAdminResponse::from);
         return ShopItemAdminPageResponse.from(page);
     }
 
@@ -48,24 +53,34 @@ public class ShopItemAdminService {
             throw new CustomException("400", "error.shop_item.duplicate_name");
         }
 
-        ShopItem item = ShopItem.builder()
-            .name(request.getName())
-            .nameEn(request.getNameEn())
-            .nameAr(request.getNameAr())
-            .nameJa(request.getNameJa())
-            .itemType(request.getItemType())
-            .rarity(request.getRarity())
-            .imageUrl(request.getImageUrl())
-            .imagePosition(
-                request.getImagePosition() != null
-                    ? request.getImagePosition()
-                    : ShopItemImagePosition.BACK)
-            .price(request.getPrice())
-            .isActive(request.getIsActive() != null ? request.getIsActive() : true)
-            .build();
+        ShopItem item =
+                ShopItem.builder()
+                        .name(request.getName())
+                        .nameEn(request.getNameEn())
+                        .nameAr(request.getNameAr())
+                        .nameJa(request.getNameJa())
+                        .description(request.getDescription())
+                        .descriptionEn(request.getDescriptionEn())
+                        .descriptionAr(request.getDescriptionAr())
+                        .descriptionJa(request.getDescriptionJa())
+                        .itemType(request.getItemType())
+                        .rarity(request.getRarity())
+                        .effectCode(resolveEffectCode(request))
+                        .imageUrl(request.getImageUrl())
+                        .imagePosition(
+                                request.getImagePosition() != null
+                                        ? request.getImagePosition()
+                                        : ShopItemImagePosition.BACK)
+                        .price(request.getPrice())
+                        .isActive(request.getIsActive() != null ? request.getIsActive() : true)
+                        .build();
 
         ShopItem saved = shopItemRepository.save(item);
-        log.info("상점 아이템 생성: id={}, name={}, type={}", saved.getId(), saved.getName(), saved.getItemType());
+        log.info(
+                "상점 아이템 생성: id={}, name={}, type={}",
+                saved.getId(),
+                saved.getName(),
+                saved.getItemType());
         return ShopItemAdminResponse.from(saved);
     }
 
@@ -73,7 +88,7 @@ public class ShopItemAdminService {
         ShopItem item = findById(id);
 
         if (!item.getName().equals(request.getName())
-            && shopItemRepository.existsByName(request.getName())) {
+                && shopItemRepository.existsByName(request.getName())) {
             throw new CustomException("400", "error.shop_item.duplicate_name");
         }
 
@@ -87,8 +102,13 @@ public class ShopItemAdminService {
         item.setNameEn(request.getNameEn());
         item.setNameAr(request.getNameAr());
         item.setNameJa(request.getNameJa());
+        item.setDescription(request.getDescription());
+        item.setDescriptionEn(request.getDescriptionEn());
+        item.setDescriptionAr(request.getDescriptionAr());
+        item.setDescriptionJa(request.getDescriptionJa());
         item.setItemType(request.getItemType());
         item.setRarity(request.getRarity());
+        item.setEffectCode(resolveEffectCode(request));
         item.setImageUrl(request.getImageUrl());
         if (request.getImagePosition() != null) {
             item.setImagePosition(request.getImagePosition());
@@ -119,15 +139,24 @@ public class ShopItemAdminService {
         log.info("상점 아이템 삭제: id={}", id);
     }
 
-    /**
-     * 이미지 업로드 — 저장 후 URL 반환. 생성/수정 요청의 image_url로 사용한다.
-     */
+    /** 이미지 업로드 — 저장 후 URL 반환. 생성/수정 요청의 image_url로 사용한다. */
     public String uploadImage(MultipartFile file) {
+        imageContentValidator.validate(file); // LUT-710: 어드민 업로드는 @ModerateImage 가 없어 여기서 형식 검증
         return imageStorageService.store(file);
     }
 
+    /** LUT-341: 이펙트 코드는 EFFECT 타입 전용 — 타입을 바꾸면 잔존값이 남지 않게 그 외 타입은 null 정규화. */
+    private static String resolveEffectCode(ShopItemAdminRequest request) {
+        if (request.getItemType() != ShopItemType.EFFECT) {
+            return null;
+        }
+        String code = request.getEffectCode();
+        return (code == null || code.isBlank()) ? null : code.trim();
+    }
+
     private ShopItem findById(Long id) {
-        return shopItemRepository.findById(id)
-            .orElseThrow(() -> new CustomException("404", "error.shop_item.not_found"));
+        return shopItemRepository
+                .findById(id)
+                .orElseThrow(() -> new CustomException("404", "error.shop_item.not_found"));
     }
 }

@@ -4,6 +4,8 @@ import com.fasterxml.jackson.annotation.JsonGetter;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.databind.PropertyNamingStrategies;
 import com.fasterxml.jackson.databind.annotation.JsonNaming;
+import io.pinkspider.global.enums.TitleRarity;
+import io.pinkspider.global.facade.dto.EquippedItemRarityDto;
 import io.pinkspider.global.translation.dto.TranslationInfo;
 import io.pinkspider.leveluptogethermvp.feedservice.domain.entity.FeedComment;
 import java.time.LocalDateTime;
@@ -29,23 +31,29 @@ public class FeedCommentResponse {
     private String userNickname;
     private String userProfileImageUrl;
     private Integer userLevel;
+
+    // LUT-422: 댓글 유저 좌/우 칭호 — 조회 시점 장착 칭호를 locale 반영해 내려준다
+    // (피드 작성자 영역의 user_left_title / user_left_title_rarity 패턴과 동일)
+    private String userLeftTitle;
+    private TitleRarity userLeftTitleRarity;
+    private String userRightTitle;
+    private TitleRarity userRightTitleRarity;
+
+    // LUT-424: 댓글 유저 장착 아이템 타입·희귀도 (썸네일 등급 표식용). 미장착이면 빈 배열.
+    @Builder.Default private List<EquippedItemRarityDto> equippedItemRarities = List.of();
+
     private String content;
 
-    @JsonIgnore
-    private boolean isDeleted;
+    @JsonIgnore private boolean isDeleted;
 
-    @JsonIgnore
-    private boolean isMyComment;
+    @JsonIgnore private boolean isMyComment;
 
-    @JsonIgnore
-    private boolean isEdited;
+    @JsonIgnore private boolean isEdited;
 
     /** 클라이언트에서 "수정" 버튼 노출 여부 결정용. 본인 + 미삭제 + 대댓글 없음 = true. */
-    @JsonIgnore
-    private boolean isEditable;
+    @JsonIgnore private boolean isEditable;
 
-    @JsonIgnore
-    private boolean isLiked;
+    @JsonIgnore private boolean isLiked;
 
     private Integer likeCount;
 
@@ -93,31 +101,33 @@ public class FeedCommentResponse {
         return from(comment, translation, null);
     }
 
-    public static FeedCommentResponse from(FeedComment comment, TranslationInfo translation, String currentUserId) {
+    public static FeedCommentResponse from(
+            FeedComment comment, TranslationInfo translation, String currentUserId) {
         return from(comment, translation, currentUserId, null);
     }
 
-    /**
-     * 기존 댓글의 userLevel이 null인 경우 외부에서 조회한 레벨로 설정
-     */
-    public static FeedCommentResponse from(FeedComment comment, TranslationInfo translation, String currentUserId,
-                                           Integer userLevel) {
+    /** 기존 댓글의 userLevel이 null인 경우 외부에서 조회한 레벨로 설정 */
+    public static FeedCommentResponse from(
+            FeedComment comment,
+            TranslationInfo translation,
+            String currentUserId,
+            Integer userLevel) {
         return FeedCommentResponse.builder()
-            .id(comment.getId())
-            .feedId(comment.getFeed().getId())
-            .parentId(comment.getParent() != null ? comment.getParent().getId() : null)
-            .userId(comment.getUserId())
-            .userNickname(comment.getUserNickname())
-            .userProfileImageUrl(comment.getUserProfileImageUrl())
-            .userLevel(userLevel != null ? userLevel : comment.getUserLevel())
-            .content(comment.getContent())
-            .isDeleted(comment.getIsDeleted())
-            .isMyComment(currentUserId != null && currentUserId.equals(comment.getUserId()))
-            .isEdited(Boolean.TRUE.equals(comment.getIsEdited()))
-            .likeCount(0)
-            .createdAt(comment.getCreatedAt())
-            .updatedAt(comment.getModifiedAt())
-            .translation(translation)
-            .build();
+                .id(comment.getId())
+                .feedId(comment.getFeed().getId())
+                .parentId(comment.getParent() != null ? comment.getParent().getId() : null)
+                .userId(comment.getUserId())
+                .userNickname(comment.getUserNickname())
+                .userProfileImageUrl(comment.getUserProfileImageUrl())
+                .userLevel(userLevel != null ? userLevel : comment.getUserLevel())
+                .content(comment.getContent())
+                .isDeleted(comment.getIsDeleted())
+                .isMyComment(currentUserId != null && currentUserId.equals(comment.getUserId()))
+                .isEdited(Boolean.TRUE.equals(comment.getIsEdited()))
+                .likeCount(0)
+                .createdAt(comment.getCreatedAt())
+                .updatedAt(comment.getModifiedAt())
+                .translation(translation)
+                .build();
     }
 }

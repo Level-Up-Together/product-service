@@ -4,8 +4,8 @@ import static io.pinkspider.global.test.TestReflectionUtils.setId;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.when;
 
-import io.pinkspider.global.saga.SagaStepResult;
 import io.pinkspider.global.enums.MissionStatus;
+import io.pinkspider.global.saga.SagaStepResult;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.DailyMissionInstance;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.Mission;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.MissionParticipant;
@@ -30,11 +30,9 @@ import org.mockito.junit.jupiter.MockitoExtension;
 @DisplayName("LoadPinnedMissionDataStep 단위 테스트")
 class LoadPinnedMissionDataStepTest {
 
-    @Mock
-    private DailyMissionInstanceRepository instanceRepository;
+    @Mock private DailyMissionInstanceRepository instanceRepository;
 
-    @InjectMocks
-    private LoadPinnedMissionDataStep loadPinnedMissionDataStep;
+    @InjectMocks private LoadPinnedMissionDataStep loadPinnedMissionDataStep;
 
     private static final String TEST_USER_ID = "test-user-123";
     private static final Long INSTANCE_ID = 10L;
@@ -45,36 +43,39 @@ class LoadPinnedMissionDataStepTest {
 
     @BeforeEach
     void setUp() {
-        mission = Mission.builder()
-            .title("매일 독서 30분")
-            .description("독서 습관 만들기")
-            .creatorId(TEST_USER_ID)
-            .status(MissionStatus.IN_PROGRESS)
-            .visibility(MissionVisibility.PUBLIC)
-            .type(MissionType.PERSONAL)
-            .categoryId(2L)
-            .categoryName("독서")
-            .expPerCompletion(30)
-            .isPinned(true)
-            .build();
+        mission =
+                Mission.builder()
+                        .title("매일 독서 30분")
+                        .description("독서 습관 만들기")
+                        .creatorId(TEST_USER_ID)
+                        .status(MissionStatus.IN_PROGRESS)
+                        .visibility(MissionVisibility.PUBLIC)
+                        .type(MissionType.PERSONAL)
+                        .categoryId(2L)
+                        .categoryName("독서")
+                        .expPerCompletion(30)
+                        .isPinned(true)
+                        .build();
         setId(mission, 1L);
 
-        participant = MissionParticipant.builder()
-            .mission(mission)
-            .userId(TEST_USER_ID)
-            .status(ParticipantStatus.IN_PROGRESS)
-            .progress(5)
-            .build();
+        participant =
+                MissionParticipant.builder()
+                        .mission(mission)
+                        .userId(TEST_USER_ID)
+                        .status(ParticipantStatus.IN_PROGRESS)
+                        .progress(5)
+                        .build();
         setId(participant, 1L);
 
-        instance = DailyMissionInstance.builder()
-            .participant(participant)
-            .instanceDate(LocalDate.now())
-            .missionTitle("매일 독서 30분")
-            .categoryId(2L)
-            .categoryName("독서")
-            .status(ExecutionStatus.IN_PROGRESS)
-            .build();
+        instance =
+                DailyMissionInstance.builder()
+                        .participant(participant)
+                        .instanceDate(LocalDate.now())
+                        .missionTitle("매일 독서 30분")
+                        .categoryId(2L)
+                        .categoryName("독서")
+                        .status(ExecutionStatus.IN_PROGRESS)
+                        .build();
         setId(instance, INSTANCE_ID);
     }
 
@@ -88,8 +89,8 @@ class LoadPinnedMissionDataStepTest {
     @DisplayName("shouldExecute는 pinned 미션에서 true를 반환한다")
     void shouldExecute_pinned_returnsTrue() {
         // given
-        MissionCompletionContext pinnedContext = MissionCompletionContext.forPinned(
-            INSTANCE_ID, TEST_USER_ID, null, false);
+        MissionCompletionContext pinnedContext =
+                MissionCompletionContext.forPinned(INSTANCE_ID, TEST_USER_ID, null, false);
 
         // when
         boolean result = loadPinnedMissionDataStep.shouldExecute().test(pinnedContext);
@@ -102,7 +103,8 @@ class LoadPinnedMissionDataStepTest {
     @DisplayName("shouldExecute는 일반 미션에서 false를 반환한다")
     void shouldExecute_regular_returnsFalse() {
         // given
-        MissionCompletionContext regularContext = new MissionCompletionContext(1L, TEST_USER_ID, null);
+        MissionCompletionContext regularContext =
+                new MissionCompletionContext(1L, TEST_USER_ID, null);
 
         // when
         boolean result = loadPinnedMissionDataStep.shouldExecute().test(regularContext);
@@ -119,11 +121,11 @@ class LoadPinnedMissionDataStepTest {
         @DisplayName("정상적으로 고정 미션 데이터를 로드한다")
         void execute_success() {
             // given
-            MissionCompletionContext context = MissionCompletionContext.forPinned(
-                INSTANCE_ID, TEST_USER_ID, "메모", false);
+            MissionCompletionContext context =
+                    MissionCompletionContext.forPinned(INSTANCE_ID, TEST_USER_ID, "메모", false);
 
             when(instanceRepository.findByIdWithParticipantAndMission(INSTANCE_ID))
-                .thenReturn(Optional.of(instance));
+                    .thenReturn(Optional.of(instance));
 
             // when
             SagaStepResult result = loadPinnedMissionDataStep.execute(context);
@@ -145,45 +147,48 @@ class LoadPinnedMissionDataStepTest {
         @DisplayName("QA-195: 길드 고정 미션이면 context.guildId 에 길드 ID 를 채운다")
         void execute_guildMission_setsGuildId() {
             // given
-            Mission guildMission = Mission.builder()
-                .title("길드 매일 독서")
-                .description("길드 고정 미션")
-                .creatorId(TEST_USER_ID)
-                .status(MissionStatus.IN_PROGRESS)
-                .visibility(MissionVisibility.PUBLIC)
-                .type(MissionType.GUILD)
-                .guildId("777")
-                .guildName("독서 길드")
-                .categoryId(2L)
-                .categoryName("독서")
-                .expPerCompletion(30)
-                .isPinned(true)
-                .build();
+            Mission guildMission =
+                    Mission.builder()
+                            .title("길드 매일 독서")
+                            .description("길드 고정 미션")
+                            .creatorId(TEST_USER_ID)
+                            .status(MissionStatus.IN_PROGRESS)
+                            .visibility(MissionVisibility.PUBLIC)
+                            .type(MissionType.GUILD)
+                            .guildId("777")
+                            .guildName("독서 길드")
+                            .categoryId(2L)
+                            .categoryName("독서")
+                            .expPerCompletion(30)
+                            .isPinned(true)
+                            .build();
             setId(guildMission, 99L);
 
-            MissionParticipant guildParticipant = MissionParticipant.builder()
-                .mission(guildMission)
-                .userId(TEST_USER_ID)
-                .status(ParticipantStatus.IN_PROGRESS)
-                .progress(0)
-                .build();
+            MissionParticipant guildParticipant =
+                    MissionParticipant.builder()
+                            .mission(guildMission)
+                            .userId(TEST_USER_ID)
+                            .status(ParticipantStatus.IN_PROGRESS)
+                            .progress(0)
+                            .build();
             setId(guildParticipant, 2L);
 
-            DailyMissionInstance guildInstance = DailyMissionInstance.builder()
-                .participant(guildParticipant)
-                .instanceDate(LocalDate.now())
-                .missionTitle("길드 매일 독서")
-                .categoryId(2L)
-                .categoryName("독서")
-                .status(ExecutionStatus.IN_PROGRESS)
-                .build();
+            DailyMissionInstance guildInstance =
+                    DailyMissionInstance.builder()
+                            .participant(guildParticipant)
+                            .instanceDate(LocalDate.now())
+                            .missionTitle("길드 매일 독서")
+                            .categoryId(2L)
+                            .categoryName("독서")
+                            .status(ExecutionStatus.IN_PROGRESS)
+                            .build();
             setId(guildInstance, 200L);
 
-            MissionCompletionContext context = MissionCompletionContext.forPinned(
-                200L, TEST_USER_ID, null, false);
+            MissionCompletionContext context =
+                    MissionCompletionContext.forPinned(200L, TEST_USER_ID, null, false);
 
             when(instanceRepository.findByIdWithParticipantAndMission(200L))
-                .thenReturn(Optional.of(guildInstance));
+                    .thenReturn(Optional.of(guildInstance));
 
             // when
             SagaStepResult result = loadPinnedMissionDataStep.execute(context);
@@ -197,11 +202,11 @@ class LoadPinnedMissionDataStepTest {
         @DisplayName("인스턴스가 없으면 예외로 인한 실패 결과를 반환한다")
         void execute_instanceNotFound_returnsFailure() {
             // given
-            MissionCompletionContext context = MissionCompletionContext.forPinned(
-                999L, TEST_USER_ID, null, false);
+            MissionCompletionContext context =
+                    MissionCompletionContext.forPinned(999L, TEST_USER_ID, null, false);
 
             when(instanceRepository.findByIdWithParticipantAndMission(999L))
-                .thenReturn(Optional.empty());
+                    .thenReturn(Optional.empty());
 
             // when
             SagaStepResult result = loadPinnedMissionDataStep.execute(context);
@@ -215,11 +220,11 @@ class LoadPinnedMissionDataStepTest {
         void execute_notOwner_returnsFailure() {
             // given
             String otherUserId = "other-user-456";
-            MissionCompletionContext context = MissionCompletionContext.forPinned(
-                INSTANCE_ID, otherUserId, null, false);
+            MissionCompletionContext context =
+                    MissionCompletionContext.forPinned(INSTANCE_ID, otherUserId, null, false);
 
             when(instanceRepository.findByIdWithParticipantAndMission(INSTANCE_ID))
-                .thenReturn(Optional.of(instance));
+                    .thenReturn(Optional.of(instance));
 
             // when
             SagaStepResult result = loadPinnedMissionDataStep.execute(context);
@@ -234,11 +239,11 @@ class LoadPinnedMissionDataStepTest {
         void execute_pendingStatus_returnsFailure() {
             // given
             instance.setStatus(ExecutionStatus.PENDING);
-            MissionCompletionContext context = MissionCompletionContext.forPinned(
-                INSTANCE_ID, TEST_USER_ID, null, false);
+            MissionCompletionContext context =
+                    MissionCompletionContext.forPinned(INSTANCE_ID, TEST_USER_ID, null, false);
 
             when(instanceRepository.findByIdWithParticipantAndMission(INSTANCE_ID))
-                .thenReturn(Optional.of(instance));
+                    .thenReturn(Optional.of(instance));
 
             // when
             SagaStepResult result = loadPinnedMissionDataStep.execute(context);
@@ -253,11 +258,11 @@ class LoadPinnedMissionDataStepTest {
         void execute_completedStatus_returnsFailure() {
             // given
             instance.setStatus(ExecutionStatus.COMPLETED);
-            MissionCompletionContext context = MissionCompletionContext.forPinned(
-                INSTANCE_ID, TEST_USER_ID, null, false);
+            MissionCompletionContext context =
+                    MissionCompletionContext.forPinned(INSTANCE_ID, TEST_USER_ID, null, false);
 
             when(instanceRepository.findByIdWithParticipantAndMission(INSTANCE_ID))
-                .thenReturn(Optional.of(instance));
+                    .thenReturn(Optional.of(instance));
 
             // when
             SagaStepResult result = loadPinnedMissionDataStep.execute(context);
@@ -272,11 +277,11 @@ class LoadPinnedMissionDataStepTest {
         void execute_missedStatus_returnsFailure() {
             // given
             instance.setStatus(ExecutionStatus.MISSED);
-            MissionCompletionContext context = MissionCompletionContext.forPinned(
-                INSTANCE_ID, TEST_USER_ID, null, false);
+            MissionCompletionContext context =
+                    MissionCompletionContext.forPinned(INSTANCE_ID, TEST_USER_ID, null, false);
 
             when(instanceRepository.findByIdWithParticipantAndMission(INSTANCE_ID))
-                .thenReturn(Optional.of(instance));
+                    .thenReturn(Optional.of(instance));
 
             // when
             SagaStepResult result = loadPinnedMissionDataStep.execute(context);
@@ -290,19 +295,20 @@ class LoadPinnedMissionDataStepTest {
         @DisplayName("보상 데이터에 이전 인스턴스 상태가 저장된다")
         void execute_storesCompensationData() {
             // given
-            MissionCompletionContext context = MissionCompletionContext.forPinned(
-                INSTANCE_ID, TEST_USER_ID, null, false);
+            MissionCompletionContext context =
+                    MissionCompletionContext.forPinned(INSTANCE_ID, TEST_USER_ID, null, false);
 
             when(instanceRepository.findByIdWithParticipantAndMission(INSTANCE_ID))
-                .thenReturn(Optional.of(instance));
+                    .thenReturn(Optional.of(instance));
 
             // when
             loadPinnedMissionDataStep.execute(context);
 
             // then
-            ExecutionStatus savedStatus = context.getCompensationData(
-                MissionCompletionContext.CompensationKeys.INSTANCE_STATUS_BEFORE,
-                ExecutionStatus.class);
+            ExecutionStatus savedStatus =
+                    context.getCompensationData(
+                            MissionCompletionContext.CompensationKeys.INSTANCE_STATUS_BEFORE,
+                            ExecutionStatus.class);
             assertThat(savedStatus).isEqualTo(ExecutionStatus.IN_PROGRESS);
         }
 
@@ -310,11 +316,11 @@ class LoadPinnedMissionDataStepTest {
         @DisplayName("Repository 예외 발생 시 실패 결과를 반환한다")
         void execute_repositoryException_returnsFailure() {
             // given
-            MissionCompletionContext context = MissionCompletionContext.forPinned(
-                INSTANCE_ID, TEST_USER_ID, null, false);
+            MissionCompletionContext context =
+                    MissionCompletionContext.forPinned(INSTANCE_ID, TEST_USER_ID, null, false);
 
             when(instanceRepository.findByIdWithParticipantAndMission(INSTANCE_ID))
-                .thenThrow(new RuntimeException("DB 오류"));
+                    .thenThrow(new RuntimeException("DB 오류"));
 
             // when
             SagaStepResult result = loadPinnedMissionDataStep.execute(context);
@@ -332,8 +338,8 @@ class LoadPinnedMissionDataStepTest {
         @DisplayName("데이터 로드는 보상 작업이 필요없으므로 항상 성공한다")
         void compensate_alwaysSucceeds() {
             // given
-            MissionCompletionContext context = MissionCompletionContext.forPinned(
-                INSTANCE_ID, TEST_USER_ID, null, false);
+            MissionCompletionContext context =
+                    MissionCompletionContext.forPinned(INSTANCE_ID, TEST_USER_ID, null, false);
 
             // when
             SagaStepResult result = loadPinnedMissionDataStep.compensate(context);

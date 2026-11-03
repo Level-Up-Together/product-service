@@ -29,13 +29,14 @@ import org.hibernate.annotations.Comment;
 @SuperBuilder
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @AllArgsConstructor
-@Table(name = "friendship",
-    uniqueConstraints = @UniqueConstraint(columnNames = {"user_id", "friend_id"}),
-    indexes = {
-        @Index(name = "idx_friendship_user", columnList = "user_id"),
-        @Index(name = "idx_friendship_friend", columnList = "friend_id"),
-        @Index(name = "idx_friendship_status", columnList = "status")
-    })
+@Table(
+        name = "friendship",
+        uniqueConstraints = @UniqueConstraint(columnNames = {"user_id", "friend_id"}),
+        indexes = {
+            @Index(name = "idx_friendship_user", columnList = "user_id"),
+            @Index(name = "idx_friendship_friend", columnList = "friend_id"),
+            @Index(name = "idx_friendship_status", columnList = "status")
+        })
 @Comment("친구 관계")
 public class Friendship extends LocalDateTimeBaseEntity {
 
@@ -80,12 +81,12 @@ public class Friendship extends LocalDateTimeBaseEntity {
 
     public static Friendship createRequest(String userId, String friendId, String message) {
         return Friendship.builder()
-            .userId(userId)
-            .friendId(friendId)
-            .status(FriendshipStatus.PENDING)
-            .requestedAt(LocalDateTime.now())
-            .message(message)
-            .build();
+                .userId(userId)
+                .friendId(friendId)
+                .status(FriendshipStatus.PENDING)
+                .requestedAt(LocalDateTime.now())
+                .message(message)
+                .build();
     }
 
     public void accept() {
@@ -125,8 +126,7 @@ public class Friendship extends LocalDateTimeBaseEntity {
     }
 
     /**
-     * 거절된 친구 요청을 다시 보내기
-     * 기존 레코드를 재사용하여 unique constraint 위반 방지
+     * 거절된 친구 요청을 다시 보내기 기존 레코드를 재사용하여 unique constraint 위반 방지
      *
      * @param newRequesterId 새로운 요청자 ID
      * @param newRecipientId 새로운 수신자 ID

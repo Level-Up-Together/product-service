@@ -4,9 +4,9 @@ import static io.pinkspider.global.test.TestReflectionUtils.setId;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.when;
 
-import io.pinkspider.leveluptogethermvp.gamificationservice.domain.entity.Achievement;
 import io.pinkspider.global.facade.GuildQueryFacade;
 import io.pinkspider.global.facade.dto.GuildMembershipInfo;
+import io.pinkspider.leveluptogethermvp.gamificationservice.domain.entity.Achievement;
 import java.util.Collections;
 import java.util.List;
 import org.junit.jupiter.api.DisplayName;
@@ -20,26 +20,25 @@ import org.mockito.junit.jupiter.MockitoExtension;
 @ExtendWith(MockitoExtension.class)
 class GuildServiceCheckStrategyTest {
 
-    @Mock
-    private GuildQueryFacade guildQueryFacadeService;
+    @Mock private GuildQueryFacade guildQueryFacadeService;
 
-    @InjectMocks
-    private GuildServiceCheckStrategy strategy;
+    @InjectMocks private GuildServiceCheckStrategy strategy;
 
     private static final String TEST_USER_ID = "test-user-123";
 
-    private Achievement createTestAchievement(Long id, String dataField, String operator, int requiredCount) {
-        Achievement achievement = Achievement.builder()
-            .name("테스트 업적")
-            .checkLogicDataSource("GUILD_SERVICE")
-            .checkLogicDataField(dataField)
-            .comparisonOperator(operator)
-            .requiredCount(requiredCount)
-            .build();
+    private Achievement createTestAchievement(
+            Long id, String dataField, String operator, int requiredCount) {
+        Achievement achievement =
+                Achievement.builder()
+                        .name("테스트 업적")
+                        .checkLogicDataSource("GUILD_SERVICE")
+                        .checkLogicDataField(dataField)
+                        .comparisonOperator(operator)
+                        .requiredCount(requiredCount)
+                        .build();
         setId(achievement, id);
         return achievement;
     }
-
 
     @Nested
     @DisplayName("getDataSource 테스트")
@@ -64,11 +63,10 @@ class GuildServiceCheckStrategyTest {
         @DisplayName("길드 멤버이면 isGuildMember가 true를 반환한다")
         void fetchCurrentValue_isGuildMember_true() {
             // given
-            GuildMembershipInfo membership = new GuildMembershipInfo(
-                1L, "테스트 길드", null, 1, false, false
-            );
+            GuildMembershipInfo membership =
+                    new GuildMembershipInfo(1L, "테스트 길드", null, 1, false, false);
             when(guildQueryFacadeService.getUserGuildMemberships(TEST_USER_ID))
-                .thenReturn(List.of(membership));
+                    .thenReturn(List.of(membership));
 
             // when
             Object result = strategy.fetchCurrentValue(TEST_USER_ID, "isGuildMember");
@@ -82,7 +80,7 @@ class GuildServiceCheckStrategyTest {
         void fetchCurrentValue_isGuildMember_false() {
             // given
             when(guildQueryFacadeService.getUserGuildMemberships(TEST_USER_ID))
-                .thenReturn(Collections.emptyList());
+                    .thenReturn(Collections.emptyList());
 
             // when
             Object result = strategy.fetchCurrentValue(TEST_USER_ID, "isGuildMember");
@@ -95,11 +93,10 @@ class GuildServiceCheckStrategyTest {
         @DisplayName("길드 마스터이면 isGuildMaster가 true를 반환한다")
         void fetchCurrentValue_isGuildMaster_true() {
             // given
-            GuildMembershipInfo masterMembership = new GuildMembershipInfo(
-                1L, "테스트 길드", null, 1, true, false
-            );
+            GuildMembershipInfo masterMembership =
+                    new GuildMembershipInfo(1L, "테스트 길드", null, 1, true, false);
             when(guildQueryFacadeService.getUserGuildMemberships(TEST_USER_ID))
-                .thenReturn(List.of(masterMembership));
+                    .thenReturn(List.of(masterMembership));
 
             // when
             Object result = strategy.fetchCurrentValue(TEST_USER_ID, "isGuildMaster");
@@ -112,11 +109,10 @@ class GuildServiceCheckStrategyTest {
         @DisplayName("길드 마스터가 아니면 isGuildMaster가 false를 반환한다")
         void fetchCurrentValue_isGuildMaster_false() {
             // given
-            GuildMembershipInfo memberMembership = new GuildMembershipInfo(
-                1L, "테스트 길드", null, 1, false, false
-            );
+            GuildMembershipInfo memberMembership =
+                    new GuildMembershipInfo(1L, "테스트 길드", null, 1, false, false);
             when(guildQueryFacadeService.getUserGuildMemberships(TEST_USER_ID))
-                .thenReturn(List.of(memberMembership));
+                    .thenReturn(List.of(memberMembership));
 
             // when
             Object result = strategy.fetchCurrentValue(TEST_USER_ID, "isGuildMaster");
@@ -130,7 +126,7 @@ class GuildServiceCheckStrategyTest {
         void fetchCurrentValue_unknownField_returnsFalse() {
             // given
             when(guildQueryFacadeService.getUserGuildMemberships(TEST_USER_ID))
-                .thenReturn(Collections.emptyList());
+                    .thenReturn(Collections.emptyList());
 
             // when
             Object result = strategy.fetchCurrentValue(TEST_USER_ID, "unknownField");
@@ -149,11 +145,10 @@ class GuildServiceCheckStrategyTest {
         void checkCondition_boolean_satisfied_returnsTrue() {
             // given
             Achievement achievement = createTestAchievement(1L, "isGuildMember", "EQ", 1);
-            GuildMembershipInfo membership = new GuildMembershipInfo(
-                1L, "테스트 길드", null, 1, false, false
-            );
+            GuildMembershipInfo membership =
+                    new GuildMembershipInfo(1L, "테스트 길드", null, 1, false, false);
             when(guildQueryFacadeService.getUserGuildMemberships(TEST_USER_ID))
-                .thenReturn(List.of(membership));
+                    .thenReturn(List.of(membership));
 
             // when
             boolean result = strategy.checkCondition(TEST_USER_ID, achievement);
@@ -167,11 +162,10 @@ class GuildServiceCheckStrategyTest {
         void checkCondition_boolean_notSatisfied_returnsFalse() {
             // given
             Achievement achievement = createTestAchievement(1L, "isGuildMaster", "EQ", 1);
-            GuildMembershipInfo memberMembership = new GuildMembershipInfo(
-                1L, "테스트 길드", null, 1, false, false
-            );
+            GuildMembershipInfo memberMembership =
+                    new GuildMembershipInfo(1L, "테스트 길드", null, 1, false, false);
             when(guildQueryFacadeService.getUserGuildMemberships(TEST_USER_ID))
-                .thenReturn(List.of(memberMembership));
+                    .thenReturn(List.of(memberMembership));
 
             // when
             boolean result = strategy.checkCondition(TEST_USER_ID, achievement);

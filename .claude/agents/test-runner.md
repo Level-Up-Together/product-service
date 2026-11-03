@@ -14,18 +14,18 @@ maxTurns: 20
 # 전체 테스트
 ./gradlew test
 
-# 특정 클래스
-./gradlew test --tests "io.pinkspider.leveluptogethermvp.{servicename}.{path}.{TestClass}"
+# 특정 클래스 (모듈 지정 — service 테스트는 :service, @SpringBootTest 는 :app)
+./gradlew :service:test --tests "io.pinkspider.leveluptogethermvp.{servicename}.{path}.{TestClass}"
 
 # 특정 메서드
-./gradlew test --tests "*.{TestClass}.{methodName}"
+./gradlew :service:test --tests "*.{TestClass}.{methodName}"
 
 # 패턴 매칭
-./gradlew test --tests "*Service*Test"
+./gradlew :service:test --tests "*Service*Test"
 
 # 커버리지 리포트
 ./gradlew test jacocoTestReport
-# 리포트: build/reports/jacoco/html/index.html
+# 리포트: service/build/reports/jacoco/html/index.html
 ```
 
 ## 실행 절차
@@ -57,7 +57,7 @@ maxTurns: 20
    - 수정안: 구체적 제안
 
 ### 커버리지 (jacocoTestReport 실행 시)
-- 전체: XX% (목표: 70%)
+- 전체: INSTRUCTION XX% / BRANCH XX% (게이트: 둘 다 80% — `service/build.gradle` `jacocoTestCoverageVerification`)
 - 미달 클래스: 목록
 ```
 

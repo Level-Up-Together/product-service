@@ -20,8 +20,7 @@ import org.springframework.messaging.simp.SimpMessagingTemplate;
 @ExtendWith(MockitoExtension.class)
 class NotificationRealtimeRelayTest {
 
-    @Mock
-    private SimpMessagingTemplate messagingTemplate;
+    @Mock private SimpMessagingTemplate messagingTemplate;
 
     private NotificationRealtimeRelay relay;
 
@@ -32,8 +31,8 @@ class NotificationRealtimeRelayTest {
 
     private Message createMessage(String payload) {
         return new DefaultMessage(
-            NotificationRealtimePublisher.CHANNEL.getBytes(StandardCharsets.UTF_8),
-            payload.getBytes(StandardCharsets.UTF_8));
+                NotificationRealtimePublisher.CHANNEL.getBytes(StandardCharsets.UTF_8),
+                payload.getBytes(StandardCharsets.UTF_8));
     }
 
     @Test
@@ -47,7 +46,8 @@ class NotificationRealtimeRelayTest {
 
         // then
         verify(messagingTemplate)
-            .convertAndSendToUser(eq("user-1"), eq(NotificationRealtimeRelay.USER_DESTINATION), eq(payload));
+                .convertAndSendToUser(
+                        eq("user-1"), eq(NotificationRealtimeRelay.USER_DESTINATION), eq(payload));
     }
 
     @Test
@@ -56,7 +56,7 @@ class NotificationRealtimeRelayTest {
         relay.onMessage(createMessage("{\"notification\":{\"id\":1}}"), null);
 
         verify(messagingTemplate, never())
-            .convertAndSendToUser(anyString(), anyString(), anyString());
+                .convertAndSendToUser(anyString(), anyString(), anyString());
     }
 
     @Test
@@ -65,6 +65,6 @@ class NotificationRealtimeRelayTest {
         relay.onMessage(createMessage("not-json"), null);
 
         verify(messagingTemplate, never())
-            .convertAndSendToUser(anyString(), anyString(), anyString());
+                .convertAndSendToUser(anyString(), anyString(), anyString());
     }
 }

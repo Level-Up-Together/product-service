@@ -12,7 +12,6 @@ import io.pinkspider.leveluptogethermvp.userservice.oauth.webhook.domain.dto.Kak
 import io.pinkspider.leveluptogethermvp.userservice.oauth.webhook.domain.enums.KakaoAccountEventType;
 import io.pinkspider.leveluptogethermvp.userservice.oauth.webhook.domain.enums.KakaoUnlinkReferrerType;
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.entity.Users;
-import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.enums.UserStatus;
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.infrastructure.UserRepository;
 import java.math.BigInteger;
 import java.net.URI;
@@ -36,7 +35,7 @@ import org.springframework.transaction.annotation.Transactional;
 /**
  * 카카오 웹훅 처리 서비스
  *
- * 연결 해제 웹훅과 계정 상태 변경 웹훅을 처리합니다.
+ * <p>연결 해제 웹훅과 계정 상태 변경 웹훅을 처리합니다.
  */
 @Service
 @RequiredArgsConstructor
@@ -44,16 +43,18 @@ import org.springframework.transaction.annotation.Transactional;
 public class KakaoWebhookService {
 
     private static final String KAKAO_ISSUER = "https://kauth.kakao.com";
-    private static final String KAKAO_SSF_CONFIG_URL = "https://kauth.kakao.com/.well-known/ssf-configuration";
+    private static final String KAKAO_SSF_CONFIG_URL =
+            "https://kauth.kakao.com/.well-known/ssf-configuration";
     private static final Duration HTTP_TIMEOUT = Duration.ofSeconds(5);
 
     private final OAuth2Properties oAuth2Properties;
     private final UserRepository userRepository;
     private final MultiDeviceTokenService tokenService;
+    private final io.pinkspider.leveluptogethermvp.userservice.mypage.application.MyPageService
+            myPageService;
     private final ObjectMapper objectMapper;
-    private final HttpClient httpClient = HttpClient.newBuilder()
-        .connectTimeout(HTTP_TIMEOUT)
-        .build();
+    private final HttpClient httpClient =
+            HttpClient.newBuilder().connectTimeout(HTTP_TIMEOUT).build();
 
     // JWKS 캐시 (kid -> RSAPublicKey)
     private final Map<String, RSAPublicKey> jwksCache = new ConcurrentHashMap<>();
@@ -95,7 +96,8 @@ public class KakaoWebhookService {
     private void validateAdminKey(String authorization) {
         if (authorization == null || !authorization.startsWith("KakaoAK ")) {
             log.warn("잘못된 Authorization 헤더 형식: {}", authorization);
-            throw new CustomException(ApiStatus.INVALID_ACCESS.getResultCode(), "error.kakao.invalid_auth_header");
+            throw new CustomException(
+                    ApiStatus.INVALID_ACCESS.getResultCode(), "error.kakao.invalid_auth_header");
         }
 
         String providedKey = authorization.substring("KakaoAK ".length());
@@ -103,7 +105,8 @@ public class KakaoWebhookService {
 
         if (expectedKey == null || !expectedKey.equals(providedKey)) {
             log.warn("어드민 키 불일치");
-            throw new CustomException(ApiStatus.INVALID_ACCESS.getResultCode(), "error.kakao.invalid_admin_key");
+            throw new CustomException(
+                    ApiStatus.INVALID_ACCESS.getResultCode(), "error.kakao.invalid_admin_key");
         }
     }
 
@@ -112,24 +115,64 @@ public class KakaoWebhookService {
 
         if (expectedAppId != null && !expectedAppId.equals(appId)) {
             log.warn("앱 ID 불일치 - expected: {}, actual: {}", expectedAppId, appId);
-            throw new CustomException(ApiStatus.INVALID_ACCESS.getResultCode(), "error.kakao.invalid_app_id");
+            throw new CustomException(
+                    ApiStatus.INVALID_ACCESS.getResultCode(), "error.kakao.invalid_app_id");
         }
     }
 
     private void processUnlink(KakaoUnlinkWebhookRequest request) {
         String kakaoUserId = request.getUserId();
-        KakaoUnlinkReferrerType referrerType = KakaoUnlinkReferrerType.fromValue(request.getReferrerType());
+        KakaoUnlinkReferrerType referrerType =
+                KakaoUnlinkReferrerType.fromValue(request.getReferrerType());
 
         log.info("카카오 연결 해제 처리 시작 - kakaoUserId: {}, referrerType: {}", kakaoUserId, referrerType);
+        withdrawByKakaoUserId(kakaoUserId, String.valueOf(referrerType));
+    }
 
-        // 카카오 provider를 사용하는 사용자 조회는 kakaoUserId로 직접 조회할 수 없음
-        // 실제 구현에서는 별도의 매핑 테이블이 필요하거나, 사용자 정보에 kakaoUserId를 저장해야 함
-        // 현재는 로그만 남기고, 실제 사용자 상태 변경은 별도 구현 필요
-        log.info("카카오 연결 해제 처리 완료 - kakaoUserId: {}, referrerType: {}", kakaoUserId, referrerType);
+    /**
+     * LUT-476: 카카오 측 연결 해제 통지 → 내부 계정 탈퇴 처리.
+     *
+     * <p>users.provider_user_id(로그인 시 백필)로 매핑한다. 매핑이 없으면(백필 전 유저 또는 이미 탈퇴) 로그만 남긴다 — 웹훅은 3초 내 200
+     * 응답이 우선이라 실패로 취급하지 않는다.
+     */
+    private void withdrawByKakaoUserId(String kakaoUserId, String reason) {
+        Optional<Users> user =
+                userRepository.findActiveByProviderAndProviderUserId("kakao", kakaoUserId);
+        if (user.isEmpty()) {
+            log.info("카카오 연결 해제 - 매핑되는 활성 사용자 없음 (백필 전 또는 기탈퇴): kakaoUserId={}", kakaoUserId);
+            return;
+        }
+        String userId = user.get().getId();
+        try {
+            myPageService.withdrawUser(userId);
+            log.info(
+                    "카카오 연결 해제로 회원 탈퇴 처리 완료: userId={}, kakaoUserId={}, reason={}",
+                    userId,
+                    kakaoUserId,
+                    reason);
+        } catch (Exception e) {
+            log.error(
+                    "카카오 연결 해제 탈퇴 처리 실패: userId={}, kakaoUserId={}, error={}",
+                    userId,
+                    kakaoUserId,
+                    e.getMessage());
+        }
+    }
 
-        // TODO: 카카오 사용자 ID와 내부 사용자 ID 매핑 테이블 추가 후 구현
-        // 1. 해당 사용자의 모든 토큰 무효화
-        // 2. 사용자 상태 변경 (WITHDRAWN 또는 별도 상태)
+    /** 계정 이상 신호(비활성화·토큰 탈취 등) — 탈퇴는 아니므로 전 기기 세션만 무효화 */
+    private void forceLogoutByKakaoUserId(String kakaoUserId, String reason) {
+        userRepository
+                .findActiveByProviderAndProviderUserId("kakao", kakaoUserId)
+                .ifPresentOrElse(
+                        user -> {
+                            tokenService.logoutAllDevices(user.getId());
+                            log.info(
+                                    "카카오 계정 이벤트로 전 기기 로그아웃: userId={}, kakaoUserId={}, reason={}",
+                                    user.getId(),
+                                    kakaoUserId,
+                                    reason);
+                        },
+                        () -> log.info("카카오 계정 이벤트 - 매핑되는 활성 사용자 없음: kakaoUserId={}", kakaoUserId));
     }
 
     private KakaoSetPayload parseAndValidateSet(String setToken) {
@@ -156,7 +199,8 @@ public class KakaoWebhookService {
             }
 
             if (!"RS256".equals(alg)) {
-                throw new SetValidationException("invalid_request", "Unsupported algorithm: " + alg);
+                throw new SetValidationException(
+                        "invalid_request", "Unsupported algorithm: " + alg);
             }
 
             // Issuer 검증
@@ -169,7 +213,8 @@ public class KakaoWebhookService {
             String audience = payload.get("aud").asText();
             String expectedAudience = oAuth2Properties.getKakaoWebhook().getRestApiKey();
             if (expectedAudience != null && !expectedAudience.equals(audience)) {
-                throw new SetValidationException("invalid_audience", "Invalid audience: " + audience);
+                throw new SetValidationException(
+                        "invalid_audience", "Invalid audience: " + audience);
             }
 
             // 서명 검증
@@ -182,7 +227,8 @@ public class KakaoWebhookService {
             throw e;
         } catch (Exception e) {
             log.error("SET 토큰 파싱 실패", e);
-            throw new SetValidationException("invalid_request", "Failed to parse SET token: " + e.getMessage());
+            throw new SetValidationException(
+                    "invalid_request", "Failed to parse SET token: " + e.getMessage());
         }
     }
 
@@ -190,7 +236,8 @@ public class KakaoWebhookService {
         try {
             RSAPublicKey publicKey = getPublicKey(kid);
             if (publicKey == null) {
-                throw new SetValidationException("invalid_key", "Public key not found for kid: " + kid);
+                throw new SetValidationException(
+                        "invalid_key", "Public key not found for kid: " + kid);
             }
 
             // 서명 검증
@@ -206,7 +253,8 @@ public class KakaoWebhookService {
             throw e;
         } catch (Exception e) {
             log.error("서명 검증 실패", e);
-            throw new SetValidationException("invalid_key", "Signature verification failed: " + e.getMessage());
+            throw new SetValidationException(
+                    "invalid_key", "Signature verification failed: " + e.getMessage());
         }
     }
 
@@ -224,13 +272,15 @@ public class KakaoWebhookService {
 
         // JWKS에서 공개키 조회
         try {
-            HttpRequest request = HttpRequest.newBuilder()
-                .uri(URI.create(jwksUri))
-                .timeout(HTTP_TIMEOUT)
-                .GET()
-                .build();
+            HttpRequest request =
+                    HttpRequest.newBuilder()
+                            .uri(URI.create(jwksUri))
+                            .timeout(HTTP_TIMEOUT)
+                            .GET()
+                            .build();
 
-            HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+            HttpResponse<String> response =
+                    httpClient.send(request, HttpResponse.BodyHandlers.ofString());
             JsonNode jwks = objectMapper.readTree(response.body());
             JsonNode keys = jwks.get("keys");
 
@@ -255,13 +305,15 @@ public class KakaoWebhookService {
         }
 
         try {
-            HttpRequest request = HttpRequest.newBuilder()
-                .uri(URI.create(KAKAO_SSF_CONFIG_URL))
-                .timeout(HTTP_TIMEOUT)
-                .GET()
-                .build();
+            HttpRequest request =
+                    HttpRequest.newBuilder()
+                            .uri(URI.create(KAKAO_SSF_CONFIG_URL))
+                            .timeout(HTTP_TIMEOUT)
+                            .GET()
+                            .build();
 
-            HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+            HttpResponse<String> response =
+                    httpClient.send(request, HttpResponse.BodyHandlers.ofString());
             JsonNode config = objectMapper.readTree(response.body());
             cachedJwksUri = config.get("jwks_uri").asText();
             return cachedJwksUri;
@@ -294,31 +346,34 @@ public class KakaoWebhookService {
 
         JsonNode events = payload.get("events");
 
-        KakaoSetPayload.KakaoSetPayloadBuilder builder = KakaoSetPayload.builder()
-            .sub(sub)
-            .iat(iat)
-            .toe(toe)
-            .jti(jti);
+        KakaoSetPayload.KakaoSetPayloadBuilder builder =
+                KakaoSetPayload.builder().sub(sub).iat(iat).toe(toe).jti(jti);
 
         // 이벤트 타입 파싱
-        events.fieldNames().forEachRemaining(eventUri -> {
-            KakaoAccountEventType eventType = KakaoAccountEventType.fromUri(eventUri);
-            if (eventType != null) {
-                builder.eventType(eventType);
-                JsonNode eventData = events.get(eventUri);
-                if (eventData != null && !eventData.isEmpty()) {
-                    try {
-                        Map<String, Object> data = objectMapper.convertValue(
-                            eventData, new TypeReference<Map<String, Object>>() {});
-                        builder.eventData(data);
-                    } catch (Exception e) {
-                        log.warn("이벤트 데이터 파싱 실패: {}", eventUri, e);
-                    }
-                }
-            } else {
-                log.warn("알 수 없는 이벤트 타입: {}", eventUri);
-            }
-        });
+        events.fieldNames()
+                .forEachRemaining(
+                        eventUri -> {
+                            KakaoAccountEventType eventType =
+                                    KakaoAccountEventType.fromUri(eventUri);
+                            if (eventType != null) {
+                                builder.eventType(eventType);
+                                JsonNode eventData = events.get(eventUri);
+                                if (eventData != null && !eventData.isEmpty()) {
+                                    try {
+                                        Map<String, Object> data =
+                                                objectMapper.convertValue(
+                                                        eventData,
+                                                        new TypeReference<
+                                                                Map<String, Object>>() {});
+                                        builder.eventData(data);
+                                    } catch (Exception e) {
+                                        log.warn("이벤트 데이터 파싱 실패: {}", eventUri, e);
+                                    }
+                                }
+                            } else {
+                                log.warn("알 수 없는 이벤트 타입: {}", eventUri);
+                            }
+                        });
 
         return builder.build();
     }
@@ -346,17 +401,14 @@ public class KakaoWebhookService {
 
     private void handleUserUnlinked(String kakaoUserId, KakaoSetPayload payload) {
         log.info("사용자 앱 연결 해제 처리 - kakaoUserId: {}", kakaoUserId);
-
-        // TODO: 카카오 사용자 ID와 내부 사용자 ID 매핑 후 구현
-        // 1. 해당 사용자의 모든 토큰 무효화
-        // 2. 필요시 사용자 상태 변경
+        // LUT-476: 연결 해제 = 서비스 이용 의사 철회 → 레거시 unlink 웹훅과 동일하게 탈퇴 처리
+        withdrawByKakaoUserId(kakaoUserId, "SSF_USER_UNLINKED");
     }
 
     private void handleAccountDisabled(String kakaoUserId, KakaoSetPayload payload) {
         log.info("카카오 계정 비활성화 처리 - kakaoUserId: {}", kakaoUserId);
-
-        // 카카오 계정이 비활성화되면 해당 사용자의 세션도 무효화
-        // TODO: 카카오 사용자 ID 매핑 후 구현
+        // 비활성화(정지·휴면)는 탈퇴가 아님 — 전 기기 세션만 무효화 (LUT-476)
+        forceLogoutByKakaoUserId(kakaoUserId, "SSF_ACCOUNT_DISABLED");
     }
 
     private void handleAccountEnabled(String kakaoUserId, KakaoSetPayload payload) {
@@ -366,21 +418,16 @@ public class KakaoWebhookService {
 
     private void handleTokensRevoked(String kakaoUserId) {
         log.info("카카오 토큰 만료 처리 - kakaoUserId: {}", kakaoUserId);
-
-        // TODO: 카카오 사용자 ID 매핑 후 구현
-        // 해당 사용자의 모든 세션 토큰 무효화
+        forceLogoutByKakaoUserId(kakaoUserId, "SSF_TOKENS_REVOKED");
     }
 
     private void handleCredentialChange(String kakaoUserId) {
         log.info("카카오 자격증명 변경 처리 - kakaoUserId: {}", kakaoUserId);
-
-        // 보안 강화를 위해 모든 세션 무효화 권장
-        // TODO: 카카오 사용자 ID 매핑 후 구현
+        // 자격증명 변경/탈취 신호 — 보안상 전 기기 세션 무효화 (LUT-476)
+        forceLogoutByKakaoUserId(kakaoUserId, "SSF_CREDENTIAL_CHANGE");
     }
 
-    /**
-     * SET 검증 실패 예외
-     */
+    /** SET 검증 실패 예외 */
     @Getter
     public static class SetValidationException extends RuntimeException {
         private final String errorCode;

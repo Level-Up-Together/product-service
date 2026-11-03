@@ -7,10 +7,7 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
-/**
- * MVP 길드 응답 DTO
- * 금일 EXP 획득량 기준 상위 길드 정보
- */
+/** MVP 길드 응답 DTO 금일 EXP 획득량 기준 상위 길드 정보 */
 @Getter
 @Builder
 @NoArgsConstructor
@@ -35,13 +32,13 @@ public class MvpGuildResponse {
             Long earnedExp,
             Integer rank) {
         return MvpGuildResponse.builder()
-            .guildId(guildId)
-            .name(name)
-            .imageUrl(imageUrl)
-            .level(level)
-            .memberCount(memberCount)
-            .earnedExp(earnedExp)
-            .rank(rank)
-            .build();
+                .guildId(guildId)
+                .name(name)
+                .imageUrl(imageUrl)
+                .level(level)
+                .memberCount(memberCount)
+                .earnedExp(earnedExp)
+                .rank(rank)
+                .build();
     }
 }

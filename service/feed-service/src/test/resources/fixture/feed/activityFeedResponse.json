@@ -11,6 +11,10 @@
   "user_left_title_rarity": null,
   "user_right_title": null,
   "user_right_title_rarity": null,
+  "equipped_item_rarities": [
+    {"item_type": "HEAD", "rarity": "EPIC"},
+    {"item_type": "EFFECT", "rarity": "RARE"}
+  ],
   "activity_type": "MISSION_COMPLETED",
   "activity_type_display_name": "미션 완료",
   "category": "MISSION",

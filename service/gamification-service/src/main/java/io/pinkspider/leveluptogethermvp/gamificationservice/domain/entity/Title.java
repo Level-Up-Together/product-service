@@ -1,10 +1,10 @@
 package io.pinkspider.leveluptogethermvp.gamificationservice.domain.entity;
 
 import io.pinkspider.global.domain.auditentity.LocalDateTimeBaseEntity;
-import io.pinkspider.global.translation.LocaleUtils;
-import io.pinkspider.leveluptogethermvp.gamificationservice.domain.enums.TitleAcquisitionType;
 import io.pinkspider.global.enums.TitlePosition;
 import io.pinkspider.global.enums.TitleRarity;
+import io.pinkspider.global.translation.LocaleUtils;
+import io.pinkspider.leveluptogethermvp.gamificationservice.domain.enums.TitleAcquisitionType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -110,9 +110,8 @@ public class Title extends LocalDateTimeBaseEntity {
     private Boolean isActive = true;
 
     /**
-     * LEFT와 RIGHT 칭호를 조합하여 표시명을 생성합니다.
-     * 예: "용감한" (LEFT) + "전사" (RIGHT) = "용감한 전사"
-     * 단일 칭호인 경우 해당 칭호명만 반환합니다.
+     * LEFT와 RIGHT 칭호를 조합하여 표시명을 생성합니다. 예: "용감한" (LEFT) + "전사" (RIGHT) = "용감한 전사" 단일 칭호인 경우 해당 칭호명만
+     * 반환합니다.
      */
     public String getDisplayName() {
         return name;
@@ -120,6 +119,7 @@ public class Title extends LocalDateTimeBaseEntity {
 
     /**
      * locale에 따라 칭호명을 반환합니다.
+     *
      * @param locale Accept-Language 헤더 값
      * @return 해당 locale의 칭호명 (없으면 기본값)
      */
@@ -129,6 +129,7 @@ public class Title extends LocalDateTimeBaseEntity {
 
     /**
      * 두 칭호를 조합하여 표시명을 생성합니다.
+     *
      * @param leftTitle LEFT 칭호 (형용사/부사형)
      * @param rightTitle RIGHT 칭호 (명사형)
      * @return 조합된 칭호명 (예: "용감한 전사")
@@ -139,6 +140,7 @@ public class Title extends LocalDateTimeBaseEntity {
 
     /**
      * 두 칭호를 조합하여 locale에 맞는 표시명을 생성합니다.
+     *
      * @param leftTitle LEFT 칭호 (형용사/부사형)
      * @param rightTitle RIGHT 칭호 (명사형)
      * @param locale Accept-Language 헤더 값
@@ -157,16 +159,12 @@ public class Title extends LocalDateTimeBaseEntity {
         return leftTitle.getLocalizedName(locale) + " " + rightTitle.getLocalizedName(locale);
     }
 
-    /**
-     * 이 칭호가 LEFT 타입인지 확인합니다.
-     */
+    /** 이 칭호가 LEFT 타입인지 확인합니다. */
     public boolean isLeftPosition() {
         return TitlePosition.LEFT.equals(this.positionType);
     }
 
-    /**
-     * 이 칭호가 RIGHT 타입인지 확인합니다.
-     */
+    /** 이 칭호가 RIGHT 타입인지 확인합니다. */
     public boolean isRightPosition() {
         return TitlePosition.RIGHT.equals(this.positionType);
     }

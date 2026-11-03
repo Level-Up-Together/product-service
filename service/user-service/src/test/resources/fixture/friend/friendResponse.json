@@ -7,5 +7,11 @@
   "friend_title": "초보 모험가",
   "status": "ACCEPTED",
   "friends_since": "2025-01-15T10:30:00",
-  "is_online": true
+  "is_online": true,
+  "equipped_item_rarities": [
+    {
+      "item_type": "HEAD",
+      "rarity": "EPIC"
+    }
+  ]
 }

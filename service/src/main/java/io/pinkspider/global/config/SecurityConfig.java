@@ -59,6 +59,9 @@ public class SecurityConfig {
         }
         configuration.setAllowedMethods(
                 Arrays.asList("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
+        // 명시적 허용목록이다 — 여기 없는 커스텀 헤더를 클라이언트가 붙이면 preflight(OPTIONS)가 그 헤더를 돌려주지 않아
+        // 브라우저가 본 요청을 아예 보내지 않고 "CORS error" 로 끝난다. 증상은 "그 API 만 실패"로 보인다 (LUT-587).
+        // **프론트/RN 에 커스텀 헤더를 추가할 때는 이 목록에도 함께 추가할 것** — SecurityConfigCorsTest 가 회귀를 막는다.
         configuration.setAllowedHeaders(
                 Arrays.asList(
                         "X-Requested-With",
@@ -70,6 +73,8 @@ public class SecurityConfig {
                         // 커스텀 헤더 (브라우저 직접 호출 + admin-service Feign 통합)
                         "X-Signup-Token", // OAuth 신규 가입 세션 토큰
                         "X-Timezone", // 홈/오늘의 미션 등 사용자 타임존
+                        "X-Device-Type", // 세션 기기 구분 (LUT-336) — 웹 로그아웃이 직접 호출 (LUT-587)
+                        "Idempotency-Key", // 미션 생성 멱등 키 (LUT-577/578)
                         "X-Admin-Id", // 어드민 인증 컨텍스트
                         "X-User-Id", // 어드민 → 사용자 위임 호출
                         "X-User-Email",
@@ -129,12 +134,25 @@ public class SecurityConfig {
                                         .requestMatchers("/terms/list")
                                         .permitAll()
 
-                                        // 내부 캐시 관리 API (운영용)
-                                        .requestMatchers("/api/v1/bff/season/cache")
-                                        .permitAll()
-
                                         // 내부 서비스 간 API (Admin Backend → MVP)
                                         .requestMatchers("/api/internal/**")
+                                        .permitAll()
+
+                                        // LUT-452: 스토어 구독 웹훅 (스토어 서버가 호출 — JWT 없음.
+                                        // Apple 은 JWS 서명 검증, Google 은 Play API 재조회가 인증을 대신한다)
+                                        .requestMatchers(
+                                                HttpMethod.POST,
+                                                "/api/v1/webhooks/subscriptions/apple",
+                                                "/api/v1/webhooks/subscriptions/google")
+                                        .permitAll()
+
+                                        // LUT-476: 소셜 연결 해제 웹훅 (소셜 서버가 호출 — JWT 없음.
+                                        // kakao 는 어드민 키/SET 서명, apple 은 JWS 서명 검증이 인증을 대신한다.
+                                        // kakao unlink 웹훅은 GET/POST 모두 올 수 있어 메서드 무제한)
+                                        .requestMatchers("/api/v1/oauth/kakao/webhook/**")
+                                        .permitAll()
+                                        .requestMatchers(
+                                                HttpMethod.POST, "/api/v1/oauth/apple/webhook")
                                         .permitAll()
 
                                         // Browse-first: 비인증 열람 허용 API (GET만)
@@ -159,8 +177,13 @@ public class SecurityConfig {
                                         .requestMatchers(
                                                 HttpMethod.GET, "/api/v1/feeds/category/**")
                                         .permitAll()
+                                        .requestMatchers(
+                                                HttpMethod.GET, "/api/v1/feeds/user/{targetUserId}")
+                                        .permitAll() // LUT-334: 비로그인 프로필 피드 탭 (PUBLIC 만 조회)
                                         .requestMatchers(HttpMethod.GET, "/api/v1/guilds/public")
                                         .permitAll()
+                                        .requestMatchers(HttpMethod.GET, "/api/v1/guilds/ranking")
+                                        .permitAll() // LUT-483: 길드 랭킹 (browse-first)
                                         .requestMatchers(HttpMethod.GET, "/api/v1/guilds/search")
                                         .permitAll()
                                         // QA-201: /guilds/my 는 인증 필요. 아래 {guildId} permitAll 패턴이
@@ -179,11 +202,18 @@ public class SecurityConfig {
                                                 HttpMethod.GET, "/api/v1/guilds/{guildId}/posts/**")
                                         .permitAll() // QA-179: 비로그인/비멤버 공개 길드 게시판 read
                                         .requestMatchers(
+                                                HttpMethod.GET, "/api/v1/guild-invite-links/{code}")
+                                        .permitAll() // LUT-519: 비로그인 초대 링크 미리보기
+                                        .requestMatchers(
                                                 HttpMethod.GET, "/api/v1/mission-categories")
                                         .permitAll() // QA-172: 비로그인 길드 카테고리 셀렉터
                                         .requestMatchers(
                                                 HttpMethod.GET, "/api/v1/mypage/profile/{userId}")
                                         .permitAll()
+                                        .requestMatchers(
+                                                HttpMethod.GET,
+                                                "/api/v1/missions/executions/weekly/{userId}")
+                                        .permitAll() // LUT-320: 비로그인 프로필 주간 캘린더 (공개범위 마스킹)
                                         .requestMatchers(
                                                 HttpMethod.GET, "/api/v1/mypage/nickname/check")
                                         .permitAll() // QA-108: 신규 가입 닉네임 중복 체크
@@ -191,6 +221,28 @@ public class SecurityConfig {
                                         .permitAll() // QA-117: 비로그인 공지사항 목록
                                         .requestMatchers(HttpMethod.GET, "/api/v1/notices/{id}")
                                         .permitAll() // QA-117: 비로그인 공지사항 상세
+                                        // LUT-297: 비로그인 랭킹 목록 (개인 랭킹 /my*, /nearby 는 인증 유지)
+                                        .requestMatchers(HttpMethod.GET, "/api/v1/rankings")
+                                        .permitAll()
+                                        .requestMatchers(
+                                                HttpMethod.GET,
+                                                "/api/v1/rankings/missions",
+                                                "/api/v1/rankings/streaks",
+                                                "/api/v1/rankings/achievements",
+                                                "/api/v1/rankings/realtime")
+                                        .permitAll()
+                                        .requestMatchers(
+                                                HttpMethod.GET,
+                                                "/api/v1/rankings/level",
+                                                "/api/v1/rankings/level/**")
+                                        .permitAll()
+                                        // LUT-350: 비로그인 상점 열람 (레벨 1 = COMMON 기준가).
+                                        // 구매는 POST 라 여기 걸리지 않고 인증이 유지된다.
+                                        .requestMatchers(HttpMethod.GET, "/api/v1/shop-items")
+                                        .permitAll()
+                                        // LUT-356: 비로그인 핑크다이아 묶음상품 열람 (상점 Browse-First)
+                                        .requestMatchers(HttpMethod.GET, "/api/v1/diamond-bundles")
+                                        .permitAll()
 
                                         // 관리자 전용 API
                                         .requestMatchers("/api/v1/users/experience/levels")

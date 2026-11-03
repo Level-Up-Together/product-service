@@ -38,45 +38,44 @@ import org.springframework.data.domain.Pageable;
 @ExtendWith(MockitoExtension.class)
 class CheckLogicTypeAdminServiceTest {
 
-    @Mock
-    private CheckLogicTypeRepository checkLogicTypeRepository;
+    @Mock private CheckLogicTypeRepository checkLogicTypeRepository;
+
+    @Mock private MissionCategoryService missionCategoryService;
 
     @Mock
-    private MissionCategoryService missionCategoryService;
+    private io.pinkspider.leveluptogethermvp.gamificationservice.infrastructure
+                    .AchievementRepository
+            achievementRepository;
 
-    @Mock
-    private io.pinkspider.leveluptogethermvp.gamificationservice.infrastructure.AchievementRepository achievementRepository;
-
-    @InjectMocks
-    private CheckLogicTypeAdminService checkLogicTypeAdminService;
+    @InjectMocks private CheckLogicTypeAdminService checkLogicTypeAdminService;
 
     private CheckLogicType createCheckLogicType(Long id, String code, boolean isActive) {
-        CheckLogicType entity = CheckLogicType.builder()
-            .code(code)
-            .name("테스트 체크 로직 - " + code)
-            .description("테스트 설명")
-            .dataSource(CheckLogicDataSource.USER_STATS)
-            .dataField("totalMissionCompletions")
-            .comparisonOperator(CheckLogicComparisonOperator.GTE)
-            .sortOrder(0)
-            .isActive(isActive)
-            .build();
+        CheckLogicType entity =
+                CheckLogicType.builder()
+                        .code(code)
+                        .name("테스트 체크 로직 - " + code)
+                        .description("테스트 설명")
+                        .dataSource(CheckLogicDataSource.USER_STATS)
+                        .dataField("totalMissionCompletions")
+                        .comparisonOperator(CheckLogicComparisonOperator.GTE)
+                        .sortOrder(0)
+                        .isActive(isActive)
+                        .build();
         setId(entity, id);
         return entity;
     }
 
     private CheckLogicTypeAdminRequest createRequest(String code) {
         return new CheckLogicTypeAdminRequest(
-            code,
-            "테스트 이름",
-            "테스트 설명",
-            "USER_STATS",
-            "totalMissionCompletions",
-            "GTE",
-            null,
-            0,
-            true
-        );
+                code,
+                "테스트 이름",
+                "테스트 설명",
+                "USER_STATS",
+                "totalMissionCompletions",
+                "GTE",
+                null,
+                0,
+                true);
     }
 
     @Nested
@@ -91,10 +90,12 @@ class CheckLogicTypeAdminServiceTest {
             Pageable pageable = PageRequest.of(0, 20);
             Page<CheckLogicType> page = new PageImpl<>(List.of(entity), pageable, 1);
 
-            when(checkLogicTypeRepository.findAllByOrderBySortOrderAsc(any(Pageable.class))).thenReturn(page);
+            when(checkLogicTypeRepository.findAllByOrderBySortOrderAsc(any(Pageable.class)))
+                    .thenReturn(page);
 
             // when
-            CheckLogicTypeAdminPageResponse response = checkLogicTypeAdminService.searchCheckLogicTypes(pageable);
+            CheckLogicTypeAdminPageResponse response =
+                    checkLogicTypeAdminService.searchCheckLogicTypes(pageable);
 
             // then
             assertThat(response).isNotNull();
@@ -111,14 +112,15 @@ class CheckLogicTypeAdminServiceTest {
         @DisplayName("전체 체크 로직 유형 목록을 반환한다")
         void getAllCheckLogicTypes_success() {
             // given
-            List<CheckLogicType> entities = List.of(
-                createCheckLogicType(1L, "MISSION_COUNT", true),
-                createCheckLogicType(2L, "FRIEND_COUNT", false)
-            );
+            List<CheckLogicType> entities =
+                    List.of(
+                            createCheckLogicType(1L, "MISSION_COUNT", true),
+                            createCheckLogicType(2L, "FRIEND_COUNT", false));
             when(checkLogicTypeRepository.findAllByOrderBySortOrderAsc()).thenReturn(entities);
 
             // when
-            List<CheckLogicTypeAdminResponse> result = checkLogicTypeAdminService.getAllCheckLogicTypes();
+            List<CheckLogicTypeAdminResponse> result =
+                    checkLogicTypeAdminService.getAllCheckLogicTypes();
 
             // then
             assertThat(result).hasSize(2);
@@ -134,13 +136,14 @@ class CheckLogicTypeAdminServiceTest {
         @DisplayName("활성화된 체크 로직 유형 목록만 반환한다")
         void getActiveCheckLogicTypes_success() {
             // given
-            List<CheckLogicType> entities = List.of(
-                createCheckLogicType(1L, "MISSION_COUNT", true)
-            );
-            when(checkLogicTypeRepository.findByIsActiveTrueOrderBySortOrderAsc()).thenReturn(entities);
+            List<CheckLogicType> entities =
+                    List.of(createCheckLogicType(1L, "MISSION_COUNT", true));
+            when(checkLogicTypeRepository.findByIsActiveTrueOrderBySortOrderAsc())
+                    .thenReturn(entities);
 
             // when
-            List<CheckLogicTypeAdminResponse> result = checkLogicTypeAdminService.getActiveCheckLogicTypes();
+            List<CheckLogicTypeAdminResponse> result =
+                    checkLogicTypeAdminService.getActiveCheckLogicTypes();
 
             // then
             assertThat(result).hasSize(1);
@@ -156,15 +159,15 @@ class CheckLogicTypeAdminServiceTest {
         @DisplayName("데이터 소스별 체크 로직 유형 목록을 반환한다")
         void getCheckLogicTypesByDataSource_success() {
             // given
-            List<CheckLogicType> entities = List.of(
-                createCheckLogicType(1L, "MISSION_COUNT", true)
-            );
+            List<CheckLogicType> entities =
+                    List.of(createCheckLogicType(1L, "MISSION_COUNT", true));
             when(checkLogicTypeRepository.findByDataSourceAndIsActiveTrueOrderBySortOrderAsc(
-                CheckLogicDataSource.USER_STATS)).thenReturn(entities);
+                            CheckLogicDataSource.USER_STATS))
+                    .thenReturn(entities);
 
             // when
             List<CheckLogicTypeAdminResponse> result =
-                checkLogicTypeAdminService.getCheckLogicTypesByDataSource("USER_STATS");
+                    checkLogicTypeAdminService.getCheckLogicTypesByDataSource("USER_STATS");
 
             // then
             assertThat(result).hasSize(1);
@@ -174,8 +177,11 @@ class CheckLogicTypeAdminServiceTest {
         @DisplayName("존재하지 않는 데이터 소스 코드이면 예외가 발생한다")
         void getCheckLogicTypesByDataSource_invalidCode() {
             // when & then
-            assertThatThrownBy(() -> checkLogicTypeAdminService.getCheckLogicTypesByDataSource("INVALID_SOURCE"))
-                .isInstanceOf(IllegalArgumentException.class);
+            assertThatThrownBy(
+                            () ->
+                                    checkLogicTypeAdminService.getCheckLogicTypesByDataSource(
+                                            "INVALID_SOURCE"))
+                    .isInstanceOf(IllegalArgumentException.class);
         }
     }
 
@@ -206,8 +212,8 @@ class CheckLogicTypeAdminServiceTest {
 
             // when & then
             assertThatThrownBy(() -> checkLogicTypeAdminService.getCheckLogicType(999L))
-                .isInstanceOf(CustomException.class)
-                .hasMessageContaining("error.checklogic.not_found");
+                    .isInstanceOf(CustomException.class)
+                    .hasMessageContaining("error.checklogic.not_found");
         }
     }
 
@@ -220,10 +226,12 @@ class CheckLogicTypeAdminServiceTest {
         void getCheckLogicTypeByCode_success() {
             // given
             CheckLogicType entity = createCheckLogicType(1L, "MISSION_COUNT", true);
-            when(checkLogicTypeRepository.findByCode("MISSION_COUNT")).thenReturn(Optional.of(entity));
+            when(checkLogicTypeRepository.findByCode("MISSION_COUNT"))
+                    .thenReturn(Optional.of(entity));
 
             // when
-            CheckLogicTypeAdminResponse result = checkLogicTypeAdminService.getCheckLogicTypeByCode("MISSION_COUNT");
+            CheckLogicTypeAdminResponse result =
+                    checkLogicTypeAdminService.getCheckLogicTypeByCode("MISSION_COUNT");
 
             // then
             assertThat(result).isNotNull();
@@ -237,9 +245,10 @@ class CheckLogicTypeAdminServiceTest {
             when(checkLogicTypeRepository.findByCode(anyString())).thenReturn(Optional.empty());
 
             // when & then
-            assertThatThrownBy(() -> checkLogicTypeAdminService.getCheckLogicTypeByCode("NONEXISTENT"))
-                .isInstanceOf(CustomException.class)
-                .hasMessageContaining("error.checklogic.not_found");
+            assertThatThrownBy(
+                            () -> checkLogicTypeAdminService.getCheckLogicTypeByCode("NONEXISTENT"))
+                    .isInstanceOf(CustomException.class)
+                    .hasMessageContaining("error.checklogic.not_found");
         }
     }
 
@@ -249,18 +258,18 @@ class CheckLogicTypeAdminServiceTest {
 
         private MissionCategoryResponse buildCategory(Long id, String name, int displayOrder) {
             return MissionCategoryResponse.builder()
-                .id(id)
-                .name(name)
-                .displayOrder(displayOrder)
-                .isActive(true)
-                .build();
+                    .id(id)
+                    .name(name)
+                    .displayOrder(displayOrder)
+                    .isActive(true)
+                    .build();
         }
 
         @Test
         @DisplayName("모든 데이터 소스 목록을 반환한다")
         void getDataSources_success() {
             when(missionCategoryService.getActiveCategories())
-                .thenReturn(List.of(buildCategory(1L, "운동", 1)));
+                    .thenReturn(List.of(buildCategory(1L, "운동", 1)));
 
             // when
             List<DataSourceAdminInfo> result = checkLogicTypeAdminService.getDataSources();
@@ -271,48 +280,65 @@ class CheckLogicTypeAdminServiceTest {
         }
 
         @Test
-        @DisplayName("QA-145: USER_CATEGORY_EXPERIENCE 의 dataField 가 실시간 mission_category 와 일치하고 displayOrder 순으로 정렬된다")
+        @DisplayName(
+                "QA-145: USER_CATEGORY_EXPERIENCE 의 dataField 가 실시간 mission_category 와 일치하고"
+                        + " displayOrder 순으로 정렬된다")
         void getDataSources_userCategoryExperience_reflectsLiveCategories() {
             // given: dev 와 유사하게 일부 id 누락(4,6,7,8,9) + id=5 이름 변경(취미→독서) + 신규(12,13)
-            when(missionCategoryService.getActiveCategories()).thenReturn(List.of(
-                buildCategory(2L, "공부", 1),
-                buildCategory(5L, "독서", 2),
-                buildCategory(1L, "운동", 3),
-                buildCategory(12L, "업무", 5),
-                buildCategory(13L, "창작", 7),
-                buildCategory(10L, "일상", 9),
-                buildCategory(3L, "자기개발", 10),
-                buildCategory(11L, "기타", 99)
-            ));
+            when(missionCategoryService.getActiveCategories())
+                    .thenReturn(
+                            List.of(
+                                    buildCategory(2L, "공부", 1),
+                                    buildCategory(5L, "독서", 2),
+                                    buildCategory(1L, "운동", 3),
+                                    buildCategory(12L, "업무", 5),
+                                    buildCategory(13L, "창작", 7),
+                                    buildCategory(10L, "일상", 9),
+                                    buildCategory(3L, "자기개발", 10),
+                                    buildCategory(11L, "기타", 99)));
 
             // when
             List<DataSourceAdminInfo> result = checkLogicTypeAdminService.getDataSources();
 
             // then
-            DataSourceAdminInfo categoryDs = result.stream()
-                .filter(ds -> ds.code().equals(CheckLogicDataSource.USER_CATEGORY_EXPERIENCE.getCode()))
-                .findFirst()
-                .orElseThrow();
+            DataSourceAdminInfo categoryDs =
+                    result.stream()
+                            .filter(
+                                    ds ->
+                                            ds.code()
+                                                    .equals(
+                                                            CheckLogicDataSource
+                                                                    .USER_CATEGORY_EXPERIENCE
+                                                                    .getCode()))
+                            .findFirst()
+                            .orElseThrow();
 
             // 사라진 카테고리 (옛 "취미"=category_5, "사회활동"=category_6 등) 는 노출되지 않는다
             assertThat(categoryDs.availableFields())
-                .extracting(DataSourceAdminInfo.DataFieldInfo::displayName)
-                .doesNotContain("취미", "생활습관", "사회활동", "환경", "마음챙김", "재테크", "커리어");
+                    .extracting(DataSourceAdminInfo.DataFieldInfo::displayName)
+                    .doesNotContain("취미", "생활습관", "사회활동", "환경", "마음챙김", "재테크", "커리어");
             // 새로 추가된 카테고리는 즉시 dropdown 에 반영된다
             assertThat(categoryDs.availableFields())
-                .extracting(DataSourceAdminInfo.DataFieldInfo::fieldName)
-                .contains("category_12", "category_13");
+                    .extracting(DataSourceAdminInfo.DataFieldInfo::fieldName)
+                    .contains("category_12", "category_13");
             // 이름이 바뀐 id=5 는 새 이름으로 노출된다
             assertThat(categoryDs.availableFields())
-                .filteredOn(f -> f.fieldName().equals("category_5"))
-                .singleElement()
-                .extracting(DataSourceAdminInfo.DataFieldInfo::displayName)
-                .isEqualTo("독서");
+                    .filteredOn(f -> f.fieldName().equals("category_5"))
+                    .singleElement()
+                    .extracting(DataSourceAdminInfo.DataFieldInfo::displayName)
+                    .isEqualTo("독서");
             // displayOrder 오름차순 정렬
             assertThat(categoryDs.availableFields())
-                .extracting(DataSourceAdminInfo.DataFieldInfo::fieldName)
-                .containsExactly("category_2", "category_5", "category_1",
-                    "category_12", "category_13", "category_10", "category_3", "category_11");
+                    .extracting(DataSourceAdminInfo.DataFieldInfo::fieldName)
+                    .containsExactly(
+                            "category_2",
+                            "category_5",
+                            "category_1",
+                            "category_12",
+                            "category_13",
+                            "category_10",
+                            "category_3",
+                            "category_11");
         }
     }
 
@@ -324,7 +350,8 @@ class CheckLogicTypeAdminServiceTest {
         @DisplayName("모든 비교 연산자 목록을 반환한다")
         void getComparisonOperators_success() {
             // when
-            List<ComparisonOperatorAdminInfo> result = checkLogicTypeAdminService.getComparisonOperators();
+            List<ComparisonOperatorAdminInfo> result =
+                    checkLogicTypeAdminService.getComparisonOperators();
 
             // then
             assertThat(result).isNotEmpty();
@@ -347,7 +374,8 @@ class CheckLogicTypeAdminServiceTest {
             when(checkLogicTypeRepository.save(any(CheckLogicType.class))).thenReturn(saved);
 
             // when
-            CheckLogicTypeAdminResponse result = checkLogicTypeAdminService.createCheckLogicType(request);
+            CheckLogicTypeAdminResponse result =
+                    checkLogicTypeAdminService.createCheckLogicType(request);
 
             // then
             assertThat(result).isNotNull();
@@ -364,25 +392,33 @@ class CheckLogicTypeAdminServiceTest {
 
             // when & then
             assertThatThrownBy(() -> checkLogicTypeAdminService.createCheckLogicType(request))
-                .isInstanceOf(CustomException.class)
-                .hasMessageContaining("error.checklogic.duplicate_code");
+                    .isInstanceOf(CustomException.class)
+                    .hasMessageContaining("error.checklogic.duplicate_code");
         }
 
         @Test
         @DisplayName("comparisonOperator가 null이면 기본값 GTE로 생성된다")
         void createCheckLogicType_defaultOperator() {
             // given
-            CheckLogicTypeAdminRequest request = new CheckLogicTypeAdminRequest(
-                "ANOTHER_CODE", "이름", "설명", "USER_STATS", "totalMissionCompletions",
-                null, null, 0, true
-            );
+            CheckLogicTypeAdminRequest request =
+                    new CheckLogicTypeAdminRequest(
+                            "ANOTHER_CODE",
+                            "이름",
+                            "설명",
+                            "USER_STATS",
+                            "totalMissionCompletions",
+                            null,
+                            null,
+                            0,
+                            true);
             CheckLogicType saved = createCheckLogicType(2L, "ANOTHER_CODE", true);
 
             when(checkLogicTypeRepository.existsByCode("ANOTHER_CODE")).thenReturn(false);
             when(checkLogicTypeRepository.save(any(CheckLogicType.class))).thenReturn(saved);
 
             // when
-            CheckLogicTypeAdminResponse result = checkLogicTypeAdminService.createCheckLogicType(request);
+            CheckLogicTypeAdminResponse result =
+                    checkLogicTypeAdminService.createCheckLogicType(request);
 
             // then
             assertThat(result).isNotNull();
@@ -406,7 +442,8 @@ class CheckLogicTypeAdminServiceTest {
             when(checkLogicTypeRepository.save(any(CheckLogicType.class))).thenReturn(entity);
 
             // when
-            CheckLogicTypeAdminResponse result = checkLogicTypeAdminService.updateCheckLogicType(1L, request);
+            CheckLogicTypeAdminResponse result =
+                    checkLogicTypeAdminService.updateCheckLogicType(1L, request);
 
             // then
             assertThat(result).isNotNull();
@@ -422,8 +459,8 @@ class CheckLogicTypeAdminServiceTest {
 
             // when & then
             assertThatThrownBy(() -> checkLogicTypeAdminService.updateCheckLogicType(999L, request))
-                .isInstanceOf(CustomException.class)
-                .hasMessageContaining("error.checklogic.not_found");
+                    .isInstanceOf(CustomException.class)
+                    .hasMessageContaining("error.checklogic.not_found");
         }
 
         @Test
@@ -434,12 +471,13 @@ class CheckLogicTypeAdminServiceTest {
             CheckLogicTypeAdminRequest request = createRequest("DUPLICATE_CODE");
 
             when(checkLogicTypeRepository.findById(1L)).thenReturn(Optional.of(entity));
-            when(checkLogicTypeRepository.existsByCodeAndIdNot("DUPLICATE_CODE", 1L)).thenReturn(true);
+            when(checkLogicTypeRepository.existsByCodeAndIdNot("DUPLICATE_CODE", 1L))
+                    .thenReturn(true);
 
             // when & then
             assertThatThrownBy(() -> checkLogicTypeAdminService.updateCheckLogicType(1L, request))
-                .isInstanceOf(CustomException.class)
-                .hasMessageContaining("error.checklogic.duplicate_code");
+                    .isInstanceOf(CustomException.class)
+                    .hasMessageContaining("error.checklogic.duplicate_code");
         }
     }
 
@@ -487,8 +525,8 @@ class CheckLogicTypeAdminServiceTest {
 
             // when & then
             assertThatThrownBy(() -> checkLogicTypeAdminService.toggleActiveStatus(999L))
-                .isInstanceOf(CustomException.class)
-                .hasMessageContaining("error.checklogic.not_found");
+                    .isInstanceOf(CustomException.class)
+                    .hasMessageContaining("error.checklogic.not_found");
         }
     }
 
@@ -519,8 +557,8 @@ class CheckLogicTypeAdminServiceTest {
 
             // when & then
             assertThatThrownBy(() -> checkLogicTypeAdminService.deleteCheckLogicType(999L))
-                .isInstanceOf(CustomException.class)
-                .hasMessageContaining("error.checklogic.not_found");
+                    .isInstanceOf(CustomException.class)
+                    .hasMessageContaining("error.checklogic.not_found");
         }
 
         @Test
@@ -533,8 +571,8 @@ class CheckLogicTypeAdminServiceTest {
 
             // when & then
             assertThatThrownBy(() -> checkLogicTypeAdminService.deleteCheckLogicType(8L))
-                .isInstanceOf(CustomException.class)
-                .hasMessageContaining("error.checklogic.in_use");
+                    .isInstanceOf(CustomException.class)
+                    .hasMessageContaining("error.checklogic.in_use");
             verify(checkLogicTypeRepository, org.mockito.Mockito.never()).delete(any());
         }
     }

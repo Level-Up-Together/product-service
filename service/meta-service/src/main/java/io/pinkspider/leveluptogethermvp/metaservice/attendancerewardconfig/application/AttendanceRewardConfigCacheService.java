@@ -18,11 +18,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-/**
- * AttendanceRewardConfig 캐시 서비스
- * - Redis 캐시 우선 조회, 캐시 미스 시 DB fallback
- * - Admin에서 변경 시 캐시 무효화됨
- */
+/** AttendanceRewardConfig 캐시 서비스 - Redis 캐시 우선 조회, 캐시 미스 시 DB fallback - Admin에서 변경 시 캐시 무효화됨 */
 @Service
 @RequiredArgsConstructor
 @Slf4j
@@ -31,29 +27,30 @@ public class AttendanceRewardConfigCacheService {
 
     private final AttendanceRewardConfigRepository rewardConfigRepository;
 
-    /**
-     * 모든 활성 출석 보상 설정 조회 (requiredDays 오름차순)
-     * 캐시 키: attendanceRewardConfigs::all
-     */
-    @Cacheable(value = "attendanceRewardConfigs", key = "'all'", unless = "#result == null || #result.isEmpty()")
+    /** 모든 활성 출석 보상 설정 조회 (requiredDays 오름차순) 캐시 키: attendanceRewardConfigs::all */
+    @Cacheable(
+            value = "attendanceRewardConfigs",
+            key = "'all'",
+            unless = "#result == null || #result.isEmpty()")
     public List<AttendanceRewardConfig> getAllActiveConfigs() {
         log.info("[AttendanceRewardConfigCacheService] DB에서 전체 AttendanceRewardConfig 로드 (캐시 미스)");
         return rewardConfigRepository.findByIsActiveTrueOrderByRequiredDaysAsc();
     }
 
-    /**
-     * 특정 보상 타입 설정 조회
-     * 캐시 키: attendanceRewardConfigs::{rewardType}
-     */
-    @Cacheable(value = "attendanceRewardConfigs", key = "#rewardType.name()", unless = "#result == null")
+    /** 특정 보상 타입 설정 조회 캐시 키: attendanceRewardConfigs::{rewardType} */
+    @Cacheable(
+            value = "attendanceRewardConfigs",
+            key = "#rewardType.name()",
+            unless = "#result == null")
     public AttendanceRewardConfig getConfigByRewardType(AttendanceRewardType rewardType) {
-        log.info("[AttendanceRewardConfigCacheService] DB에서 AttendanceRewardConfig 로드 (타입: {}, 캐시 미스)", rewardType);
+        log.info(
+                "[AttendanceRewardConfigCacheService] DB에서 AttendanceRewardConfig 로드 (타입: {}, 캐시"
+                        + " 미스)",
+                rewardType);
         return rewardConfigRepository.findByRewardTypeAndIsActiveTrue(rewardType).orElse(null);
     }
 
-    /**
-     * 기본 보상 설정 초기화 (데이터 없을 때 1회성)
-     */
+    /** 기본 보상 설정 초기화 (데이터 없을 때 1회성) */
     @CacheEvict(value = "attendanceRewardConfigs", allEntries = true)
     @Transactional(transactionManager = "metaTransactionManager")
     public void initializeDefaultRewardConfigs() {
@@ -62,12 +59,13 @@ public class AttendanceRewardConfigCacheService {
         }
 
         for (AttendanceRewardType type : AttendanceRewardType.values()) {
-            AttendanceRewardConfig config = AttendanceRewardConfig.builder()
-                .rewardType(type)
-                .requiredDays(getRequiredDays(type))
-                .rewardExp(type.getDefaultExp())
-                .description(type.getDisplayName())
-                .build();
+            AttendanceRewardConfig config =
+                    AttendanceRewardConfig.builder()
+                            .rewardType(type)
+                            .requiredDays(getRequiredDays(type))
+                            .rewardExp(type.getDefaultExp())
+                            .description(type.getDisplayName())
+                            .build();
             rewardConfigRepository.save(config);
         }
 
@@ -90,31 +88,37 @@ public class AttendanceRewardConfigCacheService {
 
     public List<AttendanceRewardConfigResponse> getAllConfigResponses() {
         return rewardConfigRepository.findAllByOrderByRequiredDaysAsc().stream()
-            .map(AttendanceRewardConfigResponse::from)
-            .collect(Collectors.toList());
+                .map(AttendanceRewardConfigResponse::from)
+                .collect(Collectors.toList());
     }
 
     public List<AttendanceRewardConfigResponse> getActiveConfigResponses() {
         return rewardConfigRepository.findByIsActiveTrueOrderByRequiredDaysAsc().stream()
-            .map(AttendanceRewardConfigResponse::from)
-            .collect(Collectors.toList());
+                .map(AttendanceRewardConfigResponse::from)
+                .collect(Collectors.toList());
     }
 
     public List<AttendanceRewardConfigResponse> getActiveConsecutiveRewardResponses() {
         return rewardConfigRepository.findActiveConsecutiveRewards().stream()
-            .map(AttendanceRewardConfigResponse::from)
-            .collect(Collectors.toList());
+                .map(AttendanceRewardConfigResponse::from)
+                .collect(Collectors.toList());
     }
 
     public AttendanceRewardConfigPageResponse searchConfigs(String keyword, Pageable pageable) {
         return AttendanceRewardConfigPageResponse.from(
-            rewardConfigRepository.searchByKeyword(keyword, pageable)
-                .map(AttendanceRewardConfigResponse::from));
+                rewardConfigRepository
+                        .searchByKeyword(keyword, pageable)
+                        .map(AttendanceRewardConfigResponse::from));
     }
 
     public AttendanceRewardConfigResponse getConfigById(Long id) {
-        AttendanceRewardConfig config = rewardConfigRepository.findById(id)
-            .orElseThrow(() -> new CustomException("404", "error.attendance_reward.not_found"));
+        AttendanceRewardConfig config =
+                rewardConfigRepository
+                        .findById(id)
+                        .orElseThrow(
+                                () ->
+                                        new CustomException(
+                                                "404", "error.attendance_reward.not_found"));
         return AttendanceRewardConfigResponse.from(config);
     }
 
@@ -125,16 +129,17 @@ public class AttendanceRewardConfigCacheService {
             throw new CustomException("400", "error.attendance_reward.duplicate_type");
         }
 
-        AttendanceRewardConfig config = AttendanceRewardConfig.builder()
-            .rewardType(request.getRewardType())
-            .requiredDays(request.getRequiredDays())
-            .rewardExp(request.getRewardExp() != null ? request.getRewardExp() : 0)
-            .rewardTitleId(request.getRewardTitleId())
-            .description(request.getDescription())
-            .startDate(request.getStartDate())
-            .endDate(request.getEndDate())
-            .isActive(request.getIsActive() != null ? request.getIsActive() : true)
-            .build();
+        AttendanceRewardConfig config =
+                AttendanceRewardConfig.builder()
+                        .rewardType(request.getRewardType())
+                        .requiredDays(request.getRequiredDays())
+                        .rewardExp(request.getRewardExp() != null ? request.getRewardExp() : 0)
+                        .rewardTitleId(request.getRewardTitleId())
+                        .description(request.getDescription())
+                        .startDate(request.getStartDate())
+                        .endDate(request.getEndDate())
+                        .isActive(request.getIsActive() != null ? request.getIsActive() : true)
+                        .build();
 
         AttendanceRewardConfig saved = rewardConfigRepository.save(config);
         log.info("출석 보상 설정 생성: id={}, type={}", saved.getId(), saved.getRewardType());
@@ -143,12 +148,18 @@ public class AttendanceRewardConfigCacheService {
 
     @CacheEvict(value = "attendanceRewardConfigs", allEntries = true)
     @Transactional(transactionManager = "metaTransactionManager")
-    public AttendanceRewardConfigResponse updateConfig(Long id, AttendanceRewardConfigRequest request) {
-        AttendanceRewardConfig config = rewardConfigRepository.findById(id)
-            .orElseThrow(() -> new CustomException("404", "error.attendance_reward.not_found"));
+    public AttendanceRewardConfigResponse updateConfig(
+            Long id, AttendanceRewardConfigRequest request) {
+        AttendanceRewardConfig config =
+                rewardConfigRepository
+                        .findById(id)
+                        .orElseThrow(
+                                () ->
+                                        new CustomException(
+                                                "404", "error.attendance_reward.not_found"));
 
         if (!config.getRewardType().equals(request.getRewardType())
-            && rewardConfigRepository.existsByRewardType(request.getRewardType())) {
+                && rewardConfigRepository.existsByRewardType(request.getRewardType())) {
             throw new CustomException("400", "error.attendance_reward.duplicate_type");
         }
 
@@ -169,8 +180,13 @@ public class AttendanceRewardConfigCacheService {
     @CacheEvict(value = "attendanceRewardConfigs", allEntries = true)
     @Transactional(transactionManager = "metaTransactionManager")
     public AttendanceRewardConfigResponse toggleActiveStatus(Long id) {
-        AttendanceRewardConfig config = rewardConfigRepository.findById(id)
-            .orElseThrow(() -> new CustomException("404", "error.attendance_reward.not_found"));
+        AttendanceRewardConfig config =
+                rewardConfigRepository
+                        .findById(id)
+                        .orElseThrow(
+                                () ->
+                                        new CustomException(
+                                                "404", "error.attendance_reward.not_found"));
 
         config.setIsActive(!config.getIsActive());
         AttendanceRewardConfig saved = rewardConfigRepository.save(config);
@@ -188,16 +204,18 @@ public class AttendanceRewardConfigCacheService {
         log.info("출석 보상 설정 삭제: id={}", id);
     }
 
-    /**
-     * 애플리케이션 시작 시 캐시 워밍업
-     */
+    /** 애플리케이션 시작 시 캐시 워밍업 */
     @PostConstruct
     public void warmUpCache() {
         try {
             List<AttendanceRewardConfig> configs = getAllActiveConfigs();
-            log.info("[AttendanceRewardConfigCacheService] 캐시 워밍업 완료: {} 개 출석 보상 설정 로드", configs.size());
+            log.info(
+                    "[AttendanceRewardConfigCacheService] 캐시 워밍업 완료: {} 개 출석 보상 설정 로드",
+                    configs.size());
         } catch (Exception e) {
-            log.warn("[AttendanceRewardConfigCacheService] 캐시 워밍업 실패 (Admin 시작 시 로드됨): {}", e.getMessage());
+            log.warn(
+                    "[AttendanceRewardConfigCacheService] 캐시 워밍업 실패 (Admin 시작 시 로드됨): {}",
+                    e.getMessage());
         }
     }
 }

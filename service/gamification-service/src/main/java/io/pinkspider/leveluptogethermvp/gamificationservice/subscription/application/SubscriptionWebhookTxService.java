@@ -1,0 +1,480 @@
+package io.pinkspider.leveluptogethermvp.gamificationservice.subscription.application;
+
+import com.apple.itunes.storekit.model.JWSRenewalInfoDecodedPayload;
+import com.apple.itunes.storekit.model.JWSTransactionDecodedPayload;
+import io.pinkspider.global.exception.CustomException;
+import io.pinkspider.leveluptogethermvp.gamificationservice.subscription.application.SubscriptionRefundAmountResolver.RefundAmount;
+import io.pinkspider.leveluptogethermvp.gamificationservice.subscription.domain.SubscriptionAccountToken;
+import io.pinkspider.leveluptogethermvp.gamificationservice.subscription.domain.SubscriptionPlanMapping;
+import io.pinkspider.leveluptogethermvp.gamificationservice.subscription.domain.dto.AppleSubscriptionNotification;
+import io.pinkspider.leveluptogethermvp.gamificationservice.subscription.domain.dto.AppleSubscriptionSnapshot;
+import io.pinkspider.leveluptogethermvp.gamificationservice.subscription.domain.dto.GoogleSubscriptionState;
+import io.pinkspider.leveluptogethermvp.gamificationservice.subscription.domain.dto.SubscriptionVerificationResult;
+import io.pinkspider.leveluptogethermvp.gamificationservice.subscription.domain.entity.UserSubscription;
+import io.pinkspider.leveluptogethermvp.gamificationservice.subscription.domain.enums.SubscriptionPaymentEventType;
+import io.pinkspider.leveluptogethermvp.gamificationservice.subscription.domain.enums.SubscriptionPlan;
+import io.pinkspider.leveluptogethermvp.gamificationservice.subscription.infrastructure.UserSubscriptionRepository;
+import java.time.LocalDateTime;
+import java.util.Set;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+/**
+ * LUT-452: 스토어 웹훅 이벤트를 구독 행에 적용 — 한 트랜잭션.
+ *
+ * <p>모든 적용은 <b>상태 수렴형</b>(같은 이벤트를 몇 번 적용해도 같은 결과)이라 at-least-once 재전송에 멱등하다. 행이 없으면(유저가 아직 /verify
+ * 전) 로그만 남기고 넘어간다 — 이후 /verify·Restore 가 최신 상태로 등록한다.
+ *
+ * <p>LUT-507: 결제 알림(구매·갱신)의 거래에 앱 계정 토큰이 있고 그 계정이 현재 주인이 아니면, 검증과 같은 소유권 규칙({@link
+ * SubscriptionGrantTxService})으로 결제한 계정에게 이전을 시도한다 — 만료 후 다른 계정이 재구독한 경우. 옛 주인이 아직 권한이 있으면(120802)
+ * 이전하지 않고 기존 행에 그대로 적용한다.
+ */
+@Service
+@RequiredArgsConstructor
+@Slf4j
+public class SubscriptionWebhookTxService {
+
+    private final UserSubscriptionRepository userSubscriptionRepository;
+    private final SubscriptionPaymentHistoryRecorder paymentHistoryRecorder;
+    private final SubscriptionGrantTxService grantTxService;
+    private final GoogleOrderLedgerSync ledgerSync;
+    private final SubscriptionRefundAmountResolver refundAmountResolver;
+
+    /** 주인 교체를 검토하는 결제성 알림 — 새 거래(구매·갱신·오퍼)가 동반되는 타입만 */
+    private static final Set<String> APPLE_PAYMENT_TYPES =
+            Set.of("SUBSCRIBED", "DID_RENEW", "OFFER_REDEEMED");
+
+    // ========== Apple (ASSN V2) ==========
+
+    @Transactional(transactionManager = "gamificationTransactionManager")
+    public void applyAppleNotification(AppleSubscriptionNotification notification) {
+        JWSTransactionDecodedPayload transaction = notification.transaction();
+        if (transaction == null || transaction.getOriginalTransactionId() == null) {
+            log.info("ASSN 트랜잭션 없는 알림 스킵: type={}", notification.notificationType());
+            return;
+        }
+        UserSubscription subscription =
+                userSubscriptionRepository
+                        .findByOriginalTransactionId(transaction.getOriginalTransactionId())
+                        .orElse(null);
+        if (subscription == null) {
+            // 유저가 아직 /verify 를 호출하지 않은 구매 — 이후 verify/Restore 가 등록한다
+            log.warn(
+                    "ASSN 매칭 구독 행 없음 — 스킵: type={}, originalTransactionId={}",
+                    notification.notificationType(),
+                    transaction.getOriginalTransactionId());
+            return;
+        }
+
+        String type = notification.notificationType();
+        JWSRenewalInfoDecodedPayload renewalInfo = notification.renewalInfo();
+        if (APPLE_PAYMENT_TYPES.contains(type)
+                && transferToPayerIfNeeded(subscription, transaction, renewalInfo)) {
+            return;
+        }
+        applyAppleEnvironment(subscription, transaction);
+        switch (type) {
+                // 구매·갱신·플랜 변경 반영·오퍼 적용 — 트랜잭션 기준으로 동기화
+            case "SUBSCRIBED", "DID_RENEW", "OFFER_REDEEMED", "DID_CHANGE_RENEWAL_PREF" ->
+                    syncFromTransaction(subscription, transaction, renewalInfo);
+                // 자동갱신 켬/끔 (해지 = AUTO_RENEW_DISABLED — 만료까지 권한 유지)
+            case "DID_CHANGE_RENEWAL_STATUS" -> {
+                applyAutoRenewStatus(subscription, renewalInfo);
+                log.info(
+                        "ASSN 자동갱신 변경: userId={}, autoRenew={}",
+                        subscription.getUserId(),
+                        subscription.getAutoRenew());
+            }
+                // 갱신 결제 실패 — GRACE_PERIOD subtype 이면 유예기간 진입(권한 유지)
+            case "DID_FAIL_TO_RENEW" -> {
+                if (renewalInfo != null && renewalInfo.getGracePeriodExpiresDate() != null) {
+                    subscription.enterGracePeriod(
+                            SubscriptionVerificationService.toLocalDateTime(
+                                    renewalInfo.getGracePeriodExpiresDate()));
+                    log.info(
+                            "ASSN 유예기간 진입: userId={}, graceUntil={}",
+                            subscription.getUserId(),
+                            subscription.getGracePeriodExpiresAt());
+                }
+            }
+                // 유예기간 이탈(미복구 종료)
+            case "GRACE_PERIOD_EXPIRED" -> {
+                subscription.setGracePeriodExpiresAt(null);
+                subscription.setAutoRenew(false);
+                log.info("ASSN 유예기간 만료: userId={}", subscription.getUserId());
+            }
+                // 만료 (자발적 해지 후 기간 종료 등)
+            case "EXPIRED" -> {
+                subscription.setGracePeriodExpiresAt(null);
+                subscription.setAutoRenew(false);
+                if (transaction.getExpiresDate() != null) {
+                    subscription.setExpiresAt(
+                            SubscriptionVerificationService.toLocalDateTime(
+                                    transaction.getExpiresDate()));
+                }
+                log.info("ASSN 구독 만료: userId={}", subscription.getUserId());
+            }
+                // 환불·회수 — 권한 즉시 종료
+            case "REFUND", "REVOKE" -> {
+                LocalDateTime revokedAt =
+                        transaction.getRevocationDate() != null
+                                ? SubscriptionVerificationService.toLocalDateTime(
+                                        transaction.getRevocationDate())
+                                : LocalDateTime.now();
+                revoke(subscription, revokedAt);
+                // LUT-663: 환불액 = 환불 알림 거래의 price/currency → 없으면 원 결제 행 → 그래도 없으면 정가(기록기)
+                RefundAmount refund = refundAmountResolver.forApple(subscription, transaction);
+                paymentHistoryRecorder.record(
+                        subscription,
+                        SubscriptionPaymentEventType.REFUND,
+                        false,
+                        refund.amount(),
+                        refund.currency(),
+                        transaction.getTransactionId(),
+                        revokedAt,
+                        revokedAt);
+                log.info("ASSN 환불/회수 — 권한 종료: userId={}, type={}", subscription.getUserId(), type);
+            }
+                // 가격 변경 동의 (subtype ACCEPTED) / 예정(PENDING) — 상태 변화 없음, 기록만
+            case "PRICE_INCREASE" ->
+                    log.info(
+                            "ASSN 가격 변경 알림: userId={}, subtype={}",
+                            subscription.getUserId(),
+                            notification.subtype());
+            default ->
+                    log.info("ASSN 미처리 타입 — 스킵: type={}, subtype={}", type, notification.subtype());
+        }
+    }
+
+    /**
+     * LUT-499: 자가 치유 — "Get All Subscription Statuses" 스냅샷(최신 트랜잭션 + 갱신 정보)을 웹훅과 같은 규칙으로 반영한다.
+     * 환불·회수된 트랜잭션은 권한 종료, 그 외는 갱신 동기화(만료 연장·플랜·autoRenew). 만료가 지난 채 autoRenew 만 꺼진 경우도 renewalInfo
+     * 반영으로 수렴해 다음 호출부터 재조회하지 않는다.
+     */
+    @Transactional(transactionManager = "gamificationTransactionManager")
+    public void applyAppleSnapshot(
+            String originalTransactionId, AppleSubscriptionSnapshot snapshot) {
+        UserSubscription subscription =
+                userSubscriptionRepository
+                        .findByOriginalTransactionId(originalTransactionId)
+                        .orElse(null);
+        if (subscription == null || snapshot == null || snapshot.transaction() == null) {
+            log.warn("자가 치유 매칭 구독 행/스냅샷 없음 — 스킵: originalTransactionId={}", originalTransactionId);
+            return;
+        }
+        JWSTransactionDecodedPayload transaction = snapshot.transaction();
+        applyAppleEnvironment(subscription, transaction);
+        if (transaction.getRevocationDate() != null) {
+            LocalDateTime revokedAt =
+                    SubscriptionVerificationService.toLocalDateTime(
+                            transaction.getRevocationDate());
+            revoke(subscription, revokedAt);
+            RefundAmount refund =
+                    refundAmountResolver.forApple(subscription, transaction); // LUT-663
+            paymentHistoryRecorder.record(
+                    subscription,
+                    SubscriptionPaymentEventType.REFUND,
+                    false,
+                    refund.amount(),
+                    refund.currency(),
+                    transaction.getTransactionId(),
+                    revokedAt,
+                    revokedAt);
+            log.info("자가 치유 — 환불/회수 반영, 권한 종료: userId={}", subscription.getUserId());
+            return;
+        }
+        syncFromTransaction(subscription, transaction, snapshot.renewalInfo());
+    }
+
+    /** 트랜잭션 payload 기준 동기화 — 갱신은 만료 연장 + 유예 해제, 플랜 변경은 상품/플랜 교체 */
+    private void syncFromTransaction(
+            UserSubscription subscription,
+            JWSTransactionDecodedPayload transaction,
+            JWSRenewalInfoDecodedPayload renewalInfo) {
+        LocalDateTime previousExpiresAt = subscription.getExpiresAt();
+        if (transaction.getProductId() != null) {
+            subscription.setProductId(transaction.getProductId());
+            subscription.setPlan(
+                    SubscriptionPlanMapping.resolve("ios", transaction.getProductId(), null));
+        }
+        if (transaction.getExpiresDate() != null) {
+            subscription.renew(
+                    SubscriptionVerificationService.toLocalDateTime(transaction.getExpiresDate()));
+        }
+        applyAutoRenewStatus(subscription, renewalInfo);
+        if (transaction.getRawOfferType() != null && transaction.getRawOfferType() == 1) {
+            subscription.setTrialUsed(true);
+        }
+        // LUT-486: 만료 엄격 연장 = 갱신 결제 이력 (verify 가 먼저 기록했으면 만료가 같아 스킵 — 자연 멱등)
+        if (subscription.getExpiresAt().isAfter(previousExpiresAt)) {
+            paymentHistoryRecorder.record(
+                    subscription,
+                    SubscriptionPaymentEventType.RENEWAL,
+                    transaction.getRawOfferType() != null && transaction.getRawOfferType() == 1,
+                    SubscriptionVerificationService.applePriceToDecimal(transaction.getPrice()),
+                    transaction.getCurrency(),
+                    transaction.getTransactionId(),
+                    subscription.getExpiresAt(),
+                    transaction.getPurchaseDate() != null
+                            ? SubscriptionVerificationService.toLocalDateTime(
+                                    transaction.getPurchaseDate())
+                            : LocalDateTime.now());
+        }
+        log.info(
+                "ASSN 구독 동기화: userId={}, plan={}, expiresAt={}",
+                subscription.getUserId(),
+                subscription.getPlan(),
+                subscription.getExpiresAt());
+    }
+
+    /**
+     * LUT-507: 거래의 appAccountToken 이 현재 주인이 아닌 다른 앱 계정을 가리키면 그 계정으로 이전을 시도한다. 검증 경로와 같은 upsert 를
+     * 타므로 옛 주인이 아직 권한이 있으면 120802 로 거절되고(false) 기존 행에 그대로 적용된다. 이전에 성공하면 새 주인 행에 만료·플랜·이력이 이미
+     * 기록됐으므로 true.
+     */
+    private boolean transferToPayerIfNeeded(
+            UserSubscription subscription,
+            JWSTransactionDecodedPayload transaction,
+            JWSRenewalInfoDecodedPayload renewalInfo) {
+        String token =
+                transaction.getAppAccountToken() != null
+                        ? transaction.getAppAccountToken().toString()
+                        : null;
+        String payerUserId = SubscriptionAccountToken.resolveUserId(token);
+        if (payerUserId == null
+                || payerUserId.equals(subscription.getUserId())
+                || transaction.getExpiresDate() == null
+                || transaction.getProductId() == null) {
+            return false;
+        }
+        boolean trial = transaction.getRawOfferType() != null && transaction.getRawOfferType() == 1;
+        boolean autoRenew =
+                renewalInfo == null
+                        || renewalInfo.getRawAutoRenewStatus() == null
+                        || renewalInfo.getRawAutoRenewStatus() == 1;
+        LocalDateTime expiresAt =
+                SubscriptionVerificationService.toLocalDateTime(transaction.getExpiresDate());
+        SubscriptionVerificationResult result =
+                new SubscriptionVerificationResult(
+                        transaction.getProductId(),
+                        null,
+                        transaction.getOriginalTransactionId(),
+                        null,
+                        transaction.getOriginalPurchaseDate() != null
+                                ? SubscriptionVerificationService.toLocalDateTime(
+                                        transaction.getOriginalPurchaseDate())
+                                : null,
+                        expiresAt,
+                        autoRenew,
+                        trial,
+                        transaction.getTransactionId(),
+                        SubscriptionVerificationService.applePriceToDecimal(transaction.getPrice()),
+                        transaction.getCurrency(),
+                        null,
+                        token,
+                        SubscriptionVerificationService.isAppleTestEnvironment(transaction));
+        return transferToPayer(subscription, payerUserId, "ios", result, expiresAt);
+    }
+
+    /**
+     * LUT-666: 트랜잭션 환경(Sandbox/Production)을 구독 행에 반영 — 이후 기록되는 결제 이력이 이 값을 복사한다. JWS 에 환경이 없으면(구
+     * payload) 기존 값을 유지한다.
+     */
+    private void applyAppleEnvironment(
+            UserSubscription subscription, JWSTransactionDecodedPayload transaction) {
+        if (transaction.getEnvironment() != null) {
+            subscription.setTestPurchase(
+                    SubscriptionVerificationService.isAppleTestEnvironment(transaction));
+        }
+    }
+
+    private boolean transferToPayer(
+            UserSubscription subscription,
+            String payerUserId,
+            String platform,
+            SubscriptionVerificationResult result,
+            LocalDateTime expiresAt) {
+        SubscriptionPlan plan =
+                SubscriptionPlanMapping.resolve(
+                        platform, result.storeProductId(), result.basePlanId());
+        try {
+            grantTxService.upsert(
+                    payerUserId, plan, platform, result, expiresAt, LocalDateTime.now());
+            log.info(
+                    "웹훅 구독 소유권 이전: 옛 userId={} → 결제 userId={}, platform={}, expiresAt={}",
+                    subscription.getUserId(),
+                    payerUserId,
+                    platform,
+                    expiresAt);
+            return true;
+        } catch (CustomException e) {
+            // 옛 주인이 아직 권한 보유(120802) 등 — 이전하지 않고 기존 행에 적용
+            log.info(
+                    "웹훅 구독 소유권 이전 보류: 옛 userId={}, 결제 userId={}, code={}",
+                    subscription.getUserId(),
+                    payerUserId,
+                    e.getCode());
+            return false;
+        }
+    }
+
+    /** renewalInfo 의 autoRenewStatus(1=켬, 0=끔) 반영 — 없으면 유지 */
+    private void applyAutoRenewStatus(
+            UserSubscription subscription, JWSRenewalInfoDecodedPayload renewalInfo) {
+        if (renewalInfo != null && renewalInfo.getRawAutoRenewStatus() != null) {
+            subscription.setAutoRenew(renewalInfo.getRawAutoRenewStatus() == 1);
+        }
+    }
+
+    // ========== Google (RTDN) ==========
+
+    /** 자가 치유(LUT-499)·이벤트 시각 없는 경로용 — 결제 시각은 주문 조회 또는 now 로 채운다 */
+    @Transactional(transactionManager = "gamificationTransactionManager")
+    public void applyGoogleState(String purchaseToken, GoogleSubscriptionState state) {
+        applyGoogleState(purchaseToken, state, null);
+    }
+
+    /**
+     * RTDN 트리거 후 subscriptionsv2 재조회 상태를 적용한다 — 웹훅이 진실의 원천이라 만료 단축도 반영.
+     *
+     * @param eventTime RTDN {@code eventTimeMillis}(UTC) — 주문 조회가 안 될 때 결제 이력의 occurred_at 폴백. null
+     *     이면 now
+     */
+    @Transactional(transactionManager = "gamificationTransactionManager")
+    public void applyGoogleState(
+            String purchaseToken, GoogleSubscriptionState state, LocalDateTime eventTime) {
+        UserSubscription subscription =
+                userSubscriptionRepository.findByPurchaseToken(purchaseToken).orElse(null);
+        boolean linkedByContinuityKey = false;
+        if (subscription == null && state.linkedPurchaseToken() != null) {
+            // LUT-499: 재구독·플랜 변경은 새 purchaseToken 을 발급하고 옛 토큰을 linkedPurchaseToken 으로 가리킨다.
+            // 옛 토큰으로 기록된 행에 이어 붙여 하나의 구독으로 유지한다(이력이 갈라지지 않게).
+            subscription =
+                    userSubscriptionRepository
+                            .findByPurchaseToken(state.linkedPurchaseToken())
+                            .orElse(null);
+            linkedByContinuityKey = subscription != null;
+        }
+        if (subscription == null) {
+            log.warn("RTDN 매칭 구독 행 없음 — 스킵: state={}", state.subscriptionState());
+            return;
+        }
+        if (state.isPending()) {
+            log.info("RTDN 결제 대기 상태 — 스킵: userId={}", subscription.getUserId());
+            return;
+        }
+        // LUT-507: 새 결제의 앱 계정 토큰이 다른 계정이면(만료 후 다른 계정 재구독) 결제한 계정으로 이전 —
+        // 연속성 키로 옛 주인 행에 새 토큰을 이어 붙이기 전에 판정해야 권한이 옛 주인에게 되살아나지 않는다
+        String payerUserId =
+                SubscriptionAccountToken.resolveUserId(state.obfuscatedExternalAccountId());
+        if (payerUserId != null
+                && !payerUserId.equals(subscription.getUserId())
+                && state.expiresAt() != null
+                && state.productId() != null) {
+            SubscriptionVerificationResult result =
+                    new SubscriptionVerificationResult(
+                            state.productId(),
+                            state.basePlanId(),
+                            null,
+                            purchaseToken,
+                            state.startedAt(),
+                            state.expiresAt(),
+                            state.autoRenew(),
+                            state.trial(),
+                            state.latestOrderId(),
+                            null,
+                            null,
+                            state.linkedPurchaseToken(),
+                            state.obfuscatedExternalAccountId(),
+                            state.testPurchase());
+            if (transferToPayer(subscription, payerUserId, "android", result, state.expiresAt())) {
+                return;
+            }
+        }
+        if (linkedByContinuityKey) {
+            log.info("RTDN 연속성 키로 구독 행 연결: userId={}, 옛토큰→새토큰", subscription.getUserId());
+            subscription.setPurchaseToken(purchaseToken);
+        }
+
+        LocalDateTime previousExpiresAt = subscription.getExpiresAt();
+        subscription.setProductId(state.productId());
+        subscription.setBasePlanId(state.basePlanId());
+        subscription.setPlan(
+                SubscriptionPlanMapping.resolve("android", state.productId(), state.basePlanId()));
+        // expiresAt 은 PENDING(위에서 return) 외에는 파서(fetchGoogleSubscription)가 항상 채운다 — 없으면 120702 로
+        // 던진다.
+        // 위 소유권 이전 가드의 `expiresAt != null` 은 이전 판정용이지 여기 null 방어가 아니다.
+        subscription.setExpiresAt(state.expiresAt());
+        subscription.setAutoRenew(state.autoRenew());
+        subscription.setTestPurchase(state.testPurchase());
+        if (state.isInGracePeriod()) {
+            // Google 은 유예 종료 시각을 직접 주지 않는다 — expiryTime 이 유예를 반영한 값이라 그대로 쓴다
+            subscription.enterGracePeriod(state.expiresAt());
+        } else {
+            subscription.setGracePeriodExpiresAt(null);
+        }
+        if (state.trial()) {
+            subscription.setTrialUsed(true);
+        }
+        // LUT-486: 만료 엄격 연장 = 갱신 결제 이력. LUT-617: latestOrderId 1건이 아니라 원장의 마지막 주문 연번부터
+        // 최신(GPA.xxxx..N)까지 Orders API 로 되짚어 빠진 갱신을 실제 결제 시각·금액으로 채운다 — RTDN 유실 구간 보정.
+        if (subscription.getExpiresAt().isAfter(previousExpiresAt)) {
+            ledgerSync.syncRenewals(
+                    subscription,
+                    state.latestOrderId(),
+                    state.trial(),
+                    subscription.getExpiresAt(),
+                    eventTime,
+                    false);
+        }
+        log.info(
+                "RTDN 구독 동기화: userId={}, state={}, plan={}, expiresAt={}, autoRenew={}",
+                subscription.getUserId(),
+                state.subscriptionState(),
+                subscription.getPlan(),
+                subscription.getExpiresAt(),
+                subscription.getAutoRenew());
+    }
+
+    /** REVOKED(12) 알림 — 주문 ID 가 없어 환불액은 원 결제 행으로 폴백한다 (LUT-663) */
+    @Transactional(transactionManager = "gamificationTransactionManager")
+    public void revokeByPurchaseToken(String purchaseToken) {
+        revokeByPurchaseToken(purchaseToken, null);
+    }
+
+    /** 환불/회수(REVOKED·voidedPurchase) — 권한 즉시 종료 */
+    @Transactional(transactionManager = "gamificationTransactionManager")
+    public void revokeByPurchaseToken(String purchaseToken, String orderId) {
+        UserSubscription subscription =
+                userSubscriptionRepository.findByPurchaseToken(purchaseToken).orElse(null);
+        if (subscription == null) {
+            log.warn("RTDN 환불 매칭 구독 행 없음 — 스킵");
+            return;
+        }
+        LocalDateTime revokedAt = LocalDateTime.now();
+        revoke(subscription, revokedAt);
+        // LUT-663: 환불액 = voided 주문 ID 로 Orders API → 없으면 원 결제 행 → 정가(기록기). 거래 ID 는 주문 ID(있으면)
+        RefundAmount refund = refundAmountResolver.forGoogle(subscription, orderId);
+        paymentHistoryRecorder.record(
+                subscription,
+                SubscriptionPaymentEventType.REFUND,
+                false,
+                refund.amount(),
+                refund.currency(),
+                orderId,
+                revokedAt,
+                revokedAt);
+        log.info("RTDN 환불/회수 — 권한 종료: userId={}", subscription.getUserId());
+    }
+
+    /** 권한 즉시 종료 — 만료를 회수 시각으로 당기고 유예·자동갱신 해제 */
+    private void revoke(UserSubscription subscription, LocalDateTime revokedAt) {
+        if (revokedAt.isBefore(subscription.getExpiresAt())) {
+            subscription.setExpiresAt(revokedAt);
+        }
+        subscription.setGracePeriodExpiresAt(null);
+        subscription.setAutoRenew(false);
+    }
+}

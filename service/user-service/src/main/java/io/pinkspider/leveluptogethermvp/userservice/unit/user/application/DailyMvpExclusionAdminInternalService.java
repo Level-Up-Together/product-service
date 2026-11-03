@@ -23,22 +23,24 @@ public class DailyMvpExclusionAdminInternalService {
 
     public List<DailyMvpExclusionAdminResponse> getExclusionsByDate(LocalDate date) {
         return dailyMvpExclusionRepository.findAllByMvpDateOrderByCreatedAtDesc(date).stream()
-            .map(DailyMvpExclusionAdminResponse::from)
-            .collect(Collectors.toList());
+                .map(DailyMvpExclusionAdminResponse::from)
+                .collect(Collectors.toList());
     }
 
     @Transactional(transactionManager = "userTransactionManager")
     public DailyMvpExclusionAdminResponse addExclusion(DailyMvpExclusionAdminRequest request) {
-        if (dailyMvpExclusionRepository.existsByMvpDateAndUserId(request.mvpDate(), request.userId())) {
+        if (dailyMvpExclusionRepository.existsByMvpDateAndUserId(
+                request.mvpDate(), request.userId())) {
             throw new CustomException("400", "이미 해당 날짜에 제외된 사용자입니다.");
         }
 
-        DailyMvpExclusion exclusion = DailyMvpExclusion.builder()
-            .mvpDate(request.mvpDate())
-            .userId(request.userId())
-            .reason(request.reason())
-            .adminId(request.adminId())
-            .build();
+        DailyMvpExclusion exclusion =
+                DailyMvpExclusion.builder()
+                        .mvpDate(request.mvpDate())
+                        .userId(request.userId())
+                        .reason(request.reason())
+                        .adminId(request.adminId())
+                        .build();
 
         DailyMvpExclusion saved = dailyMvpExclusionRepository.save(exclusion);
         log.info("MVP 제외 추가: date={}, userId={}", request.mvpDate(), request.userId());

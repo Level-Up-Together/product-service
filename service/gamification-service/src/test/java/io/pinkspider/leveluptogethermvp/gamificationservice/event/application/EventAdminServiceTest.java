@@ -4,7 +4,6 @@ import static io.pinkspider.global.test.TestReflectionUtils.setId;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -35,43 +34,53 @@ import org.springframework.data.domain.Pageable;
 @ExtendWith(MockitoExtension.class)
 class EventAdminServiceTest {
 
-    @Mock
-    private EventRepository eventRepository;
+    @Mock private EventRepository eventRepository;
 
-    @Mock
-    private TitleRepository titleRepository;
+    @Mock private TitleRepository titleRepository;
 
-    @InjectMocks
-    private EventAdminService eventAdminService;
+    @InjectMocks private EventAdminService eventAdminService;
 
-    private Event createMockEvent(Long id, String name, LocalDateTime startAt, LocalDateTime endAt) {
-        Event event = Event.builder()
-            .name(name)
-            .nameEn(name + " (EN)")
-            .nameAr(name + " (AR)")
-            .description("이벤트 설명")
-            .descriptionEn("Event description")
-            .descriptionAr("وصف الحدث")
-            .imageUrl("https://cdn.example.com/events/test.png")
-            .startAt(startAt)
-            .endAt(endAt)
-            .rewardTitleId(null)
-            .rewardTitleName(null)
-            .isActive(true)
-            .build();
+    private Event createMockEvent(
+            Long id, String name, LocalDateTime startAt, LocalDateTime endAt) {
+        Event event =
+                Event.builder()
+                        .name(name)
+                        .nameEn(name + " (EN)")
+                        .nameAr(name + " (AR)")
+                        .description("이벤트 설명")
+                        .descriptionEn("Event description")
+                        .descriptionAr("وصف الحدث")
+                        .imageUrl("https://cdn.example.com/events/test.png")
+                        .startAt(startAt)
+                        .endAt(endAt)
+                        .rewardTitleId(null)
+                        .rewardTitleName(null)
+                        .isActive(true)
+                        .build();
         setId(event, id);
         return event;
     }
 
     private EventAdminRequest createEventRequest(
-            String name, LocalDateTime startAt, LocalDateTime endAt,
-            Long rewardTitleId, Boolean isActive) {
+            String name,
+            LocalDateTime startAt,
+            LocalDateTime endAt,
+            Long rewardTitleId,
+            Boolean isActive) {
         return new EventAdminRequest(
-            name, name + " EN", name + " AR", null,
-            "이벤트 설명", "Event description", "وصف الحدث", null,
-            "https://cdn.example.com/events/test.png",
-            startAt, endAt, rewardTitleId, isActive
-        );
+                name,
+                name + " EN",
+                name + " AR",
+                null,
+                "이벤트 설명",
+                "Event description",
+                "وصف الحدث",
+                null,
+                "https://cdn.example.com/events/test.png",
+                startAt,
+                endAt,
+                rewardTitleId,
+                isActive);
     }
 
     @Nested
@@ -148,7 +157,7 @@ class EventAdminServiceTest {
             Event event2 = createMockEvent(2L, "이벤트2", now.minusDays(5), now.plusDays(5));
 
             when(eventRepository.findByIsActiveTrueOrderByStartAtDesc())
-                .thenReturn(List.of(event1, event2));
+                    .thenReturn(List.of(event1, event2));
 
             // when
             List<EventAdminResponse> result = eventAdminService.getActiveEvents();
@@ -187,7 +196,7 @@ class EventAdminServiceTest {
             Event event = createMockEvent(1L, "진행중 이벤트", now.minusDays(1), now.plusDays(1));
 
             when(eventRepository.findCurrentEvents(any(LocalDateTime.class)))
-                .thenReturn(List.of(event));
+                    .thenReturn(List.of(event));
 
             // when
             List<EventAdminResponse> result = eventAdminService.getCurrentEvents();
@@ -243,7 +252,7 @@ class EventAdminServiceTest {
 
             // when & then
             assertThatThrownBy(() -> eventAdminService.getEvent(999L))
-                .isInstanceOf(CustomException.class);
+                    .isInstanceOf(CustomException.class);
         }
     }
 
@@ -284,14 +293,15 @@ class EventAdminServiceTest {
             Title title = Title.builder().name("황금 칭호").build();
             setId(title, 5L);
 
-            Event savedEvent = Event.builder()
-                .name("새 이벤트")
-                .startAt(startAt)
-                .endAt(endAt)
-                .rewardTitleId(5L)
-                .rewardTitleName("황금 칭호")
-                .isActive(true)
-                .build();
+            Event savedEvent =
+                    Event.builder()
+                            .name("새 이벤트")
+                            .startAt(startAt)
+                            .endAt(endAt)
+                            .rewardTitleId(5L)
+                            .rewardTitleName("황금 칭호")
+                            .isActive(true)
+                            .build();
             setId(savedEvent, 1L);
 
             when(titleRepository.findById(5L)).thenReturn(Optional.of(title));
@@ -313,12 +323,12 @@ class EventAdminServiceTest {
             // given
             LocalDateTime now = LocalDateTime.now();
             LocalDateTime startAt = now.plusDays(5);
-            LocalDateTime endAt = now.plusDays(1);  // 시작보다 이전
+            LocalDateTime endAt = now.plusDays(1); // 시작보다 이전
             EventAdminRequest request = createEventRequest("잘못된 이벤트", startAt, endAt, null, true);
 
             // when & then
             assertThatThrownBy(() -> eventAdminService.createEvent(request))
-                .isInstanceOf(CustomException.class);
+                    .isInstanceOf(CustomException.class);
         }
 
         @Test
@@ -330,7 +340,7 @@ class EventAdminServiceTest {
 
             // when & then
             assertThatThrownBy(() -> eventAdminService.createEvent(request))
-                .isInstanceOf(CustomException.class);
+                    .isInstanceOf(CustomException.class);
         }
 
         @Test
@@ -407,16 +417,15 @@ class EventAdminServiceTest {
         void updateEvent_invalidDates_throwsException() {
             // given
             LocalDateTime now = LocalDateTime.now();
-            Event existingEvent = createMockEvent(
-                1L, "기존 이벤트", now.plusDays(1), now.plusDays(10));
-            EventAdminRequest request = createEventRequest(
-                "수정된 이벤트", now.plusDays(10), now.plusDays(1), null, true);
+            Event existingEvent = createMockEvent(1L, "기존 이벤트", now.plusDays(1), now.plusDays(10));
+            EventAdminRequest request =
+                    createEventRequest("수정된 이벤트", now.plusDays(10), now.plusDays(1), null, true);
 
             when(eventRepository.findById(1L)).thenReturn(Optional.of(existingEvent));
 
             // when & then
             assertThatThrownBy(() -> eventAdminService.updateEvent(1L, request))
-                .isInstanceOf(CustomException.class);
+                    .isInstanceOf(CustomException.class);
         }
 
         @Test
@@ -424,14 +433,14 @@ class EventAdminServiceTest {
         void updateEvent_notFound_throwsException() {
             // given
             LocalDateTime now = LocalDateTime.now();
-            EventAdminRequest request = createEventRequest(
-                "이벤트", now.plusDays(1), now.plusDays(10), null, true);
+            EventAdminRequest request =
+                    createEventRequest("이벤트", now.plusDays(1), now.plusDays(10), null, true);
 
             when(eventRepository.findById(999L)).thenReturn(Optional.empty());
 
             // when & then
             assertThatThrownBy(() -> eventAdminService.updateEvent(999L, request))
-                .isInstanceOf(CustomException.class);
+                    .isInstanceOf(CustomException.class);
         }
 
         @Test
@@ -442,9 +451,9 @@ class EventAdminServiceTest {
             LocalDateTime startAt = now.plusDays(1);
             LocalDateTime endAt = now.plusDays(10);
             Event existingEvent = createMockEvent(1L, "기존 이벤트", startAt, endAt);
-            existingEvent.setIsActive(false);  // 비활성화 상태
-            EventAdminRequest request = createEventRequest(
-                "수정된 이벤트", startAt, endAt, null, null);  // isActive null
+            existingEvent.setIsActive(false); // 비활성화 상태
+            EventAdminRequest request =
+                    createEventRequest("수정된 이벤트", startAt, endAt, null, null); // isActive null
 
             when(eventRepository.findById(1L)).thenReturn(Optional.of(existingEvent));
             when(eventRepository.save(any(Event.class))).thenReturn(existingEvent);
@@ -464,8 +473,7 @@ class EventAdminServiceTest {
             LocalDateTime startAt = now.plusDays(1);
             LocalDateTime endAt = now.plusDays(10);
             Event existingEvent = createMockEvent(1L, "기존 이벤트", startAt, endAt);
-            EventAdminRequest request = createEventRequest(
-                "수정된 이벤트", startAt, endAt, 7L, true);
+            EventAdminRequest request = createEventRequest("수정된 이벤트", startAt, endAt, 7L, true);
 
             Title title = Title.builder().name("전설의 칭호").build();
             setId(title, 7L);
@@ -512,7 +520,7 @@ class EventAdminServiceTest {
 
             // when & then
             assertThatThrownBy(() -> eventAdminService.deleteEvent(999L))
-                .isInstanceOf(CustomException.class);
+                    .isInstanceOf(CustomException.class);
         }
     }
 }

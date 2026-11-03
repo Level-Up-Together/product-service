@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# delete_user.sh - 특정 사용자의 모든 데이터를 8개 DB에서 삭제
+# delete_user.sh - 특정 사용자의 모든 데이터를 9개 DB에서 삭제 (결제 기록 3표는 보존 — LUT-691)
 #
 # 사용법:
 #   PGPASSWORD=<password> ./delete_user.sh <user-uuid> [--dry-run] [--yes]
@@ -16,7 +16,7 @@
 #                    - prod: AWS RDS 엔드포인트 (보통 SSH 터널 또는 EC2 안에서 실행)
 #   DB_PORT          포트 (기본: 5432)
 #   DB_USER          DB 사용자 (기본: lut)
-#   DBS              처리할 DB 목록 (기본: 8개 전체)
+#   DBS              처리할 DB 목록 (기본: 9개 전체 — product 8 + admin_db. meta_db 는 유저 데이터 없음)
 #
 # 예시:
 #   # dev (온프레미스): 사전 검증
@@ -59,7 +59,7 @@ fi
 DB_HOST="${DB_HOST:-${RDS_HOST:-localhost}}"
 DB_PORT="${DB_PORT:-${RDS_PORT:-5432}}"
 DB_USER="${DB_USER:-${RDS_USER:-lut}}"
-DBS="${DBS:-user_db mission_db guild_db chat_db feed_db notification_db gamification_db admin_db}"
+DBS="${DBS:-user_db mission_db guild_db chat_db feed_db notification_db gamification_db stats_db admin_db}"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SQL_DIR="${SCRIPT_DIR}/sql"

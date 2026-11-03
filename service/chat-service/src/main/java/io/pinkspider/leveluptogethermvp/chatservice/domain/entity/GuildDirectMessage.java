@@ -28,12 +28,15 @@ import org.hibernate.annotations.Comment;
 @SuperBuilder
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @AllArgsConstructor
-@Table(name = "guild_direct_message",
-    indexes = {
-        @Index(name = "idx_dm_conversation", columnList = "conversation_id"),
-        @Index(name = "idx_dm_conversation_created", columnList = "conversation_id, created_at DESC"),
-        @Index(name = "idx_dm_sender", columnList = "sender_id")
-    })
+@Table(
+        name = "guild_direct_message",
+        indexes = {
+            @Index(name = "idx_dm_conversation", columnList = "conversation_id"),
+            @Index(
+                    name = "idx_dm_conversation_created",
+                    columnList = "conversation_id, created_at DESC"),
+            @Index(name = "idx_dm_sender", columnList = "sender_id")
+        })
 @Comment("길드 1:1 DM 메시지")
 public class GuildDirectMessage extends LocalDateTimeBaseEntity {
 
@@ -91,11 +94,11 @@ public class GuildDirectMessage extends LocalDateTimeBaseEntity {
             String senderNickname,
             String content) {
         return GuildDirectMessage.builder()
-            .conversation(conversation)
-            .senderId(senderId)
-            .senderNickname(senderNickname)
-            .content(content)
-            .build();
+                .conversation(conversation)
+                .senderId(senderId)
+                .senderNickname(senderNickname)
+                .content(content)
+                .build();
     }
 
     public static GuildDirectMessage createImageMessage(
@@ -105,12 +108,12 @@ public class GuildDirectMessage extends LocalDateTimeBaseEntity {
             String content,
             String imageUrl) {
         return GuildDirectMessage.builder()
-            .conversation(conversation)
-            .senderId(senderId)
-            .senderNickname(senderNickname)
-            .content(content != null ? content : "")
-            .imageUrl(imageUrl)
-            .build();
+                .conversation(conversation)
+                .senderId(senderId)
+                .senderNickname(senderNickname)
+                .content(content != null ? content : "")
+                .imageUrl(imageUrl)
+                .build();
     }
 
     public void markAsRead() {
@@ -124,6 +127,8 @@ public class GuildDirectMessage extends LocalDateTimeBaseEntity {
         this.isDeleted = true;
         this.deletedAt = LocalDateTime.now();
         this.content = "[삭제된 메시지입니다]";
+        // LUT-590: 삭제된 메시지의 사진이 계속 보이지 않게 함께 걷어낸다 (파일 정리는 서비스가 커밋 후 수행)
+        this.imageUrl = null;
     }
 
     public String getRecipientId() {

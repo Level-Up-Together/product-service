@@ -1,0 +1,169 @@
+package io.pinkspider.leveluptogethermvp.gamificationservice.subscription.domain.entity;
+
+import io.pinkspider.global.domain.auditentity.LocalDateTimeBaseEntity;
+import io.pinkspider.leveluptogethermvp.gamificationservice.subscription.domain.enums.PriceSource;
+import io.pinkspider.leveluptogethermvp.gamificationservice.subscription.domain.enums.SubscriptionPaymentEventType;
+import io.pinkspider.leveluptogethermvp.gamificationservice.subscription.domain.enums.SubscriptionPlan;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.Index;
+import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
+import jakarta.validation.constraints.NotNull;
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
+import java.util.Objects;
+import lombok.AccessLevel;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.experimental.SuperBuilder;
+import org.hibernate.annotations.Comment;
+
+/**
+ * 구독 결제 이력 (LUT-486) — 어드민 CS/환불 대응용 append-only 원장.
+ *
+ * <p>{@link UserSubscription}은 유저당 1행 갱신 방식이라 결제 건별 기록이 남지 않는다. 이 테이블은 verify/웹훅이 구독 만료를 <b>엄격히 연장할
+ * 때만</b> 한 행씩 적재해, verify·웹훅 이중 도착과 at-least-once 재전송에 자연 멱등이다. uk (user_id, event_type,
+ * expires_at)는 동시성 레이스의 최후 방어선.
+ *
+ * <p>가격은 iOS JWS payload만 제공한다(best-effort, LUT-401 패턴) — Android subscriptionsv2 응답에는 실결제가가 없어
+ * null.
+ */
+@Entity
+@Getter
+@SuperBuilder
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
+@AllArgsConstructor
+@Table(
+        name = "subscription_payment_history",
+        uniqueConstraints =
+                @UniqueConstraint(
+                        name = "uk_subscription_payment_dedup",
+                        columnNames = {"user_id", "event_type", "expires_at"}),
+        indexes = @Index(name = "idx_subscription_payment_user", columnList = "user_id"))
+@Comment("구독 결제 이력 (LUT-486)")
+public class SubscriptionPaymentHistory extends LocalDateTimeBaseEntity {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "id", nullable = false)
+    @Comment("이력 ID")
+    private Long id;
+
+    @NotNull
+    @Column(name = "user_id", nullable = false)
+    @Comment("사용자 ID")
+    private String userId;
+
+    @NotNull
+    @Column(name = "platform", nullable = false, length = 10)
+    @Comment("결제 플랫폼 (ios|android)")
+    private String platform;
+
+    @NotNull
+    @Column(name = "product_id", nullable = false, length = 100)
+    @Comment("스토어 상품 ID")
+    private String productId;
+
+    @Column(name = "base_plan_id", length = 50)
+    @Comment("Android base plan ID (1m|1y) — iOS는 null")
+    private String basePlanId;
+
+    @NotNull
+    @Enumerated(EnumType.STRING)
+    @Column(name = "plan", nullable = false, length = 20)
+    @Comment("내부 플랜 (MONTHLY|ANNUAL)")
+    private SubscriptionPlan plan;
+
+    @NotNull
+    @Enumerated(EnumType.STRING)
+    @Column(name = "event_type", nullable = false, length = 20)
+    @Comment("이벤트 타입 (PURCHASE|RENEWAL|REFUND)")
+    private SubscriptionPaymentEventType eventType;
+
+    @NotNull
+    @Column(name = "trial", nullable = false)
+    @Comment("무료 체험/introductory offer 결제 여부")
+    private Boolean trial;
+
+    @Column(name = "price_amount", precision = 12, scale = 2)
+    @Comment("결제 금액 (iOS만 캡처 가능 — Android는 null)")
+    private BigDecimal priceAmount;
+
+    @Column(name = "price_currency", length = 3)
+    @Comment("결제 통화 (ISO 4217)")
+    private String priceCurrency;
+
+    /** LUT-600: 금액 출처 — STORE(스토어 제공) / LIST(정가 폴백) / TRIAL(체험 0원). null = 미상 */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "price_source", length = 10)
+    @Comment("금액 출처 (STORE/LIST/TRIAL)")
+    private PriceSource priceSource;
+
+    /** LUT-666: 스토어 테스트 결제(iOS Sandbox·Google 라이선스 테스터) — 기록 시점 구독 행의 값. KPI 매출·결제 지표에서 제외 */
+    @NotNull
+    @Column(name = "test_purchase", nullable = false)
+    @Comment("스토어 테스트 결제 여부 — iOS Sandbox·Google 라이선스 테스터 (LUT-666)")
+    @Builder.Default
+    private Boolean testPurchase = false;
+
+    @Column(name = "transaction_id", length = 500)
+    @Comment("결제 건 트랜잭션 ID (iOS transactionId — Android는 null)")
+    private String transactionId;
+
+    @NotNull
+    @Column(name = "expires_at", nullable = false)
+    @Comment("이 결제로 확보된 기간 종료 시각 (REFUND는 권한 회수 시각)")
+    private LocalDateTime expiresAt;
+
+    @NotNull
+    @Column(name = "occurred_at", nullable = false)
+    @Comment("이벤트 발생 시각")
+    private LocalDateTime occurredAt;
+
+    /**
+     * LUT-617: 스토어 주문(orders.get) 기준으로 행을 바로잡는다 — 자가 치유가 늦게 기록해 시각이 처리 시점이 되거나, 최신 주문 ID 가 다른 기간의
+     * 행에 붙은 경우. append-only 원칙의 유일한 예외이며 값의 출처는 항상 스토어 주문이다.
+     *
+     * @param newExpiresAt 바꿀 만료 — null 이면 유지 (uk 충돌 회피는 호출자가 판단)
+     * @return 하나라도 바뀌었으면 true
+     */
+    public boolean correctFromStoreOrder(
+            String transactionId,
+            LocalDateTime occurredAt,
+            LocalDateTime newExpiresAt,
+            BigDecimal priceAmount,
+            String priceCurrency,
+            PriceSource priceSource) {
+        boolean changed = false;
+        if (transactionId != null && !transactionId.equals(this.transactionId)) {
+            this.transactionId = transactionId;
+            changed = true;
+        }
+        if (occurredAt != null && !occurredAt.equals(this.occurredAt)) {
+            this.occurredAt = occurredAt;
+            changed = true;
+        }
+        if (newExpiresAt != null && !newExpiresAt.equals(this.expiresAt)) {
+            this.expiresAt = newExpiresAt;
+            changed = true;
+        }
+        if (priceAmount != null
+                && (!priceAmount.equals(this.priceAmount)
+                        || !Objects.equals(priceCurrency, this.priceCurrency)
+                        || priceSource != this.priceSource)) {
+            this.priceAmount = priceAmount;
+            this.priceCurrency = priceCurrency;
+            this.priceSource = priceSource;
+            changed = true;
+        }
+        return changed;
+    }
+}

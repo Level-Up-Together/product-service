@@ -15,6 +15,24 @@
 | trailing whitespace 제거 | ✓ |
 | end-with-newline 강제 | ✓ |
 | 제외 경로 | `**/build/**`, `**/build/generated/**` (QueryDSL Q 클래스 포함) |
+| 검사 경로 | `src/**`, `*-service/src/**`, `shared-test/src/**` (모듈 디렉토리 기준 — LUT-532 참고) |
+
+### 검사 경로 주의 (LUT-532)
+
+Spotless `target`은 **Gradle 서브프로젝트 디렉토리 기준** Ant 패턴이다. product-service는 `service` 한 모듈에 `sourceSets`로
+`user-service/src`, `mission-service/src` … 를 묶어 쓰므로 `target 'src/**/*.java'`만으로는 `service/src`(전체의 ~10%)만 검사되고
+서비스 코드 1,100여 파일이 빠졌다(2026-09-30 확인: 실험으로 `user-service` 파일을 망가뜨려도 `spotlessCheck`가 통과했음).
+지금은 `*-service/src/**`·`shared-test/src/**`를 target에 명시해 전체를 검사한다. **새 서비스 디렉토리를 `sourceSets`에 추가하면
+`*-service/` 명명을 따르거나 target에도 함께 추가할 것.**
+
+### `git blame` 에서 일괄 포맷 커밋 건너뛰기
+
+LUT-532 일괄 포맷 커밋(965 파일)은 `.git-blame-ignore-revs`에 등록되어 있다. 로컬에서 한 번만 설정하면 `git blame`이 그 커밋을
+건너뛰고 실제 변경자를 보여준다 (GitHub blame UI는 이 파일을 자동 인식):
+
+```bash
+git config blame.ignoreRevsFile .git-blame-ignore-revs
+```
 
 ## 명령
 
@@ -119,3 +137,5 @@ Claude가 본 저장소 Java 코드를 작성/수정하면 마지막에 반드�
 
 ## 변경 이력
 - 2026-06-04 도입. Spotless + Palantir 2.50 → Palantir 2.89 → google-java-format AOSP로 변경. Import 정렬 강제를 위한 최종 결정.
+- 2026-09-30 (LUT-532) 검사 경로를 `*-service/src/**`·`shared-test/src/**`까지 확장 — 이전엔 `service/src`만 검사되어 서비스 코드
+  ~90%가 빠져 있었음. 965개 파일 일괄 포맷(토큰 동일 검증: 공백·주석·미사용 import 126개 제거 외 변경 없음), `.git-blame-ignore-revs` 등록.

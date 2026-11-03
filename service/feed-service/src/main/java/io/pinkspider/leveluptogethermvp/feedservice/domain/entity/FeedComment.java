@@ -28,13 +28,14 @@ import org.hibernate.annotations.Comment;
 @SuperBuilder
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @AllArgsConstructor
-@Table(name = "feed_comment",
-    indexes = {
-        @Index(name = "idx_comment_feed", columnList = "feed_id"),
-        @Index(name = "idx_comment_user", columnList = "user_id"),
-        @Index(name = "idx_comment_created", columnList = "created_at DESC"),
-        @Index(name = "idx_feed_comment_parent", columnList = "parent_id")
-    })
+@Table(
+        name = "feed_comment",
+        indexes = {
+            @Index(name = "idx_comment_feed", columnList = "feed_id"),
+            @Index(name = "idx_comment_user", columnList = "user_id"),
+            @Index(name = "idx_comment_created", columnList = "created_at DESC"),
+            @Index(name = "idx_feed_comment_parent", columnList = "parent_id")
+        })
 @Comment("피드 댓글")
 public class FeedComment extends LocalDateTimeBaseEntity {
 

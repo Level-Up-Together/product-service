@@ -27,15 +27,16 @@ public class DailyMvpExclusionAdminInternalController {
     public ApiResult<List<DailyMvpExclusionAdminResponse>> getExclusionsByDate(
             @PathVariable @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
         return ApiResult.<List<DailyMvpExclusionAdminResponse>>builder()
-            .value(dailyMvpExclusionAdminInternalService.getExclusionsByDate(date))
-            .build();
+                .value(dailyMvpExclusionAdminInternalService.getExclusionsByDate(date))
+                .build();
     }
 
     @PostMapping
-    public ApiResult<DailyMvpExclusionAdminResponse> addExclusion(@RequestBody DailyMvpExclusionAdminRequest request) {
+    public ApiResult<DailyMvpExclusionAdminResponse> addExclusion(
+            @RequestBody DailyMvpExclusionAdminRequest request) {
         return ApiResult.<DailyMvpExclusionAdminResponse>builder()
-            .value(dailyMvpExclusionAdminInternalService.addExclusion(request))
-            .build();
+                .value(dailyMvpExclusionAdminInternalService.addExclusion(request))
+                .build();
     }
 
     @DeleteMapping("/{date}/{userId}")

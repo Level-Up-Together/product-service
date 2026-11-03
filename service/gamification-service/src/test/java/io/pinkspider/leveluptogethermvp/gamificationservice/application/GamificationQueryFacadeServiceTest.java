@@ -2,9 +2,6 @@ package io.pinkspider.leveluptogethermvp.gamificationservice.application;
 
 import static io.pinkspider.global.test.TestReflectionUtils.setId;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyInt;
-import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
@@ -16,6 +13,7 @@ import io.pinkspider.global.enums.ExpSourceType;
 import io.pinkspider.global.enums.TitlePosition;
 import io.pinkspider.global.enums.TitleRarity;
 import io.pinkspider.global.facade.dto.DetailedTitleInfoDto;
+import io.pinkspider.global.facade.dto.EquippedItemRarityDto;
 import io.pinkspider.global.facade.dto.SeasonDto;
 import io.pinkspider.global.facade.dto.SeasonMvpDataDto;
 import io.pinkspider.global.facade.dto.SeasonMvpGuildDto;
@@ -35,7 +33,6 @@ import io.pinkspider.leveluptogethermvp.gamificationservice.achievement.applicat
 import io.pinkspider.leveluptogethermvp.gamificationservice.achievement.application.TitleService.TitleInfo;
 import io.pinkspider.leveluptogethermvp.gamificationservice.achievement.domain.dto.UserAchievementResponse;
 import io.pinkspider.leveluptogethermvp.gamificationservice.attendance.application.AttendanceService;
-import io.pinkspider.leveluptogethermvp.gamificationservice.season.domain.entity.Season;
 import io.pinkspider.leveluptogethermvp.gamificationservice.domain.entity.Title;
 import io.pinkspider.leveluptogethermvp.gamificationservice.domain.entity.UserExperience;
 import io.pinkspider.leveluptogethermvp.gamificationservice.domain.entity.UserStats;
@@ -49,9 +46,10 @@ import io.pinkspider.leveluptogethermvp.gamificationservice.season.api.dto.Seaso
 import io.pinkspider.leveluptogethermvp.gamificationservice.season.api.dto.SeasonResponse;
 import io.pinkspider.leveluptogethermvp.gamificationservice.season.application.SeasonRankingService;
 import io.pinkspider.leveluptogethermvp.gamificationservice.season.domain.dto.SeasonMyRankingResponse;
+import io.pinkspider.leveluptogethermvp.gamificationservice.season.domain.entity.Season;
 import io.pinkspider.leveluptogethermvp.gamificationservice.season.domain.entity.SeasonRankReward;
-import io.pinkspider.leveluptogethermvp.gamificationservice.season.infrastructure.SeasonRankRewardRepository;
 import io.pinkspider.leveluptogethermvp.gamificationservice.season.domain.enums.SeasonStatus;
+import io.pinkspider.leveluptogethermvp.gamificationservice.season.infrastructure.SeasonRankRewardRepository;
 import io.pinkspider.leveluptogethermvp.gamificationservice.stats.application.UserStatsService;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -68,29 +66,41 @@ import org.mockito.junit.jupiter.MockitoExtension;
 @ExtendWith(MockitoExtension.class)
 class GamificationQueryFacadeServiceTest {
 
-    @Mock
-    private TitleService titleService;
+    @Mock private TitleService titleService;
 
     @Mock
-    private UserExperienceService userExperienceService;
+    private io.pinkspider.leveluptogethermvp.gamificationservice.shop.application.UserItemService
+            userItemService;
+
+    @Mock private UserExperienceService userExperienceService;
+
+    @Mock private UserStatsService userStatsService;
+
+    @Mock private AchievementService achievementService;
+
+    @Mock private AttendanceService attendanceService;
+
+    @Mock private SeasonRankingService seasonRankingService;
+
+    @Mock private SeasonRankRewardRepository seasonRankRewardRepository;
 
     @Mock
-    private UserStatsService userStatsService;
+    private io.pinkspider.leveluptogethermvp.gamificationservice.diamond.application.DiamondService
+            diamondService;
 
     @Mock
-    private AchievementService achievementService;
+    private io.pinkspider.leveluptogethermvp.gamificationservice.shop.infrastructure
+                    .ShopItemRepository
+            shopItemRepository;
 
     @Mock
-    private AttendanceService attendanceService;
+    private io.pinkspider.leveluptogethermvp.metaservice.application.MissionCategoryService
+            missionCategoryService;
 
     @Mock
-    private SeasonRankingService seasonRankingService;
-
-    @Mock
-    private SeasonRankRewardRepository seasonRankRewardRepository;
-
-    @Mock
-    private io.pinkspider.leveluptogethermvp.gamificationservice.diamond.application.DiamondService diamondService;
+    private io.pinkspider.leveluptogethermvp.gamificationservice.subscription.application
+                    .SubscriptionService
+            subscriptionService;
 
     // @Lazy 파라미터가 있어 @InjectMocks 대신 수동 생성
     private GamificationQueryFacadeService facadeService;
@@ -99,106 +109,153 @@ class GamificationQueryFacadeServiceTest {
 
     @BeforeEach
     void setUp() {
-        facadeService = new GamificationQueryFacadeService(
-            titleService,
-            userExperienceService,
-            userStatsService,
-            achievementService,
-            attendanceService,
-            seasonRankingService,
-            seasonRankRewardRepository,
-            diamondService
-        );
+        facadeService =
+                new GamificationQueryFacadeService(
+                        titleService,
+                        userItemService,
+                        userExperienceService,
+                        userStatsService,
+                        achievementService,
+                        attendanceService,
+                        seasonRankingService,
+                        seasonRankRewardRepository,
+                        shopItemRepository,
+                        diamondService,
+                        missionCategoryService,
+                        subscriptionService);
     }
 
     // ========== 테스트 픽스처 헬퍼 ==========
 
-    private UserExperience createUserExperience(Long id, String userId, int level, int currentExp, int totalExp) {
-        UserExperience ue = UserExperience.builder()
-            .userId(userId)
-            .currentLevel(level)
-            .currentExp(currentExp)
-            .totalExp(totalExp)
-            .build();
+    private UserExperience createUserExperience(
+            Long id, String userId, int level, int currentExp, int totalExp) {
+        UserExperience ue =
+                UserExperience.builder()
+                        .userId(userId)
+                        .currentLevel(level)
+                        .currentExp(currentExp)
+                        .totalExp(totalExp)
+                        .build();
         setId(ue, id);
         return ue;
     }
 
     private UserStats createUserStats(Long id, String userId) {
-        UserStats stats = UserStats.builder()
-            .userId(userId)
-            .totalMissionCompletions(10)
-            .totalMissionFullCompletions(2)
-            .totalGuildMissionCompletions(3)
-            .currentStreak(5)
-            .maxStreak(7)
-            .totalAchievementsCompleted(4)
-            .totalTitlesAcquired(6)
-            .rankingPoints(500L)
-            .maxCompletedMissionDuration(30)
-            .totalLikesReceived(20L)
-            .friendCount(8)
-            .build();
+        UserStats stats =
+                UserStats.builder()
+                        .userId(userId)
+                        .totalMissionCompletions(10)
+                        .totalMissionFullCompletions(2)
+                        .totalGuildMissionCompletions(3)
+                        .currentStreak(5)
+                        .maxStreak(7)
+                        .totalAchievementsCompleted(4)
+                        .totalTitlesAcquired(6)
+                        .rankingPoints(500L)
+                        .maxCompletedMissionDuration(30)
+                        .totalLikesReceived(20L)
+                        .friendCount(8)
+                        .build();
         setId(stats, id);
         return stats;
     }
 
     private Title createTitle(Long id, String name, TitleRarity rarity, TitlePosition position) {
-        Title title = Title.builder()
-            .name(name)
-            .nameEn(name + "_en")
-            .rarity(rarity)
-            .positionType(position)
-            .acquisitionType(TitleAcquisitionType.ACHIEVEMENT)
-            .colorCode("#FF0000")
-            .build();
+        Title title =
+                Title.builder()
+                        .name(name)
+                        .nameEn(name + "_en")
+                        .rarity(rarity)
+                        .positionType(position)
+                        .acquisitionType(TitleAcquisitionType.ACHIEVEMENT)
+                        .colorCode("#FF0000")
+                        .build();
         setId(title, id);
         return title;
     }
 
-    private UserTitle createUserTitle(Long id, String userId, Title title, boolean isEquipped, TitlePosition equippedPosition) {
-        UserTitle ut = UserTitle.builder()
-            .userId(userId)
-            .title(title)
-            .isEquipped(isEquipped)
-            .equippedPosition(equippedPosition)
-            .acquiredAt(LocalDateTime.now())
-            .build();
+    private UserTitle createUserTitle(
+            Long id,
+            String userId,
+            Title title,
+            boolean isEquipped,
+            TitlePosition equippedPosition) {
+        UserTitle ut =
+                UserTitle.builder()
+                        .userId(userId)
+                        .title(title)
+                        .isEquipped(isEquipped)
+                        .equippedPosition(equippedPosition)
+                        .acquiredAt(LocalDateTime.now())
+                        .build();
         setId(ut, id);
         return ut;
     }
 
     private Season createSeason(Long id, String seasonTitle) {
-        Season season = Season.builder()
-            .title(seasonTitle)
-            .description("테스트 시즌")
-            .startAt(LocalDateTime.now().minusDays(10))
-            .endAt(LocalDateTime.now().plusDays(20))
-            .isActive(true)
-            .rewardTitleId(1L)
-            .rewardTitleName("챔피언")
-            .build();
+        Season season =
+                Season.builder()
+                        .title(seasonTitle)
+                        .description("테스트 시즌")
+                        .startAt(LocalDateTime.now().minusDays(10))
+                        .endAt(LocalDateTime.now().plusDays(20))
+                        .isActive(true)
+                        .rewardTitleId(1L)
+                        .rewardTitleName("챔피언")
+                        .build();
         setId(season, id);
         return season;
     }
 
     private UserAchievementResponse createUserAchievementResponse(Long id, String name) {
         return UserAchievementResponse.builder()
-            .id(id)
-            .achievementId(id * 10)
-            .name(name)
-            .description("업적 설명")
-            .categoryCode("MISSION")
-            .currentCount(5)
-            .requiredCount(10)
-            .progressPercent(50.0)
-            .isCompleted(false)
-            .isRewardClaimed(false)
-            .rewardExp(100)
-            .build();
+                .id(id)
+                .achievementId(id * 10)
+                .name(name)
+                .description("업적 설명")
+                .categoryCode("MISSION")
+                .currentCount(5)
+                .requiredCount(10)
+                .progressPercent(50.0)
+                .isCompleted(false)
+                .isRewardClaimed(false)
+                .rewardExp(100)
+                .build();
     }
 
     // ========== 레벨 조회 테스트 ==========
+
+    @Nested
+    @DisplayName("getDailyRewardSummary 테스트 (LUT-568)")
+    class GetDailyRewardSummaryTest {
+
+        @Test
+        @DisplayName("UserExperienceService 에 그대로 위임한다")
+        void delegatesToUserExperienceService() {
+            // given
+            java.time.LocalDateTime start = java.time.LocalDateTime.of(2026, 9, 30, 15, 0);
+            java.time.LocalDateTime end = java.time.LocalDateTime.of(2026, 10, 31, 15, 0);
+            java.util.List<io.pinkspider.global.facade.dto.DailyRewardDto> expected =
+                    java.util.List.of(
+                            new io.pinkspider.global.facade.dto.DailyRewardDto(
+                                    java.time.LocalDate.of(2026, 10, 15),
+                                    io.pinkspider.global.enums.ExpSourceType
+                                            .DAILY_MISSION_MILESTONE,
+                                    3L,
+                                    20L));
+            org.mockito.Mockito.when(
+                            userExperienceService.getDailyRewardSummary(
+                                    TEST_USER_ID, start, end, "Asia/Seoul"))
+                    .thenReturn(expected);
+
+            // when
+            var result =
+                    facadeService.getDailyRewardSummary(TEST_USER_ID, start, end, "Asia/Seoul");
+
+            // then
+            assertThat(result).isSameAs(expected);
+        }
+    }
 
     @Nested
     @DisplayName("getUserLevel 테스트")
@@ -346,11 +403,11 @@ class GamificationQueryFacadeServiceTest {
         @DisplayName("장착된 칭호의 상세 정보를 DTO로 반환한다")
         void getDetailedEquippedTitleInfo_success() {
             // given
-            DetailedTitleInfo detailedInfo = new DetailedTitleInfo(
-                "신입 수련생", TitleRarity.COMMON,
-                "신입", TitleRarity.COMMON,
-                "수련생", TitleRarity.UNCOMMON
-            );
+            DetailedTitleInfo detailedInfo =
+                    new DetailedTitleInfo(
+                            "신입 수련생", TitleRarity.COMMON,
+                            "신입", TitleRarity.COMMON,
+                            "수련생", TitleRarity.UNCOMMON);
             when(titleService.getDetailedEquippedTitleInfo(TEST_USER_ID)).thenReturn(detailedInfo);
 
             // when
@@ -401,11 +458,13 @@ class GamificationQueryFacadeServiceTest {
             // given
             Title leftTitle = createTitle(1L, "신입", TitleRarity.COMMON, TitlePosition.LEFT);
             Title rightTitle = createTitle(2L, "수련생", TitleRarity.COMMON, TitlePosition.RIGHT);
-            UserTitle leftUserTitle = createUserTitle(10L, TEST_USER_ID, leftTitle, true, TitlePosition.LEFT);
-            UserTitle rightUserTitle = createUserTitle(11L, TEST_USER_ID, rightTitle, true, TitlePosition.RIGHT);
+            UserTitle leftUserTitle =
+                    createUserTitle(10L, TEST_USER_ID, leftTitle, true, TitlePosition.LEFT);
+            UserTitle rightUserTitle =
+                    createUserTitle(11L, TEST_USER_ID, rightTitle, true, TitlePosition.RIGHT);
 
             when(titleService.getEquippedTitleEntitiesByUserId(TEST_USER_ID))
-                .thenReturn(List.of(leftUserTitle, rightUserTitle));
+                    .thenReturn(List.of(leftUserTitle, rightUserTitle));
 
             // when
             List<UserTitleDto> result = facadeService.getEquippedTitlesByUserId(TEST_USER_ID);
@@ -447,10 +506,11 @@ class GamificationQueryFacadeServiceTest {
             UserTitle ut2 = createUserTitle(11L, "user-2", title, true, TitlePosition.LEFT);
 
             when(titleService.getEquippedTitleEntitiesByUserIds(userIds))
-                .thenReturn(Map.of("user-1", List.of(ut1), "user-2", List.of(ut2)));
+                    .thenReturn(Map.of("user-1", List.of(ut1), "user-2", List.of(ut2)));
 
             // when
-            Map<String, List<UserTitleDto>> result = facadeService.getEquippedTitlesByUserIds(userIds);
+            Map<String, List<UserTitleDto>> result =
+                    facadeService.getEquippedTitlesByUserIds(userIds);
 
             // then
             assertThat(result).hasSize(2);
@@ -473,7 +533,8 @@ class GamificationQueryFacadeServiceTest {
             UserTitle ut1 = createUserTitle(10L, TEST_USER_ID, title1, true, TitlePosition.LEFT);
             UserTitle ut2 = createUserTitle(11L, TEST_USER_ID, title2, false, null);
 
-            when(titleService.getUserTitleEntitiesWithTitle(TEST_USER_ID)).thenReturn(List.of(ut1, ut2));
+            when(titleService.getUserTitleEntitiesWithTitle(TEST_USER_ID))
+                    .thenReturn(List.of(ut1, ut2));
 
             // when
             List<UserTitleDto> result = facadeService.getUserTitlesWithTitleInfo(TEST_USER_ID);
@@ -513,8 +574,10 @@ class GamificationQueryFacadeServiceTest {
             // given
             Title leftTitle = createTitle(1L, "신입", TitleRarity.COMMON, TitlePosition.LEFT);
             Title rightTitle = createTitle(2L, "수련생", TitleRarity.COMMON, TitlePosition.RIGHT);
-            UserTitle leftUserTitle = createUserTitle(10L, TEST_USER_ID, leftTitle, true, TitlePosition.LEFT);
-            UserTitle rightUserTitle = createUserTitle(11L, TEST_USER_ID, rightTitle, true, TitlePosition.RIGHT);
+            UserTitle leftUserTitle =
+                    createUserTitle(10L, TEST_USER_ID, leftTitle, true, TitlePosition.LEFT);
+            UserTitle rightUserTitle =
+                    createUserTitle(11L, TEST_USER_ID, rightTitle, true, TitlePosition.RIGHT);
 
             TitleChangeResult changeResult = new TitleChangeResult(leftUserTitle, rightUserTitle);
             when(titleService.changeTitles(TEST_USER_ID, 10L, 11L)).thenReturn(changeResult);
@@ -624,7 +687,8 @@ class GamificationQueryFacadeServiceTest {
             // given
             UserAchievementResponse resp1 = createUserAchievementResponse(1L, "첫 미션 완료");
             UserAchievementResponse resp2 = createUserAchievementResponse(2L, "길드 가입");
-            when(achievementService.getUserAchievements(TEST_USER_ID)).thenReturn(List.of(resp1, resp2));
+            when(achievementService.getUserAchievements(TEST_USER_ID))
+                    .thenReturn(List.of(resp1, resp2));
 
             // when
             List<UserAchievementDto> result = facadeService.getUserAchievements(TEST_USER_ID);
@@ -666,24 +730,40 @@ class GamificationQueryFacadeServiceTest {
             UserExperienceResponse resp = UserExperienceResponse.from(ue, 500);
 
             when(userExperienceService.addExperience(
-                eq(TEST_USER_ID), eq(100), eq(ExpSourceType.MISSION_EXECUTION),
-                eq(10L), eq("미션 완료"), eq(1L), eq("운동")
-            )).thenReturn(resp);
+                            eq(TEST_USER_ID),
+                            eq(100),
+                            eq(ExpSourceType.MISSION_EXECUTION),
+                            eq(10L),
+                            eq("미션 완료"),
+                            eq(1L),
+                            eq("운동")))
+                    .thenReturn(resp);
 
             // when
-            UserExperienceDto result = facadeService.addExperience(
-                TEST_USER_ID, 100, ExpSourceType.MISSION_EXECUTION, 10L, "미션 완료", 1L, "운동"
-            );
+            UserExperienceDto result =
+                    facadeService.addExperience(
+                            TEST_USER_ID,
+                            100,
+                            ExpSourceType.MISSION_EXECUTION,
+                            10L,
+                            "미션 완료",
+                            1L,
+                            "운동");
 
             // then
             assertThat(result).isNotNull();
             assertThat(result.userId()).isEqualTo(TEST_USER_ID);
             assertThat(result.currentLevel()).isEqualTo(5);
             assertThat(result.nextLevelRequiredExp()).isEqualTo(500);
-            verify(userExperienceService).addExperience(
-                eq(TEST_USER_ID), eq(100), eq(ExpSourceType.MISSION_EXECUTION),
-                eq(10L), eq("미션 완료"), eq(1L), eq("운동")
-            );
+            verify(userExperienceService)
+                    .addExperience(
+                            eq(TEST_USER_ID),
+                            eq(100),
+                            eq(ExpSourceType.MISSION_EXECUTION),
+                            eq(10L),
+                            eq("미션 완료"),
+                            eq(1L),
+                            eq("운동"));
         }
     }
 
@@ -699,23 +779,39 @@ class GamificationQueryFacadeServiceTest {
             UserExperienceResponse resp = UserExperienceResponse.from(ue, 500);
 
             when(userExperienceService.subtractExperience(
-                eq(TEST_USER_ID), eq(50), eq(ExpSourceType.MISSION_EXECUTION),
-                eq(10L), eq("미션 취소"), eq(1L), eq("운동")
-            )).thenReturn(resp);
+                            eq(TEST_USER_ID),
+                            eq(50),
+                            eq(ExpSourceType.MISSION_EXECUTION),
+                            eq(10L),
+                            eq("미션 취소"),
+                            eq(1L),
+                            eq("운동")))
+                    .thenReturn(resp);
 
             // when
-            UserExperienceDto result = facadeService.subtractExperience(
-                TEST_USER_ID, 50, ExpSourceType.MISSION_EXECUTION, 10L, "미션 취소", 1L, "운동"
-            );
+            UserExperienceDto result =
+                    facadeService.subtractExperience(
+                            TEST_USER_ID,
+                            50,
+                            ExpSourceType.MISSION_EXECUTION,
+                            10L,
+                            "미션 취소",
+                            1L,
+                            "운동");
 
             // then
             assertThat(result).isNotNull();
             assertThat(result.userId()).isEqualTo(TEST_USER_ID);
             assertThat(result.currentLevel()).isEqualTo(4);
-            verify(userExperienceService).subtractExperience(
-                eq(TEST_USER_ID), eq(50), eq(ExpSourceType.MISSION_EXECUTION),
-                eq(10L), eq("미션 취소"), eq(1L), eq("운동")
-            );
+            verify(userExperienceService)
+                    .subtractExperience(
+                            eq(TEST_USER_ID),
+                            eq(50),
+                            eq(ExpSourceType.MISSION_EXECUTION),
+                            eq(10L),
+                            eq("미션 취소"),
+                            eq(1L),
+                            eq("운동"));
         }
     }
 
@@ -762,7 +858,9 @@ class GamificationQueryFacadeServiceTest {
         @DisplayName("데이터 소스 기준으로 업적을 체크한다")
         void checkAchievementsByDataSource_success() {
             // given
-            doNothing().when(achievementService).checkAchievementsByDataSource(TEST_USER_ID, "USER_STATS");
+            doNothing()
+                    .when(achievementService)
+                    .checkAchievementsByDataSource(TEST_USER_ID, "USER_STATS");
 
             // when
             facadeService.checkAchievementsByDataSource(TEST_USER_ID, "USER_STATS");
@@ -785,15 +883,25 @@ class GamificationQueryFacadeServiceTest {
             Season season = createSeason(1L, "2024 시즌 1");
             SeasonResponse seasonResponse = SeasonResponse.from(season);
 
-            SeasonMvpPlayerResponse player = SeasonMvpPlayerResponse.of(
-                "player-1", "플레이어1", null, 10,
-                "신입 수련생", TitleRarity.COMMON, "신입", TitleRarity.COMMON,
-                "수련생", TitleRarity.COMMON, 1000L, 1
-            );
-            SeasonMvpGuildResponse guild = SeasonMvpGuildResponse.of(
-                100L, "챔피언 길드", null, 5, 30, 5000L, 1
-            );
-            SeasonMvpData mvpData = SeasonMvpData.of(seasonResponse, List.of(player), List.of(guild));
+            SeasonMvpPlayerResponse player =
+                    SeasonMvpPlayerResponse.of(
+                            "player-1",
+                            "플레이어1",
+                            null,
+                            10,
+                            "신입 수련생",
+                            TitleRarity.COMMON,
+                            "신입",
+                            TitleRarity.COMMON,
+                            "수련생",
+                            TitleRarity.COMMON,
+                            1000L,
+                            1,
+                            List.of(new EquippedItemRarityDto("HEAD", TitleRarity.EPIC)));
+            SeasonMvpGuildResponse guild =
+                    SeasonMvpGuildResponse.of(100L, "챔피언 길드", null, 5, 30, 5000L, 1);
+            SeasonMvpData mvpData =
+                    SeasonMvpData.of(seasonResponse, List.of(player), List.of(guild));
             when(seasonRankingService.getSeasonMvpData("ko")).thenReturn(Optional.of(mvpData));
 
             // when
@@ -907,21 +1015,23 @@ class GamificationQueryFacadeServiceTest {
         void getSeasonRankRewards_success() {
             // given
             Season season = createSeason(1L, "시즌 1");
-            SeasonRankReward reward = SeasonRankReward.builder()
-                .season(season)
-                .rankStart(1)
-                .rankEnd(1)
-                .titleId(10L)
-                .titleName("챔피언")
-                .titleRarity("LEGENDARY")
-                .categoryId(null)
-                .categoryName(null)
-                .sortOrder(1)
-                .isActive(true)
-                .build();
+            SeasonRankReward reward =
+                    SeasonRankReward.builder()
+                            .season(season)
+                            .rankStart(1)
+                            .rankEnd(1)
+                            .titleId(10L)
+                            .titleName("챔피언")
+                            .titleRarity("LEGENDARY")
+                            .categoryId(null)
+                            .categoryName(null)
+                            .sortOrder(1)
+                            .isActive(true)
+                            .build();
             setId(reward, 100L);
 
-            when(seasonRankRewardRepository.findBySeasonIdOrderBySortOrder(1L)).thenReturn(List.of(reward));
+            when(seasonRankRewardRepository.findBySeasonIdOrderBySortOrder(1L))
+                    .thenReturn(List.of(reward));
 
             // when
             List<SeasonRankRewardDto> result = facadeService.getSeasonRankRewards(1L);
@@ -935,14 +1045,257 @@ class GamificationQueryFacadeServiceTest {
             assertThat(result.get(0).titleId()).isEqualTo(10L);
             assertThat(result.get(0).titleName()).isEqualTo("챔피언");
             assertThat(result.get(0).rankRangeDisplay()).isEqualTo("1위");
+            // LUT-374: 아이템 미지정 보상은 item=null
+            assertThat(result.get(0).item()).isNull();
             verify(seasonRankRewardRepository).findBySeasonIdOrderBySortOrder(1L);
+        }
+
+        @Test
+        @DisplayName("LUT-420: 칭호명 로케일 변형(en/ar/ja)을 칭호 배치 조회로 채워 내려준다")
+        void getSeasonRankRewards_includesLocalizedTitleNames() {
+            // given
+            Season season = createSeason(1L, "시즌 1");
+            SeasonRankReward reward =
+                    SeasonRankReward.builder()
+                            .season(season)
+                            .rankStart(1)
+                            .rankEnd(1)
+                            .titleId(10L)
+                            .titleName("챔피언")
+                            .titleRarity("LEGENDARY")
+                            .sortOrder(1)
+                            .isActive(true)
+                            .build();
+            setId(reward, 100L);
+
+            Title title =
+                    Title.builder()
+                            .name("챔피언")
+                            .nameEn("Champion")
+                            .nameAr("بطل")
+                            .nameJa("チャンピオン")
+                            .rarity(TitleRarity.LEGENDARY)
+                            .build();
+            setId(title, 10L);
+
+            when(seasonRankRewardRepository.findBySeasonIdOrderBySortOrder(1L))
+                    .thenReturn(List.of(reward));
+            when(titleService.getTitleEntitiesByIds(List.of(10L))).thenReturn(Map.of(10L, title));
+
+            // when
+            List<SeasonRankRewardDto> result = facadeService.getSeasonRankRewards(1L);
+
+            // then
+            assertThat(result.get(0).titleName()).isEqualTo("챔피언");
+            assertThat(result.get(0).titleNameEn()).isEqualTo("Champion");
+            assertThat(result.get(0).titleNameAr()).isEqualTo("بطل");
+            assertThat(result.get(0).titleNameJa()).isEqualTo("チャンピオン");
+        }
+
+        @Test
+        @DisplayName("LUT-420: 칭호가 삭제된 보상은 로케일 변형이 null 로 내려간다 (스냅샷 폴백)")
+        void getSeasonRankRewards_missingTitle_localizedNamesNull() {
+            // given
+            Season season = createSeason(1L, "시즌 1");
+            SeasonRankReward reward =
+                    SeasonRankReward.builder()
+                            .season(season)
+                            .rankStart(1)
+                            .rankEnd(1)
+                            .titleId(99L)
+                            .titleName("사라진 칭호")
+                            .sortOrder(1)
+                            .isActive(true)
+                            .build();
+            setId(reward, 100L);
+
+            when(seasonRankRewardRepository.findBySeasonIdOrderBySortOrder(1L))
+                    .thenReturn(List.of(reward));
+            when(titleService.getTitleEntitiesByIds(List.of(99L))).thenReturn(Map.of());
+
+            // when
+            List<SeasonRankRewardDto> result = facadeService.getSeasonRankRewards(1L);
+
+            // then — FE 는 titleName(ko 스냅샷)으로 폴백
+            assertThat(result.get(0).titleName()).isEqualTo("사라진 칭호");
+            assertThat(result.get(0).titleNameEn()).isNull();
+            assertThat(result.get(0).titleNameAr()).isNull();
+            assertThat(result.get(0).titleNameJa()).isNull();
+        }
+
+        @Test
+        @DisplayName("LUT-414: 전체 랭킹 보상은 순위/랭킹타입 로케일 변형을 함께 내려준다")
+        void getSeasonRankRewards_overall_includesLocalizedDisplays() {
+            // given
+            Season season = createSeason(1L, "시즌 1");
+            SeasonRankReward reward =
+                    SeasonRankReward.builder()
+                            .season(season)
+                            .rankStart(2)
+                            .rankEnd(10)
+                            .categoryId(null)
+                            .sortOrder(1)
+                            .isActive(true)
+                            .build();
+            setId(reward, 100L);
+
+            when(seasonRankRewardRepository.findBySeasonIdOrderBySortOrder(1L))
+                    .thenReturn(List.of(reward));
+
+            // when
+            List<SeasonRankRewardDto> result = facadeService.getSeasonRankRewards(1L);
+
+            // then
+            SeasonRankRewardDto dto = result.get(0);
+            assertThat(dto.rankRangeDisplay()).isEqualTo("2~10위");
+            assertThat(dto.rankRangeDisplayEn()).isEqualTo("Rank 2-10");
+            assertThat(dto.rankRangeDisplayJa()).isEqualTo("2~10位");
+            assertThat(dto.rankRangeDisplayAr()).isEqualTo("المراكز 2-10");
+            assertThat(dto.rankingTypeDisplay()).isEqualTo("전체");
+            assertThat(dto.rankingTypeDisplayEn()).isEqualTo("Overall");
+            assertThat(dto.rankingTypeDisplayJa()).isEqualTo("総合");
+            assertThat(dto.rankingTypeDisplayAr()).isEqualTo("الإجمالي");
+            // 전체 랭킹은 카테고리 조회를 하지 않는다
+            verify(missionCategoryService, org.mockito.Mockito.never()).getCategory(anyLong());
+        }
+
+        @Test
+        @DisplayName("LUT-414: 카테고리 랭킹 보상은 로케일별 카테고리명을 랭킹타입으로 내려준다")
+        void getSeasonRankRewards_category_includesLocalizedCategoryNames() {
+            // given
+            Season season = createSeason(1L, "시즌 1");
+            SeasonRankReward reward =
+                    SeasonRankReward.builder()
+                            .season(season)
+                            .rankStart(1)
+                            .rankEnd(1)
+                            .categoryId(7L)
+                            .categoryName("운동")
+                            .sortOrder(1)
+                            .isActive(true)
+                            .build();
+            setId(reward, 100L);
+
+            var category =
+                    io.pinkspider.leveluptogethermvp.metaservice.domain.dto.MissionCategoryResponse
+                            .builder()
+                            .id(7L)
+                            .name("운동")
+                            .nameEn("Workout")
+                            .nameAr("تمرين")
+                            .nameJa("運動")
+                            .build();
+
+            when(seasonRankRewardRepository.findBySeasonIdOrderBySortOrder(1L))
+                    .thenReturn(List.of(reward));
+            when(missionCategoryService.getCategory(7L)).thenReturn(category);
+
+            // when
+            List<SeasonRankRewardDto> result = facadeService.getSeasonRankRewards(1L);
+
+            // then
+            SeasonRankRewardDto dto = result.get(0);
+            assertThat(dto.categoryName()).isEqualTo("운동");
+            assertThat(dto.categoryNameEn()).isEqualTo("Workout");
+            assertThat(dto.categoryNameJa()).isEqualTo("運動");
+            assertThat(dto.rankingTypeDisplay()).isEqualTo("운동");
+            assertThat(dto.rankingTypeDisplayEn()).isEqualTo("Workout");
+            assertThat(dto.rankingTypeDisplayJa()).isEqualTo("運動");
+            assertThat(dto.rankingTypeDisplayAr()).isEqualTo("تمرين");
+        }
+
+        @Test
+        @DisplayName("LUT-414: 카테고리 조회 실패 시 로케일 변형은 한글 스냅샷으로 폴백한다")
+        void getSeasonRankRewards_categoryLookupFails_fallsBackToSnapshot() {
+            // given
+            Season season = createSeason(1L, "시즌 1");
+            SeasonRankReward reward =
+                    SeasonRankReward.builder()
+                            .season(season)
+                            .rankStart(1)
+                            .rankEnd(1)
+                            .categoryId(7L)
+                            .categoryName("운동")
+                            .sortOrder(1)
+                            .isActive(true)
+                            .build();
+            setId(reward, 100L);
+
+            when(seasonRankRewardRepository.findBySeasonIdOrderBySortOrder(1L))
+                    .thenReturn(List.of(reward));
+            when(missionCategoryService.getCategory(7L)).thenThrow(new RuntimeException("카테고리 없음"));
+
+            // when
+            List<SeasonRankRewardDto> result = facadeService.getSeasonRankRewards(1L);
+
+            // then — 예외 없이 렌더 가능해야 하고, 변형은 한글 스냅샷 폴백
+            SeasonRankRewardDto dto = result.get(0);
+            assertThat(dto.categoryNameEn()).isNull();
+            assertThat(dto.rankingTypeDisplayEn()).isEqualTo("운동");
+            assertThat(dto.rankingTypeDisplayJa()).isEqualTo("운동");
+        }
+
+        @Test
+        @DisplayName("LUT-374: 아이템이 지정된 보상은 아이템 정보(다국어명/설명/희귀도/이미지)를 포함한다")
+        void getSeasonRankRewards_withItem_includesItemInfo() {
+            // given
+            Season season = createSeason(1L, "시즌 1");
+            SeasonRankReward reward =
+                    SeasonRankReward.builder()
+                            .season(season)
+                            .rankStart(1)
+                            .rankEnd(1)
+                            .titleId(10L)
+                            .titleName("챔피언")
+                            .titleRarity("LEGENDARY")
+                            .itemId(5L)
+                            .sortOrder(1)
+                            .isActive(true)
+                            .build();
+            setId(reward, 100L);
+
+            var item =
+                    io.pinkspider.leveluptogethermvp.gamificationservice.shop.domain.entity.ShopItem
+                            .builder()
+                            .name("황금 날개")
+                            .nameEn("Golden Wings")
+                            .nameAr("أجنحة ذهبية")
+                            .nameJa("黄金の翼")
+                            .description("시즌 한정 보상")
+                            .descriptionEn("Season reward")
+                            .descriptionAr("مكافأة موسمية")
+                            .descriptionJa("シーズン報酬")
+                            .rarity(TitleRarity.LEGENDARY)
+                            .imageUrl("https://example.com/item.png")
+                            .build();
+            setId(item, 5L);
+
+            when(seasonRankRewardRepository.findBySeasonIdOrderBySortOrder(1L))
+                    .thenReturn(List.of(reward));
+            when(shopItemRepository.findAllById(List.of(5L))).thenReturn(List.of(item));
+
+            // when
+            List<SeasonRankRewardDto> result = facadeService.getSeasonRankRewards(1L);
+
+            // then
+            assertThat(result).hasSize(1);
+            var rewardItem = result.get(0).item();
+            assertThat(rewardItem).isNotNull();
+            assertThat(rewardItem.id()).isEqualTo(5L);
+            assertThat(rewardItem.name()).isEqualTo("황금 날개");
+            assertThat(rewardItem.nameEn()).isEqualTo("Golden Wings");
+            assertThat(rewardItem.nameJa()).isEqualTo("黄金の翼");
+            assertThat(rewardItem.description()).isEqualTo("시즌 한정 보상");
+            assertThat(rewardItem.rarity()).isEqualTo("LEGENDARY");
+            assertThat(rewardItem.imageUrl()).isEqualTo("https://example.com/item.png");
         }
 
         @Test
         @DisplayName("보상이 없으면 빈 목록을 반환한다")
         void getSeasonRankRewards_empty() {
             // given
-            when(seasonRankRewardRepository.findBySeasonIdOrderBySortOrder(99L)).thenReturn(List.of());
+            when(seasonRankRewardRepository.findBySeasonIdOrderBySortOrder(99L))
+                    .thenReturn(List.of());
 
             // when
             List<SeasonRankRewardDto> result = facadeService.getSeasonRankRewards(99L);
@@ -961,25 +1314,40 @@ class GamificationQueryFacadeServiceTest {
         void getSeasonPlayerRankings_success() {
             // given
             Season season = createSeason(1L, "시즌 1");
-            SeasonMvpPlayerResponse player = SeasonMvpPlayerResponse.of(
-                "player-1", "플레이어1", null, 10,
-                "신입 수련생", TitleRarity.COMMON, "신입", TitleRarity.COMMON,
-                "수련생", TitleRarity.COMMON, 1000L, 1
-            );
+            SeasonMvpPlayerResponse player =
+                    SeasonMvpPlayerResponse.of(
+                            "player-1",
+                            "플레이어1",
+                            null,
+                            10,
+                            "신입 수련생",
+                            TitleRarity.COMMON,
+                            "신입",
+                            TitleRarity.COMMON,
+                            "수련생",
+                            TitleRarity.COMMON,
+                            1000L,
+                            1,
+                            List.of(new EquippedItemRarityDto("BASIC", TitleRarity.RARE)));
 
             when(seasonRankingService.getSeasonById(1L)).thenReturn(Optional.of(season));
-            when(seasonRankingService.getSeasonPlayerRankings(eq(season), eq(null), eq(10), eq("ko")))
-                .thenReturn(List.of(player));
+            when(seasonRankingService.getSeasonPlayerRankings(
+                            eq(season), eq(null), eq(10), eq("ko")))
+                    .thenReturn(List.of(player));
 
             // when
-            List<SeasonMvpPlayerDto> result = facadeService.getSeasonPlayerRankings(1L, null, 10, "ko");
+            List<SeasonMvpPlayerDto> result =
+                    facadeService.getSeasonPlayerRankings(1L, null, 10, "ko");
 
             // then
             assertThat(result).hasSize(1);
             assertThat(result.get(0).userId()).isEqualTo("player-1");
             assertThat(result.get(0).seasonExp()).isEqualTo(1000L);
+            assertThat(result.get(0).equippedItemRarities()).hasSize(1);
+            assertThat(result.get(0).equippedItemRarities().get(0).itemType()).isEqualTo("BASIC");
             assertThat(result.get(0).rank()).isEqualTo(1);
-            verify(seasonRankingService).getSeasonPlayerRankings(eq(season), eq(null), eq(10), eq("ko"));
+            verify(seasonRankingService)
+                    .getSeasonPlayerRankings(eq(season), eq(null), eq(10), eq("ko"));
         }
 
         @Test
@@ -989,7 +1357,8 @@ class GamificationQueryFacadeServiceTest {
             when(seasonRankingService.getSeasonById(999L)).thenReturn(Optional.empty());
 
             // when
-            List<SeasonMvpPlayerDto> result = facadeService.getSeasonPlayerRankings(999L, null, 10, "ko");
+            List<SeasonMvpPlayerDto> result =
+                    facadeService.getSeasonPlayerRankings(999L, null, 10, "ko");
 
             // then
             assertThat(result).isEmpty();
@@ -1005,12 +1374,12 @@ class GamificationQueryFacadeServiceTest {
         void getSeasonGuildRankings_success() {
             // given
             Season season = createSeason(1L, "시즌 1");
-            SeasonMvpGuildResponse guild = SeasonMvpGuildResponse.of(
-                100L, "챔피언 길드", null, 5, 30, 5000L, 1
-            );
+            SeasonMvpGuildResponse guild =
+                    SeasonMvpGuildResponse.of(100L, "챔피언 길드", null, 5, 30, 5000L, 1);
 
             when(seasonRankingService.getSeasonById(1L)).thenReturn(Optional.of(season));
-            when(seasonRankingService.getSeasonGuildRankings(eq(season), eq(5))).thenReturn(List.of(guild));
+            when(seasonRankingService.getSeasonGuildRankings(eq(season), eq(5)))
+                    .thenReturn(List.of(guild));
 
             // when
             List<SeasonMvpGuildDto> result = facadeService.getSeasonGuildRankings(1L, 5);
@@ -1047,13 +1416,12 @@ class GamificationQueryFacadeServiceTest {
         void getMySeasonRanking_success() {
             // given
             Season season = createSeason(1L, "시즌 1");
-            SeasonMyRankingResponse rankingResponse = SeasonMyRankingResponse.of(
-                5, 1500L, 3, 8000L, 100L, "챔피언 길드"
-            );
+            SeasonMyRankingResponse rankingResponse =
+                    SeasonMyRankingResponse.of(5, 1500L, 3, 8000L, 100L, "챔피언 길드");
 
             when(seasonRankingService.getSeasonById(1L)).thenReturn(Optional.of(season));
             when(seasonRankingService.getMySeasonRanking(eq(season), eq(TEST_USER_ID)))
-                .thenReturn(rankingResponse);
+                    .thenReturn(rankingResponse);
 
             // when
             SeasonMyRankingDto result = facadeService.getMySeasonRanking(1L, TEST_USER_ID);
@@ -1124,6 +1492,101 @@ class GamificationQueryFacadeServiceTest {
 
             // then
             assertThat(result).isEqualTo(7L);
+        }
+    }
+
+    @Nested
+    @DisplayName("getCurrentAttendanceStreak 테스트 (LUT-555)")
+    class GetCurrentAttendanceStreakTest {
+
+        @Test
+        @DisplayName("AttendanceService 의 현재 연속 출석 일수를 그대로 반환한다")
+        void getCurrentAttendanceStreak_delegatesToAttendanceService() {
+            // given
+            when(attendanceService.getCurrentStreak(TEST_USER_ID)).thenReturn(12);
+
+            // when
+            int result = facadeService.getCurrentAttendanceStreak(TEST_USER_ID);
+
+            // then
+            assertThat(result).isEqualTo(12);
+        }
+    }
+
+    @Nested
+    @DisplayName("getEquippedItemsByUserId 테스트 (LUT-296)")
+    class GetEquippedItemsByUserIdTest {
+
+        @Test
+        @DisplayName("장착중 아이템을 ShopItem 정보 평탄화 DTO로 반환한다")
+        void getEquippedItemsByUserId_flattensShopItem() {
+            // given
+            var shopItem =
+                    io.pinkspider.leveluptogethermvp.gamificationservice.shop.domain.entity.ShopItem
+                            .builder()
+                            .name("메딕의 날개")
+                            .nameEn("Medic Wings")
+                            .description("치유의 기운이 감도는 날개")
+                            .descriptionEn("Wings imbued with healing energy")
+                            .itemType(
+                                    io.pinkspider.leveluptogethermvp.gamificationservice.shop.domain
+                                            .enums.ShopItemType.EFFECT)
+                            .rarity(TitleRarity.RARE)
+                            .imageUrl("/uploads/shop-items/3.png")
+                            .imagePosition(
+                                    io.pinkspider.leveluptogethermvp.gamificationservice.shop.domain
+                                            .enums.ShopItemImagePosition.BACK)
+                            .price(10)
+                            .isActive(true)
+                            .build();
+            setId(shopItem, 3L);
+            var userItem =
+                    io.pinkspider.leveluptogethermvp.gamificationservice.shop.domain.entity.UserItem
+                            .builder()
+                            .userId(TEST_USER_ID)
+                            .shopItem(shopItem)
+                            .isEquipped(true)
+                            .build();
+            setId(userItem, 11L);
+            when(userItemService.getEquippedItemEntities(TEST_USER_ID))
+                    .thenReturn(java.util.List.of(userItem));
+
+            // when
+            var result = facadeService.getEquippedItemsByUserId(TEST_USER_ID);
+
+            // then
+            assertThat(result).hasSize(1);
+            assertThat(result.get(0).shopItemId()).isEqualTo(3L);
+            assertThat(result.get(0).name()).isEqualTo("메딕의 날개");
+            assertThat(result.get(0).description()).isEqualTo("치유의 기운이 감도는 날개");
+            assertThat(result.get(0).descriptionEn()).isEqualTo("Wings imbued with healing energy");
+            assertThat(result.get(0).itemType()).isEqualTo("EFFECT");
+            assertThat(result.get(0).imagePosition()).isEqualTo("BACK");
+            assertThat(result.get(0).isEquipped()).isTrue();
+        }
+
+        @Test
+        @DisplayName("getEquippedItemRaritiesByUserIds 는 UserItemService 배치 조회에 위임한다 (LUT-424)")
+        void getEquippedItemRaritiesByUserIds_delegates() {
+            // given
+            var rarityMap =
+                    java.util.Map.of(
+                            TEST_USER_ID,
+                            java.util.List.of(
+                                    new EquippedItemRarityDto("EFFECT", TitleRarity.RARE),
+                                    new EquippedItemRarityDto("HEAD", TitleRarity.EPIC)));
+            when(userItemService.getEquippedItemRarityMap(
+                            java.util.List.of(TEST_USER_ID, "other-user")))
+                    .thenReturn(rarityMap);
+
+            // when
+            var result =
+                    facadeService.getEquippedItemRaritiesByUserIds(
+                            java.util.List.of(TEST_USER_ID, "other-user"));
+
+            // then
+            assertThat(result).isEqualTo(rarityMap);
+            assertThat(result).doesNotContainKey("other-user");
         }
     }
 }

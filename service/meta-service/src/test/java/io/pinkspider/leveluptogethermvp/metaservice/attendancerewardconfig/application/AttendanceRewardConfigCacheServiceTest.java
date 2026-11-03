@@ -34,21 +34,20 @@ import org.springframework.data.domain.Pageable;
 @ExtendWith(MockitoExtension.class)
 class AttendanceRewardConfigCacheServiceTest {
 
-    @Mock
-    private AttendanceRewardConfigRepository rewardConfigRepository;
+    @Mock private AttendanceRewardConfigRepository rewardConfigRepository;
 
-    @InjectMocks
-    private AttendanceRewardConfigCacheService attendanceRewardConfigCacheService;
+    @InjectMocks private AttendanceRewardConfigCacheService attendanceRewardConfigCacheService;
 
-    private AttendanceRewardConfig createRewardConfig(Long id, AttendanceRewardType type,
-                                                       int requiredDays, int rewardExp, boolean isActive) {
-        AttendanceRewardConfig config = AttendanceRewardConfig.builder()
-            .rewardType(type)
-            .requiredDays(requiredDays)
-            .rewardExp(rewardExp)
-            .description(type.getDisplayName())
-            .isActive(isActive)
-            .build();
+    private AttendanceRewardConfig createRewardConfig(
+            Long id, AttendanceRewardType type, int requiredDays, int rewardExp, boolean isActive) {
+        AttendanceRewardConfig config =
+                AttendanceRewardConfig.builder()
+                        .rewardType(type)
+                        .requiredDays(requiredDays)
+                        .rewardExp(rewardExp)
+                        .description(type.getDisplayName())
+                        .isActive(isActive)
+                        .build();
         setId(config, id);
         return config;
     }
@@ -61,13 +60,16 @@ class AttendanceRewardConfigCacheServiceTest {
         @DisplayName("활성화된 모든 출석 보상 설정을 requiredDays 오름차순으로 조회한다")
         void getAllActiveConfigs_success() {
             // given
-            AttendanceRewardConfig daily = createRewardConfig(1L, AttendanceRewardType.DAILY, 1, 10, true);
-            AttendanceRewardConfig consecutive3 = createRewardConfig(2L, AttendanceRewardType.CONSECUTIVE_3, 3, 20, true);
+            AttendanceRewardConfig daily =
+                    createRewardConfig(1L, AttendanceRewardType.DAILY, 1, 10, true);
+            AttendanceRewardConfig consecutive3 =
+                    createRewardConfig(2L, AttendanceRewardType.CONSECUTIVE_3, 3, 20, true);
             when(rewardConfigRepository.findByIsActiveTrueOrderByRequiredDaysAsc())
-                .thenReturn(List.of(daily, consecutive3));
+                    .thenReturn(List.of(daily, consecutive3));
 
             // when
-            List<AttendanceRewardConfig> result = attendanceRewardConfigCacheService.getAllActiveConfigs();
+            List<AttendanceRewardConfig> result =
+                    attendanceRewardConfigCacheService.getAllActiveConfigs();
 
             // then
             assertThat(result).hasSize(2);
@@ -81,10 +83,11 @@ class AttendanceRewardConfigCacheServiceTest {
         void getAllActiveConfigs_empty() {
             // given
             when(rewardConfigRepository.findByIsActiveTrueOrderByRequiredDaysAsc())
-                .thenReturn(Collections.emptyList());
+                    .thenReturn(Collections.emptyList());
 
             // when
-            List<AttendanceRewardConfig> result = attendanceRewardConfigCacheService.getAllActiveConfigs();
+            List<AttendanceRewardConfig> result =
+                    attendanceRewardConfigCacheService.getAllActiveConfigs();
 
             // then
             assertThat(result).isEmpty();
@@ -99,13 +102,15 @@ class AttendanceRewardConfigCacheServiceTest {
         @DisplayName("보상 타입으로 출석 보상 설정을 조회한다")
         void getConfigByRewardType_success() {
             // given
-            AttendanceRewardConfig config = createRewardConfig(1L, AttendanceRewardType.DAILY, 1, 10, true);
+            AttendanceRewardConfig config =
+                    createRewardConfig(1L, AttendanceRewardType.DAILY, 1, 10, true);
             when(rewardConfigRepository.findByRewardTypeAndIsActiveTrue(AttendanceRewardType.DAILY))
-                .thenReturn(Optional.of(config));
+                    .thenReturn(Optional.of(config));
 
             // when
-            AttendanceRewardConfig result = attendanceRewardConfigCacheService
-                .getConfigByRewardType(AttendanceRewardType.DAILY);
+            AttendanceRewardConfig result =
+                    attendanceRewardConfigCacheService.getConfigByRewardType(
+                            AttendanceRewardType.DAILY);
 
             // then
             assertThat(result).isNotNull();
@@ -117,12 +122,14 @@ class AttendanceRewardConfigCacheServiceTest {
         @DisplayName("존재하지 않는 보상 타입 조회 시 null을 반환한다")
         void getConfigByRewardType_notFound_returnsNull() {
             // given
-            when(rewardConfigRepository.findByRewardTypeAndIsActiveTrue(AttendanceRewardType.SPECIAL_DAY))
-                .thenReturn(Optional.empty());
+            when(rewardConfigRepository.findByRewardTypeAndIsActiveTrue(
+                            AttendanceRewardType.SPECIAL_DAY))
+                    .thenReturn(Optional.empty());
 
             // when
-            AttendanceRewardConfig result = attendanceRewardConfigCacheService
-                .getConfigByRewardType(AttendanceRewardType.SPECIAL_DAY);
+            AttendanceRewardConfig result =
+                    attendanceRewardConfigCacheService.getConfigByRewardType(
+                            AttendanceRewardType.SPECIAL_DAY);
 
             // then
             assertThat(result).isNull();
@@ -139,14 +146,14 @@ class AttendanceRewardConfigCacheServiceTest {
             // given
             when(rewardConfigRepository.count()).thenReturn(0L);
             when(rewardConfigRepository.save(any(AttendanceRewardConfig.class)))
-                .thenAnswer(invocation -> invocation.getArgument(0));
+                    .thenAnswer(invocation -> invocation.getArgument(0));
 
             // when
             attendanceRewardConfigCacheService.initializeDefaultRewardConfigs();
 
             // then
             verify(rewardConfigRepository, times(AttendanceRewardType.values().length))
-                .save(any(AttendanceRewardConfig.class));
+                    .save(any(AttendanceRewardConfig.class));
         }
 
         @Test
@@ -171,13 +178,16 @@ class AttendanceRewardConfigCacheServiceTest {
         @DisplayName("모든 출석 보상 설정 Response를 requiredDays 오름차순으로 조회한다")
         void getAllConfigResponses_success() {
             // given
-            AttendanceRewardConfig daily = createRewardConfig(1L, AttendanceRewardType.DAILY, 1, 10, true);
-            AttendanceRewardConfig inactive = createRewardConfig(2L, AttendanceRewardType.SPECIAL_DAY, 1, 100, false);
+            AttendanceRewardConfig daily =
+                    createRewardConfig(1L, AttendanceRewardType.DAILY, 1, 10, true);
+            AttendanceRewardConfig inactive =
+                    createRewardConfig(2L, AttendanceRewardType.SPECIAL_DAY, 1, 100, false);
             when(rewardConfigRepository.findAllByOrderByRequiredDaysAsc())
-                .thenReturn(List.of(daily, inactive));
+                    .thenReturn(List.of(daily, inactive));
 
             // when
-            List<AttendanceRewardConfigResponse> result = attendanceRewardConfigCacheService.getAllConfigResponses();
+            List<AttendanceRewardConfigResponse> result =
+                    attendanceRewardConfigCacheService.getAllConfigResponses();
 
             // then
             assertThat(result).hasSize(2);
@@ -189,10 +199,12 @@ class AttendanceRewardConfigCacheServiceTest {
         @DisplayName("출석 보상 설정이 없으면 빈 목록을 반환한다")
         void getAllConfigResponses_empty() {
             // given
-            when(rewardConfigRepository.findAllByOrderByRequiredDaysAsc()).thenReturn(Collections.emptyList());
+            when(rewardConfigRepository.findAllByOrderByRequiredDaysAsc())
+                    .thenReturn(Collections.emptyList());
 
             // when
-            List<AttendanceRewardConfigResponse> result = attendanceRewardConfigCacheService.getAllConfigResponses();
+            List<AttendanceRewardConfigResponse> result =
+                    attendanceRewardConfigCacheService.getAllConfigResponses();
 
             // then
             assertThat(result).isEmpty();
@@ -207,12 +219,14 @@ class AttendanceRewardConfigCacheServiceTest {
         @DisplayName("활성화된 출석 보상 설정 Response 목록을 조회한다")
         void getActiveConfigResponses_success() {
             // given
-            AttendanceRewardConfig daily = createRewardConfig(1L, AttendanceRewardType.DAILY, 1, 10, true);
+            AttendanceRewardConfig daily =
+                    createRewardConfig(1L, AttendanceRewardType.DAILY, 1, 10, true);
             when(rewardConfigRepository.findByIsActiveTrueOrderByRequiredDaysAsc())
-                .thenReturn(List.of(daily));
+                    .thenReturn(List.of(daily));
 
             // when
-            List<AttendanceRewardConfigResponse> result = attendanceRewardConfigCacheService.getActiveConfigResponses();
+            List<AttendanceRewardConfigResponse> result =
+                    attendanceRewardConfigCacheService.getActiveConfigResponses();
 
             // then
             assertThat(result).hasSize(1);
@@ -229,14 +243,16 @@ class AttendanceRewardConfigCacheServiceTest {
         @DisplayName("활성화된 연속 출석 보상 설정 목록을 조회한다")
         void getActiveConsecutiveRewardResponses_success() {
             // given
-            AttendanceRewardConfig consecutive3 = createRewardConfig(1L, AttendanceRewardType.CONSECUTIVE_3, 3, 20, true);
-            AttendanceRewardConfig consecutive7 = createRewardConfig(2L, AttendanceRewardType.CONSECUTIVE_7, 7, 50, true);
+            AttendanceRewardConfig consecutive3 =
+                    createRewardConfig(1L, AttendanceRewardType.CONSECUTIVE_3, 3, 20, true);
+            AttendanceRewardConfig consecutive7 =
+                    createRewardConfig(2L, AttendanceRewardType.CONSECUTIVE_7, 7, 50, true);
             when(rewardConfigRepository.findActiveConsecutiveRewards())
-                .thenReturn(List.of(consecutive3, consecutive7));
+                    .thenReturn(List.of(consecutive3, consecutive7));
 
             // when
             List<AttendanceRewardConfigResponse> result =
-                attendanceRewardConfigCacheService.getActiveConsecutiveRewardResponses();
+                    attendanceRewardConfigCacheService.getActiveConsecutiveRewardResponses();
 
             // then
             assertThat(result).hasSize(2);
@@ -248,11 +264,12 @@ class AttendanceRewardConfigCacheServiceTest {
         @DisplayName("활성화된 연속 출석 보상 설정이 없으면 빈 목록을 반환한다")
         void getActiveConsecutiveRewardResponses_empty() {
             // given
-            when(rewardConfigRepository.findActiveConsecutiveRewards()).thenReturn(Collections.emptyList());
+            when(rewardConfigRepository.findActiveConsecutiveRewards())
+                    .thenReturn(Collections.emptyList());
 
             // when
             List<AttendanceRewardConfigResponse> result =
-                attendanceRewardConfigCacheService.getActiveConsecutiveRewardResponses();
+                    attendanceRewardConfigCacheService.getActiveConsecutiveRewardResponses();
 
             // then
             assertThat(result).isEmpty();
@@ -267,7 +284,8 @@ class AttendanceRewardConfigCacheServiceTest {
         @DisplayName("키워드로 출석 보상 설정을 페이징 조회한다")
         void searchConfigs_success() {
             // given
-            AttendanceRewardConfig config = createRewardConfig(1L, AttendanceRewardType.DAILY, 1, 10, true);
+            AttendanceRewardConfig config =
+                    createRewardConfig(1L, AttendanceRewardType.DAILY, 1, 10, true);
             Pageable pageable = PageRequest.of(0, 10);
             Page<AttendanceRewardConfig> page = new PageImpl<>(List.of(config), pageable, 1);
             when(rewardConfigRepository.searchByKeyword("DAILY", pageable)).thenReturn(page);
@@ -285,10 +303,13 @@ class AttendanceRewardConfigCacheServiceTest {
         @DisplayName("키워드 없이 전체 출석 보상 설정을 페이징 조회한다")
         void searchConfigs_noKeyword() {
             // given
-            AttendanceRewardConfig config1 = createRewardConfig(1L, AttendanceRewardType.DAILY, 1, 10, true);
-            AttendanceRewardConfig config2 = createRewardConfig(2L, AttendanceRewardType.CONSECUTIVE_3, 3, 20, true);
+            AttendanceRewardConfig config1 =
+                    createRewardConfig(1L, AttendanceRewardType.DAILY, 1, 10, true);
+            AttendanceRewardConfig config2 =
+                    createRewardConfig(2L, AttendanceRewardType.CONSECUTIVE_3, 3, 20, true);
             Pageable pageable = PageRequest.of(0, 10);
-            Page<AttendanceRewardConfig> page = new PageImpl<>(List.of(config1, config2), pageable, 2);
+            Page<AttendanceRewardConfig> page =
+                    new PageImpl<>(List.of(config1, config2), pageable, 2);
             when(rewardConfigRepository.searchByKeyword(null, pageable)).thenReturn(page);
 
             // when
@@ -308,11 +329,13 @@ class AttendanceRewardConfigCacheServiceTest {
         @DisplayName("ID로 출석 보상 설정을 조회한다")
         void getConfigById_success() {
             // given
-            AttendanceRewardConfig config = createRewardConfig(1L, AttendanceRewardType.DAILY, 1, 10, true);
+            AttendanceRewardConfig config =
+                    createRewardConfig(1L, AttendanceRewardType.DAILY, 1, 10, true);
             when(rewardConfigRepository.findById(1L)).thenReturn(Optional.of(config));
 
             // when
-            AttendanceRewardConfigResponse result = attendanceRewardConfigCacheService.getConfigById(1L);
+            AttendanceRewardConfigResponse result =
+                    attendanceRewardConfigCacheService.getConfigById(1L);
 
             // then
             assertThat(result).isNotNull();
@@ -328,8 +351,8 @@ class AttendanceRewardConfigCacheServiceTest {
 
             // when & then
             assertThatThrownBy(() -> attendanceRewardConfigCacheService.getConfigById(999L))
-                .isInstanceOf(CustomException.class)
-                .hasMessageContaining("error.attendance_reward.not_found");
+                    .isInstanceOf(CustomException.class)
+                    .hasMessageContaining("error.attendance_reward.not_found");
         }
     }
 
@@ -341,21 +364,25 @@ class AttendanceRewardConfigCacheServiceTest {
         @DisplayName("출석 보상 설정을 생성한다")
         void createConfig_success() {
             // given
-            AttendanceRewardConfigRequest request = AttendanceRewardConfigRequest.builder()
-                .rewardType(AttendanceRewardType.CONSECUTIVE_7)
-                .requiredDays(7)
-                .rewardExp(50)
-                .description("7일 연속 출석 보상")
-                .isActive(true)
-                .build();
+            AttendanceRewardConfigRequest request =
+                    AttendanceRewardConfigRequest.builder()
+                            .rewardType(AttendanceRewardType.CONSECUTIVE_7)
+                            .requiredDays(7)
+                            .rewardExp(50)
+                            .description("7일 연속 출석 보상")
+                            .isActive(true)
+                            .build();
 
-            AttendanceRewardConfig saved = createRewardConfig(1L, AttendanceRewardType.CONSECUTIVE_7, 7, 50, true);
+            AttendanceRewardConfig saved =
+                    createRewardConfig(1L, AttendanceRewardType.CONSECUTIVE_7, 7, 50, true);
 
-            when(rewardConfigRepository.existsByRewardType(AttendanceRewardType.CONSECUTIVE_7)).thenReturn(false);
+            when(rewardConfigRepository.existsByRewardType(AttendanceRewardType.CONSECUTIVE_7))
+                    .thenReturn(false);
             when(rewardConfigRepository.save(any(AttendanceRewardConfig.class))).thenReturn(saved);
 
             // when
-            AttendanceRewardConfigResponse result = attendanceRewardConfigCacheService.createConfig(request);
+            AttendanceRewardConfigResponse result =
+                    attendanceRewardConfigCacheService.createConfig(request);
 
             // then
             assertThat(result).isNotNull();
@@ -367,19 +394,23 @@ class AttendanceRewardConfigCacheServiceTest {
         @DisplayName("rewardExp가 null이면 0으로 설정된다")
         void createConfig_nullRewardExp_usesZero() {
             // given
-            AttendanceRewardConfigRequest request = AttendanceRewardConfigRequest.builder()
-                .rewardType(AttendanceRewardType.DAILY)
-                .requiredDays(1)
-                .rewardExp(null)
-                .build();
+            AttendanceRewardConfigRequest request =
+                    AttendanceRewardConfigRequest.builder()
+                            .rewardType(AttendanceRewardType.DAILY)
+                            .requiredDays(1)
+                            .rewardExp(null)
+                            .build();
 
-            AttendanceRewardConfig saved = createRewardConfig(1L, AttendanceRewardType.DAILY, 1, 0, true);
+            AttendanceRewardConfig saved =
+                    createRewardConfig(1L, AttendanceRewardType.DAILY, 1, 0, true);
 
-            when(rewardConfigRepository.existsByRewardType(AttendanceRewardType.DAILY)).thenReturn(false);
+            when(rewardConfigRepository.existsByRewardType(AttendanceRewardType.DAILY))
+                    .thenReturn(false);
             when(rewardConfigRepository.save(any(AttendanceRewardConfig.class))).thenReturn(saved);
 
             // when
-            AttendanceRewardConfigResponse result = attendanceRewardConfigCacheService.createConfig(request);
+            AttendanceRewardConfigResponse result =
+                    attendanceRewardConfigCacheService.createConfig(request);
 
             // then
             assertThat(result).isNotNull();
@@ -390,17 +421,19 @@ class AttendanceRewardConfigCacheServiceTest {
         @DisplayName("이미 존재하는 보상 타입으로 생성 시 CustomException을 던진다")
         void createConfig_duplicateRewardType_throwsException() {
             // given
-            AttendanceRewardConfigRequest request = AttendanceRewardConfigRequest.builder()
-                .rewardType(AttendanceRewardType.DAILY)
-                .requiredDays(1)
-                .build();
+            AttendanceRewardConfigRequest request =
+                    AttendanceRewardConfigRequest.builder()
+                            .rewardType(AttendanceRewardType.DAILY)
+                            .requiredDays(1)
+                            .build();
 
-            when(rewardConfigRepository.existsByRewardType(AttendanceRewardType.DAILY)).thenReturn(true);
+            when(rewardConfigRepository.existsByRewardType(AttendanceRewardType.DAILY))
+                    .thenReturn(true);
 
             // when & then
             assertThatThrownBy(() -> attendanceRewardConfigCacheService.createConfig(request))
-                .isInstanceOf(CustomException.class)
-                .hasMessageContaining("error.attendance_reward.duplicate_type");
+                    .isInstanceOf(CustomException.class)
+                    .hasMessageContaining("error.attendance_reward.duplicate_type");
 
             verify(rewardConfigRepository, never()).save(any());
         }
@@ -414,22 +447,25 @@ class AttendanceRewardConfigCacheServiceTest {
         @DisplayName("출석 보상 설정을 수정한다")
         void updateConfig_success() {
             // given
-            AttendanceRewardConfig existing = createRewardConfig(1L, AttendanceRewardType.DAILY, 1, 10, true);
-            AttendanceRewardConfigRequest request = AttendanceRewardConfigRequest.builder()
-                .rewardType(AttendanceRewardType.DAILY)
-                .requiredDays(1)
-                .rewardExp(20)
-                .description("수정된 일일 출석")
-                .isActive(true)
-                .startDate(LocalDate.of(2024, 1, 1))
-                .endDate(LocalDate.of(2024, 12, 31))
-                .build();
+            AttendanceRewardConfig existing =
+                    createRewardConfig(1L, AttendanceRewardType.DAILY, 1, 10, true);
+            AttendanceRewardConfigRequest request =
+                    AttendanceRewardConfigRequest.builder()
+                            .rewardType(AttendanceRewardType.DAILY)
+                            .requiredDays(1)
+                            .rewardExp(20)
+                            .description("수정된 일일 출석")
+                            .isActive(true)
+                            .startDate(LocalDate.of(2024, 1, 1))
+                            .endDate(LocalDate.of(2024, 12, 31))
+                            .build();
 
             when(rewardConfigRepository.findById(1L)).thenReturn(Optional.of(existing));
             when(rewardConfigRepository.save(existing)).thenReturn(existing);
 
             // when
-            AttendanceRewardConfigResponse result = attendanceRewardConfigCacheService.updateConfig(1L, request);
+            AttendanceRewardConfigResponse result =
+                    attendanceRewardConfigCacheService.updateConfig(1L, request);
 
             // then
             assertThat(result).isNotNull();
@@ -442,19 +478,22 @@ class AttendanceRewardConfigCacheServiceTest {
         @DisplayName("보상 타입 변경 시 중복 타입이 존재하면 CustomException을 던진다")
         void updateConfig_duplicateRewardType_throwsException() {
             // given
-            AttendanceRewardConfig existing = createRewardConfig(1L, AttendanceRewardType.DAILY, 1, 10, true);
-            AttendanceRewardConfigRequest request = AttendanceRewardConfigRequest.builder()
-                .rewardType(AttendanceRewardType.CONSECUTIVE_3)
-                .requiredDays(3)
-                .build();
+            AttendanceRewardConfig existing =
+                    createRewardConfig(1L, AttendanceRewardType.DAILY, 1, 10, true);
+            AttendanceRewardConfigRequest request =
+                    AttendanceRewardConfigRequest.builder()
+                            .rewardType(AttendanceRewardType.CONSECUTIVE_3)
+                            .requiredDays(3)
+                            .build();
 
             when(rewardConfigRepository.findById(1L)).thenReturn(Optional.of(existing));
-            when(rewardConfigRepository.existsByRewardType(AttendanceRewardType.CONSECUTIVE_3)).thenReturn(true);
+            when(rewardConfigRepository.existsByRewardType(AttendanceRewardType.CONSECUTIVE_3))
+                    .thenReturn(true);
 
             // when & then
             assertThatThrownBy(() -> attendanceRewardConfigCacheService.updateConfig(1L, request))
-                .isInstanceOf(CustomException.class)
-                .hasMessageContaining("error.attendance_reward.duplicate_type");
+                    .isInstanceOf(CustomException.class)
+                    .hasMessageContaining("error.attendance_reward.duplicate_type");
 
             verify(rewardConfigRepository, never()).save(any());
         }
@@ -463,12 +502,14 @@ class AttendanceRewardConfigCacheServiceTest {
         @DisplayName("동일 보상 타입으로 수정 시 중복 체크를 하지 않는다")
         void updateConfig_sameRewardType_noExistCheck() {
             // given
-            AttendanceRewardConfig existing = createRewardConfig(1L, AttendanceRewardType.DAILY, 1, 10, true);
-            AttendanceRewardConfigRequest request = AttendanceRewardConfigRequest.builder()
-                .rewardType(AttendanceRewardType.DAILY)
-                .requiredDays(1)
-                .rewardExp(15)
-                .build();
+            AttendanceRewardConfig existing =
+                    createRewardConfig(1L, AttendanceRewardType.DAILY, 1, 10, true);
+            AttendanceRewardConfigRequest request =
+                    AttendanceRewardConfigRequest.builder()
+                            .rewardType(AttendanceRewardType.DAILY)
+                            .requiredDays(1)
+                            .rewardExp(15)
+                            .build();
 
             when(rewardConfigRepository.findById(1L)).thenReturn(Optional.of(existing));
             when(rewardConfigRepository.save(existing)).thenReturn(existing);
@@ -485,17 +526,18 @@ class AttendanceRewardConfigCacheServiceTest {
         @DisplayName("존재하지 않는 ID 수정 시 CustomException을 던진다")
         void updateConfig_notFound_throwsException() {
             // given
-            AttendanceRewardConfigRequest request = AttendanceRewardConfigRequest.builder()
-                .rewardType(AttendanceRewardType.DAILY)
-                .requiredDays(1)
-                .build();
+            AttendanceRewardConfigRequest request =
+                    AttendanceRewardConfigRequest.builder()
+                            .rewardType(AttendanceRewardType.DAILY)
+                            .requiredDays(1)
+                            .build();
 
             when(rewardConfigRepository.findById(999L)).thenReturn(Optional.empty());
 
             // when & then
             assertThatThrownBy(() -> attendanceRewardConfigCacheService.updateConfig(999L, request))
-                .isInstanceOf(CustomException.class)
-                .hasMessageContaining("error.attendance_reward.not_found");
+                    .isInstanceOf(CustomException.class)
+                    .hasMessageContaining("error.attendance_reward.not_found");
         }
     }
 
@@ -507,12 +549,14 @@ class AttendanceRewardConfigCacheServiceTest {
         @DisplayName("활성화 상태를 비활성화로 변경한다")
         void toggleActiveStatus_activeToinactive() {
             // given
-            AttendanceRewardConfig existing = createRewardConfig(1L, AttendanceRewardType.DAILY, 1, 10, true);
+            AttendanceRewardConfig existing =
+                    createRewardConfig(1L, AttendanceRewardType.DAILY, 1, 10, true);
             when(rewardConfigRepository.findById(1L)).thenReturn(Optional.of(existing));
             when(rewardConfigRepository.save(existing)).thenReturn(existing);
 
             // when
-            AttendanceRewardConfigResponse result = attendanceRewardConfigCacheService.toggleActiveStatus(1L);
+            AttendanceRewardConfigResponse result =
+                    attendanceRewardConfigCacheService.toggleActiveStatus(1L);
 
             // then
             assertThat(result).isNotNull();
@@ -524,12 +568,14 @@ class AttendanceRewardConfigCacheServiceTest {
         @DisplayName("비활성화 상태를 활성화로 변경한다")
         void toggleActiveStatus_inactiveToActive() {
             // given
-            AttendanceRewardConfig existing = createRewardConfig(1L, AttendanceRewardType.DAILY, 1, 10, false);
+            AttendanceRewardConfig existing =
+                    createRewardConfig(1L, AttendanceRewardType.DAILY, 1, 10, false);
             when(rewardConfigRepository.findById(1L)).thenReturn(Optional.of(existing));
             when(rewardConfigRepository.save(existing)).thenReturn(existing);
 
             // when
-            AttendanceRewardConfigResponse result = attendanceRewardConfigCacheService.toggleActiveStatus(1L);
+            AttendanceRewardConfigResponse result =
+                    attendanceRewardConfigCacheService.toggleActiveStatus(1L);
 
             // then
             assertThat(result).isNotNull();
@@ -545,8 +591,8 @@ class AttendanceRewardConfigCacheServiceTest {
 
             // when & then
             assertThatThrownBy(() -> attendanceRewardConfigCacheService.toggleActiveStatus(999L))
-                .isInstanceOf(CustomException.class)
-                .hasMessageContaining("error.attendance_reward.not_found");
+                    .isInstanceOf(CustomException.class)
+                    .hasMessageContaining("error.attendance_reward.not_found");
         }
     }
 
@@ -575,8 +621,8 @@ class AttendanceRewardConfigCacheServiceTest {
 
             // when & then
             assertThatThrownBy(() -> attendanceRewardConfigCacheService.deleteConfig(999L))
-                .isInstanceOf(CustomException.class)
-                .hasMessageContaining("error.attendance_reward.not_found");
+                    .isInstanceOf(CustomException.class)
+                    .hasMessageContaining("error.attendance_reward.not_found");
 
             verify(rewardConfigRepository, never()).deleteById(any());
         }

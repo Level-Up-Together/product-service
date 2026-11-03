@@ -8,14 +8,14 @@ import org.junit.jupiter.api.Test;
 
 class UserDetailsImplTest {
 
-    private UserDetailsImpl buildUserDetails(String memberId, String userId, String password,
-            Integer passwordFailCount) {
+    private UserDetailsImpl buildUserDetails(
+            String memberId, String userId, String password, Integer passwordFailCount) {
         return UserDetailsImpl.builder()
-            .memberId(memberId)
-            .userId(userId)
-            .password(password)
-            .passwordFailCount(passwordFailCount)
-            .build();
+                .memberId(memberId)
+                .userId(userId)
+                .password(password)
+                .passwordFailCount(passwordFailCount)
+                .build();
     }
 
     @Nested

@@ -34,36 +34,35 @@ import org.springframework.mock.web.MockMultipartFile;
 @ExtendWith(MockitoExtension.class)
 class ShopItemAdminServiceTest {
 
-    @Mock
-    private ShopItemRepository shopItemRepository;
+    @Mock private ShopItemRepository shopItemRepository;
 
-    @Mock
-    private ShopItemImageStorageService imageStorageService;
+    @Mock private ShopItemImageStorageService imageStorageService;
+    @Mock private io.pinkspider.global.image.ImageContentValidator imageContentValidator;
 
-    @InjectMocks
-    private ShopItemAdminService shopItemAdminService;
+    @InjectMocks private ShopItemAdminService shopItemAdminService;
 
     private ShopItem createItem(Long id, String name) {
-        ShopItem item = ShopItem.builder()
-            .name(name)
-            .itemType(ShopItemType.BASIC)
-            .rarity(TitleRarity.RARE)
-            .imageUrl("/uploads/shop-items/old.png")
-            .price(10)
-            .isActive(true)
-            .build();
+        ShopItem item =
+                ShopItem.builder()
+                        .name(name)
+                        .itemType(ShopItemType.BASIC)
+                        .rarity(TitleRarity.RARE)
+                        .imageUrl("/uploads/shop-items/old.png")
+                        .price(10)
+                        .isActive(true)
+                        .build();
         setId(item, id);
         return item;
     }
 
     private ShopItemAdminRequest createRequest(String name) {
         return ShopItemAdminRequest.builder()
-            .name(name)
-            .itemType(ShopItemType.BASIC)
-            .rarity(TitleRarity.RARE)
-            .imageUrl("/uploads/shop-items/old.png")
-            .price(10)
-            .build();
+                .name(name)
+                .itemType(ShopItemType.BASIC)
+                .rarity(TitleRarity.RARE)
+                .imageUrl("/uploads/shop-items/old.png")
+                .price(10)
+                .build();
     }
 
     @Nested
@@ -75,10 +74,11 @@ class ShopItemAdminServiceTest {
         void searchShopItems_success() {
             ShopItem item = createItem(1L, "우주 헬멧");
             when(shopItemRepository.search(any(), any(), any(), any(), any()))
-                .thenReturn(new PageImpl<>(List.of(item), PageRequest.of(0, 20), 1));
+                    .thenReturn(new PageImpl<>(List.of(item), PageRequest.of(0, 20), 1));
 
-            ShopItemAdminPageResponse response = shopItemAdminService.searchShopItems(
-                null, null, null, null, PageRequest.of(0, 20));
+            ShopItemAdminPageResponse response =
+                    shopItemAdminService.searchShopItems(
+                            null, null, null, null, PageRequest.of(0, 20));
 
             assertThat(response.content()).hasSize(1);
             assertThat(response.content().get(0).name()).isEqualTo("우주 헬멧");
@@ -92,7 +92,7 @@ class ShopItemAdminServiceTest {
             when(shopItemRepository.findById(99L)).thenReturn(Optional.empty());
 
             assertThatThrownBy(() -> shopItemAdminService.getShopItem(99L))
-                .isInstanceOf(CustomException.class);
+                    .isInstanceOf(CustomException.class);
         }
     }
 
@@ -107,7 +107,8 @@ class ShopItemAdminServiceTest {
             when(shopItemRepository.existsByName("우주 헬멧")).thenReturn(false);
             when(shopItemRepository.save(any(ShopItem.class))).thenReturn(saved);
 
-            ShopItemAdminResponse response = shopItemAdminService.createShopItem(createRequest("우주 헬멧"));
+            ShopItemAdminResponse response =
+                    shopItemAdminService.createShopItem(createRequest("우주 헬멧"));
 
             assertThat(response.id()).isEqualTo(1L);
             assertThat(response.itemType()).isEqualTo(ShopItemType.BASIC);
@@ -118,11 +119,13 @@ class ShopItemAdminServiceTest {
         @DisplayName("isActive 미지정 시 기본 true")
         void createShopItem_defaultActive() {
             when(shopItemRepository.existsByName(anyString())).thenReturn(false);
-            when(shopItemRepository.save(any(ShopItem.class))).thenAnswer(inv -> {
-                ShopItem item = inv.getArgument(0);
-                setId(item, 1L);
-                return item;
-            });
+            when(shopItemRepository.save(any(ShopItem.class)))
+                    .thenAnswer(
+                            inv -> {
+                                ShopItem item = inv.getArgument(0);
+                                setId(item, 1L);
+                                return item;
+                            });
 
             ShopItemAdminRequest request = createRequest("새 아이템");
             request.setIsActive(null);
@@ -136,11 +139,13 @@ class ShopItemAdminServiceTest {
         @DisplayName("imagePosition 미지정 시 기본 BACK (LUT-225)")
         void createShopItem_defaultImagePosition() {
             when(shopItemRepository.existsByName(anyString())).thenReturn(false);
-            when(shopItemRepository.save(any(ShopItem.class))).thenAnswer(inv -> {
-                ShopItem item = inv.getArgument(0);
-                setId(item, 1L);
-                return item;
-            });
+            when(shopItemRepository.save(any(ShopItem.class)))
+                    .thenAnswer(
+                            inv -> {
+                                ShopItem item = inv.getArgument(0);
+                                setId(item, 1L);
+                                return item;
+                            });
 
             ShopItemAdminRequest request = createRequest("새 아이템");
             request.setImagePosition(null);
@@ -154,11 +159,13 @@ class ShopItemAdminServiceTest {
         @DisplayName("imagePosition FRONT 지정 시 그대로 저장 (LUT-225)")
         void createShopItem_frontImagePosition() {
             when(shopItemRepository.existsByName(anyString())).thenReturn(false);
-            when(shopItemRepository.save(any(ShopItem.class))).thenAnswer(inv -> {
-                ShopItem item = inv.getArgument(0);
-                setId(item, 1L);
-                return item;
-            });
+            when(shopItemRepository.save(any(ShopItem.class)))
+                    .thenAnswer(
+                            inv -> {
+                                ShopItem item = inv.getArgument(0);
+                                setId(item, 1L);
+                                return item;
+                            });
 
             ShopItemAdminRequest request = createRequest("새 아이템");
             request.setImagePosition(ShopItemImagePosition.FRONT);
@@ -169,12 +176,121 @@ class ShopItemAdminServiceTest {
         }
 
         @Test
+        @DisplayName("ETC 타입으로 생성한다 (LUT-271)")
+        void createShopItem_etcType() {
+            when(shopItemRepository.existsByName(anyString())).thenReturn(false);
+            when(shopItemRepository.save(any(ShopItem.class)))
+                    .thenAnswer(
+                            inv -> {
+                                ShopItem item = inv.getArgument(0);
+                                setId(item, 1L);
+                                return item;
+                            });
+
+            ShopItemAdminRequest request = createRequest("기타 아이템");
+            request.setItemType(ShopItemType.ETC);
+
+            ShopItemAdminResponse response = shopItemAdminService.createShopItem(request);
+
+            assertThat(response.itemType()).isEqualTo(ShopItemType.ETC);
+        }
+
+        @Test
+        @DisplayName("다국어 설명을 함께 저장한다 (LUT-271)")
+        void createShopItem_withDescriptions() {
+            when(shopItemRepository.existsByName(anyString())).thenReturn(false);
+            when(shopItemRepository.save(any(ShopItem.class)))
+                    .thenAnswer(
+                            inv -> {
+                                ShopItem item = inv.getArgument(0);
+                                setId(item, 1L);
+                                return item;
+                            });
+
+            ShopItemAdminRequest request = createRequest("새 아이템");
+            request.setDescription("멋진 아이템");
+            request.setDescriptionEn("Cool item");
+            request.setDescriptionAr("عنصر رائع");
+            request.setDescriptionJa("かっこいいアイテム");
+
+            ShopItemAdminResponse response = shopItemAdminService.createShopItem(request);
+
+            assertThat(response.description()).isEqualTo("멋진 아이템");
+            assertThat(response.descriptionEn()).isEqualTo("Cool item");
+            assertThat(response.descriptionAr()).isEqualTo("عنصر رائع");
+            assertThat(response.descriptionJa()).isEqualTo("かっこいいアイテム");
+        }
+
+        @Test
+        @DisplayName("설명 2000자까지 저장한다 (LUT-294)")
+        void createShopItem_withMaxLengthDescription() {
+            when(shopItemRepository.existsByName(anyString())).thenReturn(false);
+            when(shopItemRepository.save(any(ShopItem.class)))
+                    .thenAnswer(
+                            inv -> {
+                                ShopItem item = inv.getArgument(0);
+                                setId(item, 1L);
+                                return item;
+                            });
+
+            String maxDescription = "가".repeat(2000);
+            ShopItemAdminRequest request = createRequest("룰북 아이템");
+            request.setDescription(maxDescription);
+
+            ShopItemAdminResponse response = shopItemAdminService.createShopItem(request);
+
+            assertThat(response.description()).hasSize(2000).isEqualTo(maxDescription);
+        }
+
+        @Test
+        @DisplayName("LUT-341: EFFECT 타입이면 이펙트 코드를 트림해 저장한다")
+        void createShopItem_effectType_storesEffectCode() {
+            when(shopItemRepository.existsByName(anyString())).thenReturn(false);
+            when(shopItemRepository.save(any(ShopItem.class)))
+                    .thenAnswer(
+                            inv -> {
+                                ShopItem item = inv.getArgument(0);
+                                setId(item, 1L);
+                                return item;
+                            });
+
+            ShopItemAdminRequest request = createRequest("반짝이 이펙트");
+            request.setItemType(ShopItemType.EFFECT);
+            request.setEffectCode("  sparkle_01  ");
+
+            ShopItemAdminResponse response = shopItemAdminService.createShopItem(request);
+
+            assertThat(response.effectCode()).isEqualTo("sparkle_01");
+        }
+
+        @Test
+        @DisplayName("LUT-341: EFFECT가 아닌 타입이면 이펙트 코드는 null로 정규화된다")
+        void createShopItem_nonEffectType_effectCodeNull() {
+            when(shopItemRepository.existsByName(anyString())).thenReturn(false);
+            when(shopItemRepository.save(any(ShopItem.class)))
+                    .thenAnswer(
+                            inv -> {
+                                ShopItem item = inv.getArgument(0);
+                                setId(item, 1L);
+                                return item;
+                            });
+
+            ShopItemAdminRequest request = createRequest("일반 아이템");
+            request.setItemType(ShopItemType.BASIC);
+            request.setEffectCode("sparkle_01");
+
+            ShopItemAdminResponse response = shopItemAdminService.createShopItem(request);
+
+            assertThat(response.effectCode()).isNull();
+        }
+
+        @Test
         @DisplayName("중복 이름이면 예외")
         void createShopItem_duplicateName() {
             when(shopItemRepository.existsByName("우주 헬멧")).thenReturn(true);
 
             assertThatThrownBy(() -> shopItemAdminService.createShopItem(createRequest("우주 헬멧")))
-                .isInstanceOf(CustomException.class);
+                    .isInstanceOf(CustomException.class);
             verify(shopItemRepository, never()).save(any());
         }
     }
@@ -216,6 +332,25 @@ class ShopItemAdminServiceTest {
         }
 
         @Test
+        @DisplayName("LUT-341: EFFECT에서 다른 타입으로 바꾸면 이펙트 코드가 제거된다")
+        void updateShopItem_typeChangedFromEffect_clearsEffectCode() {
+            ShopItem item = createItem(1L, "반짝이 이펙트");
+            item.setItemType(ShopItemType.EFFECT);
+            item.setEffectCode("sparkle_01");
+            when(shopItemRepository.findById(1L)).thenReturn(Optional.of(item));
+            when(shopItemRepository.save(any(ShopItem.class))).thenReturn(item);
+
+            ShopItemAdminRequest request = createRequest("반짝이 이펙트");
+            request.setItemType(ShopItemType.BASIC);
+            request.setEffectCode("sparkle_01"); // 클라이언트가 값을 남겨 보내도 무시돼야 한다
+
+            ShopItemAdminResponse response = shopItemAdminService.updateShopItem(1L, request);
+
+            assertThat(response.effectCode()).isNull();
+            assertThat(item.getEffectCode()).isNull();
+        }
+
+        @Test
         @DisplayName("imagePosition을 FRONT로 변경한다 (LUT-225)")
         void updateShopItem_changesImagePosition() {
             ShopItem item = createItem(1L, "우주 헬멧");
@@ -231,14 +366,35 @@ class ShopItemAdminServiceTest {
         }
 
         @Test
+        @DisplayName("다국어 설명을 수정한다 (LUT-271)")
+        void updateShopItem_changesDescriptions() {
+            ShopItem item = createItem(1L, "우주 헬멧");
+            when(shopItemRepository.findById(1L)).thenReturn(Optional.of(item));
+            when(shopItemRepository.save(any(ShopItem.class))).thenReturn(item);
+
+            ShopItemAdminRequest request = createRequest("우주 헬멧");
+            request.setDescription("수정된 설명");
+            request.setDescriptionEn("Updated description");
+
+            ShopItemAdminResponse response = shopItemAdminService.updateShopItem(1L, request);
+
+            assertThat(response.description()).isEqualTo("수정된 설명");
+            assertThat(response.descriptionEn()).isEqualTo("Updated description");
+            // 미입력 언어는 null 반영 (기존 값 유지 아님 — 전체 치환 시맨틱)
+            assertThat(response.descriptionAr()).isNull();
+            assertThat(response.descriptionJa()).isNull();
+        }
+
+        @Test
         @DisplayName("다른 아이템과 중복 이름이면 예외")
         void updateShopItem_duplicateName() {
             ShopItem item = createItem(1L, "우주 헬멧");
             when(shopItemRepository.findById(1L)).thenReturn(Optional.of(item));
             when(shopItemRepository.existsByName("다른 아이템")).thenReturn(true);
 
-            assertThatThrownBy(() -> shopItemAdminService.updateShopItem(1L, createRequest("다른 아이템")))
-                .isInstanceOf(CustomException.class);
+            assertThatThrownBy(
+                            () -> shopItemAdminService.updateShopItem(1L, createRequest("다른 아이템")))
+                    .isInstanceOf(CustomException.class);
         }
     }
 
@@ -276,15 +432,15 @@ class ShopItemAdminServiceTest {
             when(shopItemRepository.findById(99L)).thenReturn(Optional.empty());
 
             assertThatThrownBy(() -> shopItemAdminService.deleteShopItem(99L))
-                .isInstanceOf(CustomException.class);
+                    .isInstanceOf(CustomException.class);
             verify(shopItemRepository, never()).deleteById(any());
         }
 
         @Test
         @DisplayName("이미지 업로드는 스토리지 서비스에 위임한다")
         void uploadImage_delegates() {
-            MockMultipartFile file = new MockMultipartFile(
-                "file", "item.png", "image/png", new byte[] {1, 2, 3});
+            MockMultipartFile file =
+                    new MockMultipartFile("file", "item.png", "image/png", new byte[] {1, 2, 3});
             when(imageStorageService.store(file)).thenReturn("/uploads/shop-items/new.png");
 
             String url = shopItemAdminService.uploadImage(file);

@@ -33,20 +33,20 @@ public class CheckLogicTypeAdminResponse {
 
     public static CheckLogicTypeAdminResponse from(CheckLogicType entity) {
         return CheckLogicTypeAdminResponse.builder()
-            .id(entity.getId())
-            .code(entity.getCode())
-            .name(entity.getName())
-            .description(entity.getDescription())
-            .dataSource(entity.getDataSource().getCode())
-            .dataSourceDisplayName(entity.getDataSource().getDisplayName())
-            .dataField(entity.getDataField())
-            .comparisonOperator(entity.getComparisonOperator().getCode())
-            .comparisonOperatorDisplayName(entity.getComparisonOperator().getDisplayName())
-            .configJson(entity.getConfigJson())
-            .sortOrder(entity.getSortOrder())
-            .isActive(entity.getIsActive())
-            .createdAt(entity.getCreatedAt())
-            .modifiedAt(entity.getModifiedAt())
-            .build();
+                .id(entity.getId())
+                .code(entity.getCode())
+                .name(entity.getName())
+                .description(entity.getDescription())
+                .dataSource(entity.getDataSource().getCode())
+                .dataSourceDisplayName(entity.getDataSource().getDisplayName())
+                .dataField(entity.getDataField())
+                .comparisonOperator(entity.getComparisonOperator().getCode())
+                .comparisonOperatorDisplayName(entity.getComparisonOperator().getDisplayName())
+                .configJson(entity.getConfigJson())
+                .sortOrder(entity.getSortOrder())
+                .isActive(entity.getIsActive())
+                .createdAt(entity.getCreatedAt())
+                .modifiedAt(entity.getModifiedAt())
+                .build();
     }
 }

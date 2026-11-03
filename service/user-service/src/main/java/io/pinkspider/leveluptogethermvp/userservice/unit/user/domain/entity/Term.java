@@ -4,7 +4,6 @@ import io.pinkspider.global.domain.auditentity.DatetimeAndSubjectBaseEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
-import jakarta.persistence.Lob;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
 import jakarta.validation.constraints.NotNull;
@@ -44,7 +43,7 @@ public class Term extends DatetimeAndSubjectBaseEntity {
     @Column(name = "title", nullable = false)
     private String title;
 
-//    @Lob
+    //    @Lob
     @Column(name = "description")
     @JdbcTypeCode(SqlTypes.VARCHAR)
     private String description;
@@ -60,5 +59,4 @@ public class Term extends DatetimeAndSubjectBaseEntity {
 
     @OneToMany(mappedBy = "terms")
     private Set<TermVersion> termVersions = new LinkedHashSet<>();
-
 }

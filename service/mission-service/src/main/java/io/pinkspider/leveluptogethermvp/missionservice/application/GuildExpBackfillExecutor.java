@@ -16,9 +16,8 @@ import org.springframework.transaction.annotation.Transactional;
 /**
  * LUT-236: 자동종료 길드 경험치 소급을 <b>수행 기록 1건 단위 트랜잭션</b>으로 처리한다.
  *
- * <p>길드 경험치(guild_db)와 마커(mission_db)는 서로 다른 DB라 원자적일 수 없다.
- * 전체를 하나의 트랜잭션으로 묶으면 중간 실패 시 마커만 롤백되고 길드 경험치는 커밋되어
- * 재실행에서 이중 지급된다. 따라서 건별 REQUIRES_NEW 로 지급+마커를 한 단위로 커밋한다.
+ * <p>길드 경험치(guild_db)와 마커(mission_db)는 서로 다른 DB라 원자적일 수 없다. 전체를 하나의 트랜잭션으로 묶으면 중간 실패 시 마커만 롤백되고 길드
+ * 경험치는 커밋되어 재실행에서 이중 지급된다. 따라서 건별 REQUIRES_NEW 로 지급+마커를 한 단위로 커밋한다.
  */
 @Slf4j
 @Component
@@ -32,7 +31,9 @@ public class GuildExpBackfillExecutor {
     /**
      * @return 소급 지급한 길드 경험치 (지급 없으면 0)
      */
-    @Transactional(propagation = Propagation.REQUIRES_NEW, transactionManager = "missionTransactionManager")
+    @Transactional(
+            propagation = Propagation.REQUIRES_NEW,
+            transactionManager = "missionTransactionManager")
     public int grantForExecution(Long executionId) {
         MissionExecution execution = executionRepository.findById(executionId).orElse(null);
         if (execution == null || Boolean.TRUE.equals(execution.getGuildExpGranted())) {
@@ -60,12 +61,12 @@ public class GuildExpBackfillExecutor {
         }
 
         guildQueryFacade.addGuildExperience(
-            guildId,
-            exp,
-            GuildExpSourceType.GUILD_MISSION_EXECUTION,
-            mission.getId(),
-            execution.getParticipant().getUserId(),
-            "미션 자동 종료 길드 경험치 소급: " + mission.getTitle());
+                guildId,
+                exp,
+                GuildExpSourceType.GUILD_MISSION_EXECUTION,
+                mission.getId(),
+                execution.getParticipant().getUserId(),
+                "미션 자동 종료 길드 경험치 소급: " + mission.getTitle());
         execution.setGuildExpGranted(true);
         return exp;
     }
@@ -75,7 +76,9 @@ public class GuildExpBackfillExecutor {
      *
      * @return 소급 지급한 길드 경험치 (지급 없으면 0)
      */
-    @Transactional(propagation = Propagation.REQUIRES_NEW, transactionManager = "missionTransactionManager")
+    @Transactional(
+            propagation = Propagation.REQUIRES_NEW,
+            transactionManager = "missionTransactionManager")
     public int grantForInstance(Long instanceId) {
         DailyMissionInstance instance = instanceRepository.findById(instanceId).orElse(null);
         if (instance == null || Boolean.TRUE.equals(instance.getGuildExpGranted())) {
@@ -103,12 +106,12 @@ public class GuildExpBackfillExecutor {
         }
 
         guildQueryFacade.addGuildExperience(
-            guildId,
-            exp,
-            GuildExpSourceType.GUILD_MISSION_EXECUTION,
-            mission.getId(),
-            instance.getParticipant().getUserId(),
-            "미션 자동 종료 길드 경험치 소급: " + mission.getTitle());
+                guildId,
+                exp,
+                GuildExpSourceType.GUILD_MISSION_EXECUTION,
+                mission.getId(),
+                instance.getParticipant().getUserId(),
+                "미션 자동 종료 길드 경험치 소급: " + mission.getTitle());
         instance.setGuildExpGranted(true);
         return exp;
     }

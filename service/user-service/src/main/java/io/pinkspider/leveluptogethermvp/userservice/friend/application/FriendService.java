@@ -1,13 +1,14 @@
 package io.pinkspider.leveluptogethermvp.userservice.friend.application;
 
+import io.pinkspider.global.enums.TitlePosition;
 import io.pinkspider.global.event.FriendRemovedEvent;
 import io.pinkspider.global.event.FriendRequestAcceptedEvent;
 import io.pinkspider.global.event.FriendRequestEvent;
 import io.pinkspider.global.event.FriendRequestProcessedEvent;
-import io.pinkspider.global.event.FriendRequestRejectedEvent;
-import io.pinkspider.global.enums.TitlePosition;
 import io.pinkspider.global.facade.GamificationQueryFacade;
+import io.pinkspider.global.facade.dto.EquippedItemRarityDto;
 import io.pinkspider.global.facade.dto.UserTitleDto;
+import io.pinkspider.global.translation.TitleNameUtils;
 import io.pinkspider.leveluptogethermvp.userservice.friend.domain.dto.FriendRequestResponse;
 import io.pinkspider.leveluptogethermvp.userservice.friend.domain.dto.FriendResponse;
 import io.pinkspider.leveluptogethermvp.userservice.friend.domain.entity.Friendship;
@@ -46,55 +47,61 @@ public class FriendService {
             throw new IllegalArgumentException("자기 자신에게 친구 요청을 보낼 수 없습니다.");
         }
 
-        // 이미 존재하는 관계 확인
-        Optional<Friendship> existing = friendshipRepository.findFriendship(userId, friendId);
-        if (existing.isPresent()) {
-            Friendship friendship = existing.get();
-            if (friendship.isAccepted()) {
-                throw new IllegalStateException("이미 친구입니다.");
-            }
-            if (friendship.isPending()) {
-                throw new IllegalStateException("이미 친구 요청이 진행 중입니다.");
-            }
-            if (friendship.isBlocked()) {
-                throw new IllegalStateException("차단된 사용자에게 친구 요청을 보낼 수 없습니다.");
-            }
-            // REJECTED 상태인 경우: 기존 레코드를 재사용하여 다시 요청
-            if (friendship.isRejected()) {
-                friendship.resendRequest(userId, friendId, message);
-                Friendship saved = friendshipRepository.save(friendship);
+        // LUT-383: 한 쌍에 행이 2개(상대 차단 + 내 shadow 요청 등)일 수 있어 방향별로 조회한다.
+        Optional<Friendship> mine = friendshipRepository.findByUserIdAndFriendId(userId, friendId);
+        Optional<Friendship> theirs =
+                friendshipRepository.findByUserIdAndFriendId(friendId, userId);
 
-                // 친구 요청 이벤트 발행
-                Users requester = userRepository.findById(userId).orElse(null);
-                String requesterNickname = requester != null ? requester.getNickname() : "사용자";
-                eventPublisher.publishEvent(new FriendRequestEvent(
-                    userId, friendId, requesterNickname, saved.getId()
-                ));
-
-                log.info("친구 요청 재전송 (거절 후): {} -> {}", userId, friendId);
-                return FriendRequestResponse.simpleFrom(saved);
-            }
+        if (mine.filter(Friendship::isAccepted).isPresent()
+                || theirs.filter(Friendship::isAccepted).isPresent()) {
+            throw new IllegalStateException("이미 친구입니다.");
+        }
+        if (mine.filter(Friendship::isPending).isPresent()
+                || theirs.filter(Friendship::isPending).isPresent()) {
+            throw new IllegalStateException("이미 친구 요청이 진행 중입니다.");
+        }
+        // 내가 차단한 상대 — 차단자는 자신의 차단 사실을 아는 쪽이므로 에러를 그대로 노출한다
+        if (mine.filter(Friendship::isBlocked).isPresent()) {
+            throw new IllegalStateException("차단된 사용자에게 친구 요청을 보낼 수 없습니다.");
         }
 
-        Friendship friendship = Friendship.createRequest(userId, friendId, message);
-        Friendship saved = friendshipRepository.save(friendship);
+        // LUT-383: 조용한 차단(shadow block) — 상대가 나를 차단한 경우에도 요청을 정상 저장한다.
+        // 내 화면에는 '요청됨'이 자연스럽게 유지되고, 상대 받은 목록에서는 쿼리로 숨겨지며
+        // (findPendingRequestsReceived), 알림 이벤트만 발행하지 않는다. 차단 해제 시 자연 노출.
+        boolean shadowBlocked = theirs.filter(Friendship::isBlocked).isPresent();
 
-        // 친구 요청 이벤트 발행
-        Users requester = userRepository.findById(userId).orElse(null);
-        String requesterNickname = requester != null ? requester.getNickname() : "사용자";
-        eventPublisher.publishEvent(new FriendRequestEvent(
-            userId, friendId, requesterNickname, saved.getId()
-        ));
+        // REJECTED 상태인 경우: 기존 레코드를 재사용하여 다시 요청 (내 행 우선)
+        Optional<Friendship> rejected =
+                mine.filter(Friendship::isRejected).or(() -> theirs.filter(Friendship::isRejected));
+        Friendship saved;
+        if (rejected.isPresent()) {
+            Friendship friendship = rejected.get();
+            friendship.resendRequest(userId, friendId, message);
+            saved = friendshipRepository.save(friendship);
+            log.info("친구 요청 재전송 (거절 후): {} -> {}", userId, friendId);
+        } else {
+            saved = friendshipRepository.save(Friendship.createRequest(userId, friendId, message));
+            log.info("친구 요청 전송: {} -> {} (shadowBlocked={})", userId, friendId, shadowBlocked);
+        }
 
-        log.info("친구 요청 전송: {} -> {}", userId, friendId);
+        if (!shadowBlocked) {
+            // 친구 요청 이벤트 발행 (알림·푸시)
+            Users requester = userRepository.findById(userId).orElse(null);
+            String requesterNickname = requester != null ? requester.getNickname() : "사용자";
+            eventPublisher.publishEvent(
+                    new FriendRequestEvent(userId, friendId, requesterNickname, saved.getId()));
+        }
+
         return FriendRequestResponse.simpleFrom(saved);
     }
 
     // 친구 요청 수락
     @Transactional
     public FriendResponse acceptFriendRequest(String userId, Long requestId) {
-        Friendship friendship = friendshipRepository.findById(requestId)
-            .orElseThrow(() -> new IllegalArgumentException("친구 요청을 찾을 수 없습니다."));
+        Friendship friendship =
+                friendshipRepository
+                        .findById(requestId)
+                        .orElseThrow(() -> new IllegalArgumentException("친구 요청을 찾을 수 없습니다."));
 
         if (!friendship.getFriendId().equals(userId)) {
             throw new IllegalStateException("본인에게 온 요청만 수락할 수 있습니다.");
@@ -111,9 +118,9 @@ public class FriendService {
         // 친구 요청 수락 이벤트 발행
         Users accepter = userRepository.findById(userId).orElse(null);
         String accepterNickname = accepter != null ? accepter.getNickname() : "사용자";
-        eventPublisher.publishEvent(new FriendRequestAcceptedEvent(
-            userId, friendship.getUserId(), accepterNickname, friendship.getId()
-        ));
+        eventPublisher.publishEvent(
+                new FriendRequestAcceptedEvent(
+                        userId, friendship.getUserId(), accepterNickname, friendship.getId()));
 
         log.info("친구 요청 수락: {} accepted {}", userId, friendship.getUserId());
         return FriendResponse.simpleFrom(friendship, userId);
@@ -122,8 +129,10 @@ public class FriendService {
     // 친구 요청 거절
     @Transactional
     public void rejectFriendRequest(String userId, Long requestId) {
-        Friendship friendship = friendshipRepository.findById(requestId)
-            .orElseThrow(() -> new IllegalArgumentException("친구 요청을 찾을 수 없습니다."));
+        Friendship friendship =
+                friendshipRepository
+                        .findById(requestId)
+                        .orElseThrow(() -> new IllegalArgumentException("친구 요청을 찾을 수 없습니다."));
 
         if (!friendship.getFriendId().equals(userId)) {
             throw new IllegalStateException("본인에게 온 요청만 거절할 수 있습니다.");
@@ -134,21 +143,18 @@ public class FriendService {
         // 친구 요청 처리 완료 이벤트 발행 (알림 삭제용)
         eventPublisher.publishEvent(new FriendRequestProcessedEvent(userId, requestId));
 
-        // 친구 요청 거절 이벤트 발행
-        Users rejecter = userRepository.findById(userId).orElse(null);
-        String rejecterNickname = rejecter != null ? rejecter.getNickname() : "사용자";
-        eventPublisher.publishEvent(new FriendRequestRejectedEvent(
-            userId, friendship.getUserId(), rejecterNickname, friendship.getId()
-        ));
-
+        // LUT-396: 조용한 거절 — 요청자에게 거절 사실이 알림으로 통지되지 않아야 한다.
+        // (참고: 차단·친구삭제와 동일하게 상대방에게 알림을 보내지 않는 액션. 수락만 알림 발송)
         log.info("친구 요청 거절: {} rejected {}", userId, friendship.getUserId());
     }
 
     // 친구 삭제
     @Transactional
     public void removeFriend(String userId, String friendId) {
-        Friendship friendship = friendshipRepository.findFriendship(userId, friendId)
-            .orElseThrow(() -> new IllegalArgumentException("친구 관계를 찾을 수 없습니다."));
+        Friendship friendship =
+                friendshipRepository
+                        .findFriendship(userId, friendId)
+                        .orElseThrow(() -> new IllegalArgumentException("친구 관계를 찾을 수 없습니다."));
 
         if (!friendship.isAccepted()) {
             throw new IllegalStateException("친구 관계가 아닙니다.");
@@ -168,7 +174,11 @@ public class FriendService {
     // 사용자 차단
     @Transactional
     public void blockUser(String userId, String targetId) {
-        Optional<Friendship> existing = friendshipRepository.findByUserIdAndFriendId(userId, targetId);
+        if (userId.equals(targetId)) {
+            throw new IllegalArgumentException("자기 자신을 차단할 수 없습니다.");
+        }
+        Optional<Friendship> existing =
+                friendshipRepository.findByUserIdAndFriendId(userId, targetId);
 
         if (existing.isPresent()) {
             Friendship friendship = existing.get();
@@ -178,14 +188,30 @@ public class FriendService {
                 eventPublisher.publishEvent(new FriendRemovedEvent(userId, targetId));
             }
         } else {
-            Friendship friendship = Friendship.builder()
-                .userId(userId)
-                .friendId(targetId)
-                .status(FriendshipStatus.BLOCKED)
-                .build();
+            Friendship friendship =
+                    Friendship.builder()
+                            .userId(userId)
+                            .friendId(targetId)
+                            .status(FriendshipStatus.BLOCKED)
+                            .build();
             friendship.block();
             friendshipRepository.save(friendship);
         }
+
+        // LUT-367: 반대 방향 행 정리 — 친구 관계는 한 행(요청자→수신자)이라 상대가 만든
+        // ACCEPTED/PENDING 행이 남으면 차단 후에도 친구로 집계되거나 미처리 요청이
+        // 수락되는 엣지가 생긴다. 상대도 나를 차단한 행(BLOCKED)만 유지한다.
+        friendshipRepository
+                .findByUserIdAndFriendId(targetId, userId)
+                .filter(reverse -> !reverse.isBlocked())
+                .ifPresent(
+                        reverse -> {
+                            if (reverse.isAccepted()) {
+                                eventPublisher.publishEvent(
+                                        new FriendRemovedEvent(userId, targetId));
+                            }
+                            friendshipRepository.delete(reverse);
+                        });
 
         // 양쪽 사용자의 친구 캐시 무효화 (기존 친구 관계가 차단으로 변경될 수 있음)
         friendCacheService.evictBothFriendCaches(userId, targetId);
@@ -196,8 +222,10 @@ public class FriendService {
     // 차단 해제
     @Transactional
     public void unblockUser(String userId, String targetId) {
-        Friendship friendship = friendshipRepository.findByUserIdAndFriendId(userId, targetId)
-            .orElseThrow(() -> new IllegalArgumentException("차단 관계를 찾을 수 없습니다."));
+        Friendship friendship =
+                friendshipRepository
+                        .findByUserIdAndFriendId(userId, targetId)
+                        .orElseThrow(() -> new IllegalArgumentException("차단 관계를 찾을 수 없습니다."));
 
         if (!friendship.isBlocked()) {
             throw new IllegalStateException("차단된 사용자가 아닙니다.");
@@ -213,78 +241,100 @@ public class FriendService {
 
     // 친구 목록 조회
     public Page<FriendResponse> getFriends(String userId, Pageable pageable) {
+        return getFriends(userId, pageable, null);
+    }
+
+    /** LUT-255: locale에 맞는 칭호명으로 응답 */
+    public Page<FriendResponse> getFriends(String userId, Pageable pageable, String locale) {
         Page<Friendship> friendships = friendshipRepository.findFriends(userId, pageable);
 
         // 친구 ID 목록 추출
-        List<String> friendIds = friendships.getContent().stream()
-            .map(f -> f.getUserId().equals(userId) ? f.getFriendId() : f.getUserId())
-            .toList();
+        List<String> friendIds =
+                friendships.getContent().stream()
+                        .map(f -> f.getUserId().equals(userId) ? f.getFriendId() : f.getUserId())
+                        .toList();
 
-        // 사용자 정보, 레벨, 좌/우 칭호 조회
+        // 사용자 정보, 레벨, 좌/우 칭호, 장착 아이템 희귀도 조회
         Map<String, Users> userMap = getUserMap(friendIds);
         Map<String, Integer> levelMap = getLevelMap(friendIds);
-        Map<String, EquippedTitlePair> titlePairMap = getEquippedTitlePairMap(friendIds);
+        Map<String, EquippedTitlePair> titlePairMap = getEquippedTitlePairMap(friendIds, locale);
+        Map<String, List<EquippedItemRarityDto>> itemRarityMap =
+                getEquippedItemRarityMap(friendIds);
 
-        return friendships.map(friendship -> {
-            String friendId = friendship.getUserId().equals(userId)
-                ? friendship.getFriendId()
-                : friendship.getUserId();
-            Users friend = userMap.get(friendId);
-            EquippedTitlePair titlePair = titlePairMap.getOrDefault(friendId, EquippedTitlePair.EMPTY);
-            return FriendResponse.from(
-                friendship,
-                userId,
-                friend != null ? friend.getNickname() : null,
-                friend != null ? friend.getPicture() : null,
-                levelMap.getOrDefault(friendId, 1),
-                titlePair.left(),
-                titlePair.leftRarity(),
-                titlePair.right(),
-                titlePair.rightRarity()
-            );
-        });
+        return friendships.map(
+                friendship -> {
+                    String friendId =
+                            friendship.getUserId().equals(userId)
+                                    ? friendship.getFriendId()
+                                    : friendship.getUserId();
+                    Users friend = userMap.get(friendId);
+                    EquippedTitlePair titlePair =
+                            titlePairMap.getOrDefault(friendId, EquippedTitlePair.EMPTY);
+                    return FriendResponse.from(
+                            friendship,
+                            userId,
+                            friend != null ? friend.getNickname() : null,
+                            friend != null ? friend.getPicture() : null,
+                            levelMap.getOrDefault(friendId, 1),
+                            titlePair.left(),
+                            titlePair.leftRarity(),
+                            titlePair.right(),
+                            titlePair.rightRarity(),
+                            itemRarityMap.getOrDefault(friendId, List.of()));
+                });
     }
 
     // 전체 친구 목록 조회
     public List<FriendResponse> getAllFriends(String userId) {
+        return getAllFriends(userId, null);
+    }
+
+    /** LUT-255: locale에 맞는 칭호명으로 응답 */
+    public List<FriendResponse> getAllFriends(String userId, String locale) {
         List<Friendship> friendships = friendshipRepository.findAllFriends(userId);
 
         // 친구 ID 목록 추출
-        List<String> friendIds = friendships.stream()
-            .map(f -> f.getUserId().equals(userId) ? f.getFriendId() : f.getUserId())
-            .toList();
+        List<String> friendIds =
+                friendships.stream()
+                        .map(f -> f.getUserId().equals(userId) ? f.getFriendId() : f.getUserId())
+                        .toList();
 
-        // 사용자 정보, 레벨, 좌/우 칭호 조회
+        // 사용자 정보, 레벨, 좌/우 칭호, 장착 아이템 희귀도 조회
         Map<String, Users> userMap = getUserMap(friendIds);
         Map<String, Integer> levelMap = getLevelMap(friendIds);
-        Map<String, EquippedTitlePair> titlePairMap = getEquippedTitlePairMap(friendIds);
+        Map<String, EquippedTitlePair> titlePairMap = getEquippedTitlePairMap(friendIds, locale);
+        Map<String, List<EquippedItemRarityDto>> itemRarityMap =
+                getEquippedItemRarityMap(friendIds);
 
         return friendships.stream()
-            .map(friendship -> {
-                String friendId = friendship.getUserId().equals(userId)
-                    ? friendship.getFriendId()
-                    : friendship.getUserId();
-                Users friend = userMap.get(friendId);
-                EquippedTitlePair titlePair = titlePairMap.getOrDefault(friendId, EquippedTitlePair.EMPTY);
-                return FriendResponse.from(
-                    friendship,
-                    userId,
-                    friend != null ? friend.getNickname() : null,
-                    friend != null ? friend.getPicture() : null,
-                    levelMap.getOrDefault(friendId, 1),
-                    titlePair.left(),
-                    titlePair.leftRarity(),
-                    titlePair.right(),
-                    titlePair.rightRarity()
-                );
-            })
-            .toList();
+                .map(
+                        friendship -> {
+                            String friendId =
+                                    friendship.getUserId().equals(userId)
+                                            ? friendship.getFriendId()
+                                            : friendship.getUserId();
+                            Users friend = userMap.get(friendId);
+                            EquippedTitlePair titlePair =
+                                    titlePairMap.getOrDefault(friendId, EquippedTitlePair.EMPTY);
+                            return FriendResponse.from(
+                                    friendship,
+                                    userId,
+                                    friend != null ? friend.getNickname() : null,
+                                    friend != null ? friend.getPicture() : null,
+                                    levelMap.getOrDefault(friendId, 1),
+                                    titlePair.left(),
+                                    titlePair.leftRarity(),
+                                    titlePair.right(),
+                                    titlePair.rightRarity(),
+                                    itemRarityMap.getOrDefault(friendId, List.of()));
+                        })
+                .toList();
     }
 
     // 사용자 정보 조회 헬퍼 메서드
     private Map<String, Users> getUserMap(List<String> userIds) {
         return userRepository.findAllById(userIds).stream()
-            .collect(Collectors.toMap(Users::getId, u -> u));
+                .collect(Collectors.toMap(Users::getId, u -> u));
     }
 
     // 레벨 정보 조회 헬퍼 메서드 (배치 조회)
@@ -292,34 +342,42 @@ public class FriendService {
         return gamificationQueryFacadeService.getUserLevelMap(userIds);
     }
 
-    // 좌/우 칭호 모두 배치 조회 (QA-93)
-    private Map<String, EquippedTitlePair> getEquippedTitlePairMap(List<String> userIds) {
+    /** LUT-424: 장착 아이템 희귀도 배치 조회 — 썸네일 표식용 데코 데이터라 실패 시 빈 배열로 응답한다. */
+    private Map<String, List<EquippedItemRarityDto>> getEquippedItemRarityMap(
+            List<String> userIds) {
+        if (userIds.isEmpty()) {
+            return Map.of();
+        }
+        try {
+            return gamificationQueryFacadeService.getEquippedItemRaritiesByUserIds(userIds);
+        } catch (Exception e) {
+            log.warn("장착 아이템 희귀도 조회 실패 - 아이템 표식 없이 응답: {}", e.getMessage());
+            return Map.of();
+        }
+    }
+
+    // 좌/우 칭호 모두 배치 조회 (QA-93, LUT-255: locale 반영)
+    private Map<String, EquippedTitlePair> getEquippedTitlePairMap(
+            List<String> userIds, String locale) {
         if (userIds.isEmpty()) {
             return Map.of();
         }
         Map<String, List<UserTitleDto>> titlesByUser =
-            gamificationQueryFacadeService.getEquippedTitlesByUserIds(userIds);
+                gamificationQueryFacadeService.getEquippedTitlesByUserIds(userIds);
 
         return titlesByUser.entrySet().stream()
-            .collect(Collectors.toMap(
-                Map.Entry::getKey,
-                e -> EquippedTitlePair.from(e.getValue())
-            ));
+                .collect(
+                        Collectors.toMap(
+                                Map.Entry::getKey,
+                                e -> EquippedTitlePair.from(e.getValue(), locale)));
     }
 
-    /**
-     * 좌/우 장착 칭호 이름 + 등급 페어.
-     * QA-114: 칭호 등급(rarity)도 함께 내려줘서 프론트가 등급별 색상을 적용할 수 있게 함.
-     */
+    /** 좌/우 장착 칭호 이름 + 등급 페어. QA-114: 칭호 등급(rarity)도 함께 내려줘서 프론트가 등급별 색상을 적용할 수 있게 함. */
     private record EquippedTitlePair(
-        String left,
-        String leftRarity,
-        String right,
-        String rightRarity
-    ) {
+            String left, String leftRarity, String right, String rightRarity) {
         static final EquippedTitlePair EMPTY = new EquippedTitlePair(null, null, null, null);
 
-        static EquippedTitlePair from(List<UserTitleDto> titles) {
+        static EquippedTitlePair from(List<UserTitleDto> titles, String locale) {
             String left = null;
             String leftRarity = null;
             String right = null;
@@ -327,10 +385,10 @@ public class FriendService {
             if (titles != null) {
                 for (UserTitleDto t : titles) {
                     if (t.equippedPosition() == TitlePosition.LEFT) {
-                        left = t.titleName();
+                        left = TitleNameUtils.localizedTitleName(t, locale);
                         leftRarity = t.titleRarity() != null ? t.titleRarity().name() : null;
                     } else if (t.equippedPosition() == TitlePosition.RIGHT) {
-                        right = t.titleName();
+                        right = TitleNameUtils.localizedTitleName(t, locale);
                         rightRarity = t.titleRarity() != null ? t.titleRarity().name() : null;
                     }
                 }
@@ -344,40 +402,85 @@ public class FriendService {
         List<Friendship> friendships = friendshipRepository.findPendingRequestsReceived(userId);
 
         // 요청자 ID 목록 추출
-        List<String> requesterIds = friendships.stream()
-            .map(Friendship::getUserId)
-            .toList();
+        List<String> requesterIds = friendships.stream().map(Friendship::getUserId).toList();
 
         // 사용자 정보 조회
-        Map<String, Users> userMap = userRepository.findAllById(requesterIds).stream()
-            .collect(Collectors.toMap(Users::getId, u -> u));
+        Map<String, Users> userMap =
+                userRepository.findAllById(requesterIds).stream()
+                        .collect(Collectors.toMap(Users::getId, u -> u));
 
         // 레벨 정보 배치 조회
-        Map<String, Integer> levelMap = gamificationQueryFacadeService.getUserLevelMap(requesterIds);
+        Map<String, Integer> levelMap =
+                gamificationQueryFacadeService.getUserLevelMap(requesterIds);
 
         return friendships.stream()
-            .map(friendship -> {
-                Users requester = userMap.get(friendship.getUserId());
-                String nickname = requester != null ? requester.getNickname() : null;
-                String profileImageUrl = requester != null ? requester.getPicture() : null;
-                Integer level = levelMap.getOrDefault(friendship.getUserId(), 1);
-                return FriendRequestResponse.from(friendship, nickname, profileImageUrl, level);
-            })
-            .toList();
+                .map(
+                        friendship -> {
+                            Users requester = userMap.get(friendship.getUserId());
+                            String nickname = requester != null ? requester.getNickname() : null;
+                            String profileImageUrl =
+                                    requester != null ? requester.getPicture() : null;
+                            Integer level = levelMap.getOrDefault(friendship.getUserId(), 1);
+                            return FriendRequestResponse.from(
+                                    friendship, nickname, profileImageUrl, level);
+                        })
+                .toList();
     }
 
     // 보낸 친구 요청 목록
     public List<FriendRequestResponse> getPendingRequestsSent(String userId) {
         return friendshipRepository.findPendingRequestsSent(userId).stream()
-            .map(FriendRequestResponse::simpleFrom)
-            .toList();
+                .map(FriendRequestResponse::simpleFrom)
+                .toList();
     }
 
     // 차단 목록 조회
     public List<FriendResponse> getBlockedUsers(String userId) {
-        return friendshipRepository.findBlockedUsers(userId).stream()
-            .map(f -> FriendResponse.simpleFrom(f, userId))
-            .toList();
+        return getBlockedUsers(userId, null);
+    }
+
+    /** LUT-367: 차단 목록 — 차단 해제 UI용으로 닉네임/사진/레벨/칭호를 포함해 내린다 */
+    public List<FriendResponse> getBlockedUsers(String userId, String locale) {
+        List<Friendship> blocked = friendshipRepository.findBlockedUsers(userId);
+
+        List<String> targetIds = blocked.stream().map(Friendship::getFriendId).toList();
+
+        Map<String, Users> userMap = getUserMap(targetIds);
+        Map<String, Integer> levelMap = getLevelMap(targetIds);
+        Map<String, EquippedTitlePair> titlePairMap = getEquippedTitlePairMap(targetIds, locale);
+        Map<String, List<EquippedItemRarityDto>> itemRarityMap =
+                getEquippedItemRarityMap(targetIds);
+
+        return blocked.stream()
+                .map(
+                        friendship -> {
+                            String targetId = friendship.getFriendId();
+                            Users target = userMap.get(targetId);
+                            EquippedTitlePair titlePair =
+                                    titlePairMap.getOrDefault(targetId, EquippedTitlePair.EMPTY);
+                            return FriendResponse.from(
+                                    friendship,
+                                    userId,
+                                    target != null ? target.getNickname() : null,
+                                    target != null ? target.getPicture() : null,
+                                    levelMap.getOrDefault(targetId, 1),
+                                    titlePair.left(),
+                                    titlePair.leftRarity(),
+                                    titlePair.right(),
+                                    titlePair.rightRarity(),
+                                    itemRarityMap.getOrDefault(targetId, List.of()));
+                        })
+                .toList();
+    }
+
+    /** LUT-367: 차단한 유저 ID 목록 (파사드 — 피드/댓글 필터링용) */
+    public List<String> getBlockedUserIds(String userId) {
+        return friendshipRepository.findBlockedUserIds(userId);
+    }
+
+    /** LUT-367: 양방향 차단 여부 (파사드 — DM/알림 차단용) */
+    public boolean isBlockedBetween(String userId1, String userId2) {
+        return friendshipRepository.isBlockedBetween(userId1, userId2);
     }
 
     // 친구 수 조회
@@ -398,8 +501,10 @@ public class FriendService {
     // 친구 요청 취소
     @Transactional
     public void cancelFriendRequest(String userId, Long requestId) {
-        Friendship friendship = friendshipRepository.findById(requestId)
-            .orElseThrow(() -> new IllegalArgumentException("친구 요청을 찾을 수 없습니다."));
+        Friendship friendship =
+                friendshipRepository
+                        .findById(requestId)
+                        .orElseThrow(() -> new IllegalArgumentException("친구 요청을 찾을 수 없습니다."));
 
         if (!friendship.getUserId().equals(userId)) {
             throw new IllegalStateException("본인이 보낸 요청만 취소할 수 있습니다.");

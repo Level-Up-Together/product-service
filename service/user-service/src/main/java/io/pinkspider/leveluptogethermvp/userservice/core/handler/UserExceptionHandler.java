@@ -1,6 +1,5 @@
 package io.pinkspider.leveluptogethermvp.userservice.core.handler;
 
-
 import io.pinkspider.global.api.ApiResult;
 import io.pinkspider.global.handler.RestExceptionHandler;
 import io.pinkspider.leveluptogethermvp.userservice.core.api.UserApiStatus;
@@ -21,57 +20,60 @@ public class UserExceptionHandler extends RestExceptionHandler {
 
     @ExceptionHandler(NotExistUserException.class)
     @ResponseStatus(HttpStatus.INTERNAL_SERVER_ERROR)
-    protected Object handleNotExistUserException(NotExistUserException notExistUserException, HttpServletRequest request) {
+    protected Object handleNotExistUserException(
+            NotExistUserException notExistUserException, HttpServletRequest request) {
         logError(notExistUserException, request);
 
         return ApiResult.builder()
-            .code(UserApiStatus.NOT_EXIST_USER.getResultCode())
-            .message(UserApiStatus.NOT_EXIST_USER.getResultMessage())
-            .build();
+                .code(UserApiStatus.NOT_EXIST_USER.getResultCode())
+                .message(UserApiStatus.NOT_EXIST_USER.getResultMessage())
+                .build();
     }
 
     @ExceptionHandler(AccessTokenNotValidException.class)
     @ResponseStatus(HttpStatus.INTERNAL_SERVER_ERROR)
-    protected Object handleAccessTokenNotValidException(AccessTokenNotValidException accessTokenNotValidException, HttpServletRequest request) {
+    protected Object handleAccessTokenNotValidException(
+            AccessTokenNotValidException accessTokenNotValidException, HttpServletRequest request) {
         logError(accessTokenNotValidException, request);
 
         return ApiResult.builder()
-            .code(accessTokenNotValidException.getCode())
-            .message(accessTokenNotValidException.getMessage())
-            .build();
+                .code(accessTokenNotValidException.getCode())
+                .message(accessTokenNotValidException.getMessage())
+                .build();
     }
 
     @ExceptionHandler(RefreshTokenNotValidException.class)
     @ResponseStatus(HttpStatus.INTERNAL_SERVER_ERROR)
-    protected Object handleRefreshTokenNotValidException(RefreshTokenNotValidException refreshTokenNotValidException, HttpServletRequest request) {
+    protected Object handleRefreshTokenNotValidException(
+            RefreshTokenNotValidException refreshTokenNotValidException,
+            HttpServletRequest request) {
         logError(refreshTokenNotValidException, request);
 
         return ApiResult.builder()
-            .code(refreshTokenNotValidException.getCode())
-            .message(refreshTokenNotValidException.getMessage())
-            .build();
+                .code(refreshTokenNotValidException.getCode())
+                .message(refreshTokenNotValidException.getMessage())
+                .build();
     }
 
     @ExceptionHandler(CustomBadCredentialException.class)
     @ResponseStatus(HttpStatus.INTERNAL_SERVER_ERROR)
-    protected Object handleBadCredentialException(CustomBadCredentialException customBadCredentialException, HttpServletRequest request) {
+    protected Object handleBadCredentialException(
+            CustomBadCredentialException customBadCredentialException, HttpServletRequest request) {
         logError(customBadCredentialException, request);
 
         return ApiResult.builder()
-            .code(customBadCredentialException.getCode())
-            .message(customBadCredentialException.getMessage())
-            .build();
+                .code(customBadCredentialException.getCode())
+                .message(customBadCredentialException.getMessage())
+                .build();
     }
 
     @ExceptionHandler(CustomMissingRequestHeaderException.class)
     @ResponseStatus(HttpStatus.INTERNAL_SERVER_ERROR)
-    protected Object handleCustomMissingRequestHeaderException(CustomMissingRequestHeaderException ex, HttpServletRequest request) {
+    protected Object handleCustomMissingRequestHeaderException(
+            CustomMissingRequestHeaderException ex, HttpServletRequest request) {
         logError(ex, request);
 
-        return ApiResult.builder()
-            .code(ex.getCode())
-            .message(ex.getMessage())
-            .build();
+        return ApiResult.builder().code(ex.getCode()).message(ex.getMessage()).build();
     }
 
     private void logError(Exception exception, HttpServletRequest request) {

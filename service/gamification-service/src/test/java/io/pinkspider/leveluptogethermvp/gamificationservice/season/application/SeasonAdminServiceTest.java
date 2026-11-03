@@ -36,17 +36,13 @@ import org.springframework.data.redis.core.RedisTemplate;
 @DisplayName("SeasonAdminService 테스트")
 class SeasonAdminServiceTest {
 
-    @Mock
-    private SeasonRepository seasonRepository;
+    @Mock private SeasonRepository seasonRepository;
 
-    @Mock
-    private RedisTemplate<String, Object> redisTemplateForObject;
+    @Mock private RedisTemplate<String, Object> redisTemplateForObject;
 
-    @Mock
-    private SeasonScheduledTaskManager scheduledTaskManager;
+    @Mock private SeasonScheduledTaskManager scheduledTaskManager;
 
-    @InjectMocks
-    private SeasonAdminService seasonAdminService;
+    @InjectMocks private SeasonAdminService seasonAdminService;
 
     private Season testSeason;
     private LocalDateTime now;
@@ -59,16 +55,17 @@ class SeasonAdminServiceTest {
         start = now.minusDays(30);
         end = now.plusDays(30);
 
-        testSeason = Season.builder()
-            .title("테스트 시즌")
-            .description("테스트 시즌 설명")
-            .startAt(start)
-            .endAt(end)
-            .isActive(true)
-            .sortOrder(0)
-            .createdBy("admin")
-            .modifiedBy("admin")
-            .build();
+        testSeason =
+                Season.builder()
+                        .title("테스트 시즌")
+                        .description("테스트 시즌 설명")
+                        .startAt(start)
+                        .endAt(end)
+                        .isActive(true)
+                        .sortOrder(0)
+                        .createdBy("admin")
+                        .modifiedBy("admin")
+                        .build();
         setId(testSeason, 1L);
     }
 
@@ -81,7 +78,7 @@ class SeasonAdminServiceTest {
         void getAllSeasons_success() {
             // given
             when(seasonRepository.findAllByOrderBySortOrderAscStartAtDesc())
-                .thenReturn(List.of(testSeason));
+                    .thenReturn(List.of(testSeason));
 
             // when
             List<SeasonAdminResponse> result = seasonAdminService.getAllSeasons();
@@ -96,8 +93,7 @@ class SeasonAdminServiceTest {
         @DisplayName("시즌이 없으면 빈 목록을 반환한다")
         void getAllSeasons_empty() {
             // given
-            when(seasonRepository.findAllByOrderBySortOrderAscStartAtDesc())
-                .thenReturn(List.of());
+            when(seasonRepository.findAllByOrderBySortOrderAscStartAtDesc()).thenReturn(List.of());
 
             // when
             List<SeasonAdminResponse> result = seasonAdminService.getAllSeasons();
@@ -116,11 +112,11 @@ class SeasonAdminServiceTest {
         void searchSeasons_withKeyword() {
             // given
             Page<Season> page = new PageImpl<>(List.of(testSeason));
-            when(seasonRepository.searchByKeyword("테스트", PageRequest.of(0, 10)))
-                .thenReturn(page);
+            when(seasonRepository.searchByKeyword("테스트", PageRequest.of(0, 10))).thenReturn(page);
 
             // when
-            SeasonAdminPageResponse result = seasonAdminService.searchSeasons("테스트", PageRequest.of(0, 10));
+            SeasonAdminPageResponse result =
+                    seasonAdminService.searchSeasons("테스트", PageRequest.of(0, 10));
 
             // then
             assertThat(result.content()).hasSize(1);
@@ -133,10 +129,11 @@ class SeasonAdminServiceTest {
             // given
             Page<Season> page = new PageImpl<>(List.of(testSeason));
             when(seasonRepository.findAllByOrderBySortOrderAscStartAtDesc(PageRequest.of(0, 10)))
-                .thenReturn(page);
+                    .thenReturn(page);
 
             // when
-            SeasonAdminPageResponse result = seasonAdminService.searchSeasons(null, PageRequest.of(0, 10));
+            SeasonAdminPageResponse result =
+                    seasonAdminService.searchSeasons(null, PageRequest.of(0, 10));
 
             // then
             assertThat(result.content()).hasSize(1);
@@ -148,10 +145,11 @@ class SeasonAdminServiceTest {
             // given
             Page<Season> page = new PageImpl<>(List.of(testSeason));
             when(seasonRepository.findAllByOrderBySortOrderAscStartAtDesc(PageRequest.of(0, 10)))
-                .thenReturn(page);
+                    .thenReturn(page);
 
             // when
-            SeasonAdminPageResponse result = seasonAdminService.searchSeasons("   ", PageRequest.of(0, 10));
+            SeasonAdminPageResponse result =
+                    seasonAdminService.searchSeasons("   ", PageRequest.of(0, 10));
 
             // then
             assertThat(result.content()).hasSize(1);
@@ -184,8 +182,8 @@ class SeasonAdminServiceTest {
 
             // when & then
             assertThatThrownBy(() -> seasonAdminService.getSeason(99L))
-                .isInstanceOf(CustomException.class)
-                .hasMessageContaining("error.season.not_found");
+                    .isInstanceOf(CustomException.class)
+                    .hasMessageContaining("error.season.not_found");
         }
     }
 
@@ -198,7 +196,7 @@ class SeasonAdminServiceTest {
         void getCurrentSeason_success() {
             // given
             when(seasonRepository.findCurrentSeason(any(LocalDateTime.class)))
-                .thenReturn(Optional.of(testSeason));
+                    .thenReturn(Optional.of(testSeason));
 
             // when
             SeasonAdminResponse result = seasonAdminService.getCurrentSeason();
@@ -213,7 +211,7 @@ class SeasonAdminServiceTest {
         void getCurrentSeason_returnsNullWhenNotFound() {
             // given
             when(seasonRepository.findCurrentSeason(any(LocalDateTime.class)))
-                .thenReturn(Optional.empty());
+                    .thenReturn(Optional.empty());
 
             // when
             SeasonAdminResponse result = seasonAdminService.getCurrentSeason();
@@ -231,16 +229,17 @@ class SeasonAdminServiceTest {
         @DisplayName("예정된 시즌 목록을 조회한다")
         void getUpcomingSeasons_success() {
             // given
-            Season upcomingSeason = Season.builder()
-                .title("다가오는 시즌")
-                .startAt(now.plusDays(10))
-                .endAt(now.plusDays(40))
-                .isActive(true)
-                .build();
+            Season upcomingSeason =
+                    Season.builder()
+                            .title("다가오는 시즌")
+                            .startAt(now.plusDays(10))
+                            .endAt(now.plusDays(40))
+                            .isActive(true)
+                            .build();
             setId(upcomingSeason, 2L);
 
             when(seasonRepository.findUpcomingSeasons(any(LocalDateTime.class)))
-                .thenReturn(List.of(upcomingSeason));
+                    .thenReturn(List.of(upcomingSeason));
 
             // when
             List<SeasonAdminResponse> result = seasonAdminService.getUpcomingSeasons();
@@ -255,7 +254,7 @@ class SeasonAdminServiceTest {
         void getUpcomingSeasons_empty() {
             // given
             when(seasonRepository.findUpcomingSeasons(any(LocalDateTime.class)))
-                .thenReturn(List.of());
+                    .thenReturn(List.of());
 
             // when
             List<SeasonAdminResponse> result = seasonAdminService.getUpcomingSeasons();
@@ -273,10 +272,11 @@ class SeasonAdminServiceTest {
         @DisplayName("시즌을 생성한다")
         void createSeason_success() {
             // given
-            SeasonAdminRequest request = new SeasonAdminRequest(
-                "신규 시즌", "설명", start, end, true, null, null, 0, "admin", "admin"
-            );
-            when(seasonRepository.existsOverlappingActiveSeasonForNew(start, end)).thenReturn(false);
+            SeasonAdminRequest request =
+                    new SeasonAdminRequest(
+                            "신규 시즌", "설명", start, end, true, null, null, 0, "admin", "admin");
+            when(seasonRepository.existsOverlappingActiveSeasonForNew(start, end))
+                    .thenReturn(false);
             when(seasonRepository.save(any(Season.class))).thenReturn(testSeason);
             when(redisTemplateForObject.keys(any())).thenReturn(null);
 
@@ -293,10 +293,11 @@ class SeasonAdminServiceTest {
         @DisplayName("isActive가 null이면 기본값 true로 생성한다")
         void createSeason_isActiveNullDefaultsToTrue() {
             // given
-            SeasonAdminRequest request = new SeasonAdminRequest(
-                "신규 시즌", "설명", start, end, null, null, null, null, "admin", "admin"
-            );
-            when(seasonRepository.existsOverlappingActiveSeasonForNew(start, end)).thenReturn(false);
+            SeasonAdminRequest request =
+                    new SeasonAdminRequest(
+                            "신규 시즌", "설명", start, end, null, null, null, null, "admin", "admin");
+            when(seasonRepository.existsOverlappingActiveSeasonForNew(start, end))
+                    .thenReturn(false);
             when(seasonRepository.save(any(Season.class))).thenReturn(testSeason);
             when(redisTemplateForObject.keys(any())).thenReturn(null);
 
@@ -312,9 +313,9 @@ class SeasonAdminServiceTest {
         @DisplayName("isActive가 false이면 중복 활성 시즌 검사를 생략한다")
         void createSeason_inactiveSkipsOverlapCheck() {
             // given
-            SeasonAdminRequest request = new SeasonAdminRequest(
-                "비활성 시즌", "설명", start, end, false, null, null, 0, "admin", "admin"
-            );
+            SeasonAdminRequest request =
+                    new SeasonAdminRequest(
+                            "비활성 시즌", "설명", start, end, false, null, null, 0, "admin", "admin");
             when(seasonRepository.save(any(Season.class))).thenReturn(testSeason);
             when(redisTemplateForObject.keys(any())).thenReturn(null);
 
@@ -330,14 +331,14 @@ class SeasonAdminServiceTest {
         @DisplayName("종료 일시가 시작 일시 이전이면 예외를 던진다")
         void createSeason_invalidDates() {
             // given
-            SeasonAdminRequest request = new SeasonAdminRequest(
-                "잘못된 시즌", "설명", end, start, true, null, null, 0, "admin", "admin"
-            );
+            SeasonAdminRequest request =
+                    new SeasonAdminRequest(
+                            "잘못된 시즌", "설명", end, start, true, null, null, 0, "admin", "admin");
 
             // when & then
             assertThatThrownBy(() -> seasonAdminService.createSeason(request))
-                .isInstanceOf(CustomException.class)
-                .hasMessageContaining("error.season.end_before_start");
+                    .isInstanceOf(CustomException.class)
+                    .hasMessageContaining("error.season.end_before_start");
         }
 
         @Test
@@ -345,41 +346,44 @@ class SeasonAdminServiceTest {
         void createSeason_sameDateThrowsException() {
             // given
             LocalDateTime sameTime = now;
-            SeasonAdminRequest request = new SeasonAdminRequest(
-                "잘못된 시즌", "설명", sameTime, sameTime, true, null, null, 0, "admin", "admin"
-            );
+            SeasonAdminRequest request =
+                    new SeasonAdminRequest(
+                            "잘못된 시즌", "설명", sameTime, sameTime, true, null, null, 0, "admin",
+                            "admin");
 
             // when & then
             assertThatThrownBy(() -> seasonAdminService.createSeason(request))
-                .isInstanceOf(CustomException.class)
-                .hasMessageContaining("error.season.end_before_start");
+                    .isInstanceOf(CustomException.class)
+                    .hasMessageContaining("error.season.end_before_start");
         }
 
         @Test
         @DisplayName("활성 시즌 기간이 겹치면 예외를 던진다")
         void createSeason_overlappingActiveSeason() {
             // given
-            SeasonAdminRequest request = new SeasonAdminRequest(
-                "겹치는 시즌", "설명", start, end, true, null, null, 0, "admin", "admin"
-            );
+            SeasonAdminRequest request =
+                    new SeasonAdminRequest(
+                            "겹치는 시즌", "설명", start, end, true, null, null, 0, "admin", "admin");
             when(seasonRepository.existsOverlappingActiveSeasonForNew(start, end)).thenReturn(true);
 
             // when & then
             assertThatThrownBy(() -> seasonAdminService.createSeason(request))
-                .isInstanceOf(CustomException.class)
-                .hasMessageContaining("error.season.overlap");
+                    .isInstanceOf(CustomException.class)
+                    .hasMessageContaining("error.season.overlap");
         }
 
         @Test
         @DisplayName("생성 시 Redis 캐시를 삭제한다")
         void createSeason_evictsCache() {
             // given
-            SeasonAdminRequest request = new SeasonAdminRequest(
-                "신규 시즌", "설명", start, end, true, null, null, 0, "admin", "admin"
-            );
-            when(seasonRepository.existsOverlappingActiveSeasonForNew(start, end)).thenReturn(false);
+            SeasonAdminRequest request =
+                    new SeasonAdminRequest(
+                            "신규 시즌", "설명", start, end, true, null, null, 0, "admin", "admin");
+            when(seasonRepository.existsOverlappingActiveSeasonForNew(start, end))
+                    .thenReturn(false);
             when(seasonRepository.save(any(Season.class))).thenReturn(testSeason);
-            when(redisTemplateForObject.keys("currentSeason*")).thenReturn(Set.of("currentSeason::ko"));
+            when(redisTemplateForObject.keys("currentSeason*"))
+                    .thenReturn(Set.of("currentSeason::ko"));
             when(redisTemplateForObject.keys("seasonMvpData*")).thenReturn(null);
 
             // when
@@ -400,11 +404,13 @@ class SeasonAdminServiceTest {
             // given
             LocalDateTime newStart = now.minusDays(20);
             LocalDateTime newEnd = now.plusDays(40);
-            SeasonAdminRequest request = new SeasonAdminRequest(
-                "수정된 시즌", "수정 설명", newStart, newEnd, true, null, null, 1, null, "admin"
-            );
+            SeasonAdminRequest request =
+                    new SeasonAdminRequest(
+                            "수정된 시즌", "수정 설명", newStart, newEnd, true, null, null, 1, null,
+                            "admin");
             when(seasonRepository.findById(1L)).thenReturn(Optional.of(testSeason));
-            when(seasonRepository.existsOverlappingActiveSeason(newStart, newEnd, 1L)).thenReturn(false);
+            when(seasonRepository.existsOverlappingActiveSeason(newStart, newEnd, 1L))
+                    .thenReturn(false);
             when(seasonRepository.save(any(Season.class))).thenReturn(testSeason);
             when(redisTemplateForObject.keys(any())).thenReturn(null);
 
@@ -420,24 +426,24 @@ class SeasonAdminServiceTest {
         @DisplayName("시즌이 없으면 예외를 던진다")
         void updateSeason_notFound() {
             // given
-            SeasonAdminRequest request = new SeasonAdminRequest(
-                "수정된 시즌", "수정 설명", start, end, true, null, null, 0, null, "admin"
-            );
+            SeasonAdminRequest request =
+                    new SeasonAdminRequest(
+                            "수정된 시즌", "수정 설명", start, end, true, null, null, 0, null, "admin");
             when(seasonRepository.findById(99L)).thenReturn(Optional.empty());
 
             // when & then
             assertThatThrownBy(() -> seasonAdminService.updateSeason(99L, request))
-                .isInstanceOf(CustomException.class)
-                .hasMessageContaining("error.season.not_found");
+                    .isInstanceOf(CustomException.class)
+                    .hasMessageContaining("error.season.not_found");
         }
 
         @Test
         @DisplayName("수정 시 isActive가 null이면 기존 값을 유지한다")
         void updateSeason_isActiveNullPreservesExistingValue() {
             // given
-            SeasonAdminRequest request = new SeasonAdminRequest(
-                "수정된 시즌", "수정 설명", start, end, null, null, null, null, null, "admin"
-            );
+            SeasonAdminRequest request =
+                    new SeasonAdminRequest(
+                            "수정된 시즌", "수정 설명", start, end, null, null, null, null, null, "admin");
             when(seasonRepository.findById(1L)).thenReturn(Optional.of(testSeason));
             when(seasonRepository.existsOverlappingActiveSeason(start, end, 1L)).thenReturn(false);
             when(seasonRepository.save(any(Season.class))).thenReturn(testSeason);
@@ -454,40 +460,40 @@ class SeasonAdminServiceTest {
         @DisplayName("종료 일시가 시작 일시보다 이르면 예외를 던진다")
         void updateSeason_invalidDates() {
             // given
-            SeasonAdminRequest request = new SeasonAdminRequest(
-                "수정 시즌", "설명", end, start, true, null, null, 0, null, "admin"
-            );
+            SeasonAdminRequest request =
+                    new SeasonAdminRequest(
+                            "수정 시즌", "설명", end, start, true, null, null, 0, null, "admin");
             when(seasonRepository.findById(1L)).thenReturn(Optional.of(testSeason));
 
             // when & then
             assertThatThrownBy(() -> seasonAdminService.updateSeason(1L, request))
-                .isInstanceOf(CustomException.class)
-                .hasMessageContaining("error.season.end_before_start");
+                    .isInstanceOf(CustomException.class)
+                    .hasMessageContaining("error.season.end_before_start");
         }
 
         @Test
         @DisplayName("수정 시 활성 시즌이 겹치면 예외를 던진다")
         void updateSeason_overlappingActiveSeason() {
             // given
-            SeasonAdminRequest request = new SeasonAdminRequest(
-                "겹치는 시즌", "설명", start, end, true, null, null, 0, null, "admin"
-            );
+            SeasonAdminRequest request =
+                    new SeasonAdminRequest(
+                            "겹치는 시즌", "설명", start, end, true, null, null, 0, null, "admin");
             when(seasonRepository.findById(1L)).thenReturn(Optional.of(testSeason));
             when(seasonRepository.existsOverlappingActiveSeason(start, end, 1L)).thenReturn(true);
 
             // when & then
             assertThatThrownBy(() -> seasonAdminService.updateSeason(1L, request))
-                .isInstanceOf(CustomException.class)
-                .hasMessageContaining("error.season.overlap");
+                    .isInstanceOf(CustomException.class)
+                    .hasMessageContaining("error.season.overlap");
         }
 
         @Test
         @DisplayName("sortOrder가 null이면 변경하지 않는다")
         void updateSeason_nullSortOrderNotChanged() {
             // given
-            SeasonAdminRequest request = new SeasonAdminRequest(
-                "수정된 시즌", "수정 설명", start, end, false, null, null, null, null, "admin"
-            );
+            SeasonAdminRequest request =
+                    new SeasonAdminRequest(
+                            "수정된 시즌", "수정 설명", start, end, false, null, null, null, null, "admin");
             when(seasonRepository.findById(1L)).thenReturn(Optional.of(testSeason));
             when(seasonRepository.save(any(Season.class))).thenReturn(testSeason);
             when(redisTemplateForObject.keys(any())).thenReturn(null);
@@ -526,8 +532,8 @@ class SeasonAdminServiceTest {
 
             // when & then
             assertThatThrownBy(() -> seasonAdminService.deleteSeason(99L))
-                .isInstanceOf(CustomException.class)
-                .hasMessageContaining("error.season.not_found");
+                    .isInstanceOf(CustomException.class)
+                    .hasMessageContaining("error.season.not_found");
         }
 
         @Test
@@ -535,8 +541,10 @@ class SeasonAdminServiceTest {
         void deleteSeason_evictsCache() {
             // given
             when(seasonRepository.findById(1L)).thenReturn(Optional.of(testSeason));
-            when(redisTemplateForObject.keys("currentSeason*")).thenReturn(Set.of("currentSeason::ko"));
-            when(redisTemplateForObject.keys("seasonMvpData*")).thenReturn(Set.of("seasonMvpData::ko"));
+            when(redisTemplateForObject.keys("currentSeason*"))
+                    .thenReturn(Set.of("currentSeason::ko"));
+            when(redisTemplateForObject.keys("seasonMvpData*"))
+                    .thenReturn(Set.of("seasonMvpData::ko"));
 
             // when
             seasonAdminService.deleteSeason(1L);
@@ -572,12 +580,13 @@ class SeasonAdminServiceTest {
         @DisplayName("비활성 시즌을 활성으로 토글할 때 중복 검사를 한다")
         void toggleActive_fromInactiveToActive() throws Exception {
             // given
-            Season inactiveSeason = Season.builder()
-                .title("비활성 시즌")
-                .startAt(start)
-                .endAt(end)
-                .isActive(false)
-                .build();
+            Season inactiveSeason =
+                    Season.builder()
+                            .title("비활성 시즌")
+                            .startAt(start)
+                            .endAt(end)
+                            .isActive(false)
+                            .build();
             setId(inactiveSeason, 2L);
 
             when(seasonRepository.findById(2L)).thenReturn(Optional.of(inactiveSeason));
@@ -597,12 +606,13 @@ class SeasonAdminServiceTest {
         @DisplayName("비활성 시즌을 활성화할 때 겹치는 시즌이 있으면 예외를 던진다")
         void toggleActive_overlappingActiveSeason() throws Exception {
             // given
-            Season inactiveSeason = Season.builder()
-                .title("비활성 시즌")
-                .startAt(start)
-                .endAt(end)
-                .isActive(false)
-                .build();
+            Season inactiveSeason =
+                    Season.builder()
+                            .title("비활성 시즌")
+                            .startAt(start)
+                            .endAt(end)
+                            .isActive(false)
+                            .build();
             setId(inactiveSeason, 2L);
 
             when(seasonRepository.findById(2L)).thenReturn(Optional.of(inactiveSeason));
@@ -610,8 +620,8 @@ class SeasonAdminServiceTest {
 
             // when & then
             assertThatThrownBy(() -> seasonAdminService.toggleActive(2L))
-                .isInstanceOf(CustomException.class)
-                .hasMessageContaining("error.season.overlap");
+                    .isInstanceOf(CustomException.class)
+                    .hasMessageContaining("error.season.overlap");
         }
 
         @Test
@@ -622,8 +632,8 @@ class SeasonAdminServiceTest {
 
             // when & then
             assertThatThrownBy(() -> seasonAdminService.toggleActive(99L))
-                .isInstanceOf(CustomException.class)
-                .hasMessageContaining("error.season.not_found");
+                    .isInstanceOf(CustomException.class)
+                    .hasMessageContaining("error.season.not_found");
         }
 
         @Test
@@ -632,7 +642,8 @@ class SeasonAdminServiceTest {
             // given
             when(seasonRepository.findById(1L)).thenReturn(Optional.of(testSeason));
             when(seasonRepository.save(any(Season.class))).thenReturn(testSeason);
-            when(redisTemplateForObject.keys("currentSeason*")).thenReturn(Set.of("currentSeason::ko"));
+            when(redisTemplateForObject.keys("currentSeason*"))
+                    .thenReturn(Set.of("currentSeason::ko"));
             when(redisTemplateForObject.keys("seasonMvpData*")).thenReturn(null);
 
             // when

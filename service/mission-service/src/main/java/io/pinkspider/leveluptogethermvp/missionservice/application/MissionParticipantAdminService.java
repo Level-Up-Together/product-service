@@ -30,56 +30,60 @@ public class MissionParticipantAdminService {
     private final MissionExecutionRepository executionRepository;
     private final UserQueryFacade userQueryFacade;
 
-    /**
-     * QA-205: 유저 미션 수행 기록 조회 — 한 행 = 한 수행 건 (일반 미션 + 고정 미션).
-     */
+    /** QA-205: 유저 미션 수행 기록 조회 — 한 행 = 한 수행 건 (일반 미션 + 고정 미션). */
     public UserMissionHistoryAdminPageResponse getUserMissionHistory(
-        String userId,
-        MissionType type,
-        MissionSource source,
-        LocalDate startDate,
-        LocalDate endDate,
-        Pageable pageable) {
+            String userId,
+            MissionType type,
+            MissionSource source,
+            LocalDate startDate,
+            LocalDate endDate,
+            Pageable pageable) {
 
         Page<UserMissionEventRow> eventPage =
-            participantRepository.searchUserMissionEvents(
-                userId,
-                type != null ? type.name() : null,
-                source != null ? source.name() : null,
-                startDate, endDate, pageable);
+                participantRepository.searchUserMissionEvents(
+                        userId,
+                        type != null ? type.name() : null,
+                        source != null ? source.name() : null,
+                        startDate,
+                        endDate,
+                        pageable);
 
-        List<UserMissionHistoryAdminResponse> content = eventPage.getContent().stream()
-            .map(UserMissionHistoryAdminResponse::fromEvent)
-            .toList();
+        List<UserMissionHistoryAdminResponse> content =
+                eventPage.getContent().stream()
+                        .map(UserMissionHistoryAdminResponse::fromEvent)
+                        .toList();
 
         return UserMissionHistoryAdminPageResponse.from(eventPage, content);
     }
 
     /**
-     * LUT-239: 길드 미션 수행 기록 조회 — 한 행 = 한 수행 건 (일반 미션 + 고정 미션).
-     * 수행자 닉네임은 UserQueryFacade 로 배치 조회하여 채운다.
+     * LUT-239: 길드 미션 수행 기록 조회 — 한 행 = 한 수행 건 (일반 미션 + 고정 미션). 수행자 닉네임은 UserQueryFacade 로 배치 조회하여
+     * 채운다.
      */
     public GuildMissionHistoryAdminPageResponse getGuildMissionHistory(
-        Long guildId, LocalDate startDate, LocalDate endDate, Pageable pageable) {
+            Long guildId, LocalDate startDate, LocalDate endDate, Pageable pageable) {
 
         Page<GuildMissionEventRow> eventPage =
-            participantRepository.searchGuildMissionEvents(
-                String.valueOf(guildId), startDate, endDate, pageable);
+                participantRepository.searchGuildMissionEvents(
+                        String.valueOf(guildId), startDate, endDate, pageable);
 
-        List<String> userIds = eventPage.getContent().stream()
-            .map(GuildMissionEventRow::getUserId)
-            .distinct()
-            .toList();
+        List<String> userIds =
+                eventPage.getContent().stream()
+                        .map(GuildMissionEventRow::getUserId)
+                        .distinct()
+                        .toList();
         Map<String, UserProfileInfo> profiles =
-            userIds.isEmpty() ? Map.of() : userQueryFacade.getUserProfiles(userIds);
+                userIds.isEmpty() ? Map.of() : userQueryFacade.getUserProfiles(userIds);
 
-        List<GuildMissionHistoryAdminResponse> content = eventPage.getContent().stream()
-            .map(row -> {
-                UserProfileInfo profile = profiles.get(row.getUserId());
-                return GuildMissionHistoryAdminResponse.fromEvent(
-                    row, profile != null ? profile.nickname() : null);
-            })
-            .toList();
+        List<GuildMissionHistoryAdminResponse> content =
+                eventPage.getContent().stream()
+                        .map(
+                                row -> {
+                                    UserProfileInfo profile = profiles.get(row.getUserId());
+                                    return GuildMissionHistoryAdminResponse.fromEvent(
+                                            row, profile != null ? profile.nickname() : null);
+                                })
+                        .toList();
 
         return GuildMissionHistoryAdminPageResponse.from(eventPage, content);
     }

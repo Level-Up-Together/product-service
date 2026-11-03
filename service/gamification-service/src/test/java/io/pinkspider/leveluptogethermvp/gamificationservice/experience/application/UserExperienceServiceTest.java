@@ -3,23 +3,22 @@ package io.pinkspider.leveluptogethermvp.gamificationservice.experience.applicat
 import static io.pinkspider.global.test.TestReflectionUtils.setId;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import io.pinkspider.global.enums.ExpSourceType;
 import io.pinkspider.global.event.UserLevelUpEvent;
 import io.pinkspider.leveluptogethermvp.gamificationservice.achievement.event.AchievementCheckRequestedEvent;
 import io.pinkspider.leveluptogethermvp.gamificationservice.domain.entity.ExperienceHistory;
 import io.pinkspider.leveluptogethermvp.gamificationservice.domain.entity.UserCategoryExperience;
 import io.pinkspider.leveluptogethermvp.gamificationservice.domain.entity.UserExperience;
-import io.pinkspider.global.enums.ExpSourceType;
-import io.pinkspider.leveluptogethermvp.metaservice.userlevelconfig.application.UserLevelConfigCacheService;
+import io.pinkspider.leveluptogethermvp.gamificationservice.experience.domain.dto.UserExperienceResponse;
 import io.pinkspider.leveluptogethermvp.gamificationservice.infrastructure.ExperienceHistoryRepository;
 import io.pinkspider.leveluptogethermvp.gamificationservice.infrastructure.UserCategoryExperienceRepository;
 import io.pinkspider.leveluptogethermvp.gamificationservice.infrastructure.UserExperienceRepository;
+import io.pinkspider.leveluptogethermvp.metaservice.userlevelconfig.application.UserLevelConfigCacheService;
 import io.pinkspider.leveluptogethermvp.metaservice.userlevelconfig.domain.entity.UserLevelConfig;
-import io.pinkspider.leveluptogethermvp.gamificationservice.experience.domain.dto.UserExperienceResponse;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Collections;
@@ -42,46 +41,44 @@ import org.springframework.data.domain.Pageable;
 @ExtendWith(MockitoExtension.class)
 class UserExperienceServiceTest {
 
-    @Mock
-    private UserExperienceRepository userExperienceRepository;
+    @Mock private UserExperienceRepository userExperienceRepository;
+
+    @Mock private ExperienceHistoryRepository experienceHistoryRepository;
+
+    @Mock private UserCategoryExperienceRepository userCategoryExperienceRepository;
+
+    @Mock private UserLevelConfigCacheService userLevelConfigCacheService;
+
+    @Mock private ApplicationEventPublisher eventPublisher;
 
     @Mock
-    private ExperienceHistoryRepository experienceHistoryRepository;
+    private io.pinkspider.leveluptogethermvp.gamificationservice.diamond.application.DiamondService
+            diamondService;
 
-    @Mock
-    private UserCategoryExperienceRepository userCategoryExperienceRepository;
-
-    @Mock
-    private UserLevelConfigCacheService userLevelConfigCacheService;
-
-    @Mock
-    private ApplicationEventPublisher eventPublisher;
-
-    @Mock
-    private io.pinkspider.leveluptogethermvp.gamificationservice.diamond.application.DiamondService diamondService;
-
-    @InjectMocks
-    private UserExperienceService userExperienceService;
+    @InjectMocks private UserExperienceService userExperienceService;
 
     private static final String TEST_USER_ID = "test-user-123";
 
-    private UserExperience createTestUserExperience(Long id, String userId, int level, int currentExp, int totalExp) {
-        UserExperience userExp = UserExperience.builder()
-            .userId(userId)
-            .currentLevel(level)
-            .currentExp(currentExp)
-            .totalExp(totalExp)
-            .build();
+    private UserExperience createTestUserExperience(
+            Long id, String userId, int level, int currentExp, int totalExp) {
+        UserExperience userExp =
+                UserExperience.builder()
+                        .userId(userId)
+                        .currentLevel(level)
+                        .currentExp(currentExp)
+                        .totalExp(totalExp)
+                        .build();
         setId(userExp, id);
         return userExp;
     }
 
-    private UserLevelConfig createUserLevelConfig(int level, int requiredExp, Integer cumulativeExp) {
+    private UserLevelConfig createUserLevelConfig(
+            int level, int requiredExp, Integer cumulativeExp) {
         return UserLevelConfig.builder()
-            .level(level)
-            .requiredExp(requiredExp)
-            .cumulativeExp(cumulativeExp)
-            .build();
+                .level(level)
+                .requiredExp(requiredExp)
+                .cumulativeExp(cumulativeExp)
+                .build();
     }
 
     @Nested
@@ -94,13 +91,15 @@ class UserExperienceServiceTest {
             // given
             UserExperience userExp = createTestUserExperience(1L, TEST_USER_ID, 1, 50, 50);
 
-            when(userExperienceRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.of(userExp));
-            when(userLevelConfigCacheService.getAllLevelConfigs()).thenReturn(Collections.emptyList());
-            when(userLevelConfigCacheService.getLevelConfigByLevel(1)).thenReturn(createUserLevelConfig(1, 100, 0));
+            when(userExperienceRepository.findByUserId(TEST_USER_ID))
+                    .thenReturn(Optional.of(userExp));
+            when(userLevelConfigCacheService.getAllLevelConfigs())
+                    .thenReturn(Collections.emptyList());
 
             // when
-            UserExperienceResponse result = userExperienceService.addExperience(
-                TEST_USER_ID, 30, ExpSourceType.MISSION_EXECUTION, 1L, "미션 완료");
+            UserExperienceResponse result =
+                    userExperienceService.addExperience(
+                            TEST_USER_ID, 30, ExpSourceType.MISSION_EXECUTION, 1L, "미션 완료");
 
             // then
             assertThat(result).isNotNull();
@@ -117,12 +116,13 @@ class UserExperienceServiceTest {
 
             when(userExperienceRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.empty());
             when(userExperienceRepository.save(any(UserExperience.class))).thenReturn(newUserExp);
-            when(userLevelConfigCacheService.getAllLevelConfigs()).thenReturn(Collections.emptyList());
-            when(userLevelConfigCacheService.getLevelConfigByLevel(1)).thenReturn(createUserLevelConfig(1, 100, 0));
+            when(userLevelConfigCacheService.getAllLevelConfigs())
+                    .thenReturn(Collections.emptyList());
 
             // when
-            UserExperienceResponse result = userExperienceService.addExperience(
-                TEST_USER_ID, 50, ExpSourceType.MISSION_EXECUTION, 1L, "첫 미션 완료");
+            UserExperienceResponse result =
+                    userExperienceService.addExperience(
+                            TEST_USER_ID, 50, ExpSourceType.MISSION_EXECUTION, 1L, "첫 미션 완료");
 
             // then
             assertThat(result).isNotNull();
@@ -135,13 +135,15 @@ class UserExperienceServiceTest {
             // given
             UserExperience userExp = createTestUserExperience(1L, TEST_USER_ID, 1, 90, 90);
 
-            when(userExperienceRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.of(userExp));
-            when(userLevelConfigCacheService.getAllLevelConfigs()).thenReturn(Collections.emptyList());
-            when(userLevelConfigCacheService.getLevelConfigByLevel(2)).thenReturn(null);
+            when(userExperienceRepository.findByUserId(TEST_USER_ID))
+                    .thenReturn(Optional.of(userExp));
+            when(userLevelConfigCacheService.getAllLevelConfigs())
+                    .thenReturn(Collections.emptyList());
 
             // when
-            UserExperienceResponse result = userExperienceService.addExperience(
-                TEST_USER_ID, 20, ExpSourceType.MISSION_EXECUTION, 1L, "미션 완료");
+            UserExperienceResponse result =
+                    userExperienceService.addExperience(
+                            TEST_USER_ID, 20, ExpSourceType.MISSION_EXECUTION, 1L, "미션 완료");
 
             // then
             assertThat(result).isNotNull();
@@ -159,8 +161,8 @@ class UserExperienceServiceTest {
             // given
             UserExperience userExp = createTestUserExperience(1L, TEST_USER_ID, 5, 250, 750);
 
-            when(userExperienceRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.of(userExp));
-            when(userLevelConfigCacheService.getLevelConfigByLevel(5)).thenReturn(createUserLevelConfig(5, 300, 700));
+            when(userExperienceRepository.findByUserId(TEST_USER_ID))
+                    .thenReturn(Optional.of(userExp));
 
             // when
             UserExperienceResponse result = userExperienceService.getUserExperience(TEST_USER_ID);
@@ -179,7 +181,6 @@ class UserExperienceServiceTest {
 
             when(userExperienceRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.empty());
             when(userExperienceRepository.save(any(UserExperience.class))).thenReturn(newUserExp);
-            when(userLevelConfigCacheService.getLevelConfigByLevel(1)).thenReturn(createUserLevelConfig(1, 100, 0));
 
             // when
             UserExperienceResponse result = userExperienceService.getUserExperience(TEST_USER_ID);
@@ -197,12 +198,13 @@ class UserExperienceServiceTest {
         void getUserExperience_newUser_initialValues() {
             // given
             when(userExperienceRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.empty());
-            when(userExperienceRepository.save(any(UserExperience.class))).thenAnswer(invocation -> {
-                UserExperience saved = invocation.getArgument(0);
-                setId(saved, 1L);
-                return saved;
-            });
-            when(userLevelConfigCacheService.getLevelConfigByLevel(1)).thenReturn(createUserLevelConfig(1, 100, 0));
+            when(userExperienceRepository.save(any(UserExperience.class)))
+                    .thenAnswer(
+                            invocation -> {
+                                UserExperience saved = invocation.getArgument(0);
+                                setId(saved, 1L);
+                                return saved;
+                            });
 
             // when
             UserExperienceResponse result = userExperienceService.getUserExperience(TEST_USER_ID);
@@ -220,8 +222,8 @@ class UserExperienceServiceTest {
             // given
             UserExperience userExp = createTestUserExperience(1L, TEST_USER_ID, 3, 50, 300);
 
-            when(userExperienceRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.of(userExp));
-            when(userLevelConfigCacheService.getLevelConfigByLevel(3)).thenReturn(null); // config 없음
+            when(userExperienceRepository.findByUserId(TEST_USER_ID))
+                    .thenReturn(Optional.of(userExp));
 
             // when
             UserExperienceResponse result = userExperienceService.getUserExperience(TEST_USER_ID);
@@ -230,6 +232,92 @@ class UserExperienceServiceTest {
             assertThat(result).isNotNull();
             assertThat(result.getCurrentLevel()).isEqualTo(3);
             // 기본 공식: 100 + (level - 1) * 50 = 100 + 2 * 50 = 200
+            assertThat(result.getNextLevelRequiredExp()).isEqualTo(200);
+        }
+    }
+
+    @Nested
+    @DisplayName("다음 레벨 필요 경험치 (LUT-570)")
+    class NextLevelRequiredExpTest {
+
+        private final List<UserLevelConfig> earlyCurve =
+                List.of(
+                        createUserLevelConfig(1, 0, 0),
+                        createUserLevelConfig(2, 50, 50),
+                        createUserLevelConfig(3, 150, 200),
+                        createUserLevelConfig(4, 200, 400));
+
+        @Test
+        @DisplayName("레벨 2 유저의 next_level_required_exp 는 레벨 3 행(150)이다 — 현재 레벨 행(50)이 아니다")
+        void usesNextLevelRow() {
+            // given: 레벨 2, 현재 레벨 안에서 30 쌓임
+            UserExperience userExp = createTestUserExperience(1L, TEST_USER_ID, 2, 30, 80);
+            when(userExperienceRepository.findByUserId(TEST_USER_ID))
+                    .thenReturn(Optional.of(userExp));
+            when(userLevelConfigCacheService.getAllLevelConfigs()).thenReturn(earlyCurve);
+
+            // when
+            UserExperienceResponse result = userExperienceService.getUserExperience(TEST_USER_ID);
+
+            // then
+            assertThat(result.getNextLevelRequiredExp()).isEqualTo(150);
+            assertThat(result.getExpToNextLevel()).isEqualTo(120);
+            assertThat(result.getProgressToNextLevel()).isEqualTo(20.0);
+        }
+
+        @Test
+        @DisplayName("레벨업 판정과 같은 행을 본다 — 레벨 1 에서 50 을 모으면 레벨 2 가 되고 다음 필요치는 150")
+        void consistentWithLevelUp() {
+            // given
+            UserExperience userExp = createTestUserExperience(1L, TEST_USER_ID, 1, 40, 40);
+            when(userExperienceRepository.findByUserId(TEST_USER_ID))
+                    .thenReturn(Optional.of(userExp));
+            when(userLevelConfigCacheService.getAllLevelConfigs()).thenReturn(earlyCurve);
+            when(userLevelConfigCacheService.getMaxLevel()).thenReturn(4);
+
+            // when
+            UserExperienceResponse result =
+                    userExperienceService.addExperience(
+                            TEST_USER_ID, 10, ExpSourceType.MISSION_EXECUTION, 1L, "체크 완료");
+
+            // then
+            assertThat(result.getCurrentLevel()).isEqualTo(2);
+            assertThat(result.getCurrentExp()).isEqualTo(0);
+            assertThat(result.getNextLevelRequiredExp()).isEqualTo(150);
+        }
+
+        @Test
+        @DisplayName("최대 레벨이면 다음 레벨 행이 없어 null, 남은 경험치 0·진행률 0")
+        void maxLevel_returnsNull() {
+            // given
+            UserExperience userExp = createTestUserExperience(1L, TEST_USER_ID, 4, 10, 410);
+            when(userExperienceRepository.findByUserId(TEST_USER_ID))
+                    .thenReturn(Optional.of(userExp));
+            when(userLevelConfigCacheService.getAllLevelConfigs()).thenReturn(earlyCurve);
+
+            // when
+            UserExperienceResponse result = userExperienceService.getUserExperience(TEST_USER_ID);
+
+            // then
+            assertThat(result.getNextLevelRequiredExp()).isNull();
+            assertThat(result.getExpToNextLevel()).isEqualTo(0);
+            assertThat(result.getProgressToNextLevel()).isEqualTo(0.0);
+        }
+
+        @Test
+        @DisplayName("레벨 테이블이 비어 있으면 기본 공식(100 + (L-1)×50)을 쓴다")
+        void emptyTable_usesDefaultFormula() {
+            // given
+            UserExperience userExp = createTestUserExperience(1L, TEST_USER_ID, 3, 50, 300);
+            when(userExperienceRepository.findByUserId(TEST_USER_ID))
+                    .thenReturn(Optional.of(userExp));
+            when(userLevelConfigCacheService.getAllLevelConfigs())
+                    .thenReturn(Collections.emptyList());
+
+            // when
+            UserExperienceResponse result = userExperienceService.getUserExperience(TEST_USER_ID);
+
+            // then
             assertThat(result.getNextLevelRequiredExp()).isEqualTo(200);
         }
     }
@@ -244,7 +332,8 @@ class UserExperienceServiceTest {
             // given
             UserExperience existingExp = createTestUserExperience(1L, TEST_USER_ID, 5, 100, 500);
 
-            when(userExperienceRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.of(existingExp));
+            when(userExperienceRepository.findByUserId(TEST_USER_ID))
+                    .thenReturn(Optional.of(existingExp));
 
             // when
             UserExperience result = userExperienceService.getOrCreateUserExperience(TEST_USER_ID);
@@ -259,11 +348,13 @@ class UserExperienceServiceTest {
         void getOrCreateUserExperience_newUser() {
             // given
             when(userExperienceRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.empty());
-            when(userExperienceRepository.save(any(UserExperience.class))).thenAnswer(invocation -> {
-                UserExperience saved = invocation.getArgument(0);
-                setId(saved, 1L);
-                return saved;
-            });
+            when(userExperienceRepository.save(any(UserExperience.class)))
+                    .thenAnswer(
+                            invocation -> {
+                                UserExperience saved = invocation.getArgument(0);
+                                setId(saved, 1L);
+                                return saved;
+                            });
 
             // when
             UserExperience result = userExperienceService.getOrCreateUserExperience(TEST_USER_ID);
@@ -287,25 +378,29 @@ class UserExperienceServiceTest {
         void getExperienceHistory_success() {
             // given
             Pageable pageable = PageRequest.of(0, 10);
-            ExperienceHistory history1 = ExperienceHistory.builder()
-                .userId(TEST_USER_ID)
-                .sourceType(ExpSourceType.MISSION_EXECUTION)
-                .expAmount(50)
-                .description("미션 완료")
-                .build();
-            ExperienceHistory history2 = ExperienceHistory.builder()
-                .userId(TEST_USER_ID)
-                .sourceType(ExpSourceType.EVENT)
-                .expAmount(10)
-                .description("출석 체크")
-                .build();
+            ExperienceHistory history1 =
+                    ExperienceHistory.builder()
+                            .userId(TEST_USER_ID)
+                            .sourceType(ExpSourceType.MISSION_EXECUTION)
+                            .expAmount(50)
+                            .description("미션 완료")
+                            .build();
+            ExperienceHistory history2 =
+                    ExperienceHistory.builder()
+                            .userId(TEST_USER_ID)
+                            .sourceType(ExpSourceType.EVENT)
+                            .expAmount(10)
+                            .description("출석 체크")
+                            .build();
             Page<ExperienceHistory> page = new PageImpl<>(List.of(history1, history2), pageable, 2);
 
-            when(experienceHistoryRepository.findByUserIdOrderByCreatedAtDesc(TEST_USER_ID, pageable))
-                .thenReturn(page);
+            when(experienceHistoryRepository.findByUserIdOrderByCreatedAtDesc(
+                            TEST_USER_ID, pageable))
+                    .thenReturn(page);
 
             // when
-            Page<ExperienceHistory> result = userExperienceService.getExperienceHistory(TEST_USER_ID, pageable);
+            Page<ExperienceHistory> result =
+                    userExperienceService.getExperienceHistory(TEST_USER_ID, pageable);
 
             // then
             assertThat(result.getContent()).hasSize(2);
@@ -323,11 +418,13 @@ class UserExperienceServiceTest {
             // given
             UserExperience userExp = createTestUserExperience(1L, TEST_USER_ID, 3, 150, 350);
 
-            when(userExperienceRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.of(userExp));
+            when(userExperienceRepository.findByUserId(TEST_USER_ID))
+                    .thenReturn(Optional.of(userExp));
 
             // when
-            UserExperienceResponse result = userExperienceService.subtractExperience(
-                TEST_USER_ID, 50, ExpSourceType.MISSION_EXECUTION, 1L, "보상 취소");
+            UserExperienceResponse result =
+                    userExperienceService.subtractExperience(
+                            TEST_USER_ID, 50, ExpSourceType.MISSION_EXECUTION, 1L, "보상 취소");
 
             // then
             assertThat(result).isNotNull();
@@ -340,17 +437,19 @@ class UserExperienceServiceTest {
             // given
             UserExperience userExp = createTestUserExperience(1L, TEST_USER_ID, 3, 10, 260);
 
-            when(userExperienceRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.of(userExp));
-            when(userLevelConfigCacheService.getAllLevelConfigs()).thenReturn(List.of(
-                createUserLevelConfig(1, 100, 0),
-                createUserLevelConfig(2, 150, 100),
-                createUserLevelConfig(3, 200, 250)
-            ));
-            when(userLevelConfigCacheService.getLevelConfigByLevel(2)).thenReturn(createUserLevelConfig(2, 150, 100));
+            when(userExperienceRepository.findByUserId(TEST_USER_ID))
+                    .thenReturn(Optional.of(userExp));
+            when(userLevelConfigCacheService.getAllLevelConfigs())
+                    .thenReturn(
+                            List.of(
+                                    createUserLevelConfig(1, 100, 0),
+                                    createUserLevelConfig(2, 150, 100),
+                                    createUserLevelConfig(3, 200, 250)));
 
             // when
-            UserExperienceResponse result = userExperienceService.subtractExperience(
-                TEST_USER_ID, 100, ExpSourceType.MISSION_EXECUTION, 1L, "보상 취소");
+            UserExperienceResponse result =
+                    userExperienceService.subtractExperience(
+                            TEST_USER_ID, 100, ExpSourceType.MISSION_EXECUTION, 1L, "보상 취소");
 
             // then
             assertThat(result).isNotNull();
@@ -363,16 +462,18 @@ class UserExperienceServiceTest {
             // given
             UserExperience userExp = createTestUserExperience(1L, TEST_USER_ID, 2, 50, 150);
 
-            when(userExperienceRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.of(userExp));
-            when(userLevelConfigCacheService.getAllLevelConfigs()).thenReturn(List.of(
-                createUserLevelConfig(1, 100, 0),
-                createUserLevelConfig(2, 150, 100)
-            ));
-            when(userLevelConfigCacheService.getLevelConfigByLevel(1)).thenReturn(createUserLevelConfig(1, 100, 0));
+            when(userExperienceRepository.findByUserId(TEST_USER_ID))
+                    .thenReturn(Optional.of(userExp));
+            when(userLevelConfigCacheService.getAllLevelConfigs())
+                    .thenReturn(
+                            List.of(
+                                    createUserLevelConfig(1, 100, 0),
+                                    createUserLevelConfig(2, 150, 100)));
 
             // when
-            UserExperienceResponse result = userExperienceService.subtractExperience(
-                TEST_USER_ID, 200, ExpSourceType.MISSION_EXECUTION, 1L, "대량 차감");
+            UserExperienceResponse result =
+                    userExperienceService.subtractExperience(
+                            TEST_USER_ID, 200, ExpSourceType.MISSION_EXECUTION, 1L, "대량 차감");
 
             // then
             assertThat(result).isNotNull();
@@ -389,11 +490,11 @@ class UserExperienceServiceTest {
         @DisplayName("모든 레벨 설정을 조회한다")
         void getAllLevelConfigs_success() {
             // given
-            List<UserLevelConfig> configs = List.of(
-                createUserLevelConfig(1, 100, 0),
-                createUserLevelConfig(2, 150, 100),
-                createUserLevelConfig(3, 200, 250)
-            );
+            List<UserLevelConfig> configs =
+                    List.of(
+                            createUserLevelConfig(1, 100, 0),
+                            createUserLevelConfig(2, 150, 100),
+                            createUserLevelConfig(3, 200, 250));
 
             when(userLevelConfigCacheService.getAllLevelConfigs()).thenReturn(configs);
 
@@ -416,11 +517,11 @@ class UserExperienceServiceTest {
             // given
             UserLevelConfig newConfig = createUserLevelConfig(10, 500, 2000);
 
-            when(userLevelConfigCacheService.createOrUpdateLevelConfig(10, 500, 2000)).thenReturn(newConfig);
+            when(userLevelConfigCacheService.createOrUpdateLevelConfig(10, 500, 2000))
+                    .thenReturn(newConfig);
 
             // when
-            UserLevelConfig result = userExperienceService.createOrUpdateLevelConfig(
-                10, 500, 2000);
+            UserLevelConfig result = userExperienceService.createOrUpdateLevelConfig(10, 500, 2000);
 
             // then
             assertThat(result).isNotNull();
@@ -433,11 +534,11 @@ class UserExperienceServiceTest {
             // given
             UserLevelConfig updatedConfig = createUserLevelConfig(5, 350, 750);
 
-            when(userLevelConfigCacheService.createOrUpdateLevelConfig(5, 350, 750)).thenReturn(updatedConfig);
+            when(userLevelConfigCacheService.createOrUpdateLevelConfig(5, 350, 750))
+                    .thenReturn(updatedConfig);
 
             // when
-            UserLevelConfig result = userExperienceService.createOrUpdateLevelConfig(
-                5, 350, 750);
+            UserLevelConfig result = userExperienceService.createOrUpdateLevelConfig(5, 350, 750);
 
             // then
             assertThat(result.getRequiredExp()).isEqualTo(350);
@@ -455,20 +556,23 @@ class UserExperienceServiceTest {
             // given
             UserExperience userExp = createTestUserExperience(1L, TEST_USER_ID, 1, 50, 50);
 
-            when(userExperienceRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.of(userExp));
-            when(userLevelConfigCacheService.getAllLevelConfigs()).thenReturn(Collections.emptyList());
-            when(userLevelConfigCacheService.getLevelConfigByLevel(1)).thenReturn(createUserLevelConfig(1, 100, 0));
+            when(userExperienceRepository.findByUserId(TEST_USER_ID))
+                    .thenReturn(Optional.of(userExp));
+            when(userLevelConfigCacheService.getAllLevelConfigs())
+                    .thenReturn(Collections.emptyList());
 
             // when
-            UserExperienceResponse result = userExperienceService.addExperience(
-                TEST_USER_ID, 30, ExpSourceType.MISSION_EXECUTION, 1L, "미션 완료", "건강");
+            UserExperienceResponse result =
+                    userExperienceService.addExperience(
+                            TEST_USER_ID, 30, ExpSourceType.MISSION_EXECUTION, 1L, "미션 완료", "건강");
 
             // then
             assertThat(result).isNotNull();
             assertThat(userExp.getCurrentExp()).isEqualTo(80);
             verify(experienceHistoryRepository).save(any(ExperienceHistory.class));
             // categoryId가 null이므로 카테고리 경험치는 업데이트되지 않음
-            verify(userCategoryExperienceRepository, never()).save(any(UserCategoryExperience.class));
+            verify(userCategoryExperienceRepository, never())
+                    .save(any(UserCategoryExperience.class));
         }
 
         @Test
@@ -476,17 +580,26 @@ class UserExperienceServiceTest {
         void addExperience_withCategoryIdAndName_updatesCategoryExp() {
             // given
             UserExperience userExp = createTestUserExperience(1L, TEST_USER_ID, 1, 50, 50);
-            UserCategoryExperience categoryExp = UserCategoryExperience.create(TEST_USER_ID, 1L, "건강", 100);
+            UserCategoryExperience categoryExp =
+                    UserCategoryExperience.create(TEST_USER_ID, 1L, "건강", 100);
 
-            when(userExperienceRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.of(userExp));
-            when(userLevelConfigCacheService.getAllLevelConfigs()).thenReturn(Collections.emptyList());
-            when(userLevelConfigCacheService.getLevelConfigByLevel(1)).thenReturn(createUserLevelConfig(1, 100, 0));
+            when(userExperienceRepository.findByUserId(TEST_USER_ID))
+                    .thenReturn(Optional.of(userExp));
+            when(userLevelConfigCacheService.getAllLevelConfigs())
+                    .thenReturn(Collections.emptyList());
             when(userCategoryExperienceRepository.findByUserIdAndCategoryId(TEST_USER_ID, 1L))
-                .thenReturn(Optional.of(categoryExp));
+                    .thenReturn(Optional.of(categoryExp));
 
             // when
-            UserExperienceResponse result = userExperienceService.addExperience(
-                TEST_USER_ID, 30, ExpSourceType.MISSION_EXECUTION, 1L, "미션 완료", 1L, "건강");
+            UserExperienceResponse result =
+                    userExperienceService.addExperience(
+                            TEST_USER_ID,
+                            30,
+                            ExpSourceType.MISSION_EXECUTION,
+                            1L,
+                            "미션 완료",
+                            1L,
+                            "건강");
 
             // then
             assertThat(result).isNotNull();
@@ -501,15 +614,23 @@ class UserExperienceServiceTest {
             // given
             UserExperience userExp = createTestUserExperience(1L, TEST_USER_ID, 1, 50, 50);
 
-            when(userExperienceRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.of(userExp));
-            when(userLevelConfigCacheService.getAllLevelConfigs()).thenReturn(Collections.emptyList());
-            when(userLevelConfigCacheService.getLevelConfigByLevel(1)).thenReturn(createUserLevelConfig(1, 100, 0));
+            when(userExperienceRepository.findByUserId(TEST_USER_ID))
+                    .thenReturn(Optional.of(userExp));
+            when(userLevelConfigCacheService.getAllLevelConfigs())
+                    .thenReturn(Collections.emptyList());
             when(userCategoryExperienceRepository.findByUserIdAndCategoryId(TEST_USER_ID, 1L))
-                .thenReturn(Optional.empty());
+                    .thenReturn(Optional.empty());
 
             // when
-            UserExperienceResponse result = userExperienceService.addExperience(
-                TEST_USER_ID, 30, ExpSourceType.MISSION_EXECUTION, 1L, "미션 완료", 1L, "건강");
+            UserExperienceResponse result =
+                    userExperienceService.addExperience(
+                            TEST_USER_ID,
+                            30,
+                            ExpSourceType.MISSION_EXECUTION,
+                            1L,
+                            "미션 완료",
+                            1L,
+                            "건강");
 
             // then
             assertThat(result).isNotNull();
@@ -522,17 +643,20 @@ class UserExperienceServiceTest {
             // given
             UserExperience userExp = createTestUserExperience(1L, TEST_USER_ID, 1, 50, 50);
 
-            when(userExperienceRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.of(userExp));
-            when(userLevelConfigCacheService.getAllLevelConfigs()).thenReturn(Collections.emptyList());
-            when(userLevelConfigCacheService.getLevelConfigByLevel(1)).thenReturn(createUserLevelConfig(1, 100, 0));
+            when(userExperienceRepository.findByUserId(TEST_USER_ID))
+                    .thenReturn(Optional.of(userExp));
+            when(userLevelConfigCacheService.getAllLevelConfigs())
+                    .thenReturn(Collections.emptyList());
 
             // when
             userExperienceService.addExperience(
-                TEST_USER_ID, 30, ExpSourceType.MISSION_EXECUTION, 1L, "미션 완료");
+                    TEST_USER_ID, 30, ExpSourceType.MISSION_EXECUTION, 1L, "미션 완료");
 
             // then: 커밋 후 업적 체크용 이벤트 발행 (카테고리 없음 → USER_EXPERIENCE 만)
-            verify(eventPublisher).publishEvent(
-                new AchievementCheckRequestedEvent(TEST_USER_ID, List.of("USER_EXPERIENCE")));
+            verify(eventPublisher)
+                    .publishEvent(
+                            new AchievementCheckRequestedEvent(
+                                    TEST_USER_ID, List.of("USER_EXPERIENCE")));
         }
 
         @Test
@@ -541,19 +665,23 @@ class UserExperienceServiceTest {
             // given
             UserExperience userExp = createTestUserExperience(1L, TEST_USER_ID, 1, 50, 50);
 
-            when(userExperienceRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.of(userExp));
-            when(userLevelConfigCacheService.getAllLevelConfigs()).thenReturn(Collections.emptyList());
-            when(userLevelConfigCacheService.getLevelConfigByLevel(1)).thenReturn(createUserLevelConfig(1, 100, 0));
+            when(userExperienceRepository.findByUserId(TEST_USER_ID))
+                    .thenReturn(Optional.of(userExp));
+            when(userLevelConfigCacheService.getAllLevelConfigs())
+                    .thenReturn(Collections.emptyList());
             when(userCategoryExperienceRepository.findByUserIdAndCategoryId(TEST_USER_ID, 1L))
-                .thenReturn(Optional.empty());
+                    .thenReturn(Optional.empty());
 
             // when
             userExperienceService.addExperience(
-                TEST_USER_ID, 30, ExpSourceType.MISSION_EXECUTION, 1L, "미션 완료", 1L, "건강");
+                    TEST_USER_ID, 30, ExpSourceType.MISSION_EXECUTION, 1L, "미션 완료", 1L, "건강");
 
             // then
-            verify(eventPublisher).publishEvent(new AchievementCheckRequestedEvent(
-                TEST_USER_ID, List.of("USER_EXPERIENCE", "USER_CATEGORY_EXPERIENCE")));
+            verify(eventPublisher)
+                    .publishEvent(
+                            new AchievementCheckRequestedEvent(
+                                    TEST_USER_ID,
+                                    List.of("USER_EXPERIENCE", "USER_CATEGORY_EXPERIENCE")));
         }
 
         @Test
@@ -562,18 +690,21 @@ class UserExperienceServiceTest {
             // given
             UserExperience userExp = createTestUserExperience(1L, TEST_USER_ID, 1, 90, 90);
 
-            when(userExperienceRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.of(userExp));
-            when(userLevelConfigCacheService.getAllLevelConfigs()).thenReturn(Collections.emptyList());
-            when(userLevelConfigCacheService.getLevelConfigByLevel(2)).thenReturn(null);
+            when(userExperienceRepository.findByUserId(TEST_USER_ID))
+                    .thenReturn(Optional.of(userExp));
+            when(userLevelConfigCacheService.getAllLevelConfigs())
+                    .thenReturn(Collections.emptyList());
 
             // when
             userExperienceService.addExperience(
-                TEST_USER_ID, 20, ExpSourceType.MISSION_EXECUTION, 1L, "미션 완료");
+                    TEST_USER_ID, 20, ExpSourceType.MISSION_EXECUTION, 1L, "미션 완료");
 
             // then
             verify(eventPublisher).publishEvent(any(UserLevelUpEvent.class));
-            verify(eventPublisher).publishEvent(
-                new AchievementCheckRequestedEvent(TEST_USER_ID, List.of("USER_EXPERIENCE")));
+            verify(eventPublisher)
+                    .publishEvent(
+                            new AchievementCheckRequestedEvent(
+                                    TEST_USER_ID, List.of("USER_EXPERIENCE")));
         }
     }
 
@@ -587,18 +718,20 @@ class UserExperienceServiceTest {
             // given
             UserExperience userExp = createTestUserExperience(1L, TEST_USER_ID, 3, 150, 350);
 
-            when(userExperienceRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.of(userExp));
-            when(userLevelConfigCacheService.getLevelConfigByLevel(3)).thenReturn(createUserLevelConfig(3, 200, 250));
+            when(userExperienceRepository.findByUserId(TEST_USER_ID))
+                    .thenReturn(Optional.of(userExp));
 
             // when
-            UserExperienceResponse result = userExperienceService.subtractExperience(
-                TEST_USER_ID, 50, ExpSourceType.MISSION_EXECUTION, 1L, "보상 취소", "건강");
+            UserExperienceResponse result =
+                    userExperienceService.subtractExperience(
+                            TEST_USER_ID, 50, ExpSourceType.MISSION_EXECUTION, 1L, "보상 취소", "건강");
 
             // then
             assertThat(result).isNotNull();
             verify(experienceHistoryRepository).save(any(ExperienceHistory.class));
             // categoryId가 null이므로 카테고리 경험치는 차감되지 않음
-            verify(userCategoryExperienceRepository, never()).findByUserIdAndCategoryId(any(), any());
+            verify(userCategoryExperienceRepository, never())
+                    .findByUserIdAndCategoryId(any(), any());
         }
 
         @Test
@@ -606,16 +739,24 @@ class UserExperienceServiceTest {
         void subtractExperience_withCategoryId_subtractsCategoryExp() {
             // given
             UserExperience userExp = createTestUserExperience(1L, TEST_USER_ID, 3, 150, 350);
-            UserCategoryExperience categoryExp = UserCategoryExperience.create(TEST_USER_ID, 1L, "건강", 100);
+            UserCategoryExperience categoryExp =
+                    UserCategoryExperience.create(TEST_USER_ID, 1L, "건강", 100);
 
-            when(userExperienceRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.of(userExp));
-            when(userLevelConfigCacheService.getLevelConfigByLevel(3)).thenReturn(createUserLevelConfig(3, 200, 250));
+            when(userExperienceRepository.findByUserId(TEST_USER_ID))
+                    .thenReturn(Optional.of(userExp));
             when(userCategoryExperienceRepository.findByUserIdAndCategoryId(TEST_USER_ID, 1L))
-                .thenReturn(Optional.of(categoryExp));
+                    .thenReturn(Optional.of(categoryExp));
 
             // when
-            UserExperienceResponse result = userExperienceService.subtractExperience(
-                TEST_USER_ID, 50, ExpSourceType.MISSION_EXECUTION, 1L, "보상 취소", 1L, "건강");
+            UserExperienceResponse result =
+                    userExperienceService.subtractExperience(
+                            TEST_USER_ID,
+                            50,
+                            ExpSourceType.MISSION_EXECUTION,
+                            1L,
+                            "보상 취소",
+                            1L,
+                            "건강");
 
             // then
             assertThat(result).isNotNull();
@@ -628,16 +769,24 @@ class UserExperienceServiceTest {
         void subtractExperience_withCategoryId_minZero() {
             // given
             UserExperience userExp = createTestUserExperience(1L, TEST_USER_ID, 3, 150, 350);
-            UserCategoryExperience categoryExp = UserCategoryExperience.create(TEST_USER_ID, 1L, "건강", 30);
+            UserCategoryExperience categoryExp =
+                    UserCategoryExperience.create(TEST_USER_ID, 1L, "건강", 30);
 
-            when(userExperienceRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.of(userExp));
-            when(userLevelConfigCacheService.getLevelConfigByLevel(3)).thenReturn(createUserLevelConfig(3, 200, 250));
+            when(userExperienceRepository.findByUserId(TEST_USER_ID))
+                    .thenReturn(Optional.of(userExp));
             when(userCategoryExperienceRepository.findByUserIdAndCategoryId(TEST_USER_ID, 1L))
-                .thenReturn(Optional.of(categoryExp));
+                    .thenReturn(Optional.of(categoryExp));
 
             // when
-            UserExperienceResponse result = userExperienceService.subtractExperience(
-                TEST_USER_ID, 50, ExpSourceType.MISSION_EXECUTION, 1L, "보상 취소", 1L, "건강");
+            UserExperienceResponse result =
+                    userExperienceService.subtractExperience(
+                            TEST_USER_ID,
+                            50,
+                            ExpSourceType.MISSION_EXECUTION,
+                            1L,
+                            "보상 취소",
+                            1L,
+                            "건강");
 
             // then
             assertThat(result).isNotNull();
@@ -655,23 +804,22 @@ class UserExperienceServiceTest {
             // given
             UserExperience userExp = createTestUserExperience(1L, TEST_USER_ID, 1, 90, 90);
             // 새 로직: 다음 레벨의 required_exp를 체크하므로, level 2의 required_exp가 100이어야 110 exp로 레벨업 가능
-            List<UserLevelConfig> configs = List.of(
-                createUserLevelConfig(1, 0, 0),       // level 1 (시작 레벨)
-                createUserLevelConfig(2, 100, 100),   // level 2 도달에 100 exp 필요
-                createUserLevelConfig(3, 150, 250)    // level 3 도달에 150 exp 추가 필요
-            );
+            List<UserLevelConfig> configs =
+                    List.of(
+                            createUserLevelConfig(1, 0, 0), // level 1 (시작 레벨)
+                            createUserLevelConfig(2, 100, 100), // level 2 도달에 100 exp 필요
+                            createUserLevelConfig(3, 150, 250) // level 3 도달에 150 exp 추가 필요
+                            );
 
-            when(userExperienceRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.of(userExp));
+            when(userExperienceRepository.findByUserId(TEST_USER_ID))
+                    .thenReturn(Optional.of(userExp));
             when(userLevelConfigCacheService.getAllLevelConfigs()).thenReturn(configs);
             when(userLevelConfigCacheService.getMaxLevel()).thenReturn(3);
-            when(userLevelConfigCacheService.getLevelConfigByLevel(anyInt())).thenAnswer(invocation -> {
-                int level = invocation.getArgument(0);
-                return configs.stream().filter(c -> c.getLevel().equals(level)).findFirst().orElse(null);
-            });
 
             // when - 20 exp 추가하면 총 110 exp, level 2의 required_exp(100)을 충족하므로 레벨업
-            UserExperienceResponse result = userExperienceService.addExperience(
-                TEST_USER_ID, 20, ExpSourceType.MISSION_EXECUTION, 1L, "미션 완료");
+            UserExperienceResponse result =
+                    userExperienceService.addExperience(
+                            TEST_USER_ID, 20, ExpSourceType.MISSION_EXECUTION, 1L, "미션 완료");
 
             // then
             assertThat(result).isNotNull();
@@ -685,19 +833,20 @@ class UserExperienceServiceTest {
             // given
             UserExperience userExp = createTestUserExperience(1L, TEST_USER_ID, 4, 50, 300);
             // 레벨 4의 config가 없음 (레벨 1-3만 있음)
-            List<UserLevelConfig> configs = List.of(
-                createUserLevelConfig(1, 100, 0),
-                createUserLevelConfig(2, 150, 100),
-                createUserLevelConfig(3, 200, 250)
-            );
+            List<UserLevelConfig> configs =
+                    List.of(
+                            createUserLevelConfig(1, 100, 0),
+                            createUserLevelConfig(2, 150, 100),
+                            createUserLevelConfig(3, 200, 250));
 
-            when(userExperienceRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.of(userExp));
+            when(userExperienceRepository.findByUserId(TEST_USER_ID))
+                    .thenReturn(Optional.of(userExp));
             when(userLevelConfigCacheService.getAllLevelConfigs()).thenReturn(configs);
-            when(userLevelConfigCacheService.getLevelConfigByLevel(4)).thenReturn(null);
 
             // when
-            UserExperienceResponse result = userExperienceService.addExperience(
-                TEST_USER_ID, 100, ExpSourceType.MISSION_EXECUTION, 1L, "미션 완료");
+            UserExperienceResponse result =
+                    userExperienceService.addExperience(
+                            TEST_USER_ID, 100, ExpSourceType.MISSION_EXECUTION, 1L, "미션 완료");
 
             // then
             assertThat(result).isNotNull();
@@ -715,24 +864,23 @@ class UserExperienceServiceTest {
             // 300 exp 추가 시: 300 >= 100 (level up to 2, remaining=200)
             //                  200 >= 150 (level up to 3, remaining=50)
             //                  50 < 200 (stop)
-            List<UserLevelConfig> configs = List.of(
-                createUserLevelConfig(1, 0, 0),       // level 1 (시작 레벨)
-                createUserLevelConfig(2, 100, 100),   // level 2 도달에 100 exp 필요
-                createUserLevelConfig(3, 150, 250),   // level 3 도달에 150 exp 추가 필요
-                createUserLevelConfig(4, 200, 450)    // level 4 도달에 200 exp 추가 필요
-            );
+            List<UserLevelConfig> configs =
+                    List.of(
+                            createUserLevelConfig(1, 0, 0), // level 1 (시작 레벨)
+                            createUserLevelConfig(2, 100, 100), // level 2 도달에 100 exp 필요
+                            createUserLevelConfig(3, 150, 250), // level 3 도달에 150 exp 추가 필요
+                            createUserLevelConfig(4, 200, 450) // level 4 도달에 200 exp 추가 필요
+                            );
 
-            when(userExperienceRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.of(userExp));
+            when(userExperienceRepository.findByUserId(TEST_USER_ID))
+                    .thenReturn(Optional.of(userExp));
             when(userLevelConfigCacheService.getAllLevelConfigs()).thenReturn(configs);
             when(userLevelConfigCacheService.getMaxLevel()).thenReturn(10);
-            when(userLevelConfigCacheService.getLevelConfigByLevel(anyInt())).thenAnswer(invocation -> {
-                int level = invocation.getArgument(0);
-                return configs.stream().filter(c -> c.getLevel().equals(level)).findFirst().orElse(null);
-            });
 
             // when - 300 경험치 추가 (레벨 1 -> 2 -> 3까지 도달)
-            UserExperienceResponse result = userExperienceService.addExperience(
-                TEST_USER_ID, 300, ExpSourceType.EVENT, 1L, "대량 경험치 획득");
+            UserExperienceResponse result =
+                    userExperienceService.addExperience(
+                            TEST_USER_ID, 300, ExpSourceType.EVENT, 1L, "대량 경험치 획득");
 
             // then
             assertThat(result).isNotNull();
@@ -750,24 +898,28 @@ class UserExperienceServiceTest {
         void subtractExperience_levelDownWithNullCumulativeExp() {
             // given
             UserExperience userExp = createTestUserExperience(1L, TEST_USER_ID, 3, 10, 260);
-            UserLevelConfig config1 = UserLevelConfig.builder()
-                .level(1)
-                .requiredExp(100)
-                .cumulativeExp(null)  // 누적 경험치 없음
-                .build();
-            UserLevelConfig config2 = UserLevelConfig.builder()
-                .level(2)
-                .requiredExp(150)
-                .cumulativeExp(null)  // 누적 경험치 없음
-                .build();
+            UserLevelConfig config1 =
+                    UserLevelConfig.builder()
+                            .level(1)
+                            .requiredExp(100)
+                            .cumulativeExp(null) // 누적 경험치 없음
+                            .build();
+            UserLevelConfig config2 =
+                    UserLevelConfig.builder()
+                            .level(2)
+                            .requiredExp(150)
+                            .cumulativeExp(null) // 누적 경험치 없음
+                            .build();
 
-            when(userExperienceRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.of(userExp));
-            when(userLevelConfigCacheService.getAllLevelConfigs()).thenReturn(List.of(config1, config2));
-            when(userLevelConfigCacheService.getLevelConfigByLevel(2)).thenReturn(config2);
+            when(userExperienceRepository.findByUserId(TEST_USER_ID))
+                    .thenReturn(Optional.of(userExp));
+            when(userLevelConfigCacheService.getAllLevelConfigs())
+                    .thenReturn(List.of(config1, config2));
 
             // when
-            UserExperienceResponse result = userExperienceService.subtractExperience(
-                TEST_USER_ID, 100, ExpSourceType.MISSION_EXECUTION, 1L, "보상 취소");
+            UserExperienceResponse result =
+                    userExperienceService.subtractExperience(
+                            TEST_USER_ID, 100, ExpSourceType.MISSION_EXECUTION, 1L, "보상 취소");
 
             // then
             assertThat(result).isNotNull();
@@ -785,19 +937,27 @@ class UserExperienceServiceTest {
             LocalDateTime startUtc = LocalDateTime.of(2026, 6, 30, 15, 0);
             LocalDateTime endUtc = LocalDateTime.of(2026, 7, 31, 15, 0);
             when(experienceHistoryRepository.sumDailyExpByUserIdAndPeriod(
-                TEST_USER_ID, startUtc, endUtc, "Asia/Seoul"))
-                .thenReturn(List.of(
-                    new Object[]{java.sql.Date.valueOf("2026-07-01"), java.math.BigDecimal.valueOf(135)},
-                    new Object[]{java.sql.Date.valueOf("2026-07-02"), java.math.BigDecimal.valueOf(10)}));
+                            TEST_USER_ID, startUtc, endUtc, "Asia/Seoul"))
+                    .thenReturn(
+                            List.of(
+                                    new Object[] {
+                                        java.sql.Date.valueOf("2026-07-01"),
+                                        java.math.BigDecimal.valueOf(135)
+                                    },
+                                    new Object[] {
+                                        java.sql.Date.valueOf("2026-07-02"),
+                                        java.math.BigDecimal.valueOf(10)
+                                    }));
 
             // when
-            Map<LocalDate, Long> result = userExperienceService.getDailyExpSummary(
-                TEST_USER_ID, startUtc, endUtc, "Asia/Seoul");
+            Map<LocalDate, Long> result =
+                    userExperienceService.getDailyExpSummary(
+                            TEST_USER_ID, startUtc, endUtc, "Asia/Seoul");
 
             // then
             assertThat(result)
-                .containsEntry(LocalDate.of(2026, 7, 1), 135L)
-                .containsEntry(LocalDate.of(2026, 7, 2), 10L);
+                    .containsEntry(LocalDate.of(2026, 7, 1), 135L)
+                    .containsEntry(LocalDate.of(2026, 7, 2), 10L);
         }
 
         @Test
@@ -807,17 +967,110 @@ class UserExperienceServiceTest {
             LocalDateTime startUtc = LocalDateTime.of(2026, 6, 30, 15, 0);
             LocalDateTime endUtc = LocalDateTime.of(2026, 7, 31, 15, 0);
             when(experienceHistoryRepository.sumDailyExpByUserIdAndPeriod(
-                TEST_USER_ID, startUtc, endUtc, "Asia/Seoul"))
-                .thenReturn(List.of());
+                            TEST_USER_ID, startUtc, endUtc, "Asia/Seoul"))
+                    .thenReturn(List.of());
 
             // when
-            Map<LocalDate, Long> result = userExperienceService.getDailyExpSummary(
-                TEST_USER_ID, startUtc, endUtc, "Invalid/Zone");
+            Map<LocalDate, Long> result =
+                    userExperienceService.getDailyExpSummary(
+                            TEST_USER_ID, startUtc, endUtc, "Invalid/Zone");
 
             // then
             assertThat(result).isEmpty();
             verify(experienceHistoryRepository)
-                .sumDailyExpByUserIdAndPeriod(TEST_USER_ID, startUtc, endUtc, "Asia/Seoul");
+                    .sumDailyExpByUserIdAndPeriod(TEST_USER_ID, startUtc, endUtc, "Asia/Seoul");
+        }
+    }
+
+    @Nested
+    @DisplayName("getDailyRewardSummary 테스트 (LUT-568)")
+    class GetDailyRewardSummaryTest {
+
+        @Test
+        @DisplayName("출석·마일스톤 보상 행을 날짜/출처/출처ID/경험치 DTO 로 변환한다")
+        void getDailyRewardSummary_success() {
+            // given
+            LocalDateTime startUtc = LocalDateTime.of(2026, 9, 30, 15, 0);
+            LocalDateTime endUtc = LocalDateTime.of(2026, 10, 31, 15, 0);
+            when(experienceHistoryRepository.findDailyRewardsByUserIdAndPeriod(
+                            TEST_USER_ID, startUtc, endUtc, "Asia/Seoul"))
+                    .thenReturn(
+                            List.of(
+                                    new Object[] {
+                                        java.sql.Date.valueOf("2026-10-15"),
+                                        "EVENT",
+                                        77L,
+                                        java.math.BigDecimal.valueOf(10)
+                                    },
+                                    new Object[] {
+                                        java.sql.Date.valueOf("2026-10-15"),
+                                        "DAILY_MISSION_MILESTONE",
+                                        3L,
+                                        java.math.BigDecimal.valueOf(20)
+                                    },
+                                    new Object[] {
+                                        java.sql.Date.valueOf("2026-10-16"),
+                                        "DAILY_MISSION_MILESTONE",
+                                        null,
+                                        java.math.BigDecimal.valueOf(20)
+                                    }));
+
+            // when
+            List<io.pinkspider.global.facade.dto.DailyRewardDto> result =
+                    userExperienceService.getDailyRewardSummary(
+                            TEST_USER_ID, startUtc, endUtc, "Asia/Seoul");
+
+            // then
+            assertThat(result).hasSize(3);
+            assertThat(result.get(0).date()).isEqualTo(LocalDate.of(2026, 10, 15));
+            assertThat(result.get(0).sourceType()).isEqualTo(ExpSourceType.EVENT);
+            assertThat(result.get(0).sourceId()).isEqualTo(77L);
+            assertThat(result.get(0).exp()).isEqualTo(10L);
+            assertThat(result.get(1).sourceType()).isEqualTo(ExpSourceType.DAILY_MISSION_MILESTONE);
+            assertThat(result.get(1).sourceId()).isEqualTo(3L);
+            assertThat(result.get(2).sourceId()).isNull();
+        }
+
+        @Test
+        @DisplayName("유효하지 않은 타임존이면 Asia/Seoul 로 대체한다")
+        void getDailyRewardSummary_invalidTimezone_fallsBackToSeoul() {
+            // given
+            LocalDateTime startUtc = LocalDateTime.of(2026, 9, 30, 15, 0);
+            LocalDateTime endUtc = LocalDateTime.of(2026, 10, 31, 15, 0);
+            when(experienceHistoryRepository.findDailyRewardsByUserIdAndPeriod(
+                            TEST_USER_ID, startUtc, endUtc, "Asia/Seoul"))
+                    .thenReturn(List.of());
+
+            // when
+            List<io.pinkspider.global.facade.dto.DailyRewardDto> result =
+                    userExperienceService.getDailyRewardSummary(
+                            TEST_USER_ID, startUtc, endUtc, "Invalid/Zone");
+
+            // then
+            assertThat(result).isEmpty();
+            verify(experienceHistoryRepository)
+                    .findDailyRewardsByUserIdAndPeriod(
+                            TEST_USER_ID, startUtc, endUtc, "Asia/Seoul");
+        }
+
+        @Test
+        @DisplayName("유저 타임존이 유효하면 그대로 넘긴다")
+        void getDailyRewardSummary_validTimezone_passedThrough() {
+            // given
+            LocalDateTime startUtc = LocalDateTime.of(2026, 9, 30, 21, 0);
+            LocalDateTime endUtc = LocalDateTime.of(2026, 10, 31, 21, 0);
+            when(experienceHistoryRepository.findDailyRewardsByUserIdAndPeriod(
+                            TEST_USER_ID, startUtc, endUtc, "Asia/Riyadh"))
+                    .thenReturn(List.of());
+
+            // when
+            userExperienceService.getDailyRewardSummary(
+                    TEST_USER_ID, startUtc, endUtc, "Asia/Riyadh");
+
+            // then
+            verify(experienceHistoryRepository)
+                    .findDailyRewardsByUserIdAndPeriod(
+                            TEST_USER_ID, startUtc, endUtc, "Asia/Riyadh");
         }
     }
 }

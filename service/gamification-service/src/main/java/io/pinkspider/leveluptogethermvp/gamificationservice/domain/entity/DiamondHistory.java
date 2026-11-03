@@ -20,21 +20,21 @@ import lombok.Setter;
 import lombok.experimental.SuperBuilder;
 import org.hibernate.annotations.Comment;
 
-/**
- * QA-220: 다이아 획득/사용 이력 (원장).
- * balance_after 로 시점별 잔액을 기록해 가장 최근 행이 현재 보유 다이아와 일치한다.
- */
+/** QA-220: 다이아 획득/사용 이력 (원장). balance_after 로 시점별 잔액을 기록해 가장 최근 행이 현재 보유 다이아와 일치한다. */
 @Entity
 @Getter
 @Setter
 @SuperBuilder
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @AllArgsConstructor
-@Table(name = "diamond_history",
-    indexes = {
-        @Index(name = "idx_diamond_history_user", columnList = "user_id, id"),
-        @Index(name = "idx_diamond_history_user_type_source", columnList = "user_id, type, source_id")
-    })
+@Table(
+        name = "diamond_history",
+        indexes = {
+            @Index(name = "idx_diamond_history_user", columnList = "user_id, id"),
+            @Index(
+                    name = "idx_diamond_history_user_type_source",
+                    columnList = "user_id, type, source_id")
+        })
 @Comment("다이아 획득/사용 이력")
 public class DiamondHistory extends LocalDateTimeBaseEntity {
 
@@ -64,9 +64,18 @@ public class DiamondHistory extends LocalDateTimeBaseEntity {
     @Comment("증감량 (획득 +, 차감 -)")
     private Integer amount;
 
+    /**
+     * LUT-354: 증감량 중 핑크다이아(유상 재화) 몫. 유상/무상 구분 관리·환불 정산용. 블루만 오간 행은 0. amount와 부호가 같다 (차감 -, 지급 +).
+     */
+    @NotNull
+    @Column(name = "pink_amount", nullable = false)
+    @Comment("증감량 중 핑크다이아 몫 (유상 구분)")
+    @lombok.Builder.Default
+    private Integer pinkAmount = 0;
+
     @NotNull
     @Column(name = "balance_after", nullable = false)
-    @Comment("적용 후 잔액")
+    @Comment("적용 후 잔액 (블루+핑크 총잔액, LUT-354부터)")
     private Integer balanceAfter;
 
     @Column(name = "description", length = 500)

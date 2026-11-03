@@ -27,62 +27,79 @@ public class AchievementCategoryAdminService {
     @Transactional(readOnly = true, transactionManager = "gamificationTransactionManager")
     public List<AchievementCategoryAdminResponse> getAllCategories() {
         return achievementCategoryRepository.findAllByOrderBySortOrderAsc().stream()
-            .map(AchievementCategoryAdminResponse::from)
-            .collect(Collectors.toList());
+                .map(AchievementCategoryAdminResponse::from)
+                .collect(Collectors.toList());
     }
 
     @Transactional(readOnly = true, transactionManager = "gamificationTransactionManager")
     public List<AchievementCategoryAdminResponse> getActiveCategories() {
         return achievementCategoryRepository.findByIsActiveTrueOrderBySortOrderAsc().stream()
-            .map(AchievementCategoryAdminResponse::from)
-            .collect(Collectors.toList());
+                .map(AchievementCategoryAdminResponse::from)
+                .collect(Collectors.toList());
     }
 
     @Transactional(readOnly = true, transactionManager = "gamificationTransactionManager")
     public AchievementCategoryAdminResponse getCategory(Long id) {
-        AchievementCategory category = achievementCategoryRepository.findById(id)
-            .orElseThrow(() -> new CustomException("404", "error.achievement.category.not_found"));
+        AchievementCategory category =
+                achievementCategoryRepository
+                        .findById(id)
+                        .orElseThrow(
+                                () ->
+                                        new CustomException(
+                                                "404", "error.achievement.category.not_found"));
         return AchievementCategoryAdminResponse.from(category);
     }
 
     @Transactional(readOnly = true, transactionManager = "gamificationTransactionManager")
     public AchievementCategoryAdminResponse getCategoryByCode(String code) {
-        AchievementCategory category = achievementCategoryRepository.findByCode(code)
-            .orElseThrow(() -> new CustomException("404", "error.achievement.category.not_found"));
+        AchievementCategory category =
+                achievementCategoryRepository
+                        .findByCode(code)
+                        .orElseThrow(
+                                () ->
+                                        new CustomException(
+                                                "404", "error.achievement.category.not_found"));
         return AchievementCategoryAdminResponse.from(category);
     }
 
-    @Caching(evict = {
-        @CacheEvict(value = "achievementCategories", allEntries = true)
-    })
-    public AchievementCategoryAdminResponse createCategory(AchievementCategoryAdminRequest request) {
+    @Caching(evict = {@CacheEvict(value = "achievementCategories", allEntries = true)})
+    public AchievementCategoryAdminResponse createCategory(
+            AchievementCategoryAdminRequest request) {
         if (achievementCategoryRepository.existsByCode(request.getCode())) {
             throw new CustomException("400", "error.achievement.category.duplicate_code");
         }
 
-        AchievementCategory category = AchievementCategory.builder()
-            .code(request.getCode())
-            .name(request.getName())
-            .description(request.getDescription())
-            .sortOrder(request.getSortOrder())
-            .isActive(request.getIsActive() != null ? request.getIsActive() : true)
-            .build();
+        AchievementCategory category =
+                AchievementCategory.builder()
+                        .code(request.getCode())
+                        .name(request.getName())
+                        .description(request.getDescription())
+                        .sortOrder(request.getSortOrder())
+                        .isActive(request.getIsActive() != null ? request.getIsActive() : true)
+                        .build();
 
         AchievementCategory saved = achievementCategoryRepository.save(category);
         log.info("업적 카테고리 생성 및 캐시 갱신: id={}, code={}", saved.getId(), saved.getCode());
         return AchievementCategoryAdminResponse.from(saved);
     }
 
-    @Caching(evict = {
-        @CacheEvict(value = "achievementCategories", allEntries = true),
-        @CacheEvict(value = "achievements", allEntries = true)
-    })
-    public AchievementCategoryAdminResponse updateCategory(Long id, AchievementCategoryAdminRequest request) {
-        AchievementCategory category = achievementCategoryRepository.findById(id)
-            .orElseThrow(() -> new CustomException("404", "error.achievement.category.not_found"));
+    @Caching(
+            evict = {
+                @CacheEvict(value = "achievementCategories", allEntries = true),
+                @CacheEvict(value = "achievements", allEntries = true)
+            })
+    public AchievementCategoryAdminResponse updateCategory(
+            Long id, AchievementCategoryAdminRequest request) {
+        AchievementCategory category =
+                achievementCategoryRepository
+                        .findById(id)
+                        .orElseThrow(
+                                () ->
+                                        new CustomException(
+                                                "404", "error.achievement.category.not_found"));
 
         if (!category.getCode().equals(request.getCode())
-            && achievementCategoryRepository.existsByCodeAndIdNot(request.getCode(), id)) {
+                && achievementCategoryRepository.existsByCodeAndIdNot(request.getCode(), id)) {
             throw new CustomException("400", "error.achievement.category.duplicate_code");
         }
 
@@ -105,12 +122,15 @@ public class AchievementCategoryAdminService {
         return AchievementCategoryAdminResponse.from(saved);
     }
 
-    @Caching(evict = {
-        @CacheEvict(value = "achievementCategories", allEntries = true)
-    })
+    @Caching(evict = {@CacheEvict(value = "achievementCategories", allEntries = true)})
     public AchievementCategoryAdminResponse toggleActiveStatus(Long id) {
-        AchievementCategory category = achievementCategoryRepository.findById(id)
-            .orElseThrow(() -> new CustomException("404", "error.achievement.category.not_found"));
+        AchievementCategory category =
+                achievementCategoryRepository
+                        .findById(id)
+                        .orElseThrow(
+                                () ->
+                                        new CustomException(
+                                                "404", "error.achievement.category.not_found"));
 
         category.setIsActive(!category.getIsActive());
         AchievementCategory saved = achievementCategoryRepository.save(category);
@@ -118,12 +138,15 @@ public class AchievementCategoryAdminService {
         return AchievementCategoryAdminResponse.from(saved);
     }
 
-    @Caching(evict = {
-        @CacheEvict(value = "achievementCategories", allEntries = true)
-    })
+    @Caching(evict = {@CacheEvict(value = "achievementCategories", allEntries = true)})
     public void deleteCategory(Long id) {
-        AchievementCategory category = achievementCategoryRepository.findById(id)
-            .orElseThrow(() -> new CustomException("404", "error.achievement.category.not_found"));
+        AchievementCategory category =
+                achievementCategoryRepository
+                        .findById(id)
+                        .orElseThrow(
+                                () ->
+                                        new CustomException(
+                                                "404", "error.achievement.category.not_found"));
 
         if (!achievementRepository.findByCategoryCode(category.getCode()).isEmpty()) {
             throw new CustomException("400", "error.achievement.category.has_achievements");
@@ -134,10 +157,13 @@ public class AchievementCategoryAdminService {
     }
 
     private void updateAchievementsCategoryCode(String oldCode, String newCode) {
-        achievementRepository.findByCategoryCode(oldCode).forEach(achievement -> {
-            achievement.setCategoryCode(newCode);
-            achievementRepository.save(achievement);
-        });
+        achievementRepository
+                .findByCategoryCode(oldCode)
+                .forEach(
+                        achievement -> {
+                            achievement.setCategoryCode(newCode);
+                            achievementRepository.save(achievement);
+                        });
         log.info("업적들의 카테고리 코드 업데이트: {} -> {}", oldCode, newCode);
     }
 }

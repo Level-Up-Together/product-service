@@ -2,8 +2,10 @@ package io.pinkspider.leveluptogethermvp.notificationservice.event.listener;
 
 import static io.pinkspider.global.config.AsyncConfig.EVENT_EXECUTOR;
 
+import io.pinkspider.global.enums.NotificationType;
 import io.pinkspider.global.event.AchievementCompletedEvent;
 import io.pinkspider.global.event.ContentReportedEvent;
+import io.pinkspider.global.event.EquippedItemPushDueEvent;
 import io.pinkspider.global.event.FeedCommentEvent;
 import io.pinkspider.global.event.FeedCommentLikedEvent;
 import io.pinkspider.global.event.FeedCommentReplyEvent;
@@ -16,37 +18,66 @@ import io.pinkspider.global.event.GuildChatMessageEvent;
 import io.pinkspider.global.event.GuildCreationEligibleEvent;
 import io.pinkspider.global.event.GuildDirectMessageEvent;
 import io.pinkspider.global.event.GuildInvitationEvent;
+import io.pinkspider.global.event.GuildJoinApprovedEvent;
+import io.pinkspider.global.event.GuildJoinRejectedEvent;
 import io.pinkspider.global.event.GuildJoinRequestedEvent;
 import io.pinkspider.global.event.GuildMissionArrivedEvent;
+import io.pinkspider.global.event.ItemGrantedByAdminEvent;
+import io.pinkspider.global.event.LevelRewardItemGrantedEvent;
 import io.pinkspider.global.event.MissionAutoEndMilestone;
 import io.pinkspider.global.event.MissionAutoEndWarningEvent;
+import io.pinkspider.global.event.MissionAutoEndedEvent;
 import io.pinkspider.global.event.MissionCommentEvent;
+import io.pinkspider.global.event.MissionReminderEvent;
+import io.pinkspider.global.event.SeasonRewardItemGrantedEvent;
+import io.pinkspider.global.event.ShopItemPurchasedEvent;
+import io.pinkspider.global.event.SubscriptionStipendGrantedEvent;
 import io.pinkspider.global.event.TitleAcquiredEvent;
+import io.pinkspider.global.event.UserLevelUpEvent;
 import io.pinkspider.global.facade.GuildQueryFacade;
+import io.pinkspider.global.translation.LocaleUtils;
 import io.pinkspider.leveluptogethermvp.notificationservice.application.NotificationService;
-import io.pinkspider.global.enums.NotificationType;
 import java.util.List;
+import java.util.Locale;
 import java.util.function.Consumer;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.MessageSource;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.event.TransactionPhase;
 import org.springframework.transaction.event.TransactionalEventListener;
 
-/**
- * 알림 관련 이벤트 리스너
- * 트랜잭션 커밋 후 비동기로 알림을 생성합니다.
- */
+/** 알림 관련 이벤트 리스너 트랜잭션 커밋 후 비동기로 알림을 생성합니다. */
 @Component
 @Slf4j
 @RequiredArgsConstructor
 public class NotificationEventListener {
 
+    /** LUT-590: 본문 없이 사진만 보낸 채팅·DM 의 푸시 미리보기 문구 키 */
+    static final String PHOTO_PREVIEW_KEY = "notification.preview.photo";
+
     private final NotificationService notificationService;
+    private final MessageSource messageSource;
     private final GuildQueryFacade guildQueryFacadeService;
+    private final io.pinkspider.global.facade.UserQueryFacade userQueryFacadeService;
 
     // ==================== 헬퍼 메서드 ====================
+
+    /**
+     * LUT-367: 차단 관계 상호작용 알림 스킵 — 어느 한쪽이라도 상대를 차단했으면 보내지 않는다. 차단 조회 실패가 알림 전체를 막지 않도록 예외는 미차단으로
+     * 처리한다.
+     */
+    private boolean isBlockedInteraction(String recipientId, String actorId) {
+        if (recipientId == null || actorId == null) {
+            return false;
+        }
+        try {
+            return userQueryFacadeService.isBlockedBetween(recipientId, actorId);
+        } catch (Exception e) {
+            return false;
+        }
+    }
 
     private void safeHandle(String eventName, Runnable action) {
         try {
@@ -56,8 +87,8 @@ public class NotificationEventListener {
         }
     }
 
-    private void safeHandleMultiple(String eventName, List<String> memberIds,
-                                     String excludeId, Consumer<String> action) {
+    private void safeHandleMultiple(
+            String eventName, List<String> memberIds, String excludeId, Consumer<String> action) {
         try {
             for (String memberId : memberIds) {
                 if (excludeId != null && memberId.equals(excludeId)) continue;
@@ -77,17 +108,174 @@ public class NotificationEventListener {
     @Async(EVENT_EXECUTOR)
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void handleTitleAcquired(TitleAcquiredEvent event) {
-        safeHandle("칭호 획득", () -> notificationService.sendNotification(
-            event.userId(), NotificationType.TITLE_ACQUIRED,
-            event.titleId(), "rarity:" + event.rarity(), event.titleName()));
+        safeHandle(
+                "칭호 획득",
+                () ->
+                        notificationService.sendNotification(
+                                event.userId(),
+                                NotificationType.TITLE_ACQUIRED,
+                                event.titleId(),
+                                "rarity:" + event.rarity(),
+                                event.titleName()));
     }
 
     @Async(EVENT_EXECUTOR)
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void handleAchievementCompleted(AchievementCompletedEvent event) {
-        safeHandle("업적 달성", () -> notificationService.sendNotification(
-            event.userId(), NotificationType.ACHIEVEMENT_COMPLETED,
-            event.achievementId(), null, event.achievementName()));
+        safeHandle(
+                "업적 달성",
+                () ->
+                        notificationService.sendNotification(
+                                event.userId(),
+                                NotificationType.ACHIEVEMENT_COMPLETED,
+                                event.achievementId(),
+                                null,
+                                event.achievementName()));
+    }
+
+    // ==================== 아이템 획득 (LUT-410) ====================
+
+    @Async(EVENT_EXECUTOR)
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    public void handleShopItemPurchased(ShopItemPurchasedEvent event) {
+        safeHandle(
+                "아이템 구매",
+                () ->
+                        notificationService.sendLocalizedNotification(
+                                event.userId(),
+                                NotificationType.ITEM_PURCHASED,
+                                event.shopItemId(),
+                                null,
+                                locale ->
+                                        new Object[] {
+                                            localizedItemName(
+                                                    event.itemName(),
+                                                    event.itemNameEn(),
+                                                    event.itemNameAr(),
+                                                    event.itemNameJa(),
+                                                    locale)
+                                        }));
+    }
+
+    @Async(EVENT_EXECUTOR)
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    public void handleSeasonRewardItemGranted(SeasonRewardItemGrantedEvent event) {
+        safeHandle(
+                "시즌 보상 아이템",
+                () ->
+                        notificationService.sendLocalizedNotification(
+                                event.userId(),
+                                NotificationType.SEASON_REWARD_ITEM,
+                                event.shopItemId(),
+                                null,
+                                locale ->
+                                        new Object[] {
+                                            localizedItemName(
+                                                    event.itemName(),
+                                                    event.itemNameEn(),
+                                                    event.itemNameAr(),
+                                                    event.itemNameJa(),
+                                                    locale)
+                                        }));
+    }
+
+    /** LUT-472: 관리자 수동 지급 — 구매/시즌 보상과 동일한 현지화 아이템명 알림 */
+    @Async(EVENT_EXECUTOR)
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    public void handleItemGrantedByAdmin(ItemGrantedByAdminEvent event) {
+        safeHandle(
+                "관리자 아이템 지급",
+                () ->
+                        notificationService.sendLocalizedNotification(
+                                event.userId(),
+                                NotificationType.ITEM_GRANTED,
+                                event.shopItemId(),
+                                null,
+                                locale ->
+                                        new Object[] {
+                                            localizedItemName(
+                                                    event.itemName(),
+                                                    event.itemNameEn(),
+                                                    event.itemNameAr(),
+                                                    event.itemNameJa(),
+                                                    locale)
+                                        }));
+    }
+
+    /** LUT-593: 레벨 5 도달 보상(성장의 새싹) — 관리자 지급과 같은 ITEM_GRANTED 알림(딥링크 인벤토리) */
+    @Async(EVENT_EXECUTOR)
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    public void handleLevelRewardItemGranted(LevelRewardItemGrantedEvent event) {
+        safeHandle(
+                "레벨 보상 아이템",
+                () ->
+                        notificationService.sendLocalizedNotification(
+                                event.userId(),
+                                NotificationType.ITEM_GRANTED,
+                                event.shopItemId(),
+                                null,
+                                locale ->
+                                        new Object[] {
+                                            localizedItemName(
+                                                    event.itemName(),
+                                                    event.itemNameEn(),
+                                                    event.itemNameAr(),
+                                                    event.itemNameJa(),
+                                                    locale)
+                                        }));
+    }
+
+    /** LUT-516: 장착 아이템 개별 푸시 — 스케줄러가 유저별 발행, 제목=아이템명/본문=어드민 메시지({nickname} 치환) */
+    @Async(EVENT_EXECUTOR)
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    public void handleEquippedItemPushDue(EquippedItemPushDueEvent event) {
+        safeHandle("장착 아이템 푸시", () -> notificationService.sendEquippedItemPush(event));
+    }
+
+    /** 수신자 locale 에 맞는 아이템명 선택 — 미등록 언어는 기본값(ko) 폴백 */
+    private String localizedItemName(
+            String name, String nameEn, String nameAr, String nameJa, Locale locale) {
+        return LocaleUtils.getLocalizedText(name, nameEn, nameAr, nameJa, locale.toLanguageTag());
+    }
+
+    // ==================== 구독 (LUT-489) ====================
+
+    /**
+     * 데일리 스티펜드 지급 알림 — referenceId=지급일 epochDay 라 스케줄러 재실행·이벤트 재발행에도 하루 1회만 저장/발송된다
+     * (SUBSCRIPTION_STIPEND dedup).
+     */
+    @Async(EVENT_EXECUTOR)
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    public void handleSubscriptionStipendGranted(SubscriptionStipendGrantedEvent event) {
+        safeHandle(
+                "구독 스티펜드",
+                () ->
+                        notificationService.sendNotification(
+                                event.userId(),
+                                NotificationType.SUBSCRIPTION_STIPEND,
+                                event.stipendEpochDay(),
+                                null,
+                                event.amount()));
+    }
+
+    // ==================== 레벨 ====================
+
+    /**
+     * 레벨업 알림 (LUT-301). referenceId=도달 레벨 — 동일 레벨 재발행에 대한 dedup 키. 여러 레벨을 한 번에 오르면 최종 레벨 하나로 발행된다
+     * (UserExperienceService).
+     */
+    @Async(EVENT_EXECUTOR)
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    public void handleUserLevelUp(UserLevelUpEvent event) {
+        safeHandle(
+                "레벨업",
+                () ->
+                        notificationService.sendNotification(
+                                event.userId(),
+                                NotificationType.LEVEL_UP,
+                                (long) event.newLevel(),
+                                null,
+                                event.newLevel()));
     }
 
     // ==================== 친구 ====================
@@ -95,32 +283,53 @@ public class NotificationEventListener {
     @Async(EVENT_EXECUTOR)
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void handleFriendRequest(FriendRequestEvent event) {
-        safeHandle("친구 요청", () -> notificationService.sendNotification(
-            event.targetUserId(), NotificationType.FRIEND_REQUEST,
-            event.friendshipId(), null, event.requesterNickname()));
+        safeHandle(
+                "친구 요청",
+                () ->
+                        notificationService.sendNotification(
+                                event.targetUserId(),
+                                NotificationType.FRIEND_REQUEST,
+                                event.friendshipId(),
+                                null,
+                                event.requesterNickname()));
     }
 
     @Async(EVENT_EXECUTOR)
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void handleFriendRequestAccepted(FriendRequestAcceptedEvent event) {
-        safeHandle("친구 수락", () -> notificationService.sendNotification(
-            event.requesterId(), NotificationType.FRIEND_ACCEPTED,
-            event.friendshipId(), null, event.accepterNickname()));
+        safeHandle(
+                "친구 수락",
+                () ->
+                        notificationService.sendNotification(
+                                event.requesterId(),
+                                NotificationType.FRIEND_ACCEPTED,
+                                event.friendshipId(),
+                                null,
+                                event.accepterNickname()));
     }
 
     @Async(EVENT_EXECUTOR)
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void handleFriendRequestRejected(FriendRequestRejectedEvent event) {
-        safeHandle("친구 거절", () -> notificationService.sendNotification(
-            event.requesterId(), NotificationType.FRIEND_REJECTED,
-            event.friendshipId(), null, event.rejecterNickname()));
+        safeHandle(
+                "친구 거절",
+                () ->
+                        notificationService.sendNotification(
+                                event.requesterId(),
+                                NotificationType.FRIEND_REJECTED,
+                                event.friendshipId(),
+                                null,
+                                event.rejecterNickname()));
     }
 
     @Async(EVENT_EXECUTOR)
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void handleFriendRequestProcessed(FriendRequestProcessedEvent event) {
-        safeHandle("친구 요청 알림 삭제", () ->
-            notificationService.deleteByReference("FRIEND_REQUEST", event.friendshipId()));
+        safeHandle(
+                "친구 요청 알림 삭제",
+                () ->
+                        notificationService.deleteByReference(
+                                "FRIEND_REQUEST", event.friendshipId()));
     }
 
     // ==================== 길드 ====================
@@ -128,74 +337,195 @@ public class NotificationEventListener {
     @Async(EVENT_EXECUTOR)
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void handleGuildMissionArrived(GuildMissionArrivedEvent event) {
-        safeHandleMultiple("길드 미션", event.memberIds(), null, memberId ->
-            notificationService.sendNotification(
-                memberId, NotificationType.GUILD_MISSION_ARRIVED,
-                event.missionId(), null, event.missionTitle()));
+        safeHandleMultiple(
+                "길드 미션",
+                event.memberIds(),
+                null,
+                memberId ->
+                        notificationService.sendNotification(
+                                memberId,
+                                NotificationType.GUILD_MISSION_ARRIVED,
+                                event.missionId(),
+                                null,
+                                event.missionTitle()));
     }
 
     @Async(EVENT_EXECUTOR)
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void handleGuildBulletinCreated(GuildBulletinCreatedEvent event) {
-        safeHandleMultiple("길드 공지사항", event.memberIds(), null, memberId ->
-            notificationService.sendNotification(
-                memberId, NotificationType.GUILD_BULLETIN,
-                event.postId(), null,
-                event.guildName(), event.postTitle(), event.guildId().toString()));
+        safeHandleMultiple(
+                "길드 공지사항",
+                event.memberIds(),
+                null,
+                memberId ->
+                        notificationService.sendNotification(
+                                memberId,
+                                NotificationType.GUILD_BULLETIN,
+                                event.postId(),
+                                null,
+                                event.guildName(),
+                                event.postTitle(),
+                                event.guildId().toString()));
     }
 
     @Async(EVENT_EXECUTOR)
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void handleGuildChatMessage(GuildChatMessageEvent event) {
-        safeHandleMultiple("길드 채팅", event.memberIds(), event.userId(), memberId ->
-            notificationService.sendNotification(
-                memberId, NotificationType.GUILD_CHAT,
-                event.messageId(), null,
-                event.guildName(), event.senderNickname(),
-                event.getPreviewContent(), event.guildId().toString()));
+        safeHandleMultiple(
+                "길드 채팅",
+                event.memberIds(),
+                event.userId(),
+                memberId -> {
+                    // LUT-373: 차단 관계면 단체 채팅 알림/푸시도 스킵
+                    if (isBlockedInteraction(memberId, event.userId())) return;
+                    String preview = event.getPreviewContent();
+                    if (preview.isBlank()) {
+                        // LUT-590: 사진만 보낸 메시지 — 빈 본문 대신 수신자 언어의 "사진을 보냈습니다"
+                        notificationService.sendLocalizedNotification(
+                                memberId,
+                                NotificationType.GUILD_CHAT,
+                                event.messageId(),
+                                null,
+                                locale ->
+                                        new Object[] {
+                                            event.guildName(),
+                                            event.senderNickname(),
+                                            photoPreview(locale),
+                                            event.guildId().toString()
+                                        });
+                        return;
+                    }
+                    notificationService.sendNotification(
+                            memberId,
+                            NotificationType.GUILD_CHAT,
+                            event.messageId(),
+                            null,
+                            event.guildName(),
+                            event.senderNickname(),
+                            preview,
+                            event.guildId().toString());
+                });
     }
 
     /**
-     * 길드 1:1 DM 알림 (LUT-224).
-     * 기존에는 DM이 FCM 푸시만 직접 발송해 알림 레코드가 없었고,
-     * 종 레드닷·알림 목록·클릭 이동이 모두 누락되었다.
+     * 길드 1:1 DM 알림 (LUT-224). 기존에는 DM이 FCM 푸시만 직접 발송해 알림 레코드가 없었고, 종 레드닷·알림 목록·클릭 이동이 모두 누락되었다.
      * sendNotification 경로로 통일해 레코드 생성 + 실시간 채널 + 푸시를 일괄 처리한다.
      */
     @Async(EVENT_EXECUTOR)
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void handleGuildDirectMessage(GuildDirectMessageEvent event) {
-        safeHandle("길드 DM", () -> notificationService.sendNotification(
-            event.recipientId(), NotificationType.GUILD_DM,
-            event.messageId(), null,
-            event.senderNickname(), event.getPreviewContent(),
-            event.guildId().toString(), event.userId()));
+        safeHandle(
+                "길드 DM",
+                () -> {
+                    // LUT-383: 차단 관계 DM 알림 스킵 — 전송단 shadow drop과 이중 방어
+                    // (배포 어긋남·이벤트 재발행 등으로 이벤트가 새어 들어와도 여기서 걸러진다)
+                    if (isBlockedInteraction(event.recipientId(), event.userId())) {
+                        return;
+                    }
+                    String preview = event.getPreviewContent();
+                    if (preview.isBlank()) {
+                        // LUT-590: 사진만 보낸 DM — 빈 본문 대신 수신자 언어의 "사진을 보냈습니다"
+                        notificationService.sendLocalizedNotification(
+                                event.recipientId(),
+                                NotificationType.GUILD_DM,
+                                event.messageId(),
+                                null,
+                                locale ->
+                                        new Object[] {
+                                            event.senderNickname(),
+                                            photoPreview(locale),
+                                            event.guildId().toString(),
+                                            event.userId()
+                                        });
+                        return;
+                    }
+                    notificationService.sendNotification(
+                            event.recipientId(),
+                            NotificationType.GUILD_DM,
+                            event.messageId(),
+                            null,
+                            event.senderNickname(),
+                            preview,
+                            event.guildId().toString(),
+                            event.userId());
+                });
     }
 
     @Async(EVENT_EXECUTOR)
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void handleGuildCreationEligible(GuildCreationEligibleEvent event) {
-        safeHandle("길드 창설 가능", () -> notificationService.sendNotification(
-            event.userId(), NotificationType.GUILD_CREATION_ELIGIBLE,
-            null, null));
+        safeHandle(
+                "길드 창설 가능",
+                () ->
+                        // LUT-626: 문구의 레벨은 템플릿 리터럴(옛 요구 레벨 20)이 아니라 실제 도달 레벨 {0}
+                        notificationService.sendNotification(
+                                event.userId(),
+                                NotificationType.GUILD_CREATION_ELIGIBLE,
+                                null,
+                                null,
+                                event.level()));
     }
 
     @Async(EVENT_EXECUTOR)
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void handleGuildInvitation(GuildInvitationEvent event) {
-        safeHandle("길드 초대", () -> notificationService.sendNotification(
-            event.inviteeId(), NotificationType.GUILD_INVITE,
-            event.invitationId(), null,
-            event.inviterNickname(), event.guildName()));
+        if (isBlockedInteraction(event.inviteeId(), event.userId())) return;
+        safeHandle(
+                "길드 초대",
+                () ->
+                        notificationService.sendNotification(
+                                event.inviteeId(),
+                                NotificationType.GUILD_INVITE,
+                                event.invitationId(),
+                                null,
+                                event.inviterNickname(),
+                                event.guildName()));
     }
 
     @Async(EVENT_EXECUTOR)
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void handleGuildJoinRequested(GuildJoinRequestedEvent event) {
-        safeHandleMultiple("길드 가입 신청", event.officerIds(), null, officerId ->
-            notificationService.sendNotification(
-                officerId, NotificationType.GUILD_JOIN_REQUEST,
-                event.guildId(), null,
-                event.requesterNickname()));
+        safeHandleMultiple(
+                "길드 가입 신청",
+                event.officerIds(),
+                null,
+                officerId ->
+                        notificationService.sendNotification(
+                                officerId,
+                                NotificationType.GUILD_JOIN_REQUEST,
+                                event.guildId(),
+                                null,
+                                event.requesterNickname()));
+    }
+
+    /** 길드 가입 승인 알림 (LUT-300). 신청자에게 발송, actionUrl은 가입된 길드 홈. */
+    @Async(EVENT_EXECUTOR)
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    public void handleGuildJoinApproved(GuildJoinApprovedEvent event) {
+        safeHandle(
+                "길드 가입 승인",
+                () ->
+                        notificationService.sendNotification(
+                                event.requesterId(),
+                                NotificationType.GUILD_JOIN_APPROVED,
+                                event.guildId(),
+                                null,
+                                event.guildName()));
+    }
+
+    /** 길드 가입 거절 알림 (LUT-300). 신청자에게 발송, actionUrl은 길드 목록. */
+    @Async(EVENT_EXECUTOR)
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    public void handleGuildJoinRejected(GuildJoinRejectedEvent event) {
+        safeHandle(
+                "길드 가입 거절",
+                () ->
+                        notificationService.sendNotification(
+                                event.requesterId(),
+                                NotificationType.GUILD_JOIN_REJECTED,
+                                event.guildId(),
+                                null,
+                                event.guildName()));
     }
 
     // ==================== 소셜 (댓글) ====================
@@ -204,67 +534,138 @@ public class NotificationEventListener {
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void handleFeedComment(FeedCommentEvent event) {
         if (event.userId().equals(event.feedOwnerId())) return;
-        safeHandle("피드 댓글", () -> notificationService.sendNotification(
-            event.feedOwnerId(), NotificationType.COMMENT_ON_MY_FEED,
-            event.feedId(), null, event.commenterNickname()));
+        if (isBlockedInteraction(event.feedOwnerId(), event.userId())) return;
+        safeHandle(
+                "피드 댓글",
+                () ->
+                        notificationService.sendNotification(
+                                event.feedOwnerId(),
+                                NotificationType.COMMENT_ON_MY_FEED,
+                                event.feedId(),
+                                null,
+                                event.commenterNickname()));
     }
 
     /**
-     * 피드 댓글 대댓글 알림 (QA-73).
-     * 발행 측에서 자기 자신은 이미 제외했지만 방어적으로 한 번 더 필터링.
-     * 부모 작성자 + 같은 부모에 대댓글 단 다른 유저들 모두에게 알림.
+     * 피드 댓글 대댓글 알림 (QA-73). 발행 측에서 자기 자신은 이미 제외했지만 방어적으로 한 번 더 필터링. 부모 작성자 + 같은 부모에 대댓글 단 다른 유저들
+     * 모두에게 알림.
      */
     @Async(EVENT_EXECUTOR)
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void handleFeedCommentReply(FeedCommentReplyEvent event) {
         // 부모 작성자 알림
         if (event.parentCommentAuthorId() != null
-            && !event.parentCommentAuthorId().equals(event.userId())) {
-            safeHandle("피드 대댓글(부모작성자)", () -> notificationService.sendNotification(
-                event.parentCommentAuthorId(), NotificationType.COMMENT_REPLY,
-                event.feedId(), null, event.replierNickname()));
+                && !event.parentCommentAuthorId().equals(event.userId())
+                && !isBlockedInteraction(event.parentCommentAuthorId(), event.userId())) {
+            safeHandle(
+                    "피드 대댓글(부모작성자)",
+                    () ->
+                            notificationService.sendNotification(
+                                    event.parentCommentAuthorId(),
+                                    NotificationType.COMMENT_REPLY,
+                                    event.feedId(),
+                                    null,
+                                    event.replierNickname()));
         }
         // 같은 부모에 대댓글 단 다른 유저들 (replier/부모작성자 제외, 중복 제거)
         if (event.threadParticipants() != null && !event.threadParticipants().isEmpty()) {
-            safeHandleMultiple("피드 대댓글(스레드참여자)", event.threadParticipants(), event.userId(),
-                participantId -> notificationService.sendNotification(
-                    participantId, NotificationType.COMMENT_REPLY,
-                    event.feedId(), null, event.replierNickname()));
+            safeHandleMultiple(
+                    "피드 대댓글(스레드참여자)",
+                    event.threadParticipants(),
+                    event.userId(),
+                    participantId -> {
+                        if (isBlockedInteraction(participantId, event.userId())) return;
+                        notificationService.sendNotification(
+                                participantId,
+                                NotificationType.COMMENT_REPLY,
+                                event.feedId(),
+                                null,
+                                event.replierNickname());
+                    });
         }
     }
 
-    /**
-     * 피드 댓글 좋아요 알림 (QA-73). 자기 자신 댓글 좋아요는 발행 측에서 제외됨.
-     */
+    /** 피드 댓글 좋아요 알림 (QA-73). 자기 자신 댓글 좋아요는 발행 측에서 제외됨. */
     @Async(EVENT_EXECUTOR)
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void handleFeedCommentLiked(FeedCommentLikedEvent event) {
         if (event.userId().equals(event.commentAuthorId())) return;
-        safeHandle("피드 댓글 좋아요", () -> notificationService.sendNotification(
-            event.commentAuthorId(), NotificationType.COMMENT_LIKED,
-            event.feedId(), null, event.likerNickname()));
+        if (isBlockedInteraction(event.commentAuthorId(), event.userId())) return;
+        safeHandle(
+                "피드 댓글 좋아요",
+                () ->
+                        notificationService.sendNotification(
+                                event.commentAuthorId(),
+                                NotificationType.COMMENT_LIKED,
+                                event.feedId(),
+                                null,
+                                event.likerNickname()));
     }
 
     @Async(EVENT_EXECUTOR)
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void handleMissionAutoEndWarning(MissionAutoEndWarningEvent event) {
         MissionAutoEndMilestone milestone =
-            event.milestone() != null ? event.milestone() : MissionAutoEndMilestone.FINAL;
-        NotificationType type = switch (milestone) {
-            case FIRST -> NotificationType.MISSION_AUTO_END_WARNING_FIRST;
-            case FINAL -> NotificationType.MISSION_AUTO_END_WARNING_FINAL;
-        };
-        safeHandle("미션 자동종료 임박(" + milestone + ")", () -> notificationService.sendNotification(
-            event.userId(), type, event.missionId(), null, event.missionTitle()));
+                event.milestone() != null ? event.milestone() : MissionAutoEndMilestone.FINAL;
+        NotificationType type =
+                switch (milestone) {
+                    case FIRST -> NotificationType.MISSION_AUTO_END_WARNING_FIRST;
+                    case FINAL -> NotificationType.MISSION_AUTO_END_WARNING_FINAL;
+                };
+        safeHandle(
+                "미션 자동종료 임박(" + milestone + ")",
+                () ->
+                        notificationService.sendNotification(
+                                event.userId(),
+                                type,
+                                event.missionId(),
+                                null,
+                                event.missionTitle()));
+    }
+
+    /** LUT-510: 미션북 미션이 목표시간 초과로 자동 종료됐을 때 (스케줄러 자동 종료 경로에서만 발행) */
+    @Async(EVENT_EXECUTOR)
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    public void handleMissionAutoEnded(MissionAutoEndedEvent event) {
+        safeHandle(
+                "미션 자동 종료",
+                () ->
+                        notificationService.sendNotification(
+                                event.userId(),
+                                NotificationType.MISSION_AUTO_ENDED,
+                                event.missionId(),
+                                null,
+                                event.missionTitle()));
+    }
+
+    /** LUT-282: 미션 푸시 리마인더 — 유저가 설정한 요일·시각에 MissionReminderScheduler 가 발행 */
+    @Async(EVENT_EXECUTOR)
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    public void handleMissionReminder(MissionReminderEvent event) {
+        safeHandle(
+                "미션 리마인더",
+                () ->
+                        notificationService.sendNotification(
+                                event.userId(),
+                                NotificationType.MISSION_REMINDER,
+                                event.missionId(),
+                                null,
+                                event.missionTitle()));
     }
 
     @Async(EVENT_EXECUTOR)
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void handleMissionComment(MissionCommentEvent event) {
-        safeHandle("미션 댓글", () -> notificationService.sendNotification(
-            event.missionCreatorId(), NotificationType.COMMENT_ON_MY_MISSION,
-            event.missionId(), null,
-            event.commenterNickname(), event.missionTitle()));
+        safeHandle(
+                "미션 댓글",
+                () ->
+                        notificationService.sendNotification(
+                                event.missionCreatorId(),
+                                NotificationType.COMMENT_ON_MY_MISSION,
+                                event.missionId(),
+                                null,
+                                event.commenterNickname(),
+                                event.missionTitle()));
     }
 
     // ==================== 신고 ====================
@@ -280,7 +681,10 @@ public class NotificationEventListener {
                 try {
                     notificationService.notifyContentReported(targetUserId, targetTypeDescription);
                 } catch (Exception e) {
-                    log.warn("신고 대상 유저 알림 생성 실패: targetUserId={}, error={}", targetUserId, e.getMessage());
+                    log.warn(
+                            "신고 대상 유저 알림 생성 실패: targetUserId={}, error={}",
+                            targetUserId,
+                            e.getMessage());
                 }
             }
 
@@ -310,12 +714,20 @@ public class NotificationEventListener {
 
             if (guildMasterId != null && !guildMasterId.equals(targetUserId)) {
                 notificationService.notifyGuildContentReported(
-                    guildMasterId, event.targetTypeDescription(), guildId);
+                        guildMasterId, event.targetTypeDescription(), guildId);
             }
         } catch (NumberFormatException e) {
-            log.warn("길드 관련 신고 처리 중 ID 파싱 실패: targetType={}, targetId={}", targetType, event.targetId());
+            log.warn(
+                    "길드 관련 신고 처리 중 ID 파싱 실패: targetType={}, targetId={}",
+                    targetType,
+                    event.targetId());
         } catch (Exception e) {
             log.warn("길드 마스터 알림 생성 실패: targetType={}, error={}", targetType, e.getMessage());
         }
+    }
+
+    /** LUT-590: 사진만 보낸 메시지의 미리보기 — 수신자 locale 로 현지화(키가 없으면 키 원문) */
+    private String photoPreview(Locale locale) {
+        return messageSource.getMessage(PHOTO_PREVIEW_KEY, null, PHOTO_PREVIEW_KEY, locale);
     }
 }

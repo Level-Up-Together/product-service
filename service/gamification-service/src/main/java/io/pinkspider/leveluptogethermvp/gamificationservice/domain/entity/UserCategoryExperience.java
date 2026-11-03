@@ -21,10 +21,7 @@ import lombok.experimental.SuperBuilder;
 import lombok.extern.slf4j.Slf4j;
 import org.hibernate.annotations.Comment;
 
-/**
- * 사용자별 카테고리 경험치
- * 각 카테고리별로 누적된 경험치를 저장합니다.
- */
+/** 사용자별 카테고리 경험치 각 카테고리별로 누적된 경험치를 저장합니다. */
 @Entity
 @Getter
 @Setter
@@ -32,17 +29,17 @@ import org.hibernate.annotations.Comment;
 @Slf4j
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @AllArgsConstructor
-@Table(name = "user_category_experience",
-    uniqueConstraints = @UniqueConstraint(
-        name = "uk_user_category_exp",
-        columnNames = {"user_id", "category_id"}
-    ),
-    indexes = {
-        @Index(name = "idx_user_cat_exp_user", columnList = "user_id"),
-        @Index(name = "idx_user_cat_exp_category", columnList = "category_id"),
-        @Index(name = "idx_user_cat_exp_total", columnList = "category_id, total_exp DESC")
-    }
-)
+@Table(
+        name = "user_category_experience",
+        uniqueConstraints =
+                @UniqueConstraint(
+                        name = "uk_user_category_exp",
+                        columnNames = {"user_id", "category_id"}),
+        indexes = {
+            @Index(name = "idx_user_cat_exp_user", columnList = "user_id"),
+            @Index(name = "idx_user_cat_exp_category", columnList = "category_id"),
+            @Index(name = "idx_user_cat_exp_total", columnList = "category_id, total_exp DESC")
+        })
 @Comment("사용자별 카테고리 경험치")
 public class UserCategoryExperience extends LocalDateTimeBaseEntity {
 
@@ -79,9 +76,7 @@ public class UserCategoryExperience extends LocalDateTimeBaseEntity {
     @Comment("낙관적 락 버전")
     private Long version;
 
-    /**
-     * 경험치 추가
-     */
+    /** 경험치 추가 */
     public void addExperience(int exp) {
         if (exp < 0) {
             throw new IllegalArgumentException("경험치는 음수일 수 없습니다: " + exp);
@@ -92,8 +87,11 @@ public class UserCategoryExperience extends LocalDateTimeBaseEntity {
 
         // Overflow 방지
         if (this.totalExp >= MAX_EXPERIENCE) {
-            log.warn("카테고리 경험치가 최대값에 도달했습니다: userId={}, categoryId={}, totalExp={}",
-                this.userId, this.categoryId, this.totalExp);
+            log.warn(
+                    "카테고리 경험치가 최대값에 도달했습니다: userId={}, categoryId={}, totalExp={}",
+                    this.userId,
+                    this.categoryId,
+                    this.totalExp);
             return;
         }
 
@@ -101,22 +99,23 @@ public class UserCategoryExperience extends LocalDateTimeBaseEntity {
         long newTotalExp = this.totalExp + exp;
         if (newTotalExp > MAX_EXPERIENCE) {
             this.totalExp = (long) MAX_EXPERIENCE;
-            log.warn("카테고리 경험치가 최대값으로 조정됩니다: userId={}, categoryId={}",
-                this.userId, this.categoryId);
+            log.warn(
+                    "카테고리 경험치가 최대값으로 조정됩니다: userId={}, categoryId={}",
+                    this.userId,
+                    this.categoryId);
         } else {
             this.totalExp = newTotalExp;
         }
     }
 
-    /**
-     * 새 UserCategoryExperience 생성
-     */
-    public static UserCategoryExperience create(String userId, Long categoryId, String categoryName, int initialExp) {
+    /** 새 UserCategoryExperience 생성 */
+    public static UserCategoryExperience create(
+            String userId, Long categoryId, String categoryName, int initialExp) {
         return UserCategoryExperience.builder()
-            .userId(userId)
-            .categoryId(categoryId)
-            .categoryName(categoryName)
-            .totalExp((long) Math.max(0, initialExp))
-            .build();
+                .userId(userId)
+                .categoryId(categoryId)
+                .categoryName(categoryName)
+                .totalExp((long) Math.max(0, initialExp))
+                .build();
     }
 }

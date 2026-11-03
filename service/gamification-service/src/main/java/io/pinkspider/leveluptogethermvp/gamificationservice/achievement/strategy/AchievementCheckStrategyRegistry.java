@@ -8,10 +8,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
-/**
- * 업적 체크 전략 레지스트리
- * 데이터 소스에 따라 적절한 전략을 제공합니다.
- */
+/** 업적 체크 전략 레지스트리 데이터 소스에 따라 적절한 전략을 제공합니다. */
 @Component
 @RequiredArgsConstructor
 @Slf4j

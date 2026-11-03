@@ -8,9 +8,7 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
-/**
- * MyPage 화면 전체 응답 DTO
- */
+/** MyPage 화면 전체 응답 DTO */
 @Getter
 @NoArgsConstructor
 @AllArgsConstructor
@@ -75,6 +73,9 @@ public class MyPageResponse {
         private Integer nextLevelRequiredExp;
         private Double expPercentage;
         private Integer expForPercentage;
+
+        // LUT-348: 레벨에서 환산한 희귀도 등급 (상점 할증 기준)
+        private String rarity;
     }
 
     @Getter
