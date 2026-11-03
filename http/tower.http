@@ -1,0 +1,126 @@
+### ============================================================
+### 레벨업 탑 (Tower) APIs — LUT-629 층 · LUT-630 입장/배정
+### ============================================================
+
+### ----------------------------------------------------------
+### [유저] 층 목록 — 비로그인 허용 (방문객은 비허용 층이 locked)
+### population = 층 전체 인원(30초 메모), default_floor_number = 마지막 입장 층
+### ----------------------------------------------------------
+GET {{baseUrl}}/api/v1/tower/floors
+Authorization: Bearer {{accessToken}}
+Accept: application/json
+
+### 비로그인 층 목록
+GET {{baseUrl}}/api/v1/tower/floors
+Accept: application/json
+
+### ----------------------------------------------------------
+### [유저] 입장 — 인스턴스 지정 파라미터 없음(자동 배정).
+### 거부: 150201 없는/비공개 층(404) · 150202 비로그인 비허용 층(403) · 150203 레벨 부족(403)
+### 복귀: 미션 중(자리 유지) 유저가 같은 층에 오면 resumed=true, 같은 instance_id
+### ----------------------------------------------------------
+POST {{baseUrl}}/api/v1/tower/floors/1/enter
+Authorization: Bearer {{accessToken}}
+Accept: application/json
+
+### 비로그인(방문객) 입장 — 허용 층만. 응답 visitor_key 를 퇴장에 쓴다
+POST {{baseUrl}}/api/v1/tower/floors/1/enter
+Accept: application/json
+
+### 2층(입장 레벨 있는 층) — 레벨 부족이면 403 150203
+POST {{baseUrl}}/api/v1/tower/floors/2/enter
+Authorization: Bearer {{accessToken}}
+Accept: application/json
+
+### ----------------------------------------------------------
+### [유저] 퇴장(멱등) — 로그인 유저는 본문 없이. 미션 중이면 seat_held=true(자리 유지)
+### ----------------------------------------------------------
+POST {{baseUrl}}/api/v1/tower/leave
+Authorization: Bearer {{accessToken}}
+Accept: application/json
+
+### 방문객 퇴장 — 입장 응답의 visitor_key
+POST {{baseUrl}}/api/v1/tower/leave
+Content-Type: application/json
+Accept: application/json
+
+{
+  "visitor_key": "00000000-0000-0000-0000-000000000000"
+}
+
+### ----------------------------------------------------------
+### [어드민 내부] 층 CRUD — 저장 규칙 7개 위반은 400 1501xx
+### 로컬은 internal api key 미설정(fail-open)이라 X-Internal-Api-Key 헤더 불필요
+### ----------------------------------------------------------
+GET {{baseUrl}}/api/internal/tower/floors
+Accept: application/json
+
+### 1층 등록 — 제한 없음·비로그인 허용·공개 (이미지 URL 은 https + 허용 호스트만, local 은 마스크 검사 off)
+POST {{baseUrl}}/api/internal/tower/floors
+Content-Type: application/json
+Accept: application/json
+
+{
+  "floor_number": 1,
+  "name": "여행자의 쉼터",
+  "name_en": "Travelers' Rest",
+  "name_ja": "旅人の休息所",
+  "name_ar": "استراحة المسافرين",
+  "entry_level": null,
+  "guest_allowed": true,
+  "background_image_url": "https://dev.level-up-together.com/images/tower/floor1-bg.jpg",
+  "floor_mask_url": "https://dev.level-up-together.com/images/tower/floor1-mask.png",
+  "entry_point_x": 1400,
+  "entry_point_y": 1000,
+  "bgm_url": null,
+  "instance_capacity": 30,
+  "is_public": true
+}
+
+### 2층 등록 — 입장 레벨 5 (비로그인 허용을 켜면 400 150105)
+POST {{baseUrl}}/api/internal/tower/floors
+Content-Type: application/json
+Accept: application/json
+
+{
+  "floor_number": 2,
+  "name": "등나무 정원",
+  "name_en": "Wisteria Garden",
+  "name_ja": "藤の庭",
+  "name_ar": "حديقة الوستارية",
+  "entry_level": 5,
+  "guest_allowed": false,
+  "background_image_url": "https://dev.level-up-together.com/images/tower/floor2-bg.jpg",
+  "floor_mask_url": "https://dev.level-up-together.com/images/tower/floor2-mask.png",
+  "entry_point_x": 1200,
+  "entry_point_y": 900,
+  "bgm_url": null,
+  "instance_capacity": 30,
+  "is_public": true
+}
+
+### 층 수정 (id 는 목록에서)
+PUT {{baseUrl}}/api/internal/tower/floors/1
+Content-Type: application/json
+Accept: application/json
+
+{
+  "floor_number": 1,
+  "name": "여행자의 쉼터",
+  "name_en": "Travelers' Rest",
+  "name_ja": "旅人の休息所",
+  "name_ar": "استراحة المسافرين",
+  "entry_level": null,
+  "guest_allowed": false,
+  "background_image_url": "https://dev.level-up-together.com/images/tower/floor1-bg.jpg",
+  "floor_mask_url": "https://dev.level-up-together.com/images/tower/floor1-mask.png",
+  "entry_point_x": 1400,
+  "entry_point_y": 1000,
+  "bgm_url": null,
+  "instance_capacity": 30,
+  "is_public": true
+}
+
+### 층 삭제 — 남는 층끼리 규칙 위반이면 400 (예: 1층 삭제 후 공개 2층만 남으면 150107)
+DELETE {{baseUrl}}/api/internal/tower/floors/2
+Accept: application/json

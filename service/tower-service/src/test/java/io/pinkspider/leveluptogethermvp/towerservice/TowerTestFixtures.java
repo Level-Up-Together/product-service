@@ -2,6 +2,10 @@ package io.pinkspider.leveluptogethermvp.towerservice;
 
 import io.pinkspider.leveluptogethermvp.towerservice.domain.dto.TowerFloorAdminRequest;
 import io.pinkspider.leveluptogethermvp.towerservice.domain.entity.TowerFloor;
+import io.pinkspider.leveluptogethermvp.towerservice.domain.entity.TowerInstance;
+import io.pinkspider.leveluptogethermvp.towerservice.domain.entity.TowerOccupant;
+import io.pinkspider.leveluptogethermvp.towerservice.domain.enums.TowerOccupantKind;
+import java.time.LocalDateTime;
 
 /** LUT-629 테스트 공용 층 생성 헬퍼 */
 public final class TowerTestFixtures {
@@ -46,5 +50,36 @@ public final class TowerTestFixtures {
                 null,
                 null,
                 isPublic);
+    }
+
+    public static TowerInstance instance(Long id, int floorNumber) {
+        return TowerInstance.builder()
+                .id(id)
+                .floorNumber(floorNumber)
+                .openedAt(LocalDateTime.of(2026, 11, 3, 12, 0))
+                .build();
+    }
+
+    public static TowerOccupant occupant(
+            Long id,
+            Long instanceId,
+            int floorNumber,
+            String userId,
+            TowerOccupantKind kind,
+            boolean missionActive) {
+        LocalDateTime now = LocalDateTime.of(2026, 11, 3, 12, 0);
+        return TowerOccupant.builder()
+                .id(id)
+                .instanceId(instanceId)
+                .floorNumber(floorNumber)
+                .userId(kind == TowerOccupantKind.VISITOR ? null : userId)
+                .visitorKey(kind == TowerOccupantKind.VISITOR ? userId : null)
+                .kind(kind)
+                .missionActive(missionActive)
+                .seatX(100)
+                .seatY(200)
+                .enteredAt(now)
+                .lastActiveAt(now)
+                .build();
     }
 }

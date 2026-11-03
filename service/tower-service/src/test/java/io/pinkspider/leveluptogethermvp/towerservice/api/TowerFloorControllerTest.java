@@ -70,7 +70,8 @@ class TowerFloorControllerTest {
                                 1400,
                                 1000,
                                 "https://cdn/bgm1.mp3",
-                                30),
+                                30,
+                                12L),
                         new TowerFloorResponse(
                                 2L,
                                 2,
@@ -86,7 +87,8 @@ class TowerFloorControllerTest {
                                 1200,
                                 900,
                                 null,
-                                30)),
+                                30,
+                                0L)),
                 1);
     }
 
@@ -146,7 +148,11 @@ class TowerFloorControllerTest {
                                                 .description("배경 음악 URL")
                                                 .optional(),
                                         fieldWithPath("value.floors[].instance_capacity")
-                                                .description("인스턴스(방) 상한"))));
+                                                .description("인스턴스(방) 상한"),
+                                        fieldWithPath("value.floors[].population")
+                                                .description(
+                                                        "층 전체 인원 (모든 인스턴스 합, 방문객·자리 유지·자동 착석 포함,"
+                                                                + " NPC 제외, 30초 메모 — LUT-630)"))));
     }
 
     @Test

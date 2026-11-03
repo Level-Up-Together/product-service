@@ -494,6 +494,16 @@ prod 첫 적용 파일은 LUT-666 핫픽스 `gamification/V1_1_3_013`(2026-10-29
 - **층 `tower_floor`** (LUT-629): 층 번호(유일)·이름 4 locale·입장 레벨(null = 제한 없음)·비로그인 허용·배경/마스크 URL·입장 지점(배경 원본 픽셀)·BGM·인스턴스 상한(30)·공개.
   어드민 내부 API `GET/POST/PUT/DELETE /api/internal/tower/floors[/{id}]`(admin-service 패스스루는 LUT-635). **저장 규칙 7개**는 `TowerFloorRuleValidator` 가 저장 뒤 전체 목록으로 판정 — 번호 중복 · 1층 입장 레벨 금지 · 입장 레벨 있는 층 비로그인 허용 금지 · 위층 입장 레벨 역전 금지(제한 없음 = 최저) · 비로그인 허용 1층부터 연속 · 공개 층 번호 1부터 연속 · 입장 지점 마스크 안(`ImageFloorMaskChecker` 가 마스크 PNG 픽셀을 읽는다 — **SSRF 방어**: https 만, `tower.floor.allowed-image-hosts`(CDN 호스트, config-repository 환경별) 만, 사설·루프백 주소 거부, 리다이렉트 금지; `tower.floor.mask-check.enabled` 로 local 에서만 끌 수 있음). 삭제도 남는 층끼리 같은 규칙. 거절은 **400 `1501xx`**(`TowerExceptionHandler`, 플랫폼 500 보다 먼저), 없음 404 `150101`.
 - **유저 목록** `GET /api/v1/tower/floors` — **비로그인 허용**(permitAll GET + `@CurrentUser(required = false)`, `SecurityConfigPublicEndpointTest` 등록). 공개 층만 번호 순, 잠금은 서버 판정(로그인 = 레벨 부족, 방문객 = 비허용 층), `default_floor_number` = 마지막 입장 층(`tower_user_state`, 입장 API LUT-630 이 갱신) 아니면 입장 가능한 가장 낮은 층. 공개 층이 없으면 빈 목록(디폴트 층 없음).
+  각 층에 `population`(층 전체 인원, LUT-630) 포함.
+- **입장·배정** (LUT-630, `tower_instance`·`tower_occupant`, Flyway V1_1_5_003): `POST /api/v1/tower/floors/{n}/enter`(비로그인 허용 POST, 인스턴스 지정 파라미터 없음 — 처음 진입은 무조건 자동 배정) ·
+  `POST /api/v1/tower/leave`(방문객은 입장 응답의 `visitor_key` 로 본인 확인). **판정은 서버**(`TowerEntryService`): 비공개/없는 층 404 `150201` · 비로그인 비허용 층 403 `150202`(제한 없는 층도 허용이 꺼져 있으면 로그인 필요) ·
+  레벨 < 입장 레벨 403 `150203`(층 번호가 아니라 **그 층에 등록된 입장 레벨**로 판정). 배정은 층 행 `SELECT … FOR UPDATE`(`findByFloorNumberForUpdate`) 안에서 `TowerInstanceAllocator` —
+  직접 입장·방문객은 **정원이 남은 방 중 사람이 가장 많은 곳**(균등 분산 금지), 전부 차면 새 방(31번째 → 2번 방). 정원(`instance_capacity`)에는 직접 입장(자리 유지 중 포함)·방문객만 세고 **자동 착석자는 세지 않는다**.
+  서버는 유저 의사 없이 방을 합치거나 옮기지 않는다 — 유일한 예외는 직접 입장으로 방 전체 인원(자동 착석 포함)이 상한을 넘을 때 자동 착석자를 같은 층 다른 방(없으면 새 방)으로 보내는 자리 양보. 아무도 없는 방은 바로 닫는다(행 삭제).
+  **복귀**: 미션 중(`mission_active`) 유저가 같은 층에 다시 들어오면 배정·대기열 없이 원래 방(`resumed`), 자동 착석 자리가 있는 유저는 그 자리에서 직접 입장(그 방이 직접 입장자로 차 있으면 일반 배정), 다른 층으로 들어오면 자리를 옮긴다. 퇴장은 멱등이고 미션 중이면 자리를 남긴다(`seat_held`).
+  **자동 착석** `TowerSeatService.onMissionStarted(userId)`(호출·설정값 "탑 자동 착석"·브로드캐스트는 LUT-632): 입장 가능한 공개 층 중 **사람이 가장 적은 층**(층 전체 인원 `byFloorFresh`, 같으면 낮은 층) → 그 층에서 **사람이 가장 적은 방**(일반 입장과 반대), 자리는 입장 지점, 입장 레벨이 부족한 층은 비어 있어도 제외.
+  `onMissionEnded(userId, connected)`: 자동 착석자·연결 끊긴 유저는 퇴장, 연결된 유저는 휴식 중. 층 인원 `TowerPopulationService`(모든 종류 합, NPC 제외, 인스턴스 로컬 메모 `tower.population.cache-seconds` 기본 30초).
+  LUT-701(탑 전체 상한·대기열)은 복귀 판정 뒤·새 배정 앞, LUT-705(방문객 세션·이름·빈도 제한)는 `visitor_key` 를 세션으로 확장, 좌표·연결 여부는 LUT-631(Redis).
 
 ## 상점 · 다이아 경제 (gamificationservice/shop, LUT-327/348/349/350/354/356/401)
 
