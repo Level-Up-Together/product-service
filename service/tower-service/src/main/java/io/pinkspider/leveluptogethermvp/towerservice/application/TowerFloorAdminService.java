@@ -5,6 +5,7 @@ import io.pinkspider.leveluptogethermvp.towerservice.domain.dto.TowerFloorAdminR
 import io.pinkspider.leveluptogethermvp.towerservice.domain.dto.TowerFloorAdminResponse;
 import io.pinkspider.leveluptogethermvp.towerservice.domain.entity.TowerFloor;
 import io.pinkspider.leveluptogethermvp.towerservice.infrastructure.TowerFloorRepository;
+import io.pinkspider.leveluptogethermvp.towerservice.presence.TowerFloorMaskCache;
 import java.util.ArrayList;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
@@ -21,6 +22,7 @@ public class TowerFloorAdminService {
 
     private final TowerFloorRepository towerFloorRepository;
     private final TowerFloorRuleValidator ruleValidator;
+    private final TowerFloorMaskCache maskCache;
 
     public List<TowerFloorAdminResponse> list() {
         return towerFloorRepository.findAllByOrderByFloorNumberAsc().stream()
@@ -58,6 +60,7 @@ public class TowerFloorAdminService {
             after.add(floor);
         }
         ruleValidator.validate(after, floor);
+        maskCache.evict(floor); // LUT-631: 마스크·배경이 바뀌었을 수 있다
         log.info(
                 "탑 층 수정: id={}, floor={}, public={}",
                 id,
@@ -76,6 +79,7 @@ public class TowerFloorAdminService {
                         .toList();
         ruleValidator.validate(remaining, null);
         towerFloorRepository.delete(floor);
+        maskCache.evict(floor);
         log.info("탑 층 삭제: id={}, floor={}", id, floor.getFloorNumber());
     }
 

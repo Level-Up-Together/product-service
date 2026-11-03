@@ -54,6 +54,10 @@ class TowerEntryServiceTest {
     @Mock private GamificationQueryFacade gamificationQueryFacade;
     @Mock private MissionQueryFacade missionQueryFacade;
 
+    @Mock
+    private io.pinkspider.leveluptogethermvp.towerservice.presence.TowerPresenceService
+            presenceService;
+
     private TowerEntryService service;
 
     private final TowerFloor f1 = floor(1L, 1, null, true, true);
@@ -70,7 +74,8 @@ class TowerEntryServiceTest {
                         allocator,
                         populationService,
                         gamificationQueryFacade,
-                        missionQueryFacade);
+                        missionQueryFacade,
+                        presenceService);
         when(populationService.of(anyInt())).thenReturn(3L);
         when(missionQueryFacade.findInProgressMission(any())).thenReturn(Optional.empty());
         when(userStateRepository.findById(any())).thenReturn(Optional.empty());
@@ -127,6 +132,10 @@ class TowerEntryServiceTest {
         assertThat(res.instanceId()).isEqualTo(10L);
         assertThat(res.resumed()).isFalse();
         assertThat(res.population()).isEqualTo(3L);
+        // LUT-631: 방문객 번호(네 자리) + presence 등록(ENTER)
+        assertThat(res.visitorNo()).isBetween(1000, 9999);
+        assertThat(captor.getValue().getVisitorNo()).isEqualTo(res.visitorNo());
+        verify(presenceService).register(captor.getValue(), false);
         verify(allocator).relocateAutoSeatedOverflow(eq(f1), eq(10L), any());
         verify(userStateRepository, never()).save(any());
     }
@@ -177,6 +186,7 @@ class TowerEntryServiceTest {
         assertThat(res.missionActive()).isTrue();
         verify(allocator, never()).pickForDirectEntry(any(), any());
         verify(occupantRepository, never()).save(any());
+        verify(presenceService, never()).register(any(), org.mockito.ArgumentMatchers.anyBoolean());
         verify(userStateRepository).save(any(TowerUserState.class));
     }
 

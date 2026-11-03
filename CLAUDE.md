@@ -364,7 +364,7 @@ Redis Stream `stream:app-push` → `AppPushMessageConsumer` → `FcmPushService`
 | 경로 | 퍼블리셔 → 릴레이 | Redis 채널 |
 |---|---|---|
 | 알림 `/user/queue/notifications` | `NotificationRealtimePublisher` → `NotificationRealtimeRelay` | `notification:realtime` |
-| 탑 인스턴스 `/topic/tower/instances/{id}` | `TowerRealtimePublisher.publishToInstance` → `TowerRealtimeRelay` | `tower:instance:realtime` (LUT-632) |
+| 탑 인스턴스 `/topic/tower/instances/{id}` | `TowerRealtimePublisher.publishToInstance` → `TowerRealtimeRelay` | `tower:instance:realtime` (LUT-632 USER_STATE·MISSION_COMPLETED, LUT-631 ENTER·LEAVE·MOVE·LEVEL) |
 | DM `/user/queue/dm*` | `DmRealtimePublisher.publishToUser` → `DmRealtimeRelay` | `chat:dm:realtime` |
 | 길드 채팅 `/topic/guild/{id}/chat`·`/read` | `GuildChatRealtimePublisher.publishToTopic` → `GuildChatRealtimeRelay` | `chat:guild:realtime` |
 
@@ -464,6 +464,7 @@ public void run() { ...}
 | `UserActivityFlushScheduler.flushRecentDays`                 | `0 20 0 * * *` KST          | Redis `active:{날짜}` 활동 집합 → `stats_db.user_daily_activity` 적재(그제·어제 2일, 멱등) (LUT-598) |
 | `KpiSnapshotScheduler.buildDailySnapshot`                    | `0 40 0 * * *` KST          | 어제·그제 `daily_kpi_snapshot` + 최근 31일 `cohort_retention` + 13개월 전~당월 `cohort_revenue` 재계산(멱등) (LUT-601·660) |
 | `TowerSeatReconcileScheduler.reconcile`                       | 5분 fixedDelay (`tower.seat.reconcile-delay-ms`) | 탑 미션 중 점유자를 실제 미션 상태와 대조해 끝난 유저 정리 — 이벤트 없는 자정 MISSED·유실 대비 (LUT-632) |
+| `TowerPresenceCleanupScheduler.cleanup`                       | 1분 fixedDelay (`tower.presence.cleanup-delay-ms`) | 탑 방문객 10분 무조작 퇴장·고아 presence 삭제·끊김 유실 정리 (LUT-631) |
 
 ## DB 마이그레이션 — Flyway (LUT-595, `global/config/datasource/flyway`)
 
@@ -514,6 +515,13 @@ prod 첫 적용 파일은 LUT-666 핫픽스 `gamification/V1_1_3_013`(2026-10-29
   자정 일괄 MISSED 처럼 이벤트가 없는 경로는 `TowerSeatReconcileScheduler`(5분, ShedLock)가 `MissionQueryFacade.findInProgressMissions` 로 대조해 정리. 탑 밖에서 시작한 미션도 입장하면 미션 중(`TowerEntryService.enter` 가 `findInProgressMission` 조회).
   **실시간은 Redis 릴레이** `TowerRealtimePublisher`(`tower:instance:realtime`) → `TowerRealtimeRelay` → `/topic/tower/instances/{id}`(`TowerRealtimeConfig`, LUT-631 이 ENTER/LEAVE/MOVE 를 같은 토픽에 보탠다).
   `POST /api/v1/tower/vacate`(로그인) = 자리 직접 비우기(미션은 계속, 자동 착석 자리 포함). 미션 단위 자리 기록 `tower_mission_seat`(층·자동 착석·응원 수, 응원은 LUT-633 이 `addCheer`) → 완료 응답 `tower_seat{floor_number, auto_seated, cheer_count}`(`TowerQueryFacade`, 탑에 앉지 않았으면 없음).
+- **presence·실시간 위치** (LUT-631, `towerservice/presence`): "누가 어느 방에 있는가" 는 DB(`tower_occupant`), **좌표·상태·연결 여부·아바타 데이터는 Redis** `tower:presence:{instanceId}`(해시, 점유자 ID → `TowerPresence` JSON, `TowerPresenceStore`) — 노드 메모리 금지(prod 2대).
+  단일 창구 `TowerPresenceService`: 점유자 행 생성 → `register`(프로필 썸네일·닉네임·레벨·장착 아이템을 한 번 읽어 저장 + `ENTER`), 삭제 → `unregister`(`LEAVE`, `TowerInstanceAllocator.remove` 가 호출), 자리 양보 → `moveInstance`.
+  **클라이언트 순서**: `POST .../enter` → `/topic/tower/instances/{id}` 구독 → `/app/tower/instances/{id}/join {occupant_id, visitor_key?}`(세션 ↔ 점유자 묶기, 마지막 위치 마스크 재검증 후 `MOVE` 로 복원, 밖이면 입장 지점) → `GET /api/v1/tower/instances/{id}/presence[?visitor_key]`(스냅샷, 그 방 점유자만 — 아니면 403 `150205`; 요청자와 차단 관계는 제외).
+  **이동** `/app/tower/instances/{id}/move {x, y}` 는 목적지만 — 서버가 `TowerFloorMaskCache`(마스크 PNG 격자, `tower.floor.mask-cache-seconds` 600초, 어드민 수정 시 evict)로 검증하고 밖이면 `WalkableMask.snapInside`(반지름 `tower.presence.snap-radius-mask-px` 150)로 가장 가까운 안쪽으로 보정해 `MOVE` 브로드캐스트(너무 멀면 무시).
+  **끊김**: `WebSocketConfig` 가 STOMP heartbeat 10초(**전역** — 채팅·DM·알림 연결도 heartbeat 없이 조용하면 닫힌다)로 감지 → `SessionDisconnectEvent` → `TowerConnectionService.disconnect`: 미션 중 로그인 유저는 자리 유지(presence `connected=false`, 퇴장 이벤트 없음 — 다른 유저에겐 연결된 것과 같음), 휴식 중 유저·방문객은 즉시 퇴장. 재접속은 같은 점유자로 join(옛 세션 끊김은 무시).
+  방문객 10분 무조작(`tower.presence.visitor-idle-minutes`)·고아 presence·끊김 유실은 `TowerPresenceCleanupScheduler`(매분, ShedLock)가 정리. 레벨업(`UserLevelUpEvent`) → `TowerLevelChangeListener` → `LEVEL` 브로드캐스트(이름표). 방문객 이름은 `visitor_no`(네 자리, 입장 때 발급)를 클라이언트가 locale 로 조립.
+  미결(631 완료 조건 중 사람 몫): **부하 테스트**(동시 접속별 지연·오류율, 탑 전체 상한 확정 → LUT-701 설정값)와 인스턴스별 노드 고정(Redis 릴레이로 정합성은 보장되므로 성능 결과를 보고 결정).
 
 ## 상점 · 다이아 경제 (gamificationservice/shop, LUT-327/348/349/350/354/356/401)
 

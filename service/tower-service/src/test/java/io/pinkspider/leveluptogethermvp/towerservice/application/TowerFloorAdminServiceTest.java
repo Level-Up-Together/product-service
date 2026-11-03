@@ -32,6 +32,9 @@ class TowerFloorAdminServiceTest {
     @Mock private TowerFloorRepository towerFloorRepository;
     @Mock private TowerFloorRuleValidator ruleValidator;
 
+    @Mock
+    private io.pinkspider.leveluptogethermvp.towerservice.presence.TowerFloorMaskCache maskCache;
+
     @InjectMocks private TowerFloorAdminService service;
 
     @Test
@@ -80,6 +83,7 @@ class TowerFloorAdminServiceTest {
         assertThat(f2.getEntryLevel()).isEqualTo(7);
         assertThat(f2.isPublicFloor()).isFalse();
         assertThat(res.entryLevel()).isEqualTo(7);
+        verify(maskCache).evict(f2); // LUT-631: 마스크 캐시 비움
     }
 
     @Test
@@ -94,6 +98,7 @@ class TowerFloorAdminServiceTest {
 
         verify(ruleValidator).validate(List.of(f1), null);
         verify(towerFloorRepository).delete(f2);
+        verify(maskCache).evict(f2);
     }
 
     @Test

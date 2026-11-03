@@ -12,6 +12,7 @@ import io.pinkspider.leveluptogethermvp.towerservice.domain.entity.TowerUserStat
 import io.pinkspider.leveluptogethermvp.towerservice.infrastructure.TowerFloorRepository;
 import io.pinkspider.leveluptogethermvp.towerservice.infrastructure.TowerOccupantRepository;
 import io.pinkspider.leveluptogethermvp.towerservice.infrastructure.TowerUserStateRepository;
+import io.pinkspider.leveluptogethermvp.towerservice.presence.TowerPresenceService;
 import java.time.LocalDateTime;
 import java.util.Optional;
 import java.util.UUID;
@@ -41,6 +42,7 @@ public class TowerEntryService {
     private final TowerPopulationService towerPopulationService;
     private final GamificationQueryFacade gamificationQueryFacade;
     private final MissionQueryFacade missionQueryFacade;
+    private final TowerPresenceService presenceService;
 
     public TowerEntryService(
             TowerFloorRepository towerFloorRepository,
@@ -49,7 +51,8 @@ public class TowerEntryService {
             TowerInstanceAllocator allocator,
             TowerPopulationService towerPopulationService,
             @Lazy GamificationQueryFacade gamificationQueryFacade,
-            @Lazy MissionQueryFacade missionQueryFacade) {
+            @Lazy MissionQueryFacade missionQueryFacade,
+            TowerPresenceService presenceService) {
         this.towerFloorRepository = towerFloorRepository;
         this.towerOccupantRepository = towerOccupantRepository;
         this.towerUserStateRepository = towerUserStateRepository;
@@ -57,6 +60,7 @@ public class TowerEntryService {
         this.towerPopulationService = towerPopulationService;
         this.gamificationQueryFacade = gamificationQueryFacade;
         this.missionQueryFacade = missionQueryFacade;
+        this.presenceService = presenceService;
     }
 
     @Transactional(transactionManager = "towerTransactionManager")
@@ -125,11 +129,13 @@ public class TowerEntryService {
                                 instance.getId(),
                                 floorNumber,
                                 visitorKey,
+                                newVisitorNo(),
                                 locked.getEntryPointX(),
                                 locked.getEntryPointY(),
                                 now);
             }
             occupant = towerOccupantRepository.save(occupant);
+            presenceService.register(occupant, false); // LUT-631: 같은 방에 ENTER, 연결은 웹소켓 join 때
             allocator.relocateAutoSeatedOverflow(locked, instance.getId(), now);
         }
 
@@ -153,7 +159,8 @@ public class TowerEntryService {
                 locked.getEntryPointY(),
                 occupant.getSeatX(),
                 occupant.getSeatY(),
-                towerPopulationService.of(floorNumber));
+                towerPopulationService.of(floorNumber),
+                occupant.getVisitorNo());
     }
 
     /**
@@ -201,6 +208,11 @@ public class TowerEntryService {
         if (resolveLevel(userId) < floor.getEntryLevel()) {
             throw TowerEntryException.levelInsufficient();
         }
+    }
+
+    /** LUT-705: "방문객 NNNN" 의 네 자리 — 1000~9999 임의 */
+    private static int newVisitorNo() {
+        return 1000 + java.util.concurrent.ThreadLocalRandom.current().nextInt(9000);
     }
 
     private boolean hasInProgressMission(String userId) {

@@ -19,4 +19,5 @@ public record TowerEnterResponse(
         Integer entryPointY,
         Integer seatX,
         Integer seatY,
-        Long population) {}
+        Long population,
+        Integer visitorNo) {}

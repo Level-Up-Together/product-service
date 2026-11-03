@@ -13,6 +13,7 @@ import io.pinkspider.leveluptogethermvp.towerservice.domain.entity.TowerOccupant
 import io.pinkspider.leveluptogethermvp.towerservice.infrastructure.TowerFloorRepository;
 import io.pinkspider.leveluptogethermvp.towerservice.infrastructure.TowerMissionSeatRepository;
 import io.pinkspider.leveluptogethermvp.towerservice.infrastructure.TowerOccupantRepository;
+import io.pinkspider.leveluptogethermvp.towerservice.presence.TowerPresenceService;
 import io.pinkspider.leveluptogethermvp.towerservice.realtime.TowerRealtimePublisher;
 import java.time.LocalDateTime;
 import java.util.Comparator;
@@ -47,6 +48,7 @@ public class TowerSeatService {
     private final TowerPopulationService towerPopulationService;
     private final TowerRealtimePublisher realtimePublisher;
     private final TowerPresenceGateway presenceGateway;
+    private final TowerPresenceService presenceService;
     private final GamificationQueryFacade gamificationQueryFacade;
     private final UserQueryFacade userQueryFacade;
     private final MissionQueryFacade missionQueryFacade;
@@ -59,6 +61,7 @@ public class TowerSeatService {
             TowerPopulationService towerPopulationService,
             TowerRealtimePublisher realtimePublisher,
             TowerPresenceGateway presenceGateway,
+            TowerPresenceService presenceService,
             @Lazy GamificationQueryFacade gamificationQueryFacade,
             @Lazy UserQueryFacade userQueryFacade,
             @Lazy MissionQueryFacade missionQueryFacade) {
@@ -69,6 +72,7 @@ public class TowerSeatService {
         this.towerPopulationService = towerPopulationService;
         this.realtimePublisher = realtimePublisher;
         this.presenceGateway = presenceGateway;
+        this.presenceService = presenceService;
         this.gamificationQueryFacade = gamificationQueryFacade;
         this.userQueryFacade = userQueryFacade;
         this.missionQueryFacade = missionQueryFacade;
@@ -84,6 +88,7 @@ public class TowerSeatService {
             TowerOccupant current = existing.get();
             current.startMission(now);
             openSeatRecord(current, mission, false, now);
+            presenceService.updateState(current, TowerInstanceEvent.STATE_MISSION); // LUT-631
             if (!current.isAutoSeated()) {
                 realtimePublisher.publishToInstance(
                         current.getInstanceId(),
@@ -132,6 +137,7 @@ public class TowerSeatService {
                                 locked.getEntryPointY(),
                                 now));
         openSeatRecord(seated, mission, true, now);
+        presenceService.register(seated, false); // LUT-631: 아바타 데이터와 함께 같은 방에 ENTER
         log.info(
                 "[tower] 자동 착석: userId={} floor={} instanceId={}",
                 userId,
@@ -170,6 +176,7 @@ public class TowerSeatService {
             return true;
         }
         current.endMission();
+        presenceService.updateState(current, TowerInstanceEvent.STATE_REST); // LUT-631
         realtimePublisher.publishToInstance(
                 current.getInstanceId(), TowerInstanceEvent.restState(userId, now));
         return false;

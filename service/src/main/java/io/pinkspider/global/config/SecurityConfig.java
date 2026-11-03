@@ -241,6 +241,11 @@ public class SecurityConfig {
                                         // LUT-629: 탑 층 목록 — 비로그인 열람 허용(방문객 입구)
                                         .requestMatchers(HttpMethod.GET, "/api/v1/tower/floors")
                                         .permitAll()
+                                        // LUT-631: 입장 스냅샷 — 방문객은 visitor_key 로 점유자 확인(서비스 403)
+                                        .requestMatchers(
+                                                HttpMethod.GET,
+                                                "/api/v1/tower/instances/*/presence")
+                                        .permitAll()
                                         // LUT-630: 탑 입장·퇴장 — 방문객(비로그인)도 허용 층에 들어온다.
                                         // 허용 층 판정은 TowerEntryService 가 한다(비허용 층은 150202)
                                         .requestMatchers(

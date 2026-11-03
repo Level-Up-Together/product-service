@@ -58,6 +58,11 @@ class TowerSeatServiceTest {
     private final TowerPopulationService populationService = mock(TowerPopulationService.class);
     private final TowerRealtimePublisher publisher = mock(TowerRealtimePublisher.class);
     private final TowerPresenceGateway presence = mock(TowerPresenceGateway.class);
+    private final io.pinkspider.leveluptogethermvp.towerservice.presence.TowerPresenceService
+            presenceService =
+                    mock(
+                            io.pinkspider.leveluptogethermvp.towerservice.presence
+                                    .TowerPresenceService.class);
     private final GamificationQueryFacade gamificationFacade = mock(GamificationQueryFacade.class);
     private final UserQueryFacade userFacade = mock(UserQueryFacade.class);
     private final MissionQueryFacade missionFacade = mock(MissionQueryFacade.class);
@@ -79,6 +84,7 @@ class TowerSeatServiceTest {
                         populationService,
                         publisher,
                         presence,
+                        presenceService,
                         gamificationFacade,
                         userFacade,
                         missionFacade);
@@ -146,6 +152,7 @@ class TowerSeatServiceTest {
         assertThat(seat.getValue().getExecutionKind()).isEqualTo("REGULAR");
         // 입장(ENTER) 브로드캐스트는 LUT-631 — 여기서는 상태 이벤트 없음
         verify(publisher, never()).publishToInstance(any(), any());
+        verify(presenceService).register(captor.getValue(), false); // LUT-631: ENTER + 아바타 데이터
     }
 
     @Test
@@ -191,6 +198,7 @@ class TowerSeatServiceTest {
                 .contains(new TowerSeatResult(2, 9L, false));
         assertThat(inTower.isMissionActive()).isTrue();
         verify(allocator, never()).pickForAutoSeat(any(), any(), any());
+        verify(presenceService).updateState(inTower, TowerInstanceEvent.STATE_MISSION); // LUT-631
         TowerInstanceEvent event = lastEvent(9L);
         assertThat(event.type()).isEqualTo(TowerInstanceEvent.TYPE_USER_STATE);
         assertThat(event.state()).isEqualTo(TowerInstanceEvent.STATE_MISSION);
@@ -253,6 +261,7 @@ class TowerSeatServiceTest {
         assertThat(direct.isMissionActive()).isFalse();
         assertThat(open.isOpen()).isFalse();
         verify(allocator, never()).remove(direct);
+        verify(presenceService).updateState(direct, TowerInstanceEvent.STATE_REST); // LUT-631
         ArgumentCaptor<Object> events = ArgumentCaptor.forClass(Object.class);
         verify(publisher, times(2)).publishToInstance(eq(9L), events.capture());
         TowerInstanceEvent first = (TowerInstanceEvent) events.getAllValues().get(0);

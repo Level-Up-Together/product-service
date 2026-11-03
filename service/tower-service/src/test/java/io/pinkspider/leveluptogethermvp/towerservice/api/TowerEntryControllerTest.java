@@ -63,7 +63,7 @@ class TowerEntryControllerTest {
         when(entryService.enter(any(), eq(2)))
                 .thenReturn(
                         new TowerEnterResponse(
-                                2, 10L, 77L, false, false, null, 1200, 900, 1200, 900, 12L));
+                                2, 10L, 77L, false, false, null, 1200, 900, 1200, 900, 12L, null));
 
         mockMvc.perform(
                         RestDocumentationRequestBuilders.post(
@@ -98,8 +98,12 @@ class TowerEntryControllerTest {
                                         fieldWithPath("value.seat_x").description("내 자리 X (입장 시점)"),
                                         fieldWithPath("value.seat_y").description("내 자리 Y"),
                                         fieldWithPath("value.population")
+                                                .description("층 전체 인원 (모든 인스턴스, NPC 제외, 30초 메모)"),
+                                        fieldWithPath("value.visitor_no")
                                                 .description(
-                                                        "층 전체 인원 (모든 인스턴스, NPC 제외, 30초 메모)"))));
+                                                        "방문객 이름의 네 자리 숫자 (비로그인만, 클라이언트가 locale 로"
+                                                                + " '방문객 1234' 조립 — LUT-631)")
+                                                .optional())));
     }
 
     @Test
@@ -109,12 +113,14 @@ class TowerEntryControllerTest {
         when(entryService.enter(any(), eq(1)))
                 .thenReturn(
                         new TowerEnterResponse(
-                                1, 10L, 78L, false, false, "k-1", 1400, 1000, 1400, 1000, 3L));
+                                1, 10L, 78L, false, false, "k-1", 1400, 1000, 1400, 1000, 3L,
+                                4821));
         mockMvc.perform(
                         RestDocumentationRequestBuilders.post(
                                 "/api/v1/tower/floors/{floorNumber}/enter", 1))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.value.visitor_key").value("k-1"));
+                .andExpect(jsonPath("$.value.visitor_key").value("k-1"))
+                .andExpect(jsonPath("$.value.visitor_no").value(4821));
 
         when(entryService.enter(any(), eq(3))).thenThrow(TowerEntryException.levelInsufficient());
         mockMvc.perform(

@@ -39,4 +39,42 @@ class TowerInstanceEventTest {
         assertThat(done.cheerWindowSeconds()).isEqualTo(10);
         assertThat(done.state()).isNull();
     }
+
+    @Test
+    @DisplayName("LUT-631 팩토리: ENTER(스냅샷 모양)·LEAVE·MOVE·LEVEL")
+    void presenceFactories() {
+        LocalDateTime now = LocalDateTime.of(2026, 11, 3, 12, 0);
+        io.pinkspider.leveluptogethermvp.towerservice.presence.TowerPresenceView view =
+                new io.pinkspider.leveluptogethermvp.towerservice.presence.TowerPresenceView(
+                        7L,
+                        "u1",
+                        "DIRECT",
+                        null,
+                        "닉",
+                        "pic",
+                        12,
+                        java.util.List.of(),
+                        10,
+                        20,
+                        "REST");
+        TowerInstanceEvent enter = TowerInstanceEvent.enter(view, now);
+        assertThat(enter.type()).isEqualTo("ENTER");
+        assertThat(enter.occupantId()).isEqualTo(7L);
+        assertThat(enter.userId()).isEqualTo("u1");
+        assertThat(enter.occupant()).isEqualTo(view);
+
+        TowerInstanceEvent leave = TowerInstanceEvent.leave(7L, null, now);
+        assertThat(leave.type()).isEqualTo("LEAVE");
+        assertThat(leave.occupantId()).isEqualTo(7L);
+        assertThat(leave.userId()).isNull();
+
+        TowerInstanceEvent move = TowerInstanceEvent.move(7L, 100, 200, now);
+        assertThat(move.type()).isEqualTo("MOVE");
+        assertThat(move.x()).isEqualTo(100);
+        assertThat(move.y()).isEqualTo(200);
+
+        TowerInstanceEvent level = TowerInstanceEvent.level("u1", 13, now);
+        assertThat(level.type()).isEqualTo("LEVEL");
+        assertThat(level.level()).isEqualTo(13);
+    }
 }

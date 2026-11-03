@@ -41,7 +41,7 @@ public class ImageFloorMaskChecker implements FloorMaskChecker {
     }
 
     /** 테스트 전용: {@code file:} URL 허용 */
-    ImageFloorMaskChecker(List<String> allowedHosts, boolean allowLocalFiles) {
+    public ImageFloorMaskChecker(List<String> allowedHosts, boolean allowLocalFiles) {
         this.allowedHosts =
                 allowedHosts == null
                         ? Set.of()
@@ -55,7 +55,7 @@ public class ImageFloorMaskChecker implements FloorMaskChecker {
     @Override
     public boolean isWalkable(String maskUrl, String backgroundUrl, int x, int y)
             throws IOException {
-        BufferedImage mask = read(maskUrl);
+        BufferedImage mask = load(maskUrl);
         if (mask == null) {
             throw new IOException("mask image unreadable: " + maskUrl);
         }
@@ -63,7 +63,7 @@ public class ImageFloorMaskChecker implements FloorMaskChecker {
         int bgHeight = mask.getHeight();
         if (backgroundUrl != null && !backgroundUrl.isBlank()) {
             try {
-                BufferedImage background = read(backgroundUrl);
+                BufferedImage background = load(backgroundUrl);
                 if (background != null) {
                     bgWidth = background.getWidth();
                     bgHeight = background.getHeight();
@@ -82,7 +82,7 @@ public class ImageFloorMaskChecker implements FloorMaskChecker {
         return isRed(mask.getRGB(mx, my));
     }
 
-    static boolean isRed(int argb) {
+    public static boolean isRed(int argb) {
         int alpha = (argb >>> 24) & 0xff;
         int r = (argb >>> 16) & 0xff;
         int g = (argb >>> 8) & 0xff;
@@ -90,7 +90,8 @@ public class ImageFloorMaskChecker implements FloorMaskChecker {
         return alpha > 0 && r >= RED_MIN && g <= OTHER_MAX && b <= OTHER_MAX;
     }
 
-    private BufferedImage read(String url) throws IOException {
+    /** SSRF 방어를 거쳐 이미지를 읽는다 (LUT-631 마스크 캐시도 같은 경로) */
+    public BufferedImage load(String url) throws IOException {
         URI uri;
         try {
             uri = URI.create(url);

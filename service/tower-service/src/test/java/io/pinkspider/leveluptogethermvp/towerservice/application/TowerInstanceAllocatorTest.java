@@ -41,6 +41,10 @@ class TowerInstanceAllocatorTest {
     @Mock private TowerInstanceRepository instanceRepository;
     @Mock private TowerOccupantRepository occupantRepository;
 
+    @Mock
+    private io.pinkspider.leveluptogethermvp.towerservice.presence.TowerPresenceService
+            presenceService;
+
     @InjectMocks private TowerInstanceAllocator allocator;
 
     private final TowerFloor floor = floor(1L, 1, null, true, true); // 상한 30
@@ -112,6 +116,7 @@ class TowerInstanceAllocatorTest {
         TowerOccupant o = occupant(5L, 1L, 1, "u", TowerOccupantKind.DIRECT, false);
         when(occupantRepository.countByInstanceId(1L)).thenReturn(0L);
         allocator.remove(o);
+        verify(presenceService).unregister(o); // LUT-631: presence·세션 정리 + LEAVE
         verify(occupantRepository).delete(o);
         verify(instanceRepository).deleteById(1L);
 
@@ -132,6 +137,7 @@ class TowerInstanceAllocatorTest {
 
         allocator.relocateAutoSeatedOverflow(floor, 1L, NOW);
         assertThat(auto.getInstanceId()).isEqualTo(2L);
+        verify(presenceService).moveInstance(auto, 1L, 2L); // LUT-631: 옛 방 LEAVE + 새 방 ENTER
 
         TowerOccupant auto2 = occupant(6L, 1L, 1, "auto2", TowerOccupantKind.AUTO_SEATED, true);
         when(occupantRepository.countByInstanceId(1L)).thenReturn(31L, 30L);
