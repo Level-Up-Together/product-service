@@ -748,10 +748,10 @@ uk 멱등) — 쪼개서 수행해도 몰아서 한 것과 같은 점수. "하�
 ## Image Moderation & Storage
 
 - **검증**: `@ModerateImage` 어노테이션 + `ImageModerationAspect` (AOP). `moderation.image.provider` 설정 (`none` / `onnx-nsfw` /
-  `aws-rekognition`). 위반 시 `CustomException("000010", "error.moderation.inappropriate_image")`
+  `aws-rekognition`). 위반 시 `ImageModerationException.blocked()` → **HTTP 400** `000010 error.moderation.inappropriate_image` (LUT-714 — `ImageModerationExceptionHandler`(`HIGHEST_PRECEDENCE`) 가 플랫폼 `RestExceptionHandler` 의 500 보다 먼저 받는다; 본문 `code`·`message` 는 예전과 같아 웹·앱 변경 없음)
   `onnx-nsfw` 모델은 jar 동봉 `app/src/main/resources/models/nsfw.onnx`(Yahoo open_nsfw, NHWC, BSD-2 — 출처·SHA-256 은 그 폴더 README, LUT-651). 레이아웃은 기동 시 자동 감지,
   전처리는 256 리사이즈 → 가운데 224 자르기 → BGR 평균 차감. `app` `OnnxNsfwModelSmokeTest` 가 실제 로드·추론을 검사한다. dev 는 2026-11-02 부터 `provider: onnx-nsfw`(config), prod 는 측정 뒤 결정.
-  `List<MultipartFile>`·`MultipartFile[]` 인자도 전부 검사한다(LUT-650 — 예전엔 단일 인자만 봐서 미션 인증 사진이 통과). 검수 실패(파일 못 읽음·추론 예외)는 `moderation.image.fail-open`(기본 true=통과)으로 정책을 정하고, 어느 쪽이든 error 로그 + `lut_image_moderation_fail_open_total` 카운터가 남는다(false 면 `000011 error.moderation.unavailable`). 상세는 `docs/IMAGE_INFRA.md`
+  `List<MultipartFile>`·`MultipartFile[]` 인자도 전부 검사한다(LUT-650 — 예전엔 단일 인자만 봐서 미션 인증 사진이 통과). 검수 실패(파일 못 읽음·추론 예외)는 `moderation.image.fail-open`(기본 true=통과)으로 정책을 정하고, 어느 쪽이든 error 로그 + `lut_image_moderation_fail_open_total` 카운터가 남는다(false 면 **HTTP 503** `000011 error.moderation.unavailable`, LUT-714). 상세는 `docs/IMAGE_INFRA.md`
 - **저장**: `@Profile("prod")`에서 S3 + CloudFront CDN, 그 외 로컬 파일시스템. 서비스별 Strategy (`S3*ImageStorageService` /
   `Local*ImageStorageService`)
 
