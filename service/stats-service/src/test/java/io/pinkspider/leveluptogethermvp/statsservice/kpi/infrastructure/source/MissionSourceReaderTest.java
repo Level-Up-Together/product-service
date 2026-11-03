@@ -5,6 +5,7 @@ import static org.mockito.ArgumentMatchers.anyMap;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 
+import io.pinkspider.leveluptogethermvp.statsservice.kpi.domain.ExcludedUsers;
 import io.pinkspider.leveluptogethermvp.statsservice.kpi.domain.dto.source.MissionDailyCounts;
 import java.time.LocalDateTime;
 import java.util.HashMap;
@@ -34,12 +35,18 @@ class MissionSourceReaderTest {
         MissionDailyCounts c =
                 reader.countCompletions(
                         LocalDateTime.of(2026, 10, 22, 15, 0),
-                        LocalDateTime.of(2026, 10, 23, 15, 0));
+                        LocalDateTime.of(2026, 10, 23, 15, 0),
+                        ExcludedUsers.none());
 
         assertThat(c.completions()).isEqualTo(4);
         assertThat(c.activeUsers()).isZero();
         assertThat(MissionSourceReader.COUNT_COMPLETIONS)
                 .contains("daily_mission_instance")
                 .contains("UNION ALL");
+        // LUT-678: UNION ALL 두 가지(실행·고정 미션 인스턴스) 모두 제외 유저를 뺀다
+        assertThat(
+                        MissionSourceReader.COUNT_COMPLETIONS.split(
+                                "p\\.user_id NOT IN \\(:excluded\\)", -1))
+                .hasSize(3);
     }
 }

@@ -14,6 +14,9 @@ import org.springframework.context.annotation.Primary;
  * LUT-595 회귀 가드. DataSource 설정은 {@code @Profile("!test")} 라 컨텍스트 테스트가 잡지 못한다 — 2026-10-23 dev 배포에서
  * {@code userEntityManagerFactory} 의 {@code @Primary} 가 Flyway 빈 삽입 중 떨어져 나가 "expected single
  * matching bean but found 8" 로 기동에 실패했다. 어노테이션 배선을 리플렉션으로 고정한다.
+ *
+ * <p>LUT-664: LUT-598 로 stats_db 가 9번째 DB 로 추가됐는데 이 목록에 없어 stats 배선이 검사 밖이었다. 새 DB 를 추가하면 여기와
+ * FlywayMigrationNamingTest.DATABASES 에 함께 넣는다.
  */
 class DataSourceConfigWiringTest {
 
@@ -26,7 +29,8 @@ class DataSourceConfigWiringTest {
                     MetaDataSourceConfig.class,
                     FeedDataSourceConfig.class,
                     NotificationDataSourceConfig.class,
-                    GamificationDataSourceConfig.class);
+                    GamificationDataSourceConfig.class,
+                    StatsDataSourceConfig.class);
 
     private static String db(Class<?> config) {
         String name = config.getSimpleName().replace("DataSourceConfig", "");
@@ -55,7 +59,7 @@ class DataSourceConfigWiringTest {
         assertThat(
                         bean(UserDataSourceConfig.class, "userEntityManagerFactory")
                                 .isAnnotationPresent(Primary.class))
-                .as("userEntityManagerFactory @Primary — 없으면 EMF 8개가 모호해 기동 실패")
+                .as("userEntityManagerFactory @Primary — 없으면 EMF 9개가 모호해 기동 실패")
                 .isTrue();
         assertThat(
                         bean(UserDataSourceConfig.class, "userTransactionManager")
@@ -68,7 +72,7 @@ class DataSourceConfigWiringTest {
     }
 
     @Test
-    @DisplayName("8개 설정 모두: xxxFlywayMigration 빈이 있고, xxxEntityManagerFactory 가 그 빈에 @DependsOn 한다")
+    @DisplayName("9개 설정 모두: xxxFlywayMigration 빈이 있고, xxxEntityManagerFactory 가 그 빈에 @DependsOn 한다")
     void everyEntityManagerFactoryDependsOnFlyway() {
         for (Class<?> config : CONFIGS) {
             String db = db(config);
@@ -83,7 +87,7 @@ class DataSourceConfigWiringTest {
     }
 
     @Test
-    @DisplayName("user 외 7개 설정에는 @Primary 가 하나도 없다 (primary 는 user 하나뿐)")
+    @DisplayName("user 외 8개 설정에는 @Primary 가 하나도 없다 (primary 는 user 하나뿐)")
     void onlyUserHasPrimary() {
         for (Class<?> config : CONFIGS) {
             if (config == UserDataSourceConfig.class) continue;

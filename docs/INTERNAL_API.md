@@ -2,7 +2,7 @@
 
 `/api/internal/**` 경로는 `SecurityConfig`에서 `permitAll`이지만 **공유 시크릿 헤더 인증 + VPC 내부 접근**으로 보호. Admin Backend가 MVP의 도메인 데이터를 읽거나 액션을 실행할 때 사용.
 
-> 2026-10-29 코드 기준 현행화 — `@RequestMapping("/api/internal…")` 컨트롤러 **40개 = 베이스 경로 40개**(중첩 경로 포함). chat·bff·notice·support 서비스에는 내부 API 컨트롤러가 없다.
+> 2026-10-29 코드 기준 현행화 — `@RequestMapping("/api/internal…")` 컨트롤러 **41개 = 베이스 경로 41개**(중첩 경로 포함, 2026-11-02 LUT-708 `app-settings` 추가). chat·bff·notice·support 서비스에는 내부 API 컨트롤러가 없다.
 
 ## 인증 (LUT-244)
 
@@ -15,8 +15,9 @@
 - **product-service → admin-service** (LUT-686, 2026-10-30): 반대 방향도 같은 키를 쓴다. admin 의 product 전용 경로(`/api/v1/inquiries/**`·`/api/internal/**`·신고 등록/`check`/`check-batch`)는 admin `ProductCallKeyFilter` 가 `X-Internal-Api-Key` 를 요구하고, product 는 `AdminInternalApiKeyInterceptor`(`AdminFeignConfig`·`ReportFeignConfig`·`AdminInternalFeignConfig` 가 등록)로 `app.security.internal-api.key` 를 보낸다. 키가 비면 생략(fail-open). 예전엔 admin 의 IP 목록(비면 전체 허용)에만 의존해 누구나 `X-User-Id` 만 바꿔 남의 문의를 읽고 쓸 수 있었다. 배포 순서 product → admin.
 - **시크릿**: config-repository에 환경별 `{cipher}` 암호화 저장(dev/prod 각각 다른 값, product ↔ admin 동일 값이어야 매칭).
 - **fail-open**: 키 미설정(공백)이면 검증/주입을 건너뛴다 → config 선배포 없이 무중단 롤아웃 가능. 배포 후 config에 키가 있으면 자동 활성화.
-- **액추에이터 보호 (LUT-605)**: 같은 필터가 `management.endpoints.web.base-path`(`/showmethemoney`, config-repository `actuator/actuator-{env}.yml`) 하위도 지킨다. `/showmethemoney/health`(및 `/health/**`)만 공개, 나머지 엔드포인트와 base-path 자체는 키 필수. 키는 `X-Internal-Api-Key` 헤더 또는 **HTTP Basic 비밀번호**(사용자명 무관, Prometheus/Alloy 스크레이프 호환) 로 전달 — 플랫폼 `JwtAuthenticationFilter`는 `Bearer`만 해석해 충돌 없음. exposure 는 여전히 `*`라 보호는 이 필터가 전담한다. 예전엔 `permitAll` + exposure `*` 로 prod `/env`·`/beans`·`/prometheus` 가 공개돼 있었다(2026-10-24 확인).
+- **액추에이터 보호 (LUT-605)**: 같은 필터가 `management.endpoints.web.base-path`(`/showmethemoney`, config-repository `actuator/actuator-{env}.yml`) 하위도 지킨다. `/showmethemoney/health`(및 `/health/**`)만 공개, 나머지 엔드포인트와 base-path 자체는 키 필수. 키는 `X-Internal-Api-Key` 헤더 또는 **HTTP Basic 비밀번호**(사용자명 무관, Prometheus/Alloy 스크레이프 호환) 로 전달 — 플랫폼 `JwtAuthenticationFilter`는 `Bearer`만 해석해 충돌 없음. exposure 는 prod 가 아직 `*` 라 보호는 이 필터가 전담한다 — dev 는 2026-10-30 `health,info,prometheus` 로 축소(LUT-675, config `product-service-dev.yml`), prod 는 v1.1.4 운영 배포 때 같은 값으로 줄인다. 예전엔 `permitAll` + exposure `*` 로 prod `/env`·`/beans`·`/prometheus` 가 공개돼 있었다(2026-10-24 확인).
 - **`X-Admin-Id` 헤더**: 쓰기 이력에 어드민 ID 를 남기는 API 는 필수 헤더로 받는다 — `push-campaigns` `POST`, `title-grants` `POST`/`DELETE`, `item-grants` `POST`/`DELETE`, `shop-items/{itemId}/push-setting` `PUT`, `shop-items/{itemId}/push-messages` `POST`.
+- **운영 ALB 출발 IP 제한 (LUT-673, 2026-11-02)**: prod 공개 ALB 가 `/api/internal/*` 를 **Host 와 무관하게** 우리 EC2 EIP 2개(admin 은 lut-ec2-2)에서 온 요청만 호스트별 TG(api→product, admin-api→admin)로 보내고, 그 외 출발지는 고정 404 로 끊는다(infra `alb.tf` `product_internal_allow`·`admin_internal_allow` 규칙 7·8, `internal_block` 규칙 9 — 차단에 host 조건이 없어 Host 헤더를 바꿔도 못 비켜 간다). admin 쪽 내부 API(product→admin)도 같은 보호. 키 필터는 그대로 2중 방어. 운영자 수동 호출은 SSH 로 서버에 들어가 `https://localhost:8443` 으로(예: sql 레포 `kpi_rebuild_prod.sh`). 노트북에서 공개 도메인으로 부르면 404 가 정상. dev 는 ALB 가 없어 키 필터만.
 - **DAU 집계 제외 (LUT-598)**: `WebMvcConfig`가 `/api/internal/**`를 `UserActivityInterceptor` 대상에서 뺀다 — 어드민 호출은 유저 활동이 아니다.
 
 ## 도메인별 베이스 경로
@@ -69,6 +70,7 @@
 | `/api/internal/guild-level-configs` | 길드 레벨 설정(같은 엔드포인트 구성). 레벨 기준은 `cumulative_point` | Feign 전환(2026-02) · QA-99 · LUT-483 |
 | `/api/internal/attendance-reward-configs` | 출석 보상 설정. `GET /`·`/all`·`/active`·`/consecutive`·`/{id}` · `POST` · `PUT /{id}` · `PATCH /{id}/toggle-active` · `DELETE /{id}` | Feign 전환(2026-02) · QA-131 |
 | `/api/internal/mission-categories` | 미션 카테고리. `GET /`·`/all`·`/active`·`/{id}`·`/by-name/{name}`·`/by-ids` · `POST` · `PUT`/`DELETE /{id}` · `POST /{id}/toggle-active`(PATCH 아님) | Feign 전환(2026-02) |
+| `/api/internal/app-settings` | 어드민 서비스 설정(`app_setting` 키-값). `GET`/`PUT /store-review-milestones` — 스토어 인앱 평가 팝업을 요청할 연속 출석 일수 목록(기본 7·14·30, 1~365·최대 10개, 빈 목록=끔). 캐시 `appSettings`(TTL 없음, PUT 때 evict). 출석 체크인 응답 `store_review_due` 의 원천 | LUT-708 (2026-11-02) |
 | `/api/internal/profanity-words` | 금칙어. `GET /`·`/all`·`/active`·`/{id}` · `POST` · `PUT`/`DELETE /{id}` · `PATCH /{id}/toggle` | Feign 전환(2026-02) |
 
 ### gamification-service (gamification_db)
@@ -89,6 +91,7 @@
 | `/api/internal/shop-items/{itemId}/push-setting` | 장착 아이템 푸시 슬롯 시각. `GET` · `PUT`(`{before_activity_time 08:00~11:59, after_complete_time 12:00~20:59}` 둘 다 선택, `@Pattern` 검증) · `DELETE` | LUT-528 · LUT-573(아침/오후 2필드) |
 | `/api/internal/shop-items/{itemId}/push-messages` | 장착 아이템 푸시 대사(`trigger_type`: `ANY`/`BEFORE_ACTIVITY`/`AFTER_COMPLETE`/`INACTIVE`). `GET` · `POST` · `PUT /{messageId}` · `PATCH /{messageId}/toggle` · `DELETE /{messageId}` | LUT-516 · LUT-528(`trigger_type`) |
 | `/api/internal/shop-purchases` | 아이템 구매이력. `GET /?keyword=` | LUT-328 |
+| `/api/internal/users/{userId}/items` | 유저 보유 아이템 목록(착용 여부·희귀도 라벨/색 포함, 이미지 없음) — 어드민 유저 상세 "아이템" 탭 (LUT-657). 칭호 `/users/{userId}/titles` 는 user-service, 아이템은 gamification_db 라 여기 |
 | `/api/internal/item-grants` | 아이템 수동 지급/회수/이력. `POST`(보유 중이면 멱등 no-op, 이력 미기록·`already_owned` 응답, 지급 시 `ITEM_GRANTED` 알림) · `DELETE /{itemGrantId}`(인벤토리 삭제 + 이력 revoked 마킹, 재회수는 `120905`) · `GET /?keyword=` | LUT-472 |
 | `/api/internal/diamonds` | 다이아 원장 조회·소급 지급. `GET /user/{userId}/history` · `POST /migrate`(일회성 수동, 멱등) | QA-220 |
 | `/api/internal/diamond-bundles` | 핑크다이아 묶음상품 CRUD + 이미지. `GET /`·`/{id}` · `POST` · `PUT /{id}` · `PATCH /{id}/toggle-active` · `DELETE /{id}` · `POST /images` | LUT-356 |

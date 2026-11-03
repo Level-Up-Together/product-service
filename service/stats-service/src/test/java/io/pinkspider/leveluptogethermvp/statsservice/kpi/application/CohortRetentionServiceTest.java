@@ -2,6 +2,7 @@ package io.pinkspider.leveluptogethermvp.statsservice.kpi.application;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -9,6 +10,7 @@ import static org.mockito.Mockito.when;
 import io.pinkspider.leveluptogethermvp.statsservice.activity.config.UserActivityProperties;
 import io.pinkspider.leveluptogethermvp.statsservice.activity.domain.entity.UserDailyActivity;
 import io.pinkspider.leveluptogethermvp.statsservice.activity.infrastructure.UserDailyActivityRepository;
+import io.pinkspider.leveluptogethermvp.statsservice.kpi.domain.ExcludedUsers;
 import io.pinkspider.leveluptogethermvp.statsservice.kpi.domain.KpiDates;
 import io.pinkspider.leveluptogethermvp.statsservice.kpi.domain.dto.source.AttendanceDay;
 import io.pinkspider.leveluptogethermvp.statsservice.kpi.domain.entity.CohortRetention;
@@ -88,7 +90,8 @@ class CohortRetentionServiceTest {
     @DisplayName("닫힌 지표만 저장: ATTENDANCE 는 항상, REQUEST 는 활동 데이터 시작일 이후 창만. 기존 행은 갱신")
     void rebuild() {
         LocalDate lastComplete = COHORT.plusDays(7); // D1 D3 D7 W1 닫힘, D14 D30 W2_4 열림
-        when(userReader.findSignupUserIds(KpiDates.utcStart(COHORT), KpiDates.utcEnd(COHORT)))
+        when(userReader.findSignupUserIds(
+                        eq(KpiDates.utcStart(COHORT)), eq(KpiDates.utcEnd(COHORT)), any()))
                 .thenReturn(List.of("u1", "u2"));
         properties.setExcludedUserIds(Set.of("bot"));
         when(activityRepository.findAllByActivityDateBetween(COHORT.plusDays(1), lastComplete))
@@ -98,7 +101,7 @@ class CohortRetentionServiceTest {
                                 UserDailyActivity.create("bot", COHORT.plusDays(3), List.of("web")),
                                 UserDailyActivity.create(
                                         "u2", COHORT.plusDays(7), List.of("ios"))));
-        when(gamificationReader.findAttendance(COHORT.plusDays(1), lastComplete))
+        when(gamificationReader.findAttendance(eq(COHORT.plusDays(1)), eq(lastComplete), any()))
                 .thenReturn(
                         List.of(
                                 new AttendanceDay("u1", COHORT.plusDays(1)),
@@ -145,10 +148,34 @@ class CohortRetentionServiceTest {
     void edges() {
         assertThat(service.rebuild(COHORT.plusDays(1), COHORT, COHORT.plusDays(30))).isZero();
 
-        when(userReader.findSignupUserIds(any(), any())).thenReturn(List.of("u1"));
+        when(userReader.findSignupUserIds(any(), any(), any())).thenReturn(List.of("u1"));
         when(activityRepository.findMinActivityDate()).thenReturn(Optional.empty());
         assertThat(service.rebuild(COHORT, COHORT, COHORT)).isZero();
         verify(activityRepository, never()).findAllByActivityDateBetween(any(), any());
-        verify(gamificationReader, never()).findAttendance(any(), any());
+        verify(gamificationReader, never()).findAttendance(any(), any(), any());
+    }
+
+    @Test
+    @DisplayName("LUT-678: 제외 유저 목록이 코호트 모수(가입 SQL)와 출석 SQL 에 전달된다")
+    void passesExcludedUsersToSources() {
+        LocalDate lastComplete = COHORT.plusDays(7);
+        properties.setExcludedUserIds(Set.of("ops-1"));
+        when(userReader.findSignupUserIds(any(), any(), any())).thenReturn(List.of("u1"));
+        when(activityRepository.findAllByActivityDateBetween(any(), any())).thenReturn(List.of());
+        when(gamificationReader.findAttendance(any(), any(), any())).thenReturn(List.of());
+        when(activityRepository.findMinActivityDate()).thenReturn(Optional.of(COHORT));
+        when(retentionRepository.findById(any(CohortRetentionId.class)))
+                .thenReturn(Optional.empty());
+        when(retentionRepository.save(any(CohortRetention.class)))
+                .thenAnswer(inv -> inv.getArgument(0));
+
+        service.rebuild(COHORT, COHORT, lastComplete);
+
+        ArgumentCaptor<ExcludedUsers> captor = ArgumentCaptor.forClass(ExcludedUsers.class);
+        verify(userReader).findSignupUserIds(any(), any(), captor.capture());
+        verify(gamificationReader).findAttendance(any(), any(), captor.capture());
+        assertThat(captor.getAllValues())
+                .hasSize(2)
+                .allSatisfy(ex -> assertThat(ex.contains("ops-1")).isTrue());
     }
 }

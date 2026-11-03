@@ -86,18 +86,32 @@ class ItemPushDispatchServiceTest {
 
     private ItemPushDispatchOutcome morning(List<ItemPushMessage> msgs, Set<LocalDate> completed) {
         return dispatchService.trySendForUser(
-                USER_ID, headItem, D, ItemPushSlot.BEFORE_ACTIVITY, MORNING, msgs, completed);
+                USER_ID, headItem, D, ItemPushSlot.BEFORE_ACTIVITY, MORNING, msgs, completed, null);
     }
 
     private ItemPushDispatchOutcome noon(List<ItemPushMessage> msgs, Set<LocalDate> completed) {
         return dispatchService.trySendForUser(
-                USER_ID, headItem, D, ItemPushSlot.INACTIVE, NOON, msgs, completed);
+                USER_ID, headItem, D, ItemPushSlot.INACTIVE, NOON, msgs, completed, null);
     }
 
     private ItemPushDispatchOutcome afternoon(
             List<ItemPushMessage> msgs, Set<LocalDate> completed) {
         return dispatchService.trySendForUser(
-                USER_ID, headItem, D, ItemPushSlot.AFTER_COMPLETE, AFTERNOON, msgs, completed);
+                USER_ID,
+                headItem,
+                D,
+                ItemPushSlot.AFTER_COMPLETE,
+                AFTERNOON,
+                msgs,
+                completed,
+                null);
+    }
+
+    /** LUT-543: 완료 이력 없는 유저 — 가입일(로컬)을 기산점으로 정오 판정. */
+    private ItemPushDispatchOutcome noonSignedUp(
+            List<ItemPushMessage> msgs, Set<LocalDate> completed, LocalDate signup) {
+        return dispatchService.trySendForUser(
+                USER_ID, headItem, D, ItemPushSlot.INACTIVE, NOON, msgs, completed, signup);
     }
 
     private Long publishedMessageId() {
@@ -273,18 +287,26 @@ class ItemPushDispatchServiceTest {
     // ===================== B. 간격·상한 =====================
 
     @Nested
-    @DisplayName("B. 간격(유저+아이템 2일)·하루 1건 상한")
+    @DisplayName("B. 간격(유저+아이템 1일, LUT-680)·하루 1건 상한")
     class Interval {
 
         @Test
-        @DisplayName("B1: D일 발송 → D+1 은 어느 슬롯이든 미발송 (SKIP_INTERVAL)")
-        void skipsOnNextDay() {
+        @DisplayName("B1: D일 오후 발송 → D+1 아침은 발송 (간격 1일 — 매일 1건, LUT-680)")
+        void sendsOnNextDay() {
             when(sendLogRepository.findTopByUserIdAndShopItemIdAndSlotIsNotNullOrderBySendDateDesc(
                             USER_ID, ITEM_ID))
                     .thenReturn(Optional.of(lastSend(D.minusDays(1), ItemPushSlot.AFTER_COMPLETE)));
 
-            assertThat(morning(fullSet, Set.of(YESTERDAY)))
-                    .isEqualTo(ItemPushDispatchOutcome.SKIP_INTERVAL);
+            assertThat(morning(fullSet, Set.of(YESTERDAY))).isEqualTo(ItemPushDispatchOutcome.SENT);
+        }
+
+        @Test
+        @DisplayName("B1-2: 같은 날 이력(하루 1건 상한을 지나친 경우)은 간격 미경과로 스킵 — SKIP_INTERVAL 방어선")
+        void sameDaySkipsByInterval() {
+            when(sendLogRepository.findTopByUserIdAndShopItemIdAndSlotIsNotNullOrderBySendDateDesc(
+                            USER_ID, ITEM_ID))
+                    .thenReturn(Optional.of(lastSend(D, ItemPushSlot.BEFORE_ACTIVITY)));
+
             assertThat(afternoon(fullSet, Set.of(D)))
                     .isEqualTo(ItemPushDispatchOutcome.SKIP_INTERVAL);
             verify(eventPublisher, never()).publishEvent(any());
@@ -301,14 +323,13 @@ class ItemPushDispatchServiceTest {
         }
 
         @Test
-        @DisplayName("B3: D일 정오 INACTIVE 발송도 기산점 — D+1 아침 미발송")
-        void inactiveCountsAsInterval() {
+        @DisplayName("B3: D일 정오 INACTIVE 발송 뒤 D+1 아침 — 간격 1일이라 발송 (정오는 로테이션 무관, LUT-680 B 시나리오)")
+        void morningAfterInactiveNextDay() {
             when(sendLogRepository.findTopByUserIdAndShopItemIdAndSlotIsNotNullOrderBySendDateDesc(
                             USER_ID, ITEM_ID))
                     .thenReturn(Optional.of(lastSend(D.minusDays(1), ItemPushSlot.INACTIVE)));
 
-            assertThat(morning(fullSet, Set.of(YESTERDAY)))
-                    .isEqualTo(ItemPushDispatchOutcome.SKIP_INTERVAL);
+            assertThat(morning(fullSet, Set.of(YESTERDAY))).isEqualTo(ItemPushDispatchOutcome.SENT);
         }
 
         @Test
@@ -336,12 +357,12 @@ class ItemPushDispatchServiceTest {
     class Rotation {
 
         @Test
-        @DisplayName("C1: 직전 발송이 아침, 2일 경과, 아침 조건 충족 → 아침 스킵 (SKIP_ROTATION)")
+        @DisplayName("C1: 직전 발송이 어제 아침, 아침 조건 충족 → 오늘 아침 스킵 (SKIP_ROTATION, 아침→아침 2일)")
         void morningYieldsAfterMorning() {
             when(sendLogRepository.findTopByUserIdAndShopItemIdAndSlotIsNotNullOrderBySendDateDesc(
                             USER_ID, ITEM_ID))
                     .thenReturn(
-                            Optional.of(lastSend(D.minusDays(2), ItemPushSlot.BEFORE_ACTIVITY)));
+                            Optional.of(lastSend(D.minusDays(1), ItemPushSlot.BEFORE_ACTIVITY)));
 
             assertThat(morning(fullSet, Set.of(YESTERDAY)))
                     .isEqualTo(ItemPushDispatchOutcome.SKIP_ROTATION);
@@ -354,38 +375,38 @@ class ItemPushDispatchServiceTest {
             when(sendLogRepository.findTopByUserIdAndShopItemIdAndSlotIsNotNullOrderBySendDateDesc(
                             USER_ID, ITEM_ID))
                     .thenReturn(
-                            Optional.of(lastSend(D.minusDays(2), ItemPushSlot.BEFORE_ACTIVITY)));
+                            Optional.of(lastSend(D.minusDays(1), ItemPushSlot.BEFORE_ACTIVITY)));
 
             assertThat(afternoon(fullSet, Set.of(D))).isEqualTo(ItemPushDispatchOutcome.SENT);
         }
 
         @Test
-        @DisplayName("C3: 오후가 못 나갔으면 다음 날(3일 경과) 아침은 발송")
+        @DisplayName("C3: 오후가 못 나갔으면 그다음 날(2일 경과) 아침은 발송 — 아침 건너뛰기는 바로 다음 날 한 번만")
         void morningResumesNextDay() {
             when(sendLogRepository.findTopByUserIdAndShopItemIdAndSlotIsNotNullOrderBySendDateDesc(
                             USER_ID, ITEM_ID))
                     .thenReturn(
-                            Optional.of(lastSend(D.minusDays(3), ItemPushSlot.BEFORE_ACTIVITY)));
+                            Optional.of(lastSend(D.minusDays(2), ItemPushSlot.BEFORE_ACTIVITY)));
 
             assertThat(morning(fullSet, Set.of(YESTERDAY))).isEqualTo(ItemPushDispatchOutcome.SENT);
         }
 
         @Test
-        @DisplayName("C4: 직전 발송이 오후, 2일 경과 → 아침 발송")
+        @DisplayName("C4: 직전 발송이 어제 오후 → 오늘 아침 발송 (매일 아침·오후 번갈아, LUT-680 C7)")
         void morningAfterAfternoon() {
             when(sendLogRepository.findTopByUserIdAndShopItemIdAndSlotIsNotNullOrderBySendDateDesc(
                             USER_ID, ITEM_ID))
-                    .thenReturn(Optional.of(lastSend(D.minusDays(2), ItemPushSlot.AFTER_COMPLETE)));
+                    .thenReturn(Optional.of(lastSend(D.minusDays(1), ItemPushSlot.AFTER_COMPLETE)));
 
             assertThat(morning(fullSet, Set.of(YESTERDAY))).isEqualTo(ItemPushDispatchOutcome.SENT);
         }
 
         @Test
-        @DisplayName("C5: 직전 발송이 정오 INACTIVE, 2일 경과 → 아침 발송 (정오는 로테이션 무관)")
+        @DisplayName("C5: 직전 발송이 정오 INACTIVE, 어제 → 오늘 아침 발송 (정오는 로테이션 무관)")
         void morningAfterNoon() {
             when(sendLogRepository.findTopByUserIdAndShopItemIdAndSlotIsNotNullOrderBySendDateDesc(
                             USER_ID, ITEM_ID))
-                    .thenReturn(Optional.of(lastSend(D.minusDays(2), ItemPushSlot.INACTIVE)));
+                    .thenReturn(Optional.of(lastSend(D.minusDays(1), ItemPushSlot.INACTIVE)));
 
             assertThat(morning(fullSet, Set.of(YESTERDAY))).isEqualTo(ItemPushDispatchOutcome.SENT);
         }
@@ -397,7 +418,7 @@ class ItemPushDispatchServiceTest {
             when(sendLogRepository.findTopByUserIdAndShopItemIdAndSlotIsNotNullOrderBySendDateDesc(
                             USER_ID, ITEM_ID))
                     .thenReturn(
-                            Optional.of(lastSend(D.minusDays(2), ItemPushSlot.BEFORE_ACTIVITY)));
+                            Optional.of(lastSend(D.minusDays(1), ItemPushSlot.BEFORE_ACTIVITY)));
 
             assertThat(morning(fullSet, Set.of(YESTERDAY)))
                     .isEqualTo(ItemPushDispatchOutcome.SKIP_ROTATION);
@@ -649,21 +670,66 @@ class ItemPushDispatchServiceTest {
         }
 
         @Test
-        @DisplayName("연속 미완료 일수 — 어제부터 완료일 직전까지, 상한 14 초과는 15")
+        @DisplayName("연속 미완료 일수 — 어제부터 완료일 직전까지, 상한 90 초과는 91 (LUT-543)")
         void consecutiveDays() {
-            assertThat(dispatchService.consecutiveIncompleteDays(D, Set.of(D.minusDays(2))))
+            assertThat(dispatchService.consecutiveIncompleteDays(D, Set.of(D.minusDays(2)), null))
                     .isEqualTo(1);
-            assertThat(dispatchService.consecutiveIncompleteDays(D, Set.of(D.minusDays(3))))
+            assertThat(dispatchService.consecutiveIncompleteDays(D, Set.of(D.minusDays(3)), null))
                     .isEqualTo(2);
-            assertThat(dispatchService.consecutiveIncompleteDays(D, Set.of(D.minusDays(4))))
+            assertThat(dispatchService.consecutiveIncompleteDays(D, Set.of(D.minusDays(4)), null))
                     .isEqualTo(3);
-            assertThat(dispatchService.consecutiveIncompleteDays(D, Set.of())).isEqualTo(15);
+            assertThat(dispatchService.consecutiveIncompleteDays(D, Set.of(D.minusDays(91)), null))
+                    .isEqualTo(90);
+            assertThat(dispatchService.consecutiveIncompleteDays(D, Set.of(), null)).isEqualTo(91);
         }
 
         @Test
-        @DisplayName("정오 — k>14 (완료 이력 없음) 는 발송하지 않는다")
-        void noonStopsBeyond14() {
+        @DisplayName("LUT-543: 연속 미완료 일수 — 가입일 전날에서 멈춘다(가입 전은 미완료가 아니다), 완료일이 먼저면 완료일 기준")
+        void consecutiveDaysFromSignup() {
+            assertThat(dispatchService.consecutiveIncompleteDays(D, Set.of(), D.minusDays(7)))
+                    .isEqualTo(7);
+            assertThat(dispatchService.consecutiveIncompleteDays(D, Set.of(), YESTERDAY))
+                    .isEqualTo(1);
+            assertThat(dispatchService.consecutiveIncompleteDays(D, Set.of(), D)).isEqualTo(0);
+            assertThat(
+                            dispatchService.consecutiveIncompleteDays(
+                                    D, Set.of(D.minusDays(4)), D.minusDays(30)))
+                    .isEqualTo(3);
+            assertThat(dispatchService.consecutiveIncompleteDays(D, Set.of(), D.minusDays(200)))
+                    .isEqualTo(91);
+        }
+
+        @Test
+        @DisplayName("LUT-543: 정오 — k ∈ {30,60,90} 도 발송일이다 (장기 휴면 복귀 유도)")
+        void noonSendsOnLongMilestones() {
+            for (int k : new int[] {30, 60, 90}) {
+                assertThat(noon(fullSet, Set.of(D.minusDays(k + 1))))
+                        .as("k=%d", k)
+                        .isEqualTo(ItemPushDispatchOutcome.SENT);
+            }
+        }
+
+        @Test
+        @DisplayName("LUT-543: 정오 — k=29·k=91(90일 초과)·완료 이력 없음+가입일 모름 은 발송하지 않는다")
+        void noonStopsBeyond90() {
+            assertThat(noon(fullSet, Set.of(D.minusDays(30))))
+                    .isEqualTo(ItemPushDispatchOutcome.SKIP_BACKOFF);
+            assertThat(noon(fullSet, Set.of(D.minusDays(92))))
+                    .isEqualTo(ItemPushDispatchOutcome.SKIP_BACKOFF);
             assertThat(noon(fullSet, Set.of())).isEqualTo(ItemPushDispatchOutcome.SKIP_BACKOFF);
+        }
+
+        @Test
+        @DisplayName("LUT-543: 정오 — 완료 이력 없는 유저는 가입일부터 센다: 가입 7일째 발송, 8일째·가입 당일·가입 91일 초과는 스킵")
+        void noonUsesSignupAnchor() {
+            assertThat(noonSignedUp(fullSet, Set.of(), D.minusDays(7)))
+                    .isEqualTo(ItemPushDispatchOutcome.SENT);
+            assertThat(noonSignedUp(fullSet, Set.of(), D.minusDays(8)))
+                    .isEqualTo(ItemPushDispatchOutcome.SKIP_BACKOFF);
+            assertThat(noonSignedUp(fullSet, Set.of(), D))
+                    .isEqualTo(ItemPushDispatchOutcome.SKIP_BACKOFF);
+            assertThat(noonSignedUp(fullSet, Set.of(), D.minusDays(120)))
+                    .isEqualTo(ItemPushDispatchOutcome.SKIP_BACKOFF);
         }
     }
 }

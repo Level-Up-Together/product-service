@@ -1,5 +1,6 @@
 package io.pinkspider.leveluptogethermvp.statsservice.kpi.infrastructure.source;
 
+import io.pinkspider.leveluptogethermvp.statsservice.kpi.domain.ExcludedUsers;
 import io.pinkspider.leveluptogethermvp.statsservice.kpi.domain.dto.source.SignupsByChannel;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -9,23 +10,35 @@ import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 /**
  * LUT-601: user_db 읽기 전용 집계. 다른 서비스의 Repository/Service 를 import 하지 않고 DataSource 에 직접 SQL 을 던진다
  * (KPI 는 읽기 모델 — MSA 전환 시 이 클래스만 이벤트/API 로 바꾼다). provider='test'(테스트 로그인·E2E 봇) 는 모든 수치에서 제외한다.
+ *
+ * <p>LUT-678: 제외 유저({@link ExcludedUsers}, config 목록)도 모든 쿼리에서 {@code id NOT IN (:excluded)} 로 뺀다 —
+ * 가입·탈퇴·활성·코호트 모수·채널별 가입(CAC 분모) 전부. 새 쿼리를 추가하면 {@code EXCLUDE_IDS} 를 붙이고 {@code
+ * UserSourceReaderTest} 목록에 넣을 것.
  */
 public class UserSourceReader {
 
     static final String EXCLUDE_TEST = " AND (provider IS NULL OR provider <> 'test')";
 
+    /** LUT-678: 제외 유저(팀원·운영자·QA) — 빈 목록이면 센티널이 바인딩된다 */
+    static final String EXCLUDE_IDS = " AND id NOT IN (:excluded)";
+
     static final String COUNT_SIGNUPS =
             "SELECT COUNT(*) FROM users WHERE created_at >= :from AND created_at < :to"
-                    + EXCLUDE_TEST;
+                    + EXCLUDE_TEST
+                    + EXCLUDE_IDS;
     static final String COUNT_WITHDRAWALS =
             "SELECT COUNT(*) FROM users WHERE withdrawn_at >= :from AND withdrawn_at < :to"
-                    + EXCLUDE_TEST;
+                    + EXCLUDE_TEST
+                    + EXCLUDE_IDS;
     static final String COUNT_ACTIVE_AS_OF =
             "SELECT COUNT(*) FROM users WHERE created_at < :asOf"
                     + " AND (withdrawn_at IS NULL OR withdrawn_at >= :asOf)"
-                    + EXCLUDE_TEST;
+                    + EXCLUDE_TEST
+                    + EXCLUDE_IDS;
     static final String FIND_SIGNUP_IDS =
-            "SELECT id FROM users WHERE created_at >= :from AND created_at < :to" + EXCLUDE_TEST;
+            "SELECT id FROM users WHERE created_at >= :from AND created_at < :to"
+                    + EXCLUDE_TEST
+                    + EXCLUDE_IDS;
 
     /** LUT-602: KST 월 × 가입 채널(LUT-599) 가입자 수 — CAC 분모. 채널 null 은 'unknown'(배포 전 가입자) */
     static final String COUNT_SIGNUPS_BY_CHANNEL =
@@ -33,6 +46,7 @@ public class UserSourceReader {
                     + " COALESCE(signup_channel, 'unknown') AS channel, COUNT(*) AS signups"
                     + " FROM users WHERE created_at >= :from AND created_at < :to"
                     + EXCLUDE_TEST
+                    + EXCLUDE_IDS
                     + " GROUP BY 1, 2 ORDER BY 1, 2";
 
     private final NamedParameterJdbcTemplate jdbc;
@@ -41,34 +55,41 @@ public class UserSourceReader {
         this.jdbc = jdbc;
     }
 
-    public int countSignups(LocalDateTime fromUtc, LocalDateTime toUtc) {
-        return count(COUNT_SIGNUPS, Map.of("from", fromUtc, "to", toUtc));
+    public int countSignups(LocalDateTime fromUtc, LocalDateTime toUtc, ExcludedUsers excluded) {
+        return count(COUNT_SIGNUPS, range(fromUtc, toUtc, excluded));
     }
 
-    public int countWithdrawals(LocalDateTime fromUtc, LocalDateTime toUtc) {
-        return count(COUNT_WITHDRAWALS, Map.of("from", fromUtc, "to", toUtc));
+    public int countWithdrawals(
+            LocalDateTime fromUtc, LocalDateTime toUtc, ExcludedUsers excluded) {
+        return count(COUNT_WITHDRAWALS, range(fromUtc, toUtc, excluded));
     }
 
     /** 시점(asOf, exclusive) 기준 가입했고 아직 탈퇴하지 않은 유저 수 */
-    public int countActiveUsersAsOf(LocalDateTime asOfUtc) {
-        return count(COUNT_ACTIVE_AS_OF, Map.of("asOf", asOfUtc));
+    public int countActiveUsersAsOf(LocalDateTime asOfUtc, ExcludedUsers excluded) {
+        return count(COUNT_ACTIVE_AS_OF, Map.of("asOf", asOfUtc, "excluded", excluded.sqlValues()));
     }
 
-    public List<String> findSignupUserIds(LocalDateTime fromUtc, LocalDateTime toUtc) {
-        return jdbc.queryForList(
-                FIND_SIGNUP_IDS, Map.of("from", fromUtc, "to", toUtc), String.class);
+    /** 코호트 모수 — 제외 유저는 여기서 빠지므로 리텐션·코호트 매출 모두 모수에 안 들어간다 */
+    public List<String> findSignupUserIds(
+            LocalDateTime fromUtc, LocalDateTime toUtc, ExcludedUsers excluded) {
+        return jdbc.queryForList(FIND_SIGNUP_IDS, range(fromUtc, toUtc, excluded), String.class);
     }
 
     public List<SignupsByChannel> countSignupsByChannel(
-            LocalDateTime fromUtc, LocalDateTime toUtc) {
+            LocalDateTime fromUtc, LocalDateTime toUtc, ExcludedUsers excluded) {
         return jdbc.query(
                 COUNT_SIGNUPS_BY_CHANNEL,
-                Map.of("from", fromUtc, "to", toUtc),
+                range(fromUtc, toUtc, excluded),
                 (rs, i) ->
                         new SignupsByChannel(
                                 rs.getString("month"),
                                 rs.getString("channel"),
                                 rs.getInt("signups")));
+    }
+
+    private static Map<String, Object> range(
+            LocalDateTime fromUtc, LocalDateTime toUtc, ExcludedUsers excluded) {
+        return Map.of("from", fromUtc, "to", toUtc, "excluded", excluded.sqlValues());
     }
 
     private int count(String sql, Map<String, ?> params) {

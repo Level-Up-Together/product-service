@@ -40,6 +40,9 @@ public final class SubscriptionPlanMapping {
                     key(PLATFORM_ANDROID, "membership", "1m"), SubscriptionPlan.MONTHLY,
                     key(PLATFORM_ANDROID, "membership", "1y"), SubscriptionPlan.ANNUAL);
 
+    /** 매핑에 없는 상품 — 웹훅은 이 코드를 잡아 폐기한다(LUT-661) */
+    public static final String UNKNOWN_PRODUCT_CODE = "120801";
+
     private SubscriptionPlanMapping() {}
 
     /**
@@ -53,7 +56,7 @@ public final class SubscriptionPlanMapping {
     public static SubscriptionPlan resolve(String platform, String productId, String basePlanId) {
         SubscriptionPlan plan = MAPPING.get(key(platform, productId, basePlanId));
         if (plan == null) {
-            throw new CustomException("120801", "error.subscription.unknown_product");
+            throw new CustomException(UNKNOWN_PRODUCT_CODE, "error.subscription.unknown_product");
         }
         return plan;
     }

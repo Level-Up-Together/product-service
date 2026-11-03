@@ -41,7 +41,7 @@ API 라우팅 — Strategy Pattern (`MissionExecutionStrategy` 인터페이스):
 미션의 수행 방식을 결정하는 `MissionExecutionMode` enum:
 
 ```java
-TIMED   // 시간 측정 (기본값) — 60분까지 분당 1 EXP, 초과 구간 5분당 1 (LUT-568), 4시간 초과 시 자동종료
+TIMED   // 시간 측정 (기본값) — 120분까지 분당 1 EXP, 초과 구간 5분당 1 (LUT-568, LUT-696 60→120), 4시간 초과 시 자동종료
 SIMPLE  // 수행 여부 — 즉시 완료, 고정 +10 EXP (LUT-568: 5 → 10)
 ```
 
@@ -61,11 +61,11 @@ SIMPLE  // 수행 여부 — 즉시 완료, 고정 +10 EXP (LUT-568: 5 → 10)
 | 모드 | 공식 | 예 |
 |---|---|---|
 | 체크(SIMPLE) | 완료당 **10**, 하루 10회까지 | 체크 10개 = 100 |
-| 타이머(TIMED) | **60분까지 분당 1, 초과 구간 5분당 1**(`timedExp`). 완료 기본 EXP 없음(쪼개기 유인 방지: 10분×6 = 60분×1 = 60) | 33분 = 33, 240분 = 60+36 = **96** |
+| 타이머(TIMED) | **120분까지 분당 1, 초과 구간 5분당 1**(`timedExp`, LUT-696 — 예전 60분). 산정 상한 240분(자동 종료 시각). 완료 기본 EXP 없음(쪼개기 유인 방지: 10분×12 = 120분×1 = 120) | 33분 = 33, 90분 = 90, 240분 = 120+24 = **144** |
 | 체크 일일 마일스톤 | 당일 체크 완료 **3개째 +20, 5개째 +20**(각 1회). TIMED 완료는 집계 제외, 한도 초과로 EXP 0 인 체크 완료도 횟수에 포함 | 체크 5개 = 50 + 40 = 90, 체크 10개 = 140 |
 
 - 목표시간 도달: 미션북(`source=SYSTEM`) = `timedExp(target) + bonusExpOnFullCompletion`, 유저 생성(USER/GUILD) = `timedExp(target)` 캡.
-  미달 = `timedExp(실제 분)`. 목표 없는 레거시 타이머는 `timedExp(min(실제, 480))`. 240분 목표는 이제 240 이 아니라 96 이다.
+  미달 = `timedExp(실제 분)`. 목표 없는 레거시 타이머는 `timedExp(min(실제, 240))`(LUT-696 — 예전 480). 240분 목표는 이제 240 이 아니라 144 다.
 - **마일스톤 판정은 완료 Step** (`CompleteExecutionStep`/`CompletePinnedInstanceStep`)이 일일 한도와 **같은 카운트·같은 날짜 경계**
   (`executionDate`/`instanceDate`, 일반+고정 합산)로 "이번 완료 포함 누계 == 3 또는 5" 를 검사해 `context.markDailyMilestone` 로 기록하고,
   **`GrantDailyMilestoneBonusStep`**(필수 Step, `GrantUserExperience` 직후)이 `ExpSourceType.DAILY_MISSION_MILESTONE` /
@@ -74,8 +74,8 @@ SIMPLE  // 수행 여부 — 즉시 완료, 고정 +10 EXP (LUT-568: 5 → 10)
 - 응답: 완료 응답에 `milestone_bonus_exp`/`milestone_count`(미도달 시 필드 생략). 월간 캘린더(`/executions/monthly`)에
   `daily_rewards: { "yyyy-MM-dd": [ {type: ATTENDANCE|DAILY_MISSION_MILESTONE, exp, milestone?} ] }` — 경험치 이력(EVENT=출석,
   DAILY_MISSION_MILESTONE)을 (날짜·출처·sourceId) 순합으로 복원(환수된 건은 합 ≤ 0 이라 제외). `daily_exp` 는 유지(구버전 폴백).
-- 스케줄러 자동 종료(4시간 초과, 목표 없는 레거시) EXP 는 `autoCompleteExp(base-exp)` = `min(설정값, timedExp(240)=96)` — 설정 120 은
-  96 으로 클램프된다. "정상 완료의 절반" 패널티를 유지하려면 config `mission.execution.base-exp` 를 48 로 내릴 것(코드 변경 불필요).
+- 스케줄러 자동 종료(4시간 초과, 목표 없는 레거시) EXP 는 `autoCompleteExp(base-exp)` = `min(설정값, timedExp(240)=144)` — 설정 120 은
+  그대로 120 이다(LUT-696 전엔 96 으로 클램프). "정상 완료의 절반" 패널티를 유지하려면 config `mission.execution.base-exp` 를 72 로 내릴 것(코드 변경 불필요).
 - 길드 EXP 는 유저 EXP 와 같은 값(체크 10)이라 길드 포인트(`floor(min(일 EXP,60)/10)`)는 체크 6개로 상한 6점. 마일스톤 보너스는 길드 EXP 에 포함하지 않는다.
 - 어드민 미션북 템플릿 `target_duration_minutes` 도 유저 생성과 동일하게 `@Max(240)`.
 
@@ -210,7 +210,7 @@ FeedSearchType { ALL, FRIENDS, GUILD, MINE }
   - 목표 도달 시 수행 화면이 즉시 `complete?autoEnded=true` 로 완료하고(5분 주기 스케줄러보다 먼저), 서버는 스케줄러 자동 종료와 동일한
     `MissionAutoEndedEvent`(MISSION_AUTO_ENDED 푸시)를 발행한다. 화면을 닫은 뒤에는 스케줄러가 종료·발송한다. 유저 직접 완료(버튼)는 플래그 없음.
   - **EXP: 목표 달성 보너스(`bonusExpOnFullCompletion`)는 미션북(`source=SYSTEM`) 전용**. 유저 생성 미션(`source=USER`, 개인·길드)은 목표 도달 시 보너스 없이
-    `timedExp(targetDurationMinutes)` 로 캡한다(`CompleteExecutionStep`/`CompletePinnedInstanceStep` — 30분 = 30, 240분 = 96, LUT-568 공식).
+    `timedExp(targetDurationMinutes)` 로 캡한다(`CompleteExecutionStep`/`CompletePinnedInstanceStep` — 30분 = 30, 240분 = 144, LUT-568·696 공식).
     미션북 다이아(`GrantMissionBookDiamondStep`)도 SYSTEM 게이트라 영향 없음.
 
 ## Mission Auto-Complete (미션 자동 종료)
@@ -221,7 +221,7 @@ FeedSearchType { ALL, FRIENDS, GUILD, MINE }
   `DailyMissionInstanceService.completeInstance` — **정상 완료와 같은 Saga** 를 타 목표 시간 기준 EXP 지급, 이어서 `MissionAutoEndedEvent`
   (MISSION_AUTO_ENDED 푸시, LUT-510) 발행. 수행 화면이 먼저 `autoEnded=true` 로 완료하면 서버가 같은 이벤트를 낸다(LUT-551).
 - 4시간(`maxExecutionMinutes=240`) 초과 미션 (목표 시간 없는 경우): 자동 완료 (`baseExp=120` 설정이지만 LUT-568 이후 `MissionExpPolicy.autoCompleteExp`
-  = `min(baseExp, timedExp(240)=96)` 으로 클램프 — 방치가 정상 완료보다 유리해지지 않게. `isAutoCompleted=true`, QA-171)
+  = `min(baseExp, timedExp(240)=144)` 으로 클램프 — 방치가 정상 완료보다 유리해지지 않게. `isAutoCompleted=true`, QA-171)
 - 경고 알림: 시작 후 180·230분(`warningMinutesAfterStart`) 시점에 `MissionAutoEndWarningEvent` 발행 → FIRST/FINAL 2단계 푸시 (dedup).
   **목표 시간이 있는 미션은 경고 대상에서 제외**(4시간 자동 종료 대상이 아니므로)
 

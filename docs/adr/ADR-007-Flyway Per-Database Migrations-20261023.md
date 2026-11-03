@@ -1,7 +1,7 @@
 # ADR-007: Flyway Per-Database Migrations
 
 **Date:** 2026-10-23
-**Status:** Accepted (Implemented — dev 2026-10-23, prod 활성화 2026-10-28, prod 첫 적용은 v1.1.4)
+**Status:** Accepted (Implemented — dev 2026-10-23, prod 활성화 2026-10-28, prod 첫 적용은 2026-10-29 LUT-666 핫픽스 `V1_1_3_013`)
 **Deciders:** Backend Team
 **Branch:** `epic/v1.1.3`
 
@@ -82,7 +82,8 @@ xxxDataSource ──▶ xxxFlywayMigration (initMethod=migrate, classpath:db/mig
 | 2026-10-23 09:03 | `94a4f1c9` — 1차 dev 배포에서 `userEntityManagerFactory` 의 `@Primary` 가 빠져 기동 실패 → 복원 + `DataSourceConfigWiringTest` |
 | 2026-10-23 | dev 8개 DB baseline `1.1.3.7` 행 생성, 이후 `V1_1_3_008`~`012` Flyway 적용 |
 | 2026-10-28 | v1.1.3 운영 SQL(V001~V013)은 기존 방식(psql 수동)으로 적용 → 12:26 config `a86d78b` prod `enabled: true`, `baseline-version: 1.1.3.12` |
-| v1.1.4 | prod 에서 Flyway 가 파일을 적용하는 첫 릴리스 |
+| v1.1.4 | prod 에서 Flyway 가 파일을 적용하는 첫 릴리스(계획) |
+| 2026-10-29 | 계획보다 먼저 LUT-666 핫픽스 `gamification/V1_1_3_013` 이 prod 첫 Flyway 적용 파일이 됐다(`main` 운영 배포) |
 
 릴리스와 도구 교체를 한 번에 하지 않았다 — 문제가 나면 원인이 둘 중 무엇인지 가르기 어렵기 때문이다.
 
@@ -100,7 +101,7 @@ xxxDataSource ──▶ xxxFlywayMigration (initMethod=migrate, classpath:db/mig
 - **설정이 9배**: Flyway 빈·폴더·이력 표가 DB 마다 있다. 새 DB 를 추가할 때 손댈 곳이 늘었다(폴더, 네이밍 테스트 목록, Flyway 빈 + `@DependsOn`, 배선 테스트 목록).
 - **Flyway SQL 은 테스트에서 실행되지 않는다** (테스트는 H2 + create-drop). dev 배포가 첫 실검증이다.
 - **DB 간 순서는 Flyway 가 모른다.** 9개 빈 사이 실행 순서를 보장하지 않으므로 DB 간 의존은 설계로 피해야 한다.
-- **두 갈래 유지**: 큰 데이터 보정과 `admin_db`(admin-service 에 Flyway 없음)는 여전히 SQL 레포 + 수동이다. v1.1.3 은 prod Flyway 가 꺼져 있어 V008~V012 가 두 레포에 같은 내용으로 존재했다.
+- **두 갈래 유지**: 큰 데이터 보정은 여전히 SQL 레포 + 수동이다. `admin_db` 도 v1.1.3 까지는 SQL 레포였고, v1.1.4 부터 admin-service 자체 Flyway 다(LUT-676). v1.1.3 은 prod Flyway 가 꺼져 있어 V008~V012 가 두 레포에 같은 내용으로 존재했다.
 - **기동 실패 반경**: 마이그레이션이 실패하면 서버가 뜨지 않는다. 롤링 배포가 EC2 #1 에서 멈추고 #2 는 옛 코드로 남는다.
 
 ### Risks & Mitigations

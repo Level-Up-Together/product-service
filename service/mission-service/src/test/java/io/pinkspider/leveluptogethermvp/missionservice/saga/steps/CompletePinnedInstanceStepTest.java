@@ -206,7 +206,7 @@ class CompletePinnedInstanceStepTest {
         }
 
         @Test
-        @DisplayName("LUT-568: 유저 고정 타이머 120분 목표 도달은 공식값 72 로 되돌린다")
+        @DisplayName("LUT-568: 유저 고정 타이머 120분 목표 도달은 공식값 120 으로 되돌린다")
         void execute_userPinnedTimer_target120_appliesFormula() {
             // given
             instance.setTargetDurationMinutes(120);
@@ -218,14 +218,14 @@ class CompletePinnedInstanceStepTest {
             // when
             SagaStepResult result = completePinnedInstanceStep.execute(context);
 
-            // then: timedExp(120) = 60 + 12
+            // then: timedExp(120) = 120 (LUT-696)
             assertThat(result.isSuccess()).isTrue();
-            assertThat(instance.getExpEarned()).isEqualTo(72);
-            assertThat(context.getUserExpEarned()).isEqualTo(72);
+            assertThat(instance.getExpEarned()).isEqualTo(120);
+            assertThat(context.getUserExpEarned()).isEqualTo(120);
         }
 
         @Test
-        @DisplayName("LUT-568: 미션북 고정 타이머 120분 목표 도달은 공식값 72 + 보너스")
+        @DisplayName("LUT-568: 미션북 고정 타이머 120분 목표 도달은 공식값 120 + 보너스")
         void execute_systemPinnedTimer_target120_formulaPlusBonus() {
             // given
             mission.setSource(MissionSource.SYSTEM);
@@ -239,7 +239,7 @@ class CompletePinnedInstanceStepTest {
             completePinnedInstanceStep.execute(context);
 
             // then
-            assertThat(instance.getExpEarned()).isEqualTo(102);
+            assertThat(instance.getExpEarned()).isEqualTo(150);
             assertThat(context.getFullCompletionBonusExp()).isEqualTo(30);
         }
 

@@ -6,6 +6,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anySet;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
@@ -28,10 +29,12 @@ import io.pinkspider.leveluptogethermvp.gamificationservice.shop.infrastructure.
 import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -98,7 +101,7 @@ class ItemPushSchedulerTest {
         when(missionQueryFacade.findMissionCompletedLocalDates(any(), any(), any(), any()))
                 .thenReturn(Map.of());
         when(itemPushDispatchService.trySendForUser(
-                        any(), any(), any(), any(), any(), anyList(), anySet()))
+                        any(), any(), any(), any(), any(), anyList(), anySet(), any()))
                 .thenReturn(ItemPushDispatchOutcome.SENT);
         scheduler.setClock(Clock.fixed(SEOUL_09_00, ZoneOffset.UTC));
     }
@@ -121,12 +124,13 @@ class ItemPushSchedulerTest {
                         eq(slot),
                         eq(time),
                         anyList(),
-                        anySet());
+                        anySet(),
+                        any());
     }
 
     private void verifyNothingDispatched() {
         verify(itemPushDispatchService, never())
-                .trySendForUser(any(), any(), any(), any(), any(), anyList(), anySet());
+                .trySendForUser(any(), any(), any(), any(), any(), anyList(), anySet(), any());
     }
 
     // ===== LUT-573: 슬롯 3개 =====
@@ -143,7 +147,7 @@ class ItemPushSchedulerTest {
 
             verifyDispatched(ItemPushSlot.BEFORE_ACTIVITY, "09:00");
             verify(itemPushDispatchService, times(1))
-                    .trySendForUser(any(), any(), any(), any(), any(), anyList(), anySet());
+                    .trySendForUser(any(), any(), any(), any(), any(), anyList(), anySet(), any());
         }
 
         @Test
@@ -187,7 +191,8 @@ class ItemPushSchedulerTest {
                             eq(ItemPushSlot.AFTER_COMPLETE),
                             any(),
                             anyList(),
-                            anySet());
+                            anySet(),
+                            any());
         }
 
         @Test
@@ -309,7 +314,8 @@ class ItemPushSchedulerTest {
                         eq(ItemPushSlot.BEFORE_ACTIVITY),
                         eq("09:00"),
                         anyList(),
-                        anySet());
+                        anySet(),
+                        any());
     }
 
     @Test
@@ -322,7 +328,7 @@ class ItemPushSchedulerTest {
         when(userQueryFacade.getPreferredTimezones(any())).thenReturn(Map.of());
         scheduler.sendEquippedItemPushes();
         verify(itemPushDispatchService, times(1))
-                .trySendForUser(any(), any(), any(), any(), any(), anyList(), anySet());
+                .trySendForUser(any(), any(), any(), any(), any(), anyList(), anySet(), any());
         // 두 번째 호출은 메모로 스킵됨 (같은 날·같은 슬롯)
     }
 
@@ -335,7 +341,8 @@ class ItemPushSchedulerTest {
                 .thenReturn(Map.of("user-fail", "Asia/Seoul", USER_ID, "Asia/Seoul"));
         doThrow(new RuntimeException("dispatch boom"))
                 .when(itemPushDispatchService)
-                .trySendForUser(eq("user-fail"), any(), any(), any(), any(), anyList(), anySet());
+                .trySendForUser(
+                        eq("user-fail"), any(), any(), any(), any(), anyList(), anySet(), any());
 
         scheduler.sendEquippedItemPushes();
 
@@ -394,7 +401,7 @@ class ItemPushSchedulerTest {
             fresh.setClock(Clock.fixed(Instant.parse("2026-07-26T23:59:00Z"), ZoneOffset.UTC));
             fresh.sendEquippedItemPushes();
             verify(itemPushDispatchService, times(2))
-                    .trySendForUser(any(), any(), any(), any(), any(), anyList(), anySet());
+                    .trySendForUser(any(), any(), any(), any(), any(), anyList(), anySet(), any());
         }
 
         @Test
@@ -420,7 +427,7 @@ class ItemPushSchedulerTest {
             scheduler.sendEquippedItemPushes();
 
             verify(itemPushDispatchService, times(1))
-                    .trySendForUser(any(), any(), any(), any(), any(), anyList(), anySet());
+                    .trySendForUser(any(), any(), any(), any(), any(), anyList(), anySet(), any());
             verify(missionQueryFacade, times(1))
                     .findMissionCompletedLocalDates(any(), any(), any(), any());
         }
@@ -441,7 +448,8 @@ class ItemPushSchedulerTest {
                             eq(ItemPushSlot.BEFORE_ACTIVITY),
                             eq("09:00"),
                             anyList(),
-                            anySet());
+                            anySet(),
+                            any());
             verify(itemPushDispatchService)
                     .trySendForUser(
                             eq(USER_ID),
@@ -450,7 +458,8 @@ class ItemPushSchedulerTest {
                             eq(ItemPushSlot.BEFORE_ACTIVITY),
                             eq("09:00"),
                             anyList(),
-                            anySet());
+                            anySet(),
+                            any());
         }
 
         @Test
@@ -459,7 +468,8 @@ class ItemPushSchedulerTest {
             doThrow(new RuntimeException("transient"))
                     .doReturn(ItemPushDispatchOutcome.SENT)
                     .when(itemPushDispatchService)
-                    .trySendForUser(eq(USER_ID), any(), any(), any(), any(), anyList(), anySet());
+                    .trySendForUser(
+                            eq(USER_ID), any(), any(), any(), any(), anyList(), anySet(), any());
 
             at(SEOUL_09_00);
             scheduler.sendEquippedItemPushes();
@@ -474,7 +484,8 @@ class ItemPushSchedulerTest {
                             eq(ItemPushSlot.BEFORE_ACTIVITY),
                             eq("09:00"),
                             anyList(),
-                            anySet());
+                            anySet(),
+                            any());
         }
 
         @Test
@@ -516,7 +527,8 @@ class ItemPushSchedulerTest {
                             eq(ItemPushSlot.BEFORE_ACTIVITY),
                             eq("09:00"),
                             anyList(),
-                            anySet());
+                            anySet(),
+                            any());
             verify(itemPushDispatchService)
                     .trySendForUser(
                             eq(USER_ID),
@@ -525,7 +537,8 @@ class ItemPushSchedulerTest {
                             eq(ItemPushSlot.BEFORE_ACTIVITY),
                             eq("09:00"),
                             anyList(),
-                            anySet());
+                            anySet(),
+                            any());
         }
 
         private ItemPushScheduler freshScheduler() {
@@ -538,6 +551,137 @@ class ItemPushSchedulerTest {
                             missionQueryFacade,
                             itemPushDispatchService);
             return s;
+        }
+    }
+
+    @Nested
+    @DisplayName("LUT-543: 장기 휴면 백오프 — 15일 창에 완료가 없는 유저만 91일 창 추가 조회, 완료 이력 없으면 가입일")
+    class LongDormantBackoff {
+
+        // today(Seoul) = 2026-07-27 → 15일 창 시작 07-12 00:00 KST = 07-11T15:00Z, 91일 창 시작 04-27 00:00
+        // KST = 04-26T15:00Z
+        private final LocalDateTime window15StartUtc = LocalDateTime.of(2026, 7, 11, 15, 0);
+        private final LocalDateTime lookback91StartUtc = LocalDateTime.of(2026, 4, 26, 15, 0);
+
+        @BeforeEach
+        void noon() {
+            at(SEOUL_12_00);
+        }
+
+        @Test
+        @DisplayName("정오 — 15일 창 완료 없음 → [오늘-91, 오늘-15) 추가 조회 결과를 합쳐 넘긴다, 가입일은 조회하지 않는다")
+        void looksBack91DaysWhenRecentWindowEmpty() {
+            when(missionQueryFacade.findMissionCompletedLocalDates(
+                            any(), eq(lookback91StartUtc), eq(window15StartUtc), eq("Asia/Seoul")))
+                    .thenReturn(Map.of(USER_ID, Set.of(SEOUL_DATE.minusDays(40))));
+
+            scheduler.sendEquippedItemPushes();
+
+            verify(itemPushDispatchService)
+                    .trySendForUser(
+                            eq(USER_ID),
+                            any(),
+                            eq(SEOUL_DATE),
+                            eq(ItemPushSlot.INACTIVE),
+                            any(),
+                            anyList(),
+                            eq(Set.of(SEOUL_DATE.minusDays(40))),
+                            isNull());
+            verify(missionQueryFacade, times(2))
+                    .findMissionCompletedLocalDates(any(), any(), any(), any());
+            verify(userQueryFacade, never()).getCreatedAts(any());
+        }
+
+        @Test
+        @DisplayName("정오 — 91일 안에도 완료가 없으면 가입 시각(UTC)을 유저 로컬 날짜로 바꿔 넘긴다")
+        void usesSignupDateWhenNeverCompleted() {
+            // 2026-07-20 20:00Z = Seoul 07-21 05:00 → 가입일 07-21
+            when(userQueryFacade.getCreatedAts(List.of(USER_ID)))
+                    .thenReturn(Map.of(USER_ID, LocalDateTime.of(2026, 7, 20, 20, 0)));
+
+            scheduler.sendEquippedItemPushes();
+
+            verify(itemPushDispatchService)
+                    .trySendForUser(
+                            eq(USER_ID),
+                            any(),
+                            eq(SEOUL_DATE),
+                            eq(ItemPushSlot.INACTIVE),
+                            any(),
+                            anyList(),
+                            eq(Set.of()),
+                            eq(LocalDate.of(2026, 7, 21)));
+            verify(missionQueryFacade)
+                    .findMissionCompletedLocalDates(
+                            eq(List.of(USER_ID)),
+                            eq(lookback91StartUtc),
+                            eq(window15StartUtc),
+                            eq("Asia/Seoul"));
+        }
+
+        @Test
+        @DisplayName("정오 — 가입 시각도 없으면(탈퇴 등) 가입일 null 로 넘긴다")
+        void nullSignupWhenUnknown() {
+            when(userQueryFacade.getCreatedAts(any())).thenReturn(Map.of());
+
+            scheduler.sendEquippedItemPushes();
+
+            verify(itemPushDispatchService)
+                    .trySendForUser(
+                            eq(USER_ID),
+                            any(),
+                            any(),
+                            any(),
+                            any(),
+                            anyList(),
+                            eq(Set.of()),
+                            isNull());
+        }
+
+        @Test
+        @DisplayName("정오 — 15일 창에 완료가 있으면 추가 조회·가입일 조회 모두 없음")
+        void recentCompletionSkipsLookBack() {
+            when(missionQueryFacade.findMissionCompletedLocalDates(
+                            any(), eq(window15StartUtc), any(), any()))
+                    .thenReturn(Map.of(USER_ID, Set.of(SEOUL_DATE.minusDays(3))));
+
+            scheduler.sendEquippedItemPushes();
+
+            verify(missionQueryFacade, times(1))
+                    .findMissionCompletedLocalDates(any(), any(), any(), any());
+            verify(userQueryFacade, never()).getCreatedAts(any());
+            verify(itemPushDispatchService)
+                    .trySendForUser(
+                            eq(USER_ID),
+                            any(),
+                            any(),
+                            eq(ItemPushSlot.INACTIVE),
+                            any(),
+                            anyList(),
+                            eq(Set.of(SEOUL_DATE.minusDays(3))),
+                            isNull());
+        }
+
+        @Test
+        @DisplayName("아침 슬롯은 완료가 없어도 추가 조회하지 않는다(백오프는 정오만)")
+        void morningNeverLooksBack() {
+            at(SEOUL_09_00);
+
+            scheduler.sendEquippedItemPushes();
+
+            verify(missionQueryFacade, times(1))
+                    .findMissionCompletedLocalDates(any(), any(), any(), any());
+            verify(userQueryFacade, never()).getCreatedAts(any());
+            verify(itemPushDispatchService)
+                    .trySendForUser(
+                            eq(USER_ID),
+                            any(),
+                            any(),
+                            eq(ItemPushSlot.BEFORE_ACTIVITY),
+                            any(),
+                            anyList(),
+                            anySet(),
+                            isNull());
         }
     }
 

@@ -12,9 +12,10 @@ maxTurns: 40
 ## 프로젝트 테스트 구조
 
 ```
-src/test/java/io/pinkspider/leveluptogethermvp/{servicename}/  - 테스트 코드
-src/test/resources/fixture/{servicename}/                       - JSON 픽스처
-src/test/resources/config/                                      - 테스트 설정
+service/{name}-service/src/test/java/io/pinkspider/leveluptogethermvp/{servicename}/  - 테스트 코드
+service/{name}-service/src/test/resources/fixture/{servicename}/                       - JSON 픽스처
+service/shared-test/src/test/java/                     - 공용 (ControllerTestConfig, BaseTestController, MockUtil)
+app/src/main/resources/config/application-test.yml     - 테스트 프로필 설정
 ```
 
 ## 테스트 유형별 패턴
@@ -153,9 +154,9 @@ class {TargetService}IntegrationTest {
 1. **대상 코드 분석**: 사용자가 지정한 클래스를 읽고 메서드, 의존성, 반환 타입을 파악
 2. **기존 테스트 참고**: 같은 서비스의 기존 테스트가 있으면 읽어서 패턴 확인
 3. **테스트 유형 결정**: Controller → WebMvcTest, Service → MockitoExtension
-4. **픽스처 생성**: 필요한 JSON 픽스처 파일을 `src/test/resources/fixture/{servicename}/` 에 생성
+4. **픽스처 생성**: 필요한 JSON 픽스처 파일을 `service/{name}-service/src/test/resources/fixture/{servicename}/` 에 생성
 5. **테스트 코드 생성**: 위 패턴을 따라 테스트 코드 작성
-6. **검증**: `./gradlew test --tests "{TestClassName}"` 으로 컴파일 및 실행 확인
+6. **검증**: `./gradlew :service:test --tests "*.{TestClassName}"` 으로 컴파일 및 실행 확인
 
 ## 테스트 커버리지 원칙
 
@@ -170,7 +171,7 @@ class {TargetService}IntegrationTest {
 
 - 파일명: `mock{DtoName}.json` 또는 `{descriptiveName}.json`
 - API 필드는 snake_case (`@JsonProperty` 매핑 따라감)
-- 경로: `src/test/resources/fixture/{servicename}/`
+- 경로: `service/{name}-service/src/test/resources/fixture/{servicename}/`
 - MockUtil로 로드: `MockUtil.readJsonFileToClass("fixture/...", Class.class)`
 - List 로드: `MockUtil.readJsonFileToClassList("fixture/...", new TypeReference<>() {})`
 

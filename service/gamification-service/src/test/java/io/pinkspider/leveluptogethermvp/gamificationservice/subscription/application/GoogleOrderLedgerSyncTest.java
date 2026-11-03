@@ -473,4 +473,109 @@ class GoogleOrderLedgerSyncTest {
         assertThat(GoogleOrderLedgerSync.suffixOf(BASE)).isZero();
         assertThat(GoogleOrderLedgerSync.suffixOf("")).isNull();
     }
+
+    @Nested
+    @DisplayName("초회 주문 정정 (LUT-677)")
+    class InitialOrderCorrectionTest {
+
+        private SubscriptionPaymentHistory purchaseRow(PriceSource source, boolean trial) {
+            return SubscriptionPaymentHistory.builder()
+                    .userId("user-1")
+                    .platform("android")
+                    .productId("membership")
+                    .basePlanId("1m")
+                    .plan(SubscriptionPlan.MONTHLY)
+                    .eventType(SubscriptionPaymentEventType.PURCHASE)
+                    .trial(trial)
+                    .priceAmount(trial ? BigDecimal.ZERO : new BigDecimal("4900.00"))
+                    .priceCurrency("KRW")
+                    .priceSource(source)
+                    .transactionId(BASE)
+                    .expiresAt(T0.plusMinutes(5))
+                    .occurredAt(T0.plusMinutes(1))
+                    .build();
+        }
+
+        private GoogleOrder initialOrder() {
+            return new GoogleOrder(
+                    BASE, "PROCESSED", T0, new BigDecimal("4900.00"), "KRW", T0, T0.plusMinutes(5));
+        }
+
+        @Test
+        @DisplayName("정가(LIST)로 기록된 PURCHASE 행을 orders.get 의 시각·금액(STORE)으로 고친다")
+        void correctsListPurchaseRowFromOrder() {
+            SubscriptionPaymentHistory row = purchaseRow(PriceSource.LIST, false);
+            when(repository.findByUserIdAndEventTypeAndTransactionId(
+                            "user-1", SubscriptionPaymentEventType.PURCHASE, BASE))
+                    .thenReturn(List.of(row));
+            when(verificationService.fetchGoogleOrder(BASE))
+                    .thenReturn(Optional.of(initialOrder()));
+
+            int written = sync.syncRenewals(sub, BASE, false, T0.plusMinutes(5), null, false);
+
+            assertThat(written).isEqualTo(2); // 예전 방식 1건 + 정정 1건
+            assertThat(row.getPriceSource()).isEqualTo(PriceSource.STORE);
+            assertThat(row.getOccurredAt()).isEqualTo(T0);
+            assertThat(row.getExpiresAt()).isEqualTo(T0.plusMinutes(5)); // 만료는 건드리지 않는다
+            verify(repository).flush();
+            verify(metrics).ledgerRowsWritten("rtdn", 1);
+        }
+
+        @Test
+        @DisplayName("이미 STORE 이거나 무료 체험 행이면 주문을 조회하지 않는다 — 매일 도는 정합이 반복 조회하지 않게")
+        void skipsStoreAndTrialRows() {
+            when(repository.findByUserIdAndEventTypeAndTransactionId(
+                            "user-1", SubscriptionPaymentEventType.PURCHASE, BASE))
+                    .thenReturn(
+                            List.of(purchaseRow(PriceSource.STORE, false)),
+                            List.of(purchaseRow(PriceSource.TRIAL, true)));
+
+            assertThat(sync.syncRenewals(sub, BASE, false, T0.plusMinutes(5), null, false))
+                    .isEqualTo(1);
+            assertThat(sync.syncRenewals(sub, BASE, true, T0.plusMinutes(5), null, false))
+                    .isEqualTo(1);
+            verify(verificationService, never()).fetchGoogleOrder(anyString());
+        }
+
+        @Test
+        @DisplayName("갱신 연번 대조 뒤에도 초회 주문을 함께 정정하고, 카운터는 호출자가 준 source 로 남긴다 (일일 정합 = daily)")
+        void correctsInitialOrderAfterRenewalSyncWithSourceLabel() {
+            when(repository.findByUserIdAndTransactionIdStartingWith("user-1", BASE))
+                    .thenReturn(List.of(row(BASE + "..1", T0.plusMinutes(10), T0.plusMinutes(5))));
+            when(verificationService.fetchGoogleOrder(BASE + "..2"))
+                    .thenReturn(Optional.of(order(2)));
+            when(repository.findByUserIdAndEventTypeAndTransactionId(
+                            "user-1", SubscriptionPaymentEventType.PURCHASE, BASE))
+                    .thenReturn(List.of(purchaseRow(PriceSource.LIST, false)));
+            when(verificationService.fetchGoogleOrder(BASE))
+                    .thenReturn(Optional.of(initialOrder()));
+
+            int written =
+                    sync.syncRenewals(
+                            sub, BASE + "..2", false, T0.plusMinutes(15), null, false, "daily");
+
+            assertThat(written).isEqualTo(2); // ..2 백필 1 + 초회 정정 1
+            verify(metrics).ledgerRowsWritten("daily", 2);
+        }
+
+        @Test
+        @DisplayName("초회 주문 조회가 실패하거나 금액이 없으면 그대로 둔다 — 권한 동기화를 막지 않는다")
+        void leavesRowWhenOrderUnavailable() {
+            SubscriptionPaymentHistory row = purchaseRow(PriceSource.LIST, false);
+            when(repository.findByUserIdAndEventTypeAndTransactionId(
+                            "user-1", SubscriptionPaymentEventType.PURCHASE, BASE))
+                    .thenReturn(List.of(row));
+            when(verificationService.fetchGoogleOrder(BASE))
+                    .thenThrow(new StoreTransientException("timeout", new RuntimeException()))
+                    .thenReturn(Optional.empty());
+
+            assertThat(sync.syncRenewals(sub, BASE, false, T0.plusMinutes(5), null, false))
+                    .isEqualTo(1);
+            assertThat(sync.syncRenewals(sub, BASE, false, T0.plusMinutes(5), null, false))
+                    .isEqualTo(1);
+            assertThat(row.getPriceSource()).isEqualTo(PriceSource.LIST);
+            verify(metrics).orderLookupFailed("transient");
+            verify(metrics).orderLookupFailed("not_found");
+        }
+    }
 }

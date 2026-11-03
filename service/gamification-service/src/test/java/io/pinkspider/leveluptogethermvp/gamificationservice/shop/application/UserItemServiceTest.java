@@ -391,4 +391,44 @@ class UserItemServiceTest {
             verify(userItemRepository, never()).findEquippedByUserIdIn(any());
         }
     }
+
+    @Nested
+    @DisplayName("어드민 보유 아이템 조회 (LUT-657)")
+    class GetItemsForAdminTest {
+
+        @Test
+        @DisplayName("보유 아이템을 착용 여부·희귀도 라벨/색과 함께 돌려주고, 기본 아이템 lazy 지급은 하지 않는다")
+        void returnsItemsWithoutLazyGrant() {
+            ShopItem sprout =
+                    ShopItem.builder()
+                            .id(6L)
+                            .name("성장의 새싹")
+                            .nameEn("Sprout")
+                            .itemType(
+                                    io.pinkspider.leveluptogethermvp.gamificationservice.shop.domain
+                                            .enums.ShopItemType.HEAD)
+                            .rarity(io.pinkspider.global.enums.TitleRarity.RARE)
+                            .build();
+            UserItem owned =
+                    UserItem.builder()
+                            .userId("user-1")
+                            .shopItem(sprout)
+                            .isEquipped(true)
+                            .acquiredAt(java.time.LocalDateTime.of(2026, 11, 2, 10, 0))
+                            .build();
+            when(userItemRepository.findByUserIdWithItem("user-1")).thenReturn(List.of(owned));
+
+            List<
+                            io.pinkspider.leveluptogethermvp.gamificationservice.shop.domain.dto
+                                    .UserItemAdminResponse>
+                    result = userItemService.getItemsForAdmin("user-1");
+
+            assertThat(result).hasSize(1);
+            assertThat(result.get(0).shopItemId()).isEqualTo(6L);
+            assertThat(result.get(0).rarityName()).isEqualTo("희귀");
+            assertThat(result.get(0).rarityColorCode()).isEqualTo("#00F9FF");
+            assertThat(result.get(0).isEquipped()).isTrue();
+            verify(userItemCreator, never()).create(any(), any());
+        }
+    }
 }

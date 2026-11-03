@@ -3,6 +3,7 @@ package io.pinkspider.leveluptogethermvp.gamificationservice.subscription.applic
 import com.apple.itunes.storekit.model.JWSRenewalInfoDecodedPayload;
 import com.apple.itunes.storekit.model.JWSTransactionDecodedPayload;
 import io.pinkspider.global.exception.CustomException;
+import io.pinkspider.leveluptogethermvp.gamificationservice.subscription.application.SubscriptionRefundAmountResolver.RefundAmount;
 import io.pinkspider.leveluptogethermvp.gamificationservice.subscription.domain.SubscriptionAccountToken;
 import io.pinkspider.leveluptogethermvp.gamificationservice.subscription.domain.SubscriptionPlanMapping;
 import io.pinkspider.leveluptogethermvp.gamificationservice.subscription.domain.dto.AppleSubscriptionNotification;
@@ -39,6 +40,7 @@ public class SubscriptionWebhookTxService {
     private final SubscriptionPaymentHistoryRecorder paymentHistoryRecorder;
     private final SubscriptionGrantTxService grantTxService;
     private final GoogleOrderLedgerSync ledgerSync;
+    private final SubscriptionRefundAmountResolver refundAmountResolver;
 
     /** 주인 교체를 검토하는 결제성 알림 — 새 거래(구매·갱신·오퍼)가 동반되는 타입만 */
     private static final Set<String> APPLE_PAYMENT_TYPES =
@@ -122,13 +124,14 @@ public class SubscriptionWebhookTxService {
                                         transaction.getRevocationDate())
                                 : LocalDateTime.now();
                 revoke(subscription, revokedAt);
-                // LUT-486: 환불 이력 — 환불액은 payload 에 없어 가격 null
+                // LUT-663: 환불액 = 환불 알림 거래의 price/currency → 없으면 원 결제 행 → 그래도 없으면 정가(기록기)
+                RefundAmount refund = refundAmountResolver.forApple(subscription, transaction);
                 paymentHistoryRecorder.record(
                         subscription,
                         SubscriptionPaymentEventType.REFUND,
                         false,
-                        null,
-                        null,
+                        refund.amount(),
+                        refund.currency(),
                         transaction.getTransactionId(),
                         revokedAt,
                         revokedAt);
@@ -168,12 +171,14 @@ public class SubscriptionWebhookTxService {
                     SubscriptionVerificationService.toLocalDateTime(
                             transaction.getRevocationDate());
             revoke(subscription, revokedAt);
+            RefundAmount refund =
+                    refundAmountResolver.forApple(subscription, transaction); // LUT-663
             paymentHistoryRecorder.record(
                     subscription,
                     SubscriptionPaymentEventType.REFUND,
                     false,
-                    null,
-                    null,
+                    refund.amount(),
+                    refund.currency(),
                     transaction.getTransactionId(),
                     revokedAt,
                     revokedAt);
@@ -433,9 +438,15 @@ public class SubscriptionWebhookTxService {
                 subscription.getAutoRenew());
     }
 
-    /** 환불/회수(REVOKED·voidedPurchase) — 권한 즉시 종료 */
+    /** REVOKED(12) 알림 — 주문 ID 가 없어 환불액은 원 결제 행으로 폴백한다 (LUT-663) */
     @Transactional(transactionManager = "gamificationTransactionManager")
     public void revokeByPurchaseToken(String purchaseToken) {
+        revokeByPurchaseToken(purchaseToken, null);
+    }
+
+    /** 환불/회수(REVOKED·voidedPurchase) — 권한 즉시 종료 */
+    @Transactional(transactionManager = "gamificationTransactionManager")
+    public void revokeByPurchaseToken(String purchaseToken, String orderId) {
         UserSubscription subscription =
                 userSubscriptionRepository.findByPurchaseToken(purchaseToken).orElse(null);
         if (subscription == null) {
@@ -444,14 +455,15 @@ public class SubscriptionWebhookTxService {
         }
         LocalDateTime revokedAt = LocalDateTime.now();
         revoke(subscription, revokedAt);
-        // LUT-486: 환불 이력 — 환불액 미제공, 가격 null
+        // LUT-663: 환불액 = voided 주문 ID 로 Orders API → 없으면 원 결제 행 → 정가(기록기). 거래 ID 는 주문 ID(있으면)
+        RefundAmount refund = refundAmountResolver.forGoogle(subscription, orderId);
         paymentHistoryRecorder.record(
                 subscription,
                 SubscriptionPaymentEventType.REFUND,
                 false,
-                null,
-                null,
-                null,
+                refund.amount(),
+                refund.currency(),
+                orderId,
                 revokedAt,
                 revokedAt);
         log.info("RTDN 환불/회수 — 권한 종료: userId={}", subscription.getUserId());

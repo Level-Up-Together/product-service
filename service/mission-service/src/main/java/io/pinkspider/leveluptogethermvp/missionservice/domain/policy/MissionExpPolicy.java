@@ -9,7 +9,8 @@ import java.util.List;
  * <ul>
  *   <li>체크(SIMPLE): 완료당 {@link #SIMPLE_EXP}, 하루 {@link #SIMPLE_DAILY_LIMIT}회까지만 지급 (초과분은 0)
  *   <li>타이머(TIMED): {@link #TIMED_FULL_RATE_MINUTES}분까지 분당 1, 초과 구간은 {@link
- *       #TIMED_REDUCED_RATE_MINUTES_PER_EXP}분당 1 (예: 240분 → 60 + 36 = 96). 완료 기본 경험치 없음 — 쪼개기 유인 방지
+ *       #TIMED_REDUCED_RATE_MINUTES_PER_EXP}분당 1 (예: 240분 → 120 + 24 = 144). 완료 기본 경험치 없음 — 쪼개기 유인
+ *       방지. 하향 시작은 LUT-696 에서 60분 → 120분(1~2시간 집중은 하향 없이, 장시간 방치 억제는 유지)
  *   <li>체크 일일 마일스톤: 당일 체크 완료 {@link #SIMPLE_DAILY_MILESTONES}개째마다 {@link #MILESTONE_BONUS_EXP} (각
  *       1회, 한도 초과로 0 처리된 완료도 횟수에 포함)
  * </ul>
@@ -25,14 +26,17 @@ public final class MissionExpPolicy {
     /** 체크 미션 하루 경험치 지급 한도 횟수 (QA-130). */
     public static final int SIMPLE_DAILY_LIMIT = 10;
 
-    /** 타이머 미션이 분당 1 EXP 를 받는 상한(분). */
-    public static final int TIMED_FULL_RATE_MINUTES = 60;
+    /** 타이머 미션이 분당 1 EXP 를 받는 상한(분). LUT-696: 60 → 120. 웹 {@code mission-exp.ts} 의 같은 상수와 함께 바꿀 것 */
+    public static final int TIMED_FULL_RATE_MINUTES = 120;
 
     /** 상한 초과 구간의 환산 단위(분당 0.2 = 5분당 1). */
     public static final int TIMED_REDUCED_RATE_MINUTES_PER_EXP = 5;
 
-    /** 목표시간 없는 레거시 타이머 미션의 경험치 산정 상한(분). */
-    public static final int TIMED_MAX_MINUTES = 480;
+    /**
+     * 타이머 경험치 산정 상한(분) — 목표시간 최대치이자 자동 종료 시각({@link #AUTO_COMPLETE_MINUTES})과 같다. LUT-696: 480 →
+     * 240 (목표시간 없는 레거시·미션북 타이머도 240분에 자동 종료되므로 그 너머는 산정하지 않는다)
+     */
+    public static final int TIMED_MAX_MINUTES = 240;
 
     /** 스케줄러 자동 종료 상한(분) — {@code MissionExecutionLifecycle.MAXIMUM_EXECUTION_MINUTES} 와 동일. */
     public static final int AUTO_COMPLETE_MINUTES = 240;
@@ -77,7 +81,7 @@ public final class MissionExpPolicy {
 
     /**
      * 스케줄러 자동 종료(4시간 초과, 목표시간 없는 레거시 미션) 경험치. 설정값({@code mission.execution.base-exp})을 쓰되 정상적으로
-     * 4시간을 채운 완료({@code timedExp(240)})보다 많이 줄 수는 없다 — 방치가 정상 완료보다 유리해지는 어뷰징 경로를 막는다.
+     * 4시간을 채운 완료({@code timedExp(240)} = 144)보다 많이 줄 수는 없다 — 방치가 정상 완료보다 유리해지는 어뷰징 경로를 막는다.
      */
     public static int autoCompleteExp(int configuredBaseExp) {
         return Math.min(configuredBaseExp, timedExp(AUTO_COMPLETE_MINUTES));

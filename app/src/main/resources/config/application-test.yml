@@ -52,11 +52,6 @@ spring:
       username: sa
       password:
       driver-class-name: org.h2.Driver
-    saga:
-      jdbc-url: jdbc:h2:mem:saga_db;MODE=PostgreSQL;DB_CLOSE_DELAY=-1;DATABASE_TO_UPPER=FALSE;INIT=CREATE SCHEMA IF NOT EXISTS saga_db
-      username: sa
-      password:
-      driver-class-name: org.h2.Driver
     notification:
       jdbc-url: jdbc:h2:mem:notification_db;MODE=PostgreSQL;DB_CLOSE_DELAY=-1;DATABASE_TO_UPPER=FALSE;INIT=CREATE SCHEMA IF NOT EXISTS notification_db
       username: sa

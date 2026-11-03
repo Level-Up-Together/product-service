@@ -18,8 +18,10 @@ import io.pinkspider.leveluptogethermvp.gamificationservice.subscription.domain.
 import io.pinkspider.leveluptogethermvp.gamificationservice.subscription.infrastructure.SubscriptionPaymentHistoryRepository;
 import io.pinkspider.leveluptogethermvp.gamificationservice.subscription.infrastructure.UserSubscriptionRepository;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -188,5 +190,94 @@ class SubscriptionLedgerReconcileServiceTest {
                 .isInstanceOf(CustomException.class)
                 .extracting("code")
                 .isEqualTo("120702");
+    }
+
+    @Nested
+    @DisplayName("일일 정합 (LUT-677)")
+    class DailyTest {
+
+        private UserSubscription androidSub(String userId) {
+            return UserSubscription.builder()
+                    .userId(userId)
+                    .platform("android")
+                    .productId("membership")
+                    .basePlanId("1m")
+                    .plan(SubscriptionPlan.MONTHLY)
+                    .startedAt(NOW.minusDays(3))
+                    .expiresAt(NOW.plusDays(27))
+                    .autoRenew(true)
+                    .trialUsed(false)
+                    .purchaseToken("token-" + userId)
+                    .build();
+        }
+
+        @Test
+        @DisplayName("대상은 활성·최근 만료(7일) Android 구독의 userId 다")
+        void findsTargets() {
+            LocalDateTime now = LocalDateTime.of(2026, 11, 3, 0, 30);
+            when(userSubscriptionRepository
+                            .findByPlatformAndPurchaseTokenIsNotNullAndExpiresAtAfter(
+                                    "android", now.minusDays(7)))
+                    .thenReturn(List.of(androidSub("user-1"), androidSub("user-2")));
+
+            assertThat(service.findAndroidDailyTargets(now)).containsExactly("user-1", "user-2");
+        }
+
+        @Test
+        @DisplayName("증분 대조는 Play 재조회 뒤 마지막 연번 다음부터(full=false), 카운터 라벨 daily 로 동기화한다")
+        void incrementalSyncsWithDailySource() {
+            UserSubscription sub = androidSub("user-1");
+            when(userSubscriptionRepository.findByUserId("user-1")).thenReturn(Optional.of(sub));
+            GoogleSubscriptionState state =
+                    new GoogleSubscriptionState(
+                            "membership",
+                            "1m",
+                            NOW.minusDays(3),
+                            NOW.plusDays(27),
+                            true,
+                            false,
+                            "SUBSCRIPTION_STATE_ACTIVE",
+                            null,
+                            "GPA.3329-9857-6705-37595..3");
+            when(verificationService.fetchGoogleSubscription("token-user-1")).thenReturn(state);
+            when(ledgerSync.syncRenewals(
+                            sub,
+                            "GPA.3329-9857-6705-37595..3",
+                            false,
+                            NOW.plusDays(27),
+                            null,
+                            false,
+                            GoogleOrderLedgerSync.SOURCE_DAILY))
+                    .thenReturn(2);
+
+            assertThat(service.reconcileGoogleIncremental("user-1")).isEqualTo(2);
+            assertThat(sub.getTestPurchase()).isFalse();
+        }
+
+        @Test
+        @DisplayName("구독 행이 없거나 Android 가 아니면 조회 없이 0")
+        void skipsNonTargets() {
+            when(userSubscriptionRepository.findByUserId("none")).thenReturn(Optional.empty());
+            UserSubscription ios = androidSub("ios-user");
+            ios.setPlatform("ios");
+            when(userSubscriptionRepository.findByUserId("ios-user")).thenReturn(Optional.of(ios));
+
+            assertThat(service.reconcileGoogleIncremental("none")).isZero();
+            assertThat(service.reconcileGoogleIncremental("ios-user")).isZero();
+            verify(verificationService, never()).fetchGoogleSubscription(any());
+        }
+
+        @Test
+        @DisplayName("Play 일시 실패는 120702 로 던져 호출자(스케줄러)가 그 유저만 건너뛴다")
+        void transientFailureThrows() {
+            when(userSubscriptionRepository.findByUserId("user-1"))
+                    .thenReturn(Optional.of(androidSub("user-1")));
+            when(verificationService.fetchGoogleSubscription("token-user-1"))
+                    .thenThrow(new StoreTransientException("timeout", new RuntimeException()));
+
+            assertThatThrownBy(() -> service.reconcileGoogleIncremental("user-1"))
+                    .isInstanceOf(CustomException.class)
+                    .hasMessageContaining("error.iap.verification_failed");
+        }
     }
 }

@@ -23,7 +23,7 @@ allowed-tools: Agent, Read, Edit, Write, Grep, Glob, Bash
 | 리소스 | 용도 |
 |--------|------|
 | **ALB** | product-service, admin-service 로드밸런싱 |
-| **RDS PostgreSQL** | 멀티 DB (user_db, mission_db, guild_db 등 9개) |
+| **RDS PostgreSQL** | 멀티 DB (product 9개 user_db~stats_db + admin_db, `saga_db` 는 2026-10-29 삭제) |
 | **ElastiCache Redis** | 세션, 캐시, 토큰 블랙리스트, Redis Streams |
 | **S3** | 이미지 저장 (`lut-images-prod`), 배포 아티팩트 |
 | **CloudFront** | 이미지 CDN (`images.level-up-together.com`) |
@@ -58,6 +58,7 @@ GitHub Actions → Build JAR → S3 Upload
 ```
 
 ### deploy.sh (`/opt/apps/deploy.sh`)
+- 운영 기준 원본은 S3 `scripts/deploy.sh`(EC2 `/opt/apps/deploy.sh` 와 같음). 이 레포 `docs/aws/deploy.sh` 는 참고 사본이며 운영본과 1바이트 다르다(2026-10-30 확인) — 운영 동작 확인은 S3 본으로
 - `aws s3 cp --quiet` (SSM 24KB output limit 방지)
 - `sleep 45` (Spring Boot 기동 대기)
 - systemctl restart

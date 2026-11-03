@@ -6,6 +6,8 @@ import io.pinkspider.leveluptogethermvp.gamificationservice.subscription.domain.
 import io.pinkspider.leveluptogethermvp.gamificationservice.subscription.domain.entity.UserSubscription;
 import io.pinkspider.leveluptogethermvp.gamificationservice.subscription.infrastructure.SubscriptionPaymentHistoryRepository;
 import io.pinkspider.leveluptogethermvp.gamificationservice.subscription.infrastructure.UserSubscriptionRepository;
+import java.time.LocalDateTime;
+import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -26,6 +28,53 @@ public class SubscriptionLedgerReconcileService {
     private final SubscriptionPaymentHistoryRepository historyRepository;
     private final SubscriptionVerificationService verificationService;
     private final GoogleOrderLedgerSync ledgerSync;
+
+    /** LUT-677 일일 정합 대상: 만료가 이 일수 안에 있는(활성 포함) Android 구독 — 만료 직후 RTDN 유실분까지 한 번 더 본다 */
+    static final int DAILY_RECENT_DAYS = 7;
+
+    /** LUT-677: 일일 정합 대상 유저 — 활성·최근 만료(7일) Android 구독(구매 토큰 있는 것) */
+    @Transactional(transactionManager = "gamificationTransactionManager", readOnly = true)
+    public List<String> findAndroidDailyTargets(LocalDateTime now) {
+        return userSubscriptionRepository
+                .findByPlatformAndPurchaseTokenIsNotNullAndExpiresAtAfter(
+                        "android", now.minusDays(DAILY_RECENT_DAYS))
+                .stream()
+                .map(UserSubscription::getUserId)
+                .toList();
+    }
+
+    /**
+     * LUT-677: 한 유저 증분 대조 — Play 재조회 후 원장의 마지막 연번 다음부터 최신까지(+ 초회 주문 STORE 정정). 스케줄러용이라 대상이 아니면 0,
+     * Play 일시 실패는 {@code 120702} 로 던져 호출자가 건너뛴다. 구독 행은 테스트 결제 여부만 맞춘다.
+     *
+     * @return 새로 쓰거나 정정한 행 수
+     */
+    @Transactional(transactionManager = "gamificationTransactionManager")
+    public int reconcileGoogleIncremental(String userId) {
+        UserSubscription subscription =
+                userSubscriptionRepository.findByUserId(userId).orElse(null);
+        if (subscription == null
+                || !"android".equals(subscription.getPlatform())
+                || subscription.getPurchaseToken() == null) {
+            return 0;
+        }
+        GoogleSubscriptionState state;
+        try {
+            state = verificationService.fetchGoogleSubscription(subscription.getPurchaseToken());
+        } catch (StoreTransientException e) {
+            log.warn("일일 원장 정합 — Play 재조회 일시 실패: userId={}, error={}", userId, e.getMessage());
+            throw new CustomException("120702", "error.iap.verification_failed");
+        }
+        subscription.setTestPurchase(state.testPurchase());
+        return ledgerSync.syncRenewals(
+                subscription,
+                state.latestOrderId(),
+                state.trial(),
+                state.expiresAt() != null ? state.expiresAt() : subscription.getExpiresAt(),
+                null,
+                false,
+                GoogleOrderLedgerSync.SOURCE_DAILY);
+    }
 
     @Transactional(transactionManager = "gamificationTransactionManager")
     public SubscriptionLedgerReconcileResponse reconcileGoogle(String userId) {

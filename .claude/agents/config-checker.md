@@ -10,7 +10,7 @@ maxTurns: 15
 
 ## 설정 파일 위치
 
-`src/main/resources/config/` 디렉토리:
+`app/src/main/resources/config/` 디렉토리 (dev·prod·local 은 Config Server import 만 있다 — 실제 환경 값은 `../config-repository/product-service/product-service-{env}.yml`):
 - `application.yml` - 기본 설정
 - `application-test.yml` - 테스트 (H2, port 18080)
 - `application-unit-test.yml` - 단위 테스트
@@ -27,16 +27,16 @@ maxTurns: 15
 
 ### 2. 데이터소스 설정 일관성
 모든 프로필에 다음 서비스 DB가 설정되어야 함:
-- user, mission, guild, meta, saga, feed, notification, admin, gamification
+- user, mission, guild, chat, meta, feed, notification, gamification, stats (`spring.datasource.<db>` — `saga` 는 2026-10-29 삭제, `admin` 은 admin-service 레포)
 
 ### 3. 보안 관련
 - 하드코딩된 비밀번호/시크릿
 - prod에서 `show_sql: true` 활성화 여부
-- `ddl-auto` 가 prod에서 `validate` 인지
+- `ddl-auto` 는 커스텀 EntityManagerFactory 에 적용되지 않는다 — `validate` 는 각 `XxxDataSourceConfig.jpaProperties()` 코드가 정한다(`docs/DB_MIGRATION.md`)
 
 ### 4. 포트/URL 불일치
 - 서비스 포트 설정
-- Redis/Kafka/MongoDB 연결 정보
+- Redis 연결 정보 (Kafka·MongoDB 는 쓰지 않는다)
 
 ## 출력 형식
 

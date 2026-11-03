@@ -32,6 +32,15 @@ public class ModerationProperties {
     private List<String> blockedCategories =
             List.of("Explicit Nudity", "Violence", "Visually Disturbing", "Hate Symbols");
 
+    /**
+     * LUT-650: 검수 자체가 실패(파일 읽기 실패·미지원 포맷·추론 예외·제공자 런타임 예외)했을 때 업로드를 통과시킬지.
+     *
+     * <p>true(기본, 현행 유지) = 통과시키되 error 로그 + {@code lut_image_moderation_fail_open_total} 카운터를 남긴다.
+     * false = {@code 000011 error.moderation.unavailable} 로 차단(fail-closed). 정책 결정은 설정으로만 바꾼다(코드 변경
+     * 없음).
+     */
+    private boolean failOpen = true;
+
     /** 검증 기능 활성화 여부 */
     public boolean isEnabled() {
         return provider != null && !provider.equalsIgnoreCase("none");

@@ -1,6 +1,7 @@
 # Flyway 마이그레이션 (LUT-595)
 
-서버가 기동하면서 `db/migration/<db>/` 의 SQL 을 번호 순서로 적용한다 (`app.flyway.enabled=true` 인 환경만 — dev 부터, prod 는 v1.1.4 부터).
+서버가 기동하면서 `db/migration/<db>/` 의 SQL 을 번호 순서로 적용한다 (`app.flyway.enabled=true` 인 환경만 — dev 2026-10-23, prod 2026-10-28 부터. prod 첫 적용 파일은 LUT-666 핫픽스 `gamification/V1_1_3_013`).
+`admin_db` 는 이 폴더가 아니라 admin-service 레포의 자체 Flyway 다(LUT-676).
 
 ## 폴더 = DB
 

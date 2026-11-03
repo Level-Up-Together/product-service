@@ -87,6 +87,7 @@ class AttendanceControllerTest {
                         .bonusReasons(List.of("5일 연속 출석 보너스"))
                         .isAlreadyCheckedIn(false)
                         .message("출석 체크 완료! 5일 연속 출석입니다.")
+                        .storeReviewDue(false)
                         .build();
 
         when(attendanceService.checkIn(anyString())).thenReturn(response);
@@ -173,7 +174,17 @@ class AttendanceControllerTest {
                                                                         .description("이미 출석 여부"),
                                                                 fieldWithPath("value.message")
                                                                         .type(JsonFieldType.STRING)
-                                                                        .description("결과 메시지"))
+                                                                        .description("결과 메시지"),
+                                                                fieldWithPath(
+                                                                                "value.store_review_due")
+                                                                        .type(JsonFieldType.BOOLEAN)
+                                                                        .description(
+                                                                                "이번 연속 일수가 어드민 설정"
+                                                                                    + " 마일스톤과 같아"
+                                                                                    + " 스토어 인앱 평가"
+                                                                                    + " 팝업을 요청해야"
+                                                                                    + " 하는지 (LUT-708)")
+                                                                        .optional())
                                                         .build())));
 
         // then

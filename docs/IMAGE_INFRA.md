@@ -4,9 +4,21 @@
 
 ONNX Runtime 기반 NSFW 이미지 자동 검증 시스템 (`global.moderation`).
 
+### 동봉 모델 · 전처리 (LUT-651)
+
+- 모델은 **jar 에 동봉**: `app/src/main/resources/models/nsfw.onnx` (23.6 MB, Yahoo open_nsfw ResNet-50 의 ONNX 변환본 — PyPI `opennsfw-onnx` 0.1.0 휠에서 복사,
+  BSD-2-Clause). 출처·SHA-256·입출력 명세는 같은 폴더 `README.md`, 라이선스 원문은 `LICENSE-open_nsfw-BSD-2-Clause.txt`. 기본 `model-path: classpath:models/nsfw.onnx`.
+- 입력 `input:0` `[N,224,224,3]` **NHWC**, BGR, 평균 `[104,117,123]` 차감 / 출력 `outputs` `[N,2]` = `[sfw, nsfw]`. `OnnxNsfwModerationService` 가 기동 시 세션 입력 모양으로
+  레이아웃을 자동 감지한다(`[N,3,224,224]` 면 NCHW). **예전 코드는 NCHW 고정이라 이 모델에서 추론이 항상 실패**했고(LUT-650 전엔 조용히 safe), 전처리도 참조 구현
+  (256 bilinear 리사이즈 → 가운데 224 자르기 → BGR 평균 차감)으로 맞췄다. JPEG 재인코딩 단계만 생략.
+- 런타임 `onnxruntime 1.17.3` jar 에 linux-x64·**linux-aarch64**(prod t4g)·osx 네이티브 동봉 — 별도 설치 없음. `app` 모듈 `OnnxNsfwModelSmokeTest` 가 실제 로드·추론을 검사한다.
+- 로컬 측정(2026-11-02, Apple M 시리즈, 정상 샘플 PNG 6장 1920×1080~3840×2160): 세션 로드 37 ms · 추론 30~80 ms/장(첫 호출 372 ms 워밍업) · 전처리 2~4 ms ·
+  모델만 올린 JVM 최대 RSS 113 MB(13 MB PNG 6장 디코딩 포함 시 423 MB) · nsfw 점수 0.0004~0.014(임계값 0.8). dev(x86_64)·prod(arm64) 측정은 배포 뒤 Jira LUT-651.
+- 한계: NSFW 한 축만 판정 — 폭력·혐오는 거르지 않는다(`blocked-categories` 는 Rekognition 전용).
+
 ### 아키텍처: Strategy Pattern + AOP
 
-- `@ModerateImage` 어노테이션을 메서드에 적용하면 `MultipartFile` 파라미터를 자동 탐색하여 검증
+- `@ModerateImage` 어노테이션을 메서드에 적용하면 `MultipartFile` 파라미터를 자동 탐색하여 검증 — **`List<MultipartFile>`·`MultipartFile[]` 안의 파일도 전부**(LUT-650, 예전엔 단일 인자만 봐서 미션 인증 사진이 검수 없이 통과했다). 빈 파일·null 은 건너뛴다
 - `ImageModerationAspect`가 `@Around` 어드바이스로 검증 실행
 - `ModerationConfig`가 `moderation.image.provider` 설정에 따라 구현체 선택
 
@@ -24,10 +36,28 @@ ONNX Runtime 기반 NSFW 이미지 자동 검증 시스템 (`global.moderation`)
 moderation:
   image:
     provider: onnx-nsfw   # none | onnx-nsfw | aws-rekognition
+    fail-open: true       # LUT-650: 검수 실패 시 통과(true, 기본·현행) / 차단(false)
     onnx:
       model-path: classpath:models/nsfw.onnx
       nsfw-threshold: 0.8
 ```
+
+### 검수 실패 정책 · 지표 (LUT-650)
+
+검수 자체가 실패하는 경우 — 파일을 이미지로 못 읽음(`ImageIO` null, WebP 등 기본 Java 미지원 포맷) · 파일 읽기 I/O 실패 · 추론/API 예외 · 제공자 런타임 예외(또는 null 반환) —
+제공자는 `ImageModerationResult.failOpen(reason, provider)` 를 돌려주고(`safe=true` + `failOpen=true`), **정책은 `ImageModerationAspect` 한곳**에서 `moderation.image.fail-open` 으로 적용한다.
+
+| `fail-open` | 동작 | 남는 것 |
+|---|---|---|
+| `true` (기본, 현행 유지) | 그 파일은 통과 | error 로그 `이미지 검수 실패 → 통과(fail-open)` + 카운터 |
+| `false` | `ImageModerationException.unavailable()` → HTTP 503 `000011 error.moderation.unavailable` 로 차단 (LUT-714) | error 로그 `… → 차단(fail-closed)` + 카운터 |
+
+예전엔 세 경우 모두 `safe()` 를 돌려줘 검수가 조용히 무력화돼도 알 수 없었다. 운영 검수를 켤 때(LUT-651) fail-closed 로 바꿀지는 결정 사항 — 설정만 바꾸면 된다.
+
+Micrometer 카운터(`ImageModerationMetrics`, `/showmethemoney/prometheus`):
+
+- `lut_image_moderation_checked_total{provider, result=safe|blocked}` — 판정이 난 검수
+- `lut_image_moderation_fail_open_total{provider, reason=unreadable|read_error|inference_error|exception}` — 검수 실패(통과·차단 정책과 무관하게 센다). **0 이 아니면 제공자 상태 점검**
 
 ### 적용된 서비스
 
@@ -41,7 +71,10 @@ moderation:
 
 ### 에러 코드
 
-부적절 이미지 감지 시: `CustomException("000010", "error.moderation.inappropriate_image")`
+**형식 검증(LUT-710)**: 검수보다 먼저 `ImageContentValidator` 가 앞 32바이트의 시그니처(JPEG `FF D8 FF`, PNG, GIF8, RIFF/WEBP, BM, ftyp heic/avif)로 이미지인지 본다. 아니면 `InvalidImageException.notImage()` → **HTTP 400** `000012 error.image.not_image`. 검수 제공자가 `none` 이어도 동작한다. `ImageIO.read` 를 쓰지 않는 이유: WebP·HEIC 를 못 읽어 정상 사진을 거절하고, 전체 디코딩은 검수 모델이 다시 한다. 빈 파일은 저장소의 `error.image.empty` 몫. 어드민 내부 업로드(`ShopItemAdminService.uploadImage`·`DiamondBundleAdminService.uploadImage`)는 `@ModerateImage` 가 없어 서비스에서 직접 호출한다.
+
+부적절 이미지 감지 시: `ImageModerationException.blocked()` → **HTTP 400** `000010 error.moderation.inappropriate_image` (LUT-714 — 예전엔 `CustomException` 이라 플랫폼 핸들러가 500 으로 응답했다. `ImageUploadExceptionHandler`(`@Order(HIGHEST_PRECEDENCE)`, 플랫폼 핸들러는 `+1`)가 이 예외 타입들만 가로챈다. 본문 `code`·`message` 는 그대로라 웹(`fetch-client.ts` 가 `message` 표시)·RN 변경 없음)
+검수 불가로 차단 시(`fail-open: false` 일 때만): `ImageModerationException.unavailable()` → **HTTP 503** `000011 error.moderation.unavailable` (LUT-650·714)
 
 ---
 
@@ -140,7 +173,7 @@ medium:missions/{userId}/{missionId}/{executionDate}_{uuid}_medium.{ext} (긴 �
 # application.yml (기본값)
 app:
   upload:
-    chat-image: # LUT-590 (profile-image / mission-image 도 같은 형태)
+    chat-image: # LUT-590 (profile-image / mission-image 도 같은 형태 — mission-image 기본 max-size 는 LUT-608 부터 10485760(10MB), 한 요청 최대 5장이라 spring.servlet.multipart.max-request-size 55MB)
       path: ${user.dir}/uploads/chats
       max-size: 5242880
       allowed-extensions: jpg,jpeg,png,gif,webp

@@ -25,7 +25,9 @@ public class FeedProfileSnapshotEventListener {
     // P2-2(32f11c5d)에서 레벨까지 현재값으로 덮었으나, 피드는 "작성 시점의 유저 레벨"을
     // 보여주는 것으로 제품 정책이 확정됨 — event.level() 은 피드에서는 사용하지 않는다.
     @Async(EVENT_EXECUTOR)
-    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    // LUT-653: 레벨업 경로는 UserLevelUpProfileSyncListener 가 AFTER_COMMIT 콜백 안(트랜잭션 동기화 해제 뒤)에서 재발행한다 —
+    // fallbackExecution 이 없으면 "활성 트랜잭션 없음"으로 버려져 레벨 스냅샷이 갱신되지 않았다
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT, fallbackExecution = true)
     public void handleUserProfileChanged(UserProfileChangedEvent event) {
         try {
             int feedCount =

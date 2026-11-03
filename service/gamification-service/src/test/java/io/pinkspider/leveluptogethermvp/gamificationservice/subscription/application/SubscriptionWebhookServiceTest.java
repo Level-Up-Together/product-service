@@ -6,6 +6,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -60,6 +61,38 @@ class SubscriptionWebhookServiceTest {
             webhookService.handleAppleNotification("signed");
 
             verify(webhookTxService).applyAppleNotification(notification);
+        }
+
+        @Test
+        @DisplayName("매핑 없는 상품(120801)은 삼키고 정상 반환한다 — 재전송해도 같은 결과 (LUT-661)")
+        void unknownProductDiscarded() {
+            AppleSubscriptionNotification notification =
+                    new AppleSubscriptionNotification(
+                            "SUBSCRIBED",
+                            null,
+                            new JWSTransactionDecodedPayload().productId("membership_promo"),
+                            null);
+            when(verificationService.decodeAppleNotification("signed")).thenReturn(notification);
+            doThrow(new CustomException("120801", "error.subscription.unknown_product"))
+                    .when(webhookTxService)
+                    .applyAppleNotification(notification);
+
+            assertThatCode(() -> webhookService.handleAppleNotification("signed"))
+                    .doesNotThrowAnyException();
+        }
+
+        @Test
+        @DisplayName("그 밖의 적용 실패는 그대로 전파한다 — 5xx 로 재전송을 받는다")
+        void otherApplyFailurePropagates() {
+            AppleSubscriptionNotification notification =
+                    new AppleSubscriptionNotification("DID_RENEW", null, null, null);
+            when(verificationService.decodeAppleNotification("signed")).thenReturn(notification);
+            doThrow(new CustomException("120702", "error.iap.verification_failed"))
+                    .when(webhookTxService)
+                    .applyAppleNotification(notification);
+
+            assertThatThrownBy(() -> webhookService.handleAppleNotification("signed"))
+                    .isInstanceOf(CustomException.class);
         }
 
         @Test
@@ -121,6 +154,63 @@ class SubscriptionWebhookServiceTest {
         }
 
         @Test
+        @DisplayName("매핑 없는 상품(120801)은 dropped(unknown_product) 로 폐기한다 — Pub/Sub 재시도 중단 (LUT-661)")
+        void unknownProductDroppedWithMetric() {
+            GoogleSubscriptionState state =
+                    new GoogleSubscriptionState(
+                            "membership_promo",
+                            "3m",
+                            null,
+                            LocalDateTime.now().plusMonths(3),
+                            true,
+                            false,
+                            "SUBSCRIPTION_STATE_ACTIVE");
+            when(verificationService.fetchGoogleSubscription("token-001")).thenReturn(state);
+            doThrow(new CustomException("120801", "error.subscription.unknown_product"))
+                    .when(webhookTxService)
+                    .applyGoogleState(eq("token-001"), eq(state), any());
+
+            assertThatCode(
+                            () ->
+                                    webhookService.handleGoogleNotification(
+                                            b64(
+                                                    "{\"version\":\"1.0\",\"packageName\":\"pkg\","
+                                                        + "\"subscriptionNotification\":{\"version\":\"1.0\",\"notificationType\":4,"
+                                                        + "\"purchaseToken\":\"token-001\",\"subscriptionId\":\"membership_promo\"}}")))
+                    .doesNotThrowAnyException();
+
+            verify(metrics).dropped("unknown_product");
+        }
+
+        @Test
+        @DisplayName("그 밖의 적용 실패는 전파한다 — dropped 카운터 없이 5xx 재시도")
+        void otherApplyFailurePropagates() {
+            GoogleSubscriptionState state =
+                    new GoogleSubscriptionState(
+                            "membership",
+                            "1m",
+                            null,
+                            LocalDateTime.now().plusMonths(1),
+                            true,
+                            false,
+                            "SUBSCRIPTION_STATE_ACTIVE");
+            when(verificationService.fetchGoogleSubscription("token-001")).thenReturn(state);
+            doThrow(new CustomException("120702", "error.iap.verification_failed"))
+                    .when(webhookTxService)
+                    .applyGoogleState(eq("token-001"), eq(state), any());
+
+            assertThatThrownBy(
+                            () ->
+                                    webhookService.handleGoogleNotification(
+                                            b64(
+                                                    "{\"version\":\"1.0\",\"packageName\":\"pkg\","
+                                                        + "\"subscriptionNotification\":{\"version\":\"1.0\",\"notificationType\":2,"
+                                                        + "\"purchaseToken\":\"token-001\",\"subscriptionId\":\"membership\"}}")))
+                    .isInstanceOf(CustomException.class);
+            verify(metrics, never()).dropped(anyString());
+        }
+
+        @Test
         @DisplayName("REVOKED(12)는 재조회 없이 즉시 권한 종료한다")
         void revokedEndsImmediately() {
             webhookService.handleGoogleNotification(
@@ -140,7 +230,7 @@ class SubscriptionWebhookServiceTest {
                             "{\"voidedPurchaseNotification\":{\"purchaseToken\":\"token-001\","
                                     + "\"orderId\":\"GPA.1234\",\"productType\":1}}"));
 
-            verify(webhookTxService).revokeByPurchaseToken("token-001");
+            verify(webhookTxService).revokeByPurchaseToken("token-001", "GPA.1234");
         }
 
         @Test

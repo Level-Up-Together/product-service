@@ -222,51 +222,6 @@ public class TestDataSourceConfig {
         }
     }
 
-    // ========== Saga DataSource ==========
-    @Configuration
-    @Profile({"test", "push-test"})
-    @EnableJpaRepositories(
-            basePackages = "io.pinkspider.global.saga.persistence",
-            entityManagerFactoryRef = "sagaEntityManagerFactory",
-            transactionManagerRef = "sagaTransactionManager")
-    static class TestSagaDataSourceConfig {
-
-        @Bean
-        @ConfigurationProperties("spring.datasource.saga")
-        public DataSource sagaDataSource() {
-            return DataSourceBuilder.create().build();
-        }
-
-        @Bean(name = "sagaEntityManagerFactory")
-        public LocalContainerEntityManagerFactoryBean sagaEntityManagerFactory(
-                @Qualifier("sagaDataSource") DataSource dataSource) {
-            LocalContainerEntityManagerFactoryBean em =
-                    new LocalContainerEntityManagerFactoryBean();
-            em.setDataSource(dataSource);
-            em.setPackagesToScan("io.pinkspider.global.saga.persistence");
-            em.setPersistenceUnitName("saga");
-            HibernateJpaVendorAdapter vendorAdapter = new HibernateJpaVendorAdapter();
-            em.setJpaVendorAdapter(vendorAdapter);
-            em.setJpaProperties(jpaProperties());
-            return em;
-        }
-
-        @Bean(name = "sagaTransactionManager")
-        public PlatformTransactionManager sagaTransactionManager(
-                @Qualifier("sagaEntityManagerFactory") EntityManagerFactory entityManagerFactory) {
-            return new JpaTransactionManager(entityManagerFactory);
-        }
-
-        private Properties jpaProperties() {
-            Properties properties = new Properties();
-            properties.setProperty("hibernate.hbm2ddl.auto", "create-drop");
-            properties.setProperty("hibernate.dialect", "org.hibernate.dialect.H2Dialect");
-            properties.setProperty("hibernate.format_sql", "true");
-            properties.setProperty("hibernate.show_sql", "true");
-            return properties;
-        }
-    }
-
     // ========== Notification DataSource ==========
     @Configuration
     @Profile({"test", "push-test"})

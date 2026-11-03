@@ -34,10 +34,11 @@ import org.springframework.transaction.annotation.Transactional;
  *
  * <ul>
  *   <li>아침 {@code BEFORE_ACTIVITY}: 전날 활동 있음 AND 오늘 완료 0건
- *   <li>정오 {@code INACTIVE}: 전날 활동 없음 AND 오늘 완료 0건 AND 백오프 발송일(연속 미완료 k ∈ {1,3,7,14})
+ *   <li>정오 {@code INACTIVE}: 전날 활동 없음 AND 오늘 완료 0건 AND 백오프 발송일(연속 미완료 k ∈ {1,3,7,14,30,60,90} —
+ *       LUT-543, 90일 뒤 중단. 완료 이력이 없는 유저는 가입일부터 센다)
  *   <li>오후 {@code AFTER_COMPLETE}: 오늘 완료 1건 이상
  *   <li>하루 1건 상한(어느 슬롯이든 발송하면 그날 나머지 스킵) + 유저+아이템 마지막 발송일로부터 {@value #SEND_INTERVAL_DAYS}일
- *       간격(INACTIVE 발송도 기산점). 새 아이템을 장착하면 그 아이템 이력이 없어 다음 슬롯에 바로 나간다
+ *       간격(INACTIVE 발송도 기산점, LUT-680: 2 → 1 이라 매일 1건). 새 아이템을 장착하면 그 아이템 이력이 없어 다음 슬롯에 바로 나간다
  *   <li>아침/오후 로테이션: 직전 발송 슬롯이 아침이면 이번 차례의 아침은 건너뛰고(= 아침→아침은 {@value #MORNING_AFTER_MORNING_DAYS}일)
  *       오후에 기회를 준다. 오후가 못 나가면 다음 날 아침부터 다시 가능. INACTIVE 는 로테이션 무관
  *   <li>대사 선택: 슬롯 trigger_type 풀(없으면 ANY 풀)에서 <b>한 번도 보내지 않은 대사(최신 등록 우선) → 가장 오래전에 보낸 대사</b>. 랜덤
@@ -52,16 +53,25 @@ public class ItemPushDispatchService {
     private final ItemPushSendLogRepository sendLogRepository;
     private final ApplicationEventPublisher eventPublisher;
 
-    /** INACTIVE 백오프 발송 일차 — 어제부터 센 연속 미완료 일수가 이 값일 때만 발송. */
-    private static final Set<Integer> BACKOFF_SEND_DAYS = Set.of(1, 3, 7, 14);
+    /**
+     * INACTIVE 백오프 발송 일차 — 어제부터 센 연속 미완료 일수가 이 값일 때만 발송. LUT-543: {1,3,7,14} 에서 멈추면 복귀가 가장 필요한 장기
+     * 휴면 유저가 영구 무음이 되므로 30·60·90 을 더해 띄엄띄엄 이어 가고, 90일을 넘기면 중단(그 뒤는 어드민 푸시 캠페인 몫).
+     */
+    public static final Set<Integer> BACKOFF_SEND_DAYS = Set.of(1, 3, 7, 14, 30, 60, 90);
 
-    /** 백오프 상한 — 연속 미완료가 이 일수를 넘으면 완료로 초기화될 때까지 발송 중단. */
-    private static final int BACKOFF_MAX_DAYS = 14;
+    /** 백오프 상한 — 연속 미완료가 이 일수를 넘으면 완료로 초기화될 때까지 발송 중단(LUT-543: 14 → 90). */
+    public static final int BACKOFF_MAX_DAYS = 90;
 
-    /** LUT-573: 유저+아이템 발송 간격(일). D일 발송 → D+1 미발송, D+2 부터 발송. 서버 상수(어드민 설정 없음). */
-    static final int SEND_INTERVAL_DAYS = 2;
+    /**
+     * 유저+아이템 발송 간격(일). LUT-680: 2 → 1 — D일 발송 → D+1 부터 발송(= 매일 그날 상태에 맞는 푸시 최대 1건). 서버 상수(어드민 설정
+     * 없음). LUT-573 의 2일은 대사 소진을 늦추려던 값이었다.
+     */
+    static final int SEND_INTERVAL_DAYS = 1;
 
-    /** LUT-573: 직전 발송이 아침 슬롯이면 아침 슬롯은 하루 더 양보한다(오후에 기회) — 아침→아침 최소 간격. */
+    /**
+     * LUT-573: 직전 발송이 아침 슬롯이면 아침 슬롯은 하루 더 양보한다(오후에 기회) — 아침→아침 최소 간격. LUT-680 뒤에는 2일: "마지막 발송 슬롯이
+     * 아침이고 마지막 발송일이 어제" 인 날만 아침을 건너뛰고, 그날 오후가 못 나가도 그다음 날 아침은 다시 후보다.
+     */
     static final int MORNING_AFTER_MORNING_DAYS = SEND_INTERVAL_DAYS + 1;
 
     /**
@@ -74,7 +84,9 @@ public class ItemPushDispatchService {
      * @param slot 판정 중인 슬롯
      * @param slotTime 슬롯 시각(HH:mm, 로그용)
      * @param messages 이 아이템의 활성 메시지 전체(모든 trigger_type)
-     * @param completedLocalDates 이 유저가 미션을 완료한 로컬 날짜 집합(백오프 창 범위)
+     * @param completedLocalDates 이 유저가 미션을 완료한 로컬 날짜 집합(백오프 창 범위 — 정오는 상한 90일까지)
+     * @param signupLocalDate 가입일(로컬, LUT-543) — 완료 이력이 없는 유저의 연속 미완료 기산점. null 이면 가입일을 모르는 것으로 보고 창
+     *     안의 완료 기록만 쓴다
      * @return 시도 결과 — 발송 또는 스킵 사유 (LUT-541: 스케줄러 집계 로그·테스트 단언용)
      */
     @Transactional(transactionManager = "gamificationTransactionManager")
@@ -85,7 +97,8 @@ public class ItemPushDispatchService {
             ItemPushSlot slot,
             String slotTime,
             List<ItemPushMessage> messages,
-            Set<LocalDate> completedLocalDates) {
+            Set<LocalDate> completedLocalDates,
+            LocalDate signupLocalDate) {
         // 1) 하루 1건 상한 — 어느 슬롯이든 오늘 이미 발송했으면 스킵 (장착을 바꿔도 재발송 없음)
         if (sendLogRepository.existsByUserIdAndSendDate(userId, localDate)) {
             log.info(
@@ -114,9 +127,9 @@ public class ItemPushDispatchService {
 
         // 3) 백오프 — INACTIVE(정오) 만 적용
         if (slot == ItemPushSlot.INACTIVE) {
-            int k = consecutiveIncompleteDays(localDate, completed);
+            int k = consecutiveIncompleteDays(localDate, completed, signupLocalDate);
             if (!isBackoffSendDay(k)) {
-                // LUT-541: k 를 남겨야 "다음 발송일"을 로그만으로 계산할 수 있다 (k>14 는 완료 전까지 중단 구간)
+                // LUT-541: k 를 남겨야 "다음 발송일"을 로그만으로 계산할 수 있다 (k>90 은 완료 전까지 중단 구간, LUT-543)
                 log.info(
                         "장착 아이템 푸시 스킵(INACTIVE 백오프): userId={}, itemId={}, localDate={},"
                                 + " 연속미완료={}일, 발송일차={}",
@@ -235,11 +248,18 @@ public class ItemPushDispatchService {
         };
     }
 
-    /** 어제부터 거꾸로 센 연속 미완료 일수 k. 상한(BACKOFF_MAX_DAYS)+1 에서 멈춘다(그 이상은 "중단" 구간이라 값 구분 불필요). */
-    int consecutiveIncompleteDays(LocalDate localDate, Set<LocalDate> completed) {
+    /**
+     * 어제부터 거꾸로 센 연속 미완료 일수 k. 완료일을 만나거나, 가입일 전날에 닿으면(가입 전은 "미완료"가 아니다 — LUT-543) 멈추고,
+     * 상한(BACKOFF_MAX_DAYS)+1 에서도 멈춘다(그 이상은 "중단" 구간이라 값 구분 불필요).
+     */
+    int consecutiveIncompleteDays(
+            LocalDate localDate, Set<LocalDate> completed, LocalDate signupLocalDate) {
         int k = 0;
         for (LocalDate d = localDate.minusDays(1); ; d = d.minusDays(1)) {
             if (completed.contains(d)) {
+                break;
+            }
+            if (signupLocalDate != null && d.isBefore(signupLocalDate)) {
                 break;
             }
             k++;

@@ -77,7 +77,7 @@ user_db · gamification_db · mission_db ─ *SourceReader(JDBC 읽기 전용) �
 | 키 | 기본 | 의미 |
 |---|---|---|
 | `enabled` | `true` | false 면 인터셉터가 아무것도 기록하지 않는다(긴급 차단) |
-| `excluded-user-ids` | 빈 집합 | DAU·REQUEST 리텐션에서 뺄 userId(E2E 봇·운영자). 2026-10-29 현재 config-repository 어디에도 설정돼 있지 않다 → 제외 0명 |
+| `excluded-user-ids` | 빈 집합 | **KPI 전 지표**에서 뺄 userId(팀원·운영자·QA·E2E 봇). 인터셉터(DAU 수집)와 모든 리더 SQL(`NOT IN (:excluded)`, `ExcludedUsers`) 양쪽에 적용(LUT-678). 운영은 2026-11-02 부터 20명(config-repository `product-service-prod.yml`, 명단은 Jira LUT-678) — 그 전엔 어디에도 없어 제외 0명 |
 
 ## 3. KPI 스냅샷 · 코호트 (LUT-601, `statsservice/kpi`)
 
@@ -88,7 +88,7 @@ user_db · gamification_db · mission_db ─ *SourceReader(JDBC 읽기 전용) �
   - `KpiRebuildService.runDaily(today)` 를 호출한다.
     - **그제·어제** 스냅샷을 다시 만든다.
     - 코호트 리텐션은 cohort `[어제−31, 어제]` 를 대상으로, `lastComplete=어제` 로 계산한다.
-    - 코호트 매출은 **전월·당월 코호트** 만 계산한다.
+    - 코호트 매출은 **13개월 전 ~ 당월 코호트**(month_12 점이 닫히는 달까지)를 매일 다시 계산한다(LUT-660). 예전엔 전월·당월만이라 오래된 코호트의 1·3·6·12개월 점이 수동 rebuild 없이는 비어 있었다.
   - 실패하면 `KPI 일별 스냅샷 실패` error 로그를 남기고 삼킨다.
 - **소급** `POST /api/internal/kpi/rebuild?from&to` (`KpiRebuildService.rebuild`)
   - from>to 면 바꿔서 처리한다.
@@ -98,11 +98,7 @@ user_db · gamification_db · mission_db ─ *SourceReader(JDBC 읽기 전용) �
   - 응답은 정규화된 `{from, to, snapshot_days, retention_rows, revenue_rows}` 다.
   - 어드민 패스스루는 `POST /api/admin/kpi/rebuild`(`KPI_MANAGE`)다.
 - 서버 기동 시 자동 실행은 없다(LUT-595 원칙). 모든 upsert 는 멱등이라 재실행해도 안전하다.
-- ⚠ **코호트 매출 `month_n ≥ 1` 은 스케줄러만으로는 채워지지 않는다.**
-  - `runDaily` 는 cohort_month ∈ {전월, 당월} 만 계산한다.
-  - 그런데 `month_n` 점은 "가입 월 + n 개월의 월말"이 지나야 생긴다. 그 시점이면 그 코호트는 이미 전전월 이전이다.
-  - 그래서 스케줄러는 전월 코호트의 `month_n=0` 만 만든다.
-  - LTV 곡선을 갱신하려면 매월 초 `rebuild` 를 넉넉한 범위(최대 400일)로 돌려야 한다. 의도된 설계인지는 ❓ 다.
+- 코호트 매출 `month_n ≥ 1` 도 스케줄러가 채운다(LUT-660, 2026-11-02): `runDaily` 가 13개월 전~당월 코호트를 매일 재계산해 month_12 점이 닫히는 달까지 따라간다. 예전엔 전월·당월만이라 오래된 코호트의 1·3·6·12개월 점이 수동 rebuild 로만 채워졌다.
 
 ### 3.2 원천 리더 — Facade 가 아니라 JDBC 인 이유
 
@@ -122,15 +118,17 @@ user_db · gamification_db · mission_db ─ *SourceReader(JDBC 읽기 전용) �
 
 ### 3.4 제외 규칙 (코드 기준)
 
-| 지표 | `users.provider='test'` 제외 | `excluded-user-ids` 제외 | 스토어 테스트 결제(`test_purchase`) 제외 |
+| 지표 | `users.provider='test'` 제외 | `excluded-user-ids` 제외 (LUT-678) | 스토어 테스트 결제(`test_purchase`) 제외 |
 |---|---|---|---|
-| signups, withdrawals, active_users, 코호트 멤버(리텐션·매출 분모), 채널별 가입자 | O | X | — |
-| dau/wau/mau/dau_*, REQUEST 리텐션의 활동 | **X** | O | — |
-| attendance_dau, ATTENDANCE 리텐션, 미션 | X | X | — |
-| 구독, 결제 유저, 매출(일별·코호트) | X | X | **O** (LUT-666) |
+| signups, withdrawals, active_users, 코호트 멤버(리텐션·매출 분모), 채널별 가입자 | O | **O** (`id NOT IN`) | — |
+| dau/wau/mau/dau_*, REQUEST 리텐션의 활동 | **X** | O (인터셉터 + Java 필터) | — |
+| attendance_dau, ATTENDANCE 리텐션, 미션 | X | **O** (`user_id NOT IN`) | — |
+| 구독, 결제 유저, 매출(일별) | X | **O** (`user_id NOT IN`) | **O** (LUT-666) |
+| 코호트 매출 | X | O (모수에서 빠짐 — 매출 SQL 은 `user_id IN (:ids)` 기준) | **O** |
 
 - 테스트 로그인(`/api/test/**`) 호출 자체는 수집에서 빠진다. 하지만 그 토큰으로 이후 보낸 `/api/**` 요청은 DAU 에 들어간다. 그래서 봇·테스트 계정은 `excluded-user-ids` 에 등록해야 DAU 에서 빠진다.
-- `excluded-user-ids` 에 있는 유저도 코호트 멤버로는 남는다(REQUEST 리텐션 분모에는 포함, 활동은 0).
+- LUT-678 전에는 `excluded-user-ids` 가 DAU·REQUEST 리텐션에만 걸려 팀 계정이 가입·코호트·출석·미션·구독·매출에 그대로 들어갔다. 지금은 `ExcludedUsers`(`kpi/domain`) 가 모든 리더 SQL 에 `NOT IN (:excluded)` 로 들어간다 — 빈 목록은 `IN ()` 문법 오류를 피하려고 센티널 `__none__` 하나를 바인딩한다. 새 리더 쿼리를 추가하면 제외 조건을 붙이고 각 `*SourceReaderTest` 의 목록 가드에 넣을 것.
+- 목록을 바꾸면 재기동 뒤 `POST /api/internal/kpi/rebuild` 로 소급한다. 단 인터셉터가 이미 버린 활동(DAU)은 목록에서 빼도 되살아나지 않는다.
 
 ### 3.5 `daily_kpi_snapshot` 지표 정의 (KST 날짜 D)
 
@@ -190,7 +188,7 @@ user_db · gamification_db · mission_db ─ *SourceReader(JDBC 읽기 전용) �
 
 - `GET /api/internal/kpi/signups/by-channel?from_month&to_month` 는 스냅샷이 아니라 user_db 를 직접 집계한다.
   - 월 키는 `to_char(created_at + 9h, 'YYYY-MM')` 다.
-  - 채널은 `COALESCE(signup_channel, 'unknown')` 이고, `provider≠test` 다.
+  - 채널은 `COALESCE(signup_channel, 'unknown')` 이고, `provider≠test` + `excluded-user-ids` 제외(LUT-678 — CAC 분모에서 팀 계정이 빠진다)다.
   - 탈퇴자도 가입 시점 기준으로 포함한다.
 - `signup_channel` 값은 가입 완료 때 `SignupChannelPolicy` 가 1회 정한다.
   - `invite`

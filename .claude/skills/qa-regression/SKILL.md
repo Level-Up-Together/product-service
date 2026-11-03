@@ -16,8 +16,8 @@ allowed-tools: Agent, Read, Grep, Glob, Bash
 대상에 따라 다른 방식으로 변경 파일을 수집:
 
 ```bash
-# QA-XX 브랜치인 경우: develop 대비 전체 변경
-git diff develop --name-only
+# QA-XX 브랜치인 경우: 분기한 브랜치 대비 전체 변경 (feature 는 진행 중인 epic/vX.Y.Z, hotfix 는 main — CLAUDE.md "브랜치 흐름")
+git diff epic/vX.Y.Z...HEAD --name-only
 
 # 마지막 커밋 기준
 git diff HEAD~1 --name-only
@@ -45,8 +45,11 @@ git diff HEAD --name-only
 | `notification-service/` | notificationservice | notification_db |
 | `meta-service/` | metaservice | meta_db |
 | `chat-service/` | chatservice | chat_db |
-| `admin-service/` | adminservice | admin_db |
+| `stats-service/` | statsservice | stats_db |
 | `bff-service/` | bffservice | - |
+| `notice-service/`, `support-service/` | noticeservice, supportservice | - (Admin Feign) |
+
+`adminservice`(admin_db)는 별도 레포 `admin-service` 다.
 
 ### 2-2. 레이어 분류
 

@@ -6,6 +6,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -14,14 +15,17 @@ import com.apple.itunes.storekit.model.AutoRenewStatus;
 import com.apple.itunes.storekit.model.Environment;
 import com.apple.itunes.storekit.model.JWSRenewalInfoDecodedPayload;
 import com.apple.itunes.storekit.model.JWSTransactionDecodedPayload;
+import io.pinkspider.leveluptogethermvp.gamificationservice.subscription.application.SubscriptionRefundAmountResolver.RefundAmount;
 import io.pinkspider.leveluptogethermvp.gamificationservice.subscription.domain.dto.AppleSubscriptionNotification;
 import io.pinkspider.leveluptogethermvp.gamificationservice.subscription.domain.dto.GoogleSubscriptionState;
 import io.pinkspider.leveluptogethermvp.gamificationservice.subscription.domain.entity.UserSubscription;
 import io.pinkspider.leveluptogethermvp.gamificationservice.subscription.domain.enums.SubscriptionPaymentEventType;
 import io.pinkspider.leveluptogethermvp.gamificationservice.subscription.domain.enums.SubscriptionPlan;
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.Optional;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -45,7 +49,20 @@ class SubscriptionWebhookTxServiceTest {
 
     @Mock private GoogleOrderLedgerSync ledgerSync;
 
+    @Mock private SubscriptionRefundAmountResolver refundAmountResolver;
+
     @InjectMocks private SubscriptionWebhookTxService webhookTxService;
+
+    @BeforeEach
+    void defaultRefundAmountUnknown() {
+        // LUT-663: 환불액을 못 구한 기본 상황 — 기록기가 정가로 채우는 기존 경로
+        lenient()
+                .when(refundAmountResolver.forApple(any(), any()))
+                .thenReturn(RefundAmount.UNKNOWN);
+        lenient()
+                .when(refundAmountResolver.forGoogle(any(), any()))
+                .thenReturn(RefundAmount.UNKNOWN);
+    }
 
     private static final LocalDateTime NOW = LocalDateTime.now();
 
@@ -202,6 +219,37 @@ class SubscriptionWebhookTxServiceTest {
                             any(),
                             any(),
                             any(),
+                            eq(revokedAt),
+                            eq(revokedAt));
+        }
+
+        @Test
+        @DisplayName("REFUND — 환불액은 알림 거래의 실제 금액·통화로 기록한다 (LUT-663)")
+        void refundRecordsStoreAmount() {
+            UserSubscription sub = row(NOW.plusDays(20));
+            when(userSubscriptionRepository.findByOriginalTransactionId("orig-tx-001"))
+                    .thenReturn(Optional.of(sub));
+            when(refundAmountResolver.forApple(eq(sub), any()))
+                    .thenReturn(new RefundAmount(new BigDecimal("4.99"), "USD"));
+            LocalDateTime revokedAt = NOW.minusHours(2).withNano(0);
+
+            webhookTxService.applyAppleNotification(
+                    new AppleSubscriptionNotification(
+                            "REFUND",
+                            null,
+                            transaction("membership_1m", NOW.plusDays(20))
+                                    .transactionId("tx-refund")
+                                    .revocationDate(millis(revokedAt)),
+                            null));
+
+            verify(paymentHistoryRecorder)
+                    .record(
+                            eq(sub),
+                            eq(SubscriptionPaymentEventType.REFUND),
+                            eq(false),
+                            eq(new BigDecimal("4.99")),
+                            eq("USD"),
+                            eq("tx-refund"),
                             eq(revokedAt),
                             eq(revokedAt));
         }
@@ -440,6 +488,30 @@ class SubscriptionWebhookTxServiceTest {
                             eq(null),
                             eq(null),
                             eq(null),
+                            any(),
+                            any());
+        }
+
+        @Test
+        @DisplayName("voided 환불은 주문 ID 로 찾은 실제 금액·통화와 주문 ID 를 기록한다 (LUT-663)")
+        void voidedRefundRecordsOrderAmount() {
+            UserSubscription sub = androidRow(NOW.plusDays(20));
+            when(userSubscriptionRepository.findByPurchaseToken("token-001"))
+                    .thenReturn(Optional.of(sub));
+            when(refundAmountResolver.forGoogle(sub, "GPA.3333-4444"))
+                    .thenReturn(new RefundAmount(new BigDecimal("4900"), "KRW"));
+
+            webhookTxService.revokeByPurchaseToken("token-001", "GPA.3333-4444");
+
+            assertThat(sub.getAutoRenew()).isFalse();
+            verify(paymentHistoryRecorder)
+                    .record(
+                            eq(sub),
+                            eq(SubscriptionPaymentEventType.REFUND),
+                            eq(false),
+                            eq(new BigDecimal("4900")),
+                            eq("KRW"),
+                            eq("GPA.3333-4444"),
                             any(),
                             any());
         }

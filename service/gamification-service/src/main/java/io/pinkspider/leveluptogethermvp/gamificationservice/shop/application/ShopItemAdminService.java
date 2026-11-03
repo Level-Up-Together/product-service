@@ -2,6 +2,7 @@ package io.pinkspider.leveluptogethermvp.gamificationservice.shop.application;
 
 import io.pinkspider.global.enums.TitleRarity;
 import io.pinkspider.global.exception.CustomException;
+import io.pinkspider.global.image.ImageContentValidator;
 import io.pinkspider.leveluptogethermvp.gamificationservice.shop.domain.dto.ShopItemAdminPageResponse;
 import io.pinkspider.leveluptogethermvp.gamificationservice.shop.domain.dto.ShopItemAdminRequest;
 import io.pinkspider.leveluptogethermvp.gamificationservice.shop.domain.dto.ShopItemAdminResponse;
@@ -26,6 +27,7 @@ public class ShopItemAdminService {
 
     private final ShopItemRepository shopItemRepository;
     private final ShopItemImageStorageService imageStorageService;
+    private final ImageContentValidator imageContentValidator;
 
     @Transactional(readOnly = true, transactionManager = "gamificationTransactionManager")
     public ShopItemAdminPageResponse searchShopItems(
@@ -139,6 +141,7 @@ public class ShopItemAdminService {
 
     /** 이미지 업로드 — 저장 후 URL 반환. 생성/수정 요청의 image_url로 사용한다. */
     public String uploadImage(MultipartFile file) {
+        imageContentValidator.validate(file); // LUT-710: 어드민 업로드는 @ModerateImage 가 없어 여기서 형식 검증
         return imageStorageService.store(file);
     }
 

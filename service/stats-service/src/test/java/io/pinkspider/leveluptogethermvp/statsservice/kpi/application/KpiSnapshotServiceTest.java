@@ -2,6 +2,7 @@ package io.pinkspider.leveluptogethermvp.statsservice.kpi.application;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -10,6 +11,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import io.pinkspider.leveluptogethermvp.statsservice.activity.config.UserActivityProperties;
 import io.pinkspider.leveluptogethermvp.statsservice.activity.domain.entity.UserDailyActivity;
 import io.pinkspider.leveluptogethermvp.statsservice.activity.infrastructure.UserDailyActivityRepository;
+import io.pinkspider.leveluptogethermvp.statsservice.kpi.domain.ExcludedUsers;
 import io.pinkspider.leveluptogethermvp.statsservice.kpi.domain.dto.DailyKpiValues;
 import io.pinkspider.leveluptogethermvp.statsservice.kpi.domain.dto.source.MissionDailyCounts;
 import io.pinkspider.leveluptogethermvp.statsservice.kpi.domain.dto.source.RevenueAggregate;
@@ -77,18 +79,18 @@ class KpiSnapshotServiceTest {
     }
 
     private void stubSources() {
-        lenient().when(userReader.countSignups(FROM, TO)).thenReturn(3);
-        lenient().when(userReader.countWithdrawals(FROM, TO)).thenReturn(1);
-        lenient().when(userReader.countActiveUsersAsOf(TO)).thenReturn(140);
-        lenient().when(gamificationReader.countAttendanceUsers(DATE)).thenReturn(9);
+        lenient().when(userReader.countSignups(eq(FROM), eq(TO), any())).thenReturn(3);
+        lenient().when(userReader.countWithdrawals(eq(FROM), eq(TO), any())).thenReturn(1);
+        lenient().when(userReader.countActiveUsersAsOf(eq(TO), any())).thenReturn(140);
+        lenient().when(gamificationReader.countAttendanceUsers(eq(DATE), any())).thenReturn(9);
         lenient()
-                .when(missionReader.countCompletions(FROM, TO))
+                .when(missionReader.countCompletions(eq(FROM), eq(TO), any()))
                 .thenReturn(new MissionDailyCounts(12, 5));
         lenient()
-                .when(gamificationReader.countSubscriptionEvents(FROM, TO))
+                .when(gamificationReader.countSubscriptionEvents(eq(FROM), eq(TO), any()))
                 .thenReturn(new SubscriptionDailyCounts(2, 1, 1, 1, 6, 1));
         lenient()
-                .when(gamificationReader.aggregateRevenue(FROM, TO))
+                .when(gamificationReader.aggregateRevenue(eq(FROM), eq(TO), any()))
                 .thenReturn(
                         new RevenueAggregate(
                                 Map.of(
@@ -224,5 +226,28 @@ class KpiSnapshotServiceTest {
     private static DailyKpiValues zeroValues() {
         return new DailyKpiValues(
                 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, BigDecimal.ZERO, "{}");
+    }
+
+    @Test
+    @DisplayName("LUT-678: 제외 유저 목록이 모든 원천 리더(user·gamification·mission)에 그대로 전달된다")
+    void passesExcludedUsersToEverySource() {
+        stubSources();
+        properties.setExcludedUserIds(Set.of("ops-1", "qa-2"));
+        when(activityRepository.findAllByActivityDateBetween(any(), any())).thenReturn(List.of());
+        lenient().when(fxRateRepository.findById(any())).thenReturn(Optional.empty());
+
+        service.compute(DATE);
+
+        ArgumentCaptor<ExcludedUsers> captor = ArgumentCaptor.forClass(ExcludedUsers.class);
+        verify(userReader).countSignups(eq(FROM), eq(TO), captor.capture());
+        verify(userReader).countWithdrawals(eq(FROM), eq(TO), captor.capture());
+        verify(userReader).countActiveUsersAsOf(eq(TO), captor.capture());
+        verify(gamificationReader).countAttendanceUsers(eq(DATE), captor.capture());
+        verify(gamificationReader).countSubscriptionEvents(eq(FROM), eq(TO), captor.capture());
+        verify(gamificationReader).aggregateRevenue(eq(FROM), eq(TO), captor.capture());
+        verify(missionReader).countCompletions(eq(FROM), eq(TO), captor.capture());
+        assertThat(captor.getAllValues())
+                .hasSize(7)
+                .allSatisfy(ex -> assertThat(ex.ids()).containsExactlyInAnyOrder("ops-1", "qa-2"));
     }
 }

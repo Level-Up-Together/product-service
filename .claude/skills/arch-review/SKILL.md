@@ -36,8 +36,8 @@ allowed-tools: Read, Grep, Glob, Bash
 | metaservice | metaTransactionManager |
 | feedservice | feedTransactionManager |
 | notificationservice | notificationTransactionManager |
-| adminservice | adminTransactionManager |
 | gamificationservice | gamificationTransactionManager |
+| statsservice | statsTransactionManager |
 
 검사 방법:
 - `@Transactional` 어노테이션에 `transactionManager` 속성이 없는 경우 탐색

@@ -49,7 +49,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
   GuildQueryFacade, GamificationQueryFacade, MissionQueryFacade)
 - `infra` — RedisConfig, JpaAuditingConfig, QueryDslConfig, JwtAuthenticationFilter, RestExceptionHandler,
   CryptoConverter
-- `saga` — SagaOrchestrator, AbstractSagaStep, SagaDataSourceConfig
+- `saga` — SagaOrchestrator, AbstractSagaStep (실행 로그는 메모리에만 — `saga_db` 는 2026-10-29 삭제, ADR-003·LUT-665)
 
 ### Service Modules
 
@@ -59,7 +59,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 | `missionservice`      | mission_db      | 미션 정의/진행/Saga, 미션북, daily instance(pinned) |
 | `guildservice`        | guild_db        | 길드, 멤버, 경험치, 게시판, 초대                       |
 | `chatservice`         | chat_db         | 길드 채팅, DM, 읽음 상태                           |
-| `metaservice`         | meta_db         | 공통 코드, 캘린더, 레벨/출석 보상·길드 레벨 설정 (Redis 캐시). 금칙어·콘텐츠 번역 캐시 저장소도 meta_db |
+| `metaservice`         | meta_db         | 공통 코드, 캘린더, 레벨/출석 보상·길드 레벨 설정, **어드민 서비스 설정 `app_setting`**(LUT-708) (Redis 캐시). 금칙어·콘텐츠 번역 캐시 저장소도 meta_db |
 | `feedservice`         | feed_db         | 피드 (CQRS Read Model), 좋아요, 댓글              |
 | `notificationservice` | notification_db | 알림 생성/조회, FCM 푸시, 실시간(WS), 디바이스 토큰      |
 | `gamificationservice` | gamification_db | 칭호, 업적, 통계, 경험치, 출석, 이벤트, 시즌, **상점/인벤토리/다이아** |
@@ -89,7 +89,6 @@ public void updateGuild(...) { ...}
 | notificationservice | `notificationTransactionManager`   |
 | gamificationservice | `gamificationTransactionManager`   |
 | statsservice        | `statsTransactionManager`          |
-| saga                | `sagaTransactionManager`           |
 
 ### Service Layer Pattern
 
@@ -108,7 +107,7 @@ private final UserTitleRepository userTitleRepository; // 다른 서비스 DB �
 private final GamificationQueryFacade gamificationQueryFacade;
 ```
 
-Facade 인터페이스는 `lut-platform-kernel`에 정의, 각 서비스에서 구현. Facade DTO는 `io.pinkspider.global.facade.dto` (26개). Entity/Enum
+Facade 인터페이스는 `lut-platform-kernel`에 정의, 각 서비스에서 구현. Facade DTO는 `io.pinkspider.global.facade.dto` (27개). Entity/Enum
 import는 현행 유지 (MSA 전환 시 교체).
 
 ### API Response Format
@@ -147,11 +146,11 @@ All REST endpoints return `ApiResult<T>`:
 
 | Module            | Tests  | Content                                                       |
 |-------------------|--------|---------------------------------------------------------------|
-| `platform:kernel` | 204    | util/wrapper/aop/converter/api tests + `NotificationTypeTest`  |
+| `platform:kernel` | 205    | util/wrapper/aop/converter/api tests + `NotificationTypeTest`  |
 | `platform:infra`  | 98     | JwtUtil/JwtAuthenticationFilter/RestExceptionHandler/Crypto/Feign 등 (resolver/profanity 테스트는 `service`) |
-| `platform:saga`   | 90     | saga framework tests                                          |
-| `service`         | 5,081  | all service unit + controller tests                           |
-| `app`             | 32     | `@SpringBootTest` (full context) + 벤치마크/통합                  |
+| `platform:saga`   | 72     | saga framework tests (persistence 엔티티 테스트 18개는 2026-10-29 삭제) |
+| `service`         | 5,100  | all service unit + controller tests (2026-10-30)              |
+| `app`             | 34     | `@SpringBootTest` (full context) + 벤치마크/통합 (2026-11-02, LUT-653 이벤트 전파 통합 테스트 추가) |
 
 **커버리지 게이트** (`service/build.gradle` `jacocoTestCoverageVerification`, `check`에 연결): INSTRUCTION 80% + **BRANCH 80%**
 두 룰. `jacocoExcludes`(config/dto/entity/enums/외부 의존 컴포넌트 등)가 리포트와 게이트에 동일 적용. 2026-09-30 기준 INSTRUCTION 91.8% /
@@ -229,6 +228,8 @@ preflight(OPTIONS) 응답의 `Access-Control-Allow-Headers` 를 검증한다. �
 - 핫픽스를 epic 에도 머지하는 이유: 빠뜨리면 다음 릴리스(epic → `main`)에서 그 수정이 사라지거나 충돌한다.
 - 이 레포: `develop`·`epic/**` push → 개발 서버 배포(`gradle-dev.yml`), `main` push → 운영 롤링 배포(`gradle-prod.yml`). 운영 배포가 필요 없는 `main` 커밋(문서 등)은 메시지에 `[skip ci]`.
   platform 을 함께 바꿨으면 platform 의 같은 epic 을 먼저 push 한다(`X.Y.Z-SNAPSHOT` 발행 → 이 레포 dev 빌드가 받는다).
+  platform 핫픽스는 `X.Y.Z.N`(네 번째 자리, LUT-699)으로 발행된다 — 이 레포 핫픽스 브랜치에서 `gradle.properties` 의
+  `lutPlatformReleaseVersion=X.Y.Z.N` 으로 받는다(운영 빌드가 그 정식 버전을 찾는다). epic 에 머지할 때는 epic 값을 유지한다.
 
 ## 작업 완료 시 규칙
 
@@ -293,6 +294,10 @@ public void handleEvent(YourEvent event) { ...}
 
 **주요 이벤트 흐름 매핑은 [`docs/EVENT_FLOWS.md`](docs/EVENT_FLOWS.md) 참조** (서비스별 발행/수신 30+ 매핑, 자동 피드 생성 축소 규칙 포함).
 
+**AFTER_COMMIT 리스너 안에서 재발행한 이벤트의 수신자는 `fallbackExecution = true` 필수** (LUT-653): 커밋 후 콜백은 트랜잭션 동기화가 해제된 뒤라
+재발행 이벤트는 "활성 트랜잭션 없음"으로 버려진다. 레벨업 → `UserLevelUpProfileSyncListener` → `UserProfileChangedEvent` → `*ProfileSnapshotEventListener` 4개가 그 경우였고
+미션 댓글 `user_level` 이 레벨업 뒤에도 옛 값이었다. 단위 테스트는 publisher 를 mock 해 못 잡으니 실제 트랜잭션 통합 테스트(app `UserLevelUpSnapshotSyncIntegrationTest`)로 확인한다.
+
 ## 알림/푸시 파이프라인 (Kafka 미사용)
 
 도메인 이벤트 → `NotificationEventListener`(AFTER_COMMIT + `@Async`) → `NotificationService`:
@@ -329,9 +334,9 @@ Redis Stream `stream:app-push` → `AppPushMessageConsumer` → `FcmPushService`
 | 슬롯 조건 | 아침 = 전날 완료 AND 오늘 미완료(`BEFORE_ACTIVITY` 대사) / 정오 = 전날 미완료 AND 오늘 미완료 AND 백오프 발송일(`INACTIVE`) / 오후 = 오늘 완료(`AFTER_COMPLETE`). **불일치면 그 슬롯 스킵**(다른 대사로 대체 안 함) |
 | 설정 | 행 없음 또는 **두 시각 모두 null → 정오 포함 전체 미발송**. 한쪽만 설정해도 됨(비면 그 슬롯만 미발송). 미션 완료는 유저 로컬 날짜 기준 |
 | 하루 1건 | `item_push_send_log` `(user_id, send_date)` 유니크 — 어느 슬롯이든 발송하면 그날 나머지 스킵. 장착을 바꿔도 그날은 재발송 없음 |
-| **간격** | 유저+아이템 마지막 발송일로부터 **2일**(D 발송 → D+2). INACTIVE 발송도 기산점. 새 아이템을 장착하면 그 아이템 이력이 없어 다음 슬롯에 바로 나감. LUT-573 이전 로그(`slot` null)는 간격 판정에서 제외 |
-| **로테이션** | 직전 발송 슬롯이 아침이면 이번 차례의 아침은 양보(= 아침→아침 3일), 오후에 기회. 오후가 못 나가면 다음 날 아침 재개. INACTIVE 는 무관. 판정은 로그의 `slot`(ANY 폴백이어도 발송된 슬롯) |
-| **백오프** | 정오 `INACTIVE` 는 **연속 미완료 일수 k ∈ {1,3,7,14} 인 날만**. k 는 `BACKOFF_MAX_DAYS(14)` 초과 시 15로 saturate → **15일 이상 미완료·완료 이력 0건 유저는 영구 미발송**(LUT-541) |
+| **간격** | 유저+아이템 마지막 발송일로부터 **1일**(D 발송 → D+1, LUT-680 — LUT-573 의 2일에서 환원, 매일 최대 1건). INACTIVE 발송도 기산점. 새 아이템을 장착하면 그 아이템 이력이 없어 다음 슬롯에 바로 나감. LUT-573 이전 로그(`slot` null)는 간격 판정에서 제외 |
+| **로테이션** | 직전 발송 슬롯이 아침이면 **바로 다음 날** 아침은 양보(= 아침→아침 2일, LUT-680), 오후에 기회(오후 조건 미충족이면 그날 푸시 없음 — 아침 대사로 대체 안 함). 오후가 못 나가면 그다음 날 아침 재개. INACTIVE 는 무관. 판정은 로그의 `slot`(ANY 폴백이어도 발송된 슬롯) |
+| **백오프** | 정오 `INACTIVE` 는 **연속 미완료 일수 k ∈ {1,3,7,14,30,60,90} 인 날만**(LUT-543 — 예전 {1,3,7,14} 는 15일 이상 미완료·완료 이력 0건 유저가 영구 무음이었다, LUT-541). k 는 `BACKOFF_MAX_DAYS(90)` 초과 시 91로 saturate → **90일 넘게 미완료면 완료 전까지 중단**(그 뒤는 어드민 푸시 캠페인 LUT-508 몫). **완료 이력이 없는 유저는 가입일부터 센다**(`UserQueryFacade.getCreatedAts`). 스케줄러는 15일 창을 모두에게, 그 창에 완료가 없는 유저만 `[오늘-91, 오늘-15)` 를 추가 조회한다(활동 유저 비용 유지) |
 | 대사 선택 | 슬롯 `trigger_type` 풀 → 비면 `ANY` 풀 → **그것도 비면 조용히 스킵**. 풀 안에서 **한 번도 안 보낸 대사(최신 등록 먼저) → 가장 오래전에 보낸 대사**. 랜덤 없음. 비활성·삭제 대사는 풀에서 빠지고 이력은 유지(재활성화 시 이전 이력대로) |
 
 - **대사 미등록 = 그 슬롯의 유저는 무음**이다(LUT-541). 아이템을 추가하면 **상태 3종 대사를 모두 채웠는지 확인할 것**.
@@ -381,7 +386,7 @@ Redis Stream `stream:app-push` → `AppPushMessageConsumer` → `FcmPushService`
 | `missionCategories`, `activeMissionCategories`        | 1시간 | 마스터 데이터 (Admin evict+reload) |
 | `guildLevelConfigs`, `userLevelConfigs`               | 1시간 | 레벨 설정 (LUT-534 — 무기한 캐시가 컬럼 추가 후 스테일 JSON을 돌려줘 길드 레벨 강등 사고) |
 
-그 외 설정·조회 캐시(출석 보상, 업적, `profanityWords`, `userDetailedTitleInfo` 등)는 각 `*CacheService`의 `@Cacheable` 사용 — **기본 설정은 TTL 없음(무기한)**이라 evict 이벤트에 전적으로 의존한다.
+그 외 설정·조회 캐시(출석 보상, 업적, `profanityWords`, `userDetailedTitleInfo`, `appSettings`(LUT-708 — 엔티티가 아니라 파싱한 값만 캐시) 등)는 각 `*CacheService`의 `@Cacheable` 사용 — **기본 설정은 TTL 없음(무기한)**이라 evict 이벤트에 전적으로 의존한다.
 **캐시되는 엔티티에 컬럼을 추가할 때는 배포 직후 해당 키를 evict할 것** (LUT-534): 옛 JSON은 역직렬화 오류 없이 새 필드만 `null`로 살아남으므로 `RedisConfig`의 "오류 시 evict" 안전망에 걸리지 않는다. `@PostConstruct warmUpCache()`류 self-invocation은 캐시 프록시를 타지 않아 기동 시 갱신 효과가 없다.
 길드 레벨 재판정(`GuildExperienceService.processLevelUp`)은 **강등 금지**(포인트 단조 증가 → 레벨도 단조) — 재판정 결과가 현재 레벨보다 낮으면 warn 로그 후 유지.
 
@@ -394,17 +399,17 @@ IR 용 KPI(DAU/WAU/MAU·리텐션)의 원천. 예전엔 "앱을 열었다" 신�
   `WebMvcConfig` 가 `ObjectProvider` 로 있을 때만 등록. 경로 `/api/**`·`/jwt/reissue`·`/graphql`, 제외 `/api/internal/**`·`/api/test/**`·`/api/v1/webhooks/**`.
   principal 이 userId 문자열인 인증만 인정(anonymousUser 제외). **어떤 예외도 요청을 막지 않는다**(비동기 + try/catch, Redis 장애 구간은 DAU 결측 허용).
 - **적재**: `UserActivityFlushScheduler` 00:20 KST → `UserActivityFlushService.flush(date)` 가 집합을 읽어 `user_daily_activity`(user_id×activity_date 유니크, `device_types` 정렬 쉼표) 에 upsert. 멱등. 수동: `POST /api/internal/stats/activity/flush?date=YYYY-MM-DD`.
-- **설정** `app.stats.activity.enabled`(기본 true) · `excluded-user-ids`(E2E 봇·운영자 — config-repository 환경별). `DeviceTypeResolver` 는 LUT-598 에서 `global/web` 로 이동(user-service 전용 아님).
+- **설정** `app.stats.activity.enabled`(기본 true) · `excluded-user-ids`(팀원·운영자·QA·E2E 봇 — config-repository 환경별, 운영 20명 LUT-678). 이 목록은 DAU 수집(인터셉터)뿐 아니라 **KPI 전 지표**에서 뺀다(아래). `DeviceTypeResolver` 는 LUT-598 에서 `global/web` 로 이동(user-service 전용 아님).
 - **DB**: `stats_db` 신설(9번째). DB 자체는 수동 생성(`CREATE DATABASE stats_db`), 테이블은 dev Flyway `db/migration/stats/` · prod 는 SQL 레포 V008 수동. 날짜 경계는 **KST**.
 
 ## KPI 일별 스냅샷 · 코호트 (LUT-601, `statsservice/kpi`)
 
 상세 레퍼런스(지표 정의·제외 규칙·API·운영 점검): [`docs/KPI_STATS.md`](docs/KPI_STATS.md), 설계 결정: `docs/adr/ADR-008`.
 
-매일 00:40 KST(활동 flush 00:20 뒤) `KpiSnapshotScheduler` → `KpiRebuildService.runDaily` 가 어제·그제 `daily_kpi_snapshot` 과 창이 닫힌 `cohort_retention`, 전월·당월 `cohort_revenue` 를 upsert 한다(멱등). 소급은 `POST /api/internal/kpi/rebuild?from&to`(어제까지, 최대 400일) — 서버 기동 시 자동 실행 없음(LUT-595 원칙).
+매일 00:40 KST(활동 flush 00:20 뒤) `KpiSnapshotScheduler` → `KpiRebuildService.runDaily` 가 어제·그제 `daily_kpi_snapshot` 과 창이 닫힌 `cohort_retention`, 13개월 전~당월 코호트의 `cohort_revenue` 를 upsert 한다(멱등. LUT-660 — month_12 점이 닫히는 달까지. 예전엔 전월·당월만이라 오래된 코호트의 1·3·6·12개월 점이 수동 rebuild 로만 채워졌다). 소급은 `POST /api/internal/kpi/rebuild?from&to`(어제까지, 최대 400일) — 서버 기동 시 자동 실행 없음(LUT-595 원칙).
 
 - **원천 조회는 `infrastructure/source/*SourceReader`** — 다른 서비스 Repository/Service 를 import 하지 않고 각 DB 의 `DataSource` 빈에 `NamedParameterJdbcTemplate` 로 읽기 전용 SQL 을 던진다(`KpiSourceConfig`). KPI 는 읽기 모델이라 테이블 스키마 결합을 허용하며, MSA 전환 시 이 클래스들만 이벤트/API 로 바꾼다. SQL 을 고치면 dev DB 에서 먼저 실행해 볼 것(H2 통합 테스트 없음).
-- **날짜 경계 KST** (`KpiDates`): KST 날짜 → UTC 구간 `[D-1 15:00, D 15:00)`. 테스트 계정(`users.provider='test'`)은 **user_db 기반 지표**(가입·탈퇴·활성 유저·코호트 모수)에서만, 활동 제외 유저(`app.stats.activity.excluded-user-ids`, 2026-10 현재 config 미설정)는 DAU/WAU/MAU·REQUEST 리텐션에서만 빠진다 — 출석·미션·구독·매출은 제외 없음.
+- **날짜 경계 KST** (`KpiDates`): KST 날짜 → UTC 구간 `[D-1 15:00, D 15:00)`. 테스트 계정(`users.provider='test'`)은 **user_db 기반 지표**(가입·탈퇴·활성 유저·코호트 모수)에서만 빠진다. 제외 유저(`app.stats.activity.excluded-user-ids`)는 **모든 지표**에서 빠진다(LUT-678 — `kpi/domain/ExcludedUsers` 를 각 리더 SQL 에 `NOT IN (:excluded)` 로 넘긴다. 빈 목록은 센티널 `__none__` 1개, 코호트 매출은 모수에서 빠져 자동 제외. 예전엔 DAU/WAU/MAU·REQUEST 리텐션만). 목록 변경 후엔 재기동 + `kpi/rebuild` 소급.
 - **지표**: dau/wau/mau = `user_daily_activity`(REQUEST, LUT-598 배포일부터) · `attendance_dau` = 출석(소급 가능) · 미션 완료 = `mission_execution`+`daily_mission_instance` COMPLETED(completed_at) · 구독 = `subscription_payment_history` PURCHASE/trial/REFUND + 체험→유료 전환 + `user_subscription` 활성/연장 없는 만료 · 매출 = **`price_source IS NOT NULL` 행만**(LUT-600, 미상 제외), 환불 음수, **구독·매출·결제 유저 전부 `test_purchase = FALSE` 만**(LUT-666 — Sandbox·라이선스 테스터 제외, `GamificationSourceReaderTest` 가 쿼리 목록을 가드), KRW 외 통화는 `fx_rate`(월, 수동) 있을 때만 `revenue_krw` 에 합산(원본은 `revenue_by_currency` JSONB).
 - **코호트 리텐션** `RetentionMetric` D1/D3/D7/D14/D30(classic)·W1(1~7일)·W2_4(8~30일) × `RetentionSource` REQUEST/ATTENDANCE. 창이 닫힌(어제 이내) 지표만 저장. REQUEST 는 활동 데이터 시작일(`min activity_date`) 이전 창은 계산하지 않는다. D0 없음(LUT-597 전 출석 0·요청은 가입 호출 포함).
 - **코호트 매출** 가입 월 × month_n {0,1,3,6,12}: 그 월말이 지난 점만, KRW 누적(구독+다이아). LTV = 누적 ÷ cohort_size (응답 `ltv_krw`).
@@ -451,13 +456,15 @@ public void run() { ...}
 | `DailyMvpHistoryScheduler.saveDailyMvpHistory{Kst,Ast,Utc}` | `0 0 0 * * *` (Asia/Seoul·Asia/Riyadh·UTC) | 타임존별 일간 MVP 기록             |
 | `SeasonRewardScheduler.processEndedSeasonRewards`           | `0 0 3 * * *` KST           | 종료된 시즌 보상 자동 부여            |
 | `SubscriptionStipendScheduler.grantDailyStipends`           | `0 10 0 * * *` UTC          | 구독자 일일 블루다이아 1개 지급 (LUT-453, 멱등=구독ID+지급일) |
+| `SubscriptionLedgerReconcileScheduler.reconcileAndroidLedgers` | `0 30 0 * * *` UTC       | 활성·최근 만료(7일) Android 구독의 원장 증분 대조 + 초회 주문 STORE 정정 (LUT-677). 백필 카운터 `source=daily` 가 0 이 아니면 RTDN 경로 이상 |
 | `MissionIdempotencyKeyCleanupScheduler.cleanupExpiredKeys`  | `0 15 * * * *` KST (매시)    | 24시간 지난 미션 생성 멱등 키 삭제 (LUT-577) |
 | `UserActivityFlushScheduler.flushRecentDays`                 | `0 20 0 * * *` KST          | Redis `active:{날짜}` 활동 집합 → `stats_db.user_daily_activity` 적재(그제·어제 2일, 멱등) (LUT-598) |
-| `KpiSnapshotScheduler.buildDailySnapshot`                    | `0 40 0 * * *` KST          | 어제·그제 `daily_kpi_snapshot` + 최근 31일 `cohort_retention` + 전월·당월 `cohort_revenue` 재계산(멱등) (LUT-601) |
+| `KpiSnapshotScheduler.buildDailySnapshot`                    | `0 40 0 * * *` KST          | 어제·그제 `daily_kpi_snapshot` + 최근 31일 `cohort_retention` + 13개월 전~당월 `cohort_revenue` 재계산(멱등) (LUT-601·660) |
 
 ## DB 마이그레이션 — Flyway (LUT-595, `global/config/datasource/flyway`)
 
-**dev 는 Flyway, prod 는 v1.1.4 부터** (v1.1.3 운영 배포는 수동 psql, 직후 config prod `app.flyway.enabled=true`·`baseline-version=1.1.3.12`, 2026-10-28).
+**dev·prod 모두 Flyway** (dev 2026-10-23 · prod 는 v1.1.3 운영 배포를 수동 psql 로 마친 직후 config `app.flyway.enabled=true`·`baseline-version=1.1.3.12`, 2026-10-28).
+prod 첫 적용 파일은 LUT-666 핫픽스 `gamification/V1_1_3_013`(2026-10-29). `admin_db` 는 이 레포가 아니라 admin-service 자체 Flyway(LUT-676, v1.1.4 부터).
 상세 레퍼런스·새 마이그레이션 체크리스트: [`docs/DB_MIGRATION.md`](docs/DB_MIGRATION.md), 설계 결정: `docs/adr/ADR-007`. Boot 자동설정은 DB 하나만 다루므로
 `spring.flyway.enabled=false` 로 끄고, 9개 `XxxDataSourceConfig`(LUT-598 `stats` 포함) 가 각각 `xxxFlywayMigration` 빈(`initMethod=migrate`)을 두며 `xxxEntityManagerFactory`
 가 `@DependsOn` 한다 — Flyway 가 스키마를 맞춘 뒤 Hibernate `validate`(각 config 의 `jpaProperties()` 가 코드로 지정, yml `ddl-auto` 와 무관)가 돈다.
@@ -474,7 +481,9 @@ public void run() { ...}
 
 미션 완료 등 다단계 비즈니스 로직은 `AbstractSagaStep<Context>` 상속하여 `executeInternal` / `compensateInternal`(보상 트랜잭션) 구현. 오케스트레이터는
 `missionservice/saga/MissionCompletionSaga.java` 참고 — Regular/Pinned 분기 + 10단계 step. 새 step 추가 시 `getStepName()`, 보상 로직,
-멱등성 고려 필수.
+멱등성 고려 필수. 각 step 은 자기 서비스 트랜잭션 매니저로 따로 커밋한다.
+**Saga 실행 상태는 DB 에 저장하지 않는다**(오케스트레이터 메모리 로그만, `saga_db` 는 한 번도 쓰이지 않아 2026-10-29 dev·prod 삭제 — ADR-003·LUT-665).
+그래서 요청 처리 중 서버가 종료되면 일부 step 만 반영된 채 남고 복구 기록이 없다 — 긴 작업·외부 호출을 필수 step 에 넣지 말 것.
 
 ## 상점 · 다이아 경제 (gamificationservice/shop, LUT-327/348/349/350/354/356/401)
 
@@ -486,7 +495,7 @@ public void run() { ...}
 **IAP 결제** (LUT-354): 앱 전용(웹은 '앱에서 결제' 모달). 흐름: 웹 상점 → RN 브릿지(`requestIapPurchase`)
 → react-native-iap 스토어 결제 → RN이 `POST /api/v1/diamond-bundles/{id}/purchase`로 영수증 전달
 → `IapVerificationService` 검증(iOS verifyReceipt·21007 샌드박스 재시도 / Android Play Developer API·서비스계정 JWT)
-→ 멱등 지급(`diamond_bundle_purchase.store_transaction_id` 유니크) → RN `finishTransaction`(지급 성공 후에만 —
+→ 멱등 지급(`diamond_bundle_purchase.store_transaction_id` 유니크 — **다른 계정이 같은 결제를 보내면 `120705`**, LUT-662) → RN `finishTransaction`(지급 성공 후에만 —
 실패 시 pending 유지, 앱 재시작 시 `restorePendingPurchases`가 멱등 재처리). 가격 표시는 스토어
 `localizedPrice`만 사용(국가/환율별 상이 — 서버 저장가 표시 금지). `iap.verification.enabled=false`(기본)면
 검증 스킵(dev용) — **prod는 config에 활성화 + Apple/Google 자격증명 필수**.
@@ -559,13 +568,14 @@ list_price      = COMMON 유저 기준가 = 최대 할증가                    
 **비로그인 열람 (LUT-350)** — `userId == null`이면 보유 아이템 없음 + 레벨 1(COMMON)로 계산한다. 화면에 보이는 값이 곧 가입 후 낼 값이라
 로그인해도 가격이 오르지 않는다.
 
-### 레벨 도달 보상 아이템 (LUT-593, `experience/application/LevelRewardItemService`)
+### 가입 보상 아이템 — 성장의 새싹 (LUT-593 → LUT-607, `experience/application/LevelRewardItemService`)
 
-레벨 **4 이하 → 5 이상**이 되는 레벨업(4→6 건너뜀 포함)에 **성장의 새싹**을 미착용으로 지급하고 `ITEM_GRANTED` 알림(딥링크 인벤토리)을 보낸다.
+**회원가입 완료 직후**(`UserSignedUpEventListener`, 가입 트랜잭션 커밋 후 비동기 — 기본 칭호·기본 아이템과 같은 지점) **성장의 새싹**을 미착용으로 지급하고
+`ITEM_GRANTED` 알림(딥링크 인벤토리)을 보낸다(LUT-607). 신규 가입 환영 모달의 확인 버튼이 인벤토리로 가므로 가입 직후 보여야 한다. 예전(LUT-593)의
+"레벨 4 이하 → 5 이상" 레벨업 트리거와 `sprout-level` 설정은 제거됐다 — 클래스·설정·이벤트 이름의 `LevelReward` 는 그때 이름(플랫폼 이벤트 호환 유지).
 `shop_item_id` 는 환경별(dev 6 / prod 15)이라 `app.level-reward.sprout-item-id`(config-repository)로 받고, 비어 있으면 미지급.
-보유 중이면(구매·시즌 보상 포함) 지급·알림 모두 없음(`UserItemService.grantItem` null). **5→6 은 대상이 아니다** — 관리자 회수분이 되살아나지
-않게 하기 위함이고, 미지급 유저 보정은 백필 SQL(1.1.3 V007, 이름 `'성장의 새싹'` 으로 id 해석·알림 없음) 몫. 지급 실패는 레벨업을 되돌리지
-않는다(REQUIRES_NEW 행 생성이라 예외를 잡아도 호출자 트랜잭션 무오염).
+보유 중이면(구매·시즌 보상 포함) 지급·알림 모두 없음(`UserItemService.grantItem` null). 지급 실패는 가입을 막지 않는다(리스너가 단계별로 예외를 삼킨다).
+기존 유저 보정은 SQL 레포 1.1.4 `V002`(user_db 비탈퇴 유저 → gamification_db, 이름 `'성장의 새싹'` 으로 id 해석·알림 없음) 몫.
 
 ## 구독 (gamificationservice/subscription, LUT-450~453 · 486 · 499)
 
@@ -581,6 +591,7 @@ list_price      = COMMON 유저 기준가 = 최대 할증가                    
   감사 로그도 없다. dev 구독이 2026-10-17 쯤 사라져 10/26 테스트 갱신 RTDN 9건이 구독 없는 토픽으로 발행돼 전부 폐기됐다. 2026-10-26 `lut-rtdn-dev-push`
   재생성(만료 없음·재시도 10s~600s). 운영 push 구독 `lut-rtdn-prod-push` 는 2026-10-28 v1.1.3 릴리스 때 같은 방식(만료 없음)으로 생성했다. 수신 여부는 `lut_rtdn_received_total`
   (`RtdnMetrics`, kind 라벨) 카운터로 본다 — 0 이 계속되면 전달 경로부터 의심.
+- **Android 원장 일일 정합** (LUT-677, `SubscriptionLedgerReconcileScheduler` 00:30 UTC): 활성·최근 만료(7일) Android 구독을 한 명씩 Play 재조회 → `syncRenewals(full=false, source="daily")` 로 빠진 연번을 채우고, 초회 주문(접미사 없는 `GPA.xxxx`, verify 가 정가 LIST 로 기록)도 `orders.get` 으로 STORE 정정한다(이미 STORE·무료 체험 행은 조회 안 함). RTDN 이 끊겨도 다음 날이면 원장이 맞는다. `lut_subscription_ledger_rows_written_total{source="daily"}` 는 **0 이 정상** — 양수면 RTDN 전달 경로(Pub/Sub push 구독) 점검, Grafana 알람 "Android 원장 일일 백필".
 - **Android 갱신 원장은 Play 주문 연번으로 완결한다** (LUT-617, `GoogleOrderLedgerSync`): RTDN·자가 치유·verify 는 "처리 시점의 `latestOrderId`
   1건"만 알지만 갱신 주문 ID 는 `GPA.xxxx..N` 연번이다. 만료가 늘어날 때 원장의 마지막 N 다음부터 최신 N 까지 **Orders API**(`orders.get`,
   `SubscriptionVerificationService.fetchGoogleOrder`)로 되짚어 실제 결제 시각(`createTime`)·금액(`total` → `price_source=STORE`)·이용 기간(`servicePeriodEnd`
@@ -588,7 +599,7 @@ list_price      = COMMON 유저 기준가 = 최대 할증가                    
   다음 호출 때 재시도). 같은 주문 ID 행은 주문 기준으로 정정(append-only 의 유일한 예외, `correctFromStoreOrder`). 수동 전수 대조는
   `POST /api/internal/subscription-payments/reconcile?user_id=` (구독 권한은 안 바꿈, Android 만 — 120803/120804).
 - **스토어 API 실패는 일시/영구를 가른다** (LUT-617): `fetchGoogleSubscription`/`fetchGoogleOrder` 는 5xx·네트워크·토큰 발급 지연을
-  `StoreTransientException` 으로 던지고 웹훅은 이를 잡지 않아 5xx → Pub/Sub 백오프 재시도. 4xx(잘못된 토큰·권한)·파싱 실패만 `120702`(폐기). 클라이언트
+  `StoreTransientException` 으로 던지고 웹훅은 이를 잡지 않아 5xx → Pub/Sub 백오프 재시도. 4xx(잘못된 토큰·권한)·파싱 실패만 `120702`(폐기). 매핑 없는 상품(`120801`)도 웹훅에서는 폐기(200, RTDN 은 `dropped{unknown_product}`) — 잡지 않으면 500 으로 스토어가 계속 재전송한다(LUT-661). 클라이언트
   verify·내부 reconcile 은 transient 를 120702 로 감싸 응답 계약 유지. 액세스 토큰은 50분 캐시(백필이 주문을 여러 번 조회).
 - **자가 치유** (LUT-499, `SubscriptionSelfHealService`): `/subscriptions/me`가 `expires_at` 경과 + `auto_renew` 상태를 보면 응답 전 스토어를
   재조회해 웹훅과 같은 경로(`SubscriptionWebhookTxService.applyGoogleState` / `applyAppleSnapshot`)로 덮어쓴다. 실패는 삼키고 DB 값 응답.
@@ -606,7 +617,7 @@ list_price      = COMMON 유저 기준가 = 최대 할증가                    
   새 결제 → 옛 행에서 스토어 키를 떼고(유니크 제약, flush 선행) 결제 계정으로 **이전**. 웹훅(ASSN SUBSCRIBED/DID_RENEW/OFFER_REDEEMED,
   RTDN)도 거래 토큰이 현재 주인이 아니면 같은 upsert로 이전을 시도하고 거절(120802)되면 기존 행에 적용한다. 토큰 없는 예전 거래는
   스토어 키 소유자 기준. 웹 안내 문구: 스토어 해지가 아니라 "기존 이용 기간 종료 후 재구독".
-- **결제 이력 금액 출처 `price_source`** (LUT-600): Google `subscriptionsv2` 는 금액을 주지 않아 Android 원장 `price_amount` 가 null 이었다. `SubscriptionPriceResolver` 가 기록 시 결정 — 스토어 금액 있음 → `STORE` / 무료 체험 → 0원 `TRIAL` / 아니면 `plan_list_price`(플랜×플랫폼×통화, 결제일 이전 최신 `effective_from`) 정가로 채워 `LIST` / 정가도 없으면 null(warn). 정가 변경은 행 추가(삭제 금지). 캐시 없음(건수 적음). 어드민 응답 `price_source` 필드 추가(admin DTO 는 P3-a). ⚠ Play 라이선스 테스터 결제는 실매출이 아니다 — 운영 Android 17건(2026-09-20 하루 생성)은 null 유지(백필 안 함). 테스터 결제는 아래 `test_purchase`(LUT-666)로 표시·제외한다.
+- **결제 이력 금액 출처 `price_source`** (LUT-600): Google `subscriptionsv2` 는 금액을 주지 않아 Android 원장 `price_amount` 가 null 이었다. `SubscriptionPriceResolver` 가 기록 시 결정 — 스토어 금액 있음 → `STORE` / 무료 체험 → 0원 `TRIAL` / 아니면 `plan_list_price`(플랜×플랫폼×통화, 결제일 이전 최신 `effective_from`) 정가로 채워 `LIST` / 정가도 없으면 null(warn). 정가 변경은 행 추가(삭제 금지). 캐시 없음(건수 적음). 어드민 응답 `price_source` 필드 추가(admin DTO 는 P3-a). ⚠ Play 라이선스 테스터 결제는 실매출이 아니다 — 운영 Android 17건(2026-09-20 하루 생성)은 null 유지(백필 안 함). 테스터 결제는 아래 `test_purchase`(LUT-666)로 표시·제외한다. **환불(`REFUND`) 행 금액**은 `SubscriptionRefundAmountResolver`(LUT-663): iOS 거래 price/currency · Android voided 주문 ID 로 Orders API total → 없으면 원 결제 행 → 최신 결제 행 → 정가. 예전엔 세 환불 경로가 전부 null 을 넘겨 다른 통화 결제도 KRW 정가로 빠졌다.
 - **스토어 테스트 결제 `test_purchase`** (LUT-666): `user_subscription`·`subscription_payment_history`·`diamond_bundle_purchase` 컬럼. iOS 는 JWS `environment` 가 Production 이 아니면(Sandbox=TestFlight·샌드박스 계정, Xcode), Google 구독은 subscriptionsv2 에 `testPurchase` 가 있으면, Google 다이아는 `purchaseType=0` 이면 true. 결제 단위가 아니라 **구매(스토어 키)의 성질**이라 구독 행에 두고 verify·웹훅·자가 치유·reconcile 이 최신 값으로 맞춘 뒤, 원장 기록기(`SubscriptionPaymentHistoryRecorder`·`GoogleOrderLedgerSync`)가 복사한다. 환경을 모르면 실결제로 본다. KPI 는 이 값이 true 인 행을 전부 뺀다 — 2026-10-29 운영 원장의 금액 있는 결제 19건이 전부 TestFlight(24h)·테스터(5분) 갱신이라 KPI 매출이 테스트 결제로 채워져 있었다. 기존 행 표시는 SQL 레포 `hotfix-LUT-666`(주기 2일 미만 = 테스트) + KPI rebuild.
 - **verify 응답 `trial`** (LUT-500): 이번 결제 건이 무료 체험으로 시작됐는지(원장 `subscription_payment_history.trial`과 동일). `trial_used`는
   **유저 평생 이력**이라 체험 소진 후 정가 재구독에도 true — 성공 문구 판정은 반드시 `trial`로. `/me` 응답의 `trial`은 null.
@@ -623,6 +634,7 @@ list_price      = COMMON 유저 기준가 = 최대 할증가                    
   쿼리가 아니라 **데이터 정리(sql V009)** 로 제거 — 미션 상태로 소급 제외하면 활성이던 달의 정당한 미수행까지 빠진다.
 - **랭킹** `/api/v1/rankings` 14개: 전체·`/missions`·`/streaks`·`/achievements`·`/realtime`·`/level`·`/level/**`는 **비로그인 허용**(LUT-297,
   `SecurityConfig` permitAll + `SecurityConfigPublicEndpointTest`), `/my*`·`/nearby`는 인증 필요.
+- **출석 응답 `store_review_due`** (LUT-708, 2026-11-02): 체크인 응답에 "이번 연속 일수가 어드민 설정 마일스톤(meta `app_setting.store_review_milestone_days`, 기본 `7,14,30`)과 같은가" 를 서버가 판정해 싣는다. 웹은 그 값이 true 일 때만 OS 인앱 평가 팝업을 요청(LUT-609)하고, 값이 없으면(구 서버) 7·14·30 으로 폴백한다. "평가했는지" 는 OS 가 알려 주지 않으므로 목록의 각 시점에 1회씩 요청하고 끝낸다. 설정 조회 실패는 출석을 막지 않는다(false). 어드민은 `/api/admin/attendance-reward-configs/store-review-milestones`(권한 `attendance-config:*`).
 - **출석은 가입 당일부터 1일차** (LUT-597): 예전 `AttendanceController` 의 "가입 첫날 출석 제외" 규칙(2025-12-25, 이유 미기재)은 폐지됐다. `isNewUserToday` 가 UTC 날짜(JVM 기본)를 비교해 차단 창이 KST 09:00~다음날 09:00 로 어긋났고, 웹은 `already_checked_in` 응답을 조용히 삼켜 유저에게 아무 안내도 없었다. IR 리텐션 D1 정의(가입 다음 날 재방문)와 맞추기 위해 제거 — **배포 전 가입 코호트의 가입 당일 출석 행은 구조적으로 0건**이라 출석 기반 D0 는 그 구간에서 측정 불가. kernel `UserQueryFacade.isNewUserToday` 는 호환 위해 남아 있다(호출처 없음).
 - **스트릭 소스는 2종이고 섞으면 안 된다** (LUT-405/555): ① **연속 출석** = `attendance_record.consecutive_days` 체인
   (`AttendanceService.getCurrentStreak`, 유저 타임존, 오늘·어제 출석 없으면 0) — 업적 화면 "현재 n일 출석중"·공개 프로필
@@ -736,7 +748,10 @@ uk 멱등) — 쪼개서 수행해도 몰아서 한 것과 같은 점수. "하�
 ## Image Moderation & Storage
 
 - **검증**: `@ModerateImage` 어노테이션 + `ImageModerationAspect` (AOP). `moderation.image.provider` 설정 (`none` / `onnx-nsfw` /
-  `aws-rekognition`). 위반 시 `CustomException("000010", "error.moderation.inappropriate_image")`
+  `aws-rekognition`). 위반 시 `ImageModerationException.blocked()` → **HTTP 400** `000010 error.moderation.inappropriate_image` (LUT-714 — `ImageUploadExceptionHandler`(`HIGHEST_PRECEDENCE`) 가 플랫폼 `RestExceptionHandler` 의 500 보다 먼저 받는다; 본문 `code`·`message` 는 예전과 같아 웹·앱 변경 없음)
+  `onnx-nsfw` 모델은 jar 동봉 `app/src/main/resources/models/nsfw.onnx`(Yahoo open_nsfw, NHWC, BSD-2 — 출처·SHA-256 은 그 폴더 README, LUT-651). 레이아웃은 기동 시 자동 감지,
+  전처리는 256 리사이즈 → 가운데 224 자르기 → BGR 평균 차감. `app` `OnnxNsfwModelSmokeTest` 가 실제 로드·추론을 검사한다. dev 는 2026-11-02 부터 `provider: onnx-nsfw`(config), prod 는 측정 뒤 결정.
+  `List<MultipartFile>`·`MultipartFile[]` 인자도 전부 검사한다(LUT-650 — 예전엔 단일 인자만 봐서 미션 인증 사진이 통과). 검수 실패(파일 못 읽음·추론 예외)는 `moderation.image.fail-open`(기본 true=통과)으로 정책을 정하고, 어느 쪽이든 error 로그 + `lut_image_moderation_fail_open_total` 카운터가 남는다(false 면 **HTTP 503** `000011 error.moderation.unavailable`, LUT-714). **이미지 형식 검증** (LUT-710): 같은 애스펙트가 검수 on/off 와 무관하게 먼저 `ImageContentValidator`(헤더 시그니처 JPEG·PNG·GIF·WebP·BMP·HEIF)로 "진짜 이미지인가" 를 보고 아니면 **400** `000012 error.image.not_image` — 확장자·Content-Type 만 믿던 저장소를 지나 랜덤 바이트 `.png` 가 저장되던 구멍. 어드민 내부 업로드(상점 아이템·다이아 묶음)는 `@ModerateImage` 가 없어 서비스에서 직접 호출. 두 응답 모두 `ImageUploadExceptionHandler`. 상세는 `docs/IMAGE_INFRA.md`
 - **저장**: `@Profile("prod")`에서 S3 + CloudFront CDN, 그 외 로컬 파일시스템. 서비스별 Strategy (`S3*ImageStorageService` /
   `Local*ImageStorageService`)
 
@@ -758,15 +773,15 @@ uk 멱등) — 쪼개서 수행해도 몰아서 한 것과 같은 점수. "하�
 처리 중이면 409(`050402`), 형식 오류 400(`050401`), 헤더 없으면 기존처럼 매번 생성. 선점/해제는 REQUIRES_NEW, 생성+완료는 한 트랜잭션. 400/409 는
 플랫폼 `CustomException`(항상 500)이 아니라 미션 로컬 어드바이스가 낸다. 상세는 FEATURES.md "Mission 생성 멱등성" 절.
 
-**미션 EXP 공식은 `missionservice/domain/policy/MissionExpPolicy` 한 곳** (LUT-568): 체크 10/회(하루 10회), 타이머 60분까지 분당 1 + 초과 5분당 1
-(240분 = 96), 체크 일일 마일스톤 3·5개째 +20(`GrantDailyMilestoneBonusStep`, `ExpSourceType.DAILY_MISSION_MILESTONE`). 상세·응답 필드는
+**미션 EXP 공식은 `missionservice/domain/policy/MissionExpPolicy` 한 곳** (LUT-568): 체크 10/회(하루 10회), 타이머 **120분**까지 분당 1 + 초과 5분당 1
+(240분 = 144, 산정 상한 240분 — LUT-696 에서 60분/480분 → 120분/240분, 웹 `mission-exp.ts` 상수와 같이 바꾼다), 체크 일일 마일스톤 3·5개째 +20(`GrantDailyMilestoneBonusStep`, `ExpSourceType.DAILY_MISSION_MILESTONE`). 상세·응답 필드는
 FEATURES.md "Mission EXP 공식" 절. 공식을 바꿀 때 완료 Step 두 곳·엔티티 `calculateExpByDuration`·스케줄러 자동 종료 클램프가 전부 이 클래스를 참조하는지 확인할 것.
 
 JWT 발급/만료/슬라이딩 로직의 백엔드·웹·앱별 동작과 환경별 설정값: [`docs/JWT_TOKEN_LIFECYCLE.md`](docs/JWT_TOKEN_LIFECYCLE.md)
 
 소셜 로그인 연동 해제 정합(탈퇴 시 unlink/revoke, 카카오·Apple 수신 웹훅, 콘솔·config 등록 현황): [`docs/SOCIAL_ACCOUNT_LIFECYCLE.md`](docs/SOCIAL_ACCOUNT_LIFECYCLE.md)
 
-**회원 탈퇴에는 유예 기간이 없다** — `MyPageService.withdrawUser` 가 즉시 `WITHDRAWN` + 익명화(soft delete, 행 보존)하고 토큰 무효화·소셜 해제·`UserWithdrawnEvent` 를 낸다. 유일한 "유예"는 **재가입 cool-down**(QA-115, `app.user.withdrawal.cool-down-days` 기본 7일 — 같은 이메일+provider 가 `030001`). 어드민 **즉시 탈퇴**(LUT-584, `POST /api/internal/users/{id}/withdraw` → `withdrawUserByAdmin`)는 같은 정리를 하되 `users.withdrawal_cooldown_exempt=true` 로 cool-down 을 면제해 바로 재가입할 수 있다(`Oauth2Service.findExistingUser` 가 판정).
+**회원 탈퇴에는 유예 기간이 없다** — `MyPageService.withdrawUser` 가 즉시 `WITHDRAWN` + 익명화(soft delete, 행 보존)하고 토큰 무효화·소셜 해제·`UserWithdrawnEvent` 를 낸다. 유일한 "유예"는 **재가입 cool-down**(QA-115, `app.user.withdrawal.cool-down-days` 기본 7일 — 같은 이메일+provider 가 `030001`). 어드민 **즉시 탈퇴**(LUT-584, `POST /api/internal/users/{id}/withdraw` → `withdrawUserByAdmin`)는 같은 정리를 하되 `users.withdrawal_cooldown_exempt=true` 로 cool-down 을 면제해 바로 재가입할 수 있다(`Oauth2Service.findExistingUser` 가 판정). **완전 삭제**(DB 행 제거)는 `docs/scripts/delete_user/`(9개 DB, LUT-691 2026-11-02 현행화) — 결제 기록 3표(`user_subscription`·`subscription_payment_history`·`diamond_bundle_purchase`)는 지우지 않는다(유저 결정, 회계·환불 근거). 새 유저 표를 만들면 그 스크립트의 `count/`·`delete/` 에도 넣을 것.
 
 **세션 키는 `deviceId` 기준** (LUT-336) — `deviceType`은 세션 키의 일부가 아니다. 예전에는 재발급/로그아웃/모바일 로그인이 각각 다른 방식으로
 `deviceType`을 해석해(요청 본문 / `X-Device-Type` 헤더 / `"mobile"` 폴백) 같은 기기가 로그인은 `mobile`, 재발급은 `ios`로 기록되며 세션이
@@ -779,7 +794,7 @@ RN 네이티브 호출(푸시 토큰 등록·재발급·구독 검증)은 `X-Dev
 ## Internal API (Admin Backend ↔ MVP)
 
 `/api/internal/**` — VPC 내부 접근 + 공유 시크릿 헤더 인증(LUT-244). `InternalApiKeyFilter`가 `X-Internal-Api-Key` 헤더를
-`app.security.internal-api.key`와 상수시간 비교 (키 미설정 시 fail-open). 도메인별 베이스 경로, 신고 처리 워크플로우(WARNING/SUSPEND/BAN) 매핑: [
+`app.security.internal-api.key`와 상수시간 비교 (키 미설정 시 fail-open). **운영은 ALB 에서 한 번 더 막는다**(LUT-673, 2026-11-02): `/api/internal/*` 는 **어떤 Host 로 오든** 우리 EC2 EIP 2개(admin 이 도는 lut-ec2-2 포함)에서 온 요청만 호스트별 TG(api→product, admin-api→admin)로 가고 그 외 출발지는 고정 404(infra `alb.tf` 규칙 7·8 허용, 9 차단 — 차단에 host 조건을 두지 않는 건 Host 헤더를 바꿔 기본 액션으로 비켜 가는 걸 막기 위해서). 운영자 수동 호출(KPI 소급·활동 flush·구독 reconcile)은 SSH 로 서버에 들어가 `https://localhost:8443` + 키로 부른다(sql 레포 `kpi_rebuild_prod.sh` 방식) — 노트북에서 공개 도메인으로는 404 가 정상이다. dev(홈서버, ALB 없음)는 키 필터만. 도메인별 베이스 경로, 신고 처리 워크플로우(WARNING/SUSPEND/BAN) 매핑: [
 `docs/INTERNAL_API.md`](docs/INTERNAL_API.md)
 
 **product → admin 호출도 같은 키를 보낸다** (LUT-686, 2026-10-30): admin 의 product 전용 경로(유저 문의 `/api/v1/inquiries/**`·`/api/internal/**`·신고
@@ -793,6 +808,9 @@ RN 네이티브 호출(푸시 토큰 등록·재발급·구독 검증)은 `X-Dev
 Prometheus/Grafana Alloy 스크레이프용 — 플랫폼 `JwtAuthenticationFilter` 는 `Bearer` 만 해석해 충돌 없음)로 키를 받아야 200 이다. 예전엔 SecurityConfig
 `permitAll` + exposure `*` 라 prod `api.level-up-together.com/showmethemoney/env` 가 공개돼 있었다. 운영 점검은 `curl -u alloy:$KEY …/prometheus`.
 ALB·배포 스크립트(`gradle-*.yml`) 헬스체크는 `/showmethemoney/health` 라 영향 없다. 키 미설정이면 기존처럼 fail-open.
+**노출 자체도 줄인다** (LUT-672·675, dev 2026-10-30 · prod 는 v1.1.4 운영 배포 때): config `product-service-{env}.yml` 의 `management.endpoints.web.exposure.include=health,info,prometheus`
+(공용 `actuator/*.yml` 의 `*` 를 덮어씀 — admin LUT-625 와 같은 방식)라 키가 있어도 `env`·`beans`·`heapdump` 등은 404 다. 힙 덤프는 서버에서 `jcmd <pid> GC.heap_dump`.
+공용 `actuator-{env}.yml` 의 `health.show-details` 는 `never` — 키 없이 공개되는 `/health` 는 `{"status":"UP"}` 만 준다.
 
 어드민 대시보드용 `GET /api/internal/users/statistics` 의 `total_users` 는 **탈퇴(WITHDRAWN) 제외**(LUT-603 — 예전엔 `count()` 라 익명화된
 탈퇴 행까지 세었다), 탈퇴 수는 `withdrawn_users`, 가입경로 분포(`users_by_provider`)도 탈퇴 제외라 합이 `total_users` 와 맞는다.

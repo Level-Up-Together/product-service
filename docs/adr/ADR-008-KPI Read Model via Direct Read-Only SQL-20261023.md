@@ -44,7 +44,7 @@ missionDataSource ──────▶ MissionSourceReader ──────�
 - `statsservice/kpi/config/KpiSourceConfig` 가 기존 DataSource 빈(`userDataSource`·`gamificationDataSource`·`missionDataSource`)에 `NamedParameterJdbcTemplate` 를 붙여 리더 3개를 만든다. 새 커넥션 풀은 없다.
 - 리더는 **SELECT 만** 던진다. SQL 은 각 리더의 `static final String` 상수.
 - statsservice 자기 데이터(`user_daily_activity`, 스냅샷 표)는 `statsTransactionManager` + JPA 로 읽고 쓴다.
-- 공통 규칙은 리더 SQL 에 고정: 날짜 경계 KST(`KpiDates`: KST 날짜 → UTC 구간 `[D-1 15:00, D 15:00)`), 테스트 계정 `provider='test'` 제외, 매출은 `price_source IS NOT NULL` 행만(LUT-600), 환불 음수.
+- 공통 규칙은 리더 SQL 에 고정: 날짜 경계 KST(`KpiDates`: KST 날짜 → UTC 구간 `[D-1 15:00, D 15:00)`), 테스트 계정 `provider='test'` 제외(user_db 리더만), 매출은 `price_source IS NOT NULL` 행만(LUT-600), 환불 음수. (2026-11-02 보완, LUT-678: config 제외 목록 `excluded-user-ids` 는 `ExcludedUsers` 로 **모든** 리더 SQL 에 `NOT IN (:excluded)` 로 들어간다.)
 - 실행: `KpiSnapshotScheduler` 00:40 KST(ShedLock, 활동 flush 00:20 뒤) + 소급 `POST /api/internal/kpi/rebuild?from&to`(최대 400일, 기동 시 자동 실행 없음).
 - LUT-602 의 `GET /api/internal/kpi/signups/by-channel` 도 같은 방식으로 user_db 를 직접 집계한다(스냅샷 아님).
 
@@ -71,7 +71,7 @@ missionDataSource ──────▶ MissionSourceReader ──────�
 |---|---|
 | 원천 컬럼 변경으로 스냅샷 실패·오계산 | 리더에 의존 테이블·컬럼이 상수로 모여 있음 → 스키마 변경 시 `grep` 대상. 스냅샷 실패는 `lut_kpi_snapshot_age_days ≥ 2` 게이지·알람으로 감지(LUT-605) |
 | SQL 회귀를 테스트가 못 잡음 | dev DB 실행 확인을 규칙으로(CLAUDE.md). LUT-601 은 dev 소급 205일 결과를 수동 SQL 과 대조 |
-| 테스트 계정·운영자가 지표를 부풀림 | 모든 리더 SQL 에 `provider='test'` 제외, 활동은 `app.stats.activity.excluded-user-ids` 제외 |
+| 테스트 계정·운영자가 지표를 부풀림 | user_db 리더 SQL 에 `provider='test'` 제외(gamification·mission 리더엔 없음 — 운영엔 test 계정이 없다), `app.stats.activity.excluded-user-ids` 는 활동(인터셉터·Java)과 모든 리더 SQL(`ExcludedUsers`, LUT-678 2026-11-02) 양쪽에서 제외 |
 | 집계 쿼리가 OLTP 에 부하 | 하루 1회 새벽 배치 + rebuild 상한. 필요 시 읽기 복제본 DataSource 로 리더만 교체 ❓(현재 복제본 없음) |
 
 ## Alternatives Considered
