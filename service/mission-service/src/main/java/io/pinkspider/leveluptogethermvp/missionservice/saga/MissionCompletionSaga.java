@@ -1,11 +1,15 @@
 package io.pinkspider.leveluptogethermvp.missionservice.saga;
 
+import io.pinkspider.global.event.MissionExecutionEndedEvent;
+import io.pinkspider.global.event.MissionExecutionStartedEvent;
+import io.pinkspider.global.facade.TowerQueryFacade;
 import io.pinkspider.global.saga.SagaEventPublisher;
 import io.pinkspider.global.saga.SagaOrchestrator;
 import io.pinkspider.global.saga.SagaResult;
 import io.pinkspider.leveluptogethermvp.feedservice.domain.enums.FeedVisibility;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.DailyMissionInstanceResponse;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MissionExecutionResponse;
+import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.TowerSeatResponse;
 import io.pinkspider.leveluptogethermvp.missionservice.saga.steps.CompleteExecutionStep;
 import io.pinkspider.leveluptogethermvp.missionservice.saga.steps.CompletePinnedInstanceStep;
 import io.pinkspider.leveluptogethermvp.missionservice.saga.steps.CreateFeedFromMissionStep;
@@ -21,6 +25,8 @@ import io.pinkspider.leveluptogethermvp.missionservice.saga.steps.UpdateUserStat
 import java.util.concurrent.Executor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Component;
 
 /**
@@ -62,6 +68,8 @@ public class MissionCompletionSaga {
     private final CreateFeedFromMissionStep createFeedFromMissionStep;
 
     private final SagaEventPublisher sagaEventPublisher;
+    private final ApplicationEventPublisher eventPublisher;
+    private final TowerQueryFacade towerQueryFacade;
     private final Executor sagaTailExecutor;
 
     public MissionCompletionSaga(
@@ -78,6 +86,8 @@ public class MissionCompletionSaga {
             UpdateUserStatsStep updateUserStatsStep,
             CreateFeedFromMissionStep createFeedFromMissionStep,
             SagaEventPublisher sagaEventPublisher,
+            ApplicationEventPublisher eventPublisher,
+            @Lazy TowerQueryFacade towerQueryFacade,
             @Qualifier("generalExecutor") Executor sagaTailExecutor) {
         this.loadMissionDataStep = loadMissionDataStep;
         this.completeExecutionStep = completeExecutionStep;
@@ -92,6 +102,8 @@ public class MissionCompletionSaga {
         this.updateUserStatsStep = updateUserStatsStep;
         this.createFeedFromMissionStep = createFeedFromMissionStep;
         this.sagaEventPublisher = sagaEventPublisher;
+        this.eventPublisher = eventPublisher;
+        this.towerQueryFacade = towerQueryFacade;
         this.sagaTailExecutor = sagaTailExecutor;
     }
 
@@ -201,6 +213,7 @@ public class MissionCompletionSaga {
                     "MissionCompletionSaga succeeded: sagaId={}, pinned={}",
                     result.getSagaId(),
                     context.isPinned());
+            publishExecutionEnded(context);
             runTailStepsAsync(context);
         } else {
             log.error(
@@ -250,12 +263,58 @@ public class MissionCompletionSaga {
                 });
     }
 
+    /**
+     * LUT-632: 모든 완료 경로(유저 완료·목표 시간 자동 종료)의 단일 지점에서 수행 종료 이벤트를 낸다 — 탑이 자리를 정리하고 완료 연출을 연다. 발행 실패는
+     * 완료를 막지 않는다.
+     */
+    private void publishExecutionEnded(MissionCompletionContext context) {
+        try {
+            Long missionId = context.getMission() != null ? context.getMission().getId() : null;
+            eventPublisher.publishEvent(
+                    new MissionExecutionEndedEvent(
+                            context.getUserId(),
+                            missionId,
+                            context.isPinned() ? context.getInstanceId() : context.getExecutionId(),
+                            context.isPinned()
+                                    ? MissionExecutionStartedEvent.KIND_PINNED
+                                    : MissionExecutionStartedEvent.KIND_REGULAR,
+                            MissionExecutionEndedEvent.EndReason.COMPLETED));
+        } catch (Exception e) {
+            log.warn(
+                    "미션 수행 종료 이벤트 발행 실패: userId={}, error={}", context.getUserId(), e.getMessage());
+        }
+    }
+
+    /** LUT-632: 완료 응답에 탑 자리(층·자동 착석·응원 수)를 싣는다 — 조회 실패는 null */
+    private TowerSeatResponse resolveTowerSeat(MissionCompletionContext context) {
+        try {
+            Long missionId = context.getMission() != null ? context.getMission().getId() : null;
+            return towerQueryFacade
+                    .findMissionSeat(
+                            context.getUserId(),
+                            missionId,
+                            context.isPinned() ? context.getInstanceId() : context.getExecutionId(),
+                            context.isPinned()
+                                    ? MissionExecutionStartedEvent.KIND_PINNED
+                                    : MissionExecutionStartedEvent.KIND_REGULAR)
+                    .map(TowerSeatResponse::from)
+                    .orElse(null);
+        } catch (Exception e) {
+            log.warn(
+                    "탑 자리 조회 실패 — 완료 응답에서 생략: userId={}, error={}",
+                    context.getUserId(),
+                    e.getMessage());
+            return null;
+        }
+    }
+
     /** 일반 미션 Saga 결과에서 MissionExecutionResponse 추출 */
     public MissionExecutionResponse toResponse(SagaResult<MissionCompletionContext> result) {
         if (result.isSuccess() && result.getContext().getExecution() != null) {
             MissionCompletionContext ctx = result.getContext();
             MissionExecutionResponse response = MissionExecutionResponse.from(ctx.getExecution());
             response.setDailySimpleExpCapped(ctx.isDailySimpleExpCapped());
+            response.setTowerSeat(resolveTowerSeat(ctx));
             if (ctx.getMilestoneBonusExp() > 0) {
                 response.setMilestoneBonusExp(ctx.getMilestoneBonusExp());
                 response.setMilestoneCount(ctx.getMilestoneCount());
@@ -273,6 +332,7 @@ public class MissionCompletionSaga {
             DailyMissionInstanceResponse response =
                     DailyMissionInstanceResponse.from(ctx.getInstance());
             response.setDailySimpleExpCapped(ctx.isDailySimpleExpCapped());
+            response.setTowerSeat(resolveTowerSeat(ctx));
             if (ctx.getMilestoneBonusExp() > 0) {
                 response.setMilestoneBonusExp(ctx.getMilestoneBonusExp());
                 response.setMilestoneCount(ctx.getMilestoneCount());

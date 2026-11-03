@@ -19,6 +19,9 @@ public interface TowerOccupantRepository extends JpaRepository<TowerOccupant, Lo
 
     long countByInstanceId(Long instanceId);
 
+    /** LUT-632: 미션 중(자리 유지)인 점유자 — 주기 대조용 */
+    List<TowerOccupant> findAllByMissionActiveTrue();
+
     long countByInstanceIdAndKindIn(Long instanceId, Collection<TowerOccupantKind> kinds);
 
     List<TowerOccupant> findAllByInstanceIdAndKindOrderByEnteredAtDesc(

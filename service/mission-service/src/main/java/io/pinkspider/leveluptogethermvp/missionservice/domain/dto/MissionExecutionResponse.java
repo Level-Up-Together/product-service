@@ -79,6 +79,10 @@ public class MissionExecutionResponse {
 
     private LocalDateTime createdAt;
 
+    /** LUT-632: 탑 자리(층·자동 착석·응원 수) — 완료 응답에만, 탑에 앉지 않았으면 없음 */
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    private TowerSeatResponse towerSeat;
+
     public static MissionExecutionResponse from(MissionExecution execution) {
         Integer durationMinutes = null;
         if (execution.getStartedAt() != null && execution.getCompletedAt() != null) {

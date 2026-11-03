@@ -5,6 +5,7 @@ import io.pinkspider.global.facade.dto.UserProfileInfo;
 import io.pinkspider.leveluptogethermvp.userservice.core.application.UserExistsCacheService;
 import io.pinkspider.leveluptogethermvp.userservice.friend.application.FriendCacheService;
 import io.pinkspider.leveluptogethermvp.userservice.friend.application.FriendService;
+import io.pinkspider.leveluptogethermvp.userservice.preference.infrastructure.UserUiPreferenceRepository;
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.entity.Users;
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.infrastructure.UserRepository;
 import java.time.LocalDate;
@@ -29,6 +30,7 @@ public class UserQueryFacadeService implements UserQueryFacade {
     private final FriendCacheService friendCacheService;
     private final FriendService friendService;
     private final UserRepository userRepository;
+    private final UserUiPreferenceRepository userUiPreferenceRepository;
 
     // ========== 프로필 조회 (캐시) ==========
 
@@ -132,6 +134,17 @@ public class UserQueryFacadeService implements UserQueryFacade {
                             user.updatePreferredFeedVisibility(feedVisibility);
                             userRepository.save(user);
                         });
+    }
+
+    // ========== 탑 자동 착석 (LUT-632) ==========
+
+    /** 저장된 설정이 없으면 기본 켬 */
+    @Override
+    public boolean isTowerAutoSeatEnabled(String userId) {
+        return userUiPreferenceRepository
+                .findByUserId(userId)
+                .map(p -> !Boolean.FALSE.equals(p.getTowerAutoSeat()))
+                .orElse(true);
     }
 
     // ========== 선호 타임존 ==========

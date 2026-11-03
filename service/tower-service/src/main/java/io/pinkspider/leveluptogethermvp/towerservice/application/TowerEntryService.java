@@ -1,6 +1,7 @@
 package io.pinkspider.leveluptogethermvp.towerservice.application;
 
 import io.pinkspider.global.facade.GamificationQueryFacade;
+import io.pinkspider.global.facade.MissionQueryFacade;
 import io.pinkspider.leveluptogethermvp.towerservice.application.exception.TowerEntryException;
 import io.pinkspider.leveluptogethermvp.towerservice.domain.dto.TowerEnterResponse;
 import io.pinkspider.leveluptogethermvp.towerservice.domain.dto.TowerLeaveResponse;
@@ -39,6 +40,7 @@ public class TowerEntryService {
     private final TowerInstanceAllocator allocator;
     private final TowerPopulationService towerPopulationService;
     private final GamificationQueryFacade gamificationQueryFacade;
+    private final MissionQueryFacade missionQueryFacade;
 
     public TowerEntryService(
             TowerFloorRepository towerFloorRepository,
@@ -46,13 +48,15 @@ public class TowerEntryService {
             TowerUserStateRepository towerUserStateRepository,
             TowerInstanceAllocator allocator,
             TowerPopulationService towerPopulationService,
-            @Lazy GamificationQueryFacade gamificationQueryFacade) {
+            @Lazy GamificationQueryFacade gamificationQueryFacade,
+            @Lazy MissionQueryFacade missionQueryFacade) {
         this.towerFloorRepository = towerFloorRepository;
         this.towerOccupantRepository = towerOccupantRepository;
         this.towerUserStateRepository = towerUserStateRepository;
         this.allocator = allocator;
         this.towerPopulationService = towerPopulationService;
         this.gamificationQueryFacade = gamificationQueryFacade;
+        this.missionQueryFacade = missionQueryFacade;
     }
 
     @Transactional(transactionManager = "towerTransactionManager")
@@ -63,6 +67,8 @@ public class TowerEntryService {
                         .filter(TowerFloor::isPublicFloor)
                         .orElseThrow(TowerEntryException::floorNotAvailable);
         checkEntry(floor, userId);
+        // LUT-632: 탑 밖에서 시작한 미션도 입장하면 미션 중으로 — 잠그기 전에 미션 DB 를 읽는다
+        boolean inMission = userId != null && hasInProgressMission(userId);
 
         LocalDateTime now = LocalDateTime.now();
         // 층 행 잠금 — 같은 층의 배정을 직렬화한다 (레벨 조회는 위에서 끝났다)
@@ -73,12 +79,12 @@ public class TowerEntryService {
 
         TowerOccupant occupant = null;
         boolean resumed = false;
-        boolean missionActive = false;
+        boolean missionActive = inMission;
         if (userId != null) {
             Optional<TowerOccupant> existing = towerOccupantRepository.findByUserId(userId);
             if (existing.isPresent()) {
                 TowerOccupant current = existing.get();
-                missionActive = current.isMissionActive();
+                missionActive = current.isMissionActive() || inMission;
                 if (current.getFloorNumber() == floorNumber) {
                     if (!current.isAutoSeated()) {
                         current.touch(now);
@@ -194,6 +200,15 @@ public class TowerEntryService {
         }
         if (resolveLevel(userId) < floor.getEntryLevel()) {
             throw TowerEntryException.levelInsufficient();
+        }
+    }
+
+    private boolean hasInProgressMission(String userId) {
+        try {
+            return missionQueryFacade.findInProgressMission(userId).isPresent();
+        } catch (Exception e) {
+            log.warn("탑 입장 미션 상태 조회 실패 — 휴식 중으로 판정: userId={}, error={}", userId, e.getMessage());
+            return false;
         }
     }
 

@@ -11,6 +11,7 @@ import io.pinkspider.global.enums.MissionStatus;
 import io.pinkspider.global.saga.SagaEventPublisher;
 import io.pinkspider.global.saga.SagaResult;
 import io.pinkspider.global.saga.SagaStepResult;
+import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MissionExecutionResponse;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.DailyMissionInstance;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.Mission;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.MissionExecution;
@@ -67,6 +68,8 @@ class MissionCompletionSagaTest {
     @Mock private CreateFeedFromMissionStep createFeedFromMissionStep;
 
     @Mock private SagaEventPublisher sagaEventPublisher;
+    @Mock private org.springframework.context.ApplicationEventPublisher eventPublisher;
+    @Mock private io.pinkspider.global.facade.TowerQueryFacade towerQueryFacade;
 
     private MissionCompletionSaga missionCompletionSaga;
 
@@ -91,6 +94,8 @@ class MissionCompletionSagaTest {
                         updateUserStatsStep,
                         createFeedFromMissionStep,
                         sagaEventPublisher,
+                        eventPublisher,
+                        towerQueryFacade,
                         directExecutor);
     }
 
@@ -274,6 +279,8 @@ class MissionCompletionSagaTest {
                             updateUserStatsStep,
                             createFeedFromMissionStep,
                             sagaEventPublisher,
+                            eventPublisher,
+                            towerQueryFacade,
                             queued::add);
 
             when(loadMissionDataStep.execute(any(MissionCompletionContext.class)))
@@ -728,6 +735,101 @@ class MissionCompletionSagaTest {
             // then
             assertThat(response).isNotNull();
             assertThat(response.getId()).isEqualTo(INSTANCE_ID);
+        }
+    }
+
+    @Nested
+    @DisplayName("LUT-632 탑 연동")
+    class TowerIntegrationTest {
+
+        @Test
+        @DisplayName("일반 미션 완료 성공 시 수행 종료 이벤트(COMPLETED, REGULAR)를 내고 완료 응답에 탑 자리를 싣는다")
+        void execute_publishesEndedEventAndTowerSeat() {
+            when(loadMissionDataStep.execute(any(MissionCompletionContext.class)))
+                    .thenAnswer(
+                            invocation -> {
+                                MissionCompletionContext ctx = invocation.getArgument(0);
+                                ctx.setExecution(execution);
+                                ctx.setParticipant(participant);
+                                ctx.setMission(mission);
+                                ctx.setUserExpEarned(50);
+                                return SagaStepResult.success("데이터 로드 성공");
+                            });
+            when(completeExecutionStep.execute(any())).thenReturn(SagaStepResult.success("완료"));
+            when(grantUserExperienceStep.execute(any())).thenReturn(SagaStepResult.success("EXP"));
+            when(updateParticipantProgressStep.execute(any()))
+                    .thenReturn(SagaStepResult.success("진행도"));
+            when(updateUserStatsStep.execute(any())).thenReturn(SagaStepResult.success("통계"));
+            when(createFeedFromMissionStep.execute(any())).thenReturn(SagaStepResult.success("피드"));
+            when(towerQueryFacade.findMissionSeat(
+                            TEST_USER_ID,
+                            mission.getId(),
+                            EXECUTION_ID,
+                            io.pinkspider.global.event.MissionExecutionStartedEvent.KIND_REGULAR))
+                    .thenReturn(
+                            java.util.Optional.of(
+                                    new io.pinkspider.global.facade.dto.TowerMissionSeatDto(
+                                            2, true, 3)));
+
+            SagaResult<MissionCompletionContext> result =
+                    missionCompletionSaga.execute(EXECUTION_ID, TEST_USER_ID, "메모");
+            MissionExecutionResponse response = missionCompletionSaga.toResponse(result);
+
+            assertThat(result.isSuccess()).isTrue();
+            org.mockito.ArgumentCaptor<Object> captor =
+                    org.mockito.ArgumentCaptor.forClass(Object.class);
+            verify(eventPublisher, org.mockito.Mockito.atLeastOnce())
+                    .publishEvent(captor.capture());
+            io.pinkspider.global.event.MissionExecutionEndedEvent ended =
+                    captor.getAllValues().stream()
+                            .filter(
+                                    io.pinkspider.global.event.MissionExecutionEndedEvent.class
+                                            ::isInstance)
+                            .map(io.pinkspider.global.event.MissionExecutionEndedEvent.class::cast)
+                            .findFirst()
+                            .orElseThrow();
+            assertThat(ended.userId()).isEqualTo(TEST_USER_ID);
+            assertThat(ended.executionId()).isEqualTo(EXECUTION_ID);
+            assertThat(ended.executionKind())
+                    .isEqualTo(
+                            io.pinkspider.global.event.MissionExecutionStartedEvent.KIND_REGULAR);
+            assertThat(ended.reason())
+                    .isEqualTo(
+                            io.pinkspider.global.event.MissionExecutionEndedEvent.EndReason
+                                    .COMPLETED);
+            assertThat(response.getTowerSeat()).isNotNull();
+            assertThat(response.getTowerSeat().floorNumber()).isEqualTo(2);
+            assertThat(response.getTowerSeat().autoSeated()).isTrue();
+            assertThat(response.getTowerSeat().cheerCount()).isEqualTo(3);
+        }
+
+        @Test
+        @DisplayName("탑 자리가 없거나 조회가 실패해도 완료 응답은 만들어진다 (tower_seat null)")
+        void execute_towerSeatMissingOrFailing() {
+            when(loadMissionDataStep.execute(any(MissionCompletionContext.class)))
+                    .thenAnswer(
+                            invocation -> {
+                                MissionCompletionContext ctx = invocation.getArgument(0);
+                                ctx.setExecution(execution);
+                                ctx.setParticipant(participant);
+                                ctx.setMission(mission);
+                                return SagaStepResult.success("데이터 로드 성공");
+                            });
+            when(completeExecutionStep.execute(any())).thenReturn(SagaStepResult.success("완료"));
+            when(grantUserExperienceStep.execute(any())).thenReturn(SagaStepResult.success("EXP"));
+            when(updateParticipantProgressStep.execute(any()))
+                    .thenReturn(SagaStepResult.success("진행도"));
+            when(updateUserStatsStep.execute(any())).thenReturn(SagaStepResult.success("통계"));
+            when(createFeedFromMissionStep.execute(any())).thenReturn(SagaStepResult.success("피드"));
+            when(towerQueryFacade.findMissionSeat(any(), any(), any(), any()))
+                    .thenThrow(new RuntimeException("tower down"));
+
+            MissionExecutionResponse response =
+                    missionCompletionSaga.toResponse(
+                            missionCompletionSaga.execute(EXECUTION_ID, TEST_USER_ID, null));
+
+            assertThat(response).isNotNull();
+            assertThat(response.getTowerSeat()).isNull();
         }
     }
 }
