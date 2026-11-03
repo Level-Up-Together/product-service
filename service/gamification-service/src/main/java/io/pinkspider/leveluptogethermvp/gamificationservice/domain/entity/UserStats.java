@@ -10,6 +10,9 @@ import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
 import jakarta.validation.constraints.NotNull;
 import java.time.LocalDate;
+import java.util.Collection;
+import java.util.List;
+import java.util.Objects;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -75,6 +78,21 @@ public class UserStats extends LocalDateTimeBaseEntity {
     @Column(name = "last_activity_date")
     @Comment("마지막 활동 날짜")
     private LocalDate lastActivityDate;
+
+    // LUT-717 연속 실천 (하루 미션 1개 이상 완료, 유저 로컬 날짜·완료 시각 기준) — 출석이 섞인 current_streak 과 별도
+    @Column(name = "practice_streak", nullable = false)
+    @Comment("현재 연속 실천 일수")
+    @Builder.Default
+    private Integer practiceStreak = 0;
+
+    @Column(name = "max_practice_streak", nullable = false)
+    @Comment("최장 연속 실천 일수")
+    @Builder.Default
+    private Integer maxPracticeStreak = 0;
+
+    @Column(name = "last_practice_date")
+    @Comment("마지막 실천 날짜 (유저 로컬) — NULL 이면 첫 조회 때 이력으로 재계산")
+    private LocalDate lastPracticeDate;
 
     // 업적/칭호 통계
     @Column(name = "total_achievements_completed", nullable = false)
@@ -184,6 +202,64 @@ public class UserStats extends LocalDateTimeBaseEntity {
         }
         this.lastActivityDate = today;
         updateRankingPoints();
+    }
+
+    /**
+     * LUT-717: 미션 완료 1건을 실천 날짜(유저 로컬)로 반영한다. 같은 날 중복과 과거 날짜(지연 도착)는 무시, 바로 다음 날이면 +1, 건너뛰면 1 부터. 랭킹
+     * 포인트·활동 스트릭은 건드리지 않는다.
+     */
+    public void recordPractice(LocalDate practiceDate) {
+        if (practiceDate == null) {
+            return;
+        }
+        if (lastPracticeDate == null) {
+            this.practiceStreak = 1;
+        } else if (lastPracticeDate.equals(practiceDate)
+                || practiceDate.isBefore(lastPracticeDate)) {
+            return;
+        } else if (lastPracticeDate.plusDays(1).equals(practiceDate)) {
+            this.practiceStreak++;
+        } else {
+            this.practiceStreak = 1;
+        }
+        if (this.practiceStreak > this.maxPracticeStreak) {
+            this.maxPracticeStreak = this.practiceStreak;
+        }
+        this.lastPracticeDate = practiceDate;
+    }
+
+    /**
+     * LUT-717: 완료 이력 전체(유저 로컬 날짜 집합)로 연속 실천을 처음부터 다시 계산한다 — 배포 전 가입 유저의 첫 조회, 정합 보정용. 빈 집합이면 아무것도
+     * 바꾸지 않는다(다음 조회 때 다시 시도).
+     */
+    public void rebuildPracticeStreak(Collection<LocalDate> practiceDates) {
+        if (practiceDates == null || practiceDates.isEmpty()) {
+            return;
+        }
+        List<LocalDate> sorted =
+                practiceDates.stream().filter(Objects::nonNull).distinct().sorted().toList();
+        int run = 0;
+        int best = 0;
+        LocalDate prev = null;
+        for (LocalDate date : sorted) {
+            run = (prev != null && prev.plusDays(1).equals(date)) ? run + 1 : 1;
+            best = Math.max(best, run);
+            prev = date;
+        }
+        this.practiceStreak = run;
+        this.maxPracticeStreak =
+                Math.max(best, this.maxPracticeStreak == null ? 0 : this.maxPracticeStreak);
+        this.lastPracticeDate = prev;
+    }
+
+    /** LUT-717: 마지막 실천일이 오늘·어제(유저 로컬)일 때만 현재 연속을 인정한다 — 오늘 아직 안 했으면 어제까지 값, 그 전이면 0. */
+    public int currentPracticeStreakAsOf(LocalDate today) {
+        if (lastPracticeDate == null || today == null) {
+            return 0;
+        }
+        boolean alive =
+                lastPracticeDate.equals(today) || lastPracticeDate.equals(today.minusDays(1));
+        return alive ? practiceStreak : 0;
     }
 
     public void incrementAchievementCompleted() {

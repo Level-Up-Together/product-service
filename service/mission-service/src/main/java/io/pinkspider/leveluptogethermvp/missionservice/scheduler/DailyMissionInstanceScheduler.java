@@ -224,6 +224,12 @@ public class DailyMissionInstanceScheduler {
                                 instance.getParticipant(),
                                 instance.getExpEarned(),
                                 instance.getId());
+                        // LUT-717: saga 폴백 경로도 연속 실천 반영
+                        recordPractice(
+                                instance.getParticipant() != null
+                                        ? instance.getParticipant().getUserId()
+                                        : null,
+                                instance.getCompletedAt());
                         count++;
                     }
                 } catch (Exception fallbackError) {
@@ -296,6 +302,10 @@ public class DailyMissionInstanceScheduler {
                         // QA-141: 폴백 시에도 user_experience / experience_history 에 EXP 반영
                         grantAutoCompleteExp(
                                 participant, execution.getExpEarned(), execution.getId());
+                        // LUT-717: saga 폴백 경로도 연속 실천 반영
+                        recordPractice(
+                                participant != null ? participant.getUserId() : null,
+                                execution.getCompletedAt());
                         count++;
                     }
                 } catch (Exception fallbackError) {
@@ -362,5 +372,17 @@ public class DailyMissionInstanceScheduler {
 
         log.info("수동 인스턴스 생성 완료: date={}, count={}", date, createdCount);
         return createdCount;
+    }
+
+    /** LUT-717: 자정 폴백 완료 1건을 연속 실천에 반영 — 실패해도 폴백 완료를 막지 않는다 */
+    private void recordPractice(String userId, java.time.LocalDateTime completedAt) {
+        if (userId == null) {
+            return;
+        }
+        try {
+            gamificationQueryFacade.recordMissionPractice(userId, completedAt);
+        } catch (Exception e) {
+            log.warn("연속 실천 반영 실패(자정 폴백): userId={}, error={}", userId, e.getMessage());
+        }
     }
 }

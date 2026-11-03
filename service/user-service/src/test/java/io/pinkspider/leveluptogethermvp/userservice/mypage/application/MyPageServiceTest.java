@@ -22,6 +22,7 @@ import io.pinkspider.global.facade.GamificationQueryFacade;
 import io.pinkspider.global.facade.GuildQueryFacade;
 import io.pinkspider.global.facade.dto.GuildMembershipInfo;
 import io.pinkspider.global.facade.dto.InProgressMissionDto;
+import io.pinkspider.global.facade.dto.PracticeStreakDto;
 import io.pinkspider.global.facade.dto.TitleChangeResultDto;
 import io.pinkspider.global.facade.dto.UserExperienceDto;
 import io.pinkspider.global.facade.dto.UserStatsDto;
@@ -301,6 +302,28 @@ class MyPageServiceTest {
             assertThat(result.getConsecutiveDays()).isEqualTo(23);
             // user_stats 의 streak 이 아니라 출석 체인 전용 파사드를 쓴다
             verify(gamificationQueryFacadeService).getCurrentAttendanceStreak(TEST_USER_ID);
+        }
+
+        @Test
+        @DisplayName("LUT-717: 공개 프로필에 연속 실천(현재·최장)이 실리고 조회 실패는 0 으로 보인다")
+        void getPublicProfile_practiceStreak() {
+            Users user = createTestUser(TEST_USER_ID, "테스터");
+            when(userRepository.findById(TEST_USER_ID)).thenReturn(Optional.of(user));
+            stubPublicProfileDefaults(TEST_USER_ID);
+            when(gamificationQueryFacadeService.getPracticeStreak(TEST_USER_ID))
+                    .thenReturn(new PracticeStreakDto(5, 12, java.time.LocalDate.now()));
+
+            PublicProfileResponse result = myPageService.getPublicProfile(TEST_USER_ID, null);
+
+            assertThat(result.getPracticeStreakDays()).isEqualTo(5);
+            assertThat(result.getMaxPracticeStreakDays()).isEqualTo(12);
+
+            // 조회 실패 → 0 (프로필은 열린다)
+            when(gamificationQueryFacadeService.getPracticeStreak(TEST_USER_ID))
+                    .thenThrow(new RuntimeException("gamification down"));
+            PublicProfileResponse fallback = myPageService.getPublicProfile(TEST_USER_ID, null);
+            assertThat(fallback.getPracticeStreakDays()).isZero();
+            assertThat(fallback.getMaxPracticeStreakDays()).isZero();
         }
 
         @Test

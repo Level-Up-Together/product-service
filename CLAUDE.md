@@ -636,10 +636,10 @@ list_price      = COMMON 유저 기준가 = 최대 할증가                    
   `SecurityConfig` permitAll + `SecurityConfigPublicEndpointTest`), `/my*`·`/nearby`는 인증 필요.
 - **출석 응답 `store_review_due`** (LUT-708, 2026-11-02): 체크인 응답에 "이번 연속 일수가 어드민 설정 마일스톤(meta `app_setting.store_review_milestone_days`, 기본 `7,14,30`)과 같은가" 를 서버가 판정해 싣는다. 웹은 그 값이 true 일 때만 OS 인앱 평가 팝업을 요청(LUT-609)하고, 값이 없으면(구 서버) 7·14·30 으로 폴백한다. "평가했는지" 는 OS 가 알려 주지 않으므로 목록의 각 시점에 1회씩 요청하고 끝낸다. 설정 조회 실패는 출석을 막지 않는다(false). 어드민은 `/api/admin/attendance-reward-configs/store-review-milestones`(권한 `attendance-config:*`).
 - **출석은 가입 당일부터 1일차** (LUT-597): 예전 `AttendanceController` 의 "가입 첫날 출석 제외" 규칙(2025-12-25, 이유 미기재)은 폐지됐다. `isNewUserToday` 가 UTC 날짜(JVM 기본)를 비교해 차단 창이 KST 09:00~다음날 09:00 로 어긋났고, 웹은 `already_checked_in` 응답을 조용히 삼켜 유저에게 아무 안내도 없었다. IR 리텐션 D1 정의(가입 다음 날 재방문)와 맞추기 위해 제거 — **배포 전 가입 코호트의 가입 당일 출석 행은 구조적으로 0건**이라 출석 기반 D0 는 그 구간에서 측정 불가. kernel `UserQueryFacade.isNewUserToday` 는 호환 위해 남아 있다(호출처 없음).
-- **스트릭 소스는 2종이고 섞으면 안 된다** (LUT-405/555): ① **연속 출석** = `attendance_record.consecutive_days` 체인
+- **스트릭 소스는 3종이고 섞으면 안 된다** (LUT-405/555/717): ① **연속 출석** = `attendance_record.consecutive_days` 체인
   (`AttendanceService.getCurrentStreak`, 유저 타임존, 오늘·어제 출석 없으면 0) — 업적 화면 "현재 n일 출석중"·공개 프로필
   `consecutive_days`(파사드 `getCurrentAttendanceStreak`) ② **활동 스트릭** = `user_stats.current_streak/max_streak`
-  (출석+미션 완료 날짜 기준, `UserStats.updateStreak`) — USER_STATS 업적·스트릭 랭킹(`/rankings/streaks`는 max_streak). 같은 유저라도 두 값은 다르다.
+  (출석+미션 완료 날짜 기준, `UserStats.updateStreak`) — USER_STATS 업적·스트릭 랭킹(`/rankings/streaks`는 max_streak) ③ **연속 실천** = `user_stats.practice_streak/max_practice_streak/last_practice_date`(LUT-717 — 하루 **미션 1개 이상 완료**한 날의 연속, 유저 로컬 자정·**완료 시각** 기준, 출석 무관; saga `UpdateUserStatsStep` + saga 우회 자동 종료 2곳이 `GamificationQueryFacade.recordMissionPractice(userId, completedAtUtc)` 로 적립, 조회 `getPracticeStreak` 은 마지막 실천일이 오늘·어제일 때만 현재값, `last_practice_date` 가 NULL 인 기존 유저는 첫 조회 때 `MissionQueryFacade.findMissionCompletedLocalDates` 로 재계산) — 마이페이지 `user_info.practice_streak_days`·공개 프로필 `practice_streak_days`(+`max_…`). 세 값은 서로 다르다.
 - **UI 환경설정** (LUT-437): `GET/PUT /api/v1/users/me/preferences` — 기기 간 동기화되는 화면 토글(완료 미션 접기 등). 알림 설정
   (`/api/v1/notifications/preferences`)과 별개 테이블(`user_ui_preference`). **홈 피드 카테고리 필터** (LUT-548):
   `home_feed_category_ids: number[]` — **빈 배열 = 전체**, null = 변경 없음(부분 업데이트). 쉼표 구분 VARCHAR(500) 컬럼을

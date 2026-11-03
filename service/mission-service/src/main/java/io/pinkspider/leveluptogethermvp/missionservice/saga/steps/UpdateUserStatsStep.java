@@ -5,6 +5,8 @@ import io.pinkspider.global.facade.dto.UserStatsDto;
 import io.pinkspider.global.saga.SagaStep;
 import io.pinkspider.global.saga.SagaStepResult;
 import io.pinkspider.leveluptogethermvp.missionservice.saga.MissionCompletionContext;
+import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -45,6 +47,9 @@ public class UpdateUserStatsStep implements SagaStep<MissionCompletionContext> {
         try {
             // 미션 완료 기록 (pinned 미션은 길드 미션이 아님 → isGuildMission()이 false 반환)
             gamificationQueryFacadeService.recordMissionCompletion(userId, isGuildMission);
+            // LUT-717: 연속 실천은 완료 시각(UTC) 기준 — 유저 로컬 날짜로 변환해 센다
+            gamificationQueryFacadeService.recordMissionPractice(
+                    userId, resolveCompletedAt(context));
 
             // QA-158: "클리어 미션북" 카운트는 누적이 아닌 유니크 mission_template 기반으로 응답 시점 계산.
             // QA-153 에서 추가한 recordMissionFullCompletion 호출은 더 이상 사용하지 않는다.
@@ -66,6 +71,17 @@ public class UpdateUserStatsStep implements SagaStep<MissionCompletionContext> {
             log.warn("Failed to update user stats: userId={}, error={}", userId, e.getMessage());
             return SagaStepResult.failure("통계 업데이트 실패", e);
         }
+    }
+
+    /** 완료 시각(UTC): 일반 미션 execution → 고정 미션 instance → 없으면 지금 */
+    private LocalDateTime resolveCompletedAt(MissionCompletionContext context) {
+        if (context.getExecution() != null && context.getExecution().getCompletedAt() != null) {
+            return context.getExecution().getCompletedAt();
+        }
+        if (context.getInstance() != null && context.getInstance().getCompletedAt() != null) {
+            return context.getInstance().getCompletedAt();
+        }
+        return LocalDateTime.now(ZoneOffset.UTC);
     }
 
     @Override

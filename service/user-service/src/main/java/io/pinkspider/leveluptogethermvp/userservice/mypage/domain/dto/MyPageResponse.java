@@ -91,5 +91,9 @@ public class MyPageResponse {
         private Double rankingPercentile;
         private Integer acquiredTitlesCount;
         private Long rankingPoints;
+
+        // LUT-717: 연속 실천 일수(하루 미션 1개 이상 완료, 유저 로컬 기준) — 연속 출석과 별개 / 최장
+        private Integer practiceStreakDays;
+        private Integer maxPracticeStreakDays;
     }
 }
