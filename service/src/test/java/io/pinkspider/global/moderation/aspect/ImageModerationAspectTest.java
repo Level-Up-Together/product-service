@@ -3,6 +3,7 @@ package io.pinkspider.global.moderation.aspect;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -12,6 +13,8 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import io.pinkspider.global.exception.CustomException;
+import io.pinkspider.global.image.ImageContentValidator;
+import io.pinkspider.global.image.InvalidImageException;
 import io.pinkspider.global.moderation.annotation.ModerateImage;
 import io.pinkspider.global.moderation.application.ImageModerationMetrics;
 import io.pinkspider.global.moderation.application.ImageModerationService;
@@ -30,6 +33,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.web.multipart.MultipartFile;
 
 @ExtendWith(MockitoExtension.class)
@@ -40,6 +44,7 @@ class ImageModerationAspectTest {
 
     @Mock private ImageModerationService imageModerationService;
     @Mock private ImageModerationMetrics metrics;
+    @Mock private ImageContentValidator imageContentValidator;
 
     private ModerationProperties properties;
     private ImageModerationAspect aspect;
@@ -48,7 +53,9 @@ class ImageModerationAspectTest {
     void setUp() {
         properties = new ModerationProperties();
         properties.setProvider(PROVIDER);
-        aspect = new ImageModerationAspect(imageModerationService, properties, metrics);
+        aspect =
+                new ImageModerationAspect(
+                        imageModerationService, properties, metrics, imageContentValidator);
         lenient().when(imageModerationService.isEnabled()).thenReturn(true);
         lenient().when(imageModerationService.getProviderName()).thenReturn(PROVIDER);
     }
@@ -336,6 +343,43 @@ class ImageModerationAspectTest {
 
             assertThat(result).isEqualTo("result");
             verify(metrics).failOpen(PROVIDER, ImageModerationResult.REASON_EXCEPTION);
+        }
+    }
+
+    @Nested
+    @DisplayName("이미지 형식 검증 (LUT-710)")
+    class ContentValidation {
+        @Test
+        @DisplayName("검증기가 거절하면 검수를 부르지 않고 InvalidImageException 이 그대로 올라간다")
+        void rejectedBeforeModeration() throws Throwable {
+            MultipartFile file =
+                    new MockMultipartFile("image", "fake.png", "image/png", "not png".getBytes());
+            ProceedingJoinPoint joinPoint = mock(ProceedingJoinPoint.class);
+            when(joinPoint.getArgs()).thenReturn(new Object[] {file});
+            doThrow(InvalidImageException.notImage()).when(imageContentValidator).validate(file);
+
+            assertThatThrownBy(() -> aspect.moderateImage(joinPoint, mock(ModerateImage.class)))
+                    .isInstanceOf(InvalidImageException.class);
+
+            verify(imageModerationService, never()).analyzeImage(any());
+            verify(joinPoint, never()).proceed();
+        }
+
+        @Test
+        @DisplayName("검수 제공자가 꺼져 있어도 형식 검증은 한다")
+        void validatesEvenWhenModerationDisabled() throws Throwable {
+            when(imageModerationService.isEnabled()).thenReturn(false);
+            MultipartFile file =
+                    new MockMultipartFile("image", "a.png", "image/png", "x".getBytes());
+            ProceedingJoinPoint joinPoint = mock(ProceedingJoinPoint.class);
+            when(joinPoint.getArgs()).thenReturn(new Object[] {file});
+            when(joinPoint.proceed()).thenReturn("ok");
+
+            Object result = aspect.moderateImage(joinPoint, mock(ModerateImage.class));
+
+            assertThat(result).isEqualTo("ok");
+            verify(imageContentValidator).validate(file);
+            verify(imageModerationService, never()).analyzeImage(any());
         }
     }
 }

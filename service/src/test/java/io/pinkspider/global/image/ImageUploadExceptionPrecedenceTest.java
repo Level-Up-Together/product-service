@@ -1,4 +1,4 @@
-package io.pinkspider.global.moderation.api;
+package io.pinkspider.global.image;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -20,8 +20,8 @@ import org.springframework.web.bind.annotation.RestController;
  * {@code @WebMvcTest} 슬라이스에는 플랫폼 핸들러가 없어 단위 테스트만으로는 500 이 보이지 않는다(LUT-616 교훈) — 그래서 둘을 함께 올린다. 대조군:
  * 일반 {@link CustomException} 은 여전히 플랫폼 핸들러가 500 으로 처리한다(이 어드바이스가 다른 예외를 가로채지 않는다).
  */
-@DisplayName("ImageModerationExceptionHandler 우선순위 (LUT-714, 플랫폼 핸들러와 함께)")
-class ImageModerationExceptionPrecedenceTest {
+@DisplayName("ImageUploadExceptionHandler 우선순위 (LUT-714·710, 플랫폼 핸들러와 함께)")
+class ImageUploadExceptionPrecedenceTest {
 
     @RestController
     static class UploadStubController {
@@ -33,6 +33,11 @@ class ImageModerationExceptionPrecedenceTest {
         @PostMapping("/stub/unavailable")
         String unavailable() {
             throw ImageModerationException.unavailable();
+        }
+
+        @PostMapping("/stub/not-image")
+        String notImage() {
+            throw InvalidImageException.notImage();
         }
 
         @PostMapping("/stub/other")
@@ -48,8 +53,7 @@ class ImageModerationExceptionPrecedenceTest {
         mockMvc =
                 MockMvcBuilders.standaloneSetup(new UploadStubController())
                         .setControllerAdvice(
-                                new RestExceptionHandler(),
-                                new ImageModerationExceptionHandler(null))
+                                new RestExceptionHandler(), new ImageUploadExceptionHandler(null))
                         .build();
     }
 
@@ -68,6 +72,15 @@ class ImageModerationExceptionPrecedenceTest {
         mockMvc.perform(post("/stub/unavailable"))
                 .andExpect(status().isServiceUnavailable())
                 .andExpect(jsonPath("$.code").value("000011"));
+    }
+
+    @Test
+    @DisplayName("이미지 아닌 파일 → 400 000012 (LUT-710)")
+    void notImageIs400() throws Exception {
+        mockMvc.perform(post("/stub/not-image"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("000012"))
+                .andExpect(jsonPath("$.message").value("error.image.not_image"));
     }
 
     @Test

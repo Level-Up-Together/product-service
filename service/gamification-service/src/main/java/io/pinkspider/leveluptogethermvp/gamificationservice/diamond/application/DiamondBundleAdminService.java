@@ -1,6 +1,7 @@
 package io.pinkspider.leveluptogethermvp.gamificationservice.diamond.application;
 
 import io.pinkspider.global.exception.CustomException;
+import io.pinkspider.global.image.ImageContentValidator;
 import io.pinkspider.leveluptogethermvp.gamificationservice.diamond.domain.dto.DiamondBundleAdminPageResponse;
 import io.pinkspider.leveluptogethermvp.gamificationservice.diamond.domain.dto.DiamondBundleAdminRequest;
 import io.pinkspider.leveluptogethermvp.gamificationservice.diamond.domain.dto.DiamondBundleAdminResponse;
@@ -26,6 +27,7 @@ public class DiamondBundleAdminService {
     private final DiamondBundleRepository diamondBundleRepository;
     private final DiamondBundlePurchaseRepository diamondBundlePurchaseRepository;
     private final ShopItemImageStorageService imageStorageService;
+    private final ImageContentValidator imageContentValidator;
 
     @Transactional(readOnly = true, transactionManager = "gamificationTransactionManager")
     public DiamondBundleAdminPageResponse searchBundles(
@@ -128,6 +130,7 @@ public class DiamondBundleAdminService {
 
     /** 이미지 업로드 — 저장 후 URL 반환. 생성/수정 요청의 image_url로 사용한다. */
     public String uploadImage(MultipartFile file) {
+        imageContentValidator.validate(file); // LUT-710: 어드민 업로드는 @ModerateImage 가 없어 여기서 형식 검증
         return imageStorageService.store(file);
     }
 

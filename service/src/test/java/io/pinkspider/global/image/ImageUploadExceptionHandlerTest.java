@@ -1,4 +1,4 @@
-package io.pinkspider.global.moderation.api;
+package io.pinkspider.global.image;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -13,8 +13,8 @@ import org.springframework.context.support.StaticMessageSource;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 
-@DisplayName("ImageModerationExceptionHandler (LUT-714 검수 거절 400/503)")
-class ImageModerationExceptionHandlerTest {
+@DisplayName("ImageUploadExceptionHandler (LUT-714 검수 400/503 · LUT-710 비이미지 400)")
+class ImageUploadExceptionHandlerTest {
 
     @AfterEach
     void resetLocale() {
@@ -24,7 +24,7 @@ class ImageModerationExceptionHandlerTest {
     @Test
     @DisplayName("부적절한 이미지: 400 + 000010, MessageSource 가 없으면 메시지 키 그대로")
     void blockedWithoutMessageSource() {
-        ImageModerationExceptionHandler handler = new ImageModerationExceptionHandler(null);
+        ImageUploadExceptionHandler handler = new ImageUploadExceptionHandler(null);
 
         ResponseEntity<Object> response =
                 handler.handleImageModeration(ImageModerationException.blocked());
@@ -39,7 +39,7 @@ class ImageModerationExceptionHandlerTest {
     @Test
     @DisplayName("검수 불가(fail-closed): 503 + 000011")
     void unavailableIs503() {
-        ImageModerationExceptionHandler handler = new ImageModerationExceptionHandler(null);
+        ImageUploadExceptionHandler handler = new ImageUploadExceptionHandler(null);
 
         ResponseEntity<Object> response =
                 handler.handleImageModeration(ImageModerationException.unavailable());
@@ -61,8 +61,7 @@ class ImageModerationExceptionHandlerTest {
                 "error.moderation.inappropriate_image",
                 Locale.ENGLISH,
                 "Inappropriate image detected.");
-        ImageModerationExceptionHandler handler =
-                new ImageModerationExceptionHandler(messageSource);
+        ImageUploadExceptionHandler handler = new ImageUploadExceptionHandler(messageSource);
 
         LocaleContextHolder.setLocale(Locale.KOREAN);
         ApiResult<?> ko =
@@ -77,5 +76,20 @@ class ImageModerationExceptionHandlerTest {
         assertThat(ko.getMessage()).isEqualTo("부적절한 이미지가 감지되었습니다.");
         assertThat(en).isNotNull();
         assertThat(en.getMessage()).isEqualTo("Inappropriate image detected.");
+    }
+
+    @Test
+    @DisplayName("이미지 아닌 파일(LUT-710): 400 + 000012")
+    void notImageIs400() {
+        ImageUploadExceptionHandler handler = new ImageUploadExceptionHandler(null);
+
+        ResponseEntity<Object> response =
+                handler.handleInvalidImage(InvalidImageException.notImage());
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        ApiResult<?> body = (ApiResult<?>) response.getBody();
+        assertThat(body).isNotNull();
+        assertThat(body.getCode()).isEqualTo("000012");
+        assertThat(body.getMessage()).isEqualTo("error.image.not_image");
     }
 }

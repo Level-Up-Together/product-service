@@ -71,7 +71,9 @@ Micrometer 카운터(`ImageModerationMetrics`, `/showmethemoney/prometheus`):
 
 ### 에러 코드
 
-부적절 이미지 감지 시: `ImageModerationException.blocked()` → **HTTP 400** `000010 error.moderation.inappropriate_image` (LUT-714 — 예전엔 `CustomException` 이라 플랫폼 핸들러가 500 으로 응답했다. `ImageModerationExceptionHandler`(`@Order(HIGHEST_PRECEDENCE)`, 플랫폼 핸들러는 `+1`)가 이 예외 타입만 가로챈다. 본문 `code`·`message` 는 그대로라 웹(`fetch-client.ts` 가 `message` 표시)·RN 변경 없음)
+**형식 검증(LUT-710)**: 검수보다 먼저 `ImageContentValidator` 가 앞 32바이트의 시그니처(JPEG `FF D8 FF`, PNG, GIF8, RIFF/WEBP, BM, ftyp heic/avif)로 이미지인지 본다. 아니면 `InvalidImageException.notImage()` → **HTTP 400** `000012 error.image.not_image`. 검수 제공자가 `none` 이어도 동작한다. `ImageIO.read` 를 쓰지 않는 이유: WebP·HEIC 를 못 읽어 정상 사진을 거절하고, 전체 디코딩은 검수 모델이 다시 한다. 빈 파일은 저장소의 `error.image.empty` 몫. 어드민 내부 업로드(`ShopItemAdminService.uploadImage`·`DiamondBundleAdminService.uploadImage`)는 `@ModerateImage` 가 없어 서비스에서 직접 호출한다.
+
+부적절 이미지 감지 시: `ImageModerationException.blocked()` → **HTTP 400** `000010 error.moderation.inappropriate_image` (LUT-714 — 예전엔 `CustomException` 이라 플랫폼 핸들러가 500 으로 응답했다. `ImageUploadExceptionHandler`(`@Order(HIGHEST_PRECEDENCE)`, 플랫폼 핸들러는 `+1`)가 이 예외 타입들만 가로챈다. 본문 `code`·`message` 는 그대로라 웹(`fetch-client.ts` 가 `message` 표시)·RN 변경 없음)
 검수 불가로 차단 시(`fail-open: false` 일 때만): `ImageModerationException.unavailable()` → **HTTP 503** `000011 error.moderation.unavailable` (LUT-650·714)
 
 ---
