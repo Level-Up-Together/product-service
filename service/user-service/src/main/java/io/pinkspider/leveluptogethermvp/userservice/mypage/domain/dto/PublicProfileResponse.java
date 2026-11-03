@@ -44,6 +44,10 @@ public class PublicProfileResponse {
     // LUT-555: 현재 연속 출석 일수 (attendance_record 체인 — 업적 화면 "현재 n일 출석중"과 동일, 오늘·어제 출석 없으면 0)
     private Integer consecutiveDays;
 
+    // LUT-717: 연속 실천 일수 — 하루 미션 1개 이상 완료(유저 로컬 자정·완료 시각 기준). 오늘 미수행이면 어제까지 값, 그 전이면 0 / 최장
+    private Integer practiceStreakDays;
+    private Integer maxPracticeStreakDays;
+
     // 소속 길드 목록
     private java.util.List<GuildInfo> guilds;
 

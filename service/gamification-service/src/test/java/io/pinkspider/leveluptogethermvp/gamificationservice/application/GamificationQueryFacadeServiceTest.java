@@ -818,6 +818,29 @@ class GamificationQueryFacadeServiceTest {
     // ========== 통계 WRITE 테스트 ==========
 
     @Nested
+    @DisplayName("LUT-717 연속 실천 위임")
+    class PracticeStreakDelegationTest {
+
+        @Test
+        @DisplayName("recordMissionPractice 는 UserStatsService 로 완료 시각을 그대로 넘긴다")
+        void recordMissionPractice_delegates() {
+            java.time.LocalDateTime at = java.time.LocalDateTime.of(2026, 11, 3, 15, 20);
+            facadeService.recordMissionPractice(TEST_USER_ID, at);
+            verify(userStatsService).recordMissionPractice(TEST_USER_ID, at);
+        }
+
+        @Test
+        @DisplayName("getPracticeStreak 은 UserStatsService 의 값을 그대로 돌려준다")
+        void getPracticeStreak_delegates() {
+            io.pinkspider.global.facade.dto.PracticeStreakDto dto =
+                    new io.pinkspider.global.facade.dto.PracticeStreakDto(
+                            3, 9, java.time.LocalDate.of(2026, 11, 3));
+            when(userStatsService.getPracticeStreak(TEST_USER_ID)).thenReturn(dto);
+            assertThat(facadeService.getPracticeStreak(TEST_USER_ID)).isSameAs(dto);
+        }
+    }
+
+    @Nested
     @DisplayName("recordMissionCompletion 테스트")
     class RecordMissionCompletionTest {
 

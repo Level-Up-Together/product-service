@@ -5,6 +5,7 @@ import io.pinkspider.global.facade.GamificationQueryFacade;
 import io.pinkspider.global.facade.dto.DailyRewardDto;
 import io.pinkspider.global.facade.dto.DetailedTitleInfoDto;
 import io.pinkspider.global.facade.dto.EquippedItemRarityDto;
+import io.pinkspider.global.facade.dto.PracticeStreakDto;
 import io.pinkspider.global.facade.dto.SeasonDto;
 import io.pinkspider.global.facade.dto.SeasonMvpDataDto;
 import io.pinkspider.global.facade.dto.SeasonMvpGuildDto;
@@ -368,6 +369,16 @@ public class GamificationQueryFacadeService implements GamificationQueryFacade {
     @Transactional(transactionManager = "gamificationTransactionManager")
     public void recordMissionCompletion(String userId, boolean isGuildMission) {
         userStatsService.recordMissionCompletion(userId, isGuildMission);
+    }
+
+    @Override
+    public void recordMissionPractice(String userId, java.time.LocalDateTime completedAtUtc) {
+        userStatsService.recordMissionPractice(userId, completedAtUtc);
+    }
+
+    @Override
+    public PracticeStreakDto getPracticeStreak(String userId) {
+        return userStatsService.getPracticeStreak(userId);
     }
 
     @Override

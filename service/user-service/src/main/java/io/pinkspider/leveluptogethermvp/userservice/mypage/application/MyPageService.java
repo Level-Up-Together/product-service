@@ -10,6 +10,7 @@ import io.pinkspider.global.facade.GamificationQueryFacade;
 import io.pinkspider.global.facade.GuildQueryFacade;
 import io.pinkspider.global.facade.MissionQueryFacade;
 import io.pinkspider.global.facade.dto.GuildMembershipInfo;
+import io.pinkspider.global.facade.dto.PracticeStreakDto;
 import io.pinkspider.global.facade.dto.TitleChangeResultDto;
 import io.pinkspider.global.facade.dto.UserExperienceDto;
 import io.pinkspider.global.facade.dto.UserStatsDto;
@@ -126,6 +127,8 @@ public class MyPageService {
         // LUT-555: 연속 출석 일수 — 업적 화면과 같은 출석 체인 (user_stats streak 아님)
         int consecutiveDays =
                 gamificationQueryFacadeService.getCurrentAttendanceStreak(targetUserId);
+        // LUT-717: 연속 실천(미션 완료 기준) — 조회 실패는 프로필을 막지 않는다
+        PracticeStreakDto practice = safePracticeStreak(targetUserId);
 
         // 보유 칭호 수
         long titlesCount = gamificationQueryFacadeService.countUserTitles(targetUserId);
@@ -238,6 +241,8 @@ public class MyPageService {
                 .acquiredTitlesCount((int) titlesCount)
                 .friendsCount(friendsCount)
                 .consecutiveDays(consecutiveDays)
+                .practiceStreakDays(practice.currentDays())
+                .maxPracticeStreakDays(practice.maxDays())
                 .guilds(guilds)
                 .isOwner(isOwner)
                 .isSubscriber(safeIsSubscriber(targetUserId))
@@ -778,6 +783,9 @@ public class MyPageService {
         // 보유 칭호 수
         long titlesCount = gamificationQueryFacadeService.countUserTitles(userId);
 
+        // LUT-717: 연속 실천(미션 완료 기준) — 연속 출석과 별개
+        PracticeStreakDto practice = safePracticeStreak(userId);
+
         return UserInfo.builder()
                 .startDate(startDate)
                 .daysSinceJoined(daysSinceJoined)
@@ -788,7 +796,20 @@ public class MyPageService {
                 .rankingPercentile(rankingPercentile)
                 .acquiredTitlesCount((int) titlesCount)
                 .rankingPoints(stats.rankingPoints())
+                .practiceStreakDays(practice.currentDays())
+                .maxPracticeStreakDays(practice.maxDays())
                 .build();
+    }
+
+    /** LUT-717: 연속 실천 조회 실패(재계산 오류 등)는 마이페이지·프로필을 막지 않고 0 으로 보인다 */
+    private PracticeStreakDto safePracticeStreak(String userId) {
+        try {
+            PracticeStreakDto dto = gamificationQueryFacadeService.getPracticeStreak(userId);
+            return dto != null ? dto : PracticeStreakDto.empty();
+        } catch (Exception e) {
+            log.warn("연속 실천 조회 실패: userId={}, error={}", userId, e.getMessage());
+            return PracticeStreakDto.empty();
+        }
     }
 
     private EquippedTitleInfo toEquippedTitleInfo(UserTitleDto userTitle) {

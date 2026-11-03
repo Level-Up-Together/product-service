@@ -132,6 +132,11 @@ class MissionAutoCompleteSchedulerTest {
             assertThat(execution.getStatus()).isEqualTo(ExecutionStatus.COMPLETED);
             assertThat(execution.getIsAutoCompleted()).isTrue();
             assertThat(execution.getExpEarned()).isEqualTo(10); // 기본 경험치
+            // LUT-717: saga 우회 경로도 연속 실천 반영
+            verify(gamificationQueryFacade)
+                    .recordMissionPractice(
+                            org.mockito.ArgumentMatchers.anyString(),
+                            org.mockito.ArgumentMatchers.any());
         }
 
         @Test
@@ -323,6 +328,11 @@ class MissionAutoCompleteSchedulerTest {
             assertThat(instance.getExpEarned()).isEqualTo(10); // 기본 경험치
             assertThat(instance.getCompletionCount()).isEqualTo(1);
             assertThat(instance.getTotalExpEarned()).isEqualTo(10);
+            // LUT-717: saga 우회 경로도 연속 실천 반영
+            verify(gamificationQueryFacade)
+                    .recordMissionPractice(
+                            org.mockito.ArgumentMatchers.anyString(),
+                            org.mockito.ArgumentMatchers.any());
         }
 
         @Test
