@@ -11,6 +11,7 @@ import static org.springframework.restdocs.payload.PayloadDocumentation.requestF
 import static org.springframework.restdocs.payload.PayloadDocumentation.responseFields;
 import static org.springframework.restdocs.request.RequestDocumentation.parameterWithName;
 import static org.springframework.restdocs.request.RequestDocumentation.pathParameters;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -44,7 +45,7 @@ import org.springframework.test.web.servlet.MockMvc;
         })
 @Import(ControllerTestConfig.class)
 @AutoConfigureRestDocs
-@AutoConfigureMockMvc(addFilters = false)
+@AutoConfigureMockMvc
 @ActiveProfiles("test")
 @DisplayName("TowerEntryController 테스트 (LUT-630)")
 class TowerEntryControllerTest {
@@ -52,6 +53,9 @@ class TowerEntryControllerTest {
     @Autowired private MockMvc mockMvc;
 
     @MockitoBean private TowerEntryService entryService;
+
+    @MockitoBean
+    private io.pinkspider.leveluptogethermvp.towerservice.application.TowerSeatService seatService;
 
     @Test
     @DisplayName("POST /api/v1/tower/floors/{floorNumber}/enter : 입장·배정 (인스턴스 지정 파라미터 없음)")
@@ -174,5 +178,28 @@ class TowerEntryControllerTest {
         mockMvc.perform(RestDocumentationRequestBuilders.post("/api/v1/tower/leave"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("150204"));
+    }
+
+    @Test
+    @DisplayName("POST /api/v1/tower/vacate : 자리 직접 비우기 — 미션은 계속, 아바타만 퇴장 (LUT-632/713)")
+    void vacate() throws Exception {
+        when(seatService.vacate(any())).thenReturn(true);
+
+        mockMvc.perform(
+                        RestDocumentationRequestBuilders.post("/api/v1/tower/vacate")
+                                .with(user("user-1")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.value.left").value(true))
+                .andExpect(jsonPath("$.value.seat_held").value(false))
+                .andDo(
+                        document(
+                                "tower-vacate",
+                                responseFields(
+                                        fieldWithPath("code").description("응답 코드"),
+                                        fieldWithPath("message").description("응답 메시지"),
+                                        fieldWithPath("value.left")
+                                                .description("자리를 비웠는가 (탑에 없었으면 false)"),
+                                        fieldWithPath("value.seat_held")
+                                                .description("항상 false — 미션 중이어도 자리를 남기지 않는다"))));
     }
 }

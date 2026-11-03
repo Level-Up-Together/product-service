@@ -3,6 +3,7 @@ package io.pinkspider.leveluptogethermvp.towerservice.api;
 import io.pinkspider.global.annotation.CurrentUser;
 import io.pinkspider.global.api.ApiResult;
 import io.pinkspider.leveluptogethermvp.towerservice.application.TowerEntryService;
+import io.pinkspider.leveluptogethermvp.towerservice.application.TowerSeatService;
 import io.pinkspider.leveluptogethermvp.towerservice.domain.dto.TowerEnterResponse;
 import io.pinkspider.leveluptogethermvp.towerservice.domain.dto.TowerLeaveRequest;
 import io.pinkspider.leveluptogethermvp.towerservice.domain.dto.TowerLeaveResponse;
@@ -25,12 +26,22 @@ import org.springframework.web.bind.annotation.RestController;
 public class TowerEntryController {
 
     private final TowerEntryService towerEntryService;
+    private final TowerSeatService towerSeatService;
 
     @PostMapping("/floors/{floorNumber}/enter")
     public ApiResult<TowerEnterResponse> enter(
             @CurrentUser(required = false) String userId, @PathVariable int floorNumber) {
         return ApiResult.<TowerEnterResponse>builder()
                 .value(towerEntryService.enter(userId, floorNumber))
+                .build();
+    }
+
+    /** LUT-632/713: 자리 직접 비우기 — 미션은 계속 진행되고 아바타만 퇴장(자동 착석 자리 포함). 로그인 필요 */
+    @PostMapping("/vacate")
+    public ApiResult<TowerLeaveResponse> vacate(@CurrentUser String userId) {
+        boolean left = towerSeatService.vacate(userId);
+        return ApiResult.<TowerLeaveResponse>builder()
+                .value(new TowerLeaveResponse(left, false))
                 .build();
     }
 

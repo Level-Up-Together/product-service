@@ -39,6 +39,22 @@ POST {{baseUrl}}/api/v1/tower/leave
 Authorization: Bearer {{accessToken}}
 Accept: application/json
 
+### 자리 직접 비우기(LUT-632/713) — 미션은 계속, 아바타만 퇴장 (자동 착석 자리 포함, 로그인 필요)
+POST {{baseUrl}}/api/v1/tower/vacate
+Authorization: Bearer {{accessToken}}
+Accept: application/json
+
+### 탑 자동 착석 설정 끄기 (LUT-632, UI 환경설정 부분 업데이트)
+PUT {{baseUrl}}/api/v1/users/me/preferences
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+Accept: application/json
+
+{
+  "tower_auto_seat": false,
+  "tower_auto_seat_notice_seen": true
+}
+
 ### 방문객 퇴장 — 입장 응답의 visitor_key
 POST {{baseUrl}}/api/v1/tower/leave
 Content-Type: application/json

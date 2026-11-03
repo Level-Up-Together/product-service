@@ -14,6 +14,8 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import io.pinkspider.global.facade.GamificationQueryFacade;
+import io.pinkspider.global.facade.MissionQueryFacade;
+import io.pinkspider.global.facade.dto.InProgressMissionDto;
 import io.pinkspider.leveluptogethermvp.towerservice.application.exception.TowerEntryException;
 import io.pinkspider.leveluptogethermvp.towerservice.domain.dto.TowerEnterResponse;
 import io.pinkspider.leveluptogethermvp.towerservice.domain.dto.TowerLeaveResponse;
@@ -50,6 +52,7 @@ class TowerEntryServiceTest {
     @Mock private TowerInstanceAllocator allocator;
     @Mock private TowerPopulationService populationService;
     @Mock private GamificationQueryFacade gamificationQueryFacade;
+    @Mock private MissionQueryFacade missionQueryFacade;
 
     private TowerEntryService service;
 
@@ -66,8 +69,10 @@ class TowerEntryServiceTest {
                         userStateRepository,
                         allocator,
                         populationService,
-                        gamificationQueryFacade);
+                        gamificationQueryFacade,
+                        missionQueryFacade);
         when(populationService.of(anyInt())).thenReturn(3L);
+        when(missionQueryFacade.findInProgressMission(any())).thenReturn(Optional.empty());
         when(userStateRepository.findById(any())).thenReturn(Optional.empty());
         when(occupantRepository.findByUserId(any())).thenReturn(Optional.empty());
         when(occupantRepository.save(any(TowerOccupant.class)))
@@ -269,5 +274,33 @@ class TowerEntryServiceTest {
         assertThat(service.leave(null, "k")).isEqualTo(new TowerLeaveResponse(true, false));
         verify(allocator).remove(visitor);
         verify(allocator, never()).countedOccupants(anyLong());
+    }
+
+    @Test
+    @DisplayName("LUT-632: 탑 밖에서 시작한 미션이 진행 중이면 입장 즉시 미션 중(자리 유지) · 조회 실패는 휴식 중")
+    void enterReflectsInProgressMission() {
+        stub(f2Unlimited);
+        when(missionQueryFacade.findInProgressMission(USER))
+                .thenReturn(
+                        Optional.of(
+                                new InProgressMissionDto(
+                                        10L,
+                                        3L,
+                                        "운동",
+                                        "달리기",
+                                        "PUBLIC",
+                                        null,
+                                        LocalDateTime.now())));
+
+        TowerEnterResponse res = service.enter(USER, 2);
+
+        assertThat(res.missionActive()).isTrue();
+        ArgumentCaptor<TowerOccupant> captor = ArgumentCaptor.forClass(TowerOccupant.class);
+        verify(occupantRepository).save(captor.capture());
+        assertThat(captor.getValue().isMissionActive()).isTrue();
+
+        when(missionQueryFacade.findInProgressMission(USER))
+                .thenThrow(new RuntimeException("down"));
+        assertThat(service.enter(USER, 2).missionActive()).isFalse();
     }
 }

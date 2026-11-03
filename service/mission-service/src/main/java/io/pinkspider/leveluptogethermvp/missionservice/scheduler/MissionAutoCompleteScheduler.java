@@ -5,6 +5,8 @@ import io.pinkspider.global.enums.GuildExpSourceType;
 import io.pinkspider.global.event.MissionAutoEndMilestone;
 import io.pinkspider.global.event.MissionAutoEndWarningEvent;
 import io.pinkspider.global.event.MissionAutoEndedEvent;
+import io.pinkspider.global.event.MissionExecutionEndedEvent;
+import io.pinkspider.global.event.MissionExecutionStartedEvent;
 import io.pinkspider.global.facade.GamificationQueryFacade;
 import io.pinkspider.global.facade.GuildQueryFacade;
 import io.pinkspider.leveluptogethermvp.missionservice.application.DailyMissionInstanceService;
@@ -206,6 +208,14 @@ public class MissionAutoCompleteScheduler {
                 recordPractice(
                         participant != null ? participant.getUserId() : null,
                         execution.getCompletedAt());
+                // LUT-632: saga 우회 경로라 탑 종료 이벤트도 여기서 직접 발행
+                publishExecutionEnded(
+                        participant != null ? participant.getUserId() : null,
+                        participant != null && participant.getMission() != null
+                                ? participant.getMission().getId()
+                                : null,
+                        execution.getId(),
+                        MissionExecutionStartedEvent.KIND_REGULAR);
                 count++;
                 log.info(
                         "일반 미션 자동 종료: executionId={}, userId={}, startedAt={}",
@@ -235,6 +245,14 @@ public class MissionAutoCompleteScheduler {
                 grantAutoCompleteGuildExpForInstance(instance, baseExp);
                 // LUT-717: saga 우회 경로라 연속 실천도 여기서 직접 반영
                 recordPractice(instance.getParticipant().getUserId(), instance.getCompletedAt());
+                // LUT-632: saga 우회 경로라 탑 종료 이벤트도 여기서 직접 발행
+                publishExecutionEnded(
+                        instance.getParticipant().getUserId(),
+                        instance.getParticipant().getMission() != null
+                                ? instance.getParticipant().getMission().getId()
+                                : null,
+                        instance.getId(),
+                        MissionExecutionStartedEvent.KIND_PINNED);
                 count++;
                 log.info(
                         "고정 미션 자동 종료: instanceId={}, userId={}, missionTitle={}, startedAt={}",
@@ -245,6 +263,25 @@ public class MissionAutoCompleteScheduler {
             }
         }
         return count;
+    }
+
+    /** LUT-632: 4시간 자동 종료 1건의 탑 종료 이벤트 — 실패해도 자동 종료 자체는 막지 않는다 */
+    private void publishExecutionEnded(
+            String userId, Long missionId, Long executionId, String executionKind) {
+        if (userId == null) {
+            return;
+        }
+        try {
+            eventPublisher.publishEvent(
+                    new MissionExecutionEndedEvent(
+                            userId,
+                            missionId,
+                            executionId,
+                            executionKind,
+                            MissionExecutionEndedEvent.EndReason.AUTO_COMPLETED));
+        } catch (Exception e) {
+            log.warn("탑 종료 이벤트 발행 실패: userId={}, error={}", userId, e.getMessage());
+        }
     }
 
     /** LUT-717: 자동 종료 1건을 연속 실천에 반영 — 실패해도 자동 종료 자체는 막지 않는다 */

@@ -169,6 +169,19 @@ class RegularMissionExecutionStrategyTest {
             // then
             assertThat(response).isNotNull();
             verify(executionRepository).save(any(MissionExecution.class));
+            // LUT-632: 탑 연동 — 수행 시작 이벤트(REGULAR, 공개 여부 포함)
+            org.mockito.ArgumentCaptor<io.pinkspider.global.event.MissionExecutionStartedEvent>
+                    started =
+                            org.mockito.ArgumentCaptor.forClass(
+                                    io.pinkspider.global.event.MissionExecutionStartedEvent.class);
+            verify(eventPublisher).publishEvent(started.capture());
+            assertThat(started.getValue().userId()).isEqualTo(testUserId);
+            assertThat(started.getValue().missionId()).isEqualTo(testMission.getId());
+            assertThat(started.getValue().executionId()).isEqualTo(1L);
+            assertThat(started.getValue().executionKind())
+                    .isEqualTo(
+                            io.pinkspider.global.event.MissionExecutionStartedEvent.KIND_REGULAR);
+            assertThat(started.getValue().visibility()).isEqualTo("PUBLIC");
         }
 
         @Test
@@ -280,6 +293,41 @@ class RegularMissionExecutionStrategyTest {
             // then
             assertThat(response).isNotNull();
             verify(executionRepository).save(any(MissionExecution.class));
+            // LUT-632: 진행 중이던 수행의 취소는 종료 이벤트(SKIPPED)
+            org.mockito.ArgumentCaptor<io.pinkspider.global.event.MissionExecutionEndedEvent>
+                    ended =
+                            org.mockito.ArgumentCaptor.forClass(
+                                    io.pinkspider.global.event.MissionExecutionEndedEvent.class);
+            verify(eventPublisher).publishEvent(ended.capture());
+            assertThat(ended.getValue().reason())
+                    .isEqualTo(
+                            io.pinkspider.global.event.MissionExecutionEndedEvent.EndReason
+                                    .SKIPPED);
+            assertThat(ended.getValue().isCompletion()).isFalse();
+        }
+
+        @Test
+        @DisplayName("대기 중(PENDING) 수행의 건너뛰기는 탑 종료 이벤트를 내지 않는다 (LUT-632)")
+        void skipExecution_pending_noEndedEvent() {
+            LocalDate executionDate = LocalDate.now();
+            MissionExecution execution =
+                    MissionExecution.builder()
+                            .participant(testParticipant)
+                            .executionDate(executionDate)
+                            .status(ExecutionStatus.PENDING)
+                            .build();
+            setId(execution, 2L);
+            when(participantRepository.findByMissionIdAndUserId(testMission.getId(), testUserId))
+                    .thenReturn(Optional.of(testParticipant));
+            when(executionRepository.findByParticipantIdAndExecutionDate(
+                            testParticipant.getId(), executionDate))
+                    .thenReturn(Optional.of(execution));
+            when(executionRepository.save(any(MissionExecution.class)))
+                    .thenAnswer(invocation -> invocation.getArgument(0));
+
+            strategy.skipExecution(testMission.getId(), testUserId, executionDate);
+
+            verify(eventPublisher, org.mockito.Mockito.never()).publishEvent(any());
         }
 
         @Test

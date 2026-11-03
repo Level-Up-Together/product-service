@@ -261,4 +261,34 @@ class UserUiPreferenceServiceTest {
 
         assertThat(response.homeFeedCategoryIds()).isEmpty();
     }
+
+    @Test
+    @DisplayName("LUT-632: 탑 자동 착석 설정·첫 안내 확인을 부분 업데이트하고, 저장값이 없으면 기본값(켬·미확인)으로 응답한다")
+    void updatePreferences_towerAutoSeat() {
+        UserUiPreference preference = UserUiPreference.createDefault(TEST_USER_ID);
+        when(preferenceRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.of(preference));
+        assertThat(preferenceService.getPreferences(TEST_USER_ID).towerAutoSeat()).isTrue();
+        assertThat(preferenceService.getPreferences(TEST_USER_ID).towerAutoSeatNoticeSeen())
+                .isFalse();
+
+        UserUiPreferenceResponse response =
+                preferenceService.updatePreferences(
+                        TEST_USER_ID,
+                        UserUiPreferenceRequest.builder()
+                                .towerAutoSeat(false)
+                                .towerAutoSeatNoticeSeen(true)
+                                .build());
+
+        assertThat(response.towerAutoSeat()).isFalse();
+        assertThat(response.towerAutoSeatNoticeSeen()).isTrue();
+        assertThat(preference.getTowerAutoSeat()).isFalse();
+        // null 필드는 유지
+        preferenceService.updatePreferences(
+                TEST_USER_ID, UserUiPreferenceRequest.builder().build());
+        assertThat(preference.getTowerAutoSeat()).isFalse();
+        assertThat(preference.getTowerAutoSeatNoticeSeen()).isTrue();
+
+        when(preferenceRepository.findByUserId("nobody")).thenReturn(Optional.empty());
+        assertThat(preferenceService.getPreferences("nobody").towerAutoSeat()).isTrue();
+    }
 }

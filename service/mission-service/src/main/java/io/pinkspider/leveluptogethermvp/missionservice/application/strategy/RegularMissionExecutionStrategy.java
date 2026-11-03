@@ -1,6 +1,8 @@
 package io.pinkspider.leveluptogethermvp.missionservice.application.strategy;
 
 import io.pinkspider.global.api.ApiStatus;
+import io.pinkspider.global.event.MissionExecutionEndedEvent;
+import io.pinkspider.global.event.MissionExecutionStartedEvent;
 import io.pinkspider.global.event.MissionFeedImageChangedEvent;
 import io.pinkspider.global.event.MissionFeedUnsharedEvent;
 import io.pinkspider.global.exception.CustomException;
@@ -114,6 +116,18 @@ public class RegularMissionExecutionStrategy implements MissionExecutionStrategy
                 missionId,
                 userId,
                 executionDate);
+        // LUT-632: 탑 연동 — 탑에 있으면 미션 중, 밖이면 자동 착석
+        Mission mission = participant.getMission();
+        eventPublisher.publishEvent(
+                new MissionExecutionStartedEvent(
+                        userId,
+                        mission.getId(),
+                        execution.getId(),
+                        MissionExecutionStartedEvent.KIND_REGULAR,
+                        mission.getTitle(),
+                        mission.getCategoryId(),
+                        mission.getVisibility() != null ? mission.getVisibility().name() : null,
+                        execution.getStartedAt()));
         return MissionExecutionResponse.from(execution);
     }
 
@@ -131,6 +145,7 @@ public class RegularMissionExecutionStrategy implements MissionExecutionStrategy
                                         new IllegalArgumentException(
                                                 "해당 날짜의 수행 기록을 찾을 수 없습니다: " + executionDate));
 
+        boolean wasInProgress = execution.getStatus() == ExecutionStatus.IN_PROGRESS;
         execution.skip();
         executionRepository.save(execution);
 
@@ -139,6 +154,16 @@ public class RegularMissionExecutionStrategy implements MissionExecutionStrategy
                 missionId,
                 userId,
                 executionDate);
+        // LUT-632: 진행 중이던 수행의 취소만 종료 이벤트 (대기 중 건너뛰기는 탑과 무관)
+        if (wasInProgress) {
+            eventPublisher.publishEvent(
+                    new MissionExecutionEndedEvent(
+                            userId,
+                            missionId,
+                            execution.getId(),
+                            MissionExecutionStartedEvent.KIND_REGULAR,
+                            MissionExecutionEndedEvent.EndReason.SKIPPED));
+        }
         return MissionExecutionResponse.from(execution);
     }
 

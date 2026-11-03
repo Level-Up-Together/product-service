@@ -67,7 +67,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 | `noticeservice`       | -               | 공지/안내 (Admin Feign)                          |
 | `supportservice`      | -               | 1:1 문의 + 신고 처리 (Admin Feign)               |
 | `statsservice`        | stats_db        | **지표 집계(IR KPI)** — 유저 일별 활동(DAU 신호) 수집·적재 (LUT-598) + 일별 KPI 스냅샷·코호트 리텐션·코호트 매출 (LUT-601) |
-| `towerservice`        | tower_db        | **레벨업 탑**(v1.1.5, LUT-629~) — 층(어드민 CRUD·유저 목록, 저장 규칙 7개), 유저 상태(마지막 입장 층). 인스턴스·presence·채팅·NPC·대기열은 후속 티켓 |
+| `towerservice`        | tower_db        | **레벨업 탑**(v1.1.5, LUT-629~) — 층(어드민 CRUD·유저 목록, 저장 규칙 7개), 입장·인스턴스 배정·자동 착석(630), 미션 연동·상태 브로드캐스트·자리 기록(632). presence·채팅·NPC·대기열은 후속 티켓 |
 
 ### Transaction Manager (Critical)
 
@@ -364,10 +364,11 @@ Redis Stream `stream:app-push` → `AppPushMessageConsumer` → `FcmPushService`
 | 경로 | 퍼블리셔 → 릴레이 | Redis 채널 |
 |---|---|---|
 | 알림 `/user/queue/notifications` | `NotificationRealtimePublisher` → `NotificationRealtimeRelay` | `notification:realtime` |
+| 탑 인스턴스 `/topic/tower/instances/{id}` | `TowerRealtimePublisher.publishToInstance` → `TowerRealtimeRelay` | `tower:instance:realtime` (LUT-632) |
 | DM `/user/queue/dm*` | `DmRealtimePublisher.publishToUser` → `DmRealtimeRelay` | `chat:dm:realtime` |
 | 길드 채팅 `/topic/guild/{id}/chat`·`/read` | `GuildChatRealtimePublisher.publishToTopic` → `GuildChatRealtimeRelay` | `chat:guild:realtime` |
 
-리스너 컨테이너는 `ChatRealtimeConfig`(chat 2채널)·`NotificationRealtimeConfig`. 퍼블리셔는 활성 트랜잭션이 있으면 afterCommit에
+리스너 컨테이너는 `ChatRealtimeConfig`(chat 2채널)·`NotificationRealtimeConfig`·`TowerRealtimeConfig`. 퍼블리셔는 활성 트랜잭션이 있으면 afterCommit에
 발행하고, 릴레이는 body를 **JSON 문자열 그대로** `convertAndSend`한다(프론트는 content-type 무관 `JSON.parse`). 브로드캐스트 DTO는
 `@JsonNaming(SnakeCase)`를 붙여야 프론트와 필드가 맞는다(LUT-395). 유일한 직접 전송 허용 예외는 **발신자 본인에게 보내는 에러 에코**
 (`GuildDirectMessageWebSocketController` `/queue/dm/errors`) — 발신자 세션은 반드시 현재 인스턴스에 있다.
@@ -462,6 +463,7 @@ public void run() { ...}
 | `MissionIdempotencyKeyCleanupScheduler.cleanupExpiredKeys`  | `0 15 * * * *` KST (매시)    | 24시간 지난 미션 생성 멱등 키 삭제 (LUT-577) |
 | `UserActivityFlushScheduler.flushRecentDays`                 | `0 20 0 * * *` KST          | Redis `active:{날짜}` 활동 집합 → `stats_db.user_daily_activity` 적재(그제·어제 2일, 멱등) (LUT-598) |
 | `KpiSnapshotScheduler.buildDailySnapshot`                    | `0 40 0 * * *` KST          | 어제·그제 `daily_kpi_snapshot` + 최근 31일 `cohort_retention` + 13개월 전~당월 `cohort_revenue` 재계산(멱등) (LUT-601·660) |
+| `TowerSeatReconcileScheduler.reconcile`                       | 5분 fixedDelay (`tower.seat.reconcile-delay-ms`) | 탑 미션 중 점유자를 실제 미션 상태와 대조해 끝난 유저 정리 — 이벤트 없는 자정 MISSED·유실 대비 (LUT-632) |
 
 ## DB 마이그레이션 — Flyway (LUT-595, `global/config/datasource/flyway`)
 
@@ -504,6 +506,14 @@ prod 첫 적용 파일은 LUT-666 핫픽스 `gamification/V1_1_3_013`(2026-10-29
   **자동 착석** `TowerSeatService.onMissionStarted(userId)`(호출·설정값 "탑 자동 착석"·브로드캐스트는 LUT-632): 입장 가능한 공개 층 중 **사람이 가장 적은 층**(층 전체 인원 `byFloorFresh`, 같으면 낮은 층) → 그 층에서 **사람이 가장 적은 방**(일반 입장과 반대), 자리는 입장 지점, 입장 레벨이 부족한 층은 비어 있어도 제외.
   `onMissionEnded(userId, connected)`: 자동 착석자·연결 끊긴 유저는 퇴장, 연결된 유저는 휴식 중. 층 인원 `TowerPopulationService`(모든 종류 합, NPC 제외, 인스턴스 로컬 메모 `tower.population.cache-seconds` 기본 30초).
   LUT-701(탑 전체 상한·대기열)은 복귀 판정 뒤·새 배정 앞, LUT-705(방문객 세션·이름·빈도 제한)는 `visitor_key` 를 세션으로 확장, 좌표·연결 여부는 LUT-631(Redis).
+- **미션 연동·상태 브로드캐스트** (LUT-632): mission-service 가 수행(타이머) 시작·종료에 kernel 이벤트 `MissionExecutionStartedEvent`(일반 `RegularMissionExecutionStrategy.startExecution`·고정 `DailyMissionInstanceService.startInstance`) /
+  `MissionExecutionEndedEvent`(완료 = `MissionCompletionSaga.runSaga` 성공 단일 지점 `COMPLETED`, 4시간 자동 종료 = `MissionAutoCompleteScheduler` `AUTO_COMPLETED`, 진행 중 취소 skip = `SKIPPED`)를 낸다 —
+  미션 자체 상태 이벤트(`MissionStateChangedEvent`)와 다르다. `TowerMissionEventListener`(AFTER_COMMIT + `fallbackExecution`) → `TowerSeatService.onMissionStarted(userId, TowerMissionInfo)`: 탑에 있으면 미션 중 + 같은 방에
+  `USER_STATE{MISSION}` 브로드캐스트(**공개(PUBLIC) 미션만 미션명·카테고리, 나머지는 "미션 중"만**), 없으면 유저 설정 **"탑 자동 착석"**(`user_ui_preference.tower_auto_seat` 기본 켬 + `tower_auto_seat_notice_seen`, `UserQueryFacade.isTowerAutoSeatEnabled`)이 켜진 유저만 자동 착석.
+  `onMissionEnded(userId, completed)`: 완료면 `MISSION_COMPLETED{cheer_window_seconds:10}` 를 먼저 보내고, 자동 착석자·연결 끊긴 유저(`TowerPresenceGateway` — 631 전까지 `DefaultTowerPresenceGateway` 는 전부 연결로 봄)는 퇴장, 연결된 유저는 `USER_STATE{REST}`.
+  자정 일괄 MISSED 처럼 이벤트가 없는 경로는 `TowerSeatReconcileScheduler`(5분, ShedLock)가 `MissionQueryFacade.findInProgressMissions` 로 대조해 정리. 탑 밖에서 시작한 미션도 입장하면 미션 중(`TowerEntryService.enter` 가 `findInProgressMission` 조회).
+  **실시간은 Redis 릴레이** `TowerRealtimePublisher`(`tower:instance:realtime`) → `TowerRealtimeRelay` → `/topic/tower/instances/{id}`(`TowerRealtimeConfig`, LUT-631 이 ENTER/LEAVE/MOVE 를 같은 토픽에 보탠다).
+  `POST /api/v1/tower/vacate`(로그인) = 자리 직접 비우기(미션은 계속, 자동 착석 자리 포함). 미션 단위 자리 기록 `tower_mission_seat`(층·자동 착석·응원 수, 응원은 LUT-633 이 `addCheer`) → 완료 응답 `tower_seat{floor_number, auto_seated, cheer_count}`(`TowerQueryFacade`, 탑에 앉지 않았으면 없음).
 
 ## 상점 · 다이아 경제 (gamificationservice/shop, LUT-327/348/349/350/354/356/401)
 

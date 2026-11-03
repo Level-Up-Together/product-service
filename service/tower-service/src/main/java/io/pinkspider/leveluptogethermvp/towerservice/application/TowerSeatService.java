@@ -1,12 +1,19 @@
 package io.pinkspider.leveluptogethermvp.towerservice.application;
 
 import io.pinkspider.global.facade.GamificationQueryFacade;
+import io.pinkspider.global.facade.MissionQueryFacade;
+import io.pinkspider.global.facade.UserQueryFacade;
+import io.pinkspider.leveluptogethermvp.towerservice.domain.dto.TowerInstanceEvent;
+import io.pinkspider.leveluptogethermvp.towerservice.domain.dto.TowerMissionInfo;
 import io.pinkspider.leveluptogethermvp.towerservice.domain.dto.TowerSeatResult;
 import io.pinkspider.leveluptogethermvp.towerservice.domain.entity.TowerFloor;
 import io.pinkspider.leveluptogethermvp.towerservice.domain.entity.TowerInstance;
+import io.pinkspider.leveluptogethermvp.towerservice.domain.entity.TowerMissionSeat;
 import io.pinkspider.leveluptogethermvp.towerservice.domain.entity.TowerOccupant;
 import io.pinkspider.leveluptogethermvp.towerservice.infrastructure.TowerFloorRepository;
+import io.pinkspider.leveluptogethermvp.towerservice.infrastructure.TowerMissionSeatRepository;
 import io.pinkspider.leveluptogethermvp.towerservice.infrastructure.TowerOccupantRepository;
+import io.pinkspider.leveluptogethermvp.towerservice.realtime.TowerRealtimePublisher;
 import java.time.LocalDateTime;
 import java.util.Comparator;
 import java.util.List;
@@ -14,15 +21,20 @@ import java.util.Map;
 import java.util.Optional;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Lazy;
+import org.springframework.lang.Nullable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * LUT-630: 미션 시작·종료에 따른 자리. 호출은 LUT-632(미션 이벤트 리스너 — 유저 설정 "탑 자동 착석" 확인도 그쪽)가 한다.
+ * LUT-630/632: 미션 시작·종료에 따른 자리. 호출은 {@code TowerMissionEventListener}(미션 수행 시작·종료 이벤트)와 주기 대조 스케줄러가
+ * 한다.
  *
- * <p><b>자동 착석</b>(탑에 들어오지 않고 미션을 시작한 로그인 유저): 입장할 수 있는 공개 층 중 <b>사람이 가장 적은 층</b>(층 전체 인원, NPC 제외,
- * 같으면 낮은 층) → 그 층에서 <b>사람이 가장 적은 방</b>. 자리는 입장 지점. 한 번 앉은 층은 미션이 끝날 때까지 바꾸지 않는다. 입장 레벨이 부족한 층에는 비어
- * 있어도 앉히지 않는다. 방문객은 대상이 아니다.
+ * <p><b>미션 시작</b>: 이미 탑에 있으면 그 자리를 미션 중으로 바꾸고 같은 방에 상태를 브로드캐스트한다. 없으면 유저 설정 "탑 자동 착석"(기본 켬)이 켜진 로그인
+ * 유저만 <b>자동 착석</b> — 입장할 수 있는 공개 층 중 <b>사람이 가장 적은 층</b>(층 전체 인원, NPC 제외, 같으면 낮은 층) → 그 층에서 <b>사람이
+ * 가장 적은 방</b>. 자리는 입장 지점. 한 번 앉은 층은 미션이 끝날 때까지 바꾸지 않는다. 입장 레벨이 부족한 층은 비어 있어도 제외. 방문객은 대상이 아니다.
+ *
+ * <p><b>미션 종료</b>(완료·취소·자동 종료 전부): 완료면 완료 연출 이벤트(10초 응원 창)를 먼저 보내고, 자동 착석자와 연결이 끊긴 유저는 퇴장, 연결된 유저는
+ * 휴식 중으로. 미션 단위 자리 기록({@code tower_mission_seat}: 층·자동 착석·응원 수)은 완료 응답에 실린다.
  */
 @Service
 @Slf4j
@@ -30,33 +42,60 @@ public class TowerSeatService {
 
     private final TowerFloorRepository towerFloorRepository;
     private final TowerOccupantRepository towerOccupantRepository;
+    private final TowerMissionSeatRepository towerMissionSeatRepository;
     private final TowerInstanceAllocator allocator;
     private final TowerPopulationService towerPopulationService;
+    private final TowerRealtimePublisher realtimePublisher;
+    private final TowerPresenceGateway presenceGateway;
     private final GamificationQueryFacade gamificationQueryFacade;
+    private final UserQueryFacade userQueryFacade;
+    private final MissionQueryFacade missionQueryFacade;
 
     public TowerSeatService(
             TowerFloorRepository towerFloorRepository,
             TowerOccupantRepository towerOccupantRepository,
+            TowerMissionSeatRepository towerMissionSeatRepository,
             TowerInstanceAllocator allocator,
             TowerPopulationService towerPopulationService,
-            @Lazy GamificationQueryFacade gamificationQueryFacade) {
+            TowerRealtimePublisher realtimePublisher,
+            TowerPresenceGateway presenceGateway,
+            @Lazy GamificationQueryFacade gamificationQueryFacade,
+            @Lazy UserQueryFacade userQueryFacade,
+            @Lazy MissionQueryFacade missionQueryFacade) {
         this.towerFloorRepository = towerFloorRepository;
         this.towerOccupantRepository = towerOccupantRepository;
+        this.towerMissionSeatRepository = towerMissionSeatRepository;
         this.allocator = allocator;
         this.towerPopulationService = towerPopulationService;
+        this.realtimePublisher = realtimePublisher;
+        this.presenceGateway = presenceGateway;
         this.gamificationQueryFacade = gamificationQueryFacade;
+        this.userQueryFacade = userQueryFacade;
+        this.missionQueryFacade = missionQueryFacade;
     }
 
-    /** 미션 시작 — 이미 탑에 있으면 그 자리를 미션 중으로, 없으면 자동 착석. 앉힐 층이 없으면 empty */
+    /** 미션 시작 — 이미 탑에 있으면 그 자리를 미션 중으로, 없으면(설정이 켜진 유저만) 자동 착석. 앉히지 않으면 empty */
     @Transactional(transactionManager = "towerTransactionManager")
-    public Optional<TowerSeatResult> onMissionStarted(String userId) {
+    public Optional<TowerSeatResult> onMissionStarted(
+            String userId, @Nullable TowerMissionInfo mission) {
         LocalDateTime now = LocalDateTime.now();
         Optional<TowerOccupant> existing = towerOccupantRepository.findByUserId(userId);
         if (existing.isPresent()) {
             TowerOccupant current = existing.get();
             current.startMission(now);
+            openSeatRecord(current, mission, false, now);
+            if (!current.isAutoSeated()) {
+                realtimePublisher.publishToInstance(
+                        current.getInstanceId(),
+                        TowerInstanceEvent.missionState(
+                                userId, mission != null ? mission.toBroadcast() : null, now));
+            }
             return Optional.of(
                     new TowerSeatResult(current.getFloorNumber(), current.getInstanceId(), false));
+        }
+        if (!isAutoSeatEnabled(userId)) {
+            log.debug("[tower] 자동 착석 꺼짐: userId={}", userId);
+            return Optional.empty();
         }
 
         int level = resolveLevel(userId);
@@ -92,6 +131,7 @@ public class TowerSeatService {
                                 locked.getEntryPointX(),
                                 locked.getEntryPointY(),
                                 now));
+        openSeatRecord(seated, mission, true, now);
         log.info(
                 "[tower] 자동 착석: userId={} floor={} instanceId={}",
                 userId,
@@ -101,15 +141,26 @@ public class TowerSeatService {
                 new TowerSeatResult(seated.getFloorNumber(), seated.getInstanceId(), true));
     }
 
-    /** 미션 종료(완료·중단·자동 종료 모두) — 자동 착석자는 퇴장, 직접 입장자는 연결돼 있으면 휴식 중으로 남고 끊겨 있으면 퇴장. 반환 = 자리를 비웠는가 */
+    /**
+     * 미션 종료(완료·취소·자동 종료 모두). 완료면 완료 연출 이벤트(10초 응원 창)를 먼저 보낸다. 자동 착석자·연결 끊긴 유저는 퇴장, 연결된 유저는 휴식 중.
+     *
+     * @return 자리를 비웠는가
+     */
     @Transactional(transactionManager = "towerTransactionManager")
-    public boolean onMissionEnded(String userId, boolean connected) {
+    public boolean onMissionEnded(String userId, boolean completed) {
+        LocalDateTime now = LocalDateTime.now();
+        closeSeatRecords(userId, now);
         Optional<TowerOccupant> existing = towerOccupantRepository.findByUserId(userId);
         if (existing.isEmpty()) {
             return false;
         }
         TowerOccupant current = existing.get();
-        if (current.isAutoSeated() || !connected) {
+        if (completed) {
+            realtimePublisher.publishToInstance(
+                    current.getInstanceId(), TowerInstanceEvent.missionCompleted(userId, now));
+        }
+        boolean connected = !current.isAutoSeated() && presenceGateway.isConnected(userId);
+        if (!connected) {
             allocator.remove(current);
             log.info(
                     "[tower] 미션 종료 퇴장: userId={} floor={} autoSeated={}",
@@ -119,7 +170,115 @@ public class TowerSeatService {
             return true;
         }
         current.endMission();
+        realtimePublisher.publishToInstance(
+                current.getInstanceId(), TowerInstanceEvent.restState(userId, now));
         return false;
+    }
+
+    /** 유저가 직접 자리를 비운다(LUT-713) — 미션은 계속 진행되고 아바타만 퇴장. 자동 착석 자리도 같다 */
+    @Transactional(transactionManager = "towerTransactionManager")
+    public boolean vacate(String userId) {
+        LocalDateTime now = LocalDateTime.now();
+        closeSeatRecords(userId, now);
+        Optional<TowerOccupant> existing = towerOccupantRepository.findByUserId(userId);
+        if (existing.isEmpty()) {
+            return false;
+        }
+        allocator.remove(existing.get());
+        log.info("[tower] 자리 비움: userId={} floor={}", userId, existing.get().getFloorNumber());
+        return true;
+    }
+
+    /** 응원 1개(LUT-633 리액션이 호출) — 열린 자리 기록이 없으면 -1 */
+    @Transactional(transactionManager = "towerTransactionManager")
+    public int addCheer(String targetUserId) {
+        Optional<TowerMissionSeat> open =
+                towerMissionSeatRepository.findFirstByUserIdAndEndedAtIsNullOrderBySeatedAtDesc(
+                        targetUserId);
+        if (open.isEmpty()) {
+            return -1;
+        }
+        towerMissionSeatRepository.incrementCheer(open.get().getId());
+        return open.get().getCheerCount() + 1;
+    }
+
+    /**
+     * 주기 대조 — 이벤트를 놓쳐도 아바타가 영구히 남지 않도록 미션 중으로 기록된 점유자의 실제 미션 상태를 확인해 끝난 유저를 정리한다.
+     *
+     * @return 정리한 유저 수
+     */
+    @Transactional(transactionManager = "towerTransactionManager")
+    public int reconcile() {
+        List<TowerOccupant> active = towerOccupantRepository.findAllByMissionActiveTrue();
+        if (active.isEmpty()) {
+            return 0;
+        }
+        List<String> userIds = active.stream().map(TowerOccupant::getUserId).toList();
+        Map<String, ?> inProgress;
+        try {
+            inProgress = missionQueryFacade.findInProgressMissions(userIds);
+        } catch (Exception e) {
+            log.warn("[tower] 미션 상태 대조 실패 — 이번 주기는 건너뜀: error={}", e.getMessage());
+            return 0;
+        }
+        int cleaned = 0;
+        for (TowerOccupant occupant : active) {
+            if (!inProgress.containsKey(occupant.getUserId())) {
+                onMissionEnded(occupant.getUserId(), false);
+                cleaned++;
+            }
+        }
+        if (cleaned > 0) {
+            log.info("[tower] 미션 종료 누락 정리: {}명 (대상 {}명)", cleaned, active.size());
+        }
+        return cleaned;
+    }
+
+    private void openSeatRecord(
+            TowerOccupant occupant,
+            @Nullable TowerMissionInfo mission,
+            boolean autoSeated,
+            LocalDateTime now) {
+        if (mission == null || mission.executionId() == null) {
+            return;
+        }
+        boolean exists =
+                towerMissionSeatRepository
+                        .findFirstByUserIdAndExecutionKindAndExecutionIdOrderBySeatedAtDesc(
+                                occupant.getUserId(),
+                                mission.executionKind(),
+                                mission.executionId())
+                        .filter(TowerMissionSeat::isOpen)
+                        .isPresent();
+        if (exists) {
+            return;
+        }
+        towerMissionSeatRepository.save(
+                TowerMissionSeat.open(
+                        occupant.getUserId(),
+                        mission.missionId(),
+                        mission.executionId(),
+                        mission.executionKind(),
+                        occupant.getFloorNumber(),
+                        occupant.getInstanceId(),
+                        autoSeated,
+                        now));
+    }
+
+    private void closeSeatRecords(String userId, LocalDateTime now) {
+        for (TowerMissionSeat seat :
+                towerMissionSeatRepository.findAllByUserIdAndEndedAtIsNull(userId)) {
+            seat.close(now);
+        }
+    }
+
+    private boolean isAutoSeatEnabled(String userId) {
+        try {
+            return userQueryFacade.isTowerAutoSeatEnabled(userId);
+        } catch (Exception e) {
+            log.warn("탑 자동 착석 설정 조회 실패 — 켬으로 판정: userId={}, error={}", userId, e.getMessage());
+            return true;
+        }
     }
 
     private int resolveLevel(String userId) {

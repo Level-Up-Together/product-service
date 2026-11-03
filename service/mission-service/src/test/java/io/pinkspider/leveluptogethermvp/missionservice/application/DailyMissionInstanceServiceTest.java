@@ -227,6 +227,16 @@ class DailyMissionInstanceServiceTest {
             // then
             assertThat(response).isNotNull();
             verify(instanceRepository).save(any(DailyMissionInstance.class));
+            // LUT-632: 탑 연동 — 수행 시작 이벤트(PINNED, 비공개 미션은 visibility PRIVATE)
+            org.mockito.ArgumentCaptor<io.pinkspider.global.event.MissionExecutionStartedEvent>
+                    started =
+                            org.mockito.ArgumentCaptor.forClass(
+                                    io.pinkspider.global.event.MissionExecutionStartedEvent.class);
+            verify(eventPublisher).publishEvent(started.capture());
+            assertThat(started.getValue().executionId()).isEqualTo(INSTANCE_ID);
+            assertThat(started.getValue().executionKind())
+                    .isEqualTo(io.pinkspider.global.event.MissionExecutionStartedEvent.KIND_PINNED);
+            assertThat(started.getValue().isPublicMission()).isFalse();
         }
 
         @Test
@@ -389,6 +399,18 @@ class DailyMissionInstanceServiceTest {
             // then
             assertThat(response).isNotNull();
             assertThat(response.getStatus()).isEqualTo(ExecutionStatus.PENDING);
+            // LUT-632: 진행 중이던 인스턴스의 취소는 종료 이벤트(SKIPPED)
+            org.mockito.ArgumentCaptor<io.pinkspider.global.event.MissionExecutionEndedEvent>
+                    ended =
+                            org.mockito.ArgumentCaptor.forClass(
+                                    io.pinkspider.global.event.MissionExecutionEndedEvent.class);
+            verify(eventPublisher).publishEvent(ended.capture());
+            assertThat(ended.getValue().executionKind())
+                    .isEqualTo(io.pinkspider.global.event.MissionExecutionStartedEvent.KIND_PINNED);
+            assertThat(ended.getValue().reason())
+                    .isEqualTo(
+                            io.pinkspider.global.event.MissionExecutionEndedEvent.EndReason
+                                    .SKIPPED);
         }
     }
 

@@ -20,4 +20,10 @@ public class UserUiPreferenceRequest {
 
     /** LUT-548: 홈 피드 카테고리 필터. null=변경 없음, 빈 배열=전체(필터 해제). 존재하지 않는 ID 는 무시된다. */
     private List<Long> homeFeedCategoryIds;
+
+    /** LUT-632: 탑 자동 착석 (null=변경 없음) */
+    private Boolean towerAutoSeat;
+
+    /** LUT-632/713: 탑 자동 착석 첫 안내 확인 (null=변경 없음) */
+    private Boolean towerAutoSeatNoticeSeen;
 }

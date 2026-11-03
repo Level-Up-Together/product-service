@@ -85,6 +85,10 @@ public class DailyMissionInstanceResponse {
     @JsonInclude(JsonInclude.Include.NON_NULL)
     private Integer milestoneBonusExp;
 
+    /** LUT-632: 탑 자리(층·자동 착석·응원 수) — 완료 응답에만, 탑에 앉지 않았으면 없음 */
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    private TowerSeatResponse towerSeat;
+
     /** LUT-568: 이번 완료로 도달한 마일스톤 수(3/5). 미도달이면 응답에서 제외. */
     @JsonInclude(JsonInclude.Include.NON_NULL)
     private Integer milestoneCount;
