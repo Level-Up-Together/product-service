@@ -1,5 +1,6 @@
 package io.pinkspider.global.moderation.aspect;
 
+import io.pinkspider.global.image.ImageContentValidator;
 import io.pinkspider.global.moderation.annotation.ModerateImage;
 import io.pinkspider.global.moderation.application.ImageModerationMetrics;
 import io.pinkspider.global.moderation.application.ImageModerationService;
@@ -42,16 +43,23 @@ public class ImageModerationAspect {
     private final ImageModerationService imageModerationService;
     private final ModerationProperties moderationProperties;
     private final ImageModerationMetrics metrics;
+    private final ImageContentValidator imageContentValidator;
 
     @Around("@annotation(moderateImage)")
     public Object moderateImage(ProceedingJoinPoint joinPoint, ModerateImage moderateImage)
             throws Throwable {
+        List<MultipartFile> imageFiles = collectImageFiles(joinPoint.getArgs());
+        // LUT-710: 검수 제공자가 꺼져 있어도 "이미지가 맞는가" 는 항상 본다 — 확장자·Content-Type 만 믿던 저장소를 지나
+        // 비이미지가 저장되던 구멍. 이미지가 아니면 InvalidImageException(400) 으로 여기서 끝난다.
+        for (MultipartFile imageFile : imageFiles) {
+            imageContentValidator.validate(imageFile);
+        }
         if (!imageModerationService.isEnabled()) {
             return joinPoint.proceed();
         }
 
         String provider = imageModerationService.getProviderName();
-        for (MultipartFile imageFile : collectImageFiles(joinPoint.getArgs())) {
+        for (MultipartFile imageFile : imageFiles) {
             ImageModerationResult result = analyze(imageFile, provider);
             if (result.isFailOpen()) {
                 handleFailure(joinPoint, imageFile, provider, result.getFailureReason());

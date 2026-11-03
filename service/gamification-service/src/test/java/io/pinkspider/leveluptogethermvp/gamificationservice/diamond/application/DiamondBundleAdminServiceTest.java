@@ -37,6 +37,7 @@ class DiamondBundleAdminServiceTest {
     @Mock private DiamondBundlePurchaseRepository diamondBundlePurchaseRepository;
 
     @Mock private ShopItemImageStorageService imageStorageService;
+    @Mock private io.pinkspider.global.image.ImageContentValidator imageContentValidator;
 
     @InjectMocks private DiamondBundleAdminService diamondBundleAdminService;
 

@@ -37,6 +37,7 @@ class ShopItemAdminServiceTest {
     @Mock private ShopItemRepository shopItemRepository;
 
     @Mock private ShopItemImageStorageService imageStorageService;
+    @Mock private io.pinkspider.global.image.ImageContentValidator imageContentValidator;
 
     @InjectMocks private ShopItemAdminService shopItemAdminService;
 
