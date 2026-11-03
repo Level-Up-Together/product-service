@@ -14,6 +14,7 @@ import io.pinkspider.leveluptogethermvp.towerservice.infrastructure.TowerFloorRe
 import io.pinkspider.leveluptogethermvp.towerservice.infrastructure.TowerUserStateRepository;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -27,6 +28,7 @@ class TowerFloorQueryServiceTest {
     private final TowerUserStateRepository stateRepository = mock(TowerUserStateRepository.class);
     private final GamificationQueryFacade gamificationQueryFacade =
             mock(GamificationQueryFacade.class);
+    private final TowerPopulationService populationService = mock(TowerPopulationService.class);
 
     private TowerFloorQueryService service;
 
@@ -38,7 +40,11 @@ class TowerFloorQueryServiceTest {
     void setUp() {
         service =
                 new TowerFloorQueryService(
-                        floorRepository, stateRepository, gamificationQueryFacade);
+                        floorRepository,
+                        stateRepository,
+                        gamificationQueryFacade,
+                        populationService);
+        when(populationService.byFloor()).thenReturn(Map.of(1, 4L));
         when(floorRepository.findAllByIsPublicTrueOrderByFloorNumberAsc())
                 .thenReturn(List.of(f1, f2, f3));
         when(stateRepository.findById(USER)).thenReturn(Optional.empty());
@@ -55,6 +61,9 @@ class TowerFloorQueryServiceTest {
         assertThat(locked(r)).containsExactly(false, true, true);
         assertThat(r.defaultFloorNumber()).isEqualTo(1);
         assertThat(r.floors().get(0).guestAllowed()).isTrue();
+        // LUT-630: 층 전체 인원 — 없는 층은 0
+        assertThat(r.floors().get(0).population()).isEqualTo(4L);
+        assertThat(r.floors().get(1).population()).isZero();
     }
 
     @Test

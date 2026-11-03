@@ -225,4 +225,14 @@ class SecurityConfigPublicEndpointTest {
             return new OAuth2Properties();
         }
     }
+
+    /** LUT-630: 탑 입장·퇴장은 방문객(비로그인)도 허용 층에 한해 들어온다 — 층 판정은 서비스 몫이라 필터는 열려 있어야 한다 */
+    @ParameterizedTest(name = "탑 익명 POST 허용: {0}")
+    @ValueSource(strings = {"/api/v1/tower/floors/1/enter", "/api/v1/tower/leave"})
+    void 탑_익명_POST_는_401_이_아니어야_한다(String path) throws Exception {
+        int status = mockMvc.perform(post(path)).andReturn().getResponse().getStatus();
+        Assertions.assertThat(status)
+                .as("%s 는 방문객(비로그인) 입장/퇴장이 허용돼야 한다 (LUT-630 permitAll POST 누락 의심)", path)
+                .isNotEqualTo(401);
+    }
 }

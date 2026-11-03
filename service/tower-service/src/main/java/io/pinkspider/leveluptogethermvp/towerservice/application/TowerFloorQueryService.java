@@ -9,6 +9,7 @@ import io.pinkspider.leveluptogethermvp.towerservice.infrastructure.TowerFloorRe
 import io.pinkspider.leveluptogethermvp.towerservice.infrastructure.TowerUserStateRepository;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.lang.Nullable;
@@ -27,25 +28,30 @@ public class TowerFloorQueryService {
     private final TowerFloorRepository towerFloorRepository;
     private final TowerUserStateRepository towerUserStateRepository;
     private final GamificationQueryFacade gamificationQueryFacade;
+    private final TowerPopulationService towerPopulationService;
 
     public TowerFloorQueryService(
             TowerFloorRepository towerFloorRepository,
             TowerUserStateRepository towerUserStateRepository,
-            @Lazy GamificationQueryFacade gamificationQueryFacade) {
+            @Lazy GamificationQueryFacade gamificationQueryFacade,
+            TowerPopulationService towerPopulationService) {
         this.towerFloorRepository = towerFloorRepository;
         this.towerUserStateRepository = towerUserStateRepository;
         this.gamificationQueryFacade = gamificationQueryFacade;
+        this.towerPopulationService = towerPopulationService;
     }
 
     public TowerFloorListResponse listForUser(@Nullable String userId) {
         List<TowerFloor> floors = towerFloorRepository.findAllByIsPublicTrueOrderByFloorNumberAsc();
         Integer level = userId != null ? resolveLevel(userId) : null;
-
+        Map<Integer, Long> population = towerPopulationService.byFloor();
         List<TowerFloorResponse> responses = new ArrayList<>(floors.size());
         Integer firstOpen = null;
         for (TowerFloor floor : floors) {
             boolean locked = isLocked(floor, userId, level);
-            responses.add(TowerFloorResponse.from(floor, locked));
+            responses.add(
+                    TowerFloorResponse.from(
+                            floor, locked, population.getOrDefault(floor.getFloorNumber(), 0L)));
             if (!locked && firstOpen == null) {
                 firstOpen = floor.getFloorNumber();
             }
