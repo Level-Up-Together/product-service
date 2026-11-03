@@ -609,6 +609,8 @@ public class AchievementService {
      * id in UserAchievement entry`) 트랜잭션이 rollback-only 가 되고 신규 유저 업적 동기화가 통째로 실패했다. 생성은 {@link
      * UserAchievementCreator}(REQUIRES_NEW)에 맡기고, 생성 후에는 **반드시 재조회**해 managed 엔티티를 반환한다 (내부 트랜잭션이
      * 반환한 인스턴스는 detached 라 이후 setCount 가 flush 되지 않는다).
+     *
+     * <p>LUT-719: 생성은 ON CONFLICT DO NOTHING 이라 경합에서도 예외·ERROR 로그 없이 false 로 돌아온다.
      */
     private UserAchievement getOrCreateUserAchievement(String userId, Achievement achievement) {
         Optional<UserAchievement> existing =
@@ -618,11 +620,18 @@ public class AchievementService {
         }
 
         try {
-            userAchievementCreator.create(userId, achievement.getId());
+            boolean inserted = userAchievementCreator.create(userId, achievement.getId());
+            if (!inserted) {
+                // LUT-719: 다른 요청이 먼저 생성(ON CONFLICT DO NOTHING 으로 예외 없이 0행) — 아래 재조회가 그 행을 집는다
+                log.info(
+                        "UserAchievement 이미 존재, 재조회: userId={}, achievementId={}",
+                        userId,
+                        achievement.getId());
+            }
         } catch (DataIntegrityViolationException e) {
-            // 다른 요청이 먼저 생성 — 아래 재조회가 그 행을 집는다
+            // 방어: 유니크 제약 외의 무결성 위반(FK 등)이 아니면 여기 오지 않는다 — 아래 재조회가 없으면 IllegalStateException
             log.debug(
-                    "UserAchievement 중복 감지, 기존 레코드 조회: userId={}, achievementId={}",
+                    "UserAchievement 생성 무결성 위반, 기존 레코드 조회: userId={}, achievementId={}",
                     userId,
                     achievement.getId());
         }

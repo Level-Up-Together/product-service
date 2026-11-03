@@ -73,6 +73,24 @@ public interface UserAchievementRepository extends JpaRepository<UserAchievement
     List<UserAchievement> findByAchievementIdAndIsCompletedTrueAndIsRewardClaimedTrue(
             @Param("achievementId") Long achievementId);
 
+    /**
+     * LUT-719: user_achievement 첫 행(진행도 0)을 "없으면 넣고, 있으면 아무것도 안 한다"로 넣는다 (PostgreSQL {@code ON
+     * CONFLICT DO NOTHING}). 홈 BFF 가 섹션을 병렬로 돌리면 같은 유저의 업적 동기화가 동시에 돌 수 있다 — 예전엔 두 번째 insert 가
+     * uk_user_achievement 중복 키 예외를 내고 코드는 잡아 재조회했지만, Hibernate·log4jdbc 가 그 SQL 실패를 ERROR 3줄로 남겼다.
+     * 이 쿼리는 충돌 때 예외 없이 0을 돌려준다.
+     *
+     * @return 1 = 새로 넣음, 0 = 이미 있음(다른 요청이 먼저 생성)
+     */
+    @Modifying
+    @Query(
+            value =
+                    "INSERT INTO user_achievement (user_id, achievement_id, current_count,"
+                        + " is_completed, is_reward_claimed, created_at, modified_at) VALUES"
+                        + " (:userId, :achievementId, 0, false, false, CURRENT_TIMESTAMP,"
+                        + " CURRENT_TIMESTAMP) ON CONFLICT (user_id, achievement_id) DO NOTHING",
+            nativeQuery = true)
+    int insertIfAbsent(@Param("userId") String userId, @Param("achievementId") Long achievementId);
+
     /** QA-157: 어드민 업적 삭제 가드용 — 사용자 매핑(달성/진행)이 있으면 FK 위반 회피. */
     @Query("SELECT COUNT(ua) FROM UserAchievement ua WHERE ua.achievement.id = :achievementId")
     long countByAchievementId(@Param("achievementId") Long achievementId);

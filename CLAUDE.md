@@ -743,7 +743,9 @@ uk 멱등) — 쪼개서 수행해도 몰아서 한 것과 같은 점수. "하�
   내부 트랜잭션이 반환한 엔티티는 detached 라 이후 `setXxx` 가 flush 되지 않으므로 **반환값을 쓰지 말고 재조회**한다.
   LUT-539 로 `AttendanceRecordCreator` · `GuildMemberDailyPointCreator` · `UserItemCreator` · `NotificationCreator`(dedup) ·
   `DailyMissionInstanceCreator`(`CreateNextPinnedInstanceStep`) 까지 전부 이 구조로 전환됐다 — 새 "없으면 생성" 지점은 같은
-  `*Creator` 빈 패턴을 따를 것. 트레이드오프: 내부 트랜잭션이 먼저 커밋되므로 호출자가 그 뒤에 실패하면 생성된 행은 남는다(빈 행·멱등 행만 둘 것).
+  `*Creator` 빈 패턴을 따를 것. **경합이 잦은 지점은 insert 를 `ON CONFLICT DO NOTHING` 네이티브 쿼리로**(LUT-719 `UserAchievementCreator`):
+  catch 로 흡수해도 Hibernate `SqlExceptionHelper`·log4jdbc `jdbc.sqltiming` 이 중복 키마다 ERROR 3줄을 남겨 운영 로그를 더럽힌다(홈 BFF 병렬
+  섹션이 같은 유저 업적 동기화를 동시에 돌려 하루 수백 줄). 반환 행 수(1/0)로 생성 여부를 알린다. 트레이드오프: 내부 트랜잭션이 먼저 커밋되므로 호출자가 그 뒤에 실패하면 생성된 행은 남는다(빈 행·멱등 행만 둘 것).
 
 ## Image Moderation & Storage
 

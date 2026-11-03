@@ -121,7 +121,7 @@ class AchievementServiceTest {
                             row.set(
                                     createTestUserAchievement(
                                             1L, TEST_USER_ID, achievement, 0, false));
-                            return null;
+                            return true;
                         })
                 .when(userAchievementCreator)
                 .create(TEST_USER_ID, achievement.getId());
@@ -525,7 +525,7 @@ class AchievementServiceTest {
                                 createdRow.set(
                                         createTestUserAchievement(
                                                 1L, TEST_USER_ID, achievement, 0, false));
-                                return null;
+                                return true;
                             })
                     .when(userAchievementCreator)
                     .create(anyString(), anyLong());
@@ -831,7 +831,7 @@ class AchievementServiceTest {
                                 createdRow.set(
                                         createTestUserAchievement(
                                                 1L, TEST_USER_ID, achievement, 0, false));
-                                return null;
+                                return true;
                             })
                     .when(userAchievementCreator)
                     .create(TEST_USER_ID, 1L);
@@ -1229,6 +1229,37 @@ class AchievementServiceTest {
             achievementService.checkAchievementsByDataSource(TEST_USER_ID, "USER_STATS");
 
             // then — 예외가 전파되지 않고 상대가 만든 행의 진행도가 갱신된다
+            assertThat(createdByOther.getCurrentCount()).isEqualTo(10);
+        }
+
+        @Test
+        @DisplayName("LUT-719: 생성이 false(ON CONFLICT 0행)로 돌아오면 재조회한 상대의 행을 갱신한다 — 예외·ERROR 로그 없음")
+        void getOrCreate_requeriesWhenInsertIfAbsentReturnsFalse() {
+            // given
+            Achievement achievement = createTestAchievement(1L, "MISSION_10", 10, 0);
+            UserAchievement createdByOther =
+                    createTestUserAchievement(99L, TEST_USER_ID, achievement, 0, false);
+            AtomicReference<UserAchievement> row = new AtomicReference<>();
+
+            when(achievementCacheService.getAchievementsByDataSource("USER_STATS"))
+                    .thenReturn(List.of(achievement));
+            when(strategyRegistry.getStrategy("USER_STATS")).thenReturn(mockStrategy);
+            when(mockStrategy.checkCondition(TEST_USER_ID, achievement)).thenReturn(true);
+            when(mockStrategy.fetchCurrentValue(TEST_USER_ID, achievement)).thenReturn(10);
+            when(userAchievementRepository.findByUserIdAndAchievementId(TEST_USER_ID, 1L))
+                    .thenAnswer(invocation -> Optional.ofNullable(row.get()));
+            doAnswer(
+                            invocation -> {
+                                row.set(createdByOther);
+                                return false;
+                            })
+                    .when(userAchievementCreator)
+                    .create(TEST_USER_ID, 1L);
+
+            // when
+            achievementService.checkAchievementsByDataSource(TEST_USER_ID, "USER_STATS");
+
+            // then
             assertThat(createdByOther.getCurrentCount()).isEqualTo(10);
         }
     }
