@@ -37,7 +37,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Architecture Overview
 
 **Multi-Service Monolith**: Spring Boot 3.4.5, Java 21, Gradle multi-module (`service` + `app` +
-`includeBuild ../level-up-together-platform`). 12개 서비스가 단일 배포 단위지만 **서비스별 별도 DB** + Saga 패턴으로 MSA 전환 준비.
+`includeBuild ../level-up-together-platform`). 13개 서비스가 단일 배포 단위지만 **서비스별 별도 DB** + Saga 패턴으로 MSA 전환 준비.
 (adminservice는 별도 레포 `admin-service`(Admin Backend)로 이전됨)
 
 **Why single service module**: 서비스 간 순환 의존성(user↔guild, user↔gamification 등)으로 독립 Gradle 모듈 불가.
@@ -67,6 +67,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 | `noticeservice`       | -               | 공지/안내 (Admin Feign)                          |
 | `supportservice`      | -               | 1:1 문의 + 신고 처리 (Admin Feign)               |
 | `statsservice`        | stats_db        | **지표 집계(IR KPI)** — 유저 일별 활동(DAU 신호) 수집·적재 (LUT-598) + 일별 KPI 스냅샷·코호트 리텐션·코호트 매출 (LUT-601) |
+| `towerservice`        | tower_db        | **레벨업 탑**(v1.1.5, LUT-629~) — 층(어드민 CRUD·유저 목록, 저장 규칙 7개), 유저 상태(마지막 입장 층). 인스턴스·presence·채팅·NPC·대기열은 후속 티켓 |
 
 ### Transaction Manager (Critical)
 
@@ -89,6 +90,7 @@ public void updateGuild(...) { ...}
 | notificationservice | `notificationTransactionManager`   |
 | gamificationservice | `gamificationTransactionManager`   |
 | statsservice        | `statsTransactionManager`          |
+| towerservice        | `towerTransactionManager`          |
 
 ### Service Layer Pattern
 
@@ -140,7 +142,7 @@ All REST endpoints return `ApiResult<T>`:
 | guild-service        | 04  | batch-service        | 11  |
 | mission-service      | 05  | gamification-service | 12  |
 | app-push-service     | 06  | feed-service         | 13  |
-| notification-service | 14  |                      |     |
+| notification-service | 14  | tower-service        | 15  |
 
 ## Testing
 
@@ -466,7 +468,7 @@ public void run() { ...}
 **dev·prod 모두 Flyway** (dev 2026-10-23 · prod 는 v1.1.3 운영 배포를 수동 psql 로 마친 직후 config `app.flyway.enabled=true`·`baseline-version=1.1.3.12`, 2026-10-28).
 prod 첫 적용 파일은 LUT-666 핫픽스 `gamification/V1_1_3_013`(2026-10-29). `admin_db` 는 이 레포가 아니라 admin-service 자체 Flyway(LUT-676, v1.1.4 부터).
 상세 레퍼런스·새 마이그레이션 체크리스트: [`docs/DB_MIGRATION.md`](docs/DB_MIGRATION.md), 설계 결정: `docs/adr/ADR-007`. Boot 자동설정은 DB 하나만 다루므로
-`spring.flyway.enabled=false` 로 끄고, 9개 `XxxDataSourceConfig`(LUT-598 `stats` 포함) 가 각각 `xxxFlywayMigration` 빈(`initMethod=migrate`)을 두며 `xxxEntityManagerFactory`
+`spring.flyway.enabled=false` 로 끄고, 10개 `XxxDataSourceConfig`(LUT-598 `stats`·LUT-629 `tower` 포함) 가 각각 `xxxFlywayMigration` 빈(`initMethod=migrate`)을 두며 `xxxEntityManagerFactory`
 가 `@DependsOn` 한다 — Flyway 가 스키마를 맞춘 뒤 Hibernate `validate`(각 config 의 `jpaProperties()` 가 코드로 지정, yml `ddl-auto` 와 무관)가 돈다.
 
 - 파일: `app/src/main/resources/db/migration/<db>/V<major>_<minor>_<patch>_<seq3>__<ticket>_<desc>.sql` (예 `V1_1_4_001__lut600_add_x.sql`).
@@ -484,6 +486,14 @@ prod 첫 적용 파일은 LUT-666 핫픽스 `gamification/V1_1_3_013`(2026-10-29
 멱등성 고려 필수. 각 step 은 자기 서비스 트랜잭션 매니저로 따로 커밋한다.
 **Saga 실행 상태는 DB 에 저장하지 않는다**(오케스트레이터 메모리 로그만, `saga_db` 는 한 번도 쓰이지 않아 2026-10-29 dev·prod 삭제 — ADR-003·LUT-665).
 그래서 요청 처리 중 서버가 종료되면 일부 step 만 반영된 채 남고 복구 기록이 없다 — 긴 작업·외부 호출을 필수 step 에 넣지 말 것.
+
+## 레벨업 탑 (towerservice, v1.1.5 LUT-629~)
+
+기획서는 Claude Docs "레벨업 탑 기획서"(2026-10-23). 10번째 DB `tower_db`(LUT-629) — dev·prod 모두 `CREATE DATABASE tower_db` 는 수동, 표는 Flyway `db/migration/tower/`.
+
+- **층 `tower_floor`** (LUT-629): 층 번호(유일)·이름 4 locale·입장 레벨(null = 제한 없음)·비로그인 허용·배경/마스크 URL·입장 지점(배경 원본 픽셀)·BGM·인스턴스 상한(30)·공개.
+  어드민 내부 API `GET/POST/PUT/DELETE /api/internal/tower/floors[/{id}]`(admin-service 패스스루는 LUT-635). **저장 규칙 7개**는 `TowerFloorRuleValidator` 가 저장 뒤 전체 목록으로 판정 — 번호 중복 · 1층 입장 레벨 금지 · 입장 레벨 있는 층 비로그인 허용 금지 · 위층 입장 레벨 역전 금지(제한 없음 = 최저) · 비로그인 허용 1층부터 연속 · 공개 층 번호 1부터 연속 · 입장 지점 마스크 안(`ImageFloorMaskChecker` 가 마스크 PNG 픽셀을 읽는다 — **SSRF 방어**: https 만, `tower.floor.allowed-image-hosts`(CDN 호스트, config-repository 환경별) 만, 사설·루프백 주소 거부, 리다이렉트 금지; `tower.floor.mask-check.enabled` 로 local 에서만 끌 수 있음). 삭제도 남는 층끼리 같은 규칙. 거절은 **400 `1501xx`**(`TowerExceptionHandler`, 플랫폼 500 보다 먼저), 없음 404 `150101`.
+- **유저 목록** `GET /api/v1/tower/floors` — **비로그인 허용**(permitAll GET + `@CurrentUser(required = false)`, `SecurityConfigPublicEndpointTest` 등록). 공개 층만 번호 순, 잠금은 서버 판정(로그인 = 레벨 부족, 방문객 = 비허용 층), `default_floor_number` = 마지막 입장 층(`tower_user_state`, 입장 API LUT-630 이 갱신) 아니면 입장 가능한 가장 낮은 층. 공개 층이 없으면 빈 목록(디폴트 층 없음).
 
 ## 상점 · 다이아 경제 (gamificationservice/shop, LUT-327/348/349/350/354/356/401)
 
@@ -783,7 +793,7 @@ JWT 발급/만료/슬라이딩 로직의 백엔드·웹·앱별 동작과 환경
 
 소셜 로그인 연동 해제 정합(탈퇴 시 unlink/revoke, 카카오·Apple 수신 웹훅, 콘솔·config 등록 현황): [`docs/SOCIAL_ACCOUNT_LIFECYCLE.md`](docs/SOCIAL_ACCOUNT_LIFECYCLE.md)
 
-**회원 탈퇴에는 유예 기간이 없다** — `MyPageService.withdrawUser` 가 즉시 `WITHDRAWN` + 익명화(soft delete, 행 보존)하고 토큰 무효화·소셜 해제·`UserWithdrawnEvent` 를 낸다. 유일한 "유예"는 **재가입 cool-down**(QA-115, `app.user.withdrawal.cool-down-days` 기본 7일 — 같은 이메일+provider 가 `030001`). 어드민 **즉시 탈퇴**(LUT-584, `POST /api/internal/users/{id}/withdraw` → `withdrawUserByAdmin`)는 같은 정리를 하되 `users.withdrawal_cooldown_exempt=true` 로 cool-down 을 면제해 바로 재가입할 수 있다(`Oauth2Service.findExistingUser` 가 판정). **완전 삭제**(DB 행 제거)는 `docs/scripts/delete_user/`(9개 DB, LUT-691 2026-11-02 현행화) — 결제 기록 3표(`user_subscription`·`subscription_payment_history`·`diamond_bundle_purchase`)는 지우지 않는다(유저 결정, 회계·환불 근거). 새 유저 표를 만들면 그 스크립트의 `count/`·`delete/` 에도 넣을 것.
+**회원 탈퇴에는 유예 기간이 없다** — `MyPageService.withdrawUser` 가 즉시 `WITHDRAWN` + 익명화(soft delete, 행 보존)하고 토큰 무효화·소셜 해제·`UserWithdrawnEvent` 를 낸다. 유일한 "유예"는 **재가입 cool-down**(QA-115, `app.user.withdrawal.cool-down-days` 기본 7일 — 같은 이메일+provider 가 `030001`). 어드민 **즉시 탈퇴**(LUT-584, `POST /api/internal/users/{id}/withdraw` → `withdrawUserByAdmin`)는 같은 정리를 하되 `users.withdrawal_cooldown_exempt=true` 로 cool-down 을 면제해 바로 재가입할 수 있다(`Oauth2Service.findExistingUser` 가 판정). **완전 삭제**(DB 행 제거)는 `docs/scripts/delete_user/`(10개 DB — LUT-691 2026-11-02 현행화, LUT-629 tower_db 추가) — 결제 기록 3표(`user_subscription`·`subscription_payment_history`·`diamond_bundle_purchase`)는 지우지 않는다(유저 결정, 회계·환불 근거). 새 유저 표를 만들면 그 스크립트의 `count/`·`delete/` 에도 넣을 것.
 
 **세션 키는 `deviceId` 기준** (LUT-336) — `deviceType`은 세션 키의 일부가 아니다. 예전에는 재발급/로그아웃/모바일 로그인이 각각 다른 방식으로
 `deviceType`을 해석해(요청 본문 / `X-Device-Type` 헤더 / `"mobile"` 폴백) 같은 기기가 로그인은 `mobile`, 재발급은 `ios`로 기록되며 세션이

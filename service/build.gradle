@@ -21,6 +21,7 @@ sourceSets {
         'notice-service/src/main/java',
         'support-service/src/main/java',
         'stats-service/src/main/java',
+        'tower-service/src/main/java',
     ]
     test.java.srcDirs = [
         'src/test/java',
@@ -37,6 +38,7 @@ sourceSets {
         'notice-service/src/test/java',
         'support-service/src/test/java',
         'stats-service/src/test/java',
+        'tower-service/src/test/java',
     ]
     test.resources.srcDirs = [
         'shared-test/src/test/resources',

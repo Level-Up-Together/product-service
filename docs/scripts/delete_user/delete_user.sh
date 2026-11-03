@@ -59,7 +59,7 @@ fi
 DB_HOST="${DB_HOST:-${RDS_HOST:-localhost}}"
 DB_PORT="${DB_PORT:-${RDS_PORT:-5432}}"
 DB_USER="${DB_USER:-${RDS_USER:-lut}}"
-DBS="${DBS:-user_db mission_db guild_db chat_db feed_db notification_db gamification_db stats_db admin_db}"
+DBS="${DBS:-user_db mission_db guild_db chat_db feed_db notification_db gamification_db stats_db tower_db admin_db}"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SQL_DIR="${SCRIPT_DIR}/sql"

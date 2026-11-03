@@ -238,6 +238,9 @@ public class SecurityConfig {
                                         .permitAll()
                                         // LUT-350: 비로그인 상점 열람 (레벨 1 = COMMON 기준가).
                                         // 구매는 POST 라 여기 걸리지 않고 인증이 유지된다.
+                                        // LUT-629: 탑 층 목록 — 비로그인 열람 허용(방문객 입구)
+                                        .requestMatchers(HttpMethod.GET, "/api/v1/tower/floors")
+                                        .permitAll()
                                         .requestMatchers(HttpMethod.GET, "/api/v1/shop-items")
                                         .permitAll()
                                         // LUT-356: 비로그인 핑크다이아 묶음상품 열람 (상점 Browse-First)

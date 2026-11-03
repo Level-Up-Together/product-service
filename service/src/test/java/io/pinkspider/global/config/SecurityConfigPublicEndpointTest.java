@@ -104,6 +104,7 @@ class SecurityConfigPublicEndpointTest {
                 "/api/v1/rankings",
                 "/api/v1/rankings/missions",
                 "/api/v1/rankings/level",
+                "/api/v1/tower/floors", // LUT-629
                 "/api/v1/shop-items", // LUT-350
                 "/api/v1/diamond-bundles" // LUT-356
             })
