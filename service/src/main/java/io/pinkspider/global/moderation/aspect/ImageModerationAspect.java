@@ -1,11 +1,11 @@
 package io.pinkspider.global.moderation.aspect;
 
-import io.pinkspider.global.exception.CustomException;
 import io.pinkspider.global.moderation.annotation.ModerateImage;
 import io.pinkspider.global.moderation.application.ImageModerationMetrics;
 import io.pinkspider.global.moderation.application.ImageModerationService;
 import io.pinkspider.global.moderation.config.ModerationProperties;
 import io.pinkspider.global.moderation.domain.dto.ImageModerationResult;
+import io.pinkspider.global.moderation.exception.ImageModerationException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -24,8 +24,8 @@ import org.springframework.web.multipart.MultipartFile;
  * 순회한다 (LUT-650 — 예전엔 단일 인자만 봐서 미션 인증 사진({@code List<MultipartFile>})이 검수 없이 통과했다). 빈 파일은 건너뛴다.
  *
  * <p>검수 자체가 실패(파일 읽기 실패·미지원 포맷·추론 예외·제공자 런타임 예외)하면 {@code moderation.image.fail-open}(기본 true)에 따라
- * 통과시키거나(현행 유지 — error 로그 + {@code lut_image_moderation_fail_open_total}) 차단한다({@code 000011}). 어느
- * 쪽이든 조용히 무력화되지는 않는다. 모더레이션이 비활성화(provider=none)된 환경에서는 검증을 건너뛴다.
+ * 통과시키거나(현행 유지 — error 로그 + {@code lut_image_moderation_fail_open_total}) 차단한다({@code 000011},
+ * 503). 어느 쪽이든 조용히 무력화되지는 않는다. 모더레이션이 비활성화(provider=none)된 환경에서는 검증을 건너뛴다.
  */
 @Aspect
 @Component
@@ -33,10 +33,11 @@ import org.springframework.web.multipart.MultipartFile;
 @Slf4j
 public class ImageModerationAspect {
 
-    static final String MODERATION_ERROR_CODE = "000010";
-    static final String MODERATION_ERROR_MESSAGE = "error.moderation.inappropriate_image";
-    static final String MODERATION_UNAVAILABLE_CODE = "000011";
-    static final String MODERATION_UNAVAILABLE_MESSAGE = "error.moderation.unavailable";
+    static final String MODERATION_ERROR_CODE = ImageModerationException.BLOCKED_CODE;
+    static final String MODERATION_ERROR_MESSAGE = ImageModerationException.BLOCKED_MESSAGE_KEY;
+    static final String MODERATION_UNAVAILABLE_CODE = ImageModerationException.UNAVAILABLE_CODE;
+    static final String MODERATION_UNAVAILABLE_MESSAGE =
+            ImageModerationException.UNAVAILABLE_MESSAGE_KEY;
 
     private final ImageModerationService imageModerationService;
     private final ModerationProperties moderationProperties;
@@ -63,7 +64,8 @@ public class ImageModerationAspect {
                         joinPoint.getSignature().toShortString(),
                         imageFile.getOriginalFilename(),
                         result.getRejectionReason());
-                throw new CustomException(MODERATION_ERROR_CODE, MODERATION_ERROR_MESSAGE);
+                throw ImageModerationException
+                        .blocked(); // LUT-714: 400 (ImageModerationExceptionHandler)
             }
             metrics.checked(provider, ImageModerationMetrics.RESULT_SAFE);
         }
@@ -112,7 +114,7 @@ public class ImageModerationAspect {
                 imageFile.getOriginalFilename(),
                 provider,
                 reason);
-        throw new CustomException(MODERATION_UNAVAILABLE_CODE, MODERATION_UNAVAILABLE_MESSAGE);
+        throw ImageModerationException.unavailable(); // LUT-714: 503
     }
 
     /**

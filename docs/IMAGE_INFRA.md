@@ -50,7 +50,7 @@ moderation:
 | `fail-open` | 동작 | 남는 것 |
 |---|---|---|
 | `true` (기본, 현행 유지) | 그 파일은 통과 | error 로그 `이미지 검수 실패 → 통과(fail-open)` + 카운터 |
-| `false` | `CustomException("000011", "error.moderation.unavailable")` 로 차단 | error 로그 `… → 차단(fail-closed)` + 카운터 |
+| `false` | `ImageModerationException.unavailable()` → HTTP 503 `000011 error.moderation.unavailable` 로 차단 (LUT-714) | error 로그 `… → 차단(fail-closed)` + 카운터 |
 
 예전엔 세 경우 모두 `safe()` 를 돌려줘 검수가 조용히 무력화돼도 알 수 없었다. 운영 검수를 켤 때(LUT-651) fail-closed 로 바꿀지는 결정 사항 — 설정만 바꾸면 된다.
 
@@ -71,8 +71,8 @@ Micrometer 카운터(`ImageModerationMetrics`, `/showmethemoney/prometheus`):
 
 ### 에러 코드
 
-부적절 이미지 감지 시: `CustomException("000010", "error.moderation.inappropriate_image")`
-검수 불가로 차단 시(`fail-open: false` 일 때만): `CustomException("000011", "error.moderation.unavailable")` (LUT-650)
+부적절 이미지 감지 시: `ImageModerationException.blocked()` → **HTTP 400** `000010 error.moderation.inappropriate_image` (LUT-714 — 예전엔 `CustomException` 이라 플랫폼 핸들러가 500 으로 응답했다. `ImageModerationExceptionHandler`(`@Order(HIGHEST_PRECEDENCE)`, 플랫폼 핸들러는 `+1`)가 이 예외 타입만 가로챈다. 본문 `code`·`message` 는 그대로라 웹(`fetch-client.ts` 가 `message` 표시)·RN 변경 없음)
+검수 불가로 차단 시(`fail-open: false` 일 때만): `ImageModerationException.unavailable()` → **HTTP 503** `000011 error.moderation.unavailable` (LUT-650·714)
 
 ---
 
