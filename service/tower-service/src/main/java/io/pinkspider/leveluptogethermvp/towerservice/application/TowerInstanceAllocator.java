@@ -7,6 +7,7 @@ import io.pinkspider.leveluptogethermvp.towerservice.domain.enums.TowerOccupantK
 import io.pinkspider.leveluptogethermvp.towerservice.infrastructure.InstanceLoad;
 import io.pinkspider.leveluptogethermvp.towerservice.infrastructure.TowerInstanceRepository;
 import io.pinkspider.leveluptogethermvp.towerservice.infrastructure.TowerOccupantRepository;
+import io.pinkspider.leveluptogethermvp.towerservice.presence.TowerPresenceService;
 import java.time.LocalDateTime;
 import java.util.Comparator;
 import java.util.EnumSet;
@@ -37,6 +38,7 @@ public class TowerInstanceAllocator {
 
     private final TowerInstanceRepository towerInstanceRepository;
     private final TowerOccupantRepository towerOccupantRepository;
+    private final TowerPresenceService presenceService;
 
     public TowerInstance pickForDirectEntry(TowerFloor floor, LocalDateTime now) {
         int capacity = floor.getInstanceCapacity();
@@ -78,6 +80,7 @@ public class TowerInstanceAllocator {
     /** 점유자를 지우고, 방이 비면 닫는다 */
     public void remove(TowerOccupant occupant) {
         Long instanceId = occupant.getInstanceId();
+        presenceService.unregister(occupant); // LUT-631: presence·세션 정리 + LEAVE
         towerOccupantRepository.delete(occupant);
         closeIfEmpty(instanceId);
     }
@@ -105,6 +108,7 @@ public class TowerInstanceAllocator {
             TowerOccupant mover = autoSeated.get(0);
             TowerInstance target = pickForAutoSeat(floor, instanceId, now);
             mover.moveTo(target.getId());
+            presenceService.moveInstance(mover, instanceId, target.getId()); // LUT-631
             log.info(
                     "[tower] 자동 착석자 자리 양보: userId={} {} -> {}",
                     mover.getUserId(),

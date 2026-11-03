@@ -58,6 +58,10 @@ public class TowerOccupant extends LocalDateTimeBaseEntity {
     @Comment("방문객 키 (로그인 유저는 NULL) — 퇴장 등 방문객 본인 확인용")
     private String visitorKey;
 
+    /** LUT-631/705: 방문객 이름의 네 자리 숫자("방문객 4821") — 입장 때 서버가 임의로 준다 */
+    @Column(name = "visitor_no")
+    private Integer visitorNo;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "kind", nullable = false, length = 20)
     private TowerOccupantKind kind;
@@ -104,6 +108,7 @@ public class TowerOccupant extends LocalDateTimeBaseEntity {
             Long instanceId,
             int floorNumber,
             String visitorKey,
+            int visitorNo,
             int seatX,
             int seatY,
             LocalDateTime now) {
@@ -111,6 +116,7 @@ public class TowerOccupant extends LocalDateTimeBaseEntity {
                 .instanceId(instanceId)
                 .floorNumber(floorNumber)
                 .visitorKey(visitorKey)
+                .visitorNo(visitorNo)
                 .kind(TowerOccupantKind.VISITOR)
                 .missionActive(false)
                 .seatX(seatX)

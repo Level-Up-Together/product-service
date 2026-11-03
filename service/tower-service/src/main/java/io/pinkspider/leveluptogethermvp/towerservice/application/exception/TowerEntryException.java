@@ -9,6 +9,7 @@ public class TowerEntryException extends TowerException {
     public static final String LOGIN_REQUIRED = "150202";
     public static final String LEVEL_INSUFFICIENT = "150203";
     public static final String VISITOR_KEY_REQUIRED = "150204";
+    public static final String NOT_IN_INSTANCE = "150205";
 
     private TowerEntryException(String code, String messageKey, HttpStatus status) {
         super(code, messageKey, status);
@@ -29,6 +30,12 @@ public class TowerEntryException extends TowerException {
     public static TowerEntryException levelInsufficient() {
         return new TowerEntryException(
                 LEVEL_INSUFFICIENT, "error.tower.entry.level_insufficient", HttpStatus.FORBIDDEN);
+    }
+
+    /** LUT-631: 그 방의 점유자가 아닌데 스냅샷을 요청 */
+    public static TowerEntryException notInInstance() {
+        return new TowerEntryException(
+                NOT_IN_INSTANCE, "error.tower.presence.not_in_instance", HttpStatus.FORBIDDEN);
     }
 
     public static TowerEntryException visitorKeyRequired() {

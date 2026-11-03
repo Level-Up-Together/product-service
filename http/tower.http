@@ -39,6 +39,16 @@ POST {{baseUrl}}/api/v1/tower/leave
 Authorization: Bearer {{accessToken}}
 Accept: application/json
 
+### 입장 스냅샷(LUT-631) — 현재 방의 모든 사람(아바타 데이터·위치·상태). instance_id 는 입장 응답 값, 방문객은 visitor_key
+### 순서: enter → STOMP /topic/tower/instances/{id} 구독 → /app/tower/instances/{id}/join {occupant_id, visitor_key?} → 이 API
+GET {{baseUrl}}/api/v1/tower/instances/1/presence
+Authorization: Bearer {{accessToken}}
+Accept: application/json
+
+### 방문객 스냅샷
+GET {{baseUrl}}/api/v1/tower/instances/1/presence?visitor_key=00000000-0000-0000-0000-000000000000
+Accept: application/json
+
 ### 자리 직접 비우기(LUT-632/713) — 미션은 계속, 아바타만 퇴장 (자동 착석 자리 포함, 로그인 필요)
 POST {{baseUrl}}/api/v1/tower/vacate
 Authorization: Bearer {{accessToken}}
