@@ -11,6 +11,8 @@ import io.pinkspider.leveluptogethermvp.towerservice.application.chat.TowerChatP
 import io.pinkspider.leveluptogethermvp.towerservice.application.chat.TowerCheerWindowStore;
 import io.pinkspider.leveluptogethermvp.towerservice.application.chat.TowerVisitorContentPolicy;
 import io.pinkspider.leveluptogethermvp.towerservice.application.exception.TowerChatException;
+import io.pinkspider.leveluptogethermvp.towerservice.application.visitor.TowerVisitorGate;
+import io.pinkspider.leveluptogethermvp.towerservice.application.visitor.TowerVisitorTag;
 import io.pinkspider.leveluptogethermvp.towerservice.domain.dto.TowerChatHistoryResponse;
 import io.pinkspider.leveluptogethermvp.towerservice.domain.dto.TowerChatMessage;
 import io.pinkspider.leveluptogethermvp.towerservice.domain.dto.TowerInstanceEvent;
@@ -55,13 +57,25 @@ public class TowerChatService {
     private final TowerSeatService towerSeatService;
     private final TowerChatProperties properties;
     @Lazy private final UserQueryFacade userQueryFacade;
+    private final TowerVisitorGate visitorGate;
 
     public TowerChatMessage send(
             Long instanceId,
             @Nullable String userId,
             @Nullable String visitorKey,
             String rawContent) {
+        return send(instanceId, userId, visitorKey, rawContent, null);
+    }
+
+    /** LUT-705: {@code clientIp} = 요청 IP — 방문객 제재·IP 빈도 판정용(없으면 세션의 IP) */
+    public TowerChatMessage send(
+            Long instanceId,
+            @Nullable String userId,
+            @Nullable String visitorKey,
+            String rawContent,
+            @Nullable String clientIp) {
         TowerOccupant me = resolveOccupant(instanceId, userId, visitorKey);
+        String subject = guardSubject(me);
         if (me.isMissionActive()) {
             throw TowerChatException.missionInProgress();
         }
@@ -85,13 +99,17 @@ public class TowerChatService {
                 throw TowerChatException.visitorContentBlocked();
             }
         }
-        if (guard.isMuted(me.getId())) {
+        if (guard.isMuted(subject)) {
             throw TowerChatException.muted();
         }
-        if (!guard.tryAcquireSend(me.getId(), visitor)) {
+        if (visitor) {
+            visitorGate.checkChat(
+                    me.getVisitorKey(), clientIp); // LUT-705: 기기·IP 제재 403 · IP 빈도 429
+        }
+        if (!guard.tryAcquireSend(subject, visitor)) {
             throw TowerChatException.rateLimited();
         }
-        if (guard.isDuplicate(me.getId(), content)) {
+        if (guard.isDuplicate(subject, content)) {
             throw TowerChatException.duplicate();
         }
         ModerationResult moderation = moderationService.moderate(content);
@@ -107,9 +125,9 @@ public class TowerChatService {
             throw TowerChatException.profanityRejected();
         }
         if (moderation.maxSeverity() == ProfanitySeverity.MEDIUM) {
-            guard.recordMediumHit(me.getId());
+            guard.recordMediumHit(subject);
         }
-        guard.rememberContent(me.getId(), content);
+        guard.rememberContent(subject, content);
         LocalDateTime now = LocalDateTime.now();
         Optional<TowerPresence> presence = presenceStore.find(instanceId, me.getId());
         TowerChatMessage message =
@@ -122,7 +140,8 @@ public class TowerChatService {
                         presence.map(TowerPresence::nickname).orElse(null),
                         moderation.content(),
                         moderation.masked(),
-                        now);
+                        now,
+                        TowerVisitorTag.of(me.getVisitorKey()));
         writeLog(
                 me,
                 visitorKey,
@@ -142,14 +161,28 @@ public class TowerChatService {
             @Nullable String visitorKey,
             String emoji,
             @Nullable String targetUserId) {
+        return react(instanceId, userId, visitorKey, emoji, targetUserId, null);
+    }
+
+    public TowerReactionResponse react(
+            Long instanceId,
+            @Nullable String userId,
+            @Nullable String visitorKey,
+            String emoji,
+            @Nullable String targetUserId,
+            @Nullable String clientIp) {
         TowerOccupant me = resolveOccupant(instanceId, userId, visitorKey);
         if (emoji == null || !properties.getReactionEmojis().contains(emoji)) {
             throw TowerChatException.invalidReaction();
         }
-        if (guard.isMuted(me.getId())) {
+        String subject = guardSubject(me);
+        if (guard.isMuted(subject)) {
             throw TowerChatException.muted();
         }
-        if (!guard.tryAcquireReaction(me.getId(), me.isVisitor())) {
+        if (me.isVisitor()) {
+            visitorGate.checkChat(me.getVisitorKey(), clientIp);
+        }
+        if (!guard.tryAcquireReaction(subject, me.isVisitor())) {
             throw TowerChatException.rateLimited();
         }
         boolean cheer = false;
@@ -192,6 +225,11 @@ public class TowerChatService {
             }
         }
         return new TowerChatHistoryResponse(instanceId, messages);
+    }
+
+    /** LUT-705: 전송 제한 단위 — 유저 또는 방문객 세션(점유자 ID 는 층 이동·재입장마다 바뀐다) */
+    static String guardSubject(TowerOccupant me) {
+        return me.isVisitor() ? "v:" + me.getVisitorKey() : "u:" + me.getUserId();
     }
 
     public TowerReactionPresetsResponse presets() {

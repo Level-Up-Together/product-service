@@ -1097,6 +1097,13 @@ class MyPageServiceTest {
             assertThat(myPageService.isNicknameAvailable("", TEST_USER_ID)).isFalse();
             assertThat(myPageService.isNicknameAvailable("   ", TEST_USER_ID)).isFalse();
         }
+
+        @Test
+        @DisplayName("LUT-705: 방문객 이름(방문객·Visitor)으로 시작하면 중복이 아니어도 false")
+        void isNicknameAvailable_reserved() {
+            assertThat(myPageService.isNicknameAvailable("방문객1", TEST_USER_ID)).isFalse();
+            assertThat(myPageService.isNicknameAvailable("Visitor7", null)).isFalse();
+        }
     }
 
     @Nested
@@ -1205,6 +1212,17 @@ class MyPageServiceTest {
             assertThatThrownBy(() -> myPageService.updateNickname(TEST_USER_ID, "a"))
                     .isInstanceOf(CustomException.class)
                     .hasFieldOrPropertyWithValue("code", "NICKNAME_003");
+        }
+
+        @Test
+        @DisplayName("LUT-705: 방문객 이름으로 시작하는 닉네임은 NICKNAME_006")
+        void updateNickname_reserved_throwsException() {
+            assertThatThrownBy(() -> myPageService.updateNickname(TEST_USER_ID, "방문객1"))
+                    .isInstanceOf(CustomException.class)
+                    .hasFieldOrPropertyWithValue("code", "NICKNAME_006");
+            assertThatThrownBy(() -> myPageService.updateNickname(TEST_USER_ID, "VISITOR12"))
+                    .isInstanceOf(CustomException.class)
+                    .hasFieldOrPropertyWithValue("code", "NICKNAME_006");
         }
 
         @Test

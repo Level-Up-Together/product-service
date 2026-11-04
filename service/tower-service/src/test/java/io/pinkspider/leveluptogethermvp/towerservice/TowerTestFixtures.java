@@ -81,7 +81,8 @@ public final class TowerTestFixtures {
                 "MISSION",
                 true,
                 false,
-                java.time.LocalDateTime.now());
+                java.time.LocalDateTime.now(),
+                null);
     }
 
     /** LUT-693: NPC 등록 요청 */

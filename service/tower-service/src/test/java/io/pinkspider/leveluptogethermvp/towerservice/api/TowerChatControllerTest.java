@@ -1,5 +1,6 @@
 package io.pinkspider.leveluptogethermvp.towerservice.api;
 
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.when;
@@ -54,6 +55,8 @@ class TowerChatControllerTest {
     @Autowired private MockMvc mockMvc;
     @MockitoBean private TowerChatService chatService;
 
+    @MockitoBean private io.pinkspider.global.web.ClientIpResolver clientIpResolver;
+
     private static TowerChatMessage message() {
         return new TowerChatMessage(
                 "m-1",
@@ -64,7 +67,8 @@ class TowerChatControllerTest {
                 "루미",
                 "안녕 **야",
                 true,
-                LocalDateTime.of(2026, 11, 4, 13, 0));
+                LocalDateTime.of(2026, 11, 4, 13, 0),
+                null);
     }
 
     private static String[] messageFields(String prefix) {
@@ -84,7 +88,8 @@ class TowerChatControllerTest {
     @Test
     @DisplayName("POST /api/v1/tower/instances/{instanceId}/chat : 전송 — 처리된 문장을 돌려준다")
     void send() throws Exception {
-        when(chatService.send(eq(5L), eq("user-1"), isNull(), eq("안녕 바보야"))).thenReturn(message());
+        when(chatService.send(eq(5L), eq("user-1"), isNull(), eq("안녕 바보야"), any()))
+                .thenReturn(message());
         mockMvc.perform(
                         RestDocumentationRequestBuilders.post(
                                         "/api/v1/tower/instances/{instanceId}/chat", 5L)
@@ -125,13 +130,18 @@ class TowerChatControllerTest {
                                                 .optional(),
                                         fieldWithPath("value.content").description("가린 뒤 문장"),
                                         fieldWithPath("value.masked").description("금칙어를 가렸는가"),
-                                        fieldWithPath("value.sent_at").description("보낸 시각"))));
+                                        fieldWithPath("value.sent_at").description("보낸 시각"),
+                                        fieldWithPath("value.visitor_tag")
+                                                .description(
+                                                        "방문객 세션 공개 식별자 (LUT-705 — 세션 기준 숨기기, 로그인"
+                                                                + " 유저는 null)")
+                                                .optional())));
     }
 
     @Test
     @DisplayName("거절: 미션 중 403 150304 · 너무 빠름 429 150302 · HIGH 금칙어 400 150305 · 빈 본문 400")
     void rejected() throws Exception {
-        when(chatService.send(eq(5L), eq("user-1"), isNull(), eq("a")))
+        when(chatService.send(eq(5L), eq("user-1"), isNull(), eq("a"), any()))
                 .thenThrow(TowerChatException.missionInProgress());
         mockMvc.perform(
                         RestDocumentationRequestBuilders.post("/api/v1/tower/instances/5/chat")
@@ -140,7 +150,7 @@ class TowerChatControllerTest {
                                 .content("{\"content\":\"a\"}"))
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.code").value("150304"));
-        when(chatService.send(eq(5L), eq("user-1"), isNull(), eq("b")))
+        when(chatService.send(eq(5L), eq("user-1"), isNull(), eq("b"), any()))
                 .thenThrow(TowerChatException.rateLimited());
         mockMvc.perform(
                         RestDocumentationRequestBuilders.post("/api/v1/tower/instances/5/chat")
@@ -149,7 +159,7 @@ class TowerChatControllerTest {
                                 .content("{\"content\":\"b\"}"))
                 .andExpect(status().isTooManyRequests())
                 .andExpect(jsonPath("$.code").value("150302"));
-        when(chatService.send(eq(5L), isNull(), eq("vk"), eq("c")))
+        when(chatService.send(eq(5L), isNull(), eq("vk"), eq("c"), any()))
                 .thenThrow(TowerChatException.profanityRejected());
         mockMvc.perform(
                         RestDocumentationRequestBuilders.post("/api/v1/tower/instances/5/chat")
@@ -168,7 +178,7 @@ class TowerChatControllerTest {
     @Test
     @DisplayName("POST /instances/{instanceId}/reactions : 프리셋 이모지, 응원 창 안이면 cheer")
     void react() throws Exception {
-        when(chatService.react(eq(5L), eq("user-1"), isNull(), eq("👏"), eq("user-9")))
+        when(chatService.react(eq(5L), eq("user-1"), isNull(), eq("👏"), eq("user-9"), any()))
                 .thenReturn(new TowerReactionResponse("👏", true, 3));
         mockMvc.perform(
                         RestDocumentationRequestBuilders.post(
@@ -204,7 +214,7 @@ class TowerChatControllerTest {
                                         fieldWithPath("value.cheer_count")
                                                 .description("대상의 이번 미션 응원 누계 (응원일 때만)")
                                                 .optional())));
-        when(chatService.react(eq(5L), eq("user-1"), isNull(), eq("🎉"), isNull()))
+        when(chatService.react(eq(5L), eq("user-1"), isNull(), eq("🎉"), isNull(), any()))
                 .thenThrow(TowerChatException.invalidReaction());
         mockMvc.perform(
                         RestDocumentationRequestBuilders.post("/api/v1/tower/instances/5/reactions")
@@ -262,7 +272,12 @@ class TowerChatControllerTest {
                                         fieldWithPath("value.messages[].masked")
                                                 .description("금칙어를 가렸는가"),
                                         fieldWithPath("value.messages[].sent_at")
-                                                .description("보낸 시각"))));
+                                                .description("보낸 시각"),
+                                        fieldWithPath("value.messages[].visitor_tag")
+                                                .description(
+                                                        "방문객 세션 공개 식별자 (LUT-705 — 세션 기준 숨기기, 로그인"
+                                                                + " 유저는 null)")
+                                                .optional())));
         when(chatService.history(eq(5L), isNull(), isNull()))
                 .thenThrow(TowerChatException.notInInstance());
         mockMvc.perform(RestDocumentationRequestBuilders.get("/api/v1/tower/instances/5/chat"))

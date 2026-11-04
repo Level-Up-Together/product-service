@@ -67,6 +67,10 @@ class TowerEntryServiceTest {
     private io.pinkspider.leveluptogethermvp.towerservice.application.queue.TowerQueueService
             queueService;
 
+    @Mock
+    private io.pinkspider.leveluptogethermvp.towerservice.application.visitor.TowerVisitorGate
+            visitorGate;
+
     private TowerEntryService service;
 
     private final TowerFloor f1 = floor(1L, 1, null, true, true);
@@ -87,7 +91,8 @@ class TowerEntryServiceTest {
                         presenceService,
                         visitRepository,
                         eventPublisher,
-                        queueService);
+                        queueService,
+                        visitorGate);
         when(populationService.of(anyInt())).thenReturn(3L);
         when(missionQueryFacade.findInProgressMission(any())).thenReturn(Optional.empty());
         when(userStateRepository.findById(any())).thenReturn(Optional.empty());
@@ -100,6 +105,11 @@ class TowerEntryServiceTest {
                             return o;
                         });
         when(allocator.pickForDirectEntry(any(), any())).thenReturn(instance(10L, 2));
+        org.mockito.Mockito.lenient()
+                .when(visitorGate.admit(any()))
+                .thenReturn(
+                        new io.pinkspider.leveluptogethermvp.towerservice.application.visitor
+                                .TowerVisitorSession("vk-1", 4821, null, null, null, 1L));
         org.mockito.Mockito.lenient()
                 .when(queueService.check(any(), anyInt(), any()))
                 .thenReturn(
@@ -393,5 +403,58 @@ class TowerEntryServiceTest {
         TowerOccupant auto = occupant(6L, 9L, 2, USER, TowerOccupantKind.AUTO_SEATED, true);
         when(occupantRepository.findByUserId(USER)).thenReturn(Optional.of(auto));
         assertThat(service.enter(USER, 1, "t-0").queued()).isTrue();
+    }
+
+    @Test
+    @DisplayName("LUT-705: 방문객은 문(제재·IP 빈도)을 지나 세션 키·이름 번호를 받는다 · 거절은 그대로 전달 · 로그인 유저는 문을 거치지 않는다")
+    void visitorGateAdmit() {
+        stub(f1);
+        when(allocator.pickForDirectEntry(eq(f1), any())).thenReturn(instance(10L, 1));
+        io.pinkspider.leveluptogethermvp.towerservice.application.visitor.TowerVisitorContext
+                context =
+                        io.pinkspider.leveluptogethermvp.towerservice.application.visitor
+                                .TowerVisitorContext.of("vk-1", "dev-1", "1.2.3.4", "UA");
+        TowerEnterResponse res = service.enter(null, 1, null, context);
+        verify(visitorGate).admit(context);
+        assertThat(res.visitorKey()).isEqualTo("vk-1");
+        assertThat(res.visitorNo()).isEqualTo(4821);
+
+        when(visitorGate.admit(any()))
+                .thenThrow(
+                        io.pinkspider.leveluptogethermvp.towerservice.application.exception
+                                .TowerVisitorException.entryBanned());
+        assertThatThrownBy(() -> service.enter(null, 1, null, context))
+                .hasFieldOrPropertyWithValue("code", "150501");
+
+        org.mockito.Mockito.clearInvocations(visitorGate);
+        when(gamificationQueryFacade.getUserLevel(USER)).thenReturn(1);
+        service.enter(USER, 1, null, context);
+        verify(visitorGate, never()).admit(any());
+    }
+
+    @Test
+    @DisplayName("LUT-705: 같은 세션 방문객 — 같은 층이면 그 자리로 복귀, 다른 층이면 옮기고(키·번호 그대로) 둘 다 대기열을 거치지 않는다")
+    void visitorSessionResumeAndMove() {
+        stub(f1);
+        TowerOccupant inside = occupant(7L, 9L, 1, "vk-1", TowerOccupantKind.VISITOR, false);
+        when(occupantRepository.findByVisitorKey("vk-1")).thenReturn(Optional.of(inside));
+        TowerEnterResponse resumed = service.enter(null, 1);
+        assertThat(resumed.resumed()).isTrue();
+        assertThat(resumed.occupantId()).isEqualTo(7L);
+        assertThat(resumed.visitorKey()).isEqualTo("vk-1");
+        verify(queueService, never()).check(any(), anyInt(), any());
+        verify(occupantRepository, never()).save(any());
+
+        TowerOccupant elsewhere = occupant(8L, 11L, 2, "vk-1", TowerOccupantKind.VISITOR, false);
+        when(occupantRepository.findByVisitorKey("vk-1")).thenReturn(Optional.of(elsewhere));
+        when(allocator.pickForDirectEntry(eq(f1), any())).thenReturn(instance(10L, 1));
+        TowerEnterResponse moved = service.enter(null, 1);
+        verify(allocator).remove(elsewhere);
+        ArgumentCaptor<TowerOccupant> captor = ArgumentCaptor.forClass(TowerOccupant.class);
+        verify(occupantRepository).save(captor.capture());
+        assertThat(captor.getValue().getVisitorKey()).isEqualTo("vk-1");
+        assertThat(captor.getValue().getVisitorNo()).isEqualTo(4821);
+        assertThat(moved.resumed()).isFalse();
+        verify(queueService, never()).check(any(), anyInt(), any());
     }
 }

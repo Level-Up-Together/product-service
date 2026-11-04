@@ -5,6 +5,7 @@ import io.pinkspider.global.facade.UserQueryFacade;
 import io.pinkspider.global.facade.dto.UserItemDto;
 import io.pinkspider.global.facade.dto.UserProfileInfo;
 import io.pinkspider.leveluptogethermvp.towerservice.application.TowerPresenceGateway;
+import io.pinkspider.leveluptogethermvp.towerservice.application.visitor.TowerVisitorTag;
 import io.pinkspider.leveluptogethermvp.towerservice.domain.dto.TowerInstanceEvent;
 import io.pinkspider.leveluptogethermvp.towerservice.domain.entity.TowerFloor;
 import io.pinkspider.leveluptogethermvp.towerservice.domain.entity.TowerOccupant;
@@ -260,7 +261,8 @@ public class TowerPresenceService implements TowerPresenceGateway {
                 occupant.isMissionActive() ? TowerPresence.STATE_MISSION : TowerPresence.STATE_REST,
                 connected,
                 occupant.isAutoSeated(),
-                now);
+                now,
+                TowerVisitorTag.of(occupant.getVisitorKey()));
     }
 
     private WalkableMask.Point restorePosition(int floorNumber, Integer x, Integer y) {

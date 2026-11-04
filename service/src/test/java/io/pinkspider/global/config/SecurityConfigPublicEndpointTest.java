@@ -257,4 +257,36 @@ class SecurityConfigPublicEndpointTest {
                         .getStatus();
         Assertions.assertThat(status).isNotEqualTo(401);
     }
+
+    /**
+     * LUT-705: 방문객(토큰 없음)이 보낸 미션 시작은 서버가 거부해야 한다 — 클라이언트 가드만으로는 우회된다. 방문객 신고도 로그인 유저만 보낸다(탑 채팅· 리액션
+     * permitAll 과 같은 {@code /instances/*} 아래라 인접 경로가 같이 열리지 않는지 본다).
+     */
+    @ParameterizedTest(name = "익명 쓰기 차단: {0}")
+    @ValueSource(
+            strings = {
+                "/api/v1/missions/1/executions/start",
+                "/api/v1/missions/1/executions/2026-11-04/start",
+                "/api/v1/missions/1/start"
+            })
+    void 방문객_미션_시작은_401(String path) throws Exception {
+        int status =
+                mockMvc.perform(
+                                org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+                                        .patch(path))
+                        .andReturn()
+                        .getResponse()
+                        .getStatus();
+        Assertions.assertThat(status).as("%s 는 로그인이 필요하다", path).isEqualTo(401);
+    }
+
+    @Test
+    void 방문객_신고는_로그인_필요() throws Exception {
+        int status =
+                mockMvc.perform(post("/api/v1/tower/instances/1/visitor-reports"))
+                        .andReturn()
+                        .getResponse()
+                        .getStatus();
+        Assertions.assertThat(status).isEqualTo(401);
+    }
 }

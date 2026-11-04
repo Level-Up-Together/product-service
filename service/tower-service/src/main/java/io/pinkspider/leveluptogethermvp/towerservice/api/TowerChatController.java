@@ -2,6 +2,7 @@ package io.pinkspider.leveluptogethermvp.towerservice.api;
 
 import io.pinkspider.global.annotation.CurrentUser;
 import io.pinkspider.global.api.ApiResult;
+import io.pinkspider.global.web.ClientIpResolver;
 import io.pinkspider.leveluptogethermvp.towerservice.application.TowerChatService;
 import io.pinkspider.leveluptogethermvp.towerservice.domain.dto.TowerChatHistoryResponse;
 import io.pinkspider.leveluptogethermvp.towerservice.domain.dto.TowerChatMessage;
@@ -9,6 +10,7 @@ import io.pinkspider.leveluptogethermvp.towerservice.domain.dto.TowerChatSendReq
 import io.pinkspider.leveluptogethermvp.towerservice.domain.dto.TowerReactionPresetsResponse;
 import io.pinkspider.leveluptogethermvp.towerservice.domain.dto.TowerReactionRequest;
 import io.pinkspider.leveluptogethermvp.towerservice.domain.dto.TowerReactionResponse;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -29,16 +31,22 @@ import org.springframework.web.bind.annotation.RestController;
 @RequiredArgsConstructor
 public class TowerChatController {
     private final TowerChatService towerChatService;
+    private final ClientIpResolver clientIpResolver;
 
     @PostMapping("/instances/{instanceId}/chat")
     public ApiResult<TowerChatMessage> send(
             @CurrentUser(required = false) String userId,
             @PathVariable Long instanceId,
-            @Valid @RequestBody TowerChatSendRequest request) {
+            @Valid @RequestBody TowerChatSendRequest request,
+            HttpServletRequest httpRequest) {
         return ApiResult.<TowerChatMessage>builder()
                 .value(
                         towerChatService.send(
-                                instanceId, userId, request.visitorKey(), request.content()))
+                                instanceId,
+                                userId,
+                                request.visitorKey(),
+                                request.content(),
+                                clientIpResolver.resolve(httpRequest)))
                 .build();
     }
 
@@ -46,7 +54,8 @@ public class TowerChatController {
     public ApiResult<TowerReactionResponse> react(
             @CurrentUser(required = false) String userId,
             @PathVariable Long instanceId,
-            @Valid @RequestBody TowerReactionRequest request) {
+            @Valid @RequestBody TowerReactionRequest request,
+            HttpServletRequest httpRequest) {
         return ApiResult.<TowerReactionResponse>builder()
                 .value(
                         towerChatService.react(
@@ -54,7 +63,8 @@ public class TowerChatController {
                                 userId,
                                 request.visitorKey(),
                                 request.emoji(),
-                                request.targetUserId()))
+                                request.targetUserId(),
+                                clientIpResolver.resolve(httpRequest)))
                 .build();
     }
 

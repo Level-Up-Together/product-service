@@ -16,8 +16,13 @@ import org.springframework.web.socket.messaging.SessionDisconnectEvent;
 class TowerSessionDisconnectListenerTest {
 
     private final TowerConnectionService connectionService = mock(TowerConnectionService.class);
+    private final io.pinkspider.leveluptogethermvp.towerservice.presence.TowerMoveRateLimiter
+            moveRateLimiter =
+                    mock(
+                            io.pinkspider.leveluptogethermvp.towerservice.presence
+                                    .TowerMoveRateLimiter.class);
     private final TowerSessionDisconnectListener listener =
-            new TowerSessionDisconnectListener(connectionService);
+            new TowerSessionDisconnectListener(connectionService, moveRateLimiter);
 
     private static SessionDisconnectEvent event(String sessionId) {
         SimpMessageHeaderAccessor accessor = SimpMessageHeaderAccessor.create();
@@ -34,6 +39,7 @@ class TowerSessionDisconnectListenerTest {
     void onDisconnect() {
         listener.onDisconnect(event("s1"));
         verify(connectionService).disconnect("s1");
+        verify(moveRateLimiter).forget("s1"); // LUT-705: 이동 빈도 창도 지운다
 
         doThrow(new RuntimeException("db down")).when(connectionService).disconnect("s2");
         assertThatCode(() -> listener.onDisconnect(event("s2"))).doesNotThrowAnyException();
