@@ -33,6 +33,7 @@ import io.pinkspider.global.event.SeasonRewardItemGrantedEvent;
 import io.pinkspider.global.event.ShopItemPurchasedEvent;
 import io.pinkspider.global.event.SubscriptionStipendGrantedEvent;
 import io.pinkspider.global.event.TitleAcquiredEvent;
+import io.pinkspider.global.event.TowerFloorUnlockedEvent;
 import io.pinkspider.global.event.UserLevelUpEvent;
 import io.pinkspider.global.facade.GuildQueryFacade;
 import io.pinkspider.global.translation.LocaleUtils;
@@ -464,6 +465,37 @@ public class NotificationEventListener {
                                 null,
                                 null,
                                 event.level()));
+    }
+
+    // ==================== 레벨업 탑 (LUT-634) ====================
+
+    /**
+     * 층 해제 — towerservice 가 레벨업 커밋 뒤 콜백에서 재발행하므로 {@code fallbackExecution} 필수(LUT-653).
+     * referenceId=층 번호(유저당 층마다 1건), 장소명은 DB 4 locale 컬럼이라 수신자 locale 로 고른다. 인자: {0} 층 번호 · {1} 장소명
+     * · {2} 도달 레벨
+     */
+    @Async(EVENT_EXECUTOR)
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT, fallbackExecution = true)
+    public void handleTowerFloorUnlocked(TowerFloorUnlockedEvent event) {
+        safeHandle(
+                "탑 층 해제",
+                () ->
+                        notificationService.sendLocalizedNotification(
+                                event.userId(),
+                                NotificationType.TOWER_FLOOR_UNLOCKED,
+                                (long) event.floorNumber(),
+                                null,
+                                locale ->
+                                        new Object[] {
+                                            String.valueOf(event.floorNumber()),
+                                            localizedItemName(
+                                                    event.floorName(),
+                                                    event.floorNameEn(),
+                                                    event.floorNameAr(),
+                                                    event.floorNameJa(),
+                                                    locale),
+                                            String.valueOf(event.level())
+                                        }));
     }
 
     @Async(EVENT_EXECUTOR)

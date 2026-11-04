@@ -2,6 +2,7 @@ package io.pinkspider.leveluptogethermvp.towerservice.application;
 
 import io.pinkspider.global.facade.TowerQueryFacade;
 import io.pinkspider.global.facade.dto.TowerMissionSeatDto;
+import io.pinkspider.leveluptogethermvp.towerservice.infrastructure.TowerFloorVisitRepository;
 import io.pinkspider.leveluptogethermvp.towerservice.infrastructure.TowerMissionSeatRepository;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
@@ -15,6 +16,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class TowerQueryFacadeService implements TowerQueryFacade {
 
     private final TowerMissionSeatRepository towerMissionSeatRepository;
+    private final TowerFloorVisitRepository towerFloorVisitRepository;
 
     @Override
     public Optional<TowerMissionSeatDto> findMissionSeat(
@@ -31,5 +33,17 @@ public class TowerQueryFacadeService implements TowerQueryFacade {
                                         seat.getFloorNumber(),
                                         seat.isAutoSeated(),
                                         seat.getCheerCount()));
+    }
+
+    @Override
+    public int countVisitedFloors(String userId) {
+        if (userId == null) return 0;
+        return (int) towerFloorVisitRepository.countByUserId(userId);
+    }
+
+    @Override
+    public int highestVisitedFloor(String userId) {
+        if (userId == null) return 0;
+        return towerFloorVisitRepository.findHighestFloorNumber(userId);
     }
 }
