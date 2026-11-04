@@ -10,6 +10,7 @@ import io.pinkspider.leveluptogethermvp.towerservice.application.visitor.TowerVi
 import io.pinkspider.leveluptogethermvp.towerservice.application.visitor.TowerVisitorSession;
 import io.pinkspider.leveluptogethermvp.towerservice.domain.dto.TowerEnterResponse;
 import io.pinkspider.leveluptogethermvp.towerservice.domain.dto.TowerLeaveResponse;
+import io.pinkspider.leveluptogethermvp.towerservice.domain.dto.TowerMySeatResponse;
 import io.pinkspider.leveluptogethermvp.towerservice.domain.entity.TowerFloor;
 import io.pinkspider.leveluptogethermvp.towerservice.domain.entity.TowerInstance;
 import io.pinkspider.leveluptogethermvp.towerservice.domain.entity.TowerOccupant;
@@ -239,6 +240,15 @@ public class TowerEntryService {
                 autoSeatContinued,
                 false,
                 null);
+    }
+
+    /** LUT-713: 내 자리 — 로그인 유저의 점유자(직접 입장·자동 착석·자리 유지)가 있으면 그 층·종류, 없으면 자리 없음 */
+    @Transactional(transactionManager = "towerTransactionManager", readOnly = true)
+    public TowerMySeatResponse mySeat(String userId) {
+        return towerOccupantRepository
+                .findByUserId(userId)
+                .map(TowerMySeatResponse::of)
+                .orElseGet(TowerMySeatResponse::none);
     }
 
     /**
