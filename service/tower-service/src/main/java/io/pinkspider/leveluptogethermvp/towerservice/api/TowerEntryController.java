@@ -13,6 +13,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
@@ -28,11 +29,17 @@ public class TowerEntryController {
     private final TowerEntryService towerEntryService;
     private final TowerSeatService towerSeatService;
 
+    /**
+     * LUT-701: 탑 전체 동시 접속 상한에 닿으면 배정 대신 {@code queued=true} + 순번을 돌려준다. 입장 가능 신호를 받은 뒤에는 {@code
+     * queue_ticket} 을 붙여 다시 요청한다.
+     */
     @PostMapping("/floors/{floorNumber}/enter")
     public ApiResult<TowerEnterResponse> enter(
-            @CurrentUser(required = false) String userId, @PathVariable int floorNumber) {
+            @CurrentUser(required = false) String userId,
+            @PathVariable int floorNumber,
+            @RequestParam(value = "queue_ticket", required = false) String queueTicket) {
         return ApiResult.<TowerEnterResponse>builder()
-                .value(towerEntryService.enter(userId, floorNumber))
+                .value(towerEntryService.enter(userId, floorNumber, queueTicket))
                 .build();
     }
 

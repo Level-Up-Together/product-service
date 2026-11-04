@@ -3,9 +3,11 @@ package io.pinkspider.leveluptogethermvp.towerservice.presence;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.StringRedisTemplate;
@@ -18,6 +20,8 @@ import org.springframework.stereotype.Component;
  *   <li>{@code tower:presence:{instanceId}} — 해시(점유자 ID → {@link TowerPresence} JSON)
  *   <li>{@code tower:ws:session:{sessionId}} — STOMP 세션 → "instanceId:occupantId" (끊김 감지), TTL 1일
  *   <li>{@code tower:ws:occupant:{occupantId}} — 점유자 → 세션(재접속 시 옛 세션 정리), TTL 1일
+ *   <li>{@code tower:ws:connected} — 웹소켓이 묶인 점유자 ID 집합(LUT-701 탑 전체 동시 접속 수 = 집합 크기). 묶을 때 넣고 풀 때
+ *       뺀다
  * </ul>
  *
  * Redis 장애는 로그만 남기고 빈 결과(fail-open) — 입장·퇴장 자체(DB)는 막지 않는다.
@@ -30,6 +34,7 @@ public class TowerPresenceStore {
     static final String PRESENCE_PREFIX = "tower:presence:";
     static final String SESSION_PREFIX = "tower:ws:session:";
     static final String OCCUPANT_SESSION_PREFIX = "tower:ws:occupant:";
+    static final String CONNECTED_KEY = "tower:ws:connected";
     static final Duration SESSION_TTL = Duration.ofDays(1);
 
     private final StringRedisTemplate redis;
@@ -101,6 +106,7 @@ public class TowerPresenceStore {
             redis.opsForValue().set(SESSION_PREFIX + sessionId, binding.encode(), SESSION_TTL);
             redis.opsForValue()
                     .set(OCCUPANT_SESSION_PREFIX + binding.occupantId(), sessionId, SESSION_TTL);
+            redis.opsForSet().add(CONNECTED_KEY, String.valueOf(binding.occupantId()));
         } catch (Exception e) {
             log.warn("[tower] 세션 묶기 실패: sessionId={} error={}", sessionId, e.getMessage());
         }
@@ -119,6 +125,7 @@ public class TowerPresenceStore {
                     redis.opsForValue().get(OCCUPANT_SESSION_PREFIX + binding.occupantId());
             if (sessionId.equals(current)) {
                 redis.delete(OCCUPANT_SESSION_PREFIX + binding.occupantId());
+                redis.opsForSet().remove(CONNECTED_KEY, String.valueOf(binding.occupantId()));
                 return Optional.of(binding);
             }
             return Optional.empty(); // 이미 새 세션으로 갈아탔다 — 옛 세션 끊김은 무시
@@ -154,8 +161,49 @@ public class TowerPresenceStore {
                 redis.delete(SESSION_PREFIX + session);
             }
             redis.delete(OCCUPANT_SESSION_PREFIX + occupantId);
+            redis.opsForSet().remove(CONNECTED_KEY, String.valueOf(occupantId));
         } catch (Exception e) {
             log.warn("[tower] 점유자 세션 정리 실패: occupantId={} error={}", occupantId, e.getMessage());
+        }
+    }
+
+    /** LUT-701: 탑 전체 웹소켓 연결 수 (자리만 유지 중인 미션 유저는 연결이 없어 빠진다). 못 읽으면 0(fail-open) */
+    public long connectedCount() {
+        try {
+            Long size = redis.opsForSet().size(CONNECTED_KEY);
+            return size == null ? 0 : size;
+        } catch (Exception e) {
+            log.warn("[tower] 연결 수 조회 실패: {}", e.getMessage());
+            return 0;
+        }
+    }
+
+    /** LUT-701: 연결 집합의 점유자 ID — 정리 스케줄러가 DB 행이 없는 항목을 뺀다 */
+    public Set<Long> connectedOccupantIds() {
+        try {
+            Set<String> members = redis.opsForSet().members(CONNECTED_KEY);
+            Set<Long> ids = new HashSet<>();
+            if (members != null) {
+                for (String member : members) {
+                    try {
+                        ids.add(Long.parseLong(member));
+                    } catch (NumberFormatException ignored) {
+                        // 잘못된 항목은 무시
+                    }
+                }
+            }
+            return ids;
+        } catch (Exception e) {
+            log.warn("[tower] 연결 집합 조회 실패: {}", e.getMessage());
+            return Set.of();
+        }
+    }
+
+    public void removeConnected(Long occupantId) {
+        try {
+            redis.opsForSet().remove(CONNECTED_KEY, String.valueOf(occupantId));
+        } catch (Exception e) {
+            log.warn("[tower] 연결 집합 정리 실패: occupantId={} error={}", occupantId, e.getMessage());
         }
     }
 }

@@ -179,4 +179,15 @@ class TowerConnectionServiceTest {
         verify(allocator, never()).remove(inMission);
         verify(allocator, never()).remove(freshVisitorRow);
     }
+
+    @Test
+    @DisplayName("LUT-701 정리: 연결 집합에 남은 점유자 행 없는 항목은 동시 접속 수에서 뺀다")
+    void cleanupConnectedOrphans() {
+        when(instanceRepository.findAll()).thenReturn(List.of());
+        when(store.connectedOccupantIds()).thenReturn(java.util.Set.of(7L, 404L));
+        when(occupantRepository.findById(404L)).thenReturn(Optional.empty());
+        assertThat(service.cleanup()).isEqualTo(1);
+        verify(store).removeConnected(404L);
+        verify(store, never()).removeConnected(7L);
+    }
 }

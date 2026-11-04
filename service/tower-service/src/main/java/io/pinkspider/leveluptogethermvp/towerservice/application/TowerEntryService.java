@@ -4,6 +4,7 @@ import io.pinkspider.global.event.TowerFloorFirstEnteredEvent;
 import io.pinkspider.global.facade.GamificationQueryFacade;
 import io.pinkspider.global.facade.MissionQueryFacade;
 import io.pinkspider.leveluptogethermvp.towerservice.application.exception.TowerEntryException;
+import io.pinkspider.leveluptogethermvp.towerservice.application.queue.TowerQueueService;
 import io.pinkspider.leveluptogethermvp.towerservice.domain.dto.TowerEnterResponse;
 import io.pinkspider.leveluptogethermvp.towerservice.domain.dto.TowerLeaveResponse;
 import io.pinkspider.leveluptogethermvp.towerservice.domain.entity.TowerFloor;
@@ -48,6 +49,7 @@ public class TowerEntryService {
     private final TowerPresenceService presenceService;
     private final TowerFloorVisitRepository towerFloorVisitRepository;
     private final ApplicationEventPublisher eventPublisher;
+    private final TowerQueueService queueService;
 
     public TowerEntryService(
             TowerFloorRepository towerFloorRepository,
@@ -59,7 +61,8 @@ public class TowerEntryService {
             @Lazy MissionQueryFacade missionQueryFacade,
             TowerPresenceService presenceService,
             TowerFloorVisitRepository towerFloorVisitRepository,
-            ApplicationEventPublisher eventPublisher) {
+            ApplicationEventPublisher eventPublisher,
+            TowerQueueService queueService) {
         this.towerFloorRepository = towerFloorRepository;
         this.towerOccupantRepository = towerOccupantRepository;
         this.towerUserStateRepository = towerUserStateRepository;
@@ -70,10 +73,21 @@ public class TowerEntryService {
         this.presenceService = presenceService;
         this.towerFloorVisitRepository = towerFloorVisitRepository;
         this.eventPublisher = eventPublisher;
+        this.queueService = queueService;
     }
 
     @Transactional(transactionManager = "towerTransactionManager")
     public TowerEnterResponse enter(@Nullable String userId, int floorNumber) {
+        return enter(userId, floorNumber, null);
+    }
+
+    /**
+     * LUT-701: {@code queueTicket} = 대기열에서 받은 표(입장 가능 신호 뒤 다시 요청할 때). 상한에 닿았으면 배정 대신 순번을 돌려준다 — 층
+     * 이동·자리 유지 중인 유저의 복귀(점유자가 직접 입장·방문객)는 대기열을 거치지 않는다.
+     */
+    @Transactional(transactionManager = "towerTransactionManager")
+    public TowerEnterResponse enter(
+            @Nullable String userId, int floorNumber, @Nullable String queueTicket) {
         TowerFloor floor =
                 towerFloorRepository
                         .findByFloorNumber(floorNumber)
@@ -82,6 +96,20 @@ public class TowerEntryService {
         checkEntry(floor, userId);
         // LUT-632: 탑 밖에서 시작한 미션도 입장하면 미션 중으로 — 잠그기 전에 미션 DB 를 읽는다
         boolean inMission = userId != null && hasInProgressMission(userId);
+
+        // LUT-701: 이미 탑 안(직접 입장·자리 유지)이면 층 이동·복귀라 대기열을 거치지 않는다. 자동 착석만 한 유저는 새 입장으로 본다
+        boolean alreadyInside =
+                userId != null
+                        && towerOccupantRepository
+                                .findByUserId(userId)
+                                .filter(o -> !o.isAutoSeated())
+                                .isPresent();
+        if (!alreadyInside) {
+            TowerQueueService.Gate gate = queueService.check(userId, floorNumber, queueTicket);
+            if (!gate.pass()) {
+                return TowerEnterResponse.queued(floorNumber, gate.waiting());
+            }
+        }
 
         LocalDateTime now = LocalDateTime.now();
         // 층 행 잠금 — 같은 층의 배정을 직렬화한다 (레벨 조회는 위에서 끝났다)
@@ -172,7 +200,9 @@ public class TowerEntryService {
                 occupant.getSeatY(),
                 towerPopulationService.of(floorNumber),
                 occupant.getVisitorNo(),
-                autoSeatContinued);
+                autoSeatContinued,
+                false,
+                null);
     }
 
     /**

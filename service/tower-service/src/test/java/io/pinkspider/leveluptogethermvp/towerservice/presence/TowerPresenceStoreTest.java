@@ -31,6 +31,10 @@ class TowerPresenceStoreTest {
     @SuppressWarnings("unchecked")
     private final ValueOperations<String, String> value = mock(ValueOperations.class);
 
+    @SuppressWarnings("unchecked")
+    private final org.springframework.data.redis.core.SetOperations<String, String> set =
+            mock(org.springframework.data.redis.core.SetOperations.class);
+
     private final ObjectMapper om = new ObjectMapper().registerModule(new JavaTimeModule());
     private TowerPresenceStore store;
 
@@ -57,6 +61,7 @@ class TowerPresenceStoreTest {
     void setUp() {
         when(redis.opsForHash()).thenReturn(hash);
         when(redis.opsForValue()).thenReturn(value);
+        when(redis.opsForSet()).thenReturn(set);
         store = new TowerPresenceStore(redis, om);
     }
 
@@ -125,5 +130,42 @@ class TowerPresenceStoreTest {
         store.unbindOccupant(7L);
         store.delete(9L, 7L);
         store.bindSession("s", new TowerSessionBinding(9L, 7L));
+    }
+
+    @Test
+    @DisplayName("LUT-701: 세션을 묶으면 연결 집합에 넣고, 이 세션이 현재 세션일 때만 풀며 빼고, 점유자 정리도 뺀다 · 연결 수·목록")
+    void connectedSet() {
+        store.bindSession("s1", new TowerSessionBinding(9L, 7L));
+        verify(set).add("tower:ws:connected", "7");
+
+        when(value.get("tower:ws:session:s1")).thenReturn("9:7");
+        when(value.get("tower:ws:occupant:7")).thenReturn("s1");
+        store.unbindSession("s1");
+        verify(set).remove("tower:ws:connected", "7");
+
+        store.unbindOccupant(8L);
+        verify(set).remove("tower:ws:connected", "8");
+        store.removeConnected(9L);
+        verify(set).remove("tower:ws:connected", "9");
+
+        when(set.size("tower:ws:connected")).thenReturn(4L);
+        assertThat(store.connectedCount()).isEqualTo(4L);
+        when(set.members("tower:ws:connected")).thenReturn(java.util.Set.of("1", "x", "2"));
+        assertThat(store.connectedOccupantIds()).containsExactlyInAnyOrder(1L, 2L);
+    }
+
+    @Test
+    @DisplayName("LUT-701: 연결 집합을 못 읽으면 0·빈 목록(fail-open), 비면 0")
+    void connectedSetFailures() {
+        when(set.size("tower:ws:connected")).thenReturn(null);
+        assertThat(store.connectedCount()).isZero();
+        when(set.members("tower:ws:connected")).thenReturn(null);
+        assertThat(store.connectedOccupantIds()).isEmpty();
+        when(set.size("tower:ws:connected")).thenThrow(new IllegalStateException("redis"));
+        assertThat(store.connectedCount()).isZero();
+        when(set.members("tower:ws:connected")).thenThrow(new IllegalStateException("redis"));
+        assertThat(store.connectedOccupantIds()).isEmpty();
+        when(set.remove(any(), any())).thenThrow(new IllegalStateException("redis"));
+        store.removeConnected(1L);
     }
 }

@@ -11,6 +11,9 @@ public class TowerEntryException extends TowerException {
     public static final String VISITOR_KEY_REQUIRED = "150204";
     public static final String NOT_IN_INSTANCE = "150205";
 
+    /** LUT-701: 없거나 끝난 대기표 — 처음부터 다시 입장을 요청한다 */
+    public static final String QUEUE_TICKET_NOT_FOUND = "150206";
+
     private TowerEntryException(String code, String messageKey, HttpStatus status) {
         super(code, messageKey, status);
     }
@@ -33,6 +36,11 @@ public class TowerEntryException extends TowerException {
     }
 
     /** LUT-631: 그 방의 점유자가 아닌데 스냅샷을 요청 */
+    public static TowerEntryException queueTicketNotFound() {
+        return new TowerEntryException(
+                QUEUE_TICKET_NOT_FOUND, "error.tower.queue.ticket_not_found", HttpStatus.NOT_FOUND);
+    }
+
     public static TowerEntryException notInInstance() {
         return new TowerEntryException(
                 NOT_IN_INSTANCE, "error.tower.presence.not_in_instance", HttpStatus.FORBIDDEN);

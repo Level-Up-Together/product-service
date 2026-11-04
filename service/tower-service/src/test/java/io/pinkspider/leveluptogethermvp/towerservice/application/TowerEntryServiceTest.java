@@ -63,6 +63,10 @@ class TowerEntryServiceTest {
     @Mock private TowerFloorVisitRepository visitRepository;
     @Mock private org.springframework.context.ApplicationEventPublisher eventPublisher;
 
+    @Mock
+    private io.pinkspider.leveluptogethermvp.towerservice.application.queue.TowerQueueService
+            queueService;
+
     private TowerEntryService service;
 
     private final TowerFloor f1 = floor(1L, 1, null, true, true);
@@ -82,7 +86,8 @@ class TowerEntryServiceTest {
                         missionQueryFacade,
                         presenceService,
                         visitRepository,
-                        eventPublisher);
+                        eventPublisher,
+                        queueService);
         when(populationService.of(anyInt())).thenReturn(3L);
         when(missionQueryFacade.findInProgressMission(any())).thenReturn(Optional.empty());
         when(userStateRepository.findById(any())).thenReturn(Optional.empty());
@@ -95,6 +100,11 @@ class TowerEntryServiceTest {
                             return o;
                         });
         when(allocator.pickForDirectEntry(any(), any())).thenReturn(instance(10L, 2));
+        org.mockito.Mockito.lenient()
+                .when(queueService.check(any(), anyInt(), any()))
+                .thenReturn(
+                        io.pinkspider.leveluptogethermvp.towerservice.application.queue
+                                .TowerQueueService.Gate.passed());
     }
 
     private void stub(TowerFloor floor) {
@@ -349,5 +359,39 @@ class TowerEntryServiceTest {
         when(allocator.pickForDirectEntry(eq(f1), any())).thenReturn(instance(10L, 1));
         service.enter(null, 1);
         verify(visitRepository, never()).insertIfAbsent(isNull(), anyInt(), any());
+    }
+
+    @Test
+    @DisplayName(
+            "LUT-701: 상한이면 배정 없이 대기 순번 · 이미 안(직접 입장·자리 유지)이면 층 이동·복귀라 대기열을 거치지 않는다 · 자동 착석만 한 유저는 새"
+                    + " 입장")
+    void queueGate() {
+        stub(f1);
+        io.pinkspider.leveluptogethermvp.towerservice.domain.dto.TowerQueueStatus waiting =
+                new io.pinkspider.leveluptogethermvp.towerservice.domain.dto.TowerQueueStatus(
+                        "t-1", "WAITING", 2, 40, 1, 3L, null);
+        when(queueService.check(USER, 1, "t-0"))
+                .thenReturn(
+                        io.pinkspider.leveluptogethermvp.towerservice.application.queue
+                                .TowerQueueService.Gate.waitWith(waiting));
+        TowerEnterResponse queued = service.enter(USER, 1, "t-0");
+        assertThat(queued.queued()).isTrue();
+        assertThat(queued.queue()).isEqualTo(waiting);
+        assertThat(queued.instanceId()).isNull();
+        assertThat(queued.population()).isEqualTo(3L);
+        verify(occupantRepository, never()).save(any());
+
+        // 직접 입장 자리(다른 층) → 층 이동은 대기열을 거치지 않는다
+        TowerOccupant inside = occupant(5L, 9L, 2, USER, TowerOccupantKind.DIRECT, true);
+        when(occupantRepository.findByUserId(USER)).thenReturn(Optional.of(inside));
+        org.mockito.Mockito.clearInvocations(queueService);
+        TowerEnterResponse moved = service.enter(USER, 1, null);
+        assertThat(moved.queued()).isFalse();
+        verify(queueService, never()).check(any(), anyInt(), any());
+
+        // 자동 착석만 한 유저는 새 입장 — 대기열 판정을 받는다
+        TowerOccupant auto = occupant(6L, 9L, 2, USER, TowerOccupantKind.AUTO_SEATED, true);
+        when(occupantRepository.findByUserId(USER)).thenReturn(Optional.of(auto));
+        assertThat(service.enter(USER, 1, "t-0").queued()).isTrue();
     }
 }
