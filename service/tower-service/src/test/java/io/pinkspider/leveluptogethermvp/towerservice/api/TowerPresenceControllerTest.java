@@ -202,6 +202,12 @@ class TowerPresenceControllerTest {
                                                 .description("대사 (일본어)"),
                                         fieldWithPath("value.npcs[].lines[].text_ar")
                                                 .description("대사 (아랍어)"),
+                                        fieldWithPath("value.npcs[].auto_bubble")
+                                                .description(
+                                                        "자동 말풍선 (LUT-732 — 켜면 n초마다 대사를 순서대로"
+                                                                + " 머리 위에, 구 서버는 없음 = 꺼짐)"),
+                                        fieldWithPath("value.npcs[].bubble_interval_seconds")
+                                                .description("자동 말풍선 대사 간격(초, 5~60)"),
                                         fieldWithPath("value.npc_shown")
                                                 .description(
                                                         "이 요청자가 NPC 노출 그룹인가 (A/B,"

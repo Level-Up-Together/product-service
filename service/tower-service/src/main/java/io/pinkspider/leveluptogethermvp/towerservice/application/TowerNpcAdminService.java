@@ -66,6 +66,7 @@ public class TowerNpcAdminService {
         validate(floor, request);
         String previousImage = npc.getProfileImageUrl();
         npc.update(request.toEntity(floorId));
+        npc.updateAutoBubble(request.autoBubble(), request.bubbleIntervalSeconds());
         fileCleaner.scheduleCleanup(
                 TowerStoredFileCleaner.urls(previousImage),
                 TowerStoredFileCleaner.urls(npc.getProfileImageUrl()));

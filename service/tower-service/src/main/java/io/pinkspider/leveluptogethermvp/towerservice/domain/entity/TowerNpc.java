@@ -86,11 +86,37 @@ public class TowerNpc extends LocalDateTimeBaseEntity {
     @Builder.Default
     private Integer sortOrder = 0;
 
+    /** LUT-732: 자동 말풍선 — 켜면 n초마다 대사를 순서대로 머리 위에 띄운다(기본 꺼짐) */
+    @Column(name = "auto_bubble", nullable = false)
+    @Builder.Default
+    private Boolean autoBubble = false;
+
+    /** LUT-732: 자동 말풍선 대사 간격(초, 5~60) */
+    @Column(name = "bubble_interval_seconds", nullable = false)
+    @Builder.Default
+    private Integer bubbleIntervalSeconds = DEFAULT_BUBBLE_INTERVAL_SECONDS;
+
     @ElementCollection(fetch = FetchType.LAZY)
     @CollectionTable(name = "tower_npc_line", joinColumns = @JoinColumn(name = "npc_id"))
     @OrderColumn(name = "line_order")
     @Builder.Default
     private List<TowerNpcLine> lines = new ArrayList<>();
+
+    public static final int DEFAULT_BUBBLE_INTERVAL_SECONDS = 10;
+
+    public boolean isAutoBubble() {
+        return Boolean.TRUE.equals(autoBubble);
+    }
+
+    /** LUT-732: 자동 말풍선 설정 — 넘긴 값만 바꾼다(null = 그대로, 구 어드민 패스스루 호환) */
+    public void updateAutoBubble(Boolean enabled, Integer intervalSeconds) {
+        if (enabled != null) {
+            this.autoBubble = enabled;
+        }
+        if (intervalSeconds != null) {
+            this.bubbleIntervalSeconds = intervalSeconds;
+        }
+    }
 
     public boolean isPublicNpc() {
         return Boolean.TRUE.equals(isPublic);

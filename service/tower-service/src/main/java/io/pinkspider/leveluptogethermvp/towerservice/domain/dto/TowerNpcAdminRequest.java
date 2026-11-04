@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.PropertyNamingStrategies.SnakeCaseStrategy
 import com.fasterxml.jackson.databind.annotation.JsonNaming;
 import io.pinkspider.leveluptogethermvp.towerservice.domain.entity.TowerNpc;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotEmpty;
@@ -35,7 +36,11 @@ public record TowerNpcAdminRequest(
         @NotEmpty @Size(max = 50) List<@Valid @NotNull TowerNpcLineDto> lines,
         @NotNull Boolean isPublic,
         /** 비우면 0 — 같은 층 안에서 작은 값이 먼저 */
-        @Min(0) Integer sortOrder) {
+        @Min(0) Integer sortOrder,
+        /** LUT-732: 자동 말풍선 — 등록 때 비우면 꺼짐, 수정 때 비우면 그대로 */
+        Boolean autoBubble,
+        /** LUT-732: 대사 간격(초) 5~60 — 등록 때 비우면 10, 수정 때 비우면 그대로 */
+        @Min(5) @Max(60) Integer bubbleIntervalSeconds) {
 
     public TowerNpc toEntity(Long floorId) {
         return TowerNpc.builder()
@@ -53,6 +58,11 @@ public record TowerNpcAdminRequest(
                 .seatY(seatY)
                 .isPublic(isPublic)
                 .sortOrder(sortOrder != null ? sortOrder : 0)
+                .autoBubble(Boolean.TRUE.equals(autoBubble))
+                .bubbleIntervalSeconds(
+                        bubbleIntervalSeconds != null
+                                ? bubbleIntervalSeconds
+                                : TowerNpc.DEFAULT_BUBBLE_INTERVAL_SECONDS)
                 .lines(
                         new java.util.ArrayList<>(
                                 lines.stream().map(TowerNpcLineDto::toEntity).toList()))
