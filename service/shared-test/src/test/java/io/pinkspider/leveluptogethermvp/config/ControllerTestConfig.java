@@ -21,6 +21,7 @@ import io.pinkspider.leveluptogethermvp.missionservice.application.MissionImageP
 import io.pinkspider.leveluptogethermvp.profanity.application.ProfanityDetectionEngine;
 import io.pinkspider.leveluptogethermvp.profanity.application.ProfanityValidationService;
 import io.pinkspider.leveluptogethermvp.profanity.domain.dto.ProfanityDetectionResult;
+import io.pinkspider.leveluptogethermvp.towerservice.application.image.TowerImageProperties;
 import io.pinkspider.leveluptogethermvp.userservice.mypage.application.ProfileImageProperties;
 import io.pinkspider.leveluptogethermvp.userservice.oauth.application.MultiDeviceTokenService;
 import java.util.List;
@@ -151,6 +152,14 @@ public class ControllerTestConfig implements WebMvcConfigurer {
     }
 
     // 상점 아이템 이미지 업로드 설정 Mock
+    /**
+     * LUT-635: TowerImageWebConfig(WebMvcConfigurer) 가 슬라이스에 올라오므로 설정 빈을 같이 준다 (shop-item 과 같은 이유)
+     */
+    @Bean
+    public TowerImageProperties towerImageProperties() {
+        return new TowerImageProperties();
+    }
+
     @Bean
     public ShopItemImageProperties shopItemImageProperties() {
         ShopItemImageProperties properties = new ShopItemImageProperties();

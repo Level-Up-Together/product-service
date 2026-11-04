@@ -13,6 +13,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import io.pinkspider.leveluptogethermvp.towerservice.application.exception.TowerFloorException;
+import io.pinkspider.leveluptogethermvp.towerservice.domain.dto.TowerFloorAdminRequest;
 import io.pinkspider.leveluptogethermvp.towerservice.domain.dto.TowerFloorAdminResponse;
 import io.pinkspider.leveluptogethermvp.towerservice.domain.entity.TowerFloor;
 import io.pinkspider.leveluptogethermvp.towerservice.infrastructure.TowerFloorRepository;
@@ -34,6 +35,10 @@ class TowerFloorAdminServiceTest {
 
     @Mock
     private io.pinkspider.leveluptogethermvp.towerservice.presence.TowerFloorMaskCache maskCache;
+
+    @Mock
+    private io.pinkspider.leveluptogethermvp.towerservice.application.image.TowerImageStorageService
+            imageStorage;
 
     @InjectMocks private TowerFloorAdminService service;
 
@@ -110,5 +115,57 @@ class TowerFloorAdminServiceTest {
                 .extracting("code")
                 .isEqualTo(TowerFloorException.NOT_FOUND);
         verify(ruleValidator, never()).validate(anyList(), isNull());
+    }
+
+    @Test
+    @DisplayName("LUT-635 수정: 바뀐 마스크 URL 이 우리 저장소 것이고 다른 층이 안 쓰면 지운다, 배경(그대로)은 유지")
+    void updateCleansReplacedImage() {
+        TowerFloor f1 = floor(1L, 1, null, true, true);
+        String oldMask = f1.getFloorMaskUrl();
+        when(towerFloorRepository.findById(1L)).thenReturn(java.util.Optional.of(f1));
+        when(towerFloorRepository.findAllByOrderByFloorNumberAsc()).thenReturn(List.of(f1));
+        when(imageStorage.isOwned(oldMask)).thenReturn(true);
+        when(towerFloorRepository.countByBackgroundImageUrlOrFloorMaskUrl(oldMask, oldMask))
+                .thenReturn(0L);
+
+        TowerFloorAdminRequest req = request(1, null, true, true);
+        TowerFloorAdminRequest changed =
+                new TowerFloorAdminRequest(
+                        req.floorNumber(),
+                        req.name(),
+                        req.nameEn(),
+                        req.nameJa(),
+                        req.nameAr(),
+                        req.entryLevel(),
+                        req.guestAllowed(),
+                        f1.getBackgroundImageUrl(),
+                        "https://cdn/tower/mask/new.png",
+                        req.entryPointX(),
+                        req.entryPointY(),
+                        req.bgmUrl(),
+                        req.instanceCapacity(),
+                        req.isPublic());
+        service.update(1L, changed);
+
+        verify(imageStorage).delete(oldMask);
+        verify(imageStorage, org.mockito.Mockito.never()).delete(f1.getBackgroundImageUrl());
+    }
+
+    @Test
+    @DisplayName("LUT-635 삭제: 두 이미지 중 다른 층이 쓰는 것·외부 URL 은 남기고 나머지만 지운다")
+    void deleteCleansImages() {
+        TowerFloor f1 = floor(1L, 1, null, true, true);
+        TowerFloor f2 = floor(2L, 2, 5, false, true);
+        when(towerFloorRepository.findById(2L)).thenReturn(java.util.Optional.of(f2));
+        when(towerFloorRepository.findAllByOrderByFloorNumberAsc()).thenReturn(List.of(f1, f2));
+        when(imageStorage.isOwned(f2.getBackgroundImageUrl())).thenReturn(true);
+        when(imageStorage.isOwned(f2.getFloorMaskUrl())).thenReturn(false);
+        when(towerFloorRepository.countByBackgroundImageUrlOrFloorMaskUrl(
+                        f2.getBackgroundImageUrl(), f2.getBackgroundImageUrl()))
+                .thenReturn(1L);
+
+        service.delete(2L);
+
+        verify(imageStorage, org.mockito.Mockito.never()).delete(any());
     }
 }

@@ -150,3 +150,55 @@ Accept: application/json
 ### 층 삭제 — 남는 층끼리 규칙 위반이면 400 (예: 1층 삭제 후 공개 2층만 남으면 150107)
 DELETE {{baseUrl}}/api/internal/tower/floors/2
 Accept: application/json
+
+### ----------------------------------------------------------
+### [어드민 내부] 층 이미지 업로드 (LUT-635) — kind=BACKGROUND|MASK, 마스크는 PNG 만.
+### 응답 url(절대 주소, dev 는 https://dev.level-up-together.com:8443/uploads/tower/...)을 등록/수정 본문에 그대로 쓴다.
+### 거절: 150110 파일 없음·15MB 초과·확장자(jpg·png·webp 외) · 150112 마스크가 PNG 아님 · 000012 이미지 아님
+### ----------------------------------------------------------
+POST {{baseUrl}}/api/internal/tower/floors/images?kind=BACKGROUND
+Content-Type: multipart/form-data; boundary=WebAppBoundary
+Accept: application/json
+
+--WebAppBoundary
+Content-Disposition: form-data; name="file"; filename="floor1-bg.jpg"
+Content-Type: image/jpeg
+
+< ./fixtures/floor1-bg.jpg
+--WebAppBoundary--
+
+### 마스크 업로드 (PNG, 붉은색 = 이동 가능, 배경과 같은 좌표계 — 1/4 해상도 가능)
+POST {{baseUrl}}/api/internal/tower/floors/images?kind=MASK
+Content-Type: multipart/form-data; boundary=WebAppBoundary
+Accept: application/json
+
+--WebAppBoundary
+Content-Disposition: form-data; name="file"; filename="floor1-mask.png"
+Content-Type: image/png
+
+< ./fixtures/floor1-mask.png
+--WebAppBoundary--
+
+### ----------------------------------------------------------
+### [어드민 내부] 탑 공통 설정 (LUT-635) — max_concurrent_users = 탑 전체 동시 접속 상한(대기열 LUT-701 기준), null = 제한 없음
+### ----------------------------------------------------------
+GET {{baseUrl}}/api/internal/tower/settings
+Accept: application/json
+
+### 상한 저장 (1 이상) — 저장 즉시 반영
+PUT {{baseUrl}}/api/internal/tower/settings
+Content-Type: application/json
+Accept: application/json
+
+{
+  "max_concurrent_users": 300
+}
+
+### 상한 해제 (제한 없음)
+PUT {{baseUrl}}/api/internal/tower/settings
+Content-Type: application/json
+Accept: application/json
+
+{
+  "max_concurrent_users": null
+}

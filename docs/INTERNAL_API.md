@@ -2,7 +2,7 @@
 
 `/api/internal/**` 경로는 `SecurityConfig`에서 `permitAll`이지만 **공유 시크릿 헤더 인증 + VPC 내부 접근**으로 보호. Admin Backend가 MVP의 도메인 데이터를 읽거나 액션을 실행할 때 사용.
 
-> 2026-10-29 코드 기준 현행화 — `@RequestMapping("/api/internal…")` 컨트롤러 **41개 = 베이스 경로 41개**(중첩 경로 포함, 2026-11-02 LUT-708 `app-settings` 추가). chat·bff·notice·support 서비스에는 내부 API 컨트롤러가 없다.
+> 2026-10-29 코드 기준 현행화 — `@RequestMapping("/api/internal…")` 컨트롤러 **43개 = 베이스 경로 43개**(중첩 경로 포함, 2026-11-02 LUT-708 `app-settings` 추가, 2026-11-04 LUT-629/635 `tower/floors`·`tower/settings` 추가). chat·bff·notice·support 서비스에는 내부 API 컨트롤러가 없다.
 
 ## 인증 (LUT-244)
 
@@ -113,6 +113,13 @@
 
 - 날짜는 ISO(`yyyy-MM-dd`), 월은 `yyyy-MM`. `from > to` 는 서로 바꿔 처리한다.
 - **파라미터 오류는 400 (LUT-616)**: `StatsRequestExceptionHandler`(statsservice 패키지 한정 `HIGHEST_PRECEDENCE` 어드바이스) 가 형식 오류·enum 허용값 밖 → `100101`, 필수 파라미터 누락 → `100102` 로 응답한다. 이게 없으면 플랫폼 `RestExceptionHandler` 의 `Exception.class` 핸들러가 500(`000500`) 으로 바꾼다(`@WebMvcTest` 슬라이스엔 플랫폼 핸들러가 없어 테스트로는 안 보임).
+
+### tower-service (tower_db, v1.1.5)
+
+| 베이스 경로 | 용도 · 주요 엔드포인트 | 도입·변경 |
+|---|---|---|
+| `/api/internal/tower/floors` | 레벨업 탑 층 CRUD. `GET /`(전체, 비공개 포함, 층 번호 순) · `GET /{id}` · `POST /` · `PUT /{id}` · `DELETE /{id}` — 저장 규칙 7개(번호 중복·1층 입장 레벨·비로그인 허용 연속·공개 연속·입장 지점 마스크 안 등) 위반은 **400 `1501xx`**(`TowerExceptionHandler`), 없음 404 `150101`. `POST /images?kind=BACKGROUND\|MASK`(multipart `file`, jpg·png·webp 15MB, 마스크는 PNG 만) → `{kind, url, width, height}` — url 은 절대 https 주소(prod CDN `tower/`, dev `https://dev.level-up-together.com:8443/uploads/tower/`)로 등록/수정 본문에 그대로 쓴다. 거절 `150110`·`150112`·`000012` | LUT-629 · LUT-635(이미지) |
+| `/api/internal/tower/settings` | 탑 공통 설정. `GET /` · `PUT / {max_concurrent_users}`(1 이상, null = 제한 없음) — 탑 전체 동시 접속 상한, 대기열(LUT-701) 판정 기준. 캐시 없이 읽어 저장 즉시 반영 | LUT-635 |
 
 ### 역방향 — MVP → Admin (`AdminInternalFeignClient`)
 

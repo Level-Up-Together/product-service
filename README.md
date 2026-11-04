@@ -806,6 +806,7 @@ Redis를 활용한 캐싱으로 서비스 간 호출을 최소화하고 성능�
 | gamification — 상점·결제          | `users/{userId}/items`(유저 보유 아이템, LUT-657), `shop-items`(+ 이미지 업로드), `shop-items/{itemId}/push-setting`·`shop-items/{itemId}/push-messages`(장착 아이템 푸시 슬롯·대사, LUT-516/528/573), `shop-purchases`(LUT-328), `item-grants`(LUT-472), `diamonds`(원장·마이그레이션), `diamond-bundles`, `diamond-payments`, `subscription-payments`(+ `POST /reconcile`, LUT-617) |
 | notification (notification_db) | `push-campaigns`(어드민 푸시 발송·이력, LUT-508)                                                  |
 | stats (stats_db)               | `stats/activity`(유저 일별 활동 수동 flush, LUT-598), `kpi`(daily·retention·revenue/cohorts·signups/by-channel 조회 + rebuild, LUT-601) |
+| tower (tower_db)               | `tower/floors`(층 CRUD + `POST /images?kind=BACKGROUND\|MASK` 배경·마스크 업로드, LUT-629/635), `tower/settings`(탑 전체 동시 접속 상한, LUT-635) |
 
 ## 관련 프로젝트
 
