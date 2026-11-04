@@ -10,10 +10,12 @@ import io.pinkspider.leveluptogethermvp.towerservice.domain.dto.TowerEnterReques
 import io.pinkspider.leveluptogethermvp.towerservice.domain.dto.TowerEnterResponse;
 import io.pinkspider.leveluptogethermvp.towerservice.domain.dto.TowerLeaveRequest;
 import io.pinkspider.leveluptogethermvp.towerservice.domain.dto.TowerLeaveResponse;
+import io.pinkspider.leveluptogethermvp.towerservice.domain.dto.TowerMySeatResponse;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpHeaders;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -59,6 +61,14 @@ public class TowerEntryController {
                                 httpRequest.getHeader(HttpHeaders.USER_AGENT));
         return ApiResult.<TowerEnterResponse>builder()
                 .value(towerEntryService.enter(userId, floorNumber, queueTicket, visitor))
+                .build();
+    }
+
+    /** LUT-713: 내 자리(미션 진행 화면 카드) — 로그인 필요 */
+    @GetMapping("/me")
+    public ApiResult<TowerMySeatResponse> mySeat(@CurrentUser String userId) {
+        return ApiResult.<TowerMySeatResponse>builder()
+                .value(towerEntryService.mySeat(userId))
                 .build();
     }
 

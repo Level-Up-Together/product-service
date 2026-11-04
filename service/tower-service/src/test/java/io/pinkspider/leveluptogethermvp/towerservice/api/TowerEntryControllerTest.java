@@ -345,4 +345,39 @@ class TowerEntryControllerTest {
                                         fieldWithPath("value.seat_held")
                                                 .description("항상 false — 미션 중이어도 자리를 남기지 않는다"))));
     }
+
+    @Test
+    @DisplayName("GET /api/v1/tower/me : 내 자리 (LUT-713 — 미션 진행 화면 카드)")
+    void mySeat() throws Exception {
+        when(entryService.mySeat("user-1"))
+                .thenReturn(
+                        new io.pinkspider.leveluptogethermvp.towerservice.domain.dto
+                                .TowerMySeatResponse(true, 3, true, true));
+
+        mockMvc.perform(
+                        RestDocumentationRequestBuilders.get("/api/v1/tower/me")
+                                .with(user("user-1")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.value.floor_number").value(3))
+                .andDo(
+                        document(
+                                "tower-me",
+                                responseFields(
+                                        fieldWithPath("code").description("응답 코드"),
+                                        fieldWithPath("message").description("응답 메시지"),
+                                        fieldWithPath("value.seated")
+                                                .description(
+                                                        "탑에 자리가 있는가 (false = 자동 착석을 껐거나 자리를 비웠다)"),
+                                        fieldWithPath("value.floor_number")
+                                                .description("자리가 있는 층")
+                                                .optional(),
+                                        fieldWithPath("value.auto_seated")
+                                                .description(
+                                                        "자동 착석 자리인가 (true = 들어가면 그 자리에서 직접 입장,"
+                                                                + " false = 직접 입장한 자리로 복귀)")
+                                                .optional(),
+                                        fieldWithPath("value.mission_active")
+                                                .description("미션 중 표시인가")
+                                                .optional())));
+    }
 }

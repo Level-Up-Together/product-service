@@ -136,7 +136,8 @@ class SecurityConfigPublicEndpointTest {
                 "/api/v1/rankings/nearby",
                 "/api/v1/mypage/profile",
                 "/api/v1/diamonds/balance",
-                "/api/v1/diamonds/me" // LUT-356: 잔액은 개인 데이터 — 묶음상품 permitAll 이 새지 않는지
+                "/api/v1/diamonds/me", // LUT-356: 잔액은 개인 데이터 — 묶음상품 permitAll 이 새지 않는지
+                "/api/v1/tower/me" // LUT-713: 내 자리는 로그인 유저만 — 탑 공개 GET 이 새지 않는지
             })
     void 익명_GET_은_401_이어야_한다(String path) throws Exception {
         int status = mockMvc.perform(get(path)).andReturn().getResponse().getStatus();

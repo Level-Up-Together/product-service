@@ -457,4 +457,21 @@ class TowerEntryServiceTest {
         assertThat(moved.resumed()).isFalse();
         verify(queueService, never()).check(any(), anyInt(), any());
     }
+
+    @Test
+    @DisplayName("LUT-713: 내 자리 — 점유자가 있으면 층·자동 착석·미션 중, 없으면 자리 없음")
+    void mySeat() {
+        TowerOccupant auto = occupant(5L, 9L, 3, USER, TowerOccupantKind.AUTO_SEATED, true);
+        when(occupantRepository.findByUserId(USER)).thenReturn(Optional.of(auto));
+        io.pinkspider.leveluptogethermvp.towerservice.domain.dto.TowerMySeatResponse seat =
+                service.mySeat(USER);
+        assertThat(seat.seated()).isTrue();
+        assertThat(seat.floorNumber()).isEqualTo(3);
+        assertThat(seat.autoSeated()).isTrue();
+        assertThat(seat.missionActive()).isTrue();
+
+        when(occupantRepository.findByUserId(USER)).thenReturn(Optional.empty());
+        assertThat(service.mySeat(USER).seated()).isFalse();
+        assertThat(service.mySeat(USER).floorNumber()).isNull();
+    }
 }
