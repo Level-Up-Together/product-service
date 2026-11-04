@@ -189,6 +189,7 @@ class TowerEntryServiceTest {
         TowerEnterResponse res = service.enter(USER, 2);
 
         assertThat(res.resumed()).isTrue();
+        assertThat(res.autoSeatContinued()).isFalse(); // 직접 입장 자리 유지 복귀는 자동 착석 전환이 아니다
         assertThat(res.instanceId()).isEqualTo(9L);
         assertThat(res.missionActive()).isTrue();
         verify(allocator, never()).pickForDirectEntry(any(), any());
@@ -207,6 +208,7 @@ class TowerEntryServiceTest {
 
         TowerEnterResponse res = service.enter(USER, 1);
         assertThat(res.resumed()).isTrue();
+        assertThat(res.autoSeatContinued()).isTrue(); // LUT-646
         assertThat(res.instanceId()).isEqualTo(9L);
         assertThat(auto.getKind()).isEqualTo(TowerOccupantKind.DIRECT);
         assertThat(auto.isMissionActive()).isTrue();
@@ -220,6 +222,7 @@ class TowerEntryServiceTest {
         TowerEnterResponse res2 = service.enter(USER, 1);
         verify(allocator).remove(auto2);
         assertThat(res2.resumed()).isFalse();
+        assertThat(res2.autoSeatContinued()).isFalse();
         assertThat(res2.instanceId()).isEqualTo(11L);
         assertThat(res2.missionActive()).isTrue();
     }

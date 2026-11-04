@@ -63,7 +63,8 @@ class TowerEntryControllerTest {
         when(entryService.enter(any(), eq(2)))
                 .thenReturn(
                         new TowerEnterResponse(
-                                2, 10L, 77L, false, false, null, 1200, 900, 1200, 900, 12L, null));
+                                2, 10L, 77L, false, false, null, 1200, 900, 1200, 900, 12L, null,
+                                false));
 
         mockMvc.perform(
                         RestDocumentationRequestBuilders.post(
@@ -103,7 +104,11 @@ class TowerEntryControllerTest {
                                                 .description(
                                                         "방문객 이름의 네 자리 숫자 (비로그인만, 클라이언트가 locale 로"
                                                                 + " '방문객 1234' 조립 — LUT-631)")
-                                                .optional())));
+                                                .optional(),
+                                        fieldWithPath("value.auto_seat_continued")
+                                                .description(
+                                                        "자동 착석 자리에서 직접 입장으로 이어졌는가 (자동 착석 → 직접 입장"
+                                                                + " 전환율 측정, LUT-646)"))));
     }
 
     @Test
@@ -113,8 +118,8 @@ class TowerEntryControllerTest {
         when(entryService.enter(any(), eq(1)))
                 .thenReturn(
                         new TowerEnterResponse(
-                                1, 10L, 78L, false, false, "k-1", 1400, 1000, 1400, 1000, 3L,
-                                4821));
+                                1, 10L, 78L, false, false, "k-1", 1400, 1000, 1400, 1000, 3L, 4821,
+                                false));
         mockMvc.perform(
                         RestDocumentationRequestBuilders.post(
                                 "/api/v1/tower/floors/{floorNumber}/enter", 1))
