@@ -54,6 +54,10 @@ class TowerFloorAdminInternalControllerTest {
 
     @MockitoBean private TowerFloorAdminService adminService;
 
+    @MockitoBean
+    private io.pinkspider.leveluptogethermvp.towerservice.application.TowerFloorImageService
+            imageService;
+
     private static final String BODY =
             """
 {"floor_number":2,"name":"등나무 정원","name_en":"Wisteria Garden","name_ja":"藤の庭","name_ar":"حديقة الوستارية",
@@ -234,5 +238,110 @@ class TowerFloorAdminInternalControllerTest {
                         document(
                                 "internal-tower-floors-delete",
                                 pathParameters(parameterWithName("id").description("층 ID"))));
+    }
+
+    @org.junit.jupiter.api.Test
+    @DisplayName("POST /api/internal/tower/floors/images?kind=MASK : 이미지 업로드 (LUT-635)")
+    void uploadImage() throws Exception {
+        org.mockito.Mockito.when(
+                        imageService.upload(
+                                org.mockito.ArgumentMatchers.any(),
+                                org.mockito.ArgumentMatchers.eq(
+                                        io.pinkspider.leveluptogethermvp.towerservice.domain.enums
+                                                .TowerImageKind.MASK)))
+                .thenReturn(
+                        new io.pinkspider.leveluptogethermvp.towerservice.domain.dto
+                                .TowerFloorImageUploadResponse(
+                                io.pinkspider.leveluptogethermvp.towerservice.domain.enums
+                                        .TowerImageKind.MASK,
+                                "https://dev.level-up-together.com:8443/uploads/tower/mask/m.png",
+                                704,
+                                384));
+
+        mockMvc.perform(
+                        RestDocumentationRequestBuilders.multipart(
+                                        "/api/internal/tower/floors/images?kind=mask")
+                                .file(
+                                        new org.springframework.mock.web.MockMultipartFile(
+                                                "file",
+                                                "mask.png",
+                                                "image/png",
+                                                new byte[] {1, 2, 3}))
+                                .contentType(MediaType.MULTIPART_FORM_DATA))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.value.kind").value("MASK"))
+                .andExpect(jsonPath("$.value.width").value(704))
+                .andDo(
+                        document(
+                                "internal-tower-floors-image-upload",
+                                org.springframework.restdocs.request.RequestDocumentation
+                                        .queryParameters(
+                                                org.springframework.restdocs.request
+                                                        .RequestDocumentation.parameterWithName(
+                                                                "kind")
+                                                        .description(
+                                                                "BACKGROUND | MASK (대소문자 무관). 마스크는"
+                                                                        + " PNG 만")),
+                                org.springframework.restdocs.request.RequestDocumentation
+                                        .requestParts(
+                                                org.springframework.restdocs.request
+                                                        .RequestDocumentation.partWithName("file")
+                                                        .description(
+                                                                "이미지 파일 (jpg·png·webp, 15MB 이하)")),
+                                responseFields(
+                                        fieldWithPath("code").description("응답 코드"),
+                                        fieldWithPath("message").description("응답 메시지"),
+                                        fieldWithPath("value").description("업로드 결과"),
+                                        fieldWithPath("value.kind").description("이미지 종류"),
+                                        fieldWithPath("value.url")
+                                                .description(
+                                                        "절대 URL — 등록/수정의"
+                                                            + " background_image_url·floor_mask_url"
+                                                            + " 에 그대로"),
+                                        fieldWithPath("value.width")
+                                                .description("가로 픽셀 (읽을 수 없으면 null)")
+                                                .optional(),
+                                        fieldWithPath("value.height")
+                                                .description("세로 픽셀 (읽을 수 없으면 null)")
+                                                .optional())));
+    }
+
+    @org.junit.jupiter.api.Test
+    @DisplayName("POST /images : kind 없음·모르는 값은 400 150110, 서비스 거절(PNG 아님)은 400 150112")
+    void uploadImageRejected() throws Exception {
+        org.springframework.mock.web.MockMultipartFile file =
+                new org.springframework.mock.web.MockMultipartFile(
+                        "file", "mask.jpg", "image/jpeg", new byte[] {1});
+        mockMvc.perform(
+                        RestDocumentationRequestBuilders.multipart(
+                                        "/api/internal/tower/floors/images")
+                                .file(file)
+                                .contentType(MediaType.MULTIPART_FORM_DATA))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("150110"));
+        mockMvc.perform(
+                        RestDocumentationRequestBuilders.multipart(
+                                        "/api/internal/tower/floors/images?kind=sticker")
+                                .file(file)
+                                .contentType(MediaType.MULTIPART_FORM_DATA))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("150110"));
+
+        org.mockito.Mockito.when(
+                        imageService.upload(
+                                org.mockito.ArgumentMatchers.any(),
+                                org.mockito.ArgumentMatchers.eq(
+                                        io.pinkspider.leveluptogethermvp.towerservice.domain.enums
+                                                .TowerImageKind.MASK)))
+                .thenThrow(
+                        io.pinkspider.leveluptogethermvp.towerservice.application.exception
+                                .TowerFloorException.maskNotPng());
+        mockMvc.perform(
+                        RestDocumentationRequestBuilders.multipart(
+                                        "/api/internal/tower/floors/images?kind=MASK")
+                                .file(file)
+                                .contentType(MediaType.MULTIPART_FORM_DATA))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("150112"));
     }
 }

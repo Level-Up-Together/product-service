@@ -522,6 +522,11 @@ prod 첫 적용 파일은 LUT-666 핫픽스 `gamification/V1_1_3_013`(2026-10-29
   **끊김**: `WebSocketConfig` 가 STOMP heartbeat 10초(**전역** — 채팅·DM·알림 연결도 heartbeat 없이 조용하면 닫힌다)로 감지 → `SessionDisconnectEvent` → `TowerConnectionService.disconnect`: 미션 중 로그인 유저는 자리 유지(presence `connected=false`, 퇴장 이벤트 없음 — 다른 유저에겐 연결된 것과 같음), 휴식 중 유저·방문객은 즉시 퇴장. 재접속은 같은 점유자로 join(옛 세션 끊김은 무시).
   방문객 10분 무조작(`tower.presence.visitor-idle-minutes`)·고아 presence·끊김 유실은 `TowerPresenceCleanupScheduler`(매분, ShedLock)가 정리. 레벨업(`UserLevelUpEvent`) → `TowerLevelChangeListener` → `LEVEL` 브로드캐스트(이름표). 방문객 이름은 `visitor_no`(네 자리, 입장 때 발급)를 클라이언트가 locale 로 조립.
   미결(631 완료 조건 중 사람 몫): **부하 테스트**(동시 접속별 지연·오류율, 탑 전체 상한 확정 → LUT-701 설정값)와 인스턴스별 노드 고정(Redis 릴레이로 정합성은 보장되므로 성능 결과를 보고 결정).
+- **어드민 이미지 업로드·공통 설정** (LUT-635, `application/image/`·`TowerSettingService`): 층 API 는 이미지 **주소**만 받으므로 `POST /api/internal/tower/floors/images?kind=BACKGROUND|MASK`(multipart `file`, jpg·png·webp 15MB, **마스크는 PNG 만** 150112)가
+  저장 후 **절대 https 주소**를 돌려준다 — prod `S3TowerImageStorageService`(키 `tower/{kind}/{uuid}.{ext}`, CDN `images.level-up-together.com` = 허용 호스트), 그 외 `LocalTowerImageStorageService`(`uploads/tower/{kind}/`, `TowerImageWebConfig` 정적 서빙, 절대 주소는
+  `app.upload.tower-image.public-base-url`(config-repository dev `https://dev.level-up-together.com:8443`) 로 조립 — 비면 상대 경로가 나와 층 API 가 거절한다). 응답 `width`/`height` 는 헤더만 읽어(webp 는 null) 어드민이 짧은 변 1536px 미만 경고에 쓴다.
+  층 수정·삭제로 안 쓰게 된 **우리 저장소 이미지는 커밋 뒤 삭제**(다른 층이 같은 주소를 쓰면 유지, 외부 주소 무시). 거절 150110(파일 없음·크기·확장자)·150111(저장 실패 500)·`000012`(이미지 아님, LUT-710).
+  **탑 공통 설정** `tower_setting`(키-값, Flyway V1_1_5_006) — `GET/PUT /api/internal/tower/settings {max_concurrent_users}`(null = 제한 없음, 캐시 없이 읽어 저장 즉시 반영). 대기열 LUT-701 이 `TowerSettingService.getMaxConcurrentUsers()` 로 판정하며 기본값은 631 부하 테스트 결과. admin-service 패스스루·화면은 LUT-635/636.
 
 ## 상점 · 다이아 경제 (gamificationservice/shop, LUT-327/348/349/350/354/356/401)
 
@@ -856,5 +861,5 @@ ALB·배포 스크립트(`gradle-*.yml`) 헬스체크는 `/showmethemoney/health
 탈퇴 행까지 세었다), 탈퇴 수는 `withdrawn_users`, 가입경로 분포(`users_by_provider`)도 탈퇴 제외라 합이 `total_users` 와 맞는다.
 `daily_new_users` 는 가입 시점 집계라 이후 탈퇴해도 포함된다.
 
-베이스 경로는 코드 기준 40개 — 서비스별 전체 목록·주요 엔드포인트·도입 티켓은 [`docs/INTERNAL_API.md`](docs/INTERNAL_API.md)(2026-10-29 코드 대조).
+베이스 경로는 코드 기준 43개 — 서비스별 전체 목록·주요 엔드포인트·도입 티켓은 [`docs/INTERNAL_API.md`](docs/INTERNAL_API.md)(2026-11-04 tower 2개 추가).
 README "Internal API" 절도 같은 40개를 서비스별로 요약한다(2026-10-29).

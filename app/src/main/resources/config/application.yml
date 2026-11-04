@@ -16,7 +16,8 @@ spring:
     multipart:
       enabled: true
       # LUT-608: 미션 기록 사진 1장 10MB, 한 요청에 최대 5장 → 요청 전체 55MB (여유 포함)
-      max-file-size: 10MB
+      # LUT-635: 탑 층 배경(2816×1536 PNG)은 15MB 까지 — 파일 1장 상한을 15MB 로 (app.upload.tower-image.max-size 와 같은 값)
+      max-file-size: 15MB
       max-request-size: 55MB
 
 server:
@@ -78,6 +79,12 @@ app:
       max-size: 5242880
       allowed-extensions: jpg,jpeg,png,gif,webp
       url-prefix: /uploads/chats
+    tower-image: # LUT-635 탑 층 배경·마스크 (prod 는 S3 tower/ 키 + CDN, 그 외 로컬 + public-base-url 로 절대 주소 — config-repository 환경별)
+      path: ${user.dir}/uploads/tower
+      max-size: 15728640
+      allowed-extensions: jpg,jpeg,png,webp
+      url-prefix: /uploads/tower
+      public-base-url: ""
     s3:
       bucket: ""
       cdn-base-url: ""

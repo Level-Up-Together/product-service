@@ -18,6 +18,15 @@ public class TowerFloorException extends TowerException {
     public static final String ENTRY_POINT_OUTSIDE_MASK = "150108";
     public static final String MASK_UNREADABLE = "150109";
 
+    /** LUT-635: 업로드 파일 없음·크기 초과·확장자 불허 */
+    public static final String IMAGE_INVALID = "150110";
+
+    /** LUT-635: 저장소(디스크·S3) 쓰기 실패 — 서버 오류 */
+    public static final String IMAGE_SAVE_FAILED = "150111";
+
+    /** LUT-635: 마스크는 PNG 만 (픽셀을 그대로 읽는다) */
+    public static final String MASK_NOT_PNG = "150112";
+
     private TowerFloorException(String code, String messageKey, HttpStatus status) {
         super(code, messageKey, status);
     }
@@ -57,6 +66,21 @@ public class TowerFloorException extends TowerException {
 
     public static TowerFloorException maskUnreadable() {
         return bad(MASK_UNREADABLE, "error.tower.floor.mask_unreadable");
+    }
+
+    public static TowerFloorException imageInvalid() {
+        return bad(IMAGE_INVALID, "error.tower.floor.image_invalid");
+    }
+
+    public static TowerFloorException imageSaveFailed() {
+        return new TowerFloorException(
+                IMAGE_SAVE_FAILED,
+                "error.tower.floor.image_save_failed",
+                HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+
+    public static TowerFloorException maskNotPng() {
+        return bad(MASK_NOT_PNG, "error.tower.floor.mask_not_png");
     }
 
     private static TowerFloorException bad(String code, String key) {
