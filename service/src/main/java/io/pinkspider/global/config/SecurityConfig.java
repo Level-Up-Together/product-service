@@ -294,6 +294,12 @@ public class SecurityConfig {
                                                 "/api/v1/tower/instances/*/chat",
                                                 "/api/v1/tower/chat/reactions")
                                         .permitAll()
+                                        // LUT-701: 입장 대기 상태·대기 그만하기 — 방문객도 줄을 선다(표 = 본인 확인,
+                                        // 로그인 표는 서비스가 주인을 본다)
+                                        .requestMatchers(HttpMethod.GET, "/api/v1/tower/queue/*")
+                                        .permitAll()
+                                        .requestMatchers(HttpMethod.DELETE, "/api/v1/tower/queue/*")
+                                        .permitAll()
                                         .requestMatchers(HttpMethod.GET, "/api/v1/shop-items")
                                         .permitAll()
                                         // LUT-356: 비로그인 핑크다이아 묶음상품 열람 (상점 Browse-First)

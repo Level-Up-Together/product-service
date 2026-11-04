@@ -464,7 +464,8 @@ public void run() { ...}
 | `UserActivityFlushScheduler.flushRecentDays`                 | `0 20 0 * * *` KST          | Redis `active:{날짜}` 활동 집합 → `stats_db.user_daily_activity` 적재(그제·어제 2일, 멱등) (LUT-598) |
 | `KpiSnapshotScheduler.buildDailySnapshot`                    | `0 40 0 * * *` KST          | 어제·그제 `daily_kpi_snapshot` + 최근 31일 `cohort_retention` + 13개월 전~당월 `cohort_revenue` 재계산(멱등) (LUT-601·660) |
 | `TowerSeatReconcileScheduler.reconcile`                       | 5분 fixedDelay (`tower.seat.reconcile-delay-ms`) | 탑 미션 중 점유자를 실제 미션 상태와 대조해 끝난 유저 정리 — 이벤트 없는 자정 MISSED·유실 대비 (LUT-632) |
-| `TowerPresenceCleanupScheduler.cleanup`                       | 1분 fixedDelay (`tower.presence.cleanup-delay-ms`) | 탑 방문객 10분 무조작 퇴장·고아 presence 삭제·끊김 유실 정리 (LUT-631) |
+| `TowerPresenceCleanupScheduler.cleanup`                       | 1분 fixedDelay (`tower.presence.cleanup-delay-ms`) | 탑 방문객 10분 무조작 퇴장·고아 presence 삭제·끊김 유실 정리 (LUT-631) · 연결 집합 고아 항목 정리 (LUT-701) |
+| `TowerQueueScheduler.process`                                 | 2초 fixedDelay (`tower.queue.process-delay-ms`) | 탑 입장 대기열 — 마감 지난 입장 신호·조회 끊긴 표 정리, 남는 자리만큼 다음 순번 입장 신호 (LUT-701, 상한 없으면 아무것도 안 함) |
 
 ## DB 마이그레이션 — Flyway (LUT-595, `global/config/datasource/flyway`)
 
@@ -506,7 +507,7 @@ prod 첫 적용 파일은 LUT-666 핫픽스 `gamification/V1_1_3_013`(2026-10-29
   **복귀**: 미션 중(`mission_active`) 유저가 같은 층에 다시 들어오면 배정·대기열 없이 원래 방(`resumed`), 자동 착석 자리가 있는 유저는 그 자리에서 직접 입장(그 방이 직접 입장자로 차 있으면 일반 배정), 다른 층으로 들어오면 자리를 옮긴다. 퇴장은 멱등이고 미션 중이면 자리를 남긴다(`seat_held`). 입장 응답 `auto_seat_continued` = 자동 착석 자리에서 직접 입장으로 이어졌는가(LUT-646 분석 — 자동 착석 → 직접 입장 전환율, 추가 필드).
   **자동 착석** `TowerSeatService.onMissionStarted(userId)`(호출·설정값 "탑 자동 착석"·브로드캐스트는 LUT-632): 입장 가능한 공개 층 중 **사람이 가장 적은 층**(층 전체 인원 `byFloorFresh`, 같으면 낮은 층) → 그 층에서 **사람이 가장 적은 방**(일반 입장과 반대), 자리는 입장 지점, 입장 레벨이 부족한 층은 비어 있어도 제외.
   `onMissionEnded(userId, connected)`: 자동 착석자·연결 끊긴 유저는 퇴장, 연결된 유저는 휴식 중. 층 인원 `TowerPopulationService`(모든 종류 합, NPC 제외, 인스턴스 로컬 메모 `tower.population.cache-seconds` 기본 30초).
-  LUT-701(탑 전체 상한·대기열)은 복귀 판정 뒤·새 배정 앞, LUT-705(방문객 세션·이름·빈도 제한)는 `visitor_key` 를 세션으로 확장, 좌표·연결 여부는 LUT-631(Redis).
+  LUT-705(방문객 세션·이름·빈도 제한)는 `visitor_key` 를 세션으로 확장, 좌표·연결 여부는 LUT-631(Redis).
 - **미션 연동·상태 브로드캐스트** (LUT-632): mission-service 가 수행(타이머) 시작·종료에 kernel 이벤트 `MissionExecutionStartedEvent`(일반 `RegularMissionExecutionStrategy.startExecution`·고정 `DailyMissionInstanceService.startInstance`) /
   `MissionExecutionEndedEvent`(완료 = `MissionCompletionSaga.runSaga` 성공 단일 지점 `COMPLETED`, 4시간 자동 종료 = `MissionAutoCompleteScheduler` `AUTO_COMPLETED`, 진행 중 취소 skip = `SKIPPED`)를 낸다 —
   미션 자체 상태 이벤트(`MissionStateChangedEvent`)와 다르다. `TowerMissionEventListener`(AFTER_COMMIT + `fallbackExecution`) → `TowerSeatService.onMissionStarted(userId, TowerMissionInfo)`: 탑에 있으면 미션 중 + 같은 방에
@@ -534,6 +535,10 @@ prod 첫 적용 파일은 LUT-666 핫픽스 `gamification/V1_1_3_013`(2026-10-29
   **판정 순서**(서버가 최종): 점유자 아님 403 `150301` → 미션 중 403 `150304`(리액션은 허용) → 길이(로그인 200·방문객 40) 400 `150307` → 방문객 URL·전화·메신저 400 `150308` → 제한 중 403 `150306` → 간격(로그인 1초·방문객 5초, Redis SETNX) 429 `150302` → 같은 내용 연속 400 `150303` → 금칙어.
   **금칙어**는 어드민 비속어 목록(`ProfanityValidationService.getActiveProfanityWordsWithSeverity`, 캐시 `profanityWords` — 어드민 변경 시 evict)으로 **공백·특수문자를 지운 소문자**로 비교: LOW·MEDIUM 은 그 단어만 `**` 로 가리고 전송, HIGH 는 전체 거부 400 `150305`, MEDIUM 이 60초 안 3회면 300초 제한(`tower.chat.*` 설정). 원문은 `tower_chat_log`(Flyway V1_1_5_007, 거절도 기록)에만 남고 다른 유저에게는 절대 안 나간다.
   **응원** = 완료 연출 뒤 10초 창(`TowerCheerWindowStore`, `MISSION_COMPLETED` 때 `TowerSeatService` 가 연다) 안에 `target_user_id` 로 보낸 리액션 1회(점유자당) → `addCheer`, 보상 없음. 차단 유저 숨김은 토픽이 방 공용이라 **클라이언트가 `user_id` 로**(이력 API 는 서버가 뺀다). Redis 장애 시 제한은 통과(fail-open). 운영자 뮤트·로그 보관 기간·어드민 화면은 미결. 웹 UI 는 LUT-643.
+- **입장 대기열** (LUT-701, `application/queue/` — `TowerQueueService` + `TowerQueueStore`(Redis 구현 `RedisTowerQueueStore`)): 상한 = 어드민 `max_concurrent_users`(null = 제한 없음 → 대기열 꺼짐, 5초 메모). 기준은 **웹소켓 연결 수**(`tower:ws:connected` 집합 — `TowerPresenceStore` 가 세션을 묶을 때 넣고 풀 때 뺀다, 자리만 유지 중인 미션 유저는 빠진다) **+ 아직 마감 전인 입장 가능 표 수**.
+  `POST .../enter` 가 상한이면 배정 대신 `queued=true` + `queue{ticket, status WAITING|ADMITTED, position, estimated_wait_seconds(순번×20초), population, admit_expires_in_seconds}`(추가 필드). **이미 안(직접 입장·방문객 점유자, 자리 유지 포함)이면 층 이동·복귀라 대기열을 거치지 않는다**(상한을 잠시 넘을 수 있다), 자동 착석만 한 유저는 새 입장으로 본다.
+  줄은 둘 — **로그인 줄이 방문객 줄보다 늘 앞**(먼저 선 방문객도 나중 로그인 유저에게 밀린다, 안의 방문객을 내보내지는 않는다). 자리가 나면 앞 순번에 ADMITTED(30초 창, `tower.queue.admit-window-seconds`) → `enter?queue_ticket=` 로 들어오면 표 소비. 창이 지나면 표를 버리고 다음 순번(그 표로 오면 줄 끝에 다시). 기다리는 사람이 있으면 표 없는 요청도 줄 끝(건너뛰기 불가), 같은 유저의 재요청은 같은 표.
+  대기 화면은 `GET /api/v1/tower/queue/{ticket}` 을 몇 초마다 조회(비로그인 허용, 로그인 표는 주인만, 없거나 끝난 표 404 `150206`) — **20초(`tower.queue.stale-seconds`) 조회가 없으면 화면을 벗어난 것으로 보고 줄에서 뺀다**(1단계: 백그라운드 대기·입장 푸시 없음), `DELETE` = 대기 그만하기. 입장 허용 계산(`admitPending`)은 조회·입장 요청마다 + `TowerQueueScheduler`(2초, ShedLock) 안전망, Redis 잠금으로 한 노드만. 대기 중 시작한 미션은 입장 때 `findInProgressMission`(또는 자동 착석 → 직접 입장 전환)으로 미션 중. 연결 집합의 점유자 행 없는 항목은 presence 정리 스케줄러가 뺀다.
 - **NPC·실제 흔적** (LUT-693, `tower_npc`·`tower_npc_line`, Flyway V1_1_5_009): NPC(층 주민)는 층마다 어드민이 등록(층당 최대 3명 150402, 다른 층에 쓰려면 그 층에 다시 등록) — 이름·상태 문구(선택)·대사 목록(순서, 문장마다) 4 locale, 프로필 이미지(층 이미지 API `kind=NPC`), 자리(마스크 안 150403), 공개. 대사 한 문장은 **표시 폭 80**(`TowerNpcTextRule` — 한글·한자·가나·전각·이모지 2, 그 외 1 = 한글 40자·영문 80자, 넘으면 150404).
   **NPC 는 점유자가 아니다** — 퇴장하지 않고, 인원 표시·인스턴스 배정·지표에 들어가지 않는다(별도 표라 자연히 0명). 입장 스냅샷(`GET .../presence`)이 `npcs`(그 층 공개 NPC 전원, 모든 방 같은 자리 — 수정은 다음 스냅샷부터)·`npc_shown`·`traces` 를 함께 내린다(추가 필드).
   **A/B**: `tower_setting.npc_exposure_percent`(0~100, 기본 100, `PUT /api/internal/tower/settings` 에서 null = 안 바꿈) — 유저 ID(방문객은 방문객 키) `hashCode` 0~99 버킷이 비율보다 작으면 노출, 같은 유저는 늘 같은 그룹. 숨김 그룹은 `npcs` 빈 배열 + `npc_shown=false`(분석 이벤트 파라미터).

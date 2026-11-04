@@ -14,6 +14,7 @@ import io.pinkspider.global.security.TokenBlacklistChecker;
 import io.pinkspider.global.security.UserExistenceChecker;
 import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -108,6 +109,7 @@ class SecurityConfigPublicEndpointTest {
                 "/api/v1/tower/instances/1/presence", // LUT-631
                 "/api/v1/tower/instances/1/chat", // LUT-633
                 "/api/v1/tower/chat/reactions", // LUT-633
+                "/api/v1/tower/queue/t-1", // LUT-701
                 "/api/v1/shop-items", // LUT-350
                 "/api/v1/diamond-bundles" // LUT-356
             })
@@ -243,5 +245,16 @@ class SecurityConfigPublicEndpointTest {
         Assertions.assertThat(status)
                 .as("%s 는 방문객(비로그인) 입장/퇴장이 허용돼야 한다 (LUT-630 permitAll POST 누락 의심)", path)
                 .isNotEqualTo(401);
+    }
+
+    /** LUT-701: 대기 그만하기 — 방문객도 줄을 서므로 DELETE 도 열려 있어야 한다(표 = 본인 확인) */
+    @Test
+    void 탑_대기열_익명_DELETE_는_401_이_아니어야_한다() throws Exception {
+        int status =
+                mockMvc.perform(delete("/api/v1/tower/queue/t-1"))
+                        .andReturn()
+                        .getResponse()
+                        .getStatus();
+        Assertions.assertThat(status).isNotEqualTo(401);
     }
 }

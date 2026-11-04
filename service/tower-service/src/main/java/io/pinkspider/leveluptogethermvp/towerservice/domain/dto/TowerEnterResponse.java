@@ -9,6 +9,9 @@ import com.fasterxml.jackson.databind.annotation.JsonNaming;
  *
  * <p>LUT-646: {@code auto_seat_continued} = 자동 착석 자리에서 직접 입장으로 이어졌는가(자동 착석 → 직접 입장 전환율 측정). 추가 필드라
  * 구앱은 무시한다.
+ *
+ * <p>LUT-701: 탑 전체 동시 접속 상한에 닿으면 배정 대신 {@code queued=true} + {@code queue}(순번·예상 대기·입장 가능 마감)를 돌려준다
+ * — 이때 인스턴스·점유자 필드는 비어 있다. 입장 가능 신호를 받으면 같은 표로 다시 입장을 요청한다.
  */
 @JsonNaming(SnakeCaseStrategy.class)
 public record TowerEnterResponse(
@@ -24,4 +27,26 @@ public record TowerEnterResponse(
         Integer seatY,
         Long population,
         Integer visitorNo,
-        Boolean autoSeatContinued) {}
+        Boolean autoSeatContinued,
+        Boolean queued,
+        TowerQueueStatus queue) {
+
+    public static TowerEnterResponse queued(int floorNumber, TowerQueueStatus status) {
+        return new TowerEnterResponse(
+                floorNumber,
+                null,
+                null,
+                false,
+                false,
+                null,
+                null,
+                null,
+                null,
+                null,
+                status.population(),
+                null,
+                false,
+                true,
+                status);
+    }
+}

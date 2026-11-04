@@ -11,6 +11,7 @@ import static org.springframework.restdocs.payload.PayloadDocumentation.requestF
 import static org.springframework.restdocs.payload.PayloadDocumentation.responseFields;
 import static org.springframework.restdocs.request.RequestDocumentation.parameterWithName;
 import static org.springframework.restdocs.request.RequestDocumentation.pathParameters;
+import static org.springframework.restdocs.request.RequestDocumentation.queryParameters;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -20,6 +21,7 @@ import io.pinkspider.leveluptogethermvp.towerservice.application.TowerEntryServi
 import io.pinkspider.leveluptogethermvp.towerservice.application.exception.TowerEntryException;
 import io.pinkspider.leveluptogethermvp.towerservice.domain.dto.TowerEnterResponse;
 import io.pinkspider.leveluptogethermvp.towerservice.domain.dto.TowerLeaveResponse;
+import io.pinkspider.leveluptogethermvp.towerservice.domain.dto.TowerQueueStatus;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -60,11 +62,11 @@ class TowerEntryControllerTest {
     @Test
     @DisplayName("POST /api/v1/tower/floors/{floorNumber}/enter : 입장·배정 (인스턴스 지정 파라미터 없음)")
     void enter() throws Exception {
-        when(entryService.enter(any(), eq(2)))
+        when(entryService.enter(any(), eq(2), any()))
                 .thenReturn(
                         new TowerEnterResponse(
                                 2, 10L, 77L, false, false, null, 1200, 900, 1200, 900, 12L, null,
-                                false));
+                                false, false, null));
 
         mockMvc.perform(
                         RestDocumentationRequestBuilders.post(
@@ -78,6 +80,11 @@ class TowerEntryControllerTest {
                                 "tower-floors-enter",
                                 pathParameters(
                                         parameterWithName("floorNumber").description("층 번호")),
+                                queryParameters(
+                                        parameterWithName("queue_ticket")
+                                                .description(
+                                                        "대기표 (LUT-701 — 입장 가능 신호를 받은 뒤 다시 요청할 때만)")
+                                                .optional()),
                                 responseFields(
                                         fieldWithPath("code").description("응답 코드"),
                                         fieldWithPath("message").description("응답 메시지"),
@@ -108,18 +115,96 @@ class TowerEntryControllerTest {
                                         fieldWithPath("value.auto_seat_continued")
                                                 .description(
                                                         "자동 착석 자리에서 직접 입장으로 이어졌는가 (자동 착석 → 직접 입장"
-                                                                + " 전환율 측정, LUT-646)"))));
+                                                                + " 전환율 측정, LUT-646)"),
+                                        fieldWithPath("value.queued")
+                                                .description(
+                                                        "대기열에 섰는가 (LUT-701 — true 면 배정 없이 queue 만,"
+                                                            + " 입장 가능 신호 뒤 queue_ticket 으로 다시 요청)"),
+                                        fieldWithPath("value.queue")
+                                                .description("대기 상태 (queued 일 때만, 아니면 null)")
+                                                .optional())));
+    }
+
+    @Test
+    @DisplayName("POST .../enter : 탑 전체 동시 접속 상한이면 배정 대신 대기 순번 (LUT-701)")
+    void enterQueued() throws Exception {
+        when(entryService.enter(any(), eq(2), eq("t-1")))
+                .thenReturn(
+                        TowerEnterResponse.queued(
+                                2, new TowerQueueStatus("t-1", "WAITING", 3, 60, 2, 120L, null)));
+
+        mockMvc.perform(
+                        RestDocumentationRequestBuilders.post(
+                                        "/api/v1/tower/floors/{floorNumber}/enter", 2)
+                                .queryParam("queue_ticket", "t-1"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.value.queued").value(true))
+                .andExpect(jsonPath("$.value.queue.position").value(3))
+                .andDo(
+                        document(
+                                "tower-floors-enter-queued",
+                                responseFields(
+                                        fieldWithPath("code").description("응답 코드"),
+                                        fieldWithPath("message").description("응답 메시지"),
+                                        fieldWithPath("value.floor_number").description("층 번호"),
+                                        fieldWithPath("value.population")
+                                                .description("층 전체 인원 (NPC 제외)"),
+                                        fieldWithPath("value.queued").description("true — 대기열에 섰다"),
+                                        fieldWithPath("value.instance_id")
+                                                .description("대기 중엔 비어 있음")
+                                                .optional(),
+                                        fieldWithPath("value.occupant_id")
+                                                .description("대기 중엔 비어 있음")
+                                                .optional(),
+                                        fieldWithPath("value.visitor_key")
+                                                .description("대기 중엔 비어 있음")
+                                                .optional(),
+                                        fieldWithPath("value.entry_point_x")
+                                                .description("대기 중엔 비어 있음")
+                                                .optional(),
+                                        fieldWithPath("value.entry_point_y")
+                                                .description("대기 중엔 비어 있음")
+                                                .optional(),
+                                        fieldWithPath("value.seat_x")
+                                                .description("대기 중엔 비어 있음")
+                                                .optional(),
+                                        fieldWithPath("value.seat_y")
+                                                .description("대기 중엔 비어 있음")
+                                                .optional(),
+                                        fieldWithPath("value.visitor_no")
+                                                .description("대기 중엔 비어 있음")
+                                                .optional(),
+                                        fieldWithPath("value.resumed").description("false"),
+                                        fieldWithPath("value.mission_active").description("false"),
+                                        fieldWithPath("value.auto_seat_continued")
+                                                .description("false"),
+                                        fieldWithPath("value.queue.ticket")
+                                                .description("대기표 — 상태 조회·대기 그만하기·입장 재요청에 쓴다"),
+                                        fieldWithPath("value.queue.status")
+                                                .description("WAITING / ADMITTED"),
+                                        fieldWithPath("value.queue.position")
+                                                .description("내 순번 (1부터, 로그인 유저가 방문객보다 앞)")
+                                                .optional(),
+                                        fieldWithPath("value.queue.estimated_wait_seconds")
+                                                .description("예상 대기 시간(초)"),
+                                        fieldWithPath("value.queue.floor_number")
+                                                .description("층 번호"),
+                                        fieldWithPath("value.queue.population")
+                                                .description("층 전체 인원"),
+                                        fieldWithPath("value.queue.admit_expires_in_seconds")
+                                                .description("ADMITTED 일 때 남은 입장 시간(초, 30초 창)")
+                                                .optional())));
     }
 
     @Test
     @DisplayName(
             "비로그인 입장은 visitor_key 를 받는다 · 레벨 부족 403 150203 · 없는 층 404 150201 · 비허용 층 403 150202")
     void guestAndErrors() throws Exception {
-        when(entryService.enter(any(), eq(1)))
+        when(entryService.enter(any(), eq(1), any()))
                 .thenReturn(
                         new TowerEnterResponse(
                                 1, 10L, 78L, false, false, "k-1", 1400, 1000, 1400, 1000, 3L, 4821,
-                                false));
+                                false, false, null));
         mockMvc.perform(
                         RestDocumentationRequestBuilders.post(
                                 "/api/v1/tower/floors/{floorNumber}/enter", 1))
@@ -127,21 +212,24 @@ class TowerEntryControllerTest {
                 .andExpect(jsonPath("$.value.visitor_key").value("k-1"))
                 .andExpect(jsonPath("$.value.visitor_no").value(4821));
 
-        when(entryService.enter(any(), eq(3))).thenThrow(TowerEntryException.levelInsufficient());
+        when(entryService.enter(any(), eq(3), any()))
+                .thenThrow(TowerEntryException.levelInsufficient());
         mockMvc.perform(
                         RestDocumentationRequestBuilders.post(
                                 "/api/v1/tower/floors/{floorNumber}/enter", 3))
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.code").value("150203"));
 
-        when(entryService.enter(any(), eq(9))).thenThrow(TowerEntryException.floorNotAvailable());
+        when(entryService.enter(any(), eq(9), any()))
+                .thenThrow(TowerEntryException.floorNotAvailable());
         mockMvc.perform(
                         RestDocumentationRequestBuilders.post(
                                 "/api/v1/tower/floors/{floorNumber}/enter", 9))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.code").value("150201"));
 
-        when(entryService.enter(any(), eq(4))).thenThrow(TowerEntryException.loginRequired());
+        when(entryService.enter(any(), eq(4), any()))
+                .thenThrow(TowerEntryException.loginRequired());
         mockMvc.perform(
                         RestDocumentationRequestBuilders.post(
                                 "/api/v1/tower/floors/{floorNumber}/enter", 4))

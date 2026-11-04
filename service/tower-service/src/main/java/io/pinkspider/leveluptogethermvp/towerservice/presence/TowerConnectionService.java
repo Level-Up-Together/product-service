@@ -155,6 +155,13 @@ public class TowerConnectionService {
                 }
             }
         }
+        // LUT-701: 연결 집합에 남은 점유자 행 없는 항목(퇴장 경로가 풀지 못한 것) — 동시 접속 수에서 뺀다
+        for (Long occupantId : store.connectedOccupantIds()) {
+            if (occupantRepository.findById(occupantId).isEmpty()) {
+                store.removeConnected(occupantId);
+                cleaned++;
+            }
+        }
         if (cleaned > 0) {
             log.info("[tower] presence 정리: {}건", cleaned);
         }
