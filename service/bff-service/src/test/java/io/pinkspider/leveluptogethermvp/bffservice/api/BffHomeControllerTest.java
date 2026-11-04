@@ -654,6 +654,30 @@ class BffHomeControllerTest {
                                                                         .type(JsonFieldType.STRING)
                                                                         .description("내용"),
                                                                 fieldWithPath(
+                                                                                "value.notices[].title_en")
+                                                                        .type(JsonFieldType.STRING)
+                                                                        .description(
+                                                                                "제목 (영어, LUT-128 —"
+                                                                                    + " 미입력 시 한글"
+                                                                                    + " 제목)")
+                                                                        .optional(),
+                                                                fieldWithPath(
+                                                                                "value.notices[].title_ar")
+                                                                        .type(JsonFieldType.STRING)
+                                                                        .description(
+                                                                                "제목 (아랍어, LUT-128 —"
+                                                                                    + " 미입력 시 한글"
+                                                                                    + " 제목)")
+                                                                        .optional(),
+                                                                fieldWithPath(
+                                                                                "value.notices[].title_ja")
+                                                                        .type(JsonFieldType.STRING)
+                                                                        .description(
+                                                                                "제목 (일본어, LUT-128 —"
+                                                                                    + " 미입력 시 한글"
+                                                                                    + " 제목)")
+                                                                        .optional(),
+                                                                fieldWithPath(
                                                                                 "value.notices[].content_en")
                                                                         .type(JsonFieldType.STRING)
                                                                         .description(
