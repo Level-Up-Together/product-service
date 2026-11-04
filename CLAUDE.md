@@ -784,6 +784,9 @@ uk 멱등) — 쪼개서 수행해도 몰아서 한 것과 같은 점수. "하�
   호출)도 누락된 것을 발견했다(실패를 try/catch 로 삼켜 증상이 안 보였다). **프론트·RN 에 커스텀 헤더를 추가하면 이 목록과
   `SecurityConfigCorsTest.ALLOWED_CLIENT_HEADERS` 에 함께 추가할 것.** 에러 응답(401/409 등)에는 CORS 필터가 인가 필터보다 앞이라
   헤더가 정상 포함된다. `maxAge=3600` 이므로 수정 배포 후에도 브라우저가 최대 1시간 옛 preflight 를 캐시한다 — 검증은 하드 리로드/시크릿 창.
+- **어드민·웹이 이미지 픽셀을 못 읽음 (`crossOrigin` + 403 Invalid CORS request)** (LUT-731): `crossOrigin="anonymous"` 로 이미지를 받으면 브라우저가 Origin 을 붙인다. 전역 CORS(`/**`)는 웹 출처(`oauth2.allowed-origins`)만 허용해 어드민의 탑 마스크 읽기가 403 이었다.
+  `SecurityConfig` 가 **`/uploads/**` 만 따로** 등록한다 — 우리 도메인 패턴(`app.cors.uploads.allowed-origin-patterns`, 기본 `https://level-up-together.com:[*]`·`https://*.level-up-together.com:[*]`·localhost) + 웹 출처, GET/HEAD, 쿠키 없음(`SecurityConfigCorsTest`). 어드민 출처는 API 경로에는 여전히 거부.
+  prod 이미지 CDN(`images.`)은 CloudFront 캐시 키에 Origin 이 없어 첫 요청 출처의 `Access-Control-Allow-Origin` 이 캐시돼 다른 출처에 나갔다 → infra `cloudfront.tf` 응답 헤더 정책 `cors_config` 로 `*` 고정(origin_override).
 - **데이터 미저장/미조회**: `@Transactional`의 트랜잭션 매니저 확인
 - **Integration test 실패**: SSH 터널/외부 서비스 의존, `@ActiveProfiles("test")` 확인
 - **비로그인 API가 401** (LUT-350): 비로그인 허용은 **필터(`SecurityConfig`의 `permitAll`) + resolver(`@CurrentUser(required = false)`)

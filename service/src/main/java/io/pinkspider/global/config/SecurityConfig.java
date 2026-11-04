@@ -4,6 +4,7 @@ import io.pinkspider.global.security.AuthEntryPointJwt;
 import io.pinkspider.global.security.InternalApiKeyFilter;
 import io.pinkspider.global.security.JwtAuthenticationFilter;
 import io.pinkspider.global.security.OAuth2Properties;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
@@ -38,6 +39,16 @@ public class SecurityConfig {
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
     private final InternalApiKeyFilter internalApiKeyFilter;
     private final OAuth2Properties oAuth2Properties;
+
+    /**
+     * LUT-731: {@code /uploads/**}(비로그인 공개 정적 이미지)를 읽을 수 있는 출처 패턴. 어드민이 바닥 마스크 픽셀을 읽으려고 {@code
+     * crossOrigin="anonymous"} 로 받으면 Origin 이 붙는데, 웹 출처만 허용하던 전역 설정이 403 을 냈다. 우리 도메인(웹·어드민, 하위
+     * 도메인·포트 포함)과 로컬만 — 웹 출처 목록({@code oauth2.allowed-origins})은 자동으로 더해진다.
+     */
+    @Value(
+            "${app.cors.uploads.allowed-origin-patterns:https://level-up-together.com:[*],"
+                + "https://*.level-up-together.com:[*],http://localhost:[*],https://localhost:[*]}")
+    private String[] uploadsAllowedOriginPatterns = new String[0];
 
     @Bean
     public AuthenticationManager authenticationManager(AuthenticationConfiguration authConfig)
@@ -82,8 +93,27 @@ public class SecurityConfig {
         configuration.setMaxAge(3600L);
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        // 먼저 등록한 패턴이 먼저 맞는다 — /uploads/** 를 전역보다 앞에
+        source.registerCorsConfiguration("/uploads/**", uploadsCorsConfiguration(allowedOrigins));
         source.registerCorsConfiguration("/**", configuration);
         return source;
+    }
+
+    /**
+     * LUT-731: 공개 정적 이미지 — 읽기(GET/HEAD)만, 쿠키 없음. 응답 Access-Control-Allow-Origin 은 요청 출처를 그대로 돌려주고
+     * {@code Vary: Origin} 이 붙는다.
+     */
+    private CorsConfiguration uploadsCorsConfiguration(List<String> webOrigins) {
+        List<String> patterns = new ArrayList<>(Arrays.asList(uploadsAllowedOriginPatterns));
+        if (webOrigins != null) {
+            patterns.addAll(webOrigins);
+        }
+        CorsConfiguration uploads = new CorsConfiguration();
+        uploads.setAllowedOriginPatterns(patterns);
+        uploads.setAllowedMethods(Arrays.asList("GET", "HEAD", "OPTIONS"));
+        uploads.setAllowCredentials(false);
+        uploads.setMaxAge(3600L);
+        return uploads;
     }
 
     @Bean
