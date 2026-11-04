@@ -817,6 +817,8 @@ public class MyPageService {
                 .rankingPoints(stats.rankingPoints())
                 .practiceStreakDays(practice.currentDays())
                 .maxPracticeStreakDays(practice.maxDays())
+                .practiceShieldsRemaining(practice.shieldsRemaining())
+                .lastPracticeShieldDate(practice.lastShieldDate())
                 .build();
     }
 

@@ -7,6 +7,8 @@ import io.pinkspider.global.facade.dto.PracticeStreakDto;
 import io.pinkspider.leveluptogethermvp.gamificationservice.domain.entity.UserStats;
 import io.pinkspider.leveluptogethermvp.gamificationservice.infrastructure.UserStatsRepository;
 import io.pinkspider.leveluptogethermvp.gamificationservice.stats.domain.dto.UserStatsResponse;
+import io.pinkspider.leveluptogethermvp.gamificationservice.subscription.domain.entity.UserSubscription;
+import io.pinkspider.leveluptogethermvp.gamificationservice.subscription.infrastructure.UserSubscriptionRepository;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
@@ -14,6 +16,7 @@ import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Predicate;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -33,6 +36,7 @@ public class UserStatsService {
     private final UserQueryFacade userQueryFacade;
     private final GuildQueryFacade guildQueryFacade;
     private final MissionQueryFacade missionQueryFacade;
+    private final UserSubscriptionRepository userSubscriptionRepository;
 
     // LUT-405: userQueryFacadeService → userProfileCacheService → gamificationQueryFacadeService
     // → userStatsService 로 이어지는 user↔gamification 생성 사이클을 @Lazy 로 끊는다.
@@ -43,8 +47,10 @@ public class UserStatsService {
             UserStatsCreator userStatsCreator,
             @Lazy UserQueryFacade userQueryFacade,
             @Lazy GuildQueryFacade guildQueryFacade,
-            @Lazy MissionQueryFacade missionQueryFacade) {
+            @Lazy MissionQueryFacade missionQueryFacade,
+            UserSubscriptionRepository userSubscriptionRepository) {
         this.userStatsRepository = userStatsRepository;
+        this.userSubscriptionRepository = userSubscriptionRepository;
         this.userStatsCreator = userStatsCreator;
         this.userQueryFacade = userQueryFacade;
         this.guildQueryFacade = guildQueryFacade;
@@ -129,7 +135,8 @@ public class UserStatsService {
                 completedAtUtc != null ? completedAtUtc : LocalDateTime.now(ZoneOffset.UTC);
         LocalDate practiceDate = at.atZone(ZoneOffset.UTC).withZoneSameInstant(zone).toLocalDate();
         UserStats stats = getOrCreateUserStats(userId);
-        stats.recordPractice(practiceDate);
+        // LUT-723: 건너뛴 날은 그날 구독 중이었으면 방어권으로 잇는다
+        stats.recordPractice(practiceDate, entitledOn(findSubscription(userId), zone));
         log.debug(
                 "연속 실천 반영: userId={}, practiceDate={}, current={}, max={}",
                 userId,
@@ -150,10 +157,51 @@ public class UserStatsService {
             rebuildPracticeStreakFromHistory(userId, stats, zone);
         }
         LocalDate today = LocalDate.now(zone);
+        // LUT-723: 놓친 날(어제까지)을 방어권으로 이을 수 있으면 현재값 유지 + 이번 달 남은 방어권(구독 중일 때만)
+        Optional<UserSubscription> subscription = findSubscription(userId);
+        boolean entitledNow =
+                subscription
+                        .map(s -> s.isEntitled(LocalDateTime.now(ZoneOffset.UTC)))
+                        .orElse(false);
+        UserStats.PracticeView view =
+                stats.practiceViewAsOf(today, entitledOn(subscription, zone), entitledNow);
         return new PracticeStreakDto(
-                stats.currentPracticeStreakAsOf(today),
+                view.currentDays(),
                 stats.getMaxPracticeStreak() == null ? 0 : stats.getMaxPracticeStreak(),
-                stats.getLastPracticeDate());
+                stats.getLastPracticeDate(),
+                view.shieldsRemaining(),
+                view.lastShieldDate());
+    }
+
+    /** LUT-723: 구독 행 — 조회 실패는 구독 없음으로(연속 실천 조회·반영을 막지 않는다) */
+    private Optional<UserSubscription> findSubscription(String userId) {
+        try {
+            return userSubscriptionRepository.findByUserId(userId);
+        } catch (Exception e) {
+            log.warn("연속 실천 방어권 — 구독 조회 실패: userId={}, error={}", userId, e.getMessage());
+            return Optional.empty();
+        }
+    }
+
+    /**
+     * LUT-723: 그 날(유저 로컬)이 끝날 때 구독 중이었는가 — 방어권은 놓친 날이 끝날 때 쓴다. 그 날이 끝나기 전에 시작했고, 끝나는 순간까지 권한(활성·유예,
+     * 무료 체험 포함)이 있었으면 참.
+     */
+    static Predicate<LocalDate> entitledOn(Optional<UserSubscription> subscription, ZoneId zone) {
+        if (subscription.isEmpty()) {
+            return day -> false;
+        }
+        UserSubscription s = subscription.get();
+        return day -> {
+            LocalDateTime dayEndUtc =
+                    day.plusDays(1)
+                            .atStartOfDay(zone)
+                            .withZoneSameInstant(ZoneOffset.UTC)
+                            .toLocalDateTime()
+                            .minusSeconds(1);
+            return (s.getStartedAt() == null || !s.getStartedAt().isAfter(dayEndUtc))
+                    && s.isEntitled(dayEndUtc);
+        };
     }
 
     /** 가입일부터의 미션 완료 로컬 날짜 집합으로 연속 실천을 다시 센다. 실패해도 조회를 막지 않는다(0 으로 응답, 다음 조회 때 재시도). */
