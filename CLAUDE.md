@@ -309,7 +309,7 @@ Redis Stream `stream:app-push` → `AppPushMessageConsumer` → `FcmPushService`
 
 - `NotificationType`은 platform kernel에 정의 (category, messageTemplate, actionUrlPattern, dedup 여부)
 - 방해금지(quiet hours)는 유저 `preferred_timezone` 기준 판정, **푸시만 억제** (DB 저장은 유지)
-- 카테고리 토글은 FRIEND/GUILD/SOCIAL/SYSTEM만 — MISSION/ACHIEVEMENT/INQUIRY/LEVEL/ITEM은 항상 발송 (`NotificationType` 35종, LUT-410 아이템·LUT-489 스티펜드·LUT-508 `ADMIN_PUSH` 포함)
+- 카테고리 토글은 FRIEND/GUILD/SOCIAL/SYSTEM만 — MISSION/ACHIEVEMENT/INQUIRY/LEVEL/ITEM은 항상 발송 (`NotificationType` 36종, LUT-410 아이템·LUT-489 스티펜드·LUT-508 `ADMIN_PUSH`·LUT-634 `TOWER_FLOOR_UNLOCKED` 포함)
 - GUILD_DM은 수신자가 DM방 열람 중이면 이벤트 자체 미발행 (`DmPresenceService`, Redis TTL 60초, LUT-263)
 - Consumer 재현지화는 외부 발행 타입(INQUIRY_REPLIED, admin-service 발행)만 — 내부 발행분을 재현지화하면 `{1}` 리터럴 노출 (LUT-262)
 - 뱃지 동기화 3경로: 푸시 발송 시 +1 / 읽음 처리 시 badge-only silent push(iOS, content-available 없음) / 웹→앱 `badgeSync` 브릿지(Android 유일 해제 경로) (LUT-291)
@@ -532,6 +532,8 @@ prod 첫 적용 파일은 LUT-666 핫픽스 `gamification/V1_1_3_013`(2026-10-29
   **판정 순서**(서버가 최종): 점유자 아님 403 `150301` → 미션 중 403 `150304`(리액션은 허용) → 길이(로그인 200·방문객 40) 400 `150307` → 방문객 URL·전화·메신저 400 `150308` → 제한 중 403 `150306` → 간격(로그인 1초·방문객 5초, Redis SETNX) 429 `150302` → 같은 내용 연속 400 `150303` → 금칙어.
   **금칙어**는 어드민 비속어 목록(`ProfanityValidationService.getActiveProfanityWordsWithSeverity`, 캐시 `profanityWords` — 어드민 변경 시 evict)으로 **공백·특수문자를 지운 소문자**로 비교: LOW·MEDIUM 은 그 단어만 `**` 로 가리고 전송, HIGH 는 전체 거부 400 `150305`, MEDIUM 이 60초 안 3회면 300초 제한(`tower.chat.*` 설정). 원문은 `tower_chat_log`(Flyway V1_1_5_007, 거절도 기록)에만 남고 다른 유저에게는 절대 안 나간다.
   **응원** = 완료 연출 뒤 10초 창(`TowerCheerWindowStore`, `MISSION_COMPLETED` 때 `TowerSeatService` 가 연다) 안에 `target_user_id` 로 보낸 리액션 1회(점유자당) → `addCheer`, 보상 없음. 차단 유저 숨김은 토픽이 방 공용이라 **클라이언트가 `user_id` 로**(이력 API 는 서버가 뺀다). Redis 장애 시 제한은 통과(fail-open). 운영자 뮤트·로그 보관 기간·어드민 화면은 미결. 웹 UI 는 LUT-643.
+- **보상** (LUT-634): **탑 전용 경험치 없음**(어디서 시작하든 같은 EXP, 응원 보상 없음). ① **층 해제 알림**: `TowerFloorUnlockListener`(tower, `UserLevelUpEvent` AFTER_COMMIT+fallback)가 공개 층 중 **입장 레벨 기준** "이전 레벨 < 입장 레벨 ≤ 새 레벨"(제한 없는 층 제외, 층 번호와 무관)인 층을 찾아 **가장 높은 층 1건**으로 kernel `TowerFloorUnlockedEvent` 를 재발행 → `NotificationEventListener`(`fallbackExecution = true` 필수, LUT-653) → `TOWER_FLOOR_UNLOCKED`(SYSTEM, referenceId=층 번호 dedup, 링크 `/tower/{n}`, 장소명은 수신자 locale). `UserLevelUpEvent` 에 `previousLevel` 이 생겼다(3-인자 생성자는 newLevel-1).
+  ② **층 첫 입장 업적·칭호**: `tower_floor_visit`(유저×층 유니크, Flyway V008)에 `ON CONFLICT DO NOTHING` 으로 넣어 1행이면 `TowerFloorFirstEnteredEvent` → gamification `AchievementEventListener` 가 `TOWER_SERVICE` 데이터 소스 업적을 재판정(`TowerServiceCheckStrategy`: `visitedFloorCount`·`highestVisitedFloor`, 값은 `TowerQueryFacade.countVisitedFloors/highestVisitedFloor`). 보상 칭호는 기존 흐름(완료 → 자동 수령 → `TitleAcquiredEvent` → 웹 `TitleAcquisitionModal`). **업적·칭호 행은 어드민 마스터 데이터**(check_logic_type `TOWER_SERVICE` + achievement `category_code SPECIAL` + title) — 시드는 SQL 레포 `queries/developing/1.1.5/lut634_tower_achievements.sql`(dev·prod 수동). 방문객은 기록하지 않는다.
 
 ## 상점 · 다이아 경제 (gamificationservice/shop, LUT-327/348/349/350/354/356/401)
 

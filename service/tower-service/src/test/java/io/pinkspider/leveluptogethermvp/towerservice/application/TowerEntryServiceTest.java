@@ -9,6 +9,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -24,6 +25,7 @@ import io.pinkspider.leveluptogethermvp.towerservice.domain.entity.TowerOccupant
 import io.pinkspider.leveluptogethermvp.towerservice.domain.entity.TowerUserState;
 import io.pinkspider.leveluptogethermvp.towerservice.domain.enums.TowerOccupantKind;
 import io.pinkspider.leveluptogethermvp.towerservice.infrastructure.TowerFloorRepository;
+import io.pinkspider.leveluptogethermvp.towerservice.infrastructure.TowerFloorVisitRepository;
 import io.pinkspider.leveluptogethermvp.towerservice.infrastructure.TowerOccupantRepository;
 import io.pinkspider.leveluptogethermvp.towerservice.infrastructure.TowerUserStateRepository;
 import java.time.LocalDateTime;
@@ -58,6 +60,9 @@ class TowerEntryServiceTest {
     private io.pinkspider.leveluptogethermvp.towerservice.presence.TowerPresenceService
             presenceService;
 
+    @Mock private TowerFloorVisitRepository visitRepository;
+    @Mock private org.springframework.context.ApplicationEventPublisher eventPublisher;
+
     private TowerEntryService service;
 
     private final TowerFloor f1 = floor(1L, 1, null, true, true);
@@ -75,7 +80,9 @@ class TowerEntryServiceTest {
                         populationService,
                         gamificationQueryFacade,
                         missionQueryFacade,
-                        presenceService);
+                        presenceService,
+                        visitRepository,
+                        eventPublisher);
         when(populationService.of(anyInt())).thenReturn(3L);
         when(missionQueryFacade.findInProgressMission(any())).thenReturn(Optional.empty());
         when(userStateRepository.findById(any())).thenReturn(Optional.empty());
@@ -312,5 +319,32 @@ class TowerEntryServiceTest {
         when(missionQueryFacade.findInProgressMission(USER))
                 .thenThrow(new RuntimeException("down"));
         assertThat(service.enter(USER, 2).missionActive()).isFalse();
+    }
+
+    @Test
+    @DisplayName("LUT-634: 층 첫 입장이면(insert 1행) TowerFloorFirstEnteredEvent, 두 번째(0행)·방문객은 없음")
+    void firstFloorVisit() {
+        stub(f1);
+        when(visitRepository.insertIfAbsent(eq(USER), eq(1), any())).thenReturn(1);
+        when(visitRepository.countByUserId(USER)).thenReturn(2L);
+        service.enter(USER, 1);
+        ArgumentCaptor<Object> events = ArgumentCaptor.forClass(Object.class);
+        verify(eventPublisher).publishEvent(events.capture());
+        assertThat(events.getValue())
+                .isInstanceOf(io.pinkspider.global.event.TowerFloorFirstEnteredEvent.class);
+        io.pinkspider.global.event.TowerFloorFirstEnteredEvent entered =
+                (io.pinkspider.global.event.TowerFloorFirstEnteredEvent) events.getValue();
+        assertThat(entered.userId()).isEqualTo(USER);
+        assertThat(entered.floorNumber()).isEqualTo(1);
+        assertThat(entered.visitedFloorCount()).isEqualTo(2);
+
+        org.mockito.Mockito.clearInvocations(eventPublisher);
+        when(visitRepository.insertIfAbsent(eq(USER), eq(1), any())).thenReturn(0);
+        service.enter(USER, 1);
+        verify(eventPublisher, never()).publishEvent(any(Object.class));
+
+        when(allocator.pickForDirectEntry(eq(f1), any())).thenReturn(instance(10L, 1));
+        service.enter(null, 1);
+        verify(visitRepository, never()).insertIfAbsent(isNull(), anyInt(), any());
     }
 }

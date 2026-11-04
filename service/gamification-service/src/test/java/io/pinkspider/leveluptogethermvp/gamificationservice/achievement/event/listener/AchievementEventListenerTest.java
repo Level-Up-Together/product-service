@@ -7,6 +7,7 @@ import static org.mockito.Mockito.verify;
 
 import io.pinkspider.global.event.GuildJoinedEvent;
 import io.pinkspider.global.event.GuildMasterAssignedEvent;
+import io.pinkspider.global.event.TowerFloorFirstEnteredEvent;
 import io.pinkspider.leveluptogethermvp.gamificationservice.achievement.application.AchievementService;
 import io.pinkspider.leveluptogethermvp.gamificationservice.achievement.event.AchievementCheckRequestedEvent;
 import java.util.List;
@@ -126,6 +127,28 @@ class AchievementEventListenerTest {
             // then - 두 번째 소스는 정상 체크
             verify(achievementService)
                     .checkAchievementsByDataSource("user-123", "USER_CATEGORY_EXPERIENCE");
+        }
+    }
+
+    @Nested
+    @DisplayName("탑 층 첫 입장 이벤트 처리 (LUT-634)")
+    class HandleTowerFloorFirstEnteredTest {
+
+        @Test
+        @DisplayName("TOWER_SERVICE 업적을 재판정하고, 실패는 삼킨다")
+        void shouldCheckTowerAchievements() {
+            eventListener.handleTowerFloorFirstEntered(
+                    new TowerFloorFirstEnteredEvent("user-123", 2, 2));
+            verify(achievementService).checkAchievementsByDataSource("user-123", "TOWER_SERVICE");
+
+            org.mockito.Mockito.doThrow(new RuntimeException("boom"))
+                    .when(achievementService)
+                    .checkAchievementsByDataSource("user-9", "TOWER_SERVICE");
+            org.assertj.core.api.Assertions.assertThatCode(
+                            () ->
+                                    eventListener.handleTowerFloorFirstEntered(
+                                            new TowerFloorFirstEnteredEvent("user-9", 1, 1)))
+                    .doesNotThrowAnyException();
         }
     }
 }

@@ -13,7 +13,9 @@ public enum CheckLogicDataSource {
     USER_CATEGORY_EXPERIENCE("USER_CATEGORY_EXPERIENCE", "카테고리별 경험치"),
     FRIEND_SERVICE("FRIEND_SERVICE", "친구 서비스"),
     GUILD_SERVICE("GUILD_SERVICE", "길드 서비스"),
-    FEED_SERVICE("FEED_SERVICE", "피드 서비스");
+    FEED_SERVICE("FEED_SERVICE", "피드 서비스"),
+    /** LUT-634: 레벨업 탑 — visitedFloorCount(처음 들어가 본 층 수)·highestVisitedFloor(가장 높은 층) */
+    TOWER_SERVICE("TOWER_SERVICE", "레벨업 탑");
 
     private final String code;
     private final String displayName;

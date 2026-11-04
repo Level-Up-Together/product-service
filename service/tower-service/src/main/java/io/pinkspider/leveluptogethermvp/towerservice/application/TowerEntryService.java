@@ -1,5 +1,6 @@
 package io.pinkspider.leveluptogethermvp.towerservice.application;
 
+import io.pinkspider.global.event.TowerFloorFirstEnteredEvent;
 import io.pinkspider.global.facade.GamificationQueryFacade;
 import io.pinkspider.global.facade.MissionQueryFacade;
 import io.pinkspider.leveluptogethermvp.towerservice.application.exception.TowerEntryException;
@@ -10,6 +11,7 @@ import io.pinkspider.leveluptogethermvp.towerservice.domain.entity.TowerInstance
 import io.pinkspider.leveluptogethermvp.towerservice.domain.entity.TowerOccupant;
 import io.pinkspider.leveluptogethermvp.towerservice.domain.entity.TowerUserState;
 import io.pinkspider.leveluptogethermvp.towerservice.infrastructure.TowerFloorRepository;
+import io.pinkspider.leveluptogethermvp.towerservice.infrastructure.TowerFloorVisitRepository;
 import io.pinkspider.leveluptogethermvp.towerservice.infrastructure.TowerOccupantRepository;
 import io.pinkspider.leveluptogethermvp.towerservice.infrastructure.TowerUserStateRepository;
 import io.pinkspider.leveluptogethermvp.towerservice.presence.TowerPresenceService;
@@ -17,6 +19,7 @@ import java.time.LocalDateTime;
 import java.util.Optional;
 import java.util.UUID;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.lang.Nullable;
 import org.springframework.stereotype.Service;
@@ -43,6 +46,8 @@ public class TowerEntryService {
     private final GamificationQueryFacade gamificationQueryFacade;
     private final MissionQueryFacade missionQueryFacade;
     private final TowerPresenceService presenceService;
+    private final TowerFloorVisitRepository towerFloorVisitRepository;
+    private final ApplicationEventPublisher eventPublisher;
 
     public TowerEntryService(
             TowerFloorRepository towerFloorRepository,
@@ -52,7 +57,9 @@ public class TowerEntryService {
             TowerPopulationService towerPopulationService,
             @Lazy GamificationQueryFacade gamificationQueryFacade,
             @Lazy MissionQueryFacade missionQueryFacade,
-            TowerPresenceService presenceService) {
+            TowerPresenceService presenceService,
+            TowerFloorVisitRepository towerFloorVisitRepository,
+            ApplicationEventPublisher eventPublisher) {
         this.towerFloorRepository = towerFloorRepository;
         this.towerOccupantRepository = towerOccupantRepository;
         this.towerUserStateRepository = towerUserStateRepository;
@@ -61,6 +68,8 @@ public class TowerEntryService {
         this.gamificationQueryFacade = gamificationQueryFacade;
         this.missionQueryFacade = missionQueryFacade;
         this.presenceService = presenceService;
+        this.towerFloorVisitRepository = towerFloorVisitRepository;
+        this.eventPublisher = eventPublisher;
     }
 
     @Transactional(transactionManager = "towerTransactionManager")
@@ -246,5 +255,16 @@ public class TowerEntryService {
                                                 .lastFloorNumber(floorNumber)
                                                 .lastEnteredAt(now)
                                                 .build()));
+        // LUT-634: 층 첫 입장 — 유저×층 유니크라 두 번째부터는 0행. 커밋 뒤 gamification 이 TOWER_SERVICE 업적을 재판정한다
+        if (towerFloorVisitRepository.insertIfAbsent(userId, floorNumber, now) > 0) {
+            int visited = (int) towerFloorVisitRepository.countByUserId(userId);
+            eventPublisher.publishEvent(
+                    new TowerFloorFirstEnteredEvent(userId, floorNumber, visited));
+            log.info(
+                    "[tower] 층 첫 입장: userId={} floor={} visitedFloors={}",
+                    userId,
+                    floorNumber,
+                    visited);
+        }
     }
 }
