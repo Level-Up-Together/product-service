@@ -221,6 +221,10 @@ class MyPageServiceTest {
             when(userLevelConfigCacheService.getLevelConfigByLevel(2))
                     .thenReturn(UserLevelConfig.builder().requiredExp(100).build());
             when(gamificationQueryFacadeService.calculateRankingPercentile(0L)).thenReturn(50.0);
+            // LUT-723: 방어 반영 연속 실천 + 남은 방어권·마지막 방어일
+            java.time.LocalDate shielded = java.time.LocalDate.of(2026, 11, 3);
+            when(gamificationQueryFacadeService.getPracticeStreak(TEST_USER_ID))
+                    .thenReturn(new PracticeStreakDto(4, 9, shielded.plusDays(1), 1, shielded));
 
             // when
             MyPageResponse result = myPageService.getMyPage(TEST_USER_ID);
@@ -230,6 +234,9 @@ class MyPageServiceTest {
             assertThat(result.getProfile()).isNotNull();
             assertThat(result.getExperience()).isNotNull();
             assertThat(result.getUserInfo()).isNotNull();
+            assertThat(result.getUserInfo().getPracticeStreakDays()).isEqualTo(4);
+            assertThat(result.getUserInfo().getPracticeShieldsRemaining()).isEqualTo(1);
+            assertThat(result.getUserInfo().getLastPracticeShieldDate()).isEqualTo(shielded);
         }
 
         @Test

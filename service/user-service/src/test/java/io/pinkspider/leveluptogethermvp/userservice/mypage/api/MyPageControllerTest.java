@@ -135,6 +135,8 @@ class MyPageControllerTest {
                         .rankingPoints(1500L)
                         .practiceStreakDays(4)
                         .maxPracticeStreakDays(12)
+                        .practiceShieldsRemaining(1)
+                        .lastPracticeShieldDate(LocalDate.of(2026, 11, 3))
                         .build();
 
         MyPageResponse response =
@@ -410,7 +412,25 @@ class MyPageControllerTest {
                                                                         .type(JsonFieldType.NUMBER)
                                                                         .description(
                                                                                 "최장 연속 실천 일수"
-                                                                                    + " (LUT-717)"))
+                                                                                    + " (LUT-717)"),
+                                                                fieldWithPath(
+                                                                                "value.user_info.practice_shields_remaining")
+                                                                        .type(JsonFieldType.NUMBER)
+                                                                        .description(
+                                                                                "이번 달 남은 연속 실천 방어권"
+                                                                                    + " (구독자만, 매달"
+                                                                                    + " 2개, 비구독자 0"
+                                                                                    + " — LUT-723)")
+                                                                        .optional(),
+                                                                fieldWithPath(
+                                                                                "value.user_info.last_practice_shield_date")
+                                                                        .type(JsonFieldType.STRING)
+                                                                        .description(
+                                                                                "마지막으로 방어된 날 (유저 로컬"
+                                                                                    + " YYYY-MM-DD,"
+                                                                                    + " 없으면 null —"
+                                                                                    + " LUT-723)")
+                                                                        .optional())
                                                         .build())));
 
         // then

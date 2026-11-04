@@ -10,9 +10,14 @@ import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
 import jakarta.validation.constraints.NotNull;
 import java.time.LocalDate;
+import java.time.YearMonth;
+import java.time.temporal.ChronoUnit;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
+import java.util.function.Predicate;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -93,6 +98,20 @@ public class UserStats extends LocalDateTimeBaseEntity {
     @Column(name = "last_practice_date")
     @Comment("마지막 실천 날짜 (유저 로컬) — NULL 이면 첫 조회 때 이력으로 재계산")
     private LocalDate lastPracticeDate;
+
+    // LUT-723 구독자 연속 실천 방어권 — 매달 2개(이월 없음), 연속으로 놓친 날 최대 2일
+    @Column(name = "practice_shield_month", length = 7)
+    @Comment("방어권 사용을 센 달 (유저 로컬 YYYY-MM) — 지금 달이 아니면 사용 0")
+    private String practiceShieldMonth;
+
+    @Column(name = "practice_shields_used", nullable = false)
+    @Comment("practice_shield_month 에 쓴 방어권 수")
+    @Builder.Default
+    private Integer practiceShieldsUsed = 0;
+
+    @Column(name = "last_practice_shield_date")
+    @Comment("마지막으로 방어된 날 (유저 로컬)")
+    private LocalDate lastPracticeShieldDate;
 
     // 업적/칭호 통계
     @Column(name = "total_achievements_completed", nullable = false)
@@ -209,6 +228,14 @@ public class UserStats extends LocalDateTimeBaseEntity {
      * 포인트·활동 스트릭은 건드리지 않는다.
      */
     public void recordPractice(LocalDate practiceDate) {
+        recordPractice(practiceDate, day -> false);
+    }
+
+    /**
+     * LUT-723: 건너뛴 날이 있으면 구독자 방어권으로 이을 수 있는지 본다 — 놓친 날이 연속 최대 2일이고, 그날마다 구독 중이었고({@code
+     * entitledOn}), 그 달 방어권이 남아 있으면 방어권을 쓰고 +1(방어된 날은 일수에 더하지 않는다). 아니면 1 부터.
+     */
+    public void recordPractice(LocalDate practiceDate, Predicate<LocalDate> entitledOn) {
         if (practiceDate == null) {
             return;
         }
@@ -220,7 +247,13 @@ public class UserStats extends LocalDateTimeBaseEntity {
         } else if (lastPracticeDate.plusDays(1).equals(practiceDate)) {
             this.practiceStreak++;
         } else {
-            this.practiceStreak = 1;
+            Optional<ShieldPlan> plan = planShields(practiceDate, entitledOn);
+            if (plan.isPresent()) {
+                applyShields(plan.get());
+                this.practiceStreak++;
+            } else {
+                this.practiceStreak = 1;
+            }
         }
         if (this.practiceStreak > this.maxPracticeStreak) {
             this.maxPracticeStreak = this.practiceStreak;
@@ -250,6 +283,96 @@ public class UserStats extends LocalDateTimeBaseEntity {
         this.maxPracticeStreak =
                 Math.max(best, this.maxPracticeStreak == null ? 0 : this.maxPracticeStreak);
         this.lastPracticeDate = prev;
+    }
+
+    /** LUT-723: 한 달 방어권 수 */
+    public static final int MONTHLY_PRACTICE_SHIELDS = 2;
+
+    /** LUT-723: 연속으로 놓친 날 중 방어할 수 있는 최대 일수 — 3일 연속 놓치면 끊긴다 */
+    public static final int MAX_SHIELDED_GAP_DAYS = 2;
+
+    /** LUT-723: 놓친 날을 방어권으로 덮는 계획 — 덮을 날, 그 뒤의 달·사용 수 */
+    public record ShieldPlan(List<LocalDate> days, String month, int used) {}
+
+    /** LUT-723: 지금 시점의 연속 실천(방어 반영)과 이번 달 남은 방어권 — 조회는 저장하지 않는다(다음 실천 때 실제로 쓴다) */
+    public record PracticeView(int currentDays, int shieldsRemaining, LocalDate lastShieldDate) {}
+
+    /**
+     * LUT-723: 마지막 실천일과 {@code untilExclusive} 사이(둘 다 제외)의 놓친 날을 방어권으로 덮을 수 있으면 그 계획. 놓친 날이 없으면 빈
+     * 계획, 덮을 수 없으면 empty. 방어권은 날마다 그 날의 달에서 쓴다(달이 바뀌면 다시 2개).
+     */
+    public Optional<ShieldPlan> planShields(
+            LocalDate untilExclusive, Predicate<LocalDate> entitledOn) {
+        if (lastPracticeDate == null || untilExclusive == null) {
+            return Optional.empty();
+        }
+        long missedCount = ChronoUnit.DAYS.between(lastPracticeDate, untilExclusive) - 1;
+        if (missedCount < 0 || missedCount > MAX_SHIELDED_GAP_DAYS) {
+            return Optional.empty();
+        }
+        String month = practiceShieldMonth;
+        int used = practiceShieldsUsed == null ? 0 : practiceShieldsUsed;
+        List<LocalDate> days = new ArrayList<>();
+        for (LocalDate day = lastPracticeDate.plusDays(1);
+                day.isBefore(untilExclusive);
+                day = day.plusDays(1)) {
+            if (!entitledOn.test(day)) {
+                return Optional.empty();
+            }
+            String dayMonth = YearMonth.from(day).toString();
+            if (!dayMonth.equals(month)) {
+                month = dayMonth;
+                used = 0;
+            }
+            if (used >= MONTHLY_PRACTICE_SHIELDS) {
+                return Optional.empty();
+            }
+            used++;
+            days.add(day);
+        }
+        return Optional.of(new ShieldPlan(List.copyOf(days), month, used));
+    }
+
+    private void applyShields(ShieldPlan plan) {
+        if (plan.days().isEmpty()) {
+            return;
+        }
+        this.practiceShieldMonth = plan.month();
+        this.practiceShieldsUsed = plan.used();
+        this.lastPracticeShieldDate = plan.days().get(plan.days().size() - 1);
+    }
+
+    /**
+     * LUT-723: 오늘(유저 로컬) 기준 연속 실천 — 마지막 실천이 오늘·어제면 그대로, 그 사이 놓친 날(어제까지)을 방어할 수 있으면 유지, 아니면 0. 남은
+     * 방어권은 구독 중({@code entitledToday})일 때만 이번 달 기준(방어할 날을 쓴 뒤의 값).
+     */
+    public PracticeView practiceViewAsOf(
+            LocalDate today, Predicate<LocalDate> entitledOn, boolean entitledToday) {
+        int current = 0;
+        String month = practiceShieldMonth;
+        int used = practiceShieldsUsed == null ? 0 : practiceShieldsUsed;
+        LocalDate lastShield = lastPracticeShieldDate;
+        if (lastPracticeDate != null && today != null) {
+            if (!lastPracticeDate.isBefore(today.minusDays(1))) {
+                current = practiceStreak;
+            } else {
+                Optional<ShieldPlan> plan = planShields(today, entitledOn);
+                if (plan.isPresent()) {
+                    current = practiceStreak;
+                    if (!plan.get().days().isEmpty()) {
+                        month = plan.get().month();
+                        used = plan.get().used();
+                        lastShield = plan.get().days().get(plan.get().days().size() - 1);
+                    }
+                }
+            }
+        }
+        int remaining = 0;
+        if (entitledToday && today != null) {
+            int usedThisMonth = YearMonth.from(today).toString().equals(month) ? used : 0;
+            remaining = Math.max(0, MONTHLY_PRACTICE_SHIELDS - usedThisMonth);
+        }
+        return new PracticeView(current, remaining, lastShield);
     }
 
     /** LUT-717: 마지막 실천일이 오늘·어제(유저 로컬)일 때만 현재 연속을 인정한다 — 오늘 아직 안 했으면 어제까지 값, 그 전이면 0. */
