@@ -34,7 +34,17 @@ public class TowerImageProperties {
      */
     private String publicBaseUrl = "";
 
+    /** LUT-637: 배경 음악 최대 크기 — 1분 30초~2분 루프 mp3 가 2~4MB 라 10MB */
+    private long audioMaxSize = 10L * 1024 * 1024;
+
+    /** LUT-637: 배경 음악 허용 확장자 (MP3 · AAC(adts) · M4A(mp4 컨테이너 AAC)) */
+    private String audioAllowedExtensions = "mp3,aac,m4a";
+
     public List<String> getAllowedExtensionList() {
         return Arrays.asList(allowedExtensions.toLowerCase().split(","));
+    }
+
+    public List<String> getAudioAllowedExtensionList() {
+        return Arrays.asList(audioAllowedExtensions.toLowerCase().split(","));
     }
 }

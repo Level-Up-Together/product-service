@@ -20,7 +20,8 @@ public interface TowerFloorRepository extends JpaRepository<TowerFloor, Long> {
     Optional<TowerFloor> findByFloorNumber(Integer floorNumber);
 
     /** LUT-635: 이미지 정리 전 다른 층이 같은 URL 을 쓰는지 (배경·마스크 어느 칸이든) */
-    long countByBackgroundImageUrlOrFloorMaskUrl(String backgroundImageUrl, String floorMaskUrl);
+    long countByBackgroundImageUrlOrFloorMaskUrlOrBgmUrl(
+            String backgroundImageUrl, String floorMaskUrl, String bgmUrl);
 
     /**
      * LUT-630: 배정은 층 단위로 직렬화한다(같은 층의 입장·자동 착석·자리 양보가 동시에 돌면 정원을 넘거나 빈 방이 두 개 열린다). 층 행을 잠그는 동안 다른

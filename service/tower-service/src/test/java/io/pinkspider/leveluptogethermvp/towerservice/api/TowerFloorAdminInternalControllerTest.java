@@ -58,6 +58,10 @@ class TowerFloorAdminInternalControllerTest {
     private io.pinkspider.leveluptogethermvp.towerservice.application.TowerFloorImageService
             imageService;
 
+    @MockitoBean
+    private io.pinkspider.leveluptogethermvp.towerservice.application.TowerFloorAudioService
+            audioService;
+
     private static final String BODY =
             """
 {"floor_number":2,"name":"등나무 정원","name_en":"Wisteria Garden","name_ja":"藤の庭","name_ar":"حديقة الوستارية",
@@ -100,7 +104,9 @@ class TowerFloorAdminInternalControllerTest {
             fieldWithPath(prefix + "floor_mask_url").description("바닥 마스크 PNG URL (붉은색 = 이동 가능)"),
             fieldWithPath(prefix + "entry_point_x").description("입장 지점 X (배경 원본 픽셀)"),
             fieldWithPath(prefix + "entry_point_y").description("입장 지점 Y (배경 원본 픽셀)"),
-            fieldWithPath(prefix + "bgm_url").description("배경 음악 URL").optional(),
+            fieldWithPath(prefix + "bgm_url")
+                    .description("배경 음악 URL (공개 층은 필수 — 150114, LUT-637)")
+                    .optional(),
             fieldWithPath(prefix + "instance_capacity").description("인스턴스(방) 상한"),
             fieldWithPath(prefix + "is_public").description("공개 여부"),
             fieldWithPath(prefix + "created_at").description("생성 시각"),
@@ -343,5 +349,75 @@ class TowerFloorAdminInternalControllerTest {
                                 .contentType(MediaType.MULTIPART_FORM_DATA))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("150112"));
+    }
+
+    @org.junit.jupiter.api.Test
+    @DisplayName(
+            "POST /api/internal/tower/floors/audio : 배경 음악 업로드 (LUT-637) · /images?kind=bgm 은"
+                    + " 150110")
+    void uploadAudio() throws Exception {
+        org.springframework.mock.web.MockMultipartFile file =
+                new org.springframework.mock.web.MockMultipartFile(
+                        "file", "loop.mp3", "audio/mpeg", new byte[] {'I', 'D', '3', 4});
+        org.mockito.Mockito.when(audioService.upload(org.mockito.ArgumentMatchers.any()))
+                .thenReturn(
+                        new io.pinkspider.leveluptogethermvp.towerservice.domain.dto
+                                .TowerFloorAudioUploadResponse(
+                                "https://dev.level-up-together.com:8443/uploads/tower/bgm/a.mp3",
+                                4L,
+                                "audio/mpeg"));
+
+        mockMvc.perform(
+                        RestDocumentationRequestBuilders.multipart(
+                                        "/api/internal/tower/floors/audio")
+                                .file(file)
+                                .contentType(MediaType.MULTIPART_FORM_DATA))
+                .andExpect(status().isOk())
+                .andExpect(
+                        jsonPath("$.value.url")
+                                .value(
+                                        "https://dev.level-up-together.com:8443/uploads/tower/bgm/a.mp3"))
+                .andExpect(jsonPath("$.value.size_bytes").value(4))
+                .andDo(
+                        document(
+                                "internal-tower-floors-audio-upload",
+                                org.springframework.restdocs.request.RequestDocumentation
+                                        .requestParts(
+                                                org.springframework.restdocs.request
+                                                        .RequestDocumentation.partWithName("file")
+                                                        .description(
+                                                                "mp3·aac·m4a, 10MB 이하 (어긋나면"
+                                                                        + " 150113)")),
+                                org.springframework.restdocs.payload.PayloadDocumentation
+                                        .responseFields(
+                                                org.springframework.restdocs.payload
+                                                        .PayloadDocumentation.fieldWithPath("code")
+                                                        .description("응답 코드"),
+                                                org.springframework.restdocs.payload
+                                                        .PayloadDocumentation.fieldWithPath(
+                                                                "message")
+                                                        .description("응답 메시지"),
+                                                org.springframework.restdocs.payload
+                                                        .PayloadDocumentation.fieldWithPath(
+                                                                "value.url")
+                                                        .description(
+                                                                "절대 URL — 등록/수정의 bgm_url 에 그대로"),
+                                                org.springframework.restdocs.payload
+                                                        .PayloadDocumentation.fieldWithPath(
+                                                                "value.size_bytes")
+                                                        .description("파일 크기(바이트)"),
+                                                org.springframework.restdocs.payload
+                                                        .PayloadDocumentation.fieldWithPath(
+                                                                "value.content_type")
+                                                        .description("업로드 Content-Type")
+                                                        .optional())));
+
+        mockMvc.perform(
+                        RestDocumentationRequestBuilders.multipart(
+                                        "/api/internal/tower/floors/images?kind=bgm")
+                                .file(file)
+                                .contentType(MediaType.MULTIPART_FORM_DATA))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("150110"));
     }
 }

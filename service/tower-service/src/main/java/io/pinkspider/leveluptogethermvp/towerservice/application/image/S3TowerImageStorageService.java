@@ -33,7 +33,7 @@ public class S3TowerImageStorageService implements TowerImageStorageService {
 
     @Override
     public String store(MultipartFile file, TowerImageKind kind) {
-        String extension = TowerImageFiles.validatedExtension(file, properties);
+        String extension = TowerImageFiles.validatedExtension(file, kind, properties);
         String key = KEY_PREFIX + kind.folder() + "/" + TowerImageFiles.newFilename(extension);
         try {
             PutObjectRequest request =

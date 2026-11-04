@@ -2,10 +2,12 @@ package io.pinkspider.leveluptogethermvp.towerservice.api;
 
 import io.pinkspider.global.api.ApiResult;
 import io.pinkspider.leveluptogethermvp.towerservice.application.TowerFloorAdminService;
+import io.pinkspider.leveluptogethermvp.towerservice.application.TowerFloorAudioService;
 import io.pinkspider.leveluptogethermvp.towerservice.application.TowerFloorImageService;
 import io.pinkspider.leveluptogethermvp.towerservice.application.exception.TowerFloorException;
 import io.pinkspider.leveluptogethermvp.towerservice.domain.dto.TowerFloorAdminRequest;
 import io.pinkspider.leveluptogethermvp.towerservice.domain.dto.TowerFloorAdminResponse;
+import io.pinkspider.leveluptogethermvp.towerservice.domain.dto.TowerFloorAudioUploadResponse;
 import io.pinkspider.leveluptogethermvp.towerservice.domain.dto.TowerFloorImageUploadResponse;
 import io.pinkspider.leveluptogethermvp.towerservice.domain.enums.TowerImageKind;
 import jakarta.validation.Valid;
@@ -32,6 +34,7 @@ public class TowerFloorAdminInternalController {
 
     private final TowerFloorAdminService towerFloorAdminService;
     private final TowerFloorImageService towerFloorImageService;
+    private final TowerFloorAudioService towerFloorAudioService;
 
     @GetMapping
     public ApiResult<List<TowerFloorAdminResponse>> list() {
@@ -78,9 +81,23 @@ public class TowerFloorAdminInternalController {
             @RequestParam(value = "kind", required = false) String kind,
             @RequestPart("file") MultipartFile file) {
         TowerImageKind imageKind =
-                TowerImageKind.parse(kind).orElseThrow(TowerFloorException::imageInvalid);
+                TowerImageKind.parse(kind)
+                        .filter(k -> k != TowerImageKind.BGM) // 배경 음악은 /audio 로
+                        .orElseThrow(TowerFloorException::imageInvalid);
         return ApiResult.<TowerFloorImageUploadResponse>builder()
                 .value(towerFloorImageService.upload(file, imageKind))
+                .build();
+    }
+
+    /**
+     * LUT-637: 배경 음악 업로드 — mp3·aac·m4a, 10MB 이하(150113). 응답 url 을 등록/수정 본문의 bgm_url 에 쓴다. 공개 층은
+     * bgm_url 이 필수(150114).
+     */
+    @PostMapping(value = "/audio", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ApiResult<TowerFloorAudioUploadResponse> uploadAudio(
+            @RequestPart("file") MultipartFile file) {
+        return ApiResult.<TowerFloorAudioUploadResponse>builder()
+                .value(towerFloorAudioService.upload(file))
                 .build();
     }
 }

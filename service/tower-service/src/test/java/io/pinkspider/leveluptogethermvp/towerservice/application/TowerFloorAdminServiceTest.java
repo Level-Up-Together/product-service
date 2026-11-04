@@ -125,7 +125,8 @@ class TowerFloorAdminServiceTest {
         when(towerFloorRepository.findById(1L)).thenReturn(java.util.Optional.of(f1));
         when(towerFloorRepository.findAllByOrderByFloorNumberAsc()).thenReturn(List.of(f1));
         when(imageStorage.isOwned(oldMask)).thenReturn(true);
-        when(towerFloorRepository.countByBackgroundImageUrlOrFloorMaskUrl(oldMask, oldMask))
+        when(towerFloorRepository.countByBackgroundImageUrlOrFloorMaskUrlOrBgmUrl(
+                        oldMask, oldMask, oldMask))
                 .thenReturn(0L);
 
         TowerFloorAdminRequest req = request(1, null, true, true);
@@ -160,12 +161,48 @@ class TowerFloorAdminServiceTest {
         when(towerFloorRepository.findAllByOrderByFloorNumberAsc()).thenReturn(List.of(f1, f2));
         when(imageStorage.isOwned(f2.getBackgroundImageUrl())).thenReturn(true);
         when(imageStorage.isOwned(f2.getFloorMaskUrl())).thenReturn(false);
-        when(towerFloorRepository.countByBackgroundImageUrlOrFloorMaskUrl(
-                        f2.getBackgroundImageUrl(), f2.getBackgroundImageUrl()))
+        when(towerFloorRepository.countByBackgroundImageUrlOrFloorMaskUrlOrBgmUrl(
+                        f2.getBackgroundImageUrl(),
+                        f2.getBackgroundImageUrl(),
+                        f2.getBackgroundImageUrl()))
                 .thenReturn(1L);
 
         service.delete(2L);
 
         verify(imageStorage, org.mockito.Mockito.never()).delete(any());
+    }
+
+    @Test
+    @DisplayName("LUT-637 수정: 배경 음악을 바꾸면 옛 곡(우리 저장소·다른 층 미사용)을 커밋 뒤 지운다")
+    void updateCleansReplacedBgm() {
+        TowerFloor f1 = floor(1L, 1, null, true, true);
+        String oldBgm = f1.getBgmUrl();
+        when(towerFloorRepository.findById(1L)).thenReturn(java.util.Optional.of(f1));
+        when(towerFloorRepository.findAllByOrderByFloorNumberAsc()).thenReturn(List.of(f1));
+        when(imageStorage.isOwned(oldBgm)).thenReturn(true);
+        when(towerFloorRepository.countByBackgroundImageUrlOrFloorMaskUrlOrBgmUrl(
+                        oldBgm, oldBgm, oldBgm))
+                .thenReturn(0L);
+
+        TowerFloorAdminRequest req = request(1, null, true, true);
+        TowerFloorAdminRequest changed =
+                new TowerFloorAdminRequest(
+                        req.floorNumber(),
+                        req.name(),
+                        req.nameEn(),
+                        req.nameJa(),
+                        req.nameAr(),
+                        req.entryLevel(),
+                        req.guestAllowed(),
+                        f1.getBackgroundImageUrl(),
+                        f1.getFloorMaskUrl(),
+                        req.entryPointX(),
+                        req.entryPointY(),
+                        "https://cdn.test/tower/bgm-new.mp3",
+                        req.instanceCapacity(),
+                        req.isPublic());
+        service.update(1L, changed);
+
+        verify(imageStorage).delete(oldBgm);
     }
 }

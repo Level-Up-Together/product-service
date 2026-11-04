@@ -121,4 +121,15 @@ class TowerFloorImageServiceTest {
         assertThat(res.height()).isNull();
         assertThat(res.url()).endsWith("w.webp");
     }
+
+    @Test
+    @DisplayName("LUT-637: kind=BGM 은 이미지 업로드로 받지 않는다 (150110, 저장 안 함)")
+    void bgmKindRejected() throws IOException {
+        MockMultipartFile file = new MockMultipartFile("file", "a.png", "image/png", png(4, 4));
+        assertThatThrownBy(() -> service.upload(file, TowerImageKind.BGM))
+                .isInstanceOf(TowerFloorException.class)
+                .extracting("code")
+                .isEqualTo(TowerFloorException.IMAGE_INVALID);
+        verify(storage, never()).store(any(), any());
+    }
 }

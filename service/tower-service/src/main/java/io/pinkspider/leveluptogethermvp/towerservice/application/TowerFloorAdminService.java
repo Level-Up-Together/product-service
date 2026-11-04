@@ -61,6 +61,7 @@ public class TowerFloorAdminService {
         TowerFloor floor = find(id);
         String previousBackground = floor.getBackgroundImageUrl();
         String previousMask = floor.getFloorMaskUrl();
+        String previousBgm = floor.getBgmUrl();
         floor.update(request.toEntity());
         List<TowerFloor> after = towerFloorRepository.findAllByOrderByFloorNumberAsc();
         if (after.stream().noneMatch(f -> f == floor)) {
@@ -70,8 +71,8 @@ public class TowerFloorAdminService {
         ruleValidator.validate(after, floor);
         maskCache.evict(floor); // LUT-631: 마스크·배경이 바뀌었을 수 있다
         scheduleImageCleanup(
-                Set.of(previousBackground, previousMask),
-                Set.of(floor.getBackgroundImageUrl(), floor.getFloorMaskUrl()));
+                urls(previousBackground, previousMask, previousBgm),
+                urls(floor.getBackgroundImageUrl(), floor.getFloorMaskUrl(), floor.getBgmUrl()));
         log.info(
                 "탑 층 수정: id={}, floor={}, public={}",
                 id,
@@ -92,14 +93,24 @@ public class TowerFloorAdminService {
         towerFloorRepository.delete(floor);
         maskCache.evict(floor);
         scheduleImageCleanup(
-                Set.of(floor.getBackgroundImageUrl(), floor.getFloorMaskUrl()), Set.of());
+                urls(floor.getBackgroundImageUrl(), floor.getFloorMaskUrl(), floor.getBgmUrl()),
+                Set.of());
         log.info("탑 층 삭제: id={}, floor={}", id, floor.getFloorNumber());
     }
 
     /**
-     * LUT-635: 수정·삭제로 더는 쓰지 않는 이미지(우리 저장소가 발급한 것만)를 커밋 뒤에 지운다. 다른 층이 같은 URL 을 쓰면 남긴다. 롤백되면 아무것도 지우지
-     * 않는다(트랜잭션 밖이면 즉시).
+     * LUT-635/637: 수정·삭제로 더는 쓰지 않는 이미지·배경 음악(우리 저장소가 발급한 것만)을 커밋 뒤에 지운다. 다른 층이 같은 URL 을 쓰면 남긴다.
+     * 롤백되면 아무것도 지우지 않는다(트랜잭션 밖이면 즉시).
      */
+    /** null(배경 음악 없음)은 뺀다 — Set.of 는 null 을 못 받는다 */
+    private static Set<String> urls(String... values) {
+        Set<String> set = new LinkedHashSet<>();
+        for (String v : values) {
+            if (v != null) set.add(v);
+        }
+        return set;
+    }
+
     private void scheduleImageCleanup(Set<String> previous, Set<String> stillUsed) {
         Set<String> candidates = new LinkedHashSet<>();
         for (String url : previous) {
@@ -113,7 +124,8 @@ public class TowerFloorAdminService {
         Runnable cleanup =
                 () -> {
                     for (String url : candidates) {
-                        if (towerFloorRepository.countByBackgroundImageUrlOrFloorMaskUrl(url, url)
+                        if (towerFloorRepository.countByBackgroundImageUrlOrFloorMaskUrlOrBgmUrl(
+                                        url, url, url)
                                 > 0) {
                             log.info("탑 층 이미지 유지(다른 층이 사용): {}", url);
                             continue;
