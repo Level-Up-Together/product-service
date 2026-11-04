@@ -174,6 +174,11 @@ public class TowerPresenceService implements TowerPresenceGateway {
         return result;
     }
 
+    /** LUT-693: 점유자의 지금 위치(Redis presence) — 없으면 empty */
+    public Optional<TowerPresence> find(TowerOccupant occupant) {
+        return store.find(occupant.getInstanceId(), occupant.getId());
+    }
+
     public List<TowerPresence> listRaw(Long instanceId) {
         return store.listByInstance(instanceId);
     }

@@ -7,7 +7,9 @@ public enum TowerImageKind {
     BACKGROUND("background"),
     MASK("mask"),
     /** LUT-637: 배경 음악 (mp3·aac·m4a, 10MB) — 이미지 업로드 API 로는 못 올린다 */
-    BGM("bgm");
+    BGM("bgm"),
+    /** LUT-693: NPC 프로필 이미지 (정사각 권장, jpg·png·webp) — 층 이미지 업로드 API {@code kind=NPC} */
+    NPC("npc");
 
     private final String folder;
 

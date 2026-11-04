@@ -159,8 +159,15 @@ public class TowerSeatService {
     @Transactional(transactionManager = "towerTransactionManager")
     public boolean onMissionEnded(String userId, boolean completed) {
         LocalDateTime now = LocalDateTime.now();
-        closeSeatRecords(userId, now);
         Optional<TowerOccupant> existing = towerOccupantRepository.findByUserId(userId);
+        if (completed) {
+            // LUT-693 실제 흔적: 완료한 자리를 남긴다(누구인지는 내리지 않는다)
+            int[] spot = existing.map(this::currentSpot).orElse(null);
+            completeSeatRecords(
+                    userId, now, spot == null ? null : spot[0], spot == null ? null : spot[1]);
+        } else {
+            closeSeatRecords(userId, now);
+        }
         if (existing.isEmpty()) {
             return false;
         }
@@ -282,6 +289,33 @@ public class TowerSeatService {
                 towerMissionSeatRepository.findAllByUserIdAndEndedAtIsNull(userId)) {
             seat.close(now);
         }
+    }
+
+    private void completeSeatRecords(String userId, LocalDateTime now, Integer x, Integer y) {
+        for (TowerMissionSeat seat :
+                towerMissionSeatRepository.findAllByUserIdAndEndedAtIsNull(userId)) {
+            seat.complete(now, x, y);
+        }
+    }
+
+    /** 지금 서 있는 자리 — presence(Redis) 좌표, 못 읽으면 점유자 행의 자리 */
+    private int[] currentSpot(TowerOccupant occupant) {
+        try {
+            Optional<int[]> live =
+                    presenceService
+                            .find(occupant)
+                            .filter(p -> p.x() != null && p.y() != null)
+                            .map(p -> new int[] {p.x(), p.y()});
+            if (live.isPresent()) {
+                return live.get();
+            }
+        } catch (RuntimeException e) {
+            log.warn("탑 완료 자리 조회 실패 — 점유자 자리 사용: userId={}", occupant.getUserId());
+        }
+        if (occupant.getSeatX() == null || occupant.getSeatY() == null) {
+            return null;
+        }
+        return new int[] {occupant.getSeatX(), occupant.getSeatY()};
     }
 
     private boolean isAutoSeatEnabled(String userId) {
