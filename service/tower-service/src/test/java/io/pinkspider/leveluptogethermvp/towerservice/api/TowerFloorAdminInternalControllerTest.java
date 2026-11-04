@@ -17,6 +17,10 @@ import io.pinkspider.leveluptogethermvp.towerservice.application.TowerFloorAdmin
 import io.pinkspider.leveluptogethermvp.towerservice.application.exception.TowerFloorException;
 import io.pinkspider.leveluptogethermvp.towerservice.domain.dto.TowerFloorAdminRequest;
 import io.pinkspider.leveluptogethermvp.towerservice.domain.dto.TowerFloorAdminResponse;
+import io.pinkspider.leveluptogethermvp.towerservice.domain.dto.TowerFloorEffectLayerDto;
+import io.pinkspider.leveluptogethermvp.towerservice.domain.dto.TowerFloorLightDto;
+import io.pinkspider.leveluptogethermvp.towerservice.domain.enums.TowerEffectKind;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 import org.junit.jupiter.api.DisplayName;
@@ -66,7 +70,11 @@ class TowerFloorAdminInternalControllerTest {
             """
 {"floor_number":2,"name":"등나무 정원","name_en":"Wisteria Garden","name_ja":"藤の庭","name_ar":"حديقة الوستارية",
  "entry_level":5,"guest_allowed":false,"background_image_url":"https://cdn/bg2.jpg","floor_mask_url":"https://cdn/mask2.png",
- "entry_point_x":1200,"entry_point_y":900,"bgm_url":null,"instance_capacity":30,"is_public":true}
+ "entry_point_x":1200,"entry_point_y":900,"bgm_url":null,"instance_capacity":30,"is_public":true,
+ "occlusion_mask_url":"https://cdn/occlusion2.png",
+ "lights":[{"x":640,"y":320,"radius":60,"color":"#ffcc66","brightness":80,"flicker_intensity":40,"flicker_speed":50}],
+ "effect_layers":[{"kind":"SNOW","mask_url":"https://cdn/snow2.png","enabled":true,"starts_on":"2026-12-01","ends_on":"2026-12-31",
+   "amount":120,"speed":40,"size_min":1,"size_max":3}]}
 """;
 
     private static TowerFloorAdminResponse response() {
@@ -87,7 +95,67 @@ class TowerFloorAdminInternalControllerTest {
                 30,
                 true,
                 LocalDateTime.of(2026, 11, 3, 15, 0),
-                LocalDateTime.of(2026, 11, 3, 15, 0));
+                LocalDateTime.of(2026, 11, 3, 15, 0),
+                "https://cdn/occlusion2.png",
+                List.of(new TowerFloorLightDto(640, 320, 60, "#ffcc66", 80, 40, 50)),
+                List.of(
+                        new TowerFloorEffectLayerDto(
+                                TowerEffectKind.SNOW,
+                                "https://cdn/snow2.png",
+                                true,
+                                LocalDate.of(2026, 12, 1),
+                                LocalDate.of(2026, 12, 31),
+                                120,
+                                40,
+                                1,
+                                3)));
+    }
+
+    /** LUT-725: 앞 가림·불빛 점·효과 레이어 (요청·응답 같은 모양) */
+    private static List<FieldDescriptor> effectFields(String prefix, boolean request) {
+        String keep = request ? " — 보내지 않으면(null) 그대로, " : " — ";
+        return List.of(
+                fieldWithPath(prefix + "occlusion_mask_url")
+                        .description(
+                                "앞 가림 영역 마스크 PNG URL (선택, 배경과 같은 비율 — 150116)"
+                                        + keep
+                                        + (request ? "빈 문자열이면 지운다" : "없으면 null"))
+                        .optional(),
+                fieldWithPath(prefix + "lights[]")
+                        .description("불빛 점 (최대 50개)" + keep + (request ? "[] 이면 모두 지운다" : "등록 순서"))
+                        .optional(),
+                fieldWithPath(prefix + "lights[].x").description("X (배경 원본 픽셀)"),
+                fieldWithPath(prefix + "lights[].y").description("Y (배경 원본 픽셀)"),
+                fieldWithPath(prefix + "lights[].radius").description("반경 4~400 (배경 원본 픽셀)"),
+                fieldWithPath(prefix + "lights[].color").description("색 #rrggbb"),
+                fieldWithPath(prefix + "lights[].brightness").description("밝기 0~100"),
+                fieldWithPath(prefix + "lights[].flicker_intensity")
+                        .description("깜빡임 세기 0~100 (0 = 깜빡이지 않음)"),
+                fieldWithPath(prefix + "lights[].flicker_speed").description("깜빡임 속도 0~100"),
+                fieldWithPath(prefix + "effect_layers[]")
+                        .description(
+                                "효과 레이어 SNOW·STARS 각 1개 (중복 150115)"
+                                        + keep
+                                        + (request ? "[] 이면 모두 지운다" : "꺼진 것·기간 밖 포함"))
+                        .optional(),
+                fieldWithPath(prefix + "effect_layers[].kind")
+                        .description("SNOW(눈) / STARS(별 반짝임)"),
+                fieldWithPath(prefix + "effect_layers[].mask_url")
+                        .description("효과 영역 마스크 PNG URL (배경과 같은 비율 — 150116)"),
+                fieldWithPath(prefix + "effect_layers[].enabled").description("켜기"),
+                fieldWithPath(prefix + "effect_layers[].starts_on")
+                        .description("기간 시작일 (KST, 포함, 비우면 상시)")
+                        .optional(),
+                fieldWithPath(prefix + "effect_layers[].ends_on")
+                        .description("기간 종료일 (KST, 포함, 비우면 상시, 시작일 이후 — 150115)")
+                        .optional(),
+                fieldWithPath(prefix + "effect_layers[].amount")
+                        .description("SNOW = 밀도(동시 눈송이 수) / STARS = 별 개수 (1~300)"),
+                fieldWithPath(prefix + "effect_layers[].speed").description("낙하·반짝임 속도 1~100"),
+                fieldWithPath(prefix + "effect_layers[].size_min")
+                        .description("크기 최소 1~20 (화면 픽셀)"),
+                fieldWithPath(prefix + "effect_layers[].size_max")
+                        .description("크기 최대 1~20 (최소 이상 — 150115)"));
     }
 
     private static FieldDescriptor[] floorFields(String prefix) {
@@ -114,6 +182,12 @@ class TowerFloorAdminInternalControllerTest {
         };
     }
 
+    private static FieldDescriptor[] floorFieldsWithEffects(String prefix) {
+        List<FieldDescriptor> all = new java.util.ArrayList<>(List.of(floorFields(prefix)));
+        all.addAll(effectFields(prefix, false));
+        return all.toArray(FieldDescriptor[]::new);
+    }
+
     private static FieldDescriptor[] withEnvelope(FieldDescriptor[] fields) {
         FieldDescriptor[] all = new FieldDescriptor[fields.length + 2];
         all[0] = fieldWithPath("code").description("응답 코드");
@@ -136,7 +210,7 @@ class TowerFloorAdminInternalControllerTest {
                 .andDo(
                         document(
                                 "internal-tower-floors-list",
-                                responseFields(withEnvelope(floorFields("value[].")))));
+                                responseFields(withEnvelope(floorFieldsWithEffects("value[].")))));
     }
 
     @Test
@@ -154,32 +228,34 @@ class TowerFloorAdminInternalControllerTest {
                         document(
                                 "internal-tower-floors-create",
                                 requestFields(
-                                        fieldWithPath("floor_number")
-                                                .description("층 번호 (1 이상, 유일)"),
-                                        fieldWithPath("name").description("층 이름(ko)"),
-                                        fieldWithPath("name_en").description("층 이름(en)"),
-                                        fieldWithPath("name_ja").description("층 이름(ja)"),
-                                        fieldWithPath("name_ar").description("층 이름(ar)"),
-                                        fieldWithPath("entry_level")
-                                                .description("입장 레벨 (비우면 제한 없음, 1층은 비워야 함)")
-                                                .optional(),
-                                        fieldWithPath("guest_allowed")
-                                                .description("비로그인 입장 허용 (입장 레벨이 없는 층만)"),
-                                        fieldWithPath("background_image_url")
-                                                .description("배경 이미지 URL"),
-                                        fieldWithPath("floor_mask_url")
-                                                .description("바닥 마스크 PNG URL"),
-                                        fieldWithPath("entry_point_x")
-                                                .description("입장 지점 X (마스크 안이어야 함)"),
-                                        fieldWithPath("entry_point_y").description("입장 지점 Y"),
-                                        fieldWithPath("bgm_url")
-                                                .description("배경 음악 URL")
-                                                .optional(),
-                                        fieldWithPath("instance_capacity")
-                                                .description("인스턴스 상한 (비우면 30)")
-                                                .optional(),
-                                        fieldWithPath("is_public").description("공개 여부")),
-                                responseFields(withEnvelope(floorFields("value.")))));
+                                                fieldWithPath("floor_number")
+                                                        .description("층 번호 (1 이상, 유일)"),
+                                                fieldWithPath("name").description("층 이름(ko)"),
+                                                fieldWithPath("name_en").description("층 이름(en)"),
+                                                fieldWithPath("name_ja").description("층 이름(ja)"),
+                                                fieldWithPath("name_ar").description("층 이름(ar)"),
+                                                fieldWithPath("entry_level")
+                                                        .description("입장 레벨 (비우면 제한 없음, 1층은 비워야 함)")
+                                                        .optional(),
+                                                fieldWithPath("guest_allowed")
+                                                        .description("비로그인 입장 허용 (입장 레벨이 없는 층만)"),
+                                                fieldWithPath("background_image_url")
+                                                        .description("배경 이미지 URL"),
+                                                fieldWithPath("floor_mask_url")
+                                                        .description("바닥 마스크 PNG URL"),
+                                                fieldWithPath("entry_point_x")
+                                                        .description("입장 지점 X (마스크 안이어야 함)"),
+                                                fieldWithPath("entry_point_y")
+                                                        .description("입장 지점 Y"),
+                                                fieldWithPath("bgm_url")
+                                                        .description("배경 음악 URL")
+                                                        .optional(),
+                                                fieldWithPath("instance_capacity")
+                                                        .description("인스턴스 상한 (비우면 30)")
+                                                        .optional(),
+                                                fieldWithPath("is_public").description("공개 여부"))
+                                        .and(effectFields("", true)),
+                                responseFields(withEnvelope(floorFieldsWithEffects("value.")))));
     }
 
     @Test
@@ -228,7 +304,7 @@ class TowerFloorAdminInternalControllerTest {
                         document(
                                 "internal-tower-floors-update",
                                 pathParameters(parameterWithName("id").description("층 ID")),
-                                responseFields(withEnvelope(floorFields("value.")))));
+                                responseFields(withEnvelope(floorFieldsWithEffects("value.")))));
 
         mockMvc.perform(
                         RestDocumentationRequestBuilders.get(

@@ -82,6 +82,21 @@ public class ImageFloorMaskChecker implements FloorMaskChecker {
         return isRed(mask.getRGB(mx, my));
     }
 
+    /** 비율 허용 오차 — 4분의 1 축소에서 생기는 반올림(한 변 1px) 정도 */
+    static final double ASPECT_TOLERANCE = 0.02;
+
+    @Override
+    public boolean sameAspectRatio(String maskUrl, String backgroundUrl) throws IOException {
+        BufferedImage mask = load(maskUrl);
+        BufferedImage background = load(backgroundUrl);
+        if (mask == null || background == null) {
+            throw new IOException("image unreadable");
+        }
+        double maskRatio = mask.getWidth() / (double) mask.getHeight();
+        double backgroundRatio = background.getWidth() / (double) background.getHeight();
+        return Math.abs(maskRatio - backgroundRatio) / backgroundRatio <= ASPECT_TOLERANCE;
+    }
+
     public static boolean isRed(int argb) {
         int alpha = (argb >>> 24) & 0xff;
         int r = (argb >>> 16) & 0xff;

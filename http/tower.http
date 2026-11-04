@@ -147,6 +147,36 @@ Accept: application/json
   "is_public": true
 }
 
+### LUT-725 층 효과·앞 가림 수정 — 효과 필드를 보내지 않으면(null) 그대로, "" / [] 이면 지운다
+PUT {{baseUrl}}/api/internal/tower/floors/1
+Content-Type: application/json
+Accept: application/json
+
+{
+  "floor_number": 1,
+  "name": "여행자의 쉼터",
+  "name_en": "Travelers' Rest",
+  "name_ja": "旅人の休息所",
+  "name_ar": "استراحة المسافرين",
+  "entry_level": null,
+  "guest_allowed": false,
+  "background_image_url": "https://dev.level-up-together.com/images/tower/floor1-bg.jpg",
+  "floor_mask_url": "https://dev.level-up-together.com/images/tower/floor1-mask.png",
+  "entry_point_x": 1400,
+  "entry_point_y": 1000,
+  "bgm_url": null,
+  "instance_capacity": 30,
+  "is_public": true,
+  "occlusion_mask_url": "https://dev.level-up-together.com/images/tower/floor1-occlusion.png",
+  "lights": [
+    {"x": 640, "y": 320, "radius": 60, "color": "#ffcc66", "brightness": 80, "flicker_intensity": 40, "flicker_speed": 50}
+  ],
+  "effect_layers": [
+    {"kind": "SNOW", "mask_url": "https://dev.level-up-together.com/images/tower/floor1-snow.png", "enabled": true,
+     "starts_on": "2026-12-01", "ends_on": "2026-12-31", "amount": 120, "speed": 40, "size_min": 1, "size_max": 3}
+  ]
+}
+
 ### 층 삭제 — 남는 층끼리 규칙 위반이면 400 (예: 1층 삭제 후 공개 2층만 남으면 150107)
 DELETE {{baseUrl}}/api/internal/tower/floors/2
 Accept: application/json

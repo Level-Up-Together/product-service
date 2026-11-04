@@ -5,14 +5,19 @@ import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import io.pinkspider.leveluptogethermvp.towerservice.application.exception.TowerFloorException;
 import io.pinkspider.leveluptogethermvp.towerservice.domain.entity.TowerFloor;
+import io.pinkspider.leveluptogethermvp.towerservice.domain.entity.TowerFloorEffectLayer;
+import io.pinkspider.leveluptogethermvp.towerservice.domain.enums.TowerEffectKind;
 import java.io.IOException;
+import java.time.LocalDate;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -195,5 +200,83 @@ class TowerFloorRuleValidatorTest {
         TowerFloor hidden = floor(null, 3, null, false, false);
         assertThatCode(() -> validator.validate(List.of(f1, hidden), hidden))
                 .doesNotThrowAnyException();
+    }
+
+    private static TowerFloorEffectLayer layer(
+            TowerEffectKind kind, int sizeMin, int sizeMax, LocalDate startsOn, LocalDate endsOn) {
+        return new TowerFloorEffectLayer(
+                kind,
+                "https://cdn.test/tower/" + kind + ".png",
+                true,
+                startsOn,
+                endsOn,
+                100,
+                50,
+                sizeMin,
+                sizeMax);
+    }
+
+    private static TowerFloor withEffects(TowerFloorEffectLayer... layers) {
+        TowerFloor f = floor(1L, 1, null, true, true);
+        f.updateOcclusionMask("https://cdn.test/tower/occlusion.png");
+        f.replaceEffectLayers(List.of(layers));
+        return f;
+    }
+
+    @Test
+    @DisplayName("LUT-725: 앞 가림 + 눈·별 레이어 — 마스크 3장 모두 배경과 비율을 비교하고 통과")
+    void effectsValid() throws IOException {
+        when(floorMaskChecker.sameAspectRatio(anyString(), anyString())).thenReturn(true);
+        LocalDate day = LocalDate.of(2026, 12, 25);
+        TowerFloor f =
+                withEffects(
+                        layer(TowerEffectKind.SNOW, 1, 3, day, day),
+                        layer(TowerEffectKind.STARS, 2, 2, null, null));
+
+        assertThatCode(() -> validator.validate(List.of(f), f)).doesNotThrowAnyException();
+        verify(floorMaskChecker, times(3))
+                .sameAspectRatio(anyString(), eq(f.getBackgroundImageUrl()));
+    }
+
+    @Test
+    @DisplayName("LUT-725: 종류 중복·크기 최소 > 최대·시작 > 종료 → 150115 (마스크 검사가 꺼져 있어도)")
+    void effectsInvalid() {
+        ReflectionTestUtils.setField(validator, "maskCheckEnabled", false);
+        LocalDate day = LocalDate.of(2026, 12, 25);
+        for (TowerFloor f :
+                List.of(
+                        withEffects(
+                                layer(TowerEffectKind.SNOW, 1, 3, null, null),
+                                layer(TowerEffectKind.SNOW, 1, 3, null, null)),
+                        withEffects(layer(TowerEffectKind.STARS, 4, 3, null, null)),
+                        withEffects(layer(TowerEffectKind.SNOW, 1, 3, day, day.minusDays(1))))) {
+            assertCode(() -> validator.validate(List.of(f), f), TowerFloorException.EFFECT_INVALID);
+        }
+    }
+
+    @Test
+    @DisplayName("LUT-725: 마스크 비율이 배경과 다르면 150116, 못 읽으면 150109")
+    void effectMaskAspect() throws IOException {
+        TowerFloor f = withEffects(layer(TowerEffectKind.SNOW, 1, 3, null, null));
+        when(floorMaskChecker.sameAspectRatio(anyString(), anyString())).thenReturn(false);
+        assertCode(
+                () -> validator.validate(List.of(f), f), TowerFloorException.MASK_ASPECT_MISMATCH);
+
+        when(floorMaskChecker.sameAspectRatio(anyString(), anyString()))
+                .thenThrow(new IOException("unreadable"));
+        assertCode(() -> validator.validate(List.of(f), f), TowerFloorException.MASK_UNREADABLE);
+    }
+
+    @Test
+    @DisplayName("LUT-725: 효과가 없는 층은 비율 검사를 하지 않는다, 마스크 검사가 꺼져 있어도 하지 않는다")
+    void effectMaskSkipped() throws IOException {
+        TowerFloor plain = floor(1L, 1, null, true, true);
+        validator.validate(List.of(plain), plain);
+
+        ReflectionTestUtils.setField(validator, "maskCheckEnabled", false);
+        TowerFloor f = withEffects(layer(TowerEffectKind.SNOW, 1, 3, null, null));
+        validator.validate(List.of(f), f);
+
+        verify(floorMaskChecker, never()).sameAspectRatio(anyString(), anyString());
     }
 }

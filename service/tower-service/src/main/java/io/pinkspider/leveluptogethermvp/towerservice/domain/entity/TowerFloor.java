@@ -1,13 +1,21 @@
 package io.pinkspider.leveluptogethermvp.towerservice.domain.entity;
 
 import io.pinkspider.global.domain.auditentity.LocalDateTimeBaseEntity;
+import jakarta.persistence.CollectionTable;
 import jakarta.persistence.Column;
+import jakarta.persistence.ElementCollection;
 import jakarta.persistence.Entity;
+import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.OrderColumn;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
+import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.List;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -94,6 +102,25 @@ public class TowerFloor extends LocalDateTimeBaseEntity {
     @Builder.Default
     private Boolean isPublic = false;
 
+    /** LUT-725: 앞 가림 영역 마스크 (선택) — 담장·문 아치·기둥처럼 캐릭터 앞을 가릴 부분 */
+    @Column(name = "occlusion_mask_url", length = 500)
+    private String occlusionMaskUrl;
+
+    /** LUT-725: 불빛 점 (최대 50개, 항상 켜짐) */
+    @ElementCollection(fetch = FetchType.LAZY)
+    @CollectionTable(name = "tower_floor_light", joinColumns = @JoinColumn(name = "floor_id"))
+    @OrderColumn(name = "light_order")
+    @Builder.Default
+    private List<TowerFloorLight> lights = new ArrayList<>();
+
+    /** LUT-725: 눈·별 레이어 (종류당 1개, 켜기·기간) */
+    @ElementCollection(fetch = FetchType.LAZY)
+    @CollectionTable(
+            name = "tower_floor_effect_layer",
+            joinColumns = @JoinColumn(name = "floor_id"))
+    @Builder.Default
+    private List<TowerFloorEffectLayer> effectLayers = new ArrayList<>();
+
     /** 제한 없음(null)은 가장 낮은 값으로 친다 — 순서 비교용 */
     public int effectiveEntryLevel() {
         return entryLevel == null ? 0 : entryLevel;
@@ -123,5 +150,27 @@ public class TowerFloor extends LocalDateTimeBaseEntity {
         this.bgmUrl = source.bgmUrl;
         this.instanceCapacity = source.instanceCapacity;
         this.isPublic = source.isPublic;
+    }
+
+    /** LUT-725: 앞 가림 마스크 교체 — 빈 값이면 지운다 */
+    public void updateOcclusionMask(String url) {
+        this.occlusionMaskUrl = url == null || url.isBlank() ? null : url;
+    }
+
+    /** LUT-725: 불빛 점 전체 교체 */
+    public void replaceLights(List<TowerFloorLight> next) {
+        this.lights.clear();
+        this.lights.addAll(next);
+    }
+
+    /** LUT-725: 효과 레이어 전체 교체 */
+    public void replaceEffectLayers(List<TowerFloorEffectLayer> next) {
+        this.effectLayers.clear();
+        this.effectLayers.addAll(next);
+    }
+
+    /** LUT-725: 오늘(KST) 켜진 효과 레이어만 */
+    public List<TowerFloorEffectLayer> activeEffectLayers(LocalDate today) {
+        return effectLayers.stream().filter(layer -> layer.isActiveOn(today)).toList();
     }
 }

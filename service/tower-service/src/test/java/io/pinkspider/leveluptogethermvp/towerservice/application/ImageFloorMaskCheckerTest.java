@@ -114,4 +114,29 @@ class ImageFloorMaskCheckerTest {
                 .isEqualTo("images.example.com");
         assertThat(ImageFloorMaskChecker.normalizeHost(null)).isNull();
     }
+
+    private String png(String name, int width, int height) throws IOException {
+        File file = dir.resolve(name).toFile();
+        ImageIO.write(new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB), "png", file);
+        return file.toURI().toString();
+    }
+
+    @Test
+    @DisplayName("LUT-725 비율: 4분의 1 해상도는 같은 비율, 한 변 1px 반올림은 허용, 다른 비율은 false")
+    void sameAspectRatio() throws IOException {
+        assertThat(checker.sameAspectRatio(maskUrl, backgroundUrl)).isTrue();
+        assertThat(checker.sameAspectRatio(png("q.png", 101, 100), png("bg2.png", 400, 400)))
+                .isTrue();
+        assertThat(checker.sameAspectRatio(png("w.png", 30, 10), backgroundUrl)).isFalse();
+    }
+
+    @Test
+    @DisplayName("LUT-725 비율: 마스크나 배경을 못 읽으면 IOException")
+    void sameAspectRatioUnreadable() {
+        String missing = dir.resolve("missing.png").toUri().toString();
+        assertThatThrownBy(() -> checker.sameAspectRatio(missing, backgroundUrl))
+                .isInstanceOf(IOException.class);
+        assertThatThrownBy(() -> checker.sameAspectRatio(maskUrl, missing))
+                .isInstanceOf(IOException.class);
+    }
 }

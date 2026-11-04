@@ -2,8 +2,12 @@ package io.pinkspider.leveluptogethermvp.towerservice.application;
 
 import io.pinkspider.leveluptogethermvp.towerservice.application.exception.TowerFloorException;
 import io.pinkspider.leveluptogethermvp.towerservice.domain.entity.TowerFloor;
+import io.pinkspider.leveluptogethermvp.towerservice.domain.entity.TowerFloorEffectLayer;
+import io.pinkspider.leveluptogethermvp.towerservice.domain.enums.TowerEffectKind;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
@@ -99,7 +103,49 @@ public class TowerFloorRuleValidator {
         }
 
         if (target != null) {
+            validateEffects(target);
             validateEntryPoint(target);
+        }
+    }
+
+    /**
+     * LUT-725: 효과 레이어(종류당 1개·크기 최소 ≤ 최대·기간 시작 ≤ 종료 — 150115)와 앞 가림·효과 마스크 비율(배경과 같아야 — 150116, 못
+     * 읽으면 150109). 개수·범위는 요청 검증(@Size·@Min·@Max)이 먼저 막는다.
+     */
+    private void validateEffects(TowerFloor target) {
+        Set<TowerEffectKind> kinds = new HashSet<>();
+        for (TowerFloorEffectLayer layer : target.getEffectLayers()) {
+            if (!kinds.add(layer.getKind())
+                    || layer.getSizeMin() > layer.getSizeMax()
+                    || (layer.getStartsOn() != null
+                            && layer.getEndsOn() != null
+                            && layer.getStartsOn().isAfter(layer.getEndsOn()))) {
+                throw TowerFloorException.effectInvalid();
+            }
+        }
+        if (!maskCheckEnabled) {
+            return;
+        }
+        List<String> masks = new ArrayList<>();
+        if (target.getOcclusionMaskUrl() != null) {
+            masks.add(target.getOcclusionMaskUrl());
+        }
+        target.getEffectLayers().forEach(layer -> masks.add(layer.getMaskUrl()));
+        for (String mask : masks) {
+            boolean same;
+            try {
+                same = floorMaskChecker.sameAspectRatio(mask, target.getBackgroundImageUrl());
+            } catch (IOException | RuntimeException e) {
+                log.warn(
+                        "탑 층 효과 마스크를 읽지 못함: floor={}, mask={}, error={}",
+                        target.getFloorNumber(),
+                        mask,
+                        e.getMessage());
+                throw TowerFloorException.maskUnreadable();
+            }
+            if (!same) {
+                throw TowerFloorException.maskAspectMismatch();
+            }
         }
     }
 

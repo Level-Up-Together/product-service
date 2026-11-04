@@ -33,6 +33,12 @@ public class TowerFloorException extends TowerException {
     /** LUT-637: 공개 층은 배경 음악이 필수 */
     public static final String PUBLIC_REQUIRES_BGM = "150114";
 
+    /** LUT-725: 효과 레이어 종류 중복 · 크기 최소 > 최대 · 기간 시작 > 종료 */
+    public static final String EFFECT_INVALID = "150115";
+
+    /** LUT-725: 앞 가림·효과 마스크가 배경과 가로세로 비율이 다르다 */
+    public static final String MASK_ASPECT_MISMATCH = "150116";
+
     private TowerFloorException(String code, String messageKey, HttpStatus status) {
         super(code, messageKey, status);
     }
@@ -91,6 +97,14 @@ public class TowerFloorException extends TowerException {
 
     public static TowerFloorException audioInvalid() {
         return bad(AUDIO_INVALID, "error.tower.floor.audio_invalid");
+    }
+
+    public static TowerFloorException effectInvalid() {
+        return bad(EFFECT_INVALID, "error.tower.floor.effect_invalid");
+    }
+
+    public static TowerFloorException maskAspectMismatch() {
+        return bad(MASK_ASPECT_MISMATCH, "error.tower.floor.mask_aspect_mismatch");
     }
 
     public static TowerFloorException publicRequiresBgm() {
