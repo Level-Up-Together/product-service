@@ -52,6 +52,14 @@ final class TowerImageFiles {
     }
 
     /** UUID 파일명 — 내용 불변이라 CDN·브라우저 공격적 캐시를 허용한다 */
+    /** LUT-727: 서버가 지은 이름만 받는다 — 영문·숫자·점·하이픈, 경로 문자 금지 */
+    static String safeFilename(String filename) {
+        if (filename == null || !filename.matches("[A-Za-z0-9][A-Za-z0-9._-]{0,99}")) {
+            throw new IllegalArgumentException("invalid generated filename: " + filename);
+        }
+        return filename;
+    }
+
     static String newFilename(String extension) {
         return UUID.randomUUID() + "." + extension;
     }

@@ -101,4 +101,34 @@ class S3TowerImageStorageServiceTest {
                                 .key("shop-items/x.png")
                                 .build());
     }
+
+    @Test
+    @DisplayName("LUT-727 생성 파일: tower/pixel/{이름} 키로 올리고 CDN URL · S3 오류는 150111 · 경로 문자 이름 거부")
+    void storeGenerated() {
+        String url =
+                storage.storeGenerated(
+                        new byte[] {1, 2}, TowerImageKind.PIXEL, "abcd.png", "image/png");
+        ArgumentCaptor<PutObjectRequest> captor = ArgumentCaptor.forClass(PutObjectRequest.class);
+        verify(s3Client).putObject(captor.capture(), any(RequestBody.class));
+        assertThat(captor.getValue().key()).isEqualTo("tower/pixel/abcd.png");
+        assertThat(captor.getValue().contentType()).isEqualTo("image/png");
+        assertThat(url).isEqualTo("https://images.level-up-together.com/tower/pixel/abcd.png");
+
+        when(s3Client.putObject(any(PutObjectRequest.class), any(RequestBody.class)))
+                .thenThrow(new IllegalStateException("s3 down"));
+        assertThatThrownBy(
+                        () ->
+                                storage.storeGenerated(
+                                        new byte[] {1}, TowerImageKind.PIXEL, "x.png", "image/png"))
+                .isInstanceOf(TowerFloorException.class)
+                .hasFieldOrPropertyWithValue("code", TowerFloorException.IMAGE_SAVE_FAILED);
+        assertThatThrownBy(
+                        () ->
+                                storage.storeGenerated(
+                                        new byte[] {1},
+                                        TowerImageKind.PIXEL,
+                                        "a/b.png",
+                                        "image/png"))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
 }

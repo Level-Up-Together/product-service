@@ -11,6 +11,9 @@ public interface TowerImageStorageService {
     /** 저장 후 절대 URL 을 돌려준다. 거절 150110, 저장 실패 150111. */
     String store(MultipartFile file, TowerImageKind kind);
 
+    /** LUT-727: 서버가 만든 파일을 저장한다(검증 없음 — 업로드가 아니다). 이름이 같으면 덮어쓴다(내용 해시 이름이라 같은 내용). 실패 150111. */
+    String storeGenerated(byte[] bytes, TowerImageKind kind, String filename, String contentType);
+
     /** 이 저장소가 발급한 URL 인가 (삭제 가능 여부) */
     boolean isOwned(String url);
 

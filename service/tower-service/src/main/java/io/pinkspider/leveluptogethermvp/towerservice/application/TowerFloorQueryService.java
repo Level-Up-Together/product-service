@@ -1,9 +1,11 @@
 package io.pinkspider.leveluptogethermvp.towerservice.application;
 
 import io.pinkspider.global.facade.GamificationQueryFacade;
+import io.pinkspider.leveluptogethermvp.towerservice.application.pixel.TowerPixelArtService;
 import io.pinkspider.leveluptogethermvp.towerservice.domain.dto.TowerFloorListResponse;
 import io.pinkspider.leveluptogethermvp.towerservice.domain.dto.TowerFloorResponse;
 import io.pinkspider.leveluptogethermvp.towerservice.domain.entity.TowerFloor;
+import io.pinkspider.leveluptogethermvp.towerservice.domain.entity.TowerFloorPixelArt;
 import io.pinkspider.leveluptogethermvp.towerservice.domain.entity.TowerUserState;
 import io.pinkspider.leveluptogethermvp.towerservice.infrastructure.TowerFloorRepository;
 import io.pinkspider.leveluptogethermvp.towerservice.infrastructure.TowerUserStateRepository;
@@ -29,29 +31,38 @@ public class TowerFloorQueryService {
     private final TowerUserStateRepository towerUserStateRepository;
     private final GamificationQueryFacade gamificationQueryFacade;
     private final TowerPopulationService towerPopulationService;
+    private final TowerPixelArtService pixelArtService;
 
     public TowerFloorQueryService(
             TowerFloorRepository towerFloorRepository,
             TowerUserStateRepository towerUserStateRepository,
             @Lazy GamificationQueryFacade gamificationQueryFacade,
-            TowerPopulationService towerPopulationService) {
+            TowerPopulationService towerPopulationService,
+            TowerPixelArtService pixelArtService) {
         this.towerFloorRepository = towerFloorRepository;
         this.towerUserStateRepository = towerUserStateRepository;
         this.gamificationQueryFacade = gamificationQueryFacade;
         this.towerPopulationService = towerPopulationService;
+        this.pixelArtService = pixelArtService;
     }
 
     public TowerFloorListResponse listForUser(@Nullable String userId) {
         List<TowerFloor> floors = towerFloorRepository.findAllByIsPublicTrueOrderByFloorNumberAsc();
         Integer level = userId != null ? resolveLevel(userId) : null;
         Map<Integer, Long> population = towerPopulationService.byFloor();
+        // LUT-727: 픽셀 배경 (지금 배경으로 만든 완료 결과만 내린다)
+        Map<Long, TowerFloorPixelArt> pixel =
+                pixelArtService.byFloorIds(floors.stream().map(TowerFloor::getId).toList());
         List<TowerFloorResponse> responses = new ArrayList<>(floors.size());
         Integer firstOpen = null;
         for (TowerFloor floor : floors) {
             boolean locked = isLocked(floor, userId, level);
             responses.add(
                     TowerFloorResponse.from(
-                            floor, locked, population.getOrDefault(floor.getFloorNumber(), 0L)));
+                            floor,
+                            locked,
+                            population.getOrDefault(floor.getFloorNumber(), 0L),
+                            pixel.get(floor.getId())));
             if (!locked && firstOpen == null) {
                 firstOpen = floor.getFloorNumber();
             }

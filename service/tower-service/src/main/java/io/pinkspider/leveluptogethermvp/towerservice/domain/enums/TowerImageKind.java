@@ -9,7 +9,9 @@ public enum TowerImageKind {
     /** LUT-637: 배경 음악 (mp3·aac·m4a, 10MB) — 이미지 업로드 API 로는 못 올린다 */
     BGM("bgm"),
     /** LUT-693: NPC 프로필 이미지 (정사각 권장, jpg·png·webp) — 층 이미지 업로드 API {@code kind=NPC} */
-    NPC("npc");
+    NPC("npc"),
+    /** LUT-727: 서버가 만든 픽셀아트 배경 (인덱스 PNG) — 업로드 API 로는 못 올린다 */
+    PIXEL("pixel");
 
     private final String folder;
 

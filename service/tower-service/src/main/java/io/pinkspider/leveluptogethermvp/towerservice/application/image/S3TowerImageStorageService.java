@@ -54,6 +54,27 @@ public class S3TowerImageStorageService implements TowerImageStorageService {
     }
 
     @Override
+    public String storeGenerated(
+            byte[] bytes, TowerImageKind kind, String filename, String contentType) {
+        String key = KEY_PREFIX + kind.folder() + "/" + TowerImageFiles.safeFilename(filename);
+        try {
+            PutObjectRequest request =
+                    PutObjectRequest.builder()
+                            .bucket(s3Properties.getBucket())
+                            .key(key)
+                            .contentType(contentType)
+                            .cacheControl("public, max-age=31536000, immutable")
+                            .build();
+            s3Client.putObject(request, RequestBody.fromBytes(bytes));
+            log.info("탑 생성 파일 S3 저장: key={}, size={}", key, bytes.length);
+            return s3Properties.getCdnBaseUrl() + "/" + key;
+        } catch (RuntimeException e) {
+            log.error("탑 생성 파일 S3 저장 실패: key={}", key, e);
+            throw TowerFloorException.imageSaveFailed();
+        }
+    }
+
+    @Override
     public boolean isOwned(String url) {
         return url != null && url.startsWith(s3Properties.getCdnBaseUrl() + "/" + KEY_PREFIX);
     }

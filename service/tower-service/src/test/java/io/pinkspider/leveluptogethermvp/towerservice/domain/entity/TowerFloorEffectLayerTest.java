@@ -66,7 +66,7 @@ class TowerFloorEffectLayerTest {
                         layer(TowerEffectKind.SNOW, true, DEC_1, DEC_31),
                         layer(TowerEffectKind.STARS, true, null, null)));
 
-        TowerFloorResponse inSeason = TowerFloorResponse.from(f, false, 3L, DEC_1);
+        TowerFloorResponse inSeason = TowerFloorResponse.from(f, false, 3L, null, DEC_1);
         assertThat(inSeason.effectLayers())
                 .extracting(TowerFloorEffectLayerDto::kind)
                 .containsExactly(TowerEffectKind.SNOW, TowerEffectKind.STARS);
@@ -76,7 +76,8 @@ class TowerFloorEffectLayerTest {
                 .extracting(TowerFloorLightDto::color)
                 .containsExactly("#ffcc66");
 
-        TowerFloorResponse offSeason = TowerFloorResponse.from(f, false, 3L, DEC_31.plusDays(1));
+        TowerFloorResponse offSeason =
+                TowerFloorResponse.from(f, false, 3L, null, DEC_31.plusDays(1));
         assertThat(offSeason.effectLayers())
                 .extracting(TowerFloorEffectLayerDto::kind)
                 .containsExactly(TowerEffectKind.STARS);

@@ -49,6 +49,23 @@ public class LocalTowerImageStorageService implements TowerImageStorageService {
     }
 
     @Override
+    public String storeGenerated(
+            byte[] bytes, TowerImageKind kind, String filename, String contentType) {
+        String safe = TowerImageFiles.safeFilename(filename);
+        try {
+            Path dir = Paths.get(properties.getPath(), kind.folder());
+            Files.createDirectories(dir);
+            Path target = dir.resolve(safe);
+            Files.write(target, bytes);
+            log.info("탑 생성 파일 저장: kind={}, path={}, size={}", kind, target, bytes.length);
+            return ownedPrefix() + kind.folder() + "/" + safe;
+        } catch (IOException e) {
+            log.error("탑 생성 파일 저장 실패: kind={}", kind, e);
+            throw TowerFloorException.imageSaveFailed();
+        }
+    }
+
+    @Override
     public boolean isOwned(String url) {
         return url != null && url.startsWith(ownedPrefix());
     }

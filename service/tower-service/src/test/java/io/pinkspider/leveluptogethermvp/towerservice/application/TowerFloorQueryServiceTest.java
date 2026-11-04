@@ -6,6 +6,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import io.pinkspider.global.facade.GamificationQueryFacade;
+import io.pinkspider.leveluptogethermvp.towerservice.application.pixel.TowerPixelArtService;
 import io.pinkspider.leveluptogethermvp.towerservice.domain.dto.TowerFloorListResponse;
 import io.pinkspider.leveluptogethermvp.towerservice.domain.dto.TowerFloorResponse;
 import io.pinkspider.leveluptogethermvp.towerservice.domain.entity.TowerFloor;
@@ -29,6 +30,7 @@ class TowerFloorQueryServiceTest {
     private final GamificationQueryFacade gamificationQueryFacade =
             mock(GamificationQueryFacade.class);
     private final TowerPopulationService populationService = mock(TowerPopulationService.class);
+    private final TowerPixelArtService pixelArtService = mock(TowerPixelArtService.class);
 
     private TowerFloorQueryService service;
 
@@ -43,7 +45,8 @@ class TowerFloorQueryServiceTest {
                         floorRepository,
                         stateRepository,
                         gamificationQueryFacade,
-                        populationService);
+                        populationService,
+                        pixelArtService);
         when(populationService.byFloor()).thenReturn(Map.of(1, 4L));
         when(floorRepository.findAllByIsPublicTrueOrderByFloorNumberAsc())
                 .thenReturn(List.of(f1, f2, f3));
@@ -116,5 +119,36 @@ class TowerFloorQueryServiceTest {
         TowerFloorListResponse r = service.listForUser(null);
         assertThat(r.floors()).isEmpty();
         assertThat(r.defaultFloorNumber()).isNull();
+    }
+
+    @Test
+    @DisplayName("LUT-727: 지금 배경으로 만든 완료 픽셀 배경만 내리고, 옛 배경 결과·대기·없음은 null")
+    void pixelBackgrounds() {
+        io.pinkspider.leveluptogethermvp.towerservice.domain.entity.TowerFloorPixelArt ready =
+                io.pinkspider.leveluptogethermvp.towerservice.domain.entity.TowerFloorPixelArt
+                        .create(1L, f1.getBackgroundImageUrl(), 64, 100);
+        long seq =
+                ready.request(
+                        f1.getBackgroundImageUrl(), null, null, java.time.LocalDateTime.now());
+        ready.complete(
+                seq,
+                new io.pinkspider.leveluptogethermvp.towerservice.domain.entity.TowerPixelImage(
+                        "https://cdn/p/a.png", 1056, 576, "a"),
+                new io.pinkspider.leveluptogethermvp.towerservice.domain.entity.TowerPixelImage(
+                        "https://cdn/p/b.png", 704, 384, "b"),
+                java.time.LocalDateTime.now());
+        io.pinkspider.leveluptogethermvp.towerservice.domain.entity.TowerFloorPixelArt stale =
+                io.pinkspider.leveluptogethermvp.towerservice.domain.entity.TowerFloorPixelArt
+                        .create(2L, "https://cdn/old.jpg", 64, 100);
+        when(pixelArtService.byFloorIds(List.of(1L, 2L, 3L)))
+                .thenReturn(Map.of(1L, ready, 2L, stale));
+
+        TowerFloorListResponse r = service.listForUser(null);
+
+        assertThat(r.floors().get(0).pixelDense().url()).isEqualTo("https://cdn/p/a.png");
+        assertThat(r.floors().get(0).pixelDense().height()).isEqualTo(576);
+        assertThat(r.floors().get(0).pixelStandard().version()).isEqualTo("b");
+        assertThat(r.floors().get(1).pixelDense()).isNull();
+        assertThat(r.floors().get(2).pixelStandard()).isNull();
     }
 }
