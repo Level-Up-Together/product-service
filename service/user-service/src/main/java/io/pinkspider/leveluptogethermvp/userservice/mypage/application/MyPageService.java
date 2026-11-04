@@ -141,10 +141,21 @@ public class MyPageService {
         List<GuildMembershipInfo> guildMemberships =
                 guildQueryFacadeService.getUserGuildMemberships(targetUserId);
         List<Long> guildIds = guildMemberships.stream().map(GuildMembershipInfo::guildId).toList();
-        Map<Long, Integer> memberCountMap =
-                guildQueryFacadeService.countActiveMembersByGuildIds(guildIds);
-        List<PublicProfileResponse.GuildInfo> guilds =
+        // LUT-722: 프로필에는 공개 길드만 — 비공개 길드는 응답에서도 뺀다(공유 링크로 외부에 노출되는 화면이라 본인·같은 길드원도 같게).
+        // 진행 중 미션 공개 범위(GUILD_ONLY) 판정은 비공개 길드까지 포함한 guildIds 를 그대로 쓴다
+        List<GuildMembershipInfo> publicMemberships =
                 guildMemberships.stream()
+                        .filter(m -> guildQueryFacadeService.isGuildPublic(m.guildId()))
+                        .toList();
+        Map<Long, Integer> memberCountMap =
+                publicMemberships.isEmpty()
+                        ? Map.of()
+                        : guildQueryFacadeService.countActiveMembersByGuildIds(
+                                publicMemberships.stream()
+                                        .map(GuildMembershipInfo::guildId)
+                                        .toList());
+        List<PublicProfileResponse.GuildInfo> guilds =
+                publicMemberships.stream()
                         .map(m -> toGuildInfo(m, memberCountMap.getOrDefault(m.guildId(), 0)))
                         .collect(Collectors.toList());
 
