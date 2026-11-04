@@ -12,14 +12,18 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import io.pinkspider.global.facade.GamificationQueryFacade;
 import io.pinkspider.leveluptogethermvp.towerservice.application.exception.TowerFloorException;
 import io.pinkspider.leveluptogethermvp.towerservice.application.exception.TowerNpcException;
 import io.pinkspider.leveluptogethermvp.towerservice.domain.dto.TowerNpcAdminRequest;
 import io.pinkspider.leveluptogethermvp.towerservice.domain.dto.TowerNpcAdminResponse;
+import io.pinkspider.leveluptogethermvp.towerservice.domain.dto.TowerNpcCardDto;
+import io.pinkspider.leveluptogethermvp.towerservice.domain.dto.TowerNpcCardLinkDto;
 import io.pinkspider.leveluptogethermvp.towerservice.domain.dto.TowerNpcLineDto;
 import io.pinkspider.leveluptogethermvp.towerservice.domain.dto.TowerNpcView;
 import io.pinkspider.leveluptogethermvp.towerservice.domain.entity.TowerFloor;
 import io.pinkspider.leveluptogethermvp.towerservice.domain.entity.TowerNpc;
+import io.pinkspider.leveluptogethermvp.towerservice.domain.enums.TowerNpcCardLinkType;
 import io.pinkspider.leveluptogethermvp.towerservice.infrastructure.TowerFloorRepository;
 import io.pinkspider.leveluptogethermvp.towerservice.infrastructure.TowerNpcRepository;
 import java.io.IOException;
@@ -44,6 +48,7 @@ class TowerNpcAdminServiceTest {
     @Mock private TowerNpcRepository npcRepository;
     @Mock private FloorMaskChecker maskChecker;
     @Mock private TowerStoredFileCleaner fileCleaner;
+    @Mock private GamificationQueryFacade gamificationQueryFacade;
 
     @InjectMocks private TowerNpcAdminService service;
 
@@ -138,6 +143,7 @@ class TowerNpcAdminServiceTest {
                             List.of(new TowerNpcLineDto(texts[0], texts[1], texts[2], texts[3])),
                             false,
                             2,
+                            null,
                             null,
                             null);
             assertThatThrownBy(() -> service.create(10L, request))
@@ -235,6 +241,192 @@ class TowerNpcAdminServiceTest {
                 b.isPublic(),
                 b.sortOrder(),
                 enabled,
-                interval);
+                interval,
+                b.card());
+    }
+
+    private static TowerNpcAdminRequest withCard(TowerNpcAdminRequest b, TowerNpcCardDto card) {
+        return new TowerNpcAdminRequest(
+                b.name(),
+                b.nameEn(),
+                b.nameJa(),
+                b.nameAr(),
+                b.profileImageUrl(),
+                b.statusText(),
+                b.statusTextEn(),
+                b.statusTextJa(),
+                b.statusTextAr(),
+                b.seatX(),
+                b.seatY(),
+                b.lines(),
+                b.isPublic(),
+                b.sortOrder(),
+                b.autoBubble(),
+                b.bubbleIntervalSeconds(),
+                card);
+    }
+
+    private static final String CARD_IMG = "https://cdn.test/tower/npc/card.png";
+
+    private static TowerNpcCardDto card(
+            String image, TowerNpcCardLinkType type, Long targetId, String path) {
+        return new TowerNpcCardDto(
+                image,
+                type == null ? null : new TowerNpcCardLinkDto(type, targetId, path),
+                " 상점 가기 ",
+                "Go to shop",
+                null,
+                " ",
+                null,
+                null);
+    }
+
+    @Test
+    @DisplayName(
+            "LUT-733 창 링크 저장 검증: 판매 중 아이템·있는 이벤트만(150405) · 대상 ID 없음·앱 경로 아님 150406 · 기간 역전 150407")
+    void cardValidation() throws IOException {
+        when(floorRepository.findById(10L)).thenReturn(Optional.of(floor1));
+        when(npcRepository.countByFloorId(10L)).thenReturn(0L);
+        when(maskChecker.isWalkable(anyString(), anyString(), anyInt(), anyInt())).thenReturn(true);
+        when(npcRepository.save(any(TowerNpc.class))).thenAnswer(inv -> inv.getArgument(0));
+        TowerNpcAdminRequest base = npcRequest(IMG, 1, 1, "안녕");
+        when(gamificationQueryFacade.findOnSaleShopItemIds(List.of(15L))).thenReturn(Set.of(15L));
+        when(gamificationQueryFacade.findOnSaleShopItemIds(List.of(16L))).thenReturn(Set.of());
+        when(gamificationQueryFacade.findExistingEventIds(List.of(3L))).thenReturn(Set.of(3L));
+        when(gamificationQueryFacade.findExistingEventIds(List.of(4L))).thenReturn(Set.of());
+
+        TowerNpcAdminResponse shop =
+                service.create(
+                        10L,
+                        withCard(base, card(CARD_IMG, TowerNpcCardLinkType.SHOP_ITEM, 15L, "/x")));
+        assertThat(shop.card().imageUrl()).isEqualTo(CARD_IMG);
+        assertThat(shop.card().link().type()).isEqualTo(TowerNpcCardLinkType.SHOP_ITEM);
+        assertThat(shop.card().link().targetId()).isEqualTo(15L);
+        assertThat(shop.card().link().path()).isNull(); // 종류에 맞지 않는 값은 버린다
+        assertThat(shop.card().linkLabel()).isEqualTo("상점 가기");
+        assertThat(shop.card().linkLabelAr()).isNull();
+        assertThat(
+                        service.create(
+                                        10L,
+                                        withCard(
+                                                base,
+                                                card(null, TowerNpcCardLinkType.EVENT, 3L, null)))
+                                .card()
+                                .imageUrl())
+                .isNull();
+        assertThat(
+                        service.create(
+                                        10L,
+                                        withCard(
+                                                base,
+                                                card(
+                                                        null,
+                                                        TowerNpcCardLinkType.PATH,
+                                                        9L,
+                                                        " /shop/subscription ")))
+                                .card()
+                                .link())
+                .satisfies(
+                        link -> {
+                            assertThat(link.path()).isEqualTo("/shop/subscription");
+                            assertThat(link.targetId()).isNull();
+                        });
+        assertThat(
+                        service.create(
+                                        10L,
+                                        withCard(
+                                                base,
+                                                card(
+                                                        null,
+                                                        TowerNpcCardLinkType.SUBSCRIPTION,
+                                                        null,
+                                                        null)))
+                                .card()
+                                .link()
+                                .type())
+                .isEqualTo(TowerNpcCardLinkType.SUBSCRIPTION);
+        // 이미지만(링크 없음) — 버튼 문구는 버린다
+        TowerNpcAdminResponse imageOnly =
+                service.create(10L, withCard(base, card(CARD_IMG, null, null, null)));
+        assertThat(imageOnly.card().link()).isNull();
+        assertThat(imageOnly.card().linkLabel()).isNull();
+        // 이미지도 링크도 없으면 창 묶음 없음
+        assertThat(service.create(10L, withCard(base, card(" ", null, null, null))).card())
+                .isNull();
+
+        assertCode(
+                withCard(base, card(null, TowerNpcCardLinkType.SHOP_ITEM, 16L, null)),
+                TowerNpcException.CARD_LINK_TARGET_MISSING);
+        assertCode(
+                withCard(base, card(null, TowerNpcCardLinkType.EVENT, 4L, null)),
+                TowerNpcException.CARD_LINK_TARGET_MISSING);
+        assertCode(
+                withCard(base, card(null, TowerNpcCardLinkType.SHOP_ITEM, null, null)),
+                TowerNpcException.CARD_LINK_INVALID);
+        assertCode(
+                withCard(base, card(null, TowerNpcCardLinkType.EVENT, 0L, null)),
+                TowerNpcException.CARD_LINK_INVALID);
+        for (String bad : new String[] {"shop", "//evil.com", "https://x", "/a b", null}) {
+            assertCode(
+                    withCard(base, card(null, TowerNpcCardLinkType.PATH, null, bad)),
+                    TowerNpcException.CARD_LINK_INVALID);
+        }
+        TowerNpcCardDto reversed =
+                new TowerNpcCardDto(
+                        CARD_IMG,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        java.time.LocalDate.of(2026, 12, 2),
+                        java.time.LocalDate.of(2026, 12, 1));
+        assertCode(withCard(base, reversed), TowerNpcException.CARD_PERIOD_INVALID);
+    }
+
+    private void assertCode(TowerNpcAdminRequest request, String code) {
+        assertThatThrownBy(() -> service.create(10L, request))
+                .isInstanceOf(TowerNpcException.class)
+                .extracting("code")
+                .isEqualTo(code);
+    }
+
+    @Test
+    @DisplayName(
+            "LUT-733 수정: card 없음 = 그대로(구 어드민) · 있으면 통째로 바꿈 · 빈 묶음 = 지움 · 바뀐 창 이미지는 정리 · 삭제도 창 이미지"
+                    + " 정리")
+    void cardUpdate() throws IOException {
+        TowerNpc existing = npc(5L, 10L, true);
+        existing.updateCard(
+                io.pinkspider.leveluptogethermvp.towerservice.domain.entity.TowerNpcCard.builder()
+                        .imageUrl(CARD_IMG)
+                        .linkType(TowerNpcCardLinkType.SUBSCRIPTION)
+                        .build());
+        String profile = existing.getProfileImageUrl();
+        when(floorRepository.findById(10L)).thenReturn(Optional.of(floor1));
+        when(npcRepository.findByIdAndFloorId(5L, 10L)).thenReturn(Optional.of(existing));
+        when(maskChecker.isWalkable(anyString(), anyString(), anyInt(), anyInt())).thenReturn(true);
+        TowerNpcAdminRequest base = npcRequest(IMG, 1, 1, "안녕");
+
+        service.update(10L, 5L, base);
+        assertThat(existing.getCard().getImageUrl()).isEqualTo(CARD_IMG);
+        verify(fileCleaner).scheduleCleanup(Set.of(profile, CARD_IMG), Set.of(IMG, CARD_IMG));
+
+        String newCard = "https://cdn.test/tower/npc/card2.png";
+        service.update(10L, 5L, withCard(base, card(newCard, null, null, null)));
+        assertThat(existing.getCard().getImageUrl()).isEqualTo(newCard);
+        assertThat(existing.getCard().hasLink()).isFalse();
+        verify(fileCleaner).scheduleCleanup(Set.of(IMG, CARD_IMG), Set.of(IMG, newCard));
+
+        service.update(10L, 5L, withCard(base, card(null, null, null, null)));
+        assertThat(existing.getCard()).isNull();
+        verify(fileCleaner).scheduleCleanup(Set.of(IMG, newCard), Set.of(IMG));
+
+        existing.updateCard(
+                io.pinkspider.leveluptogethermvp.towerservice.domain.entity.TowerNpcCard.builder()
+                        .imageUrl(CARD_IMG)
+                        .build());
+        service.delete(10L, 5L);
+        verify(fileCleaner).scheduleCleanup(Set.of(IMG, CARD_IMG), Set.of());
     }
 }

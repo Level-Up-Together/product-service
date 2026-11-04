@@ -85,6 +85,22 @@ public final class TowerTestFixtures {
                 null);
     }
 
+    /** LUT-733: 창 이미지 + 상점 아이템 링크 + 버튼 문구(일부) + 기간 */
+    public static io.pinkspider.leveluptogethermvp.towerservice.domain.entity.TowerNpcCard
+            npcCard() {
+        return io.pinkspider.leveluptogethermvp.towerservice.domain.entity.TowerNpcCard.builder()
+                .imageUrl("https://cdn.test/tower/npc/card.png")
+                .linkType(
+                        io.pinkspider.leveluptogethermvp.towerservice.domain.enums
+                                .TowerNpcCardLinkType.SHOP_ITEM)
+                .linkTargetId(15L)
+                .linkLabel("상점 가기")
+                .linkLabelEn("Go to shop")
+                .startsOn(java.time.LocalDate.of(2026, 11, 1))
+                .endsOn(java.time.LocalDate.of(2026, 11, 30))
+                .build();
+    }
+
     /** LUT-693: NPC 등록 요청 */
     public static TowerNpcAdminRequest npcRequest(String imageUrl, int x, int y, String line) {
         return new TowerNpcAdminRequest(
@@ -101,6 +117,7 @@ public final class TowerTestFixtures {
                 y,
                 java.util.List.of(new TowerNpcLineDto(line, "Welcome", "ようこそ", "مرحبا")),
                 true,
+                null,
                 null,
                 null,
                 null);

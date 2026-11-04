@@ -16,6 +16,7 @@ import io.pinkspider.leveluptogethermvp.config.ControllerTestConfig;
 import io.pinkspider.leveluptogethermvp.towerservice.TowerTestFixtures;
 import io.pinkspider.leveluptogethermvp.towerservice.application.TowerPresenceQueryService;
 import io.pinkspider.leveluptogethermvp.towerservice.application.exception.TowerEntryException;
+import io.pinkspider.leveluptogethermvp.towerservice.domain.dto.TowerNpcCardDto;
 import io.pinkspider.leveluptogethermvp.towerservice.domain.dto.TowerNpcView;
 import io.pinkspider.leveluptogethermvp.towerservice.domain.dto.TowerPresenceSnapshotResponse;
 import io.pinkspider.leveluptogethermvp.towerservice.domain.dto.TowerTraceView;
@@ -33,6 +34,7 @@ import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMock
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.restdocs.mockmvc.RestDocumentationRequestBuilders;
+import org.springframework.restdocs.payload.JsonFieldType;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
@@ -87,7 +89,10 @@ class TowerPresenceControllerTest {
                                         new TowerPresenceView(
                                                 8L, null, "VISITOR", 4821, null, null, null,
                                                 List.of(), 1380, 1010, "REST", null)),
-                                List.of(TowerNpcView.from(TowerTestFixtures.npc(3L, 1L, true))),
+                                List.of(
+                                        TowerNpcView.from(
+                                                TowerTestFixtures.npc(3L, 1L, true),
+                                                TowerNpcCardDto.from(TowerTestFixtures.npcCard()))),
                                 true,
                                 new TowerTraceView(
                                         4, List.of(new TowerTraceView.Point(1300, 980)))));
@@ -208,6 +213,57 @@ class TowerPresenceControllerTest {
                                                                 + " 머리 위에, 구 서버는 없음 = 꺼짐)"),
                                         fieldWithPath("value.npcs[].bubble_interval_seconds")
                                                 .description("자동 말풍선 대사 간격(초, 5~60)"),
+                                        fieldWithPath("value.npcs[].card")
+                                                .type(JsonFieldType.OBJECT)
+                                                .description(
+                                                        "LUT-733 NPC 창 이미지·이동 링크 — 오늘(KST) 노출 기간이"
+                                                            + " 아니거나 링크 대상(판매 중 아이템·이벤트)이 없으면 null")
+                                                .optional(),
+                                        fieldWithPath("value.npcs[].card.image_url")
+                                                .type(JsonFieldType.STRING)
+                                                .description("창 이미지 (가로 2 : 세로 1)")
+                                                .optional(),
+                                        fieldWithPath("value.npcs[].card.link")
+                                                .type(JsonFieldType.OBJECT)
+                                                .description("이동 링크 (없으면 null)")
+                                                .optional(),
+                                        fieldWithPath("value.npcs[].card.link.type")
+                                                .type(JsonFieldType.STRING)
+                                                .description(
+                                                        "SHOP_ITEM · EVENT · SUBSCRIPTION · PATH")
+                                                .optional(),
+                                        fieldWithPath("value.npcs[].card.link.target_id")
+                                                .type(JsonFieldType.NUMBER)
+                                                .description("SHOP_ITEM·EVENT 대상 ID")
+                                                .optional(),
+                                        fieldWithPath("value.npcs[].card.link.path")
+                                                .type(JsonFieldType.STRING)
+                                                .description("PATH 앱 경로")
+                                                .optional(),
+                                        fieldWithPath("value.npcs[].card.link_label")
+                                                .type(JsonFieldType.STRING)
+                                                .description("버튼 문구 (한국어, 비우면 기본 문구)")
+                                                .optional(),
+                                        fieldWithPath("value.npcs[].card.link_label_en")
+                                                .type(JsonFieldType.STRING)
+                                                .description("버튼 문구 (영어)")
+                                                .optional(),
+                                        fieldWithPath("value.npcs[].card.link_label_ja")
+                                                .type(JsonFieldType.STRING)
+                                                .description("버튼 문구 (일본어)")
+                                                .optional(),
+                                        fieldWithPath("value.npcs[].card.link_label_ar")
+                                                .type(JsonFieldType.STRING)
+                                                .description("버튼 문구 (아랍어)")
+                                                .optional(),
+                                        fieldWithPath("value.npcs[].card.starts_on")
+                                                .type(JsonFieldType.STRING)
+                                                .description("노출 시작일 (KST)")
+                                                .optional(),
+                                        fieldWithPath("value.npcs[].card.ends_on")
+                                                .type(JsonFieldType.STRING)
+                                                .description("노출 종료일 (KST, 포함)")
+                                                .optional(),
                                         fieldWithPath("value.npc_shown")
                                                 .description(
                                                         "이 요청자가 NPC 노출 그룹인가 (A/B,"

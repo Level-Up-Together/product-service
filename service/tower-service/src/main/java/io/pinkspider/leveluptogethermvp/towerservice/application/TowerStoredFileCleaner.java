@@ -74,6 +74,7 @@ public class TowerStoredFileCleaner {
                 || towerFloorRepository.countByOcclusionMaskUrl(url) > 0
                 || towerFloorRepository.countEffectLayersByMaskUrl(url) > 0
                 || towerNpcRepository.countByProfileImageUrl(url) > 0
+                || towerNpcRepository.countByCardImageUrl(url) > 0
                 || towerFloorPixelArtRepository.countByImageUrl(url) > 0;
     }
 }

@@ -1,9 +1,12 @@
 package io.pinkspider.leveluptogethermvp.towerservice.application;
 
+import io.pinkspider.global.facade.GamificationQueryFacade;
 import io.pinkspider.leveluptogethermvp.towerservice.application.exception.TowerFloorException;
 import io.pinkspider.leveluptogethermvp.towerservice.application.exception.TowerNpcException;
 import io.pinkspider.leveluptogethermvp.towerservice.domain.dto.TowerNpcAdminRequest;
 import io.pinkspider.leveluptogethermvp.towerservice.domain.dto.TowerNpcAdminResponse;
+import io.pinkspider.leveluptogethermvp.towerservice.domain.dto.TowerNpcCardDto;
+import io.pinkspider.leveluptogethermvp.towerservice.domain.dto.TowerNpcCardLinkDto;
 import io.pinkspider.leveluptogethermvp.towerservice.domain.dto.TowerNpcLineDto;
 import io.pinkspider.leveluptogethermvp.towerservice.domain.entity.TowerFloor;
 import io.pinkspider.leveluptogethermvp.towerservice.domain.entity.TowerNpc;
@@ -21,6 +24,8 @@ import org.springframework.transaction.annotation.Transactional;
 /**
  * LUT-693: 어드민 NPC CRUD (층마다 등록). 저장 규칙 — 층당 최대 3명(150402) · 자리는 층 마스크 안(150403, 못 읽으면 150109) · 대사
  * 한 문장 2줄 이내({@link TowerNpcTextRule}, 150404). 수정은 다음 입장(스냅샷)부터 반영된다. 안 쓰게 된 프로필 이미지는 커밋 뒤 지운다.
+ * LUT-733: 창 이미지·링크 — 상점 아이템은 판매 중(150405)·이벤트는 있는 것(150405), 앱 경로 규칙({@link TowerNpcCardRule},
+ * 150406), 기간 시작 ≤ 종료(150407). 안 쓰게 된 창 이미지도 지운다.
  */
 @Service
 @RequiredArgsConstructor
@@ -32,6 +37,7 @@ public class TowerNpcAdminService {
     private final TowerNpcRepository towerNpcRepository;
     private final FloorMaskChecker floorMaskChecker;
     private final TowerStoredFileCleaner fileCleaner;
+    private final GamificationQueryFacade gamificationQueryFacade;
 
     @Value("${tower.floor.mask-check.enabled:true}")
     private boolean maskCheckEnabled = true;
@@ -65,11 +71,15 @@ public class TowerNpcAdminService {
         TowerNpc npc = findNpc(floorId, npcId);
         validate(floor, request);
         String previousImage = npc.getProfileImageUrl();
+        String previousCardImage = cardImageOf(npc);
         npc.update(request.toEntity(floorId));
         npc.updateAutoBubble(request.autoBubble(), request.bubbleIntervalSeconds());
+        if (request.card() != null) {
+            npc.updateCard(request.card().toEntityOrNull());
+        }
         fileCleaner.scheduleCleanup(
-                TowerStoredFileCleaner.urls(previousImage),
-                TowerStoredFileCleaner.urls(npc.getProfileImageUrl()));
+                TowerStoredFileCleaner.urls(previousImage, previousCardImage),
+                TowerStoredFileCleaner.urls(npc.getProfileImageUrl(), cardImageOf(npc)));
         log.info(
                 "탑 NPC 수정: id={}, floor={}, public={}",
                 npcId,
@@ -83,7 +93,7 @@ public class TowerNpcAdminService {
         TowerNpc npc = findNpc(floorId, npcId);
         towerNpcRepository.delete(npc);
         fileCleaner.scheduleCleanup(
-                TowerStoredFileCleaner.urls(npc.getProfileImageUrl()), Set.of());
+                TowerStoredFileCleaner.urls(npc.getProfileImageUrl(), cardImageOf(npc)), Set.of());
         log.info("탑 NPC 삭제: id={}, floorId={}", npcId, floorId);
     }
 
@@ -97,6 +107,56 @@ public class TowerNpcAdminService {
             }
         }
         validateSeat(floor, request.seatX(), request.seatY());
+        validateCard(request.card());
+    }
+
+    /** LUT-733: 창 이미지·링크 — 이미지도 링크도 없는 묶음은 저장하지 않는다(toEntityOrNull) */
+    private void validateCard(TowerNpcCardDto card) {
+        if (card == null) {
+            return;
+        }
+        if (card.startsOn() != null
+                && card.endsOn() != null
+                && card.startsOn().isAfter(card.endsOn())) {
+            throw TowerNpcException.cardPeriodInvalid();
+        }
+        TowerNpcCardLinkDto link = card.link();
+        if (link == null || link.type() == null) {
+            return;
+        }
+        switch (link.type()) {
+            case SHOP_ITEM -> {
+                Long id = requireTarget(link);
+                if (!gamificationQueryFacade.findOnSaleShopItemIds(List.of(id)).contains(id)) {
+                    throw TowerNpcException.cardLinkTargetMissing();
+                }
+            }
+            case EVENT -> {
+                Long id = requireTarget(link);
+                if (!gamificationQueryFacade.findExistingEventIds(List.of(id)).contains(id)) {
+                    throw TowerNpcException.cardLinkTargetMissing();
+                }
+            }
+            case PATH -> {
+                if (!TowerNpcCardRule.isAppPath(link.path() == null ? null : link.path().trim())) {
+                    throw TowerNpcException.cardLinkInvalid();
+                }
+            }
+            case SUBSCRIPTION -> {
+                // 대상 없음 — 클라이언트가 멤버십 화면으로 보낸다
+            }
+        }
+    }
+
+    private static Long requireTarget(TowerNpcCardLinkDto link) {
+        if (link.targetId() == null || link.targetId() <= 0) {
+            throw TowerNpcException.cardLinkInvalid();
+        }
+        return link.targetId();
+    }
+
+    private static String cardImageOf(TowerNpc npc) {
+        return npc.getCard() != null ? npc.getCard().getImageUrl() : null;
     }
 
     private void validateSeat(TowerFloor floor, int x, int y) {

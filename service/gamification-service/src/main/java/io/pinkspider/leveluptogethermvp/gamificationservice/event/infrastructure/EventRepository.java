@@ -2,6 +2,7 @@ package io.pinkspider.leveluptogethermvp.gamificationservice.event.infrastructur
 
 import io.pinkspider.leveluptogethermvp.gamificationservice.event.domain.entity.Event;
 import java.time.LocalDateTime;
+import java.util.Collection;
 import java.util.List;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -38,4 +39,8 @@ public interface EventRepository extends JpaRepository<Event, Long> {
 
     /** 전체 이벤트 페이징 조회 (Admin) */
     Page<Event> findAllByOrderByStartAtDesc(Pageable pageable);
+
+    /** LUT-733: 있는 이벤트 ID 만 (탑 NPC 창 링크 확인) */
+    @Query("SELECT e.id FROM Event e WHERE e.id IN :ids")
+    List<Long> findIdsByIdIn(@Param("ids") Collection<Long> ids);
 }

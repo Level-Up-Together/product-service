@@ -31,6 +31,7 @@ import io.pinkspider.leveluptogethermvp.gamificationservice.domain.entity.Title;
 import io.pinkspider.leveluptogethermvp.gamificationservice.domain.entity.UserExperience;
 import io.pinkspider.leveluptogethermvp.gamificationservice.domain.entity.UserStats;
 import io.pinkspider.leveluptogethermvp.gamificationservice.domain.entity.UserTitle;
+import io.pinkspider.leveluptogethermvp.gamificationservice.event.infrastructure.EventRepository;
 import io.pinkspider.leveluptogethermvp.gamificationservice.experience.application.UserExperienceService;
 import io.pinkspider.leveluptogethermvp.gamificationservice.experience.domain.dto.UserExperienceResponse;
 import io.pinkspider.leveluptogethermvp.gamificationservice.season.api.dto.SeasonMvpData;
@@ -76,6 +77,7 @@ public class GamificationQueryFacadeService implements GamificationQueryFacade {
     private final DiamondService diamondService;
     private final MissionCategoryService missionCategoryService;
     private final SubscriptionService subscriptionService;
+    private final EventRepository eventRepository;
 
     public GamificationQueryFacadeService(
             TitleService titleService,
@@ -89,7 +91,8 @@ public class GamificationQueryFacadeService implements GamificationQueryFacade {
             ShopItemRepository shopItemRepository,
             DiamondService diamondService,
             MissionCategoryService missionCategoryService,
-            SubscriptionService subscriptionService) {
+            SubscriptionService subscriptionService,
+            EventRepository eventRepository) {
         this.titleService = titleService;
         this.userItemService = userItemService;
         this.userExperienceService = userExperienceService;
@@ -102,6 +105,7 @@ public class GamificationQueryFacadeService implements GamificationQueryFacade {
         this.diamondService = diamondService;
         this.missionCategoryService = missionCategoryService;
         this.subscriptionService = subscriptionService;
+        this.eventRepository = eventRepository;
     }
 
     // ========== 레벨 조회 ==========
@@ -632,6 +636,24 @@ public class GamificationQueryFacadeService implements GamificationQueryFacade {
     @Override
     public void evictAllSeasonCaches() {
         seasonRankingService.evictAllSeasonCaches();
+    }
+
+    // ========== 링크 대상 확인 (LUT-733) ==========
+
+    @Override
+    public java.util.Set<Long> findOnSaleShopItemIds(java.util.Collection<Long> itemIds) {
+        if (itemIds == null || itemIds.isEmpty()) {
+            return java.util.Set.of();
+        }
+        return new java.util.HashSet<>(shopItemRepository.findOnSaleIdsByIdIn(itemIds));
+    }
+
+    @Override
+    public java.util.Set<Long> findExistingEventIds(java.util.Collection<Long> eventIds) {
+        if (eventIds == null || eventIds.isEmpty()) {
+            return java.util.Set.of();
+        }
+        return new java.util.HashSet<>(eventRepository.findIdsByIdIn(eventIds));
     }
 
     // ========== 변환 유틸리티 ==========

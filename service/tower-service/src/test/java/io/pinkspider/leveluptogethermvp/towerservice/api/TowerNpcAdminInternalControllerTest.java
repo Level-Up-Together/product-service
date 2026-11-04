@@ -34,6 +34,7 @@ import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.restdocs.mockmvc.RestDocumentationRequestBuilders;
 import org.springframework.restdocs.payload.FieldDescriptor;
+import org.springframework.restdocs.payload.JsonFieldType;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
@@ -58,14 +59,72 @@ class TowerNpcAdminInternalControllerTest {
                 + "\"status_text_en\":\"Dozing\",\"status_text_ja\":null,\"status_text_ar\":null,\"seat_x\":120,\"seat_y\":220,\"lines\":[{\"text\":\"어서"
                 + " 와\",\"text_en\":\"Welcome\","
                 + "\"text_ja\":\"ようこそ\",\"text_ar\":\"مرحبا\"}],\"is_public\":true,\"sort_order\":0,"
-                + "\"auto_bubble\":true,\"bubble_interval_seconds\":8}";
+                + "\"auto_bubble\":true,\"bubble_interval_seconds\":8,"
+                + "\"card\":{\"image_url\":\"https://cdn/card.png\",\"link\":{\"type\":\"SHOP_ITEM\",\"target_id\":15},\"link_label\":\"상점"
+                + " 가기\",\"starts_on\":\"2026-11-01\",\"ends_on\":\"2026-11-30\"}}";
 
     @Autowired private MockMvc mockMvc;
 
     @MockitoBean private TowerNpcAdminService npcService;
 
     private static TowerNpcAdminResponse response() {
-        return TowerNpcAdminResponse.from(TowerTestFixtures.npc(3L, 10L, true));
+        var npc = TowerTestFixtures.npc(3L, 10L, true);
+        npc.updateCard(TowerTestFixtures.npcCard());
+        return TowerNpcAdminResponse.from(npc);
+    }
+
+    /** LUT-733: 창 이미지·이동 링크 문서 필드 */
+    static FieldDescriptor[] cardFields(String prefix) {
+        return new FieldDescriptor[] {
+            fieldWithPath(prefix + "card")
+                    .type(JsonFieldType.OBJECT)
+                    .description("LUT-733 NPC 창 이미지·이동 링크 (없으면 null)")
+                    .optional(),
+            fieldWithPath(prefix + "card.image_url")
+                    .type(JsonFieldType.STRING)
+                    .description("창 이미지 (가로 2 : 세로 1 권장, 이미지 업로드 kind=NPC)")
+                    .optional(),
+            fieldWithPath(prefix + "card.link")
+                    .type(JsonFieldType.OBJECT)
+                    .description("이동 링크 (없으면 null)")
+                    .optional(),
+            fieldWithPath(prefix + "card.link.type")
+                    .type(JsonFieldType.STRING)
+                    .description("SHOP_ITEM(판매 중 아이템) · EVENT · SUBSCRIPTION · PATH(앱 경로)")
+                    .optional(),
+            fieldWithPath(prefix + "card.link.target_id")
+                    .type(JsonFieldType.NUMBER)
+                    .description("SHOP_ITEM·EVENT 의 대상 ID")
+                    .optional(),
+            fieldWithPath(prefix + "card.link.path")
+                    .type(JsonFieldType.STRING)
+                    .description("PATH 의 앱 경로 (/ 로 시작, // · :// · 공백 금지)")
+                    .optional(),
+            fieldWithPath(prefix + "card.link_label")
+                    .type(JsonFieldType.STRING)
+                    .description("버튼 문구 (한국어, 비우면 기본 문구 \"바로 가기\")")
+                    .optional(),
+            fieldWithPath(prefix + "card.link_label_en")
+                    .type(JsonFieldType.STRING)
+                    .description("버튼 문구 (영어)")
+                    .optional(),
+            fieldWithPath(prefix + "card.link_label_ja")
+                    .type(JsonFieldType.STRING)
+                    .description("버튼 문구 (일본어)")
+                    .optional(),
+            fieldWithPath(prefix + "card.link_label_ar")
+                    .type(JsonFieldType.STRING)
+                    .description("버튼 문구 (아랍어)")
+                    .optional(),
+            fieldWithPath(prefix + "card.starts_on")
+                    .type(JsonFieldType.STRING)
+                    .description("노출 시작일 (KST, 비우면 상시)")
+                    .optional(),
+            fieldWithPath(prefix + "card.ends_on")
+                    .type(JsonFieldType.STRING)
+                    .description("노출 종료일 (KST, 포함, 비우면 상시)")
+                    .optional()
+        };
     }
 
     private static FieldDescriptor[] npcFields(String prefix) {
@@ -96,6 +155,12 @@ class TowerNpcAdminInternalControllerTest {
             fieldWithPath(prefix + "auto_bubble").description("자동 말풍선 사용 (LUT-732)"),
             fieldWithPath(prefix + "bubble_interval_seconds").description("자동 말풍선 대사 간격(초, 5~60)")
         };
+    }
+
+    private static FieldDescriptor[] npcFieldsWithCard(String prefix) {
+        List<FieldDescriptor> all = new ArrayList<>(List.of(npcFields(prefix)));
+        all.addAll(List.of(cardFields(prefix)));
+        return all.toArray(new FieldDescriptor[0]);
     }
 
     private static FieldDescriptor[] withEnvelope(FieldDescriptor... fields) {
@@ -131,6 +196,53 @@ class TowerNpcAdminInternalControllerTest {
                     .optional(),
             fieldWithPath("bubble_interval_seconds")
                     .description("대사 간격(초) 5~60 — 등록 때 비우면 10, 수정 때 비우면 그대로, 범위 밖 400")
+                    .optional(),
+            fieldWithPath("card")
+                    .type(JsonFieldType.OBJECT)
+                    .description(
+                            "LUT-733 창 이미지·이동 링크 — 등록 때 비우면 없음, 수정 때 비우면 그대로, 있으면 통째로 바꾼다(이미지·링크가 다"
+                                    + " 비면 지움). 대상 없음 150405 · 링크 형식 150406 · 기간 역전 150407")
+                    .optional(),
+            fieldWithPath("card.image_url")
+                    .type(JsonFieldType.STRING)
+                    .description("창 이미지 URL (https)")
+                    .optional(),
+            fieldWithPath("card.link").type(JsonFieldType.OBJECT).description("이동 링크").optional(),
+            fieldWithPath("card.link.type")
+                    .type(JsonFieldType.STRING)
+                    .description("SHOP_ITEM · EVENT · SUBSCRIPTION · PATH")
+                    .optional(),
+            fieldWithPath("card.link.target_id")
+                    .type(JsonFieldType.NUMBER)
+                    .description("SHOP_ITEM(판매 중)·EVENT 대상 ID")
+                    .optional(),
+            fieldWithPath("card.link.path")
+                    .type(JsonFieldType.STRING)
+                    .description("PATH 앱 경로 (/ 로 시작)")
+                    .optional(),
+            fieldWithPath("card.link_label")
+                    .type(JsonFieldType.STRING)
+                    .description("버튼 문구 (한국어, 30자)")
+                    .optional(),
+            fieldWithPath("card.link_label_en")
+                    .type(JsonFieldType.STRING)
+                    .description("버튼 문구 (영어)")
+                    .optional(),
+            fieldWithPath("card.link_label_ja")
+                    .type(JsonFieldType.STRING)
+                    .description("버튼 문구 (일본어)")
+                    .optional(),
+            fieldWithPath("card.link_label_ar")
+                    .type(JsonFieldType.STRING)
+                    .description("버튼 문구 (아랍어)")
+                    .optional(),
+            fieldWithPath("card.starts_on")
+                    .type(JsonFieldType.STRING)
+                    .description("노출 시작일 (KST)")
+                    .optional(),
+            fieldWithPath("card.ends_on")
+                    .type(JsonFieldType.STRING)
+                    .description("노출 종료일 (KST, 포함)")
                     .optional()
         };
     }
@@ -150,7 +262,7 @@ class TowerNpcAdminInternalControllerTest {
                         document(
                                 "internal-tower-npcs-list",
                                 pathParameters(parameterWithName("floorId").description("층 ID")),
-                                responseFields(withEnvelope(npcFields("value[].")))));
+                                responseFields(withEnvelope(npcFieldsWithCard("value[].")))));
 
         mockMvc.perform(
                         RestDocumentationRequestBuilders.post(
@@ -164,7 +276,7 @@ class TowerNpcAdminInternalControllerTest {
                                 "internal-tower-npcs-create",
                                 pathParameters(parameterWithName("floorId").description("층 ID")),
                                 requestFields(requestNpcFields()),
-                                responseFields(withEnvelope(npcFields("value.")))));
+                                responseFields(withEnvelope(npcFieldsWithCard("value.")))));
     }
 
     @Test
@@ -186,7 +298,7 @@ class TowerNpcAdminInternalControllerTest {
                                 pathParameters(
                                         parameterWithName("floorId").description("층 ID"),
                                         parameterWithName("npcId").description("NPC ID")),
-                                responseFields(withEnvelope(npcFields("value.")))));
+                                responseFields(withEnvelope(npcFieldsWithCard("value.")))));
 
         mockMvc.perform(
                         RestDocumentationRequestBuilders.delete(

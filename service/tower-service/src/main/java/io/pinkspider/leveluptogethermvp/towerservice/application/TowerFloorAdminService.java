@@ -139,6 +139,9 @@ public class TowerFloorAdminService {
         files.addAll(pixelArtService.imageUrlsOf(id)); // LUT-727: 픽셀 배경(행은 DB 가 함께 지운다)
         for (TowerNpc npc : towerNpcRepository.findAllByFloorId(id)) {
             files.add(npc.getProfileImageUrl());
+            if (npc.getCard() != null && npc.getCard().getImageUrl() != null) {
+                files.add(npc.getCard().getImageUrl()); // LUT-733: 창 이미지도
+            }
         }
         towerFloorRepository.delete(floor);
         maskCache.evict(floor);

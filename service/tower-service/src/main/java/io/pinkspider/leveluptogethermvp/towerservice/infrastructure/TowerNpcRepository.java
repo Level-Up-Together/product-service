@@ -23,5 +23,8 @@ public interface TowerNpcRepository extends JpaRepository<TowerNpc, Long> {
     /** 지운 프로필 이미지를 다른 NPC 가 쓰는지 */
     long countByProfileImageUrl(String profileImageUrl);
 
+    /** LUT-733: 창 이미지로 쓰는 NPC 수 (파일 정리 전 확인) */
+    long countByCardImageUrl(String cardImageUrl);
+
     List<TowerNpc> findAllByFloorId(Long floorId);
 }
