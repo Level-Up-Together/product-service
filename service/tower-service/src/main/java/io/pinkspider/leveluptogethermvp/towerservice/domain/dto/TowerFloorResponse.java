@@ -36,7 +36,8 @@ public record TowerFloorResponse(
         List<TowerFloorLightDto> lights,
         List<TowerFloorEffectLayerDto> effectLayers,
         TowerPixelBackgroundDto pixelDense,
-        TowerPixelBackgroundDto pixelStandard) {
+        TowerPixelBackgroundDto pixelStandard,
+        TowerFloorGuideView guide) {
 
     public static TowerFloorResponse from(TowerFloor f, boolean locked, long population) {
         return from(f, locked, population, null, LocalDate.now(KST));
@@ -45,6 +46,25 @@ public record TowerFloorResponse(
     public static TowerFloorResponse from(
             TowerFloor f, boolean locked, long population, TowerFloorPixelArt pixelArt) {
         return from(f, locked, population, pixelArt, LocalDate.now(KST));
+    }
+
+    /** LUT-734: 첫 방문 안내(살아 있는 안내만, 아니면 null)를 함께 */
+    public static TowerFloorResponse from(
+            TowerFloor f,
+            boolean locked,
+            long population,
+            TowerFloorPixelArt pixelArt,
+            TowerFloorGuideView guide) {
+        return from(f, locked, population, pixelArt, LocalDate.now(KST), guide);
+    }
+
+    public static TowerFloorResponse from(
+            TowerFloor f,
+            boolean locked,
+            long population,
+            TowerFloorPixelArt pixelArt,
+            LocalDate today) {
+        return from(f, locked, population, pixelArt, today, null);
     }
 
     /**
@@ -56,7 +76,8 @@ public record TowerFloorResponse(
             boolean locked,
             long population,
             TowerFloorPixelArt pixelArt,
-            LocalDate today) {
+            LocalDate today,
+            TowerFloorGuideView guide) {
         boolean ready = pixelArt != null && pixelArt.isReadyFor(f.getBackgroundImageUrl());
         return new TowerFloorResponse(
                 f.getId(),
@@ -79,7 +100,8 @@ public record TowerFloorResponse(
                 f.getLights().stream().map(TowerFloorLightDto::from).toList(),
                 f.activeEffectLayers(today).stream().map(TowerFloorEffectLayerDto::from).toList(),
                 ready ? TowerPixelBackgroundDto.from(pixelArt.getDense()) : null,
-                ready ? TowerPixelBackgroundDto.from(pixelArt.getStandard()) : null);
+                ready ? TowerPixelBackgroundDto.from(pixelArt.getStandard()) : null,
+                guide);
     }
 
     private static final ZoneId KST = ZoneId.of("Asia/Seoul");

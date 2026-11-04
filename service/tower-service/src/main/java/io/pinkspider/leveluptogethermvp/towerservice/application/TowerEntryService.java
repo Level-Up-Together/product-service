@@ -54,6 +54,7 @@ public class TowerEntryService {
     private final ApplicationEventPublisher eventPublisher;
     private final TowerQueueService queueService;
     private final TowerVisitorGate visitorGate;
+    private final TowerFloorGuideService guideService;
 
     public TowerEntryService(
             TowerFloorRepository towerFloorRepository,
@@ -67,7 +68,8 @@ public class TowerEntryService {
             TowerFloorVisitRepository towerFloorVisitRepository,
             ApplicationEventPublisher eventPublisher,
             TowerQueueService queueService,
-            TowerVisitorGate visitorGate) {
+            TowerVisitorGate visitorGate,
+            TowerFloorGuideService guideService) {
         this.towerFloorRepository = towerFloorRepository;
         this.towerOccupantRepository = towerOccupantRepository;
         this.towerUserStateRepository = towerUserStateRepository;
@@ -80,6 +82,7 @@ public class TowerEntryService {
         this.eventPublisher = eventPublisher;
         this.queueService = queueService;
         this.visitorGate = visitorGate;
+        this.guideService = guideService;
     }
 
     @Transactional(transactionManager = "towerTransactionManager")
@@ -215,8 +218,11 @@ public class TowerEntryService {
             allocator.relocateAutoSeatedOverflow(locked, instance.getId(), now);
         }
 
+        Boolean firstVisit = null;
         if (userId != null) {
             recordVisit(userId, floorNumber, now);
+            // LUT-734: 방문 행을 넣은 뒤 — 지금 안내를 아직 안 봤으면 본 것으로 표시하고 true
+            firstVisit = guideService.markSeenIfNew(userId, locked, now);
         }
         log.info(
                 "[tower] 입장: floor={} instanceId={} {} resumed={}",
@@ -239,7 +245,8 @@ public class TowerEntryService {
                 occupant.getVisitorNo(),
                 autoSeatContinued,
                 false,
-                null);
+                null,
+                firstVisit);
     }
 
     /** LUT-713: 내 자리 — 로그인 유저의 점유자(직접 입장·자동 착석·자리 유지)가 있으면 그 층·종류, 없으면 자리 없음 */

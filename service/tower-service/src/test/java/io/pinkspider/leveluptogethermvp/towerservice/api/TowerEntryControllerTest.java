@@ -35,6 +35,7 @@ import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.restdocs.mockmvc.RestDocumentationRequestBuilders;
+import org.springframework.restdocs.payload.JsonFieldType;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
@@ -69,7 +70,7 @@ class TowerEntryControllerTest {
                 .thenReturn(
                         new TowerEnterResponse(
                                 2, 10L, 77L, false, false, null, 1200, 900, 1200, 900, 12L, null,
-                                false, false, null));
+                                false, false, null, true));
 
         mockMvc.perform(
                         RestDocumentationRequestBuilders.post(
@@ -125,6 +126,14 @@ class TowerEntryControllerTest {
                                                             + " 입장 가능 신호 뒤 queue_ticket 으로 다시 요청)"),
                                         fieldWithPath("value.queue")
                                                 .description("대기 상태 (queued 일 때만, 아니면 null)")
+                                                .optional(),
+                                        fieldWithPath("value.first_visit")
+                                                .type(JsonFieldType.BOOLEAN)
+                                                .description(
+                                                        "LUT-734 이 층의 첫 방문 안내(지금 버전)를 처음 보는 입장인가 —"
+                                                            + " 서버가 유저×층으로 기억(기기를 바꿔도 다시 안 뜸). 안내가"
+                                                            + " 없으면 false, 방문객·대기는 null(클라이언트가 기기에"
+                                                            + " 기억)")
                                                 .optional())));
     }
 
@@ -181,6 +190,10 @@ class TowerEntryControllerTest {
                                         fieldWithPath("value.mission_active").description("false"),
                                         fieldWithPath("value.auto_seat_continued")
                                                 .description("false"),
+                                        fieldWithPath("value.first_visit")
+                                                .type(JsonFieldType.BOOLEAN)
+                                                .description("대기 중엔 null (LUT-734)")
+                                                .optional(),
                                         fieldWithPath("value.queue.ticket")
                                                 .description("대기표 — 상태 조회·대기 그만하기·입장 재요청에 쓴다"),
                                         fieldWithPath("value.queue.status")
@@ -207,7 +220,7 @@ class TowerEntryControllerTest {
                 .thenReturn(
                         new TowerEnterResponse(
                                 1, 10L, 78L, false, false, "k-1", 1400, 1000, 1400, 1000, 3L, 4821,
-                                false, false, null));
+                                false, false, null, null));
         when(clientIpResolver.resolve(any())).thenReturn("1.2.3.4");
         mockMvc.perform(
                         RestDocumentationRequestBuilders.post(
