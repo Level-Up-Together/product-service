@@ -17,6 +17,7 @@ import io.pinkspider.leveluptogethermvp.towerservice.domain.dto.TowerFloorEffect
 import io.pinkspider.leveluptogethermvp.towerservice.domain.dto.TowerFloorLightDto;
 import io.pinkspider.leveluptogethermvp.towerservice.domain.dto.TowerFloorListResponse;
 import io.pinkspider.leveluptogethermvp.towerservice.domain.dto.TowerFloorResponse;
+import io.pinkspider.leveluptogethermvp.towerservice.domain.dto.TowerPixelBackgroundDto;
 import io.pinkspider.leveluptogethermvp.towerservice.domain.enums.TowerEffectKind;
 import java.time.LocalDate;
 import java.util.List;
@@ -90,7 +91,17 @@ class TowerFloorControllerTest {
                                                 120,
                                                 40,
                                                 1,
-                                                3))),
+                                                3)),
+                                new TowerPixelBackgroundDto(
+                                        "https://cdn/tower/pixel/9f2c41aa0b7d3e11.png",
+                                        1056,
+                                        576,
+                                        "9f2c41aa0b7d3e11"),
+                                new TowerPixelBackgroundDto(
+                                        "https://cdn/tower/pixel/1b4e7c9d2f0a6e38.png",
+                                        704,
+                                        384,
+                                        "1b4e7c9d2f0a6e38")),
                         new TowerFloorResponse(
                                 2L,
                                 2,
@@ -110,7 +121,9 @@ class TowerFloorControllerTest {
                                 0L,
                                 null,
                                 List.of(),
-                                List.of())),
+                                List.of(),
+                                null,
+                                null)),
                 1);
     }
 
@@ -220,7 +233,42 @@ class TowerFloorControllerTest {
                                         fieldWithPath("value.floors[].effect_layers[].size_min")
                                                 .description("크기 최소 (화면 픽셀 1~20)"),
                                         fieldWithPath("value.floors[].effect_layers[].size_max")
-                                                .description("크기 최대 (화면 픽셀 1~20)"))));
+                                                .description("크기 최대 (화면 픽셀 1~20)"),
+                                        fieldWithPath("value.floors[].pixel_dense")
+                                                .description(
+                                                        "고밀도 픽셀 배경 (LUT-727, 높이 576·입장 기본) — 변환"
+                                                            + " 전·실패면 null(원본 background_image_url"
+                                                            + " 로 보여 준다)")
+                                                .optional(),
+                                        fieldWithPath("value.floors[].pixel_dense.url")
+                                                .description("64색 인덱스 PNG URL (보간 없이 확대)")
+                                                .optional(),
+                                        fieldWithPath("value.floors[].pixel_dense.width")
+                                                .description("가로 px (원본 비율)")
+                                                .optional(),
+                                        fieldWithPath("value.floors[].pixel_dense.height")
+                                                .description("세로 px (576 고정)")
+                                                .optional(),
+                                        fieldWithPath("value.floors[].pixel_dense.version")
+                                                .description(
+                                                        "이미지 버전(내용 해시) — 프론트 효과 맵의 버전과 다르면 효과만"
+                                                                + " 끈다")
+                                                .optional(),
+                                        fieldWithPath("value.floors[].pixel_standard")
+                                                .description("픽셀 배경 (높이 384) — 없으면 null")
+                                                .optional(),
+                                        fieldWithPath("value.floors[].pixel_standard.url")
+                                                .description("64색 인덱스 PNG URL")
+                                                .optional(),
+                                        fieldWithPath("value.floors[].pixel_standard.width")
+                                                .description("가로 px")
+                                                .optional(),
+                                        fieldWithPath("value.floors[].pixel_standard.height")
+                                                .description("세로 px (384 고정)")
+                                                .optional(),
+                                        fieldWithPath("value.floors[].pixel_standard.version")
+                                                .description("이미지 버전(내용 해시)")
+                                                .optional())));
     }
 
     @Test

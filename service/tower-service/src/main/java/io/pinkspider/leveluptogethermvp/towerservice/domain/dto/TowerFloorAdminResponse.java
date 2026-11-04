@@ -3,6 +3,7 @@ package io.pinkspider.leveluptogethermvp.towerservice.domain.dto;
 import com.fasterxml.jackson.databind.PropertyNamingStrategies.SnakeCaseStrategy;
 import com.fasterxml.jackson.databind.annotation.JsonNaming;
 import io.pinkspider.leveluptogethermvp.towerservice.domain.entity.TowerFloor;
+import io.pinkspider.leveluptogethermvp.towerservice.domain.entity.TowerFloorPixelArt;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -28,9 +29,15 @@ public record TowerFloorAdminResponse(
         LocalDateTime modifiedAt,
         String occlusionMaskUrl,
         List<TowerFloorLightDto> lights,
-        List<TowerFloorEffectLayerDto> effectLayers) {
+        List<TowerFloorEffectLayerDto> effectLayers,
+        TowerPixelArtAdminDto pixelArt) {
 
     public static TowerFloorAdminResponse from(TowerFloor f) {
+        return from(f, null);
+    }
+
+    /** LUT-727: 픽셀아트 상태(행이 없으면 null) */
+    public static TowerFloorAdminResponse from(TowerFloor f, TowerFloorPixelArt pixelArt) {
         return new TowerFloorAdminResponse(
                 f.getId(),
                 f.getFloorNumber(),
@@ -51,6 +58,7 @@ public record TowerFloorAdminResponse(
                 f.getModifiedAt(),
                 f.getOcclusionMaskUrl(),
                 f.getLights().stream().map(TowerFloorLightDto::from).toList(),
-                f.getEffectLayers().stream().map(TowerFloorEffectLayerDto::from).toList());
+                f.getEffectLayers().stream().map(TowerFloorEffectLayerDto::from).toList(),
+                TowerPixelArtAdminDto.from(pixelArt, f.getBackgroundImageUrl()));
     }
 }

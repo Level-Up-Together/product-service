@@ -130,6 +130,11 @@ class TowerFloorImageServiceTest {
                 .isInstanceOf(TowerFloorException.class)
                 .extracting("code")
                 .isEqualTo(TowerFloorException.IMAGE_INVALID);
+        // LUT-727: 픽셀 배경은 서버가 만든다
+        assertThatThrownBy(() -> service.upload(file, TowerImageKind.PIXEL))
+                .isInstanceOf(TowerFloorException.class)
+                .extracting("code")
+                .isEqualTo(TowerFloorException.IMAGE_INVALID);
         verify(storage, never()).store(any(), any());
     }
 }

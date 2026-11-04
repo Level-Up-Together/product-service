@@ -47,6 +47,15 @@ class TowerFloorAdminServiceTest {
     private io.pinkspider.leveluptogethermvp.towerservice.infrastructure.TowerNpcRepository
             towerNpcRepository;
 
+    @Mock
+    private io.pinkspider.leveluptogethermvp.towerservice.infrastructure
+                    .TowerFloorPixelArtRepository
+            pixelArtRepository;
+
+    @Mock
+    private io.pinkspider.leveluptogethermvp.towerservice.application.pixel.TowerPixelArtService
+            pixelArtService;
+
     private TowerFloorAdminService service;
 
     @org.junit.jupiter.api.BeforeEach
@@ -58,8 +67,12 @@ class TowerFloorAdminServiceTest {
                         ruleValidator,
                         maskCache,
                         new TowerStoredFileCleaner(
-                                imageStorage, towerFloorRepository, towerNpcRepository),
-                        towerNpcRepository);
+                                imageStorage,
+                                towerFloorRepository,
+                                towerNpcRepository,
+                                pixelArtRepository),
+                        towerNpcRepository,
+                        pixelArtService);
     }
 
     @Test
@@ -401,5 +414,59 @@ class TowerFloorAdminServiceTest {
 
         verify(imageStorage).delete(OLD_OCCLUSION);
         verify(imageStorage, never()).delete(OLD_SNOW);
+    }
+
+    @Test
+    @DisplayName("LUT-727: 등록·수정 뒤 픽셀 배경을 요청하고, 목록·조회·수정 응답에 픽셀 상태를 싣는다")
+    void pixelArtHooks() {
+        TowerFloor f1 = floor(1L, 1, null, true, true);
+        io.pinkspider.leveluptogethermvp.towerservice.domain.entity.TowerFloorPixelArt art =
+                io.pinkspider.leveluptogethermvp.towerservice.domain.entity.TowerFloorPixelArt
+                        .create(1L, "https://cdn/old.jpg", 64, 100);
+        when(towerFloorRepository.findAllByOrderByFloorNumberAsc()).thenReturn(List.of(f1));
+        when(towerFloorRepository.findById(1L)).thenReturn(java.util.Optional.of(f1));
+        when(pixelArtService.byFloorIds(List.of(1L))).thenReturn(java.util.Map.of(1L, art));
+
+        assertThat(service.list().get(0).pixelArt().stale()).isTrue();
+        assertThat(service.get(1L).pixelArt().colors()).isEqualTo(64);
+        TowerFloorAdminResponse updated = service.update(1L, request(1, null, true, true));
+        verify(pixelArtService).ensureFor(f1);
+        assertThat(updated.pixelArt()).isNotNull();
+
+        when(towerFloorRepository.save(any(TowerFloor.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+        TowerFloorAdminResponse created = service.create(request(2, 5, false, false));
+        // 수정 1번 + 등록 1번
+        verify(pixelArtService, org.mockito.Mockito.times(2)).ensureFor(any(TowerFloor.class));
+        assertThat(created.pixelArt()).isNull(); // 저장 전 ID 없음(가짜 저장)
+    }
+
+    @Test
+    @DisplayName("LUT-727: 재생성은 층이 있어야 하고 설정만 넘긴다 · 삭제하면 픽셀 배경 파일도 정리한다(다른 층이 쓰면 남긴다)")
+    void pixelArtRegenerateAndDelete() {
+        TowerFloor f1 = floor(1L, 1, null, true, true);
+        TowerFloor f2 = floor(2L, 2, 5, false, false);
+        when(towerFloorRepository.findById(2L)).thenReturn(java.util.Optional.of(f2));
+        io.pinkspider.leveluptogethermvp.towerservice.domain.entity.TowerFloorPixelArt art =
+                io.pinkspider.leveluptogethermvp.towerservice.domain.entity.TowerFloorPixelArt
+                        .create(2L, f2.getBackgroundImageUrl(), 64, 100);
+        art.request(f2.getBackgroundImageUrl(), 32, null, java.time.LocalDateTime.now());
+        when(pixelArtService.regenerate(2L, 32, null)).thenReturn(art);
+        assertThat(service.regeneratePixelArt(2L, 32, null).colors()).isEqualTo(32);
+
+        when(towerFloorRepository.findAllByOrderByFloorNumberAsc()).thenReturn(List.of(f1, f2));
+        when(pixelArtService.imageUrlsOf(2L))
+                .thenReturn(
+                        java.util.Set.of(
+                                "https://cdn/tower/pixel/a.png", "https://cdn/tower/pixel/b.png"));
+        when(imageStorage.isOwned(org.mockito.ArgumentMatchers.anyString()))
+                .thenAnswer(inv -> inv.getArgument(0).toString().contains("/pixel/"));
+        when(pixelArtRepository.countByImageUrl(org.mockito.ArgumentMatchers.anyString()))
+                .thenAnswer(inv -> inv.getArgument(0).toString().endsWith("b.png") ? 1L : 0L);
+
+        service.delete(2L);
+
+        verify(imageStorage).delete("https://cdn/tower/pixel/a.png");
+        verify(imageStorage, never()).delete("https://cdn/tower/pixel/b.png");
     }
 }

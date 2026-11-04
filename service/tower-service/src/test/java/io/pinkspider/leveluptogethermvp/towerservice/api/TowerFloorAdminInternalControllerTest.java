@@ -19,7 +19,10 @@ import io.pinkspider.leveluptogethermvp.towerservice.domain.dto.TowerFloorAdminR
 import io.pinkspider.leveluptogethermvp.towerservice.domain.dto.TowerFloorAdminResponse;
 import io.pinkspider.leveluptogethermvp.towerservice.domain.dto.TowerFloorEffectLayerDto;
 import io.pinkspider.leveluptogethermvp.towerservice.domain.dto.TowerFloorLightDto;
+import io.pinkspider.leveluptogethermvp.towerservice.domain.dto.TowerPixelArtAdminDto;
+import io.pinkspider.leveluptogethermvp.towerservice.domain.dto.TowerPixelBackgroundDto;
 import io.pinkspider.leveluptogethermvp.towerservice.domain.enums.TowerEffectKind;
+import io.pinkspider.leveluptogethermvp.towerservice.domain.enums.TowerPixelArtStatus;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -108,7 +111,53 @@ class TowerFloorAdminInternalControllerTest {
                                 120,
                                 40,
                                 1,
-                                3)));
+                                3)),
+                pixelArt());
+    }
+
+    private static TowerPixelArtAdminDto pixelArt() {
+        return new TowerPixelArtAdminDto(
+                TowerPixelArtStatus.DONE,
+                64,
+                100,
+                false,
+                new TowerPixelBackgroundDto(
+                        "https://cdn/tower/pixel/9f2c41aa0b7d3e11.png",
+                        1056,
+                        576,
+                        "9f2c41aa0b7d3e11"),
+                new TowerPixelBackgroundDto(
+                        "https://cdn/tower/pixel/1b4e7c9d2f0a6e38.png",
+                        704,
+                        384,
+                        "1b4e7c9d2f0a6e38"),
+                null,
+                LocalDateTime.of(2026, 11, 3, 15, 0),
+                LocalDateTime.of(2026, 11, 3, 15, 0, 4));
+    }
+
+    /** LUT-727: 픽셀아트 상태 (응답) */
+    private static List<FieldDescriptor> pixelArtFields(String prefix) {
+        return List.of(
+                fieldWithPath(prefix + "status")
+                        .description("PENDING(대기·변환 중) / DONE / FAILED(재시도 1회 뒤)"),
+                fieldWithPath(prefix + "colors").description("팔레트 색 수 (기본 64)"),
+                fieldWithPath(prefix + "sharpness").description("선명도 % (기본 100)"),
+                fieldWithPath(prefix + "stale")
+                        .description("결과가 지금 배경이 아니라 예전 배경으로 만든 것인가 (재변환 대기)"),
+                fieldWithPath(prefix + "dense").description("고밀도 픽셀 (높이 576)").optional(),
+                fieldWithPath(prefix + "dense.url").description("인덱스 PNG URL").optional(),
+                fieldWithPath(prefix + "dense.width").description("가로 px").optional(),
+                fieldWithPath(prefix + "dense.height").description("세로 px").optional(),
+                fieldWithPath(prefix + "dense.version").description("내용 해시").optional(),
+                fieldWithPath(prefix + "standard").description("픽셀 (높이 384)").optional(),
+                fieldWithPath(prefix + "standard.url").description("인덱스 PNG URL").optional(),
+                fieldWithPath(prefix + "standard.width").description("가로 px").optional(),
+                fieldWithPath(prefix + "standard.height").description("세로 px").optional(),
+                fieldWithPath(prefix + "standard.version").description("내용 해시").optional(),
+                fieldWithPath(prefix + "error_message").description("실패 사유").optional(),
+                fieldWithPath(prefix + "requested_at").description("요청 시각").optional(),
+                fieldWithPath(prefix + "completed_at").description("완료·실패 시각").optional());
     }
 
     /** LUT-725: 앞 가림·불빛 점·효과 레이어 (요청·응답 같은 모양) */
@@ -185,6 +234,11 @@ class TowerFloorAdminInternalControllerTest {
     private static FieldDescriptor[] floorFieldsWithEffects(String prefix) {
         List<FieldDescriptor> all = new java.util.ArrayList<>(List.of(floorFields(prefix)));
         all.addAll(effectFields(prefix, false));
+        all.add(
+                fieldWithPath(prefix + "pixel_art")
+                        .description("LUT-727 픽셀 배경 변환 상태 (아직 요청 전이면 null)")
+                        .optional());
+        all.addAll(pixelArtFields(prefix + "pixel_art."));
         return all.toArray(FieldDescriptor[]::new);
     }
 
@@ -495,5 +549,66 @@ class TowerFloorAdminInternalControllerTest {
                                 .contentType(MediaType.MULTIPART_FORM_DATA))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("150110"));
+        // LUT-727: 픽셀 배경은 업로드로 받지 않는다
+        mockMvc.perform(
+                        RestDocumentationRequestBuilders.multipart(
+                                        "/api/internal/tower/floors/images?kind=pixel")
+                                .file(file)
+                                .contentType(MediaType.MULTIPART_FORM_DATA))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("150110"));
+    }
+
+    @Test
+    @DisplayName(
+            "LUT-727 POST /{id}/pixel-art : 설정을 바꿔 재생성 요청 — 바로 대기 상태, 범위 밖 400, 본문 없으면 지금 설정으로")
+    void regeneratePixelArt() throws Exception {
+        TowerPixelArtAdminDto pending =
+                new TowerPixelArtAdminDto(
+                        TowerPixelArtStatus.PENDING,
+                        32,
+                        120,
+                        false,
+                        pixelArt().dense(),
+                        pixelArt().standard(),
+                        null,
+                        LocalDateTime.of(2026, 11, 4, 23, 0),
+                        LocalDateTime.of(2026, 11, 3, 15, 0, 4));
+        when(adminService.regeneratePixelArt(2L, 32, 120)).thenReturn(pending);
+
+        mockMvc.perform(
+                        RestDocumentationRequestBuilders.post(
+                                        "/api/internal/tower/floors/{id}/pixel-art", 2L)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("{\"colors\":32,\"sharpness\":120}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.value.status").value("PENDING"))
+                .andDo(
+                        document(
+                                "internal-tower-floors-pixel-art-regenerate",
+                                requestFields(
+                                        fieldWithPath("colors")
+                                                .description("팔레트 색 수 8~256 (비우면 지금 값)")
+                                                .optional(),
+                                        fieldWithPath("sharpness")
+                                                .description("선명도 0~200% (비우면 지금 값)")
+                                                .optional()),
+                                responseFields(
+                                        withEnvelope(
+                                                pixelArtFields("value.")
+                                                        .toArray(FieldDescriptor[]::new)))));
+
+        mockMvc.perform(
+                        RestDocumentationRequestBuilders.post(
+                                        "/api/internal/tower/floors/{id}/pixel-art", 2L)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("{\"colors\":4}"))
+                .andExpect(status().isBadRequest());
+
+        mockMvc.perform(
+                        RestDocumentationRequestBuilders.post(
+                                "/api/internal/tower/floors/{id}/pixel-art", 2L))
+                .andExpect(status().isOk());
+        org.mockito.Mockito.verify(adminService).regeneratePixelArt(2L, null, null);
     }
 }

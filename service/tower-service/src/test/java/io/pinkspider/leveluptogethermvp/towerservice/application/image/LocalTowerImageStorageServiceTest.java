@@ -161,4 +161,56 @@ class LocalTowerImageStorageServiceTest {
                         io.pinkspider.leveluptogethermvp.towerservice.application.exception
                                 .TowerFloorException.AUDIO_INVALID);
     }
+
+    @Test
+    @DisplayName("LUT-727 생성 파일: kind 폴더에 받은 이름 그대로 저장하고(같은 이름은 덮어쓰기) URL 을 돌려준다 · 경로 문자 이름 거부")
+    void storeGenerated() throws IOException {
+        String url =
+                storage.storeGenerated(
+                        new byte[] {9, 8, 7},
+                        io.pinkspider.leveluptogethermvp.towerservice.domain.enums.TowerImageKind
+                                .PIXEL,
+                        "0123abcd.png",
+                        "image/png");
+        org.assertj.core.api.Assertions.assertThat(url)
+                .isEqualTo(
+                        "https://dev.level-up-together.com:8443/uploads/tower/pixel/0123abcd.png");
+        org.assertj.core.api.Assertions.assertThat(
+                        java.nio.file.Files.readAllBytes(tempDir.resolve("pixel/0123abcd.png")))
+                .containsExactly(9, 8, 7);
+        storage.storeGenerated(
+                new byte[] {1},
+                io.pinkspider.leveluptogethermvp.towerservice.domain.enums.TowerImageKind.PIXEL,
+                "0123abcd.png",
+                "image/png");
+        org.assertj.core.api.Assertions.assertThat(
+                        java.nio.file.Files.readAllBytes(tempDir.resolve("pixel/0123abcd.png")))
+                .containsExactly(1);
+        org.assertj.core.api.Assertions.assertThatThrownBy(
+                        () ->
+                                storage.storeGenerated(
+                                        new byte[] {1},
+                                        io.pinkspider.leveluptogethermvp.towerservice.domain.enums
+                                                .TowerImageKind.PIXEL,
+                                        "../x.png",
+                                        "image/png"))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    @DisplayName("LUT-727 생성 파일: 저장 폴더를 만들 수 없으면 150111")
+    void storeGeneratedFailure() throws IOException {
+        java.nio.file.Files.writeString(tempDir.resolve("pixel"), "file, not dir");
+        org.assertj.core.api.Assertions.assertThatThrownBy(
+                        () ->
+                                storage.storeGenerated(
+                                        new byte[] {1},
+                                        io.pinkspider.leveluptogethermvp.towerservice.domain.enums
+                                                .TowerImageKind.PIXEL,
+                                        "a.png",
+                                        "image/png"))
+                .isInstanceOf(
+                        io.pinkspider.leveluptogethermvp.towerservice.application.exception
+                                .TowerFloorException.class);
+    }
 }

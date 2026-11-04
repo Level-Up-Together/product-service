@@ -9,6 +9,8 @@ import io.pinkspider.leveluptogethermvp.towerservice.domain.dto.TowerFloorAdminR
 import io.pinkspider.leveluptogethermvp.towerservice.domain.dto.TowerFloorAdminResponse;
 import io.pinkspider.leveluptogethermvp.towerservice.domain.dto.TowerFloorAudioUploadResponse;
 import io.pinkspider.leveluptogethermvp.towerservice.domain.dto.TowerFloorImageUploadResponse;
+import io.pinkspider.leveluptogethermvp.towerservice.domain.dto.TowerPixelArtAdminDto;
+import io.pinkspider.leveluptogethermvp.towerservice.domain.dto.TowerPixelArtRequest;
 import io.pinkspider.leveluptogethermvp.towerservice.domain.enums.TowerImageKind;
 import jakarta.validation.Valid;
 import java.util.List;
@@ -66,6 +68,23 @@ public class TowerFloorAdminInternalController {
                 .build();
     }
 
+    /**
+     * LUT-727/728: 픽셀 배경 재생성 — 본문 {@code {colors?, sharpness?}}(보낸 것만 바꾼다). 바로 대기(PENDING) 상태를 돌려주고
+     * 변환은 비동기다. 층이 없으면 404 150101.
+     */
+    @PostMapping("/{id}/pixel-art")
+    public ApiResult<TowerPixelArtAdminDto> regeneratePixelArt(
+            @PathVariable Long id,
+            @Valid @RequestBody(required = false) TowerPixelArtRequest request) {
+        TowerPixelArtRequest body =
+                request != null ? request : new TowerPixelArtRequest(null, null);
+        return ApiResult.<TowerPixelArtAdminDto>builder()
+                .value(
+                        towerFloorAdminService.regeneratePixelArt(
+                                id, body.colors(), body.sharpness()))
+                .build();
+    }
+
     @DeleteMapping("/{id}")
     public ApiResult<Void> delete(@PathVariable Long id) {
         towerFloorAdminService.delete(id);
@@ -82,7 +101,8 @@ public class TowerFloorAdminInternalController {
             @RequestPart("file") MultipartFile file) {
         TowerImageKind imageKind =
                 TowerImageKind.parse(kind)
-                        .filter(k -> k != TowerImageKind.BGM) // 배경 음악은 /audio 로
+                        // 배경 음악은 /audio 로, 픽셀 배경은 서버가 만든다(LUT-727)
+                        .filter(k -> k != TowerImageKind.BGM && k != TowerImageKind.PIXEL)
                         .orElseThrow(TowerFloorException::imageInvalid);
         return ApiResult.<TowerFloorImageUploadResponse>builder()
                 .value(towerFloorImageService.upload(file, imageKind))

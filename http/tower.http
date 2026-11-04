@@ -177,6 +177,13 @@ Accept: application/json
   ]
 }
 
+### LUT-727 픽셀 배경 재생성 — 보낸 설정만 바꾼다(비우면 지금 값). 바로 PENDING, 몇 초 뒤 층 목록에 pixel_dense·pixel_standard
+POST {{baseUrl}}/api/internal/tower/floors/1/pixel-art
+Content-Type: application/json
+Accept: application/json
+
+{"colors": 64, "sharpness": 100}
+
 ### 층 삭제 — 남는 층끼리 규칙 위반이면 400 (예: 1층 삭제 후 공개 2층만 남으면 150107)
 DELETE {{baseUrl}}/api/internal/tower/floors/2
 Accept: application/json
