@@ -48,7 +48,7 @@ class TowerSettingAdminInternalControllerTest {
     @Test
     @DisplayName("GET /api/internal/tower/settings : 동시 접속 상한 (null = 제한 없음)")
     void get() throws Exception {
-        when(settingService.get()).thenReturn(new TowerSettingsResponse(300));
+        when(settingService.get()).thenReturn(new TowerSettingsResponse(300, 100));
 
         mockMvc.perform(RestDocumentationRequestBuilders.get("/api/internal/tower/settings"))
                 .andExpect(status().isOk())
@@ -64,27 +64,38 @@ class TowerSettingAdminInternalControllerTest {
                                                 .description(
                                                         "탑 전체 동시 접속 상한 (null = 제한 없음, 대기열 LUT-701"
                                                                 + " 기준)")
-                                                .optional())));
+                                                .optional(),
+                                        fieldWithPath("value.npc_exposure_percent")
+                                                .description(
+                                                        "NPC 를 보여 줄 유저 비율 0~100 (A/B, 기본 100 —"
+                                                                + " LUT-693)"))));
     }
 
     @Test
     @DisplayName("PUT /api/internal/tower/settings : 저장 즉시 반영, 0 이하는 400")
     void update() throws Exception {
         when(settingService.update(any(TowerSettingsRequest.class)))
-                .thenReturn(new TowerSettingsResponse(500));
+                .thenReturn(new TowerSettingsResponse(500, 40));
 
         mockMvc.perform(
                         RestDocumentationRequestBuilders.put("/api/internal/tower/settings")
                                 .contentType(MediaType.APPLICATION_JSON)
-                                .content("{\"max_concurrent_users\":500}"))
+                                .content(
+                                        "{\"max_concurrent_users\":500,\"npc_exposure_percent\":40}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.value.max_concurrent_users").value(500))
+                .andExpect(jsonPath("$.value.npc_exposure_percent").value(40))
                 .andDo(
                         document(
                                 "internal-tower-settings-update",
                                 requestFields(
                                         fieldWithPath("max_concurrent_users")
                                                 .description("탑 전체 동시 접속 상한 (1 이상, null 이면 제한 없음)")
+                                                .optional(),
+                                        fieldWithPath("npc_exposure_percent")
+                                                .description(
+                                                        "NPC 노출 유저 비율 0~100 (LUT-693, null 이면 바꾸지"
+                                                                + " 않음)")
                                                 .optional()),
                                 responseFields(
                                         fieldWithPath("code").description("응답 코드"),
@@ -92,12 +103,19 @@ class TowerSettingAdminInternalControllerTest {
                                         fieldWithPath("value").description("탑 공통 설정"),
                                         fieldWithPath("value.max_concurrent_users")
                                                 .description("저장된 값")
-                                                .optional())));
+                                                .optional(),
+                                        fieldWithPath("value.npc_exposure_percent")
+                                                .description("저장된 NPC 노출 비율"))));
 
         mockMvc.perform(
                         RestDocumentationRequestBuilders.put("/api/internal/tower/settings")
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content("{\"max_concurrent_users\":0}"))
+                .andExpect(status().isBadRequest());
+        mockMvc.perform(
+                        RestDocumentationRequestBuilders.put("/api/internal/tower/settings")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("{\"npc_exposure_percent\":101}"))
                 .andExpect(status().isBadRequest());
     }
 }

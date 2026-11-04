@@ -2,7 +2,7 @@
 
 `/api/internal/**` 경로는 `SecurityConfig`에서 `permitAll`이지만 **공유 시크릿 헤더 인증 + VPC 내부 접근**으로 보호. Admin Backend가 MVP의 도메인 데이터를 읽거나 액션을 실행할 때 사용.
 
-> 2026-10-29 코드 기준 현행화 — `@RequestMapping("/api/internal…")` 컨트롤러 **43개 = 베이스 경로 43개**(중첩 경로 포함, 2026-11-02 LUT-708 `app-settings` 추가, 2026-11-04 LUT-629/635 `tower/floors`·`tower/settings` 추가). chat·bff·notice·support 서비스에는 내부 API 컨트롤러가 없다.
+> 2026-10-29 코드 기준 현행화 — `@RequestMapping("/api/internal…")` 컨트롤러 **44개 = 베이스 경로 44개**(중첩 경로 포함, 2026-11-02 LUT-708 `app-settings` 추가, 2026-11-04 LUT-629/635 `tower/floors`·`tower/settings`, LUT-693 `tower/floors/{floorId}/npcs` 추가). chat·bff·notice·support 서비스에는 내부 API 컨트롤러가 없다.
 
 ## 인증 (LUT-244)
 
@@ -118,8 +118,9 @@
 
 | 베이스 경로 | 용도 · 주요 엔드포인트 | 도입·변경 |
 |---|---|---|
-| `/api/internal/tower/floors` | 레벨업 탑 층 CRUD. `GET /`(전체, 비공개 포함, 층 번호 순) · `GET /{id}` · `POST /` · `PUT /{id}` · `DELETE /{id}` — 저장 규칙 7개(번호 중복·1층 입장 레벨·비로그인 허용 연속·공개 연속·입장 지점 마스크 안 등) 위반은 **400 `1501xx`**(`TowerExceptionHandler`), 없음 404 `150101`. `POST /images?kind=BACKGROUND\|MASK`(multipart `file`, jpg·png·webp 15MB, 마스크는 PNG 만) → `{kind, url, width, height}` — url 은 절대 https 주소(prod CDN `tower/`, dev `https://dev.level-up-together.com:8443/uploads/tower/`)로 등록/수정 본문에 그대로 쓴다. 거절 `150110`·`150112`·`000012`. `POST /audio`(multipart `file`, mp3·aac·m4a 10MB, 헤더로 오디오 확인) → `{url, size_bytes, content_type}` — 등록/수정의 `bgm_url` 에 쓴다, 거절 `150113`. **공개 층은 `bgm_url` 필수**(`150114`) | LUT-629 · LUT-635(이미지) · LUT-637(배경 음악) |
-| `/api/internal/tower/settings` | 탑 공통 설정. `GET /` · `PUT / {max_concurrent_users}`(1 이상, null = 제한 없음) — 탑 전체 동시 접속 상한, 대기열(LUT-701) 판정 기준. 캐시 없이 읽어 저장 즉시 반영 | LUT-635 |
+| `/api/internal/tower/floors` | 레벨업 탑 층 CRUD. `GET /`(전체, 비공개 포함, 층 번호 순) · `GET /{id}` · `POST /` · `PUT /{id}` · `DELETE /{id}` — 저장 규칙 7개(번호 중복·1층 입장 레벨·비로그인 허용 연속·공개 연속·입장 지점 마스크 안 등) 위반은 **400 `1501xx`**(`TowerExceptionHandler`), 없음 404 `150101`. `POST /images?kind=BACKGROUND\|MASK\|NPC`(multipart `file`, jpg·png·webp 15MB, 마스크는 PNG 만, NPC = 프로필 이미지 LUT-693) → `{kind, url, width, height}` — url 은 절대 https 주소(prod CDN `tower/`, dev `https://dev.level-up-together.com:8443/uploads/tower/`)로 등록/수정 본문에 그대로 쓴다. 거절 `150110`·`150112`·`000012`. `POST /audio`(multipart `file`, mp3·aac·m4a 10MB, 헤더로 오디오 확인) → `{url, size_bytes, content_type}` — 등록/수정의 `bgm_url` 에 쓴다, 거절 `150113`. **공개 층은 `bgm_url` 필수**(`150114`) | LUT-629 · LUT-635(이미지) · LUT-637(배경 음악) |
+| `/api/internal/tower/floors/{floorId}/npcs` | 층별 NPC(층 주민) CRUD. `GET /`(비공개 포함, 정렬 순) · `POST /` · `PUT /{npcId}` · `DELETE /{npcId}` — 이름·상태 문구(선택)·대사 목록(1개 이상, 문장마다) 4 locale, 프로필 이미지(`/images?kind=NPC`), 자리(배경 원본 픽셀), 공개. 거부 **400 `1504xx`**: 층당 4번째 `150402` · 자리 마스크 밖 `150403`(못 읽음 `150109`) · 대사 한 문장 2줄 초과 `150404`(표시 폭 80 = 한글 40자·영문 80자). 층 없음 404 `150101`, NPC 없음 404 `150401`. 수정은 다음 입장 스냅샷부터 | LUT-693 |
+| `/api/internal/tower/settings` | 탑 공통 설정. `GET /` · `PUT / {max_concurrent_users, npc_exposure_percent}` — 동시 접속 상한(1 이상, null = 제한 없음, 대기열 LUT-701 판정 기준) · NPC 노출 유저 비율 0~100(A/B, 기본 100, **null 이면 바꾸지 않음**, LUT-693). 캐시 없이 읽어 저장 즉시 반영 | LUT-635 · LUT-693 |
 
 ### 역방향 — MVP → Admin (`AdminInternalFeignClient`)
 

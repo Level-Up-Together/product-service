@@ -267,6 +267,10 @@ class TowerSeatServiceTest {
 
         assertThat(direct.isMissionActive()).isFalse();
         assertThat(open.isOpen()).isFalse();
+        // LUT-693 실제 흔적: presence 가 없으면 점유자 자리로 완료 기록
+        assertThat(open.getCompletedAt()).isNotNull();
+        assertThat(open.getSeatX()).isEqualTo(direct.getSeatX());
+        assertThat(open.getSeatY()).isEqualTo(direct.getSeatY());
         verify(allocator, never()).remove(direct);
         verify(presenceService).updateState(direct, TowerInstanceEvent.STATE_REST); // LUT-631
         ArgumentCaptor<Object> events = ArgumentCaptor.forClass(Object.class);
@@ -375,5 +379,53 @@ class TowerSeatServiceTest {
         assertThat(service.onMissionStarted(USER, null).map(TowerSeatResult::floorNumber))
                 .contains(1);
         verify(allocator).pickForAutoSeat(eq(f1), isNull(), any());
+    }
+
+    @Test
+    @DisplayName("LUT-693: 완료 자리는 presence 좌표 우선, 읽기 실패면 점유자 자리, 탑 밖이면 좌표 없이 완료만 · 취소는 완료 기록 없음")
+    void completionSpot() {
+        TowerOccupant direct = occupant(6L, 9L, 1, USER, TowerOccupantKind.DIRECT, true);
+        when(occupantRepository.findByUserId(USER)).thenReturn(Optional.of(direct));
+        when(presence.isConnected(USER)).thenReturn(true);
+        TowerMissionSeat first =
+                TowerMissionSeat.open(USER, 10L, 20L, "REGULAR", 1, 9L, false, LocalDateTime.now());
+        when(seatRepository.findAllByUserIdAndEndedAtIsNull(USER)).thenReturn(List.of(first));
+        when(presenceService.find(direct))
+                .thenReturn(
+                        Optional.of(
+                                io.pinkspider.leveluptogethermvp.towerservice.TowerTestFixtures
+                                        .presence(direct, 777, 888)));
+        service.onMissionEnded(USER, true);
+        assertThat(first.getSeatX()).isEqualTo(777);
+        assertThat(first.getSeatY()).isEqualTo(888);
+
+        TowerMissionSeat second =
+                TowerMissionSeat.open(USER, 10L, 21L, "REGULAR", 1, 9L, false, LocalDateTime.now());
+        when(seatRepository.findAllByUserIdAndEndedAtIsNull(USER)).thenReturn(List.of(second));
+        when(presenceService.find(direct)).thenThrow(new IllegalStateException("redis"));
+        direct.startMission(LocalDateTime.now());
+        service.onMissionEnded(USER, true);
+        assertThat(second.getSeatX()).isEqualTo(direct.getSeatX());
+
+        TowerMissionSeat third =
+                TowerMissionSeat.open(USER, 10L, 22L, "REGULAR", 1, 9L, false, LocalDateTime.now());
+        when(seatRepository.findAllByUserIdAndEndedAtIsNull(USER)).thenReturn(List.of(third));
+        when(occupantRepository.findByUserId(USER)).thenReturn(Optional.empty());
+        service.onMissionEnded(USER, true);
+        assertThat(third.getCompletedAt()).isNotNull();
+        assertThat(third.getSeatX()).isNull();
+
+        TowerMissionSeat skipped =
+                TowerMissionSeat.open(USER, 10L, 23L, "REGULAR", 1, 9L, false, LocalDateTime.now());
+        when(seatRepository.findAllByUserIdAndEndedAtIsNull(USER)).thenReturn(List.of(skipped));
+        service.onMissionEnded(USER, false);
+        assertThat(skipped.isOpen()).isFalse();
+        assertThat(skipped.getCompletedAt()).isNull();
+
+        // 이미 완료로 닫힌 기록은 다시 바꾸지 않는다
+        LocalDateTime firstCompleted = first.getCompletedAt();
+        first.complete(LocalDateTime.now().plusHours(1), 1, 1);
+        assertThat(first.getCompletedAt()).isEqualTo(firstCompleted);
+        assertThat(first.getSeatX()).isEqualTo(777);
     }
 }

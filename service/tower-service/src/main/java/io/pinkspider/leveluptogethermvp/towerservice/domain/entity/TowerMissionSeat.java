@@ -76,6 +76,17 @@ public class TowerMissionSeat extends LocalDateTimeBaseEntity {
     @Column(name = "ended_at")
     private LocalDateTime endedAt;
 
+    /** LUT-693: 미션 완료로 끝났을 때의 시각 — 실제 흔적("오늘 이 층에서 N명이 완료") 집계용 */
+    @Column(name = "completed_at")
+    private LocalDateTime completedAt;
+
+    /** LUT-693: 완료한 자리 (배경 원본 픽셀, 모르면 null) — 누구인지는 내리지 않는다 */
+    @Column(name = "seat_x")
+    private Integer seatX;
+
+    @Column(name = "seat_y")
+    private Integer seatY;
+
     public static TowerMissionSeat open(
             String userId,
             Long missionId,
@@ -109,6 +120,16 @@ public class TowerMissionSeat extends LocalDateTimeBaseEntity {
     public void close(LocalDateTime now) {
         if (endedAt == null) {
             endedAt = now;
+        }
+    }
+
+    /** LUT-693: 미션 완료로 닫는다 — 완료 시각과 그때의 자리(모르면 null) */
+    public void complete(LocalDateTime now, Integer x, Integer y) {
+        close(now);
+        if (completedAt == null) {
+            completedAt = now;
+            seatX = x;
+            seatY = y;
         }
     }
 }

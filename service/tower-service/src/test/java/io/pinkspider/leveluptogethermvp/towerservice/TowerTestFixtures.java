@@ -1,8 +1,12 @@
 package io.pinkspider.leveluptogethermvp.towerservice;
 
 import io.pinkspider.leveluptogethermvp.towerservice.domain.dto.TowerFloorAdminRequest;
+import io.pinkspider.leveluptogethermvp.towerservice.domain.dto.TowerNpcAdminRequest;
+import io.pinkspider.leveluptogethermvp.towerservice.domain.dto.TowerNpcLineDto;
 import io.pinkspider.leveluptogethermvp.towerservice.domain.entity.TowerFloor;
 import io.pinkspider.leveluptogethermvp.towerservice.domain.entity.TowerInstance;
+import io.pinkspider.leveluptogethermvp.towerservice.domain.entity.TowerNpc;
+import io.pinkspider.leveluptogethermvp.towerservice.domain.entity.TowerNpcLine;
 import io.pinkspider.leveluptogethermvp.towerservice.domain.entity.TowerOccupant;
 import io.pinkspider.leveluptogethermvp.towerservice.domain.enums.TowerOccupantKind;
 import java.time.LocalDateTime;
@@ -32,6 +36,71 @@ public final class TowerTestFixtures {
                 .instanceCapacity(30)
                 .isPublic(isPublic)
                 .build();
+    }
+
+    /** LUT-693: NPC (대사 2개) */
+    public static TowerNpc npc(Long id, Long floorId, boolean isPublic) {
+        return TowerNpc.builder()
+                .id(id)
+                .floorId(floorId)
+                .name("탑지기")
+                .nameEn("Keeper")
+                .nameJa("塔守")
+                .nameAr("الحارس")
+                .profileImageUrl("https://cdn.test/tower/npc/" + id + ".png")
+                .statusText("조는 중")
+                .seatX(120)
+                .seatY(220)
+                .isPublic(isPublic)
+                .sortOrder(0)
+                .lines(
+                        new java.util.ArrayList<>(
+                                java.util.List.of(
+                                        new TowerNpcLine("어서 와", "Welcome", "ようこそ", "مرحبا"),
+                                        new TowerNpcLine(
+                                                "미션 해 볼래?", "Try a mission?", "ミッション?", "مهمة؟"))))
+                .build();
+    }
+
+    /** LUT-693: 점유자의 presence(위치만 의미 있음) */
+    public static io.pinkspider.leveluptogethermvp.towerservice.presence.TowerPresence presence(
+            TowerOccupant occupant, int x, int y) {
+        return new io.pinkspider.leveluptogethermvp.towerservice.presence.TowerPresence(
+                occupant.getId(),
+                occupant.getInstanceId(),
+                occupant.getFloorNumber(),
+                occupant.getUserId(),
+                "DIRECT",
+                null,
+                "닉",
+                null,
+                1,
+                java.util.List.of(),
+                x,
+                y,
+                "MISSION",
+                true,
+                false,
+                java.time.LocalDateTime.now());
+    }
+
+    /** LUT-693: NPC 등록 요청 */
+    public static TowerNpcAdminRequest npcRequest(String imageUrl, int x, int y, String line) {
+        return new TowerNpcAdminRequest(
+                "탑지기",
+                "Keeper",
+                "塔守",
+                "الحارس",
+                imageUrl,
+                "조는 중",
+                " ",
+                null,
+                null,
+                x,
+                y,
+                java.util.List.of(new TowerNpcLineDto(line, "Welcome", "ようこそ", "مرحبا")),
+                true,
+                null);
     }
 
     public static TowerFloorAdminRequest request(

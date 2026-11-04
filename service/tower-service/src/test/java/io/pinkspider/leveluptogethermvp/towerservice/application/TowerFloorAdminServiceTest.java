@@ -23,7 +23,6 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -40,7 +39,24 @@ class TowerFloorAdminServiceTest {
     private io.pinkspider.leveluptogethermvp.towerservice.application.image.TowerImageStorageService
             imageStorage;
 
-    @InjectMocks private TowerFloorAdminService service;
+    @Mock
+    private io.pinkspider.leveluptogethermvp.towerservice.infrastructure.TowerNpcRepository
+            towerNpcRepository;
+
+    private TowerFloorAdminService service;
+
+    @org.junit.jupiter.api.BeforeEach
+    void setUp() {
+        // LUT-693: 파일 정리는 공용 부품(층·NPC 참조 둘 다 확인)
+        service =
+                new TowerFloorAdminService(
+                        towerFloorRepository,
+                        ruleValidator,
+                        maskCache,
+                        new TowerStoredFileCleaner(
+                                imageStorage, towerFloorRepository, towerNpcRepository),
+                        towerNpcRepository);
+    }
 
     @Test
     @DisplayName("등록: 기존 층 + 새 층으로 규칙을 검증한 뒤 저장한다")
@@ -204,5 +220,30 @@ class TowerFloorAdminServiceTest {
         service.update(1L, changed);
 
         verify(imageStorage).delete(oldBgm);
+    }
+
+    @Test
+    @DisplayName("LUT-693 삭제: 층의 NPC 이미지도 정리한다 — 다른 층 NPC 가 쓰는 이미지는 남긴다")
+    void deleteCleansNpcImages() {
+        TowerFloor f1 = floor(1L, 1, null, true, true);
+        TowerFloor f2 = floor(2L, 2, 5, false, false);
+        when(towerFloorRepository.findById(2L)).thenReturn(java.util.Optional.of(f2));
+        when(towerFloorRepository.findAllByOrderByFloorNumberAsc()).thenReturn(List.of(f1, f2));
+        var npcA =
+                io.pinkspider.leveluptogethermvp.towerservice.TowerTestFixtures.npc(1L, 2L, true);
+        var npcB =
+                io.pinkspider.leveluptogethermvp.towerservice.TowerTestFixtures.npc(2L, 2L, true);
+        when(towerNpcRepository.findAllByFloorId(2L)).thenReturn(List.of(npcA, npcB));
+        when(imageStorage.isOwned(f2.getBackgroundImageUrl())).thenReturn(false);
+        when(imageStorage.isOwned(f2.getFloorMaskUrl())).thenReturn(false);
+        when(imageStorage.isOwned(npcA.getProfileImageUrl())).thenReturn(true);
+        when(imageStorage.isOwned(npcB.getProfileImageUrl())).thenReturn(true);
+        when(towerNpcRepository.countByProfileImageUrl(npcA.getProfileImageUrl())).thenReturn(0L);
+        when(towerNpcRepository.countByProfileImageUrl(npcB.getProfileImageUrl())).thenReturn(1L);
+
+        service.delete(2L);
+
+        verify(imageStorage).delete(npcA.getProfileImageUrl());
+        verify(imageStorage, org.mockito.Mockito.never()).delete(npcB.getProfileImageUrl());
     }
 }

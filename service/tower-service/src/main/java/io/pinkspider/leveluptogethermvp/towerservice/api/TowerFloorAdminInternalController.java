@@ -73,8 +73,8 @@ public class TowerFloorAdminInternalController {
     }
 
     /**
-     * LUT-635: 층 이미지 업로드 — kind=BACKGROUND|MASK(대소문자 무관). 응답 url 을 등록/수정 본문에 쓴다. kind 가 없거나 모르는 값이면
-     * 400 150110 (Spring 바인딩 오류는 플랫폼 핸들러가 500 으로 바꾸므로 직접 판정).
+     * LUT-635: 층 이미지 업로드 — kind=BACKGROUND|MASK|NPC(대소문자 무관, NPC = LUT-693 프로필 이미지). 응답 url 을 등록/수정
+     * 본문에 쓴다. kind 가 없거나 모르는 값이면 400 150110 (Spring 바인딩 오류는 플랫폼 핸들러가 500 으로 바꾸므로 직접 판정).
      */
     @PostMapping(value = "/images", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ApiResult<TowerFloorImageUploadResponse> uploadImage(
