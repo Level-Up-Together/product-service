@@ -17,6 +17,7 @@ import io.pinkspider.leveluptogethermvp.towerservice.application.exception.Tower
 import io.pinkspider.leveluptogethermvp.towerservice.domain.dto.TowerNpcAdminRequest;
 import io.pinkspider.leveluptogethermvp.towerservice.domain.dto.TowerNpcAdminResponse;
 import io.pinkspider.leveluptogethermvp.towerservice.domain.dto.TowerNpcLineDto;
+import io.pinkspider.leveluptogethermvp.towerservice.domain.dto.TowerNpcView;
 import io.pinkspider.leveluptogethermvp.towerservice.domain.entity.TowerFloor;
 import io.pinkspider.leveluptogethermvp.towerservice.domain.entity.TowerNpc;
 import io.pinkspider.leveluptogethermvp.towerservice.infrastructure.TowerFloorRepository;
@@ -136,7 +137,9 @@ class TowerNpcAdminServiceTest {
                             1,
                             List.of(new TowerNpcLineDto(texts[0], texts[1], texts[2], texts[3])),
                             false,
-                            2);
+                            2,
+                            null,
+                            null);
             assertThatThrownBy(() -> service.create(10L, request))
                     .isInstanceOf(TowerNpcException.class);
         }
@@ -181,5 +184,57 @@ class TowerNpcAdminServiceTest {
         service.delete(10L, 5L);
         verify(npcRepository).delete(existing);
         verify(fileCleaner).scheduleCleanup(Set.of(IMG), Set.of());
+    }
+
+    @Test
+    @DisplayName("LUT-732 자동 말풍선: 등록 때 비우면 꺼짐·10초, 넘기면 그 값 · 수정 때 비우면 그대로(구 어드민 호환)")
+    void autoBubble() throws IOException {
+        when(floorRepository.findById(10L)).thenReturn(Optional.of(floor1));
+        when(npcRepository.countByFloorId(10L)).thenReturn(0L);
+        when(maskChecker.isWalkable(anyString(), anyString(), anyInt(), anyInt())).thenReturn(true);
+        when(npcRepository.save(any(TowerNpc.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        TowerNpcAdminResponse plain = service.create(10L, npcRequest(IMG, 1, 1, "안녕"));
+        assertThat(plain.autoBubble()).isFalse();
+        assertThat(plain.bubbleIntervalSeconds()).isEqualTo(10);
+
+        TowerNpcAdminRequest base = npcRequest(IMG, 1, 1, "안녕");
+        TowerNpcAdminRequest withBubble = withAutoBubble(base, true, 8);
+        TowerNpcAdminResponse bubbly = service.create(10L, withBubble);
+        assertThat(bubbly.autoBubble()).isTrue();
+        assertThat(bubbly.bubbleIntervalSeconds()).isEqualTo(8);
+
+        TowerNpc existing = npc(5L, 10L, true);
+        existing.updateAutoBubble(true, 15);
+        when(npcRepository.findByIdAndFloorId(5L, 10L)).thenReturn(Optional.of(existing));
+        service.update(10L, 5L, base);
+        assertThat(existing.isAutoBubble()).isTrue();
+        assertThat(existing.getBubbleIntervalSeconds()).isEqualTo(15);
+        service.update(10L, 5L, withAutoBubble(base, false, null));
+        assertThat(existing.isAutoBubble()).isFalse();
+        assertThat(existing.getBubbleIntervalSeconds()).isEqualTo(15);
+        assertThat(TowerNpcView.from(existing).bubbleIntervalSeconds()).isEqualTo(15);
+        assertThat(TowerNpcView.from(existing).autoBubble()).isFalse();
+    }
+
+    private static TowerNpcAdminRequest withAutoBubble(
+            TowerNpcAdminRequest b, Boolean enabled, Integer interval) {
+        return new TowerNpcAdminRequest(
+                b.name(),
+                b.nameEn(),
+                b.nameJa(),
+                b.nameAr(),
+                b.profileImageUrl(),
+                b.statusText(),
+                b.statusTextEn(),
+                b.statusTextJa(),
+                b.statusTextAr(),
+                b.seatX(),
+                b.seatY(),
+                b.lines(),
+                b.isPublic(),
+                b.sortOrder(),
+                enabled,
+                interval);
     }
 }

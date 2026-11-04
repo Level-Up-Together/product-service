@@ -57,7 +57,8 @@ class TowerNpcAdminInternalControllerTest {
                 + " 중\","
                 + "\"status_text_en\":\"Dozing\",\"status_text_ja\":null,\"status_text_ar\":null,\"seat_x\":120,\"seat_y\":220,\"lines\":[{\"text\":\"어서"
                 + " 와\",\"text_en\":\"Welcome\","
-                + "\"text_ja\":\"ようこそ\",\"text_ar\":\"مرحبا\"}],\"is_public\":true,\"sort_order\":0}";
+                + "\"text_ja\":\"ようこそ\",\"text_ar\":\"مرحبا\"}],\"is_public\":true,\"sort_order\":0,"
+                + "\"auto_bubble\":true,\"bubble_interval_seconds\":8}";
 
     @Autowired private MockMvc mockMvc;
 
@@ -91,7 +92,9 @@ class TowerNpcAdminInternalControllerTest {
             fieldWithPath(prefix + "lines[].text_ja").description("대사 (일본어)"),
             fieldWithPath(prefix + "lines[].text_ar").description("대사 (아랍어)"),
             fieldWithPath(prefix + "created_at").description("등록 시각").optional(),
-            fieldWithPath(prefix + "modified_at").description("수정 시각").optional()
+            fieldWithPath(prefix + "modified_at").description("수정 시각").optional(),
+            fieldWithPath(prefix + "auto_bubble").description("자동 말풍선 사용 (LUT-732)"),
+            fieldWithPath(prefix + "bubble_interval_seconds").description("자동 말풍선 대사 간격(초, 5~60)")
         };
     }
 
@@ -122,7 +125,13 @@ class TowerNpcAdminInternalControllerTest {
             fieldWithPath("lines[].text_ja").description("대사 (일본어)"),
             fieldWithPath("lines[].text_ar").description("대사 (아랍어)"),
             fieldWithPath("is_public").description("공개"),
-            fieldWithPath("sort_order").description("정렬 (비우면 0)").optional()
+            fieldWithPath("sort_order").description("정렬 (비우면 0)").optional(),
+            fieldWithPath("auto_bubble")
+                    .description("LUT-732 자동 말풍선 — 등록 때 비우면 꺼짐, 수정 때 비우면 그대로")
+                    .optional(),
+            fieldWithPath("bubble_interval_seconds")
+                    .description("대사 간격(초) 5~60 — 등록 때 비우면 10, 수정 때 비우면 그대로, 범위 밖 400")
+                    .optional()
         };
     }
 
@@ -220,5 +229,17 @@ class TowerNpcAdminInternalControllerTest {
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content(BODY.replace("https://cdn/npc.png", "http://x/npc.png")))
                 .andExpect(status().isBadRequest());
+        // LUT-732: 자동 말풍선 간격은 5~60초
+        for (String interval : new String[] {"4", "61"}) {
+            mockMvc.perform(
+                            RestDocumentationRequestBuilders.post(
+                                            "/api/internal/tower/floors/{floorId}/npcs", 10L)
+                                    .contentType(MediaType.APPLICATION_JSON)
+                                    .content(
+                                            BODY.replace(
+                                                    "\"bubble_interval_seconds\":8",
+                                                    "\"bubble_interval_seconds\":" + interval)))
+                    .andExpect(status().isBadRequest());
+        }
     }
 }

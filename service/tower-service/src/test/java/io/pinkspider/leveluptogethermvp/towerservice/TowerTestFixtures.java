@@ -101,6 +101,8 @@ public final class TowerTestFixtures {
                 y,
                 java.util.List.of(new TowerNpcLineDto(line, "Welcome", "ようこそ", "مرحبا")),
                 true,
+                null,
+                null,
                 null);
     }
 

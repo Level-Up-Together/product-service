@@ -26,7 +26,9 @@ public record TowerNpcAdminResponse(
         Integer sortOrder,
         List<TowerNpcLineDto> lines,
         LocalDateTime createdAt,
-        LocalDateTime modifiedAt) {
+        LocalDateTime modifiedAt,
+        Boolean autoBubble,
+        Integer bubbleIntervalSeconds) {
 
     public static TowerNpcAdminResponse from(TowerNpc n) {
         return new TowerNpcAdminResponse(
@@ -47,6 +49,8 @@ public record TowerNpcAdminResponse(
                 n.getSortOrder(),
                 n.getLines().stream().map(TowerNpcLineDto::from).toList(),
                 n.getCreatedAt(),
-                n.getModifiedAt());
+                n.getModifiedAt(),
+                n.isAutoBubble(),
+                n.getBubbleIntervalSeconds());
     }
 }
