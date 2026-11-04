@@ -126,4 +126,39 @@ class LocalTowerImageStorageServiceTest {
         assertThat(stored).doesNotExist();
         storage.delete(url); // 없는 파일은 조용히
     }
+
+    @Test
+    @DisplayName("LUT-637: BGM 은 bgm/ 폴더에 mp3·aac·m4a 만, 10MB 초과·이미지 확장자는 150113")
+    void storeBgm() throws IOException {
+        String url =
+                storage.store(
+                        new MockMultipartFile("file", "Loop.MP3", "audio/mpeg", new byte[] {1, 2}),
+                        TowerImageKind.BGM);
+        assertThat(url).startsWith("https://dev.level-up-together.com:8443/uploads/tower/bgm/");
+        assertThat(url).endsWith(".mp3");
+        assertThat(storage.isOwned(url)).isTrue();
+
+        org.assertj.core.api.Assertions.assertThatThrownBy(
+                        () ->
+                                storage.store(
+                                        new MockMultipartFile(
+                                                "file", "bg.png", "image/png", new byte[] {1}),
+                                        TowerImageKind.BGM))
+                .extracting("code")
+                .isEqualTo(
+                        io.pinkspider.leveluptogethermvp.towerservice.application.exception
+                                .TowerFloorException.AUDIO_INVALID);
+
+        properties.setAudioMaxSize(1);
+        org.assertj.core.api.Assertions.assertThatThrownBy(
+                        () ->
+                                storage.store(
+                                        new MockMultipartFile(
+                                                "file", "big.m4a", "audio/mp4", new byte[] {1, 2}),
+                                        TowerImageKind.BGM))
+                .extracting("code")
+                .isEqualTo(
+                        io.pinkspider.leveluptogethermvp.towerservice.application.exception
+                                .TowerFloorException.AUDIO_INVALID);
+    }
 }

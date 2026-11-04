@@ -177,4 +177,23 @@ class TowerFloorRuleValidatorTest {
                 () -> validator.validate(List.of(f2), null),
                 TowerFloorException.PUBLIC_NOT_CONTIGUOUS);
     }
+
+    @Test
+    @DisplayName("LUT-637: 공개 층에 배경 음악이 없으면(null·공백) → 150114, 비공개 층은 없어도 통과")
+    void publicRequiresBgm() {
+        TowerFloor f1 = floor(1L, 1, null, true, true);
+        TowerFloor f2 = floor(2L, 2, null, true, true);
+        ReflectionTestUtils.setField(f2, "bgmUrl", null);
+        assertCode(
+                () -> validator.validate(List.of(f1, f2), f2),
+                TowerFloorException.PUBLIC_REQUIRES_BGM);
+        ReflectionTestUtils.setField(f2, "bgmUrl", "  ");
+        assertCode(
+                () -> validator.validate(List.of(f1, f2), f2),
+                TowerFloorException.PUBLIC_REQUIRES_BGM);
+
+        TowerFloor hidden = floor(null, 3, null, false, false);
+        assertThatCode(() -> validator.validate(List.of(f1, hidden), hidden))
+                .doesNotThrowAnyException();
+    }
 }

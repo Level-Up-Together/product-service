@@ -26,7 +26,7 @@ public class LocalTowerImageStorageService implements TowerImageStorageService {
 
     @Override
     public String store(MultipartFile file, TowerImageKind kind) {
-        String extension = TowerImageFiles.validatedExtension(file, properties);
+        String extension = TowerImageFiles.validatedExtension(file, kind, properties);
         String filename = TowerImageFiles.newFilename(extension);
         try {
             Path dir = Paths.get(properties.getPath(), kind.folder());

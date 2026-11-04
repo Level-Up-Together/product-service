@@ -65,6 +65,11 @@ public class TowerFloorRuleValidator {
             if (target.isGuestAllowed() && target.getEntryLevel() != null) {
                 throw TowerFloorException.guestRequiresNoLevel();
             }
+            // LUT-637: 공개 층은 배경 음악 필수 — 대상 층만 본다(기존 층은 다음 저장 때 걸린다)
+            if (target.isPublicFloor()
+                    && (target.getBgmUrl() == null || target.getBgmUrl().isBlank())) {
+                throw TowerFloorException.publicRequiresBgm();
+            }
         }
 
         for (int i = 1; i < sorted.size(); i++) {

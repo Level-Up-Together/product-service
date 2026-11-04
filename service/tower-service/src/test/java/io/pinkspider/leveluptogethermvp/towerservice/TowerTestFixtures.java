@@ -27,7 +27,8 @@ public final class TowerTestFixtures {
                 .floorMaskUrl("https://cdn.test/tower/mask-" + number + ".png")
                 .entryPointX(100)
                 .entryPointY(200)
-                .bgmUrl(null)
+                // LUT-637: 공개 층은 배경 음악 필수
+                .bgmUrl(isPublic ? "https://cdn.test/tower/bgm-" + number + ".mp3" : null)
                 .instanceCapacity(30)
                 .isPublic(isPublic)
                 .build();
@@ -47,7 +48,7 @@ public final class TowerTestFixtures {
                 "https://cdn.test/tower/mask-" + number + ".png",
                 100,
                 200,
-                null,
+                isPublic ? "https://cdn.test/tower/bgm-" + number + ".mp3" : null,
                 null,
                 isPublic);
     }

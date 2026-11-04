@@ -30,8 +30,8 @@ public class TowerFloorImageService {
     private final ImageContentValidator imageContentValidator;
 
     public TowerFloorImageUploadResponse upload(MultipartFile file, TowerImageKind kind) {
-        if (file == null || file.isEmpty()) {
-            throw TowerFloorException.imageInvalid();
+        if (file == null || file.isEmpty() || kind == TowerImageKind.BGM) {
+            throw TowerFloorException.imageInvalid(); // 배경 음악은 TowerFloorAudioService
         }
         imageContentValidator.validate(file);
         if (kind == TowerImageKind.MASK) {

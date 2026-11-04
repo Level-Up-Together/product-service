@@ -27,6 +27,12 @@ public class TowerFloorException extends TowerException {
     /** LUT-635: 마스크는 PNG 만 (픽셀을 그대로 읽는다) */
     public static final String MASK_NOT_PNG = "150112";
 
+    /** LUT-637: 배경 음악 파일 없음·크기 초과(10MB)·형식 불허(mp3·aac·m4a 아님) */
+    public static final String AUDIO_INVALID = "150113";
+
+    /** LUT-637: 공개 층은 배경 음악이 필수 */
+    public static final String PUBLIC_REQUIRES_BGM = "150114";
+
     private TowerFloorException(String code, String messageKey, HttpStatus status) {
         super(code, messageKey, status);
     }
@@ -81,6 +87,14 @@ public class TowerFloorException extends TowerException {
 
     public static TowerFloorException maskNotPng() {
         return bad(MASK_NOT_PNG, "error.tower.floor.mask_not_png");
+    }
+
+    public static TowerFloorException audioInvalid() {
+        return bad(AUDIO_INVALID, "error.tower.floor.audio_invalid");
+    }
+
+    public static TowerFloorException publicRequiresBgm() {
+        return bad(PUBLIC_REQUIRES_BGM, "error.tower.floor.public_requires_bgm");
     }
 
     private static TowerFloorException bad(String code, String key) {
