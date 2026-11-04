@@ -36,51 +36,51 @@ class TowerChatGuardTest {
     void acquire() {
         when(values.setIfAbsent(eq("tower:chat:rate:7"), eq("1"), eq(Duration.ofMillis(1000))))
                 .thenReturn(true, false);
-        assertThat(guard.tryAcquireSend(7L, false)).isTrue();
-        assertThat(guard.tryAcquireSend(7L, false)).isFalse();
+        assertThat(guard.tryAcquireSend("7", false)).isTrue();
+        assertThat(guard.tryAcquireSend("7", false)).isFalse();
         when(values.setIfAbsent(eq("tower:chat:rrate:8"), eq("1"), eq(Duration.ofMillis(5000))))
                 .thenReturn(true);
-        assertThat(guard.tryAcquireReaction(8L, true)).isTrue();
+        assertThat(guard.tryAcquireReaction("8", true)).isTrue();
         when(values.setIfAbsent(eq("tower:chat:rate:9"), eq("1"), any(Duration.class)))
                 .thenThrow(new RuntimeException("down"));
-        assertThat(guard.tryAcquireSend(9L, false)).isTrue();
+        assertThat(guard.tryAcquireSend("9", false)).isTrue();
     }
 
     @Test
     @DisplayName("같은 내용 연속 전송은 직전 해시로 판정(앞뒤 공백 무시), 오류면 중복 아님")
     void duplicate() {
-        guard.rememberContent(7L, " 안녕 ");
+        guard.rememberContent("7", " 안녕 ");
         verify(values)
                 .set(
                         eq("tower:chat:last:7"),
                         eq(TowerChatGuard.digest("안녕")),
                         eq(Duration.ofSeconds(60)));
         when(values.get("tower:chat:last:7")).thenReturn(TowerChatGuard.digest("안녕"));
-        assertThat(guard.isDuplicate(7L, "안녕")).isTrue();
-        assertThat(guard.isDuplicate(7L, "안녕!")).isFalse();
+        assertThat(guard.isDuplicate("7", "안녕")).isTrue();
+        assertThat(guard.isDuplicate("7", "안녕!")).isFalse();
         when(values.get("tower:chat:last:8")).thenThrow(new RuntimeException("down"));
-        assertThat(guard.isDuplicate(8L, "x")).isFalse();
+        assertThat(guard.isDuplicate("8", "x")).isFalse();
         when(values.get("tower:chat:last:9")).thenReturn(null);
-        assertThat(guard.isDuplicate(9L, "x")).isFalse();
+        assertThat(guard.isDuplicate("9", "x")).isFalse();
     }
 
     @Test
     @DisplayName("MEDIUM 3회(60초 창)면 300초 제한을 걸고 카운터를 지운다")
     void mediumRepeat() {
         when(values.increment("tower:chat:medium:7")).thenReturn(1L, 2L, 3L);
-        assertThat(guard.recordMediumHit(7L)).isFalse();
+        assertThat(guard.recordMediumHit("7")).isFalse();
         verify(redis).expire("tower:chat:medium:7", Duration.ofSeconds(60));
-        assertThat(guard.recordMediumHit(7L)).isFalse();
-        assertThat(guard.recordMediumHit(7L)).isTrue();
+        assertThat(guard.recordMediumHit("7")).isFalse();
+        assertThat(guard.recordMediumHit("7")).isTrue();
         verify(values).set("tower:chat:mute:7", "1", Duration.ofSeconds(300));
         verify(redis).delete("tower:chat:medium:7");
 
         when(redis.hasKey("tower:chat:mute:7")).thenReturn(true);
-        assertThat(guard.isMuted(7L)).isTrue();
+        assertThat(guard.isMuted("7")).isTrue();
         when(redis.hasKey("tower:chat:mute:8")).thenThrow(new RuntimeException("down"));
-        assertThat(guard.isMuted(8L)).isFalse();
+        assertThat(guard.isMuted("8")).isFalse();
         when(values.increment("tower:chat:medium:9")).thenThrow(new RuntimeException("down"));
-        assertThat(guard.recordMediumHit(9L)).isFalse();
+        assertThat(guard.recordMediumHit("9")).isFalse();
         verify(values, never()).set(eq("tower:chat:mute:9"), anyString(), any(Duration.class));
     }
 }

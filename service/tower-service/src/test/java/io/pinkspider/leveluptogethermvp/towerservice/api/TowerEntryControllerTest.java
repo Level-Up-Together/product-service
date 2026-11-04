@@ -1,5 +1,6 @@
 package io.pinkspider.leveluptogethermvp.towerservice.api;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
@@ -56,13 +57,15 @@ class TowerEntryControllerTest {
 
     @MockitoBean private TowerEntryService entryService;
 
+    @MockitoBean private io.pinkspider.global.web.ClientIpResolver clientIpResolver;
+
     @MockitoBean
     private io.pinkspider.leveluptogethermvp.towerservice.application.TowerSeatService seatService;
 
     @Test
     @DisplayName("POST /api/v1/tower/floors/{floorNumber}/enter : 입장·배정 (인스턴스 지정 파라미터 없음)")
     void enter() throws Exception {
-        when(entryService.enter(any(), eq(2), any()))
+        when(entryService.enter(any(), eq(2), any(), any()))
                 .thenReturn(
                         new TowerEnterResponse(
                                 2, 10L, 77L, false, false, null, 1200, 900, 1200, 900, 12L, null,
@@ -128,7 +131,7 @@ class TowerEntryControllerTest {
     @Test
     @DisplayName("POST .../enter : 탑 전체 동시 접속 상한이면 배정 대신 대기 순번 (LUT-701)")
     void enterQueued() throws Exception {
-        when(entryService.enter(any(), eq(2), eq("t-1")))
+        when(entryService.enter(any(), eq(2), eq("t-1"), any()))
                 .thenReturn(
                         TowerEnterResponse.queued(
                                 2, new TowerQueueStatus("t-1", "WAITING", 3, 60, 2, 120L, null)));
@@ -200,19 +203,60 @@ class TowerEntryControllerTest {
     @DisplayName(
             "비로그인 입장은 visitor_key 를 받는다 · 레벨 부족 403 150203 · 없는 층 404 150201 · 비허용 층 403 150202")
     void guestAndErrors() throws Exception {
-        when(entryService.enter(any(), eq(1), any()))
+        when(entryService.enter(any(), eq(1), any(), any()))
                 .thenReturn(
                         new TowerEnterResponse(
                                 1, 10L, 78L, false, false, "k-1", 1400, 1000, 1400, 1000, 3L, 4821,
                                 false, false, null));
+        when(clientIpResolver.resolve(any())).thenReturn("1.2.3.4");
+        mockMvc.perform(
+                        RestDocumentationRequestBuilders.post(
+                                        "/api/v1/tower/floors/{floorNumber}/enter", 1)
+                                .contentType(org.springframework.http.MediaType.APPLICATION_JSON)
+                                .header("User-Agent", "Mozilla/5.0")
+                                .content("{\"visitor_key\":\"k-1\",\"device_id\":\"dev-1\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.value.visitor_key").value("k-1"))
+                .andExpect(jsonPath("$.value.visitor_no").value(4821))
+                .andDo(
+                        document(
+                                "tower-floors-enter-visitor",
+                                org.springframework.restdocs.payload.PayloadDocumentation
+                                        .requestFields(
+                                                fieldWithPath("visitor_key")
+                                                        .description(
+                                                                "이전 입장 응답의 방문객 키 (LUT-705 — 같은 세션이면"
+                                                                    + " 같은 이름 번호, 층 이동은 대기열을 거치지"
+                                                                    + " 않는다. 서버가 모르는 키는 무시하고 새 세션)")
+                                                        .optional(),
+                                                fieldWithPath("device_id")
+                                                        .description("기기 식별자 (제재 단위, 최대 128자)")
+                                                        .optional())));
+        org.mockito.ArgumentCaptor<
+                        io.pinkspider.leveluptogethermvp.towerservice.application.visitor
+                                .TowerVisitorContext>
+                context =
+                        org.mockito.ArgumentCaptor.forClass(
+                                io.pinkspider.leveluptogethermvp.towerservice.application.visitor
+                                        .TowerVisitorContext.class);
+        org.mockito.Mockito.verify(entryService)
+                .enter(
+                        org.mockito.ArgumentMatchers.isNull(),
+                        eq(1),
+                        org.mockito.ArgumentMatchers.isNull(),
+                        context.capture());
+        assertThat(context.getValue().visitorKey()).isEqualTo("k-1");
+        assertThat(context.getValue().deviceId()).isEqualTo("dev-1");
+        assertThat(context.getValue().ip()).isEqualTo("1.2.3.4");
+        assertThat(context.getValue().userAgent()).isEqualTo("Mozilla/5.0");
+
+        // 본문 없는(구 클라이언트) 방문객 입장도 받는다
         mockMvc.perform(
                         RestDocumentationRequestBuilders.post(
                                 "/api/v1/tower/floors/{floorNumber}/enter", 1))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.value.visitor_key").value("k-1"))
-                .andExpect(jsonPath("$.value.visitor_no").value(4821));
+                .andExpect(status().isOk());
 
-        when(entryService.enter(any(), eq(3), any()))
+        when(entryService.enter(any(), eq(3), any(), any()))
                 .thenThrow(TowerEntryException.levelInsufficient());
         mockMvc.perform(
                         RestDocumentationRequestBuilders.post(
@@ -220,7 +264,7 @@ class TowerEntryControllerTest {
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.code").value("150203"));
 
-        when(entryService.enter(any(), eq(9), any()))
+        when(entryService.enter(any(), eq(9), any(), any()))
                 .thenThrow(TowerEntryException.floorNotAvailable());
         mockMvc.perform(
                         RestDocumentationRequestBuilders.post(
@@ -228,7 +272,7 @@ class TowerEntryControllerTest {
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.code").value("150201"));
 
-        when(entryService.enter(any(), eq(4), any()))
+        when(entryService.enter(any(), eq(4), any(), any()))
                 .thenThrow(TowerEntryException.loginRequired());
         mockMvc.perform(
                         RestDocumentationRequestBuilders.post(

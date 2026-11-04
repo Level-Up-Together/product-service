@@ -56,7 +56,8 @@ class TowerInstanceEventTest {
                         java.util.List.of(),
                         10,
                         20,
-                        "REST");
+                        "REST",
+                        null);
         TowerInstanceEvent enter = TowerInstanceEvent.enter(view, now);
         assertThat(enter.type()).isEqualTo("ENTER");
         assertThat(enter.occupantId()).isEqualTo(7L);

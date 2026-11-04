@@ -33,6 +33,7 @@ import io.pinkspider.leveluptogethermvp.userservice.terms.application.UserTermsS
 import io.pinkspider.leveluptogethermvp.userservice.terms.domain.request.AgreementTermsByUserRequestDto;
 import io.pinkspider.leveluptogethermvp.userservice.terms.domain.request.AgreementTermsByUserRequestDto.AgreementTerms;
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.entity.Users;
+import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.policy.ReservedNicknamePolicy;
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.infrastructure.UserRepository;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.transaction.Transactional;
@@ -455,7 +456,7 @@ public class Oauth2Service {
     /** OAuth provider에서 받은 닉네임을 그대로 사용하되 중복이면 유니크 변형. (제안용으로만 사용 — 사용자 미입력 시 INSERT되지 않음) */
     private String resolveSuggestedNickname(OAuth2UserInfo userInfo) {
         String nickname = userInfo.getNickname();
-        if (nickname == null || nickname.isBlank()) {
+        if (nickname == null || nickname.isBlank() || ReservedNicknamePolicy.isReserved(nickname)) {
             return null;
         }
         if (userRepository.existsByNickname(nickname)) {
@@ -485,6 +486,10 @@ public class Oauth2Service {
                                 .collect(java.util.stream.Collectors.toSet());
         userTermsService.validateRequiredTermsAgreed(agreedVersionIds);
 
+        // LUT-705: 탑 방문객 이름(방문객 / Visitor / ビジター / زائر) 사칭 방지
+        if (ReservedNicknamePolicy.isReserved(request.getNickname())) {
+            throw new CustomException("NICKNAME_006", "error.nickname.reserved");
+        }
         // 닉네임 중복 체크 (signup 진행 중 다른 사용자가 같은 닉네임을 선점할 수 있음)
         if (userRepository.existsByNickname(request.getNickname())) {
             throw new CustomException("NICKNAME_001", "error.nickname.already_in_use");

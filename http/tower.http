@@ -247,3 +247,53 @@ Accept: application/json
 GET {{baseUrl}}/api/v1/tower/chat/reactions
 Accept: application/json
 
+
+### ----------------------------------------------------------
+### LUT-705 방문객 세션·제재·신고
+### ----------------------------------------------------------
+### 방문객 입장 — 이전 입장 응답의 visitor_key 를 보내면 같은 세션(같은 이름 번호, 층 이동은 대기열 없음). device_id = 제재 단위
+POST {{baseUrl}}/api/v1/tower/floors/1/enter
+Content-Type: application/json
+Accept: application/json
+
+{
+  "visitor_key": "previous-visitor-key",
+  "device_id": "web-device-id"
+}
+
+### 방문객 신고(로그인) — 같은 방 방문객의 occupant_id
+POST {{baseUrl}}/api/v1/tower/instances/1/visitor-reports
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+Accept: application/json
+
+{
+  "occupant_id": 12,
+  "reason": "광고 도배"
+}
+
+### [내부] 방문객 신고 목록 — 원문·IP·기기 ID
+GET {{baseUrl}}/api/internal/tower/visitor-reports?page=0&size=20
+Accept: application/json
+
+### [내부] 제재 목록
+GET {{baseUrl}}/api/internal/tower/visitor-sanctions?page=0&size=20
+Accept: application/json
+
+### [내부] 제재 등록 — DEVICE/IP × CHAT/ENTRY, duration_minutes 없으면 해제할 때까지
+POST {{baseUrl}}/api/internal/tower/visitor-sanctions
+Content-Type: application/json
+Accept: application/json
+
+{
+  "target_type": "DEVICE",
+  "target_value": "web-device-id",
+  "sanction_type": "CHAT",
+  "reason": "광고 도배",
+  "duration_minutes": 1440,
+  "created_by": "admin"
+}
+
+### [내부] 제재 해제(멱등, 이력은 남는다)
+DELETE {{baseUrl}}/api/internal/tower/visitor-sanctions/1
+Accept: application/json

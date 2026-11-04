@@ -147,6 +147,13 @@ class TowerPresenceServiceTest {
         assertThat(p.isVisitor()).isTrue();
         assertThat(p.toView().userId()).isNull();
         verify(userFacade, never()).getUserProfile(any());
+        // LUT-705: 방문객 세션 태그(키는 내리지 않는다) — 이동해도 유지
+        String tag =
+                io.pinkspider.leveluptogethermvp.towerservice.application.visitor.TowerVisitorTag
+                        .of("k");
+        assertThat(p.visitorTag()).isEqualTo(tag);
+        assertThat(p.toView().visitorTag()).isEqualTo(tag);
+        assertThat(p.withPosition(1, 2, LocalDateTime.now()).visitorTag()).isEqualTo(tag);
     }
 
     @Test
@@ -175,7 +182,8 @@ class TowerPresenceServiceTest {
                         "MISSION",
                         false,
                         true,
-                        LocalDateTime.now());
+                        LocalDateTime.now(),
+                        null);
         when(store.find(9L, 7L)).thenReturn(Optional.of(existing));
         service.moveInstance(o, 9L, 11L);
         verify(store).save(existing.withInstance(11L));
@@ -207,7 +215,8 @@ class TowerPresenceServiceTest {
                         "REST",
                         true,
                         false,
-                        LocalDateTime.now());
+                        LocalDateTime.now(),
+                        null);
         when(store.find(9L, 7L)).thenReturn(Optional.of(p));
 
         assertThat(service.move(9L, 7L, 200, 250)).contains(new WalkableMask.Point(200, 250));
@@ -247,7 +256,8 @@ class TowerPresenceServiceTest {
                         "MISSION",
                         false,
                         false,
-                        LocalDateTime.now());
+                        LocalDateTime.now(),
+                        null);
         when(store.find(9L, 7L)).thenReturn(Optional.of(last));
 
         TowerPresence joined = service.join(o);
@@ -295,7 +305,8 @@ class TowerPresenceServiceTest {
                         "REST",
                         true,
                         false,
-                        LocalDateTime.now());
+                        LocalDateTime.now(),
+                        null);
         when(store.find(9L, 7L)).thenReturn(Optional.of(p));
 
         assertThat(service.levelChanged("u1", 13)).isTrue();
@@ -324,15 +335,15 @@ class TowerPresenceServiceTest {
         TowerPresence me =
                 new TowerPresence(
                         1L, 9L, 1, "me", "DIRECT", null, "나", null, 3, List.of(), 1, 1, "REST",
-                        true, false, null);
+                        true, false, null, null);
         TowerPresence blocked =
                 new TowerPresence(
                         2L, 9L, 1, "bad", "DIRECT", null, "차단", null, 3, List.of(), 2, 2, "REST",
-                        true, false, null);
+                        true, false, null, null);
         TowerPresence visitor =
                 new TowerPresence(
                         3L, 9L, 1, null, "VISITOR", 4821, null, null, null, List.of(), 3, 3, "REST",
-                        true, false, null);
+                        true, false, null, null);
         TowerPresence other =
                 new TowerPresence(
                         4L,
@@ -350,6 +361,7 @@ class TowerPresenceServiceTest {
                         "MISSION",
                         false,
                         true,
+                        null,
                         null);
         when(store.listByInstance(9L)).thenReturn(List.of(me, blocked, visitor, other));
         when(userFacade.isBlockedBetween("me", "bad")).thenReturn(true);
@@ -391,7 +403,8 @@ class TowerPresenceServiceTest {
                         "REST",
                         true,
                         false,
-                        LocalDateTime.now());
+                        LocalDateTime.now(),
+                        null);
         when(store.find(9L, 7L)).thenReturn(Optional.of(p));
         assertThat(service.move(9L, 7L, 5, 5)).contains(new WalkableMask.Point(5, 5));
         assertThat(service.move(9L, 7L, -1, 5)).isEmpty();

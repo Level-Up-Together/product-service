@@ -37,7 +37,16 @@ class TowerChatHistoryStoreTest {
 
     private static TowerChatMessage msg(String id) {
         return new TowerChatMessage(
-                id, 5L, 7L, "u1", null, "닉", "안녕", false, LocalDateTime.of(2026, 11, 4, 13, 0));
+                id,
+                5L,
+                7L,
+                "u1",
+                null,
+                "닉",
+                "안녕",
+                false,
+                LocalDateTime.of(2026, 11, 4, 13, 0),
+                null);
     }
 
     @Test

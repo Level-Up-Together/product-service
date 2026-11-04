@@ -37,6 +37,7 @@ import io.pinkspider.leveluptogethermvp.userservice.mypage.domain.dto.UserTitleL
 import io.pinkspider.leveluptogethermvp.userservice.oauth.application.MultiDeviceTokenService;
 import io.pinkspider.leveluptogethermvp.userservice.profile.application.UserProfileCacheService;
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.entity.Users;
+import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.policy.ReservedNicknamePolicy;
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.infrastructure.UserRepository;
 import java.time.LocalDate;
 import java.util.List;
@@ -546,6 +547,9 @@ public class MyPageService {
         if (nickname == null || nickname.trim().isEmpty()) {
             return false;
         }
+        if (ReservedNicknamePolicy.isReserved(nickname)) {
+            return false; // LUT-705: 방문객 표기로 시작하는 닉네임
+        }
 
         if (userId != null) {
             // 자신 제외하고 중복 확인 (수정 시)
@@ -612,6 +616,10 @@ public class MyPageService {
         // 한글, 영문, 숫자, 아랍어 허용
         if (!nickname.matches("^[가-힣a-zA-Z0-9\u0600-\u06FF]+$")) {
             throw new CustomException("NICKNAME_005", "error.nickname.invalid_chars");
+        }
+        // LUT-705: 탑 방문객 이름(방문객 / Visitor / ビジター / زائر) 사칭 방지
+        if (ReservedNicknamePolicy.isReserved(nickname)) {
+            throw new CustomException("NICKNAME_006", "error.nickname.reserved");
         }
     }
 

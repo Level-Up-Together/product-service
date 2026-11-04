@@ -8,6 +8,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Profile;
 import org.springframework.messaging.Message;
 import org.springframework.messaging.MessageChannel;
+import org.springframework.messaging.MessageDeliveryException;
 import org.springframework.messaging.simp.stomp.StompCommand;
 import org.springframework.messaging.simp.stomp.StompHeaderAccessor;
 import org.springframework.messaging.support.ChannelInterceptor;
@@ -24,6 +25,7 @@ public class WebSocketAuthInterceptor implements ChannelInterceptor {
 
     private final JwtUtil jwtUtil;
     private final TokenBlacklistChecker tokenBlacklistChecker;
+    private final WebSocketAnonymousConnectionLimiter anonymousConnectionLimiter;
 
     @Override
     public Message<?> preSend(Message<?> message, MessageChannel channel) {
@@ -47,11 +49,28 @@ public class WebSocketAuthInterceptor implements ChannelInterceptor {
                 accessor.setUser(authentication);
                 log.debug("WebSocket 인증 성공: userId={}", userId);
             } else {
-                log.warn("WebSocket 인증 실패: 유효하지 않은 토큰");
+                if (token != null) {
+                    log.warn("WebSocket 인증 실패: 유효하지 않은 토큰");
+                }
+                // LUT-705: 비로그인 연결(탑 방문객)은 IP 마다 개수를 제한한다 — 넘으면 CONNECT 를 거절(STOMP ERROR)
+                String ip = clientIp(accessor);
+                if (!anonymousConnectionLimiter.tryAcquire(ip, accessor.getSessionId())) {
+                    throw new MessageDeliveryException("too many anonymous connections");
+                }
             }
         }
 
         return message;
+    }
+
+    static String clientIp(StompHeaderAccessor accessor) {
+        if (accessor.getSessionAttributes() == null) {
+            return null;
+        }
+        Object ip =
+                accessor.getSessionAttributes()
+                        .get(WebSocketCookieHandshakeInterceptor.ATTR_CLIENT_IP);
+        return ip instanceof String s ? s : null;
     }
 
     private String extractToken(StompHeaderAccessor accessor) {

@@ -57,7 +57,8 @@ class TowerPresenceQueryServiceTest {
         List<TowerPresenceView> views =
                 List.of(
                         new TowerPresenceView(
-                                7L, "u1", "DIRECT", null, "닉", null, 3, List.of(), 1, 1, "REST"));
+                                7L, "u1", "DIRECT", null, "닉", null, 3, List.of(), 1, 1, "REST",
+                                null));
         when(presenceService.snapshot(9L, "u1")).thenReturn(views);
         when(presenceService.snapshot(9L, null)).thenReturn(views);
 

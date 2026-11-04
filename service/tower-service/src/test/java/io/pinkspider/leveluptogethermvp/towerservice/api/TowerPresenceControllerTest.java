@@ -82,10 +82,11 @@ class TowerPresenceControllerTest {
                                                                 "RARE")),
                                                 1400,
                                                 1000,
-                                                "MISSION"),
+                                                "MISSION",
+                                                null),
                                         new TowerPresenceView(
                                                 8L, null, "VISITOR", 4821, null, null, null,
-                                                List.of(), 1380, 1010, "REST")),
+                                                List.of(), 1380, 1010, "REST", null)),
                                 List.of(TowerNpcView.from(TowerTestFixtures.npc(3L, 1L, true))),
                                 true,
                                 new TowerTraceView(

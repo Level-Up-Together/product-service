@@ -3,6 +3,7 @@ package io.pinkspider.leveluptogethermvp.towerservice.api;
 import io.pinkspider.leveluptogethermvp.towerservice.domain.dto.TowerJoinMessage;
 import io.pinkspider.leveluptogethermvp.towerservice.domain.dto.TowerMoveMessage;
 import io.pinkspider.leveluptogethermvp.towerservice.presence.TowerConnectionService;
+import io.pinkspider.leveluptogethermvp.towerservice.presence.TowerMoveRateLimiter;
 import java.security.Principal;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -32,6 +33,7 @@ import org.springframework.stereotype.Controller;
 public class TowerWebSocketController {
 
     private final TowerConnectionService connectionService;
+    private final TowerMoveRateLimiter moveRateLimiter;
 
     @MessageMapping("/tower/instances/{instanceId}/join")
     public void join(
@@ -71,6 +73,9 @@ public class TowerWebSocketController {
             SimpMessageHeaderAccessor accessor) {
         if (message == null || message.x() == null || message.y() == null) {
             return;
+        }
+        if (!moveRateLimiter.allow(accessor.getSessionId())) {
+            return; // LUT-705: 1초 상한을 넘는 이동은 버린다
         }
         connectionService.move(accessor.getSessionId(), instanceId, message.x(), message.y());
     }

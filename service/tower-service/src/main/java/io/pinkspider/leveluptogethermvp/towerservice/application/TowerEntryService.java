@@ -5,6 +5,9 @@ import io.pinkspider.global.facade.GamificationQueryFacade;
 import io.pinkspider.global.facade.MissionQueryFacade;
 import io.pinkspider.leveluptogethermvp.towerservice.application.exception.TowerEntryException;
 import io.pinkspider.leveluptogethermvp.towerservice.application.queue.TowerQueueService;
+import io.pinkspider.leveluptogethermvp.towerservice.application.visitor.TowerVisitorContext;
+import io.pinkspider.leveluptogethermvp.towerservice.application.visitor.TowerVisitorGate;
+import io.pinkspider.leveluptogethermvp.towerservice.application.visitor.TowerVisitorSession;
 import io.pinkspider.leveluptogethermvp.towerservice.domain.dto.TowerEnterResponse;
 import io.pinkspider.leveluptogethermvp.towerservice.domain.dto.TowerLeaveResponse;
 import io.pinkspider.leveluptogethermvp.towerservice.domain.entity.TowerFloor;
@@ -18,7 +21,6 @@ import io.pinkspider.leveluptogethermvp.towerservice.infrastructure.TowerUserSta
 import io.pinkspider.leveluptogethermvp.towerservice.presence.TowerPresenceService;
 import java.time.LocalDateTime;
 import java.util.Optional;
-import java.util.UUID;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.annotation.Lazy;
@@ -50,6 +52,7 @@ public class TowerEntryService {
     private final TowerFloorVisitRepository towerFloorVisitRepository;
     private final ApplicationEventPublisher eventPublisher;
     private final TowerQueueService queueService;
+    private final TowerVisitorGate visitorGate;
 
     public TowerEntryService(
             TowerFloorRepository towerFloorRepository,
@@ -62,7 +65,8 @@ public class TowerEntryService {
             TowerPresenceService presenceService,
             TowerFloorVisitRepository towerFloorVisitRepository,
             ApplicationEventPublisher eventPublisher,
-            TowerQueueService queueService) {
+            TowerQueueService queueService,
+            TowerVisitorGate visitorGate) {
         this.towerFloorRepository = towerFloorRepository;
         this.towerOccupantRepository = towerOccupantRepository;
         this.towerUserStateRepository = towerUserStateRepository;
@@ -74,6 +78,7 @@ public class TowerEntryService {
         this.towerFloorVisitRepository = towerFloorVisitRepository;
         this.eventPublisher = eventPublisher;
         this.queueService = queueService;
+        this.visitorGate = visitorGate;
     }
 
     @Transactional(transactionManager = "towerTransactionManager")
@@ -88,6 +93,19 @@ public class TowerEntryService {
     @Transactional(transactionManager = "towerTransactionManager")
     public TowerEnterResponse enter(
             @Nullable String userId, int floorNumber, @Nullable String queueTicket) {
+        return enter(userId, floorNumber, queueTicket, TowerVisitorContext.none());
+    }
+
+    /**
+     * LUT-705: {@code visitor} = 비로그인 요청의 신원 단서(이전 방문객 키·기기 ID·IP). 방문객은 {@link TowerVisitorGate} 를
+     * 지나며(제재·IP 빈도) 같은 세션이면 같은 키·이름 번호를 쓰고, 이미 안에 있으면(층 이동·재입장) 대기열을 거치지 않는다. 로그인 유저 요청에서는 무시한다.
+     */
+    @Transactional(transactionManager = "towerTransactionManager")
+    public TowerEnterResponse enter(
+            @Nullable String userId,
+            int floorNumber,
+            @Nullable String queueTicket,
+            TowerVisitorContext visitor) {
         TowerFloor floor =
                 towerFloorRepository
                         .findByFloorNumber(floorNumber)
@@ -97,12 +115,17 @@ public class TowerEntryService {
         // LUT-632: 탑 밖에서 시작한 미션도 입장하면 미션 중으로 — 잠그기 전에 미션 DB 를 읽는다
         boolean inMission = userId != null && hasInProgressMission(userId);
 
-        // LUT-701: 이미 탑 안(직접 입장·자리 유지)이면 층 이동·복귀라 대기열을 거치지 않는다. 자동 착석만 한 유저는 새 입장으로 본다
+        // LUT-705: 방문객은 세션·제재·IP 빈도를 먼저 본다(새 세션이면 키·이름 번호를 여기서 받는다)
+        TowerVisitorSession visitorSession = userId == null ? visitorGate.admit(visitor) : null;
+        // LUT-701: 이미 탑 안(직접 입장·자리 유지·같은 세션의 방문객)이면 층 이동·복귀라 대기열을 거치지 않는다. 자동 착석만 한 유저는 새 입장으로 본다
         boolean alreadyInside =
                 userId != null
-                        && towerOccupantRepository
+                        ? towerOccupantRepository
                                 .findByUserId(userId)
                                 .filter(o -> !o.isAutoSeated())
+                                .isPresent()
+                        : towerOccupantRepository
+                                .findByVisitorKey(visitorSession.visitorKey())
                                 .isPresent();
         if (!alreadyInside) {
             TowerQueueService.Gate gate = queueService.check(userId, floorNumber, queueTicket);
@@ -145,9 +168,23 @@ public class TowerEntryService {
                     allocator.remove(current); // 층 이동(유저 의사) — 미션 중 상태는 가져간다
                 }
             }
+        } else {
+            // LUT-705: 같은 세션의 방문객 — 같은 층이면 그 자리로, 다른 층이면 옮긴다(키·이름 번호는 그대로)
+            Optional<TowerOccupant> existing =
+                    towerOccupantRepository.findByVisitorKey(visitorSession.visitorKey());
+            if (existing.isPresent()) {
+                TowerOccupant current = existing.get();
+                if (current.getFloorNumber() == floorNumber) {
+                    current.touch(now);
+                    occupant = current;
+                    resumed = true;
+                } else {
+                    allocator.remove(current);
+                }
+            }
         }
 
-        String visitorKey = null;
+        String visitorKey = visitorSession != null ? visitorSession.visitorKey() : null;
         if (occupant == null) {
             // LUT-701: 탑 전체 동시 접속 상한 판정 지점 (복귀는 위에서 끝나 대기열을 거치지 않는다)
             TowerInstance instance = allocator.pickForDirectEntry(locked, now);
@@ -162,13 +199,12 @@ public class TowerEntryService {
                                 locked.getEntryPointY(),
                                 now);
             } else {
-                visitorKey = UUID.randomUUID().toString();
                 occupant =
                         TowerOccupant.visitor(
                                 instance.getId(),
                                 floorNumber,
                                 visitorKey,
-                                newVisitorNo(),
+                                visitorSession.visitorNo(),
                                 locked.getEntryPointX(),
                                 locked.getEntryPointY(),
                                 now);
@@ -250,11 +286,6 @@ public class TowerEntryService {
         if (resolveLevel(userId) < floor.getEntryLevel()) {
             throw TowerEntryException.levelInsufficient();
         }
-    }
-
-    /** LUT-705: "방문객 NNNN" 의 네 자리 — 1000~9999 임의 */
-    private static int newVisitorNo() {
-        return 1000 + java.util.concurrent.ThreadLocalRandom.current().nextInt(9000);
     }
 
     private boolean hasInProgressMission(String userId) {

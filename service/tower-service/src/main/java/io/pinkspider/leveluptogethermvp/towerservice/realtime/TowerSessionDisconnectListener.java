@@ -1,6 +1,7 @@
 package io.pinkspider.leveluptogethermvp.towerservice.realtime;
 
 import io.pinkspider.leveluptogethermvp.towerservice.presence.TowerConnectionService;
+import io.pinkspider.leveluptogethermvp.towerservice.presence.TowerMoveRateLimiter;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.event.EventListener;
@@ -17,9 +18,11 @@ import org.springframework.web.socket.messaging.SessionDisconnectEvent;
 public class TowerSessionDisconnectListener {
 
     private final TowerConnectionService connectionService;
+    private final TowerMoveRateLimiter moveRateLimiter;
 
     @EventListener
     public void onDisconnect(SessionDisconnectEvent event) {
+        moveRateLimiter.forget(event.getSessionId());
         try {
             connectionService.disconnect(event.getSessionId());
         } catch (Exception e) {

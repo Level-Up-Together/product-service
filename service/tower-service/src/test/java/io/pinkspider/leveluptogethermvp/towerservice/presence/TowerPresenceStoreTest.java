@@ -55,7 +55,8 @@ class TowerPresenceStoreTest {
                     "REST",
                     true,
                     false,
-                    LocalDateTime.of(2026, 11, 3, 12, 0));
+                    LocalDateTime.of(2026, 11, 3, 12, 0),
+                    null);
 
     @BeforeEach
     void setUp() {

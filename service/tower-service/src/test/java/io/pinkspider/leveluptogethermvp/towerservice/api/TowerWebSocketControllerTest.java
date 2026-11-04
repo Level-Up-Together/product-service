@@ -19,8 +19,12 @@ import org.springframework.messaging.simp.SimpMessageHeaderAccessor;
 class TowerWebSocketControllerTest {
 
     private final TowerConnectionService connectionService = mock(TowerConnectionService.class);
+    private final io.pinkspider.leveluptogethermvp.towerservice.presence.TowerMoveRateLimiter
+            moveRateLimiter =
+                    new io.pinkspider.leveluptogethermvp.towerservice.presence.TowerMoveRateLimiter(
+                            2);
     private final TowerWebSocketController controller =
-            new TowerWebSocketController(connectionService);
+            new TowerWebSocketController(connectionService, moveRateLimiter);
 
     private static SimpMessageHeaderAccessor session(String id) {
         SimpMessageHeaderAccessor accessor = SimpMessageHeaderAccessor.create();
@@ -55,5 +59,18 @@ class TowerWebSocketControllerTest {
         controller.move(9L, new TowerMoveMessage(null, 20), session("s1"));
         controller.move(9L, null, session("s1"));
         org.mockito.Mockito.verifyNoMoreInteractions(connectionService);
+    }
+
+    @Test
+    @DisplayName("LUT-705 move: 세션마다 1초 상한(여기선 2건)을 넘는 이동은 버린다 · 다른 세션은 따로 센다")
+    void moveRateLimited() {
+        controller.move(9L, new TowerMoveMessage(1, 1), session("s9"));
+        controller.move(9L, new TowerMoveMessage(2, 2), session("s9"));
+        controller.move(9L, new TowerMoveMessage(3, 3), session("s9"));
+        controller.move(9L, new TowerMoveMessage(4, 4), session("s8"));
+        verify(connectionService).move("s9", 9L, 1, 1);
+        verify(connectionService).move("s9", 9L, 2, 2);
+        verify(connectionService, never()).move("s9", 9L, 3, 3);
+        verify(connectionService).move("s8", 9L, 4, 4);
     }
 }
