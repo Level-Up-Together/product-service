@@ -106,6 +106,8 @@ class SecurityConfigPublicEndpointTest {
                 "/api/v1/rankings/level",
                 "/api/v1/tower/floors", // LUT-629
                 "/api/v1/tower/instances/1/presence", // LUT-631
+                "/api/v1/tower/instances/1/chat", // LUT-633
+                "/api/v1/tower/chat/reactions", // LUT-633
                 "/api/v1/shop-items", // LUT-350
                 "/api/v1/diamond-bundles" // LUT-356
             })
@@ -229,7 +231,13 @@ class SecurityConfigPublicEndpointTest {
 
     /** LUT-630: 탑 입장·퇴장은 방문객(비로그인)도 허용 층에 한해 들어온다 — 층 판정은 서비스 몫이라 필터는 열려 있어야 한다 */
     @ParameterizedTest(name = "탑 익명 POST 허용: {0}")
-    @ValueSource(strings = {"/api/v1/tower/floors/1/enter", "/api/v1/tower/leave"})
+    @ValueSource(
+            strings = {
+                "/api/v1/tower/floors/1/enter",
+                "/api/v1/tower/leave",
+                "/api/v1/tower/instances/1/chat", // LUT-633
+                "/api/v1/tower/instances/1/reactions" // LUT-633
+            })
     void 탑_익명_POST_는_401_이_아니어야_한다(String path) throws Exception {
         int status = mockMvc.perform(post(path)).andReturn().getResponse().getStatus();
         Assertions.assertThat(status)

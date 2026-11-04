@@ -57,6 +57,12 @@ class TowerSeatServiceTest {
     private final TowerInstanceAllocator allocator = mock(TowerInstanceAllocator.class);
     private final TowerPopulationService populationService = mock(TowerPopulationService.class);
     private final TowerRealtimePublisher publisher = mock(TowerRealtimePublisher.class);
+    private final io.pinkspider.leveluptogethermvp.towerservice.application.chat
+                    .TowerCheerWindowStore
+            cheerWindowStore =
+                    mock(
+                            io.pinkspider.leveluptogethermvp.towerservice.application.chat
+                                    .TowerCheerWindowStore.class);
     private final TowerPresenceGateway presence = mock(TowerPresenceGateway.class);
     private final io.pinkspider.leveluptogethermvp.towerservice.presence.TowerPresenceService
             presenceService =
@@ -87,7 +93,8 @@ class TowerSeatServiceTest {
                         presenceService,
                         gamificationFacade,
                         userFacade,
-                        missionFacade);
+                        missionFacade,
+                        cheerWindowStore);
         when(occupantRepository.findByUserId(USER)).thenReturn(Optional.empty());
         when(floorRepository.findAllByIsPublicTrueOrderByFloorNumberAsc())
                 .thenReturn(List.of(f1, f2, f3));

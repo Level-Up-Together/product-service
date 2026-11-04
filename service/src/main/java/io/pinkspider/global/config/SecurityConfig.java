@@ -253,6 +253,17 @@ public class SecurityConfig {
                                                 "/api/v1/tower/floors/*/enter",
                                                 "/api/v1/tower/leave")
                                         .permitAll()
+                                        // LUT-633: 탑 채팅·리액션 — 방문객도 보낸다(점유자 판정은 서비스 150301)
+                                        .requestMatchers(
+                                                HttpMethod.POST,
+                                                "/api/v1/tower/instances/*/chat",
+                                                "/api/v1/tower/instances/*/reactions")
+                                        .permitAll()
+                                        .requestMatchers(
+                                                HttpMethod.GET,
+                                                "/api/v1/tower/instances/*/chat",
+                                                "/api/v1/tower/chat/reactions")
+                                        .permitAll()
                                         .requestMatchers(HttpMethod.GET, "/api/v1/shop-items")
                                         .permitAll()
                                         // LUT-356: 비로그인 핑크다이아 묶음상품 열람 (상점 Browse-First)
