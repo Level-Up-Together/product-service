@@ -92,6 +92,7 @@ public class TowerEntryService {
 
         TowerOccupant occupant = null;
         boolean resumed = false;
+        boolean autoSeatContinued = false;
         boolean missionActive = inMission;
         if (userId != null) {
             Optional<TowerOccupant> existing = towerOccupantRepository.findByUserId(userId);
@@ -108,6 +109,7 @@ public class TowerEntryService {
                         current.convertToDirect(now);
                         occupant = current;
                         resumed = true;
+                        autoSeatContinued = true;
                     } else {
                         allocator.remove(current); // 직접 입장자로 찬 방 — 일반 배정
                     }
@@ -169,7 +171,8 @@ public class TowerEntryService {
                 occupant.getSeatX(),
                 occupant.getSeatY(),
                 towerPopulationService.of(floorNumber),
-                occupant.getVisitorNo());
+                occupant.getVisitorNo(),
+                autoSeatContinued);
     }
 
     /**
