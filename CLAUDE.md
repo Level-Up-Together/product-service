@@ -364,7 +364,7 @@ Redis Stream `stream:app-push` → `AppPushMessageConsumer` → `FcmPushService`
 | 경로 | 퍼블리셔 → 릴레이 | Redis 채널 |
 |---|---|---|
 | 알림 `/user/queue/notifications` | `NotificationRealtimePublisher` → `NotificationRealtimeRelay` | `notification:realtime` |
-| 탑 인스턴스 `/topic/tower/instances/{id}` | `TowerRealtimePublisher.publishToInstance` → `TowerRealtimeRelay` | `tower:instance:realtime` (LUT-632 USER_STATE·MISSION_COMPLETED, LUT-631 ENTER·LEAVE·MOVE·LEVEL) |
+| 탑 인스턴스 `/topic/tower/instances/{id}` | `TowerRealtimePublisher.publishToInstance` → `TowerRealtimeRelay` | `tower:instance:realtime` (LUT-632 USER_STATE·MISSION_COMPLETED, LUT-631 ENTER·LEAVE·MOVE·LEVEL, LUT-633 CHAT·REACTION) |
 | DM `/user/queue/dm*` | `DmRealtimePublisher.publishToUser` → `DmRealtimeRelay` | `chat:dm:realtime` |
 | 길드 채팅 `/topic/guild/{id}/chat`·`/read` | `GuildChatRealtimePublisher.publishToTopic` → `GuildChatRealtimeRelay` | `chat:guild:realtime` |
 
@@ -527,6 +527,11 @@ prod 첫 적용 파일은 LUT-666 핫픽스 `gamification/V1_1_3_013`(2026-10-29
   `app.upload.tower-image.public-base-url`(config-repository dev `https://dev.level-up-together.com:8443`) 로 조립 — 비면 상대 경로가 나와 층 API 가 거절한다). 응답 `width`/`height` 는 헤더만 읽어(webp 는 null) 어드민이 짧은 변 1536px 미만 경고에 쓴다.
   층 수정·삭제로 안 쓰게 된 **우리 저장소 이미지는 커밋 뒤 삭제**(다른 층이 같은 주소를 쓰면 유지, 외부 주소 무시). 거절 150110(파일 없음·크기·확장자)·150111(저장 실패 500)·`000012`(이미지 아님, LUT-710).
   **탑 공통 설정** `tower_setting`(키-값, Flyway V1_1_5_006) — `GET/PUT /api/internal/tower/settings {max_concurrent_users}`(null = 제한 없음, 캐시 없이 읽어 저장 즉시 반영). 대기열 LUT-701 이 `TowerSettingService.getMaxConcurrentUsers()` 로 판정하며 기본값은 631 부하 테스트 결과. admin-service 패스스루·화면은 LUT-635/636.
+- **채팅·리액션·모더레이션** (LUT-633, `application/chat/`·`TowerChatService`): 전송은 **REST**(거부 사유 코드를 바로 받는다 — 비로그인 허용, 방문객은 `visitor_key`), 수신은 같은 인스턴스 토픽의 `CHAT`/`REACTION` 이벤트.
+  `POST /api/v1/tower/instances/{id}/chat {content, visitor_key?}` → 처리된 메시지(원문 아님) · `POST .../reactions {emoji, target_user_id?, visitor_key?}` · `GET .../chat`(최근 50건, Redis `tower:chat:history:{id}`, 로그인 요청자는 차단 유저 제외) · `GET /api/v1/tower/chat/reactions`(프리셋 6종).
+  **판정 순서**(서버가 최종): 점유자 아님 403 `150301` → 미션 중 403 `150304`(리액션은 허용) → 길이(로그인 200·방문객 40) 400 `150307` → 방문객 URL·전화·메신저 400 `150308` → 제한 중 403 `150306` → 간격(로그인 1초·방문객 5초, Redis SETNX) 429 `150302` → 같은 내용 연속 400 `150303` → 금칙어.
+  **금칙어**는 어드민 비속어 목록(`ProfanityValidationService.getActiveProfanityWordsWithSeverity`, 캐시 `profanityWords` — 어드민 변경 시 evict)으로 **공백·특수문자를 지운 소문자**로 비교: LOW·MEDIUM 은 그 단어만 `**` 로 가리고 전송, HIGH 는 전체 거부 400 `150305`, MEDIUM 이 60초 안 3회면 300초 제한(`tower.chat.*` 설정). 원문은 `tower_chat_log`(Flyway V1_1_5_007, 거절도 기록)에만 남고 다른 유저에게는 절대 안 나간다.
+  **응원** = 완료 연출 뒤 10초 창(`TowerCheerWindowStore`, `MISSION_COMPLETED` 때 `TowerSeatService` 가 연다) 안에 `target_user_id` 로 보낸 리액션 1회(점유자당) → `addCheer`, 보상 없음. 차단 유저 숨김은 토픽이 방 공용이라 **클라이언트가 `user_id` 로**(이력 API 는 서버가 뺀다). Redis 장애 시 제한은 통과(fail-open). 운영자 뮤트·로그 보관 기간·어드민 화면은 미결. 웹 UI 는 LUT-643.
 
 ## 상점 · 다이아 경제 (gamificationservice/shop, LUT-327/348/349/350/354/356/401)
 

@@ -3,6 +3,7 @@ package io.pinkspider.leveluptogethermvp.towerservice.application;
 import io.pinkspider.global.facade.GamificationQueryFacade;
 import io.pinkspider.global.facade.MissionQueryFacade;
 import io.pinkspider.global.facade.UserQueryFacade;
+import io.pinkspider.leveluptogethermvp.towerservice.application.chat.TowerCheerWindowStore;
 import io.pinkspider.leveluptogethermvp.towerservice.domain.dto.TowerInstanceEvent;
 import io.pinkspider.leveluptogethermvp.towerservice.domain.dto.TowerMissionInfo;
 import io.pinkspider.leveluptogethermvp.towerservice.domain.dto.TowerSeatResult;
@@ -52,6 +53,7 @@ public class TowerSeatService {
     private final GamificationQueryFacade gamificationQueryFacade;
     private final UserQueryFacade userQueryFacade;
     private final MissionQueryFacade missionQueryFacade;
+    private final TowerCheerWindowStore cheerWindowStore;
 
     public TowerSeatService(
             TowerFloorRepository towerFloorRepository,
@@ -64,7 +66,9 @@ public class TowerSeatService {
             TowerPresenceService presenceService,
             @Lazy GamificationQueryFacade gamificationQueryFacade,
             @Lazy UserQueryFacade userQueryFacade,
-            @Lazy MissionQueryFacade missionQueryFacade) {
+            @Lazy MissionQueryFacade missionQueryFacade,
+            TowerCheerWindowStore cheerWindowStore) {
+        this.cheerWindowStore = cheerWindowStore;
         this.towerFloorRepository = towerFloorRepository;
         this.towerOccupantRepository = towerOccupantRepository;
         this.towerMissionSeatRepository = towerMissionSeatRepository;
@@ -164,6 +168,7 @@ public class TowerSeatService {
         if (completed) {
             realtimePublisher.publishToInstance(
                     current.getInstanceId(), TowerInstanceEvent.missionCompleted(userId, now));
+            cheerWindowStore.open(current.getInstanceId(), userId); // LUT-633: 10초 응원 창
         }
         boolean connected = !current.isAutoSeated() && presenceGateway.isConnected(userId);
         if (!connected) {

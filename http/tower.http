@@ -202,3 +202,48 @@ Accept: application/json
 {
   "max_concurrent_users": null
 }
+
+### ----------------------------------------------------------
+### [유저] 탑 채팅·리액션 (LUT-633) — 전송은 REST, 수신은 /topic/tower/instances/{id} 의 CHAT/REACTION
+### 거부: 150301 방 밖 · 150302 너무 빠름(429) · 150303 같은 내용 · 150304 미션 중 · 150305 HIGH 금칙어
+###       150306 제한 중 · 150307 길이 · 150308 방문객 링크/전화/메신저 · 150309 프리셋 아님
+### ----------------------------------------------------------
+POST {{baseUrl}}/api/v1/tower/instances/1/chat
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+Accept: application/json
+
+{
+  "content": "안녕하세요 같이 미션해요"
+}
+
+### 방문객 채팅 (40자, 링크·전화·메신저 아이디 금지)
+POST {{baseUrl}}/api/v1/tower/instances/1/chat
+Content-Type: application/json
+Accept: application/json
+
+{
+  "content": "반가워요",
+  "visitor_key": "{{visitorKey}}"
+}
+
+### 리액션 — 프리셋만. target_user_id 가 완료 연출 10초 창 안이면 응원으로 집계(cheer=true)
+POST {{baseUrl}}/api/v1/tower/instances/1/reactions
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+Accept: application/json
+
+{
+  "emoji": "👏",
+  "target_user_id": "user-uuid"
+}
+
+### 최근 50건 (오래된 것부터, 차단 유저 제외) — 방문객은 ?visitor_key=
+GET {{baseUrl}}/api/v1/tower/instances/1/chat
+Authorization: Bearer {{accessToken}}
+Accept: application/json
+
+### 리액션 프리셋
+GET {{baseUrl}}/api/v1/tower/chat/reactions
+Accept: application/json
+
