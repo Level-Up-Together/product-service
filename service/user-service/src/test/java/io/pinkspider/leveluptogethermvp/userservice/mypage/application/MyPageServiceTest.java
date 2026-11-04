@@ -721,6 +721,7 @@ class MyPageServiceTest {
             when(gamificationQueryFacadeService.countAttendanceDays(TEST_USER_ID)).thenReturn(1L);
             when(guildQueryFacadeService.getUserGuildMemberships(TEST_USER_ID))
                     .thenReturn(List.of(sharedGuild));
+            when(guildQueryFacadeService.isGuildPublic(5L)).thenReturn(true);
             when(guildQueryFacadeService.countActiveMembersByGuildIds(List.of(5L)))
                     .thenReturn(java.util.Map.of(5L, 3));
             when(guildQueryFacadeService.getUserGuildMemberships(viewerId))
@@ -758,6 +759,7 @@ class MyPageServiceTest {
             when(gamificationQueryFacadeService.countAttendanceDays(TEST_USER_ID)).thenReturn(1L);
             when(guildQueryFacadeService.getUserGuildMemberships(TEST_USER_ID))
                     .thenReturn(List.of(targetGuild));
+            when(guildQueryFacadeService.isGuildPublic(5L)).thenReturn(true);
             when(guildQueryFacadeService.countActiveMembersByGuildIds(List.of(5L)))
                     .thenReturn(java.util.Map.of(5L, 3));
             when(guildQueryFacadeService.getUserGuildMemberships(viewerId))
@@ -1895,8 +1897,6 @@ class MyPageServiceTest {
             when(gamificationQueryFacadeService.countUserTitles(TEST_USER_ID)).thenReturn(5L);
             when(guildQueryFacadeService.getUserGuildMemberships(TEST_USER_ID))
                     .thenReturn(Collections.emptyList());
-            when(guildQueryFacadeService.countActiveMembersByGuildIds(Collections.emptyList()))
-                    .thenReturn(java.util.Map.of());
 
             // when
             PublicProfileResponse result = myPageService.getPublicProfile(TEST_USER_ID, null);
@@ -1924,8 +1924,6 @@ class MyPageServiceTest {
             when(gamificationQueryFacadeService.countUserTitles(TEST_USER_ID)).thenReturn(1L);
             when(guildQueryFacadeService.getUserGuildMemberships(TEST_USER_ID))
                     .thenReturn(Collections.emptyList());
-            when(guildQueryFacadeService.countActiveMembersByGuildIds(Collections.emptyList()))
-                    .thenReturn(java.util.Map.of());
 
             // when
             PublicProfileResponse result = myPageService.getPublicProfile(TEST_USER_ID, null);
@@ -1956,6 +1954,7 @@ class MyPageServiceTest {
             when(gamificationQueryFacadeService.countUserTitles(TEST_USER_ID)).thenReturn(2L);
             when(guildQueryFacadeService.getUserGuildMemberships(TEST_USER_ID))
                     .thenReturn(List.of(guild));
+            when(guildQueryFacadeService.isGuildPublic(1L)).thenReturn(true);
             when(guildQueryFacadeService.countActiveMembersByGuildIds(List.of(1L)))
                     .thenReturn(java.util.Map.of(1L, 12));
 
@@ -1966,6 +1965,36 @@ class MyPageServiceTest {
             assertThat(result.getGuilds()).hasSize(1);
             assertThat(result.getGuilds().get(0).getName()).isEqualTo("테스트길드");
             assertThat(result.getGuilds().get(0).getMemberCount()).isEqualTo(12);
+        }
+
+        @Test
+        @DisplayName("LUT-722: 비공개 길드는 프로필 응답에서 빠진다(본인이 봐도) — 공개 길드만, 비공개만이면 빈 목록")
+        void getPublicProfile_excludesPrivateGuilds() {
+            Users user = createTestUser(TEST_USER_ID, "테스터");
+            GuildMembershipInfo open = new GuildMembershipInfo(1L, "공개길드", null, 5, false, false);
+            GuildMembershipInfo secret = new GuildMembershipInfo(2L, "비공개길드", null, 3, true, false);
+            when(userRepository.findById(TEST_USER_ID)).thenReturn(Optional.of(user));
+            when(gamificationQueryFacadeService.getEquippedTitlesByUserId(TEST_USER_ID))
+                    .thenReturn(Collections.emptyList());
+            when(gamificationQueryFacadeService.getUserLevel(TEST_USER_ID)).thenReturn(5);
+            when(gamificationQueryFacadeService.getOrCreateUserStats(TEST_USER_ID))
+                    .thenReturn(createDefaultUserStats(TEST_USER_ID));
+            when(guildQueryFacadeService.getUserGuildMemberships(TEST_USER_ID))
+                    .thenReturn(List.of(open, secret));
+            when(guildQueryFacadeService.isGuildPublic(1L)).thenReturn(true);
+            when(guildQueryFacadeService.isGuildPublic(2L)).thenReturn(false);
+            when(guildQueryFacadeService.countActiveMembersByGuildIds(List.of(1L)))
+                    .thenReturn(java.util.Map.of(1L, 7));
+
+            PublicProfileResponse result =
+                    myPageService.getPublicProfile(TEST_USER_ID, TEST_USER_ID);
+
+            assertThat(result.getGuilds()).extracting("name").containsExactly("공개길드");
+
+            when(guildQueryFacadeService.getUserGuildMemberships(TEST_USER_ID))
+                    .thenReturn(List.of(secret));
+            assertThat(myPageService.getPublicProfile(TEST_USER_ID, "other").getGuilds()).isEmpty();
+            verify(guildQueryFacadeService, never()).countActiveMembersByGuildIds(List.of(2L));
         }
 
         @Test
@@ -1986,6 +2015,7 @@ class MyPageServiceTest {
             when(guildQueryFacadeService.getUserGuildMemberships(TEST_USER_ID))
                     .thenReturn(List.of(guild));
             // 멤버수 map에 99L이 없음
+            when(guildQueryFacadeService.isGuildPublic(99L)).thenReturn(true);
             when(guildQueryFacadeService.countActiveMembersByGuildIds(List.of(99L)))
                     .thenReturn(java.util.Map.of());
 
@@ -2006,8 +2036,6 @@ class MyPageServiceTest {
 
             when(userRepository.findById(TEST_USER_ID)).thenReturn(Optional.of(user));
             stubPublicProfileDefaults(TEST_USER_ID);
-            when(guildQueryFacadeService.countActiveMembersByGuildIds(Collections.emptyList()))
-                    .thenReturn(java.util.Map.of());
 
             // when
             PublicProfileResponse result = myPageService.getPublicProfile(TEST_USER_ID, null);
@@ -2635,6 +2663,7 @@ class MyPageServiceTest {
             GuildMembershipInfo sharedGuild =
                     new GuildMembershipInfo(5L, "공유 길드", null, 1, false, false);
             stubViewerProfile(user, viewerId, List.of(sharedGuild));
+            when(guildQueryFacadeService.isGuildPublic(5L)).thenReturn(true);
             when(guildQueryFacadeService.countActiveMembersByGuildIds(List.of(5L)))
                     .thenReturn(java.util.Map.of(5L, 3));
             when(guildQueryFacadeService.getUserGuildMemberships(viewerId))
