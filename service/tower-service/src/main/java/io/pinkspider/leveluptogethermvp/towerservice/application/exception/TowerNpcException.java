@@ -9,6 +9,9 @@ public class TowerNpcException extends TowerException {
     public static final String LIMIT_EXCEEDED = "150402";
     public static final String SEAT_OUTSIDE_MASK = "150403";
     public static final String LINE_TOO_LONG = "150404";
+    public static final String CARD_LINK_TARGET_MISSING = "150405";
+    public static final String CARD_LINK_INVALID = "150406";
+    public static final String CARD_PERIOD_INVALID = "150407";
 
     private TowerNpcException(String code, String messageKey, HttpStatus status) {
         super(code, messageKey, status);
@@ -30,6 +33,21 @@ public class TowerNpcException extends TowerException {
     /** 대사 한 문장이 2줄(한글 약 40자)을 넘는다 */
     public static TowerNpcException lineTooLong() {
         return bad(LINE_TOO_LONG, "error.tower.npc.line_too_long");
+    }
+
+    /** LUT-733: 링크 대상 상점 아이템(판매 중)·이벤트가 없다 */
+    public static TowerNpcException cardLinkTargetMissing() {
+        return bad(CARD_LINK_TARGET_MISSING, "error.tower.npc.card_link_target_missing");
+    }
+
+    /** LUT-733: 링크 형식 오류 — 대상 ID 없음, 앱 경로가 아님(/ 로 시작, // · :// · 공백 · 역슬래시 금지) */
+    public static TowerNpcException cardLinkInvalid() {
+        return bad(CARD_LINK_INVALID, "error.tower.npc.card_link_invalid");
+    }
+
+    /** LUT-733: 노출 시작일이 종료일보다 늦다 */
+    public static TowerNpcException cardPeriodInvalid() {
+        return bad(CARD_PERIOD_INVALID, "error.tower.npc.card_period_invalid");
     }
 
     private static TowerNpcException bad(String code, String key) {

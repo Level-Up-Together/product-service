@@ -4,6 +4,7 @@ import io.pinkspider.global.domain.auditentity.LocalDateTimeBaseEntity;
 import jakarta.persistence.CollectionTable;
 import jakarta.persistence.Column;
 import jakarta.persistence.ElementCollection;
+import jakarta.persistence.Embedded;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
@@ -96,6 +97,9 @@ public class TowerNpc extends LocalDateTimeBaseEntity {
     @Builder.Default
     private Integer bubbleIntervalSeconds = DEFAULT_BUBBLE_INTERVAL_SECONDS;
 
+    /** LUT-733: NPC 창 이미지·이동 링크 (없으면 null) */
+    @Embedded private TowerNpcCard card;
+
     @ElementCollection(fetch = FetchType.LAZY)
     @CollectionTable(name = "tower_npc_line", joinColumns = @JoinColumn(name = "npc_id"))
     @OrderColumn(name = "line_order")
@@ -116,6 +120,11 @@ public class TowerNpc extends LocalDateTimeBaseEntity {
         if (intervalSeconds != null) {
             this.bubbleIntervalSeconds = intervalSeconds;
         }
+    }
+
+    /** LUT-733: 창 이미지·링크를 통째로 바꾼다(null = 지움) */
+    public void updateCard(TowerNpcCard card) {
+        this.card = card;
     }
 
     public boolean isPublicNpc() {

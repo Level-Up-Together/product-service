@@ -263,10 +263,25 @@ class TowerFloorAdminServiceTest {
         when(imageStorage.isOwned(npcB.getProfileImageUrl())).thenReturn(true);
         when(towerNpcRepository.countByProfileImageUrl(npcA.getProfileImageUrl())).thenReturn(0L);
         when(towerNpcRepository.countByProfileImageUrl(npcB.getProfileImageUrl())).thenReturn(1L);
+        // LUT-733: 창 이미지도 정리 대상
+        String cardImage = "https://cdn/tower/npc/card-a.png";
+        npcA.updateCard(
+                io.pinkspider.leveluptogethermvp.towerservice.domain.entity.TowerNpcCard.builder()
+                        .imageUrl(cardImage)
+                        .build());
+        npcB.updateCard(
+                io.pinkspider.leveluptogethermvp.towerservice.domain.entity.TowerNpcCard.builder()
+                        .linkType(
+                                io.pinkspider.leveluptogethermvp.towerservice.domain.enums
+                                        .TowerNpcCardLinkType.SUBSCRIPTION)
+                        .build());
+        when(imageStorage.isOwned(cardImage)).thenReturn(true);
+        when(towerNpcRepository.countByProfileImageUrl(cardImage)).thenReturn(0L);
 
         service.delete(2L);
 
         verify(imageStorage).delete(npcA.getProfileImageUrl());
+        verify(imageStorage).delete(cardImage);
         verify(imageStorage, org.mockito.Mockito.never()).delete(npcB.getProfileImageUrl());
     }
 

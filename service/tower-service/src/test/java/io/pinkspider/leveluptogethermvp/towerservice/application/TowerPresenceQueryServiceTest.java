@@ -4,21 +4,28 @@ import static io.pinkspider.leveluptogethermvp.towerservice.TowerTestFixtures.oc
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import io.pinkspider.global.facade.GamificationQueryFacade;
 import io.pinkspider.leveluptogethermvp.towerservice.TowerTestFixtures;
 import io.pinkspider.leveluptogethermvp.towerservice.application.exception.TowerEntryException;
 import io.pinkspider.leveluptogethermvp.towerservice.domain.dto.TowerNpcView;
 import io.pinkspider.leveluptogethermvp.towerservice.domain.dto.TowerPresenceSnapshotResponse;
 import io.pinkspider.leveluptogethermvp.towerservice.domain.dto.TowerTraceView;
+import io.pinkspider.leveluptogethermvp.towerservice.domain.entity.TowerNpc;
+import io.pinkspider.leveluptogethermvp.towerservice.domain.entity.TowerNpcCard;
+import io.pinkspider.leveluptogethermvp.towerservice.domain.enums.TowerNpcCardLinkType;
 import io.pinkspider.leveluptogethermvp.towerservice.domain.enums.TowerOccupantKind;
 import io.pinkspider.leveluptogethermvp.towerservice.infrastructure.TowerFloorRepository;
 import io.pinkspider.leveluptogethermvp.towerservice.infrastructure.TowerNpcRepository;
 import io.pinkspider.leveluptogethermvp.towerservice.infrastructure.TowerOccupantRepository;
 import io.pinkspider.leveluptogethermvp.towerservice.presence.TowerPresenceService;
 import io.pinkspider.leveluptogethermvp.towerservice.presence.TowerPresenceView;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -30,6 +37,8 @@ class TowerPresenceQueryServiceTest {
     private final TowerNpcRepository npcRepository = mock(TowerNpcRepository.class);
     private final TowerSettingService settingService = mock(TowerSettingService.class);
     private final TowerTraceService traceService = mock(TowerTraceService.class);
+    private final GamificationQueryFacade gamificationQueryFacade =
+            mock(GamificationQueryFacade.class);
     private final TowerPresenceQueryService service =
             new TowerPresenceQueryService(
                     occupantRepository,
@@ -37,7 +46,8 @@ class TowerPresenceQueryServiceTest {
                     floorRepository,
                     npcRepository,
                     settingService,
-                    traceService);
+                    traceService,
+                    gamificationQueryFacade);
 
     {
         when(settingService.getNpcExposurePercent()).thenReturn(100);
@@ -131,5 +141,97 @@ class TowerPresenceQueryServiceTest {
         assertThat(service.isNpcShown(null)).isFalse();
         when(settingService.getNpcExposurePercent()).thenReturn(100);
         assertThat(service.isNpcShown(null)).isTrue();
+    }
+
+    private static TowerNpc npcWithCard(long id, TowerNpcCard card) {
+        TowerNpc npc = TowerTestFixtures.npc(id, 20L, true);
+        npc.updateCard(card);
+        return npc;
+    }
+
+    @Test
+    @DisplayName("LUT-733 창 묶음: 기간 밖·판매 중 아닌 아이템·없는 이벤트면 뺀다 · 대상 확인은 종류별 한 번 · 실패하면 그 종류만 뺀다")
+    void cards() {
+        LocalDate today = LocalDate.of(2026, 11, 5);
+        TowerNpc shopOk =
+                npcWithCard(
+                        1L,
+                        TowerNpcCard.builder()
+                                .imageUrl("https://cdn/card1.png")
+                                .linkType(TowerNpcCardLinkType.SHOP_ITEM)
+                                .linkTargetId(15L)
+                                .linkLabel("상점")
+                                .startsOn(today)
+                                .endsOn(today)
+                                .build());
+        TowerNpc shopOff =
+                npcWithCard(
+                        2L,
+                        TowerNpcCard.builder()
+                                .linkType(TowerNpcCardLinkType.SHOP_ITEM)
+                                .linkTargetId(16L)
+                                .build());
+        TowerNpc eventGone =
+                npcWithCard(
+                        3L,
+                        TowerNpcCard.builder()
+                                .imageUrl("https://cdn/card3.png")
+                                .linkType(TowerNpcCardLinkType.EVENT)
+                                .linkTargetId(4L)
+                                .build());
+        TowerNpc ended =
+                npcWithCard(
+                        4L,
+                        TowerNpcCard.builder()
+                                .imageUrl("https://cdn/card4.png")
+                                .endsOn(today.minusDays(1))
+                                .build());
+        TowerNpc notYet =
+                npcWithCard(
+                        5L,
+                        TowerNpcCard.builder()
+                                .linkType(TowerNpcCardLinkType.EVENT)
+                                .linkTargetId(9L)
+                                .startsOn(today.plusDays(1))
+                                .build());
+        TowerNpc path =
+                npcWithCard(
+                        6L,
+                        TowerNpcCard.builder()
+                                .linkType(TowerNpcCardLinkType.PATH)
+                                .linkPath("/event")
+                                .build());
+        TowerNpc none = TowerTestFixtures.npc(7L, 20L, true);
+        when(gamificationQueryFacade.findOnSaleShopItemIds(Set.of(15L, 16L)))
+                .thenReturn(Set.of(15L));
+        when(gamificationQueryFacade.findExistingEventIds(Set.of(4L))).thenReturn(Set.of());
+
+        List<TowerNpcView> views =
+                service.withCards(
+                        List.of(shopOk, shopOff, eventGone, ended, notYet, path, none), today);
+
+        assertThat(views.get(0).card().imageUrl()).isEqualTo("https://cdn/card1.png");
+        assertThat(views.get(0).card().link().targetId()).isEqualTo(15L);
+        assertThat(views.get(0).card().linkLabel()).isEqualTo("상점");
+        assertThat(views.get(1).card()).isNull();
+        assertThat(views.get(2).card()).isNull();
+        assertThat(views.get(3).card()).isNull();
+        assertThat(views.get(4).card()).isNull();
+        assertThat(views.get(5).card().link().path()).isEqualTo("/event");
+        assertThat(views.get(6).card()).isNull();
+        // 기간 밖 이벤트(9)는 묻지 않는다
+        verify(gamificationQueryFacade).findExistingEventIds(Set.of(4L));
+
+        // 대상 확인이 실패하면 그 종류의 링크 창만 뺀다
+        when(gamificationQueryFacade.findOnSaleShopItemIds(Set.of(15L, 16L)))
+                .thenThrow(new IllegalStateException("db down"));
+        List<TowerNpcView> failed = service.withCards(List.of(shopOk, shopOff, path), today);
+        assertThat(failed.get(0).card()).isNull();
+        assertThat(failed.get(2).card()).isNotNull();
+
+        // 링크 대상이 없으면 조회하지 않는다
+        org.mockito.Mockito.clearInvocations(gamificationQueryFacade);
+        service.withCards(List.of(path, none), today);
+        org.mockito.Mockito.verifyNoInteractions(gamificationQueryFacade);
     }
 }

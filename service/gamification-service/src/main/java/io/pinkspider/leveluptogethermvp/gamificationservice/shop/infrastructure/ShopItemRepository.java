@@ -3,6 +3,7 @@ package io.pinkspider.leveluptogethermvp.gamificationservice.shop.infrastructure
 import io.pinkspider.global.enums.TitleRarity;
 import io.pinkspider.leveluptogethermvp.gamificationservice.shop.domain.entity.ShopItem;
 import io.pinkspider.leveluptogethermvp.gamificationservice.shop.domain.enums.ShopItemType;
+import java.util.Collection;
 import java.util.List;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -30,4 +31,8 @@ public interface ShopItemRepository extends JpaRepository<ShopItem, Long> {
             Pageable pageable);
 
     boolean existsByName(String name);
+
+    /** LUT-733: 판매 중인 아이템 ID 만 (탑 NPC 창 링크 확인) */
+    @Query("SELECT s.id FROM ShopItem s WHERE s.id IN :ids AND s.isActive = true")
+    List<Long> findOnSaleIdsByIdIn(@Param("ids") Collection<Long> ids);
 }

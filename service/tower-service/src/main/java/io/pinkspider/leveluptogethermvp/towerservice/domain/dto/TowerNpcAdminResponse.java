@@ -28,7 +28,8 @@ public record TowerNpcAdminResponse(
         LocalDateTime createdAt,
         LocalDateTime modifiedAt,
         Boolean autoBubble,
-        Integer bubbleIntervalSeconds) {
+        Integer bubbleIntervalSeconds,
+        TowerNpcCardDto card) {
 
     public static TowerNpcAdminResponse from(TowerNpc n) {
         return new TowerNpcAdminResponse(
@@ -51,6 +52,7 @@ public record TowerNpcAdminResponse(
                 n.getCreatedAt(),
                 n.getModifiedAt(),
                 n.isAutoBubble(),
-                n.getBubbleIntervalSeconds());
+                n.getBubbleIntervalSeconds(),
+                TowerNpcCardDto.from(n.getCard()));
     }
 }
