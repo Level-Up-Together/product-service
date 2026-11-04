@@ -120,7 +120,10 @@ public final class TowerTestFixtures {
                 200,
                 isPublic ? "https://cdn.test/tower/bgm-" + number + ".mp3" : null,
                 null,
-                isPublic);
+                isPublic,
+                null,
+                null,
+                null);
     }
 
     public static TowerInstance instance(Long id, int floorNumber) {

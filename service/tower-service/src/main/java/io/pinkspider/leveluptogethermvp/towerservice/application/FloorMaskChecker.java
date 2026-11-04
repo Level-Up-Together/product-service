@@ -14,4 +14,11 @@ public interface FloorMaskChecker {
      * @throws IOException 마스크·배경을 읽을 수 없을 때
      */
     boolean isWalkable(String maskUrl, String backgroundUrl, int x, int y) throws IOException;
+
+    /**
+     * LUT-725: 마스크가 배경과 가로세로 비율이 같은가(해상도는 달라도 된다 — 4분의 1 로 저장). 앞 가림·효과 레이어 마스크 저장 검증.
+     *
+     * @throws IOException 마스크·배경을 읽을 수 없을 때
+     */
+    boolean sameAspectRatio(String maskUrl, String backgroundUrl) throws IOException;
 }

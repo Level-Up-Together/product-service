@@ -12,8 +12,8 @@ import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 /**
- * LUT-635/637/693: 층·NPC 수정·삭제로 더는 쓰지 않는 파일(우리 저장소가 발급한 배경·마스크·배경 음악·NPC 이미지만)을 커밋 뒤에 지운다. 다른 층이나
- * NPC 가 같은 URL 을 쓰면 남긴다. 롤백되면 아무것도 지우지 않는다(트랜잭션 밖이면 즉시).
+ * LUT-635/637/693/725: 층·NPC 수정·삭제로 더는 쓰지 않는 파일(우리 저장소가 발급한 배경·마스크·배경 음악·NPC 이미지만)을 커밋 뒤에 지운다. 다른
+ * 층이나 NPC 가 같은 URL 을 쓰면 남긴다. 롤백되면 아무것도 지우지 않는다(트랜잭션 밖이면 즉시).
  */
 @Component
 @RequiredArgsConstructor
@@ -69,6 +69,8 @@ public class TowerStoredFileCleaner {
     private boolean isStillReferenced(String url) {
         return towerFloorRepository.countByBackgroundImageUrlOrFloorMaskUrlOrBgmUrl(url, url, url)
                         > 0
+                || towerFloorRepository.countByOcclusionMaskUrl(url) > 0
+                || towerFloorRepository.countEffectLayersByMaskUrl(url) > 0
                 || towerNpcRepository.countByProfileImageUrl(url) > 0;
     }
 }

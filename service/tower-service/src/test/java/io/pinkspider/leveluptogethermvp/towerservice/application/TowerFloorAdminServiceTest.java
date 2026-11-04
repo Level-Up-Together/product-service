@@ -15,7 +15,11 @@ import static org.mockito.Mockito.when;
 import io.pinkspider.leveluptogethermvp.towerservice.application.exception.TowerFloorException;
 import io.pinkspider.leveluptogethermvp.towerservice.domain.dto.TowerFloorAdminRequest;
 import io.pinkspider.leveluptogethermvp.towerservice.domain.dto.TowerFloorAdminResponse;
+import io.pinkspider.leveluptogethermvp.towerservice.domain.dto.TowerFloorEffectLayerDto;
+import io.pinkspider.leveluptogethermvp.towerservice.domain.dto.TowerFloorLightDto;
 import io.pinkspider.leveluptogethermvp.towerservice.domain.entity.TowerFloor;
+import io.pinkspider.leveluptogethermvp.towerservice.domain.entity.TowerFloorLight;
+import io.pinkspider.leveluptogethermvp.towerservice.domain.enums.TowerEffectKind;
 import io.pinkspider.leveluptogethermvp.towerservice.infrastructure.TowerFloorRepository;
 import java.util.List;
 import java.util.Optional;
@@ -161,7 +165,10 @@ class TowerFloorAdminServiceTest {
                         req.entryPointY(),
                         req.bgmUrl(),
                         req.instanceCapacity(),
-                        req.isPublic());
+                        req.isPublic(),
+                        null,
+                        null,
+                        null);
         service.update(1L, changed);
 
         verify(imageStorage).delete(oldMask);
@@ -216,7 +223,10 @@ class TowerFloorAdminServiceTest {
                         req.entryPointY(),
                         "https://cdn.test/tower/bgm-new.mp3",
                         req.instanceCapacity(),
-                        req.isPublic());
+                        req.isPublic(),
+                        null,
+                        null,
+                        null);
         service.update(1L, changed);
 
         verify(imageStorage).delete(oldBgm);
@@ -245,5 +255,151 @@ class TowerFloorAdminServiceTest {
 
         verify(imageStorage).delete(npcA.getProfileImageUrl());
         verify(imageStorage, org.mockito.Mockito.never()).delete(npcB.getProfileImageUrl());
+    }
+
+    private static final String OLD_OCCLUSION = "https://cdn/tower/mask/occlusion-old.png";
+    private static final String OLD_SNOW = "https://cdn/tower/mask/snow-old.png";
+
+    private static TowerFloorLightDto light(int x) {
+        return new TowerFloorLightDto(x, 20, 30, "#ffcc66", 80, 40, 50);
+    }
+
+    private static TowerFloorEffectLayerDto snow(String maskUrl) {
+        return new TowerFloorEffectLayerDto(
+                TowerEffectKind.SNOW, maskUrl, true, null, null, 100, 50, 1, 3);
+    }
+
+    /** 기존 요청에 LUT-725 필드만 바꿔 끼운다 */
+    private static TowerFloorAdminRequest withEffects(
+            TowerFloorAdminRequest r,
+            String occlusion,
+            List<TowerFloorLightDto> lights,
+            List<TowerFloorEffectLayerDto> layers) {
+        return new TowerFloorAdminRequest(
+                r.floorNumber(),
+                r.name(),
+                r.nameEn(),
+                r.nameJa(),
+                r.nameAr(),
+                r.entryLevel(),
+                r.guestAllowed(),
+                r.backgroundImageUrl(),
+                r.floorMaskUrl(),
+                r.entryPointX(),
+                r.entryPointY(),
+                r.bgmUrl(),
+                r.instanceCapacity(),
+                r.isPublic(),
+                occlusion,
+                lights,
+                layers);
+    }
+
+    private static TowerFloor floorWithEffects(Long id, int number, boolean isPublic) {
+        TowerFloor f = floor(id, number, null, true, isPublic);
+        f.updateOcclusionMask(OLD_OCCLUSION);
+        f.replaceLights(List.of(light(10).toEmbeddable()));
+        f.replaceEffectLayers(List.of(snow(OLD_SNOW).toEmbeddable()));
+        return f;
+    }
+
+    @Test
+    @DisplayName("LUT-725 등록: 앞 가림·불빛 점·효과 레이어를 함께 저장한다")
+    void createWithEffects() {
+        when(towerFloorRepository.findAllByOrderByFloorNumberAsc()).thenReturn(List.of());
+        when(towerFloorRepository.save(any(TowerFloor.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        TowerFloorAdminResponse saved =
+                service.create(
+                        withEffects(
+                                request(1, null, true, true),
+                                "https://cdn/occlusion.png",
+                                List.of(light(10), light(20)),
+                                List.of(snow("https://cdn/snow.png"))));
+
+        assertThat(saved.occlusionMaskUrl()).isEqualTo("https://cdn/occlusion.png");
+        assertThat(saved.lights()).extracting(TowerFloorLightDto::x).containsExactly(10, 20);
+        assertThat(saved.effectLayers())
+                .extracting(TowerFloorEffectLayerDto::maskUrl)
+                .containsExactly("https://cdn/snow.png");
+    }
+
+    @Test
+    @DisplayName("LUT-725 수정: 효과 필드를 보내지 않으면(null) 그대로 둔다 — 구 어드민·패스스루 호환")
+    void updateKeepsEffectsWhenOmitted() {
+        TowerFloor f1 = floorWithEffects(1L, 1, true);
+        when(towerFloorRepository.findById(1L)).thenReturn(java.util.Optional.of(f1));
+        when(towerFloorRepository.findAllByOrderByFloorNumberAsc()).thenReturn(List.of(f1));
+
+        TowerFloorAdminResponse updated = service.update(1L, request(1, null, true, true));
+
+        assertThat(updated.occlusionMaskUrl()).isEqualTo(OLD_OCCLUSION);
+        assertThat(updated.lights()).hasSize(1);
+        assertThat(updated.effectLayers()).hasSize(1);
+        verify(imageStorage, never()).delete(any());
+    }
+
+    @Test
+    @DisplayName("LUT-725 수정: 빈 문자열·[] 이면 지우고, 안 쓰게 된 마스크(우리 저장소)는 커밋 뒤 지운다")
+    void updateClearsEffects() {
+        TowerFloor f1 = floorWithEffects(1L, 1, true);
+        when(towerFloorRepository.findById(1L)).thenReturn(java.util.Optional.of(f1));
+        when(towerFloorRepository.findAllByOrderByFloorNumberAsc()).thenReturn(List.of(f1));
+        when(imageStorage.isOwned(OLD_OCCLUSION)).thenReturn(true);
+        when(imageStorage.isOwned(OLD_SNOW)).thenReturn(true);
+
+        TowerFloorAdminResponse updated =
+                service.update(
+                        1L, withEffects(request(1, null, true, true), "", List.of(), List.of()));
+
+        assertThat(updated.occlusionMaskUrl()).isNull();
+        assertThat(updated.lights()).isEmpty();
+        assertThat(updated.effectLayers()).isEmpty();
+        verify(imageStorage).delete(OLD_OCCLUSION);
+        verify(imageStorage).delete(OLD_SNOW);
+    }
+
+    @Test
+    @DisplayName("LUT-725 수정: 다른 층이 앞 가림·효과 마스크로 쓰는 파일은 남긴다, 계속 쓰는 마스크는 후보가 아니다")
+    void updateKeepsSharedMasks() {
+        TowerFloor f1 = floorWithEffects(1L, 1, true);
+        when(towerFloorRepository.findById(1L)).thenReturn(java.util.Optional.of(f1));
+        when(towerFloorRepository.findAllByOrderByFloorNumberAsc()).thenReturn(List.of(f1));
+        when(imageStorage.isOwned(OLD_OCCLUSION)).thenReturn(true);
+        when(towerFloorRepository.countByOcclusionMaskUrl(OLD_OCCLUSION)).thenReturn(1L);
+
+        // 앞 가림은 새 파일로, 눈 레이어는 같은 마스크로 다시 보낸다
+        service.update(
+                1L,
+                withEffects(
+                        request(1, null, true, true),
+                        "https://cdn/tower/mask/occlusion-new.png",
+                        List.of(light(30)),
+                        List.of(snow(OLD_SNOW))));
+
+        assertThat(f1.getLights()).extracting(TowerFloorLight::getX).containsExactly(30);
+        verify(imageStorage, never()).delete(any());
+        verify(imageStorage, never()).isOwned(OLD_SNOW);
+    }
+
+    @Test
+    @DisplayName("LUT-725 삭제: 앞 가림·효과 마스크도 정리한다 — 다른 층 효과 레이어가 쓰면 남긴다")
+    void deleteCleansEffectMasks() {
+        TowerFloor f1 = floor(1L, 1, null, true, true);
+        TowerFloor f2 = floorWithEffects(2L, 2, false);
+        when(towerFloorRepository.findById(2L)).thenReturn(java.util.Optional.of(f2));
+        when(towerFloorRepository.findAllByOrderByFloorNumberAsc()).thenReturn(List.of(f1, f2));
+        // 배경·바닥 마스크는 외부 URL 로 두고, 효과 마스크 두 장만 우리 저장소
+        when(imageStorage.isOwned(org.mockito.ArgumentMatchers.anyString()))
+                .thenAnswer(inv -> List.of(OLD_OCCLUSION, OLD_SNOW).contains(inv.getArgument(0)));
+        when(towerFloorRepository.countEffectLayersByMaskUrl(
+                        org.mockito.ArgumentMatchers.anyString()))
+                .thenAnswer(inv -> OLD_SNOW.equals(inv.getArgument(0)) ? 1L : 0L);
+
+        service.delete(2L);
+
+        verify(imageStorage).delete(OLD_OCCLUSION);
+        verify(imageStorage, never()).delete(OLD_SNOW);
     }
 }

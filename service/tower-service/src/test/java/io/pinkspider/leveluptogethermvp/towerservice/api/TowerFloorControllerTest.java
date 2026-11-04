@@ -13,8 +13,12 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import io.pinkspider.leveluptogethermvp.config.ControllerTestConfig;
 import io.pinkspider.leveluptogethermvp.towerservice.application.TowerFloorQueryService;
+import io.pinkspider.leveluptogethermvp.towerservice.domain.dto.TowerFloorEffectLayerDto;
+import io.pinkspider.leveluptogethermvp.towerservice.domain.dto.TowerFloorLightDto;
 import io.pinkspider.leveluptogethermvp.towerservice.domain.dto.TowerFloorListResponse;
 import io.pinkspider.leveluptogethermvp.towerservice.domain.dto.TowerFloorResponse;
+import io.pinkspider.leveluptogethermvp.towerservice.domain.enums.TowerEffectKind;
+import java.time.LocalDate;
 import java.util.List;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -71,7 +75,22 @@ class TowerFloorControllerTest {
                                 1000,
                                 "https://cdn/bgm1.mp3",
                                 30,
-                                12L),
+                                12L,
+                                "https://cdn/occlusion1.png",
+                                List.of(
+                                        new TowerFloorLightDto(
+                                                640, 320, 60, "#ffcc66", 80, 40, 50)),
+                                List.of(
+                                        new TowerFloorEffectLayerDto(
+                                                TowerEffectKind.SNOW,
+                                                "https://cdn/snow2.png",
+                                                true,
+                                                LocalDate.of(2026, 12, 1),
+                                                LocalDate.of(2026, 12, 31),
+                                                120,
+                                                40,
+                                                1,
+                                                3))),
                         new TowerFloorResponse(
                                 2L,
                                 2,
@@ -88,7 +107,10 @@ class TowerFloorControllerTest {
                                 900,
                                 null,
                                 30,
-                                0L)),
+                                0L,
+                                null,
+                                List.of(),
+                                List.of())),
                 1);
     }
 
@@ -152,7 +174,53 @@ class TowerFloorControllerTest {
                                         fieldWithPath("value.floors[].population")
                                                 .description(
                                                         "층 전체 인원 (모든 인스턴스 합, 방문객·자리 유지·자동 착석 포함,"
-                                                                + " NPC 제외, 30초 메모 — LUT-630)"))));
+                                                                + " NPC 제외, 30초 메모 — LUT-630)"),
+                                        fieldWithPath("value.floors[].occlusion_mask_url")
+                                                .description(
+                                                        "앞 가림 영역 마스크 PNG URL (LUT-725, 없으면 null) —"
+                                                            + " 칠한 덩어리의 아래쪽 가장자리를 기준선으로 캐릭터 앞·뒤를"
+                                                            + " 정한다")
+                                                .optional(),
+                                        fieldWithPath("value.floors[].lights[]")
+                                                .description("불빛 점 (LUT-725, 최대 50개)"),
+                                        fieldWithPath("value.floors[].lights[].x")
+                                                .description("X (배경 원본 픽셀)"),
+                                        fieldWithPath("value.floors[].lights[].y")
+                                                .description("Y (배경 원본 픽셀)"),
+                                        fieldWithPath("value.floors[].lights[].radius")
+                                                .description("반경 (배경 원본 픽셀)"),
+                                        fieldWithPath("value.floors[].lights[].color")
+                                                .description("색 #rrggbb"),
+                                        fieldWithPath("value.floors[].lights[].brightness")
+                                                .description("밝기 0~100"),
+                                        fieldWithPath("value.floors[].lights[].flicker_intensity")
+                                                .description("깜빡임 세기 0~100 (0 = 깜빡이지 않음)"),
+                                        fieldWithPath("value.floors[].lights[].flicker_speed")
+                                                .description("깜빡임 속도 0~100"),
+                                        fieldWithPath("value.floors[].effect_layers[]")
+                                                .description(
+                                                        "오늘(KST) 켜진 효과 레이어만 (LUT-725 — 꺼졌거나 기간 밖은"
+                                                                + " 빠진다)"),
+                                        fieldWithPath("value.floors[].effect_layers[].kind")
+                                                .description("SNOW(눈) / STARS(별 반짝임)"),
+                                        fieldWithPath("value.floors[].effect_layers[].mask_url")
+                                                .description("효과 영역 마스크 PNG URL (칠한 곳에서만 그린다)"),
+                                        fieldWithPath("value.floors[].effect_layers[].enabled")
+                                                .description("켜기 (응답에는 항상 true)"),
+                                        fieldWithPath("value.floors[].effect_layers[].starts_on")
+                                                .description("기간 시작일 (KST, 포함, null = 상시)")
+                                                .optional(),
+                                        fieldWithPath("value.floors[].effect_layers[].ends_on")
+                                                .description("기간 종료일 (KST, 포함, null = 상시)")
+                                                .optional(),
+                                        fieldWithPath("value.floors[].effect_layers[].amount")
+                                                .description("SNOW = 밀도(동시 눈송이 수) / STARS = 별 개수"),
+                                        fieldWithPath("value.floors[].effect_layers[].speed")
+                                                .description("낙하·반짝임 속도 1~100"),
+                                        fieldWithPath("value.floors[].effect_layers[].size_min")
+                                                .description("크기 최소 (화면 픽셀 1~20)"),
+                                        fieldWithPath("value.floors[].effect_layers[].size_max")
+                                                .description("크기 최대 (화면 픽셀 1~20)"))));
     }
 
     @Test

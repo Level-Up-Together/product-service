@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.PropertyNamingStrategies.SnakeCaseStrategy
 import com.fasterxml.jackson.databind.annotation.JsonNaming;
 import io.pinkspider.leveluptogethermvp.towerservice.domain.entity.TowerFloor;
 import java.time.LocalDateTime;
+import java.util.List;
 
 /** LUT-629: 어드민 층 응답 */
 @JsonNaming(SnakeCaseStrategy.class)
@@ -24,7 +25,10 @@ public record TowerFloorAdminResponse(
         Integer instanceCapacity,
         Boolean isPublic,
         LocalDateTime createdAt,
-        LocalDateTime modifiedAt) {
+        LocalDateTime modifiedAt,
+        String occlusionMaskUrl,
+        List<TowerFloorLightDto> lights,
+        List<TowerFloorEffectLayerDto> effectLayers) {
 
     public static TowerFloorAdminResponse from(TowerFloor f) {
         return new TowerFloorAdminResponse(
@@ -44,6 +48,9 @@ public record TowerFloorAdminResponse(
                 f.getInstanceCapacity(),
                 f.isPublicFloor(),
                 f.getCreatedAt(),
-                f.getModifiedAt());
+                f.getModifiedAt(),
+                f.getOcclusionMaskUrl(),
+                f.getLights().stream().map(TowerFloorLightDto::from).toList(),
+                f.getEffectLayers().stream().map(TowerFloorEffectLayerDto::from).toList());
     }
 }

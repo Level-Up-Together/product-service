@@ -20,6 +20,14 @@ public interface TowerFloorRepository extends JpaRepository<TowerFloor, Long> {
     Optional<TowerFloor> findByFloorNumber(Integer floorNumber);
 
     /** LUT-635: 이미지 정리 전 다른 층이 같은 URL 을 쓰는지 (배경·마스크 어느 칸이든) */
+    /** LUT-725: 앞 가림 마스크로 쓰는 층 수 */
+    long countByOcclusionMaskUrl(String occlusionMaskUrl);
+
+    /** LUT-725: 효과 레이어 마스크로 쓰는 레이어 수 */
+    @Query("select count(l) from TowerFloor f join f.effectLayers l where l.maskUrl = :url")
+    long countEffectLayersByMaskUrl(
+            @org.springframework.data.repository.query.Param("url") String url);
+
     long countByBackgroundImageUrlOrFloorMaskUrlOrBgmUrl(
             String backgroundImageUrl, String floorMaskUrl, String bgmUrl);
 

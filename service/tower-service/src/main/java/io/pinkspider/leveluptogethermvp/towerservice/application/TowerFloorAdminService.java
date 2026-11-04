@@ -61,7 +61,19 @@ public class TowerFloorAdminService {
         String previousBackground = floor.getBackgroundImageUrl();
         String previousMask = floor.getFloorMaskUrl();
         String previousBgm = floor.getBgmUrl();
-        floor.update(request.toEntity());
+        Set<String> previousEffectMasks = effectMasks(floor);
+        TowerFloor source = request.toEntity();
+        floor.update(source);
+        // LUT-725: 효과·앞 가림은 보낸 것만 바꾼다(null = 그대로 — 구 어드민·패스스루 호환)
+        if (request.occlusionMaskUrl() != null) {
+            floor.updateOcclusionMask(source.getOcclusionMaskUrl());
+        }
+        if (request.lights() != null) {
+            floor.replaceLights(source.getLights());
+        }
+        if (request.effectLayers() != null) {
+            floor.replaceEffectLayers(source.getEffectLayers());
+        }
         List<TowerFloor> after = towerFloorRepository.findAllByOrderByFloorNumberAsc();
         if (after.stream().noneMatch(f -> f == floor)) {
             after = new ArrayList<>(after);
@@ -69,10 +81,14 @@ public class TowerFloorAdminService {
         }
         ruleValidator.validate(after, floor);
         maskCache.evict(floor); // LUT-631: 마스크·배경이 바뀌었을 수 있다
-        fileCleaner.scheduleCleanup(
-                TowerStoredFileCleaner.urls(previousBackground, previousMask, previousBgm),
+        Set<String> previous =
+                TowerStoredFileCleaner.urls(previousBackground, previousMask, previousBgm);
+        previous.addAll(previousEffectMasks);
+        Set<String> stillUsed =
                 TowerStoredFileCleaner.urls(
-                        floor.getBackgroundImageUrl(), floor.getFloorMaskUrl(), floor.getBgmUrl()));
+                        floor.getBackgroundImageUrl(), floor.getFloorMaskUrl(), floor.getBgmUrl());
+        stillUsed.addAll(effectMasks(floor));
+        fileCleaner.scheduleCleanup(previous, stillUsed);
         log.info(
                 "탑 층 수정: id={}, floor={}, public={}",
                 id,
@@ -94,6 +110,7 @@ public class TowerFloorAdminService {
         Set<String> files =
                 TowerStoredFileCleaner.urls(
                         floor.getBackgroundImageUrl(), floor.getFloorMaskUrl(), floor.getBgmUrl());
+        files.addAll(effectMasks(floor)); // LUT-725: 앞 가림·효과 마스크도
         for (TowerNpc npc : towerNpcRepository.findAllByFloorId(id)) {
             files.add(npc.getProfileImageUrl());
         }
@@ -101,6 +118,13 @@ public class TowerFloorAdminService {
         maskCache.evict(floor);
         fileCleaner.scheduleCleanup(files, Set.of());
         log.info("탑 층 삭제: id={}, floor={}", id, floor.getFloorNumber());
+    }
+
+    /** LUT-725: 층이 쓰는 앞 가림·효과 레이어 마스크 */
+    static Set<String> effectMasks(TowerFloor floor) {
+        Set<String> masks = TowerStoredFileCleaner.urls(floor.getOcclusionMaskUrl());
+        floor.getEffectLayers().forEach(layer -> masks.add(layer.getMaskUrl()));
+        return masks;
     }
 
     private TowerFloor find(Long id) {
