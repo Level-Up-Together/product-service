@@ -12,6 +12,9 @@ import com.fasterxml.jackson.databind.annotation.JsonNaming;
  *
  * <p>LUT-701: 탑 전체 동시 접속 상한에 닿으면 배정 대신 {@code queued=true} + {@code queue}(순번·예상 대기·입장 가능 마감)를 돌려준다
  * — 이때 인스턴스·점유자 필드는 비어 있다. 입장 가능 신호를 받으면 같은 표로 다시 입장을 요청한다.
+ *
+ * <p>LUT-734: {@code first_visit} = 이 층의 첫 방문 안내(지금 버전)를 처음 보는 입장인가 — 서버가 유저×층으로 기억한다(기기를 바꿔도 다시 안
+ * 뜸). 안내가 없으면 false, 방문객은 null(클라이언트가 기기에 기억).
  */
 @JsonNaming(SnakeCaseStrategy.class)
 public record TowerEnterResponse(
@@ -29,7 +32,8 @@ public record TowerEnterResponse(
         Integer visitorNo,
         Boolean autoSeatContinued,
         Boolean queued,
-        TowerQueueStatus queue) {
+        TowerQueueStatus queue,
+        Boolean firstVisit) {
 
     public static TowerEnterResponse queued(int floorNumber, TowerQueueStatus status) {
         return new TowerEnterResponse(
@@ -47,6 +51,7 @@ public record TowerEnterResponse(
                 null,
                 false,
                 true,
-                status);
+                status,
+                null);
     }
 }

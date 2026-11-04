@@ -28,6 +28,23 @@ public interface TowerFloorVisitRepository extends JpaRepository<TowerFloorVisit
             @Param("floorNumber") int floorNumber,
             @Param("at") LocalDateTime at);
 
+    /**
+     * LUT-734: 첫 방문 안내를 본 것으로 표시 — 본 버전이 {@code version} 보다 작을 때만 올리고 1행, 이미 봤으면 0행. 한 문장이라 같은 유저가
+     * 동시에 들어와도 한 번만 1이 나온다. 입장이 먼저 방문 행을 넣으므로({@link #insertIfAbsent}) 행은 늘 있다.
+     */
+    @Modifying
+    @Query(
+            value =
+                    "UPDATE tower_floor_visit SET guide_seen_version = :version, modified_at = :at"
+                            + " WHERE user_id = :userId AND floor_number = :floorNumber"
+                            + " AND guide_seen_version < :version",
+            nativeQuery = true)
+    int markGuideSeen(
+            @Param("userId") String userId,
+            @Param("floorNumber") int floorNumber,
+            @Param("version") int version,
+            @Param("at") LocalDateTime at);
+
     long countByUserId(String userId);
 
     @Query("select coalesce(max(v.floorNumber), 0) from TowerFloorVisit v where v.userId = :userId")

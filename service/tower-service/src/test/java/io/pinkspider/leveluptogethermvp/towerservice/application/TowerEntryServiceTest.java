@@ -71,6 +71,8 @@ class TowerEntryServiceTest {
     private io.pinkspider.leveluptogethermvp.towerservice.application.visitor.TowerVisitorGate
             visitorGate;
 
+    @Mock private TowerFloorGuideService guideService;
+
     private TowerEntryService service;
 
     private final TowerFloor f1 = floor(1L, 1, null, true, true);
@@ -92,7 +94,8 @@ class TowerEntryServiceTest {
                         visitRepository,
                         eventPublisher,
                         queueService,
-                        visitorGate);
+                        visitorGate,
+                        guideService);
         when(populationService.of(anyInt())).thenReturn(3L);
         when(missionQueryFacade.findInProgressMission(any())).thenReturn(Optional.empty());
         when(userStateRepository.findById(any())).thenReturn(Optional.empty());
@@ -473,5 +476,21 @@ class TowerEntryServiceTest {
         when(occupantRepository.findByUserId(USER)).thenReturn(Optional.empty());
         assertThat(service.mySeat(USER).seated()).isFalse();
         assertThat(service.mySeat(USER).floorNumber()).isNull();
+    }
+
+    @Test
+    @DisplayName("LUT-734 first_visit: 로그인 유저는 방문 행을 넣은 뒤 안내 판정 결과 그대로, 방문객은 null")
+    void firstVisit() {
+        stub(f2Unlimited);
+        when(guideService.markSeenIfNew(eq(USER), eq(f2Unlimited), any())).thenReturn(true, false);
+        assertThat(service.enter(USER, 2).firstVisit()).isTrue();
+        assertThat(service.enter(USER, 2).firstVisit()).isFalse();
+        org.mockito.InOrder order = org.mockito.Mockito.inOrder(visitRepository, guideService);
+        order.verify(visitRepository).insertIfAbsent(eq(USER), eq(2), any());
+        order.verify(guideService).markSeenIfNew(eq(USER), eq(f2Unlimited), any());
+
+        stub(f1);
+        when(allocator.pickForDirectEntry(eq(f1), any())).thenReturn(instance(10L, 1));
+        assertThat(service.enter(null, 1).firstVisit()).isNull();
     }
 }

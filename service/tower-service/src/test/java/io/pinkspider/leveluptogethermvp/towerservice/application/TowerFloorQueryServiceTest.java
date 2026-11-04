@@ -31,6 +31,7 @@ class TowerFloorQueryServiceTest {
             mock(GamificationQueryFacade.class);
     private final TowerPopulationService populationService = mock(TowerPopulationService.class);
     private final TowerPixelArtService pixelArtService = mock(TowerPixelArtService.class);
+    private final TowerFloorGuideService guideService = mock(TowerFloorGuideService.class);
 
     private TowerFloorQueryService service;
 
@@ -46,7 +47,8 @@ class TowerFloorQueryServiceTest {
                         stateRepository,
                         gamificationQueryFacade,
                         populationService,
-                        pixelArtService);
+                        pixelArtService,
+                        guideService);
         when(populationService.byFloor()).thenReturn(Map.of(1, 4L));
         when(floorRepository.findAllByIsPublicTrueOrderByFloorNumberAsc())
                 .thenReturn(List.of(f1, f2, f3));
@@ -150,5 +152,17 @@ class TowerFloorQueryServiceTest {
         assertThat(r.floors().get(0).pixelStandard().version()).isEqualTo("b");
         assertThat(r.floors().get(1).pixelDense()).isNull();
         assertThat(r.floors().get(2).pixelStandard()).isNull();
+    }
+
+    @Test
+    @DisplayName("LUT-734 첫 방문 안내: 살아 있는 안내가 있는 층에만 guide")
+    void guides() {
+        io.pinkspider.leveluptogethermvp.towerservice.domain.dto.TowerFloorGuideView guide =
+                new io.pinkspider.leveluptogethermvp.towerservice.domain.dto.TowerFloorGuideView(
+                        3L, 2, List.of(), true, null, null, null, null);
+        when(guideService.activeByFloorIds(List.of(1L, 2L, 3L))).thenReturn(Map.of(1L, guide));
+        TowerFloorListResponse r = service.listForUser(null);
+        assertThat(r.floors().get(0).guide()).isEqualTo(guide);
+        assertThat(r.floors().get(1).guide()).isNull();
     }
 }

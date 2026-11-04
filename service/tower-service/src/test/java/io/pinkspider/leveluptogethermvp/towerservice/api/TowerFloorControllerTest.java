@@ -14,9 +14,11 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import io.pinkspider.leveluptogethermvp.config.ControllerTestConfig;
 import io.pinkspider.leveluptogethermvp.towerservice.application.TowerFloorQueryService;
 import io.pinkspider.leveluptogethermvp.towerservice.domain.dto.TowerFloorEffectLayerDto;
+import io.pinkspider.leveluptogethermvp.towerservice.domain.dto.TowerFloorGuideView;
 import io.pinkspider.leveluptogethermvp.towerservice.domain.dto.TowerFloorLightDto;
 import io.pinkspider.leveluptogethermvp.towerservice.domain.dto.TowerFloorListResponse;
 import io.pinkspider.leveluptogethermvp.towerservice.domain.dto.TowerFloorResponse;
+import io.pinkspider.leveluptogethermvp.towerservice.domain.dto.TowerNpcLineDto;
 import io.pinkspider.leveluptogethermvp.towerservice.domain.dto.TowerPixelBackgroundDto;
 import io.pinkspider.leveluptogethermvp.towerservice.domain.enums.TowerEffectKind;
 import java.time.LocalDate;
@@ -33,6 +35,7 @@ import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.restdocs.mockmvc.RestDocumentationRequestBuilders;
+import org.springframework.restdocs.payload.JsonFieldType;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
@@ -101,7 +104,26 @@ class TowerFloorControllerTest {
                                         "https://cdn/tower/pixel/1b4e7c9d2f0a6e38.png",
                                         704,
                                         384,
-                                        "1b4e7c9d2f0a6e38")),
+                                        "1b4e7c9d2f0a6e38"),
+                                new TowerFloorGuideView(
+                                        3L,
+                                        2,
+                                        List.of(
+                                                new TowerNpcLineDto(
+                                                        "어서 와, 처음이지?",
+                                                        "Welcome, first time?",
+                                                        "ようこそ、初めて？",
+                                                        "أهلًا، أول مرة؟"),
+                                                new TowerNpcLineDto(
+                                                        "미션을 시작하면 자리에 앉아요",
+                                                        "Start a mission to take a seat",
+                                                        "ミッションを始めると席に着くよ",
+                                                        "ابدأ مهمة لتجلس")),
+                                        true,
+                                        "미션 시작하기",
+                                        "Start a mission",
+                                        null,
+                                        null)),
                         new TowerFloorResponse(
                                 2L,
                                 2,
@@ -122,6 +144,7 @@ class TowerFloorControllerTest {
                                 null,
                                 List.of(),
                                 List.of(),
+                                null,
                                 null,
                                 null)),
                 1);
@@ -268,6 +291,59 @@ class TowerFloorControllerTest {
                                                 .optional(),
                                         fieldWithPath("value.floors[].pixel_standard.version")
                                                 .description("이미지 버전(내용 해시)")
+                                                .optional(),
+                                        fieldWithPath("value.floors[].guide")
+                                                .type(JsonFieldType.OBJECT)
+                                                .description(
+                                                        "LUT-734 첫 방문 안내 — 꺼져 있거나 안내 NPC 가 비공개·없으면"
+                                                            + " null. 언제 보일지는 입장 응답 first_visit")
+                                                .optional(),
+                                        fieldWithPath("value.floors[].guide.npc_id")
+                                                .type(JsonFieldType.NUMBER)
+                                                .description("안내 NPC (입장 스냅샷 npcs[] 중 하나)")
+                                                .optional(),
+                                        fieldWithPath("value.floors[].guide.version")
+                                                .type(JsonFieldType.NUMBER)
+                                                .description("안내 버전 (다시 보여 주기로 저장하면 오른다)")
+                                                .optional(),
+                                        fieldWithPath("value.floors[].guide.lines[].text")
+                                                .type(JsonFieldType.STRING)
+                                                .description("안내 문장 (한국어, 1~5개, 차례로 말한다)")
+                                                .optional(),
+                                        fieldWithPath("value.floors[].guide.lines[].text_en")
+                                                .type(JsonFieldType.STRING)
+                                                .description("안내 문장 (영어)")
+                                                .optional(),
+                                        fieldWithPath("value.floors[].guide.lines[].text_ja")
+                                                .type(JsonFieldType.STRING)
+                                                .description("안내 문장 (일본어)")
+                                                .optional(),
+                                        fieldWithPath("value.floors[].guide.lines[].text_ar")
+                                                .type(JsonFieldType.STRING)
+                                                .description("안내 문장 (아랍어)")
+                                                .optional(),
+                                        fieldWithPath("value.floors[].guide.show_mission_button")
+                                                .type(JsonFieldType.BOOLEAN)
+                                                .description("마지막 문장에 미션 시작 버튼")
+                                                .optional(),
+                                        fieldWithPath("value.floors[].guide.mission_button_label")
+                                                .type(JsonFieldType.STRING)
+                                                .description("버튼 문구 (한국어, 비우면 앱 기본 문구)")
+                                                .optional(),
+                                        fieldWithPath(
+                                                        "value.floors[].guide.mission_button_label_en")
+                                                .type(JsonFieldType.STRING)
+                                                .description("버튼 문구 (영어)")
+                                                .optional(),
+                                        fieldWithPath(
+                                                        "value.floors[].guide.mission_button_label_ja")
+                                                .type(JsonFieldType.STRING)
+                                                .description("버튼 문구 (일본어)")
+                                                .optional(),
+                                        fieldWithPath(
+                                                        "value.floors[].guide.mission_button_label_ar")
+                                                .type(JsonFieldType.STRING)
+                                                .description("버튼 문구 (아랍어)")
                                                 .optional())));
     }
 
