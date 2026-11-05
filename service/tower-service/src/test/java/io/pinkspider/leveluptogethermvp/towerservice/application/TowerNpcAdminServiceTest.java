@@ -62,7 +62,7 @@ class TowerNpcAdminServiceTest {
         when(maskChecker.isInsideImage(floor1.getBackgroundImageUrl(), 300, 400)).thenReturn(true);
         when(npcRepository.save(any(TowerNpc.class))).thenAnswer(inv -> inv.getArgument(0));
 
-        TowerNpcAdminResponse res = service.create(10L, npcRequest(IMG, 300, 400, "가".repeat(40)));
+        TowerNpcAdminResponse res = service.create(10L, npcRequest(IMG, 300, 400, "가".repeat(160)));
         verify(maskChecker, never()).isWalkable(any(), any(), anyInt(), anyInt());
 
         ArgumentCaptor<TowerNpc> saved = ArgumentCaptor.forClass(TowerNpc.class);
@@ -72,6 +72,7 @@ class TowerNpcAdminServiceTest {
         assertThat(saved.getValue().getStatusTextEn()).isNull(); // " " → null
         assertThat(saved.getValue().getSortOrder()).isZero();
         assertThat(res.lines()).hasSize(1);
+        assertThat(res.lines().get(0).text()).hasSize(160); // LUT-751: 잘리지 않고 그대로
         assertThat(res.isPublic()).isTrue();
 
         when(npcRepository.findAllByFloorIdOrderBySortOrderAscIdAsc(10L))
@@ -113,17 +114,17 @@ class TowerNpcAdminServiceTest {
     }
 
     @Test
-    @DisplayName("대사 한 문장이 2줄(한글 40자·영문 80자)을 넘으면 어느 언어든 150404")
+    @DisplayName("LUT-751: 대사 한 문장이 160자를 넘으면 어느 언어든 150404 — 160자는 저장된다(예전 상한 한글 40자를 넘어도)")
     void lineTooLong() {
         when(floorRepository.findById(10L)).thenReturn(Optional.of(floor1));
         when(npcRepository.countByFloorId(10L)).thenReturn(0L);
-        assertThatThrownBy(() -> service.create(10L, npcRequest(IMG, 1, 1, "가".repeat(41))))
+        assertThatThrownBy(() -> service.create(10L, npcRequest(IMG, 1, 1, "가".repeat(161))))
                 .isInstanceOf(TowerNpcException.class)
                 .extracting("code")
                 .isEqualTo(TowerNpcException.LINE_TOO_LONG);
         for (int i = 1; i <= 3; i++) {
             String[] texts = {"안녕", "Welcome", "ようこそ", "مرحبا"};
-            texts[i] = i == 2 ? "あ".repeat(41) : "a".repeat(81);
+            texts[i] = i == 2 ? "あ".repeat(161) : "a".repeat(161);
             TowerNpcAdminRequest base = npcRequest(IMG, 1, 1, "안녕");
             TowerNpcAdminRequest request =
                     new TowerNpcAdminRequest(

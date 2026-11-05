@@ -23,10 +23,10 @@ import org.springframework.transaction.annotation.Transactional;
 
 /**
  * LUT-693: 어드민 NPC CRUD (층마다 등록). 저장 규칙 — 층당 최대 3명(150402) · 자리는 배경 그림 안(150403, 못 읽으면 150109 —
- * LUT-746 부터 이동 불가 영역에도 둘 수 있다. 유저가 걸어와 NPC 를 가리지 않게 카운터 뒤·벽 앞에 둔다) · 대사 한 문장 2줄 이내({@link
- * TowerNpcTextRule}, 150404). 수정은 다음 입장(스냅샷)부터 반영된다. 안 쓰게 된 프로필 이미지는 커밋 뒤 지운다. LUT-733: 창 이미지·링크 —
- * 상점 아이템은 판매 중(150405)·이벤트는 있는 것(150405), 앱 경로 규칙({@link TowerNpcCardRule}, 150406), 기간 시작 ≤
- * 종료(150407). 안 쓰게 된 창 이미지도 지운다.
+ * LUT-746 부터 이동 불가 영역에도 둘 수 있다. 유저가 걸어와 NPC 를 가리지 않게 카운터 뒤·벽 앞에 둔다) · 대사 한 문장 160자 이내(LUT-751
+ * {@link TowerNpcTextRule#fitsNpcLine}, 150404 — 예전엔 표시 폭 80). 수정은 다음 입장(스냅샷)부터 반영된다. 안 쓰게 된 프로필
+ * 이미지는 커밋 뒤 지운다. LUT-733: 창 이미지·링크 — 상점 아이템은 판매 중(150405)·이벤트는 있는 것(150405), 앱 경로 규칙({@link
+ * TowerNpcCardRule}, 150406), 기간 시작 ≤ 종료(150407). 안 쓰게 된 창 이미지도 지운다.
  */
 @Service
 @RequiredArgsConstructor
@@ -100,10 +100,10 @@ public class TowerNpcAdminService {
 
     private void validate(TowerFloor floor, TowerNpcAdminRequest request) {
         for (TowerNpcLineDto line : request.lines()) {
-            if (!TowerNpcTextRule.fits(line.text())
-                    || !TowerNpcTextRule.fits(line.textEn())
-                    || !TowerNpcTextRule.fits(line.textJa())
-                    || !TowerNpcTextRule.fits(line.textAr())) {
+            if (!TowerNpcTextRule.fitsNpcLine(line.text())
+                    || !TowerNpcTextRule.fitsNpcLine(line.textEn())
+                    || !TowerNpcTextRule.fitsNpcLine(line.textJa())
+                    || !TowerNpcTextRule.fitsNpcLine(line.textAr())) {
                 throw TowerNpcException.lineTooLong();
             }
         }

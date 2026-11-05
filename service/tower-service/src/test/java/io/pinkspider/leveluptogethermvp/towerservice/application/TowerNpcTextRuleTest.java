@@ -29,4 +29,18 @@ class TowerNpcTextRuleTest {
         assertThat(TowerNpcTextRule.fits("a".repeat(81))).isFalse();
         assertThat(TowerNpcTextRule.fits(null)).isTrue();
     }
+
+    @Test
+    @DisplayName("LUT-751 NPC 대사: 언어와 상관없이 글자 수 160 — 한글·영문·이모지 모두 한 글자, 161 은 거부")
+    void npcLineChars() {
+        assertThat(TowerNpcTextRule.fitsNpcLine("가".repeat(160))).isTrue();
+        assertThat(TowerNpcTextRule.fitsNpcLine("가".repeat(161))).isFalse();
+        assertThat(TowerNpcTextRule.fitsNpcLine("a".repeat(160))).isTrue();
+        assertThat(TowerNpcTextRule.fitsNpcLine("a".repeat(161))).isFalse();
+        assertThat(TowerNpcTextRule.fitsNpcLine("🎵".repeat(160))).isTrue(); // 대리 쌍도 한 글자
+        assertThat(TowerNpcTextRule.fitsNpcLine("🎵".repeat(161))).isFalse();
+        assertThat(TowerNpcTextRule.fitsNpcLine(null)).isTrue();
+        // 안내 문장 규칙(표시 폭 80)은 그대로
+        assertThat(TowerNpcTextRule.fits("가".repeat(41))).isFalse();
+    }
 }
