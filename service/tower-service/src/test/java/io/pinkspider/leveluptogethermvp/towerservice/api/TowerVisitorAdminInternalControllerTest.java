@@ -3,7 +3,6 @@ package io.pinkspider.leveluptogethermvp.towerservice.api;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
-import static org.springframework.restdocs.mockmvc.MockMvcRestDocumentation.document;
 import static org.springframework.restdocs.payload.PayloadDocumentation.fieldWithPath;
 import static org.springframework.restdocs.payload.PayloadDocumentation.requestFields;
 import static org.springframework.restdocs.payload.PayloadDocumentation.responseFields;
@@ -13,6 +12,8 @@ import static org.springframework.restdocs.request.RequestDocumentation.queryPar
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.epages.restdocs.apispec.MockMvcRestDocumentationWrapper;
+import com.epages.restdocs.apispec.ResourceSnippetParameters;
 import io.pinkspider.leveluptogethermvp.config.ControllerTestConfig;
 import io.pinkspider.leveluptogethermvp.towerservice.application.exception.TowerVisitorException;
 import io.pinkspider.leveluptogethermvp.towerservice.application.visitor.TowerVisitorReportService;
@@ -129,8 +130,11 @@ class TowerVisitorAdminInternalControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.value.content[0].visitor_no").value(4821))
                 .andDo(
-                        document(
+                        MockMvcRestDocumentationWrapper.document(
                                 "tower-visitor-reports-internal",
+                                ResourceSnippetParameters.builder()
+                                        .tag("Tower - Admin Internal")
+                                        .description("방문객 신고 목록 (LUT-705) — 최신 먼저, 원문·IP·기기 ID 포함"),
                                 queryParameters(
                                         parameterWithName("page")
                                                 .description("페이지(0부터, 기본 0)")
@@ -192,8 +196,11 @@ class TowerVisitorAdminInternalControllerTest {
                                 "/api/internal/tower/visitor-sanctions"))
                 .andExpect(status().isOk())
                 .andDo(
-                        document(
+                        MockMvcRestDocumentationWrapper.document(
                                 "tower-visitor-sanctions-internal",
+                                ResourceSnippetParameters.builder()
+                                        .tag("Tower - Admin Internal")
+                                        .description("방문객 제재 목록 (LUT-705)"),
                                 queryParameters(
                                         parameterWithName("page")
                                                 .description("페이지(0부터, 기본 0)")
@@ -217,8 +224,13 @@ class TowerVisitorAdminInternalControllerTest {
                                             + "\"reason\":\"도배\",\"duration_minutes\":1440,\"created_by\":\"admin-1\"}"))
                 .andExpect(status().isOk())
                 .andDo(
-                        document(
+                        MockMvcRestDocumentationWrapper.document(
                                 "tower-visitor-sanction-create-internal",
+                                ResourceSnippetParameters.builder()
+                                        .tag("Tower - Admin Internal")
+                                        .description(
+                                                "방문객 제재 등록 (LUT-705) — IP 또는 기기 ID × CHAT/ENTRY, 기간"
+                                                        + " 또는 해제할 때까지"),
                                 requestFields(
                                         fieldWithPath("target_type").description("IP / DEVICE"),
                                         fieldWithPath("target_value")
@@ -250,8 +262,11 @@ class TowerVisitorAdminInternalControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.value.active").value(false))
                 .andDo(
-                        document(
+                        MockMvcRestDocumentationWrapper.document(
                                 "tower-visitor-sanction-lift-internal",
+                                ResourceSnippetParameters.builder()
+                                        .tag("Tower - Admin Internal")
+                                        .description("방문객 제재 해제 (LUT-705) — 없으면 404"),
                                 pathParameters(
                                         parameterWithName("sanctionId").description("제재 ID"))));
         when(sanctionService.lift(eq(4L))).thenThrow(TowerVisitorException.sanctionNotFound());

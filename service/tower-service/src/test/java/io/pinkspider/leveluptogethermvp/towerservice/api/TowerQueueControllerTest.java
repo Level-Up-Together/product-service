@@ -4,7 +4,6 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
-import static org.springframework.restdocs.mockmvc.MockMvcRestDocumentation.document;
 import static org.springframework.restdocs.payload.PayloadDocumentation.fieldWithPath;
 import static org.springframework.restdocs.payload.PayloadDocumentation.responseFields;
 import static org.springframework.restdocs.request.RequestDocumentation.parameterWithName;
@@ -12,6 +11,8 @@ import static org.springframework.restdocs.request.RequestDocumentation.pathPara
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.epages.restdocs.apispec.MockMvcRestDocumentationWrapper;
+import com.epages.restdocs.apispec.ResourceSnippetParameters;
 import io.pinkspider.leveluptogethermvp.config.ControllerTestConfig;
 import io.pinkspider.leveluptogethermvp.towerservice.application.exception.TowerEntryException;
 import io.pinkspider.leveluptogethermvp.towerservice.application.queue.TowerQueueService;
@@ -61,8 +62,14 @@ class TowerQueueControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.value.status").value("ADMITTED"))
                 .andDo(
-                        document(
+                        MockMvcRestDocumentationWrapper.document(
                                 "tower-queue-status",
+                                ResourceSnippetParameters.builder()
+                                        .tag("Tower")
+                                        .description(
+                                                "입장 대기 상태 (LUT-701) — WAITING → ADMITTED. 20초 동안"
+                                                    + " 조회가 없으면 줄에서 뺀다. 없거나 끝난 표 404 150206. 비로그인"
+                                                    + " 허용"),
                                 pathParameters(
                                         parameterWithName("ticket")
                                                 .description("입장 응답 queue.ticket")),
@@ -103,8 +110,11 @@ class TowerQueueControllerTest {
                                 "/api/v1/tower/queue/{ticket}", "t-1"))
                 .andExpect(status().isOk())
                 .andDo(
-                        document(
+                        MockMvcRestDocumentationWrapper.document(
                                 "tower-queue-leave",
+                                ResourceSnippetParameters.builder()
+                                        .tag("Tower")
+                                        .description("대기 그만하기 (LUT-701) — 즉시 줄에서 뺀다. 비로그인 허용"),
                                 pathParameters(parameterWithName("ticket").description("대기표"))));
         verify(queueService).leave(eq("t-1"), any());
     }

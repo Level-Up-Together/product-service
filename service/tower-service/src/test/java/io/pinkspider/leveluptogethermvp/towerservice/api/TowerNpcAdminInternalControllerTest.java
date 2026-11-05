@@ -4,7 +4,6 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
-import static org.springframework.restdocs.mockmvc.MockMvcRestDocumentation.document;
 import static org.springframework.restdocs.payload.PayloadDocumentation.fieldWithPath;
 import static org.springframework.restdocs.payload.PayloadDocumentation.requestFields;
 import static org.springframework.restdocs.payload.PayloadDocumentation.responseFields;
@@ -13,6 +12,8 @@ import static org.springframework.restdocs.request.RequestDocumentation.pathPara
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.epages.restdocs.apispec.MockMvcRestDocumentationWrapper;
+import com.epages.restdocs.apispec.ResourceSnippetParameters;
 import io.pinkspider.leveluptogethermvp.config.ControllerTestConfig;
 import io.pinkspider.leveluptogethermvp.towerservice.TowerTestFixtures;
 import io.pinkspider.leveluptogethermvp.towerservice.application.TowerNpcAdminService;
@@ -259,8 +260,11 @@ class TowerNpcAdminInternalControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.value[0].name").value("탑지기"))
                 .andDo(
-                        document(
+                        MockMvcRestDocumentationWrapper.document(
                                 "internal-tower-npcs-list",
+                                ResourceSnippetParameters.builder()
+                                        .tag("Tower - Admin Internal")
+                                        .description("층 NPC 목록 (LUT-693)"),
                                 pathParameters(parameterWithName("floorId").description("층 ID")),
                                 responseFields(withEnvelope(npcFieldsWithCard("value[].")))));
 
@@ -272,8 +276,13 @@ class TowerNpcAdminInternalControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.value.lines[0].text").value("어서 와"))
                 .andDo(
-                        document(
+                        MockMvcRestDocumentationWrapper.document(
                                 "internal-tower-npcs-create",
+                                ResourceSnippetParameters.builder()
+                                        .tag("Tower - Admin Internal")
+                                        .description(
+                                                "층 NPC 등록 (LUT-693) — 층당 최대 3명(150402), 자동"
+                                                        + " 말풍선(LUT-732)·창 이미지·이동 링크(LUT-733)"),
                                 pathParameters(parameterWithName("floorId").description("층 ID")),
                                 requestFields(requestNpcFields()),
                                 responseFields(withEnvelope(npcFieldsWithCard("value.")))));
@@ -293,8 +302,12 @@ class TowerNpcAdminInternalControllerTest {
                                 .content(BODY))
                 .andExpect(status().isOk())
                 .andDo(
-                        document(
+                        MockMvcRestDocumentationWrapper.document(
                                 "internal-tower-npcs-update",
+                                ResourceSnippetParameters.builder()
+                                        .tag("Tower - Admin Internal")
+                                        .description(
+                                                "층 NPC 수정 (LUT-693) — 자동 말풍선 값·card 가 없으면 그대로 둔다"),
                                 pathParameters(
                                         parameterWithName("floorId").description("층 ID"),
                                         parameterWithName("npcId").description("NPC ID")),
@@ -305,8 +318,11 @@ class TowerNpcAdminInternalControllerTest {
                                 "/api/internal/tower/floors/{floorId}/npcs/{npcId}", 10L, 3L))
                 .andExpect(status().isOk())
                 .andDo(
-                        document(
+                        MockMvcRestDocumentationWrapper.document(
                                 "internal-tower-npcs-delete",
+                                ResourceSnippetParameters.builder()
+                                        .tag("Tower - Admin Internal")
+                                        .description("층 NPC 삭제 (LUT-693)"),
                                 pathParameters(
                                         parameterWithName("floorId").description("층 ID"),
                                         parameterWithName("npcId").description("NPC ID"))));

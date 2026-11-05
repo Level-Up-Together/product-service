@@ -3,7 +3,6 @@ package io.pinkspider.leveluptogethermvp.towerservice.api;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
-import static org.springframework.restdocs.mockmvc.MockMvcRestDocumentation.document;
 import static org.springframework.restdocs.payload.PayloadDocumentation.fieldWithPath;
 import static org.springframework.restdocs.payload.PayloadDocumentation.requestFields;
 import static org.springframework.restdocs.payload.PayloadDocumentation.responseFields;
@@ -12,6 +11,8 @@ import static org.springframework.restdocs.request.RequestDocumentation.pathPara
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.epages.restdocs.apispec.MockMvcRestDocumentationWrapper;
+import com.epages.restdocs.apispec.ResourceSnippetParameters;
 import io.pinkspider.leveluptogethermvp.config.ControllerTestConfig;
 import io.pinkspider.leveluptogethermvp.towerservice.application.TowerFloorAdminService;
 import io.pinkspider.leveluptogethermvp.towerservice.application.exception.TowerFloorException;
@@ -270,8 +271,11 @@ class TowerFloorAdminInternalControllerTest {
                 .andExpect(jsonPath("$.value[0].floor_number").value(2))
                 .andExpect(jsonPath("$.value[0].entry_level").value(5))
                 .andDo(
-                        document(
+                        MockMvcRestDocumentationWrapper.document(
                                 "internal-tower-floors-list",
+                                ResourceSnippetParameters.builder()
+                                        .tag("Tower - Admin Internal")
+                                        .description("층 전체 목록 (LUT-629) — 층 번호 순, 비공개 층 포함"),
                                 responseFields(withEnvelope(floorFieldsWithEffects("value[].")))));
     }
 
@@ -287,8 +291,11 @@ class TowerFloorAdminInternalControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.value.id").value(2))
                 .andDo(
-                        document(
+                        MockMvcRestDocumentationWrapper.document(
                                 "internal-tower-floors-create",
+                                ResourceSnippetParameters.builder()
+                                        .tag("Tower - Admin Internal")
+                                        .description("층 등록 (LUT-629) — 저장 규칙 7개를 어기면 400 1501xx"),
                                 requestFields(
                                                 fieldWithPath("floor_number")
                                                         .description("층 번호 (1 이상, 유일)"),
@@ -351,9 +358,10 @@ class TowerFloorAdminInternalControllerTest {
     }
 
     @Test
-    @DisplayName("PUT /api/internal/tower/floors/{id} : 수정 · GET 없음 404 · DELETE")
+    @DisplayName("PUT /api/internal/tower/floors/{id} : 수정 · GET 단건·없음 404 · DELETE")
     void updateGetDelete() throws Exception {
         when(adminService.update(eq(2L), any(TowerFloorAdminRequest.class))).thenReturn(response());
+        when(adminService.get(2L)).thenReturn(response());
         when(adminService.get(99L)).thenThrow(TowerFloorException.notFound());
 
         mockMvc.perform(
@@ -363,8 +371,26 @@ class TowerFloorAdminInternalControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.value.floor_number").value(2))
                 .andDo(
-                        document(
+                        MockMvcRestDocumentationWrapper.document(
                                 "internal-tower-floors-update",
+                                ResourceSnippetParameters.builder()
+                                        .tag("Tower - Admin Internal")
+                                        .description(
+                                                "층 수정 (LUT-629) — 효과·앞 가림 필드는 null 이면 그대로(LUT-725)."
+                                                        + " 안 쓰게 된 우리 저장소 파일은 커밋 뒤 지운다"),
+                                pathParameters(parameterWithName("id").description("층 ID")),
+                                responseFields(withEnvelope(floorFieldsWithEffects("value.")))));
+
+        // LUT-741: 단건 조회 — 어드민 층 수정 화면이 연다
+        mockMvc.perform(RestDocumentationRequestBuilders.get("/api/internal/tower/floors/{id}", 2L))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.value.floor_number").value(2))
+                .andDo(
+                        MockMvcRestDocumentationWrapper.document(
+                                "internal-tower-floors-get",
+                                ResourceSnippetParameters.builder()
+                                        .tag("Tower - Admin Internal")
+                                        .description("층 단건 조회 (LUT-629) — 없으면 404 150101"),
                                 pathParameters(parameterWithName("id").description("층 ID")),
                                 responseFields(withEnvelope(floorFieldsWithEffects("value.")))));
 
@@ -379,8 +405,11 @@ class TowerFloorAdminInternalControllerTest {
                                 "/api/internal/tower/floors/{id}", 2L))
                 .andExpect(status().isOk())
                 .andDo(
-                        document(
+                        MockMvcRestDocumentationWrapper.document(
                                 "internal-tower-floors-delete",
+                                ResourceSnippetParameters.builder()
+                                        .tag("Tower - Admin Internal")
+                                        .description("층 삭제 (LUT-629) — 남는 층끼리 저장 규칙을 다시 본다"),
                                 pathParameters(parameterWithName("id").description("층 ID"))));
     }
 
@@ -416,8 +445,13 @@ class TowerFloorAdminInternalControllerTest {
                 .andExpect(jsonPath("$.value.kind").value("MASK"))
                 .andExpect(jsonPath("$.value.width").value(704))
                 .andDo(
-                        document(
+                        MockMvcRestDocumentationWrapper.document(
                                 "internal-tower-floors-image-upload",
+                                ResourceSnippetParameters.builder()
+                                        .tag("Tower - Admin Internal")
+                                        .description(
+                                                "층 이미지 업로드 (LUT-635) — kind=BACKGROUND·MASK·NPC, 절대"
+                                                        + " https 주소를 돌려준다. 마스크는 PNG 만(150112)"),
                                 org.springframework.restdocs.request.RequestDocumentation
                                         .queryParameters(
                                                 org.springframework.restdocs.request
@@ -517,8 +551,13 @@ class TowerFloorAdminInternalControllerTest {
                                         "https://dev.level-up-together.com:8443/uploads/tower/bgm/a.mp3"))
                 .andExpect(jsonPath("$.value.size_bytes").value(4))
                 .andDo(
-                        document(
+                        MockMvcRestDocumentationWrapper.document(
                                 "internal-tower-floors-audio-upload",
+                                ResourceSnippetParameters.builder()
+                                        .tag("Tower - Admin Internal")
+                                        .description(
+                                                "배경 음악 업로드 (LUT-637) — mp3·aac·m4a 10MB, 헤더로 진짜"
+                                                        + " 오디오인지 본다(아니면 400 150113)"),
                                 org.springframework.restdocs.request.RequestDocumentation
                                         .requestParts(
                                                 org.springframework.restdocs.request
@@ -592,8 +631,13 @@ class TowerFloorAdminInternalControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.value.status").value("PENDING"))
                 .andDo(
-                        document(
+                        MockMvcRestDocumentationWrapper.document(
                                 "internal-tower-floors-pixel-art-regenerate",
+                                ResourceSnippetParameters.builder()
+                                        .tag("Tower - Admin Internal")
+                                        .description(
+                                                "픽셀아트 배경 재생성 (LUT-727/728) — 색 수·선명도를 바꿔 다시 만든다. 바로"
+                                                        + " 대기 상태가 된다"),
                                 requestFields(
                                         fieldWithPath("colors")
                                                 .description("팔레트 색 수 8~256 (비우면 지금 값)")
