@@ -13,7 +13,8 @@ import lombok.NoArgsConstructor;
 
 /**
  * LUT-725: 층 효과 레이어(눈·별) — 칠한 마스크 안에서만 그린다. {@code amount} = 눈 밀도 / 별 개수. 켜져 있고 오늘(KST)이 기간 안(비우면
- * 상시)일 때만 유저 응답에 내린다.
+ * 상시)일 때만 유저 응답에 내린다. LUT-740: 구름은 {@code amount} = 짙기 0~100, {@code speed} = 흐름 속도 0~100, {@code
+ * spread} = 번짐(크기는 쓰지 않음).
  */
 @Embeddable
 @Getter
@@ -48,6 +49,10 @@ public class TowerFloorEffectLayer {
 
     @Column(name = "size_max", nullable = false)
     private Integer sizeMax;
+
+    /** LUT-740: CLOUD 번짐(원본 px 0~200) — SNOW·STARS 는 null */
+    @Column(name = "spread")
+    private Integer spread;
 
     /** 켜져 있고 {@code today} 가 기간 안(양끝 포함, 비우면 상시)인가 */
     public boolean isActiveOn(LocalDate today) {

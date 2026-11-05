@@ -94,7 +94,8 @@ class TowerFloorControllerTest {
                                                 120,
                                                 40,
                                                 1,
-                                                3)),
+                                                3,
+                                                null)),
                                 new TowerPixelBackgroundDto(
                                         "https://cdn/tower/pixel/9f2c41aa0b7d3e11.png",
                                         1056,
@@ -257,6 +258,14 @@ class TowerFloorControllerTest {
                                                 .description("크기 최소 (화면 픽셀 1~20)"),
                                         fieldWithPath("value.floors[].effect_layers[].size_max")
                                                 .description("크기 최대 (화면 픽셀 1~20)"),
+                                        fieldWithPath("value.floors[].effect_layers[].spread")
+                                                .type(JsonFieldType.NUMBER)
+                                                .description(
+                                                        "LUT-740 구름(CLOUD) 번짐 — 칠한 영역 바깥으로 옅게 퍼지는"
+                                                            + " 거리(원본 px 0~200), 눈·별은 null. 구름은"
+                                                            + " amount = 짙기 0~100, speed = 흐름 속도"
+                                                            + " 0~100")
+                                                .optional(),
                                         fieldWithPath("value.floors[].pixel_dense")
                                                 .description(
                                                         "고밀도 픽셀 배경 (LUT-727, 높이 576·입장 기본) — 변환"

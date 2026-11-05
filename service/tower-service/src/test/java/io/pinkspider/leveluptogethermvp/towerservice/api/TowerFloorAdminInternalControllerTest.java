@@ -39,6 +39,7 @@ import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.restdocs.mockmvc.RestDocumentationRequestBuilders;
 import org.springframework.restdocs.payload.FieldDescriptor;
+import org.springframework.restdocs.payload.JsonFieldType;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
@@ -111,7 +112,8 @@ class TowerFloorAdminInternalControllerTest {
                                 120,
                                 40,
                                 1,
-                                3)),
+                                3,
+                                null)),
                 pixelArt());
     }
 
@@ -204,7 +206,13 @@ class TowerFloorAdminInternalControllerTest {
                 fieldWithPath(prefix + "effect_layers[].size_min")
                         .description("크기 최소 1~20 (화면 픽셀)"),
                 fieldWithPath(prefix + "effect_layers[].size_max")
-                        .description("크기 최대 1~20 (최소 이상 — 150115)"));
+                        .description("크기 최대 1~20 (최소 이상 — 150115)"),
+                fieldWithPath(prefix + "effect_layers[].spread")
+                        .type(JsonFieldType.NUMBER)
+                        .description(
+                                "LUT-740 CLOUD 번짐(원본 px 0~200, 비우면 60) — 구름은 amount 짙기 0~100·speed"
+                                        + " 흐름 0~100, 크기는 쓰지 않는다. 종류별 범위 밖 150115")
+                        .optional());
     }
 
     private static FieldDescriptor[] floorFields(String prefix) {

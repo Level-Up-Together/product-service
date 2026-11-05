@@ -294,7 +294,7 @@ class TowerFloorAdminServiceTest {
 
     private static TowerFloorEffectLayerDto snow(String maskUrl) {
         return new TowerFloorEffectLayerDto(
-                TowerEffectKind.SNOW, maskUrl, true, null, null, 100, 50, 1, 3);
+                TowerEffectKind.SNOW, maskUrl, true, null, null, 100, 50, 1, 3, null);
     }
 
     /** 기존 요청에 LUT-725 필드만 바꿔 끼운다 */

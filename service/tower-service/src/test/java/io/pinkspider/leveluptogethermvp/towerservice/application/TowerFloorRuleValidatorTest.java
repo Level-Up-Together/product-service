@@ -213,7 +213,79 @@ class TowerFloorRuleValidatorTest {
                 100,
                 50,
                 sizeMin,
-                sizeMax);
+                sizeMax,
+                null);
+    }
+
+    private static TowerFloorEffectLayer cloud(int amount, int speed, Integer spread) {
+        return new TowerFloorEffectLayer(
+                TowerEffectKind.CLOUD,
+                "https://cdn.test/tower/CLOUD.png",
+                true,
+                null,
+                null,
+                amount,
+                speed,
+                1,
+                1,
+                spread);
+    }
+
+    @Test
+    @DisplayName("LUT-740: 종류별 범위 — 구름 짙기·속도 0~100·번짐 0~200(0 허용), 눈·별 개수 1~300·속도 1~100(0 거부)")
+    void kindRanges() {
+        ReflectionTestUtils.setField(validator, "maskCheckEnabled", false);
+        for (TowerFloorEffectLayer ok :
+                List.of(cloud(0, 0, 0), cloud(100, 100, 200), cloud(60, 40, 60))) {
+            TowerFloor f = withEffects(ok, layer(TowerEffectKind.SNOW, 1, 3, null, null));
+            assertThatCode(() -> validator.validate(List.of(f), f)).doesNotThrowAnyException();
+        }
+        for (TowerFloorEffectLayer bad :
+                List.of(
+                        cloud(101, 40, 60),
+                        cloud(60, 101, 60),
+                        cloud(60, 40, 201),
+                        cloud(60, 40, null),
+                        new TowerFloorEffectLayer(
+                                TowerEffectKind.SNOW,
+                                "https://cdn.test/s.png",
+                                true,
+                                null,
+                                null,
+                                0,
+                                50,
+                                1,
+                                3,
+                                null),
+                        new TowerFloorEffectLayer(
+                                TowerEffectKind.STARS,
+                                "https://cdn.test/s.png",
+                                true,
+                                null,
+                                null,
+                                100,
+                                0,
+                                1,
+                                3,
+                                null),
+                        new TowerFloorEffectLayer(
+                                TowerEffectKind.SNOW,
+                                "https://cdn.test/s.png",
+                                true,
+                                null,
+                                null,
+                                100,
+                                50,
+                                null,
+                                3,
+                                null))) {
+            TowerFloor f = withEffects(bad);
+            assertCode(() -> validator.validate(List.of(f), f), TowerFloorException.EFFECT_INVALID);
+        }
+        TowerFloor twoClouds = withEffects(cloud(60, 40, 60), cloud(50, 40, 60));
+        assertCode(
+                () -> validator.validate(List.of(twoClouds), twoClouds),
+                TowerFloorException.EFFECT_INVALID);
     }
 
     private static TowerFloor withEffects(TowerFloorEffectLayer... layers) {
