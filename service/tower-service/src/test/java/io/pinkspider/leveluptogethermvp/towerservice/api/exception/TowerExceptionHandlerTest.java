@@ -45,4 +45,42 @@ class TowerExceptionHandlerTest {
             LocaleContextHolder.resetLocaleContext();
         }
     }
+
+    @Test
+    @DisplayName("LUT-738 문구 인자와 세부 값: 10초 안 재이동은 429, 남은 초를 문구와 value.retry_after_seconds 로")
+    void detailAndArgs() throws Exception {
+        StaticMessageSource ms = new StaticMessageSource();
+        ms.addMessage("error.tower.room.move_too_soon", Locale.KOREAN, "{0}초 뒤에 다시");
+        LocaleContextHolder.setLocale(Locale.KOREAN);
+        try {
+            TowerExceptionHandler handler = new TowerExceptionHandler(ms);
+            ResponseEntity<Object> res =
+                    handler.handle(
+                            io.pinkspider.leveluptogethermvp.towerservice.application.exception
+                                    .TowerEntryException.roomMoveTooSoon(7));
+            assertThat(res.getStatusCode()).isEqualTo(HttpStatus.TOO_MANY_REQUESTS);
+            ApiResult<?> body = (ApiResult<?>) res.getBody();
+            assertThat(body.getCode()).isEqualTo("150208");
+            assertThat(body.getMessage()).isEqualTo("7초 뒤에 다시");
+            assertThat(body.getValue()).isEqualTo(java.util.Map.of("retry_after_seconds", 7));
+        } finally {
+            LocaleContextHolder.resetLocaleContext();
+        }
+        TowerExceptionHandler bare = new TowerExceptionHandler(null);
+        assertThat(
+                        bare.handle(
+                                        io.pinkspider.leveluptogethermvp.towerservice.application
+                                                .exception.TowerEntryException.roomFull())
+                                .getStatusCode())
+                .isEqualTo(HttpStatus.CONFLICT);
+        assertThat(
+                        ((ApiResult<?>)
+                                        bare.handle(
+                                                        io.pinkspider.leveluptogethermvp
+                                                                .towerservice.application.exception
+                                                                .TowerEntryException.roomNotFound())
+                                                .getBody())
+                                .getValue())
+                .isNull();
+    }
 }

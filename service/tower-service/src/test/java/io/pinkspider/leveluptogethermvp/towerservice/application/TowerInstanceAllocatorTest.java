@@ -174,4 +174,26 @@ class TowerInstanceAllocatorTest {
         verify(occupantRepository, never()).delete(any());
         verify(occupantRepository, never()).save(any());
     }
+
+    @Test
+    @DisplayName("LUT-738 새 방 번호: 비어 있는 가장 작은 번호 · 번호 없는 옛 방에는 이때 번호를 채운다")
+    void newRoomNumber() {
+        TowerInstance first = TowerInstance.builder().id(1L).floorNumber(1).instanceNo(1).build();
+        TowerInstance third = TowerInstance.builder().id(3L).floorNumber(1).instanceNo(3).build();
+        TowerInstance legacy = TowerInstance.builder().id(4L).floorNumber(1).build();
+        when(instanceRepository.findAllByFloorNumberOrderByIdAsc(1))
+                .thenReturn(List.of(first, third, legacy));
+        when(occupantRepository.loadsByFloor(1, TowerOccupantKind.AUTO_SEATED))
+                .thenReturn(
+                        List.of(
+                                new InstanceLoad(1L, 30L, 30L),
+                                new InstanceLoad(3L, 30L, 30L),
+                                new InstanceLoad(4L, 30L, 30L)));
+
+        TowerInstance created = allocator.pickForDirectEntry(floor, NOW);
+
+        assertThat(legacy.getInstanceNo()).isEqualTo(2); // 빈 번호 2 를 옛 방에
+        assertThat(created.getInstanceNo()).isEqualTo(4);
+        assertThat(created.getFloorNumber()).isEqualTo(1);
+    }
 }

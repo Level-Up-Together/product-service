@@ -35,14 +35,15 @@ public class TowerExceptionHandler {
                 .body(
                         ApiResult.builder()
                                 .code(e.getCode())
-                                .message(resolveMessage(e.getMessage()))
+                                .message(resolveMessage(e.getMessage(), e.getMessageArgs()))
+                                .value(e.getDetail())
                                 .build());
     }
 
-    private String resolveMessage(String key) {
+    private String resolveMessage(String key, Object[] args) {
         if (messageSource == null) {
             return key;
         }
-        return messageSource.getMessage(key, null, key, LocaleContextHolder.getLocale());
+        return messageSource.getMessage(key, args, key, LocaleContextHolder.getLocale());
     }
 }

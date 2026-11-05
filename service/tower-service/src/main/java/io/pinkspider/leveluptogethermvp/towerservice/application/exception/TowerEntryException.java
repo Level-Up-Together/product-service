@@ -14,8 +14,45 @@ public class TowerEntryException extends TowerException {
     /** LUT-701: 없거나 끝난 대기표 — 처음부터 다시 입장을 요청한다 */
     public static final String QUEUE_TICKET_NOT_FOUND = "150206";
 
+    /** LUT-738: 방 이동 거절 — 가득 참 · 10초 안 재이동(value.retry_after_seconds) · 다른 층의 방 · 없는 방 */
+    public static final String ROOM_FULL = "150207";
+
+    public static final String ROOM_MOVE_TOO_SOON = "150208";
+    public static final String ROOM_OTHER_FLOOR = "150209";
+    public static final String ROOM_NOT_FOUND = "150210";
+
     private TowerEntryException(String code, String messageKey, HttpStatus status) {
         super(code, messageKey, status);
+    }
+
+    private TowerEntryException(
+            String code, String messageKey, HttpStatus status, Object[] args, Object detail) {
+        super(code, messageKey, status, args, detail);
+    }
+
+    /** LUT-738: 고른 방이 가득 찼다 — 다른 방으로 대신 보내지 않는다 */
+    public static TowerEntryException roomFull() {
+        return new TowerEntryException(ROOM_FULL, "error.tower.room.full", HttpStatus.CONFLICT);
+    }
+
+    /** LUT-738: 방 이동은 10초에 한 번 — 남은 초를 문구와 {@code value.retry_after_seconds} 로 */
+    public static TowerEntryException roomMoveTooSoon(long remainingSeconds) {
+        return new TowerEntryException(
+                ROOM_MOVE_TOO_SOON,
+                "error.tower.room.move_too_soon",
+                HttpStatus.TOO_MANY_REQUESTS,
+                new Object[] {remainingSeconds},
+                java.util.Map.of("retry_after_seconds", remainingSeconds));
+    }
+
+    public static TowerEntryException roomOtherFloor() {
+        return new TowerEntryException(
+                ROOM_OTHER_FLOOR, "error.tower.room.other_floor", HttpStatus.BAD_REQUEST);
+    }
+
+    public static TowerEntryException roomNotFound() {
+        return new TowerEntryException(
+                ROOM_NOT_FOUND, "error.tower.room.not_found", HttpStatus.NOT_FOUND);
     }
 
     /** 없는 층 또는 비공개 층 */
