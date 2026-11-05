@@ -112,11 +112,32 @@ public class TowerFloorRuleValidator {
      * LUT-725: 효과 레이어(종류당 1개·크기 최소 ≤ 최대·기간 시작 ≤ 종료 — 150115)와 앞 가림·효과 마스크 비율(배경과 같아야 — 150116, 못
      * 읽으면 150109). 개수·범위는 요청 검증(@Size·@Min·@Max)이 먼저 막는다.
      */
+    /**
+     * LUT-740: 종류별 값 범위 — 눈·별은 개수(밀도) 1~300·속도 1~100·크기 1~20(최소 ≤ 최대), 구름은 짙기·속도 0~100·번짐 0~200(크기
+     * 무시). 요청 검증은 두 종류를 합친 범위만 막는다.
+     */
+    static boolean inKindRange(TowerFloorEffectLayer layer) {
+        if (layer.getKind() == TowerEffectKind.CLOUD) {
+            return between(layer.getAmount(), 0, 100)
+                    && between(layer.getSpeed(), 0, 100)
+                    && between(layer.getSpread(), 0, 200);
+        }
+        return between(layer.getAmount(), 1, 300)
+                && between(layer.getSpeed(), 1, 100)
+                && between(layer.getSizeMin(), 1, 20)
+                && between(layer.getSizeMax(), 1, 20)
+                && layer.getSizeMin() <= layer.getSizeMax();
+    }
+
+    private static boolean between(Integer value, int min, int max) {
+        return value != null && value >= min && value <= max;
+    }
+
     private void validateEffects(TowerFloor target) {
         Set<TowerEffectKind> kinds = new HashSet<>();
         for (TowerFloorEffectLayer layer : target.getEffectLayers()) {
             if (!kinds.add(layer.getKind())
-                    || layer.getSizeMin() > layer.getSizeMax()
+                    || !inKindRange(layer)
                     || (layer.getStartsOn() != null
                             && layer.getEndsOn() != null
                             && layer.getStartsOn().isAfter(layer.getEndsOn()))) {

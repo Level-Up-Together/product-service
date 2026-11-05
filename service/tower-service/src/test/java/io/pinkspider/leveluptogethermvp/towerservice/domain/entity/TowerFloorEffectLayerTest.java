@@ -21,7 +21,16 @@ class TowerFloorEffectLayerTest {
     private static TowerFloorEffectLayer layer(
             TowerEffectKind kind, boolean enabled, LocalDate startsOn, LocalDate endsOn) {
         return new TowerFloorEffectLayer(
-                kind, "https://cdn/" + kind + ".png", enabled, startsOn, endsOn, 100, 50, 1, 3);
+                kind,
+                "https://cdn/" + kind + ".png",
+                enabled,
+                startsOn,
+                endsOn,
+                100,
+                50,
+                1,
+                3,
+                null);
     }
 
     @Test
@@ -95,5 +104,63 @@ class TowerFloorEffectLayerTest {
         f.updateOcclusionMask("https://cdn/occlusion.png");
         f.updateOcclusionMask(null);
         assertThat(f.getOcclusionMaskUrl()).isNull();
+    }
+
+    @Test
+    @DisplayName("LUT-740 구름 저장: 크기는 1, 번짐을 비우면 60 · 눈·별은 번짐을 버린다 · 응답에 번짐")
+    void cloudEmbeddable() {
+        var cloud =
+                new io.pinkspider.leveluptogethermvp.towerservice.domain.dto
+                        .TowerFloorEffectLayerDto(
+                        TowerEffectKind.CLOUD,
+                        "https://cdn/c.png",
+                        true,
+                        null,
+                        null,
+                        60,
+                        40,
+                        null,
+                        null,
+                        null);
+        TowerFloorEffectLayer saved = cloud.toEmbeddable();
+        org.assertj.core.api.Assertions.assertThat(saved.getSpread()).isEqualTo(60);
+        org.assertj.core.api.Assertions.assertThat(saved.getSizeMin()).isEqualTo(1);
+        org.assertj.core.api.Assertions.assertThat(saved.getSizeMax()).isEqualTo(1);
+        var spread80 =
+                new io.pinkspider.leveluptogethermvp.towerservice.domain.dto
+                        .TowerFloorEffectLayerDto(
+                        TowerEffectKind.CLOUD,
+                        "https://cdn/c.png",
+                        true,
+                        null,
+                        null,
+                        60,
+                        40,
+                        5,
+                        9,
+                        80);
+        org.assertj.core.api.Assertions.assertThat(spread80.toEmbeddable().getSpread())
+                .isEqualTo(80);
+        var snow =
+                new io.pinkspider.leveluptogethermvp.towerservice.domain.dto
+                        .TowerFloorEffectLayerDto(
+                        TowerEffectKind.SNOW,
+                        "https://cdn/s.png",
+                        true,
+                        null,
+                        null,
+                        100,
+                        50,
+                        1,
+                        3,
+                        80);
+        TowerFloorEffectLayer snowSaved = snow.toEmbeddable();
+        org.assertj.core.api.Assertions.assertThat(snowSaved.getSpread()).isNull();
+        org.assertj.core.api.Assertions.assertThat(snowSaved.getSizeMax()).isEqualTo(3);
+        org.assertj.core.api.Assertions.assertThat(
+                        io.pinkspider.leveluptogethermvp.towerservice.domain.dto
+                                .TowerFloorEffectLayerDto.from(saved)
+                                .spread())
+                .isEqualTo(60);
     }
 }
