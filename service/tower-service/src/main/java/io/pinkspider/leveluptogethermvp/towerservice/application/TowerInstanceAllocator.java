@@ -117,9 +117,22 @@ public class TowerInstanceAllocator {
         }
     }
 
+    /**
+     * 새 방 — 번호는 이 층에서 비어 있는 가장 작은 번호(LUT-738). 번호 없는 옛 방이 있으면 이때 채운다. 방을 여는 경로(입장·자동 착석)는 층 행 잠금
+     * 안이라 번호가 겹치지 않는다.
+     */
     private TowerInstance open(TowerFloor floor, LocalDateTime now) {
+        List<TowerInstance> existing =
+                towerInstanceRepository.findAllByFloorNumberOrderByIdAsc(floor.getFloorNumber());
+        java.util.Map<Long, Integer> numbers = TowerInstance.displayNumbers(existing);
+        for (TowerInstance instance : existing) {
+            if (instance.getInstanceNo() == null) {
+                instance.assignNumber(numbers.get(instance.getId()));
+            }
+        }
+        int no = TowerInstance.nextNumber(numbers.values());
         TowerInstance created =
-                towerInstanceRepository.save(TowerInstance.open(floor.getFloorNumber(), now));
+                towerInstanceRepository.save(TowerInstance.open(floor.getFloorNumber(), no, now));
         log.info("[tower] 새 인스턴스: floor={} instanceId={}", floor.getFloorNumber(), created.getId());
         return created;
     }

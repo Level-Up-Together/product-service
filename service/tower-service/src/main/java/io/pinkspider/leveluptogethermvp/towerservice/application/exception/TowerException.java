@@ -10,13 +10,35 @@ import org.springframework.http.HttpStatus;
 public abstract class TowerException extends CustomException {
 
     private final HttpStatus status;
+    private final Object[] messageArgs;
+    private final Object detail;
 
     protected TowerException(String code, String messageKey, HttpStatus status) {
+        this(code, messageKey, status, null, null);
+    }
+
+    /** LUT-738: 문구 인자({0})와 응답 {@code value} 로 내려 줄 세부 값(예: 남은 초) */
+    protected TowerException(
+            String code,
+            String messageKey,
+            HttpStatus status,
+            Object[] messageArgs,
+            Object detail) {
         super(code, messageKey);
         this.status = status;
+        this.messageArgs = messageArgs;
+        this.detail = detail;
     }
 
     public HttpStatus getStatus() {
         return status;
+    }
+
+    public Object[] getMessageArgs() {
+        return messageArgs;
+    }
+
+    public Object getDetail() {
+        return detail;
     }
 }

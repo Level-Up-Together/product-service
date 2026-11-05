@@ -298,6 +298,15 @@ public class SecurityConfig {
                                         // 로그인 표는 서비스가 주인을 본다)
                                         .requestMatchers(HttpMethod.GET, "/api/v1/tower/queue/*")
                                         .permitAll()
+                                        // LUT-738: 방 목록·방 이동 — 방문객도 같은 층 안에서 옮긴다(visitor_key, 판정은
+                                        // 서비스)
+                                        .requestMatchers(
+                                                HttpMethod.GET, "/api/v1/tower/floors/*/instances")
+                                        .permitAll()
+                                        .requestMatchers(
+                                                HttpMethod.POST,
+                                                "/api/v1/tower/instances/*/move-in")
+                                        .permitAll()
                                         .requestMatchers(HttpMethod.DELETE, "/api/v1/tower/queue/*")
                                         .permitAll()
                                         .requestMatchers(HttpMethod.GET, "/api/v1/shop-items")
