@@ -2,13 +2,14 @@ package io.pinkspider.leveluptogethermvp.towerservice.api;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
-import static org.springframework.restdocs.mockmvc.MockMvcRestDocumentation.document;
 import static org.springframework.restdocs.payload.PayloadDocumentation.fieldWithPath;
 import static org.springframework.restdocs.payload.PayloadDocumentation.requestFields;
 import static org.springframework.restdocs.payload.PayloadDocumentation.responseFields;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.epages.restdocs.apispec.MockMvcRestDocumentationWrapper;
+import com.epages.restdocs.apispec.ResourceSnippetParameters;
 import io.pinkspider.leveluptogethermvp.config.ControllerTestConfig;
 import io.pinkspider.leveluptogethermvp.towerservice.application.TowerSettingService;
 import io.pinkspider.leveluptogethermvp.towerservice.domain.dto.TowerSettingsRequest;
@@ -54,8 +55,13 @@ class TowerSettingAdminInternalControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.value.max_concurrent_users").value(300))
                 .andDo(
-                        document(
+                        MockMvcRestDocumentationWrapper.document(
                                 "internal-tower-settings-get",
+                                ResourceSnippetParameters.builder()
+                                        .tag("Tower - Admin Internal")
+                                        .description(
+                                                "탑 공통 설정 조회 (LUT-635) — 동시 접속 상한(null = 제한 없음)·NPC"
+                                                        + " 노출 비율(LUT-693)"),
                                 responseFields(
                                         fieldWithPath("code").description("응답 코드"),
                                         fieldWithPath("message").description("응답 메시지"),
@@ -86,8 +92,13 @@ class TowerSettingAdminInternalControllerTest {
                 .andExpect(jsonPath("$.value.max_concurrent_users").value(500))
                 .andExpect(jsonPath("$.value.npc_exposure_percent").value(40))
                 .andDo(
-                        document(
+                        MockMvcRestDocumentationWrapper.document(
                                 "internal-tower-settings-update",
+                                ResourceSnippetParameters.builder()
+                                        .tag("Tower - Admin Internal")
+                                        .description(
+                                                "탑 공통 설정 저장 (LUT-635/693) — 저장 즉시 반영, null 인 항목은"
+                                                        + " 바꾸지 않는다"),
                                 requestFields(
                                         fieldWithPath("max_concurrent_users")
                                                 .description("탑 전체 동시 접속 상한 (1 이상, null 이면 제한 없음)")

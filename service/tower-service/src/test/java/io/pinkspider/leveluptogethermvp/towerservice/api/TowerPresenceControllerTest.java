@@ -3,7 +3,6 @@ package io.pinkspider.leveluptogethermvp.towerservice.api;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
-import static org.springframework.restdocs.mockmvc.MockMvcRestDocumentation.document;
 import static org.springframework.restdocs.payload.PayloadDocumentation.fieldWithPath;
 import static org.springframework.restdocs.payload.PayloadDocumentation.responseFields;
 import static org.springframework.restdocs.request.RequestDocumentation.parameterWithName;
@@ -12,6 +11,8 @@ import static org.springframework.restdocs.request.RequestDocumentation.queryPar
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.epages.restdocs.apispec.MockMvcRestDocumentationWrapper;
+import com.epages.restdocs.apispec.ResourceSnippetParameters;
 import io.pinkspider.leveluptogethermvp.config.ControllerTestConfig;
 import io.pinkspider.leveluptogethermvp.towerservice.TowerTestFixtures;
 import io.pinkspider.leveluptogethermvp.towerservice.application.TowerPresenceQueryService;
@@ -109,8 +110,13 @@ class TowerPresenceControllerTest {
                 .andExpect(jsonPath("$.value.npc_shown").value(true))
                 .andExpect(jsonPath("$.value.traces.completed_today").value(4))
                 .andDo(
-                        document(
+                        MockMvcRestDocumentationWrapper.document(
                                 "tower-instance-presence",
+                                ResourceSnippetParameters.builder()
+                                        .tag("Tower")
+                                        .description(
+                                                "방 입장 스냅샷 (LUT-631) — 점유자 위치·상태·아바타 + NPC·오늘의"
+                                                        + " 흔적(LUT-693). 그 방 점유자만, 아니면 403 150205"),
                                 pathParameters(
                                         parameterWithName("instanceId")
                                                 .description("인스턴스(방) ID — 입장 응답 instance_id")),

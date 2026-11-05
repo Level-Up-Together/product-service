@@ -6,7 +6,6 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
-import static org.springframework.restdocs.mockmvc.MockMvcRestDocumentation.document;
 import static org.springframework.restdocs.payload.PayloadDocumentation.fieldWithPath;
 import static org.springframework.restdocs.payload.PayloadDocumentation.requestFields;
 import static org.springframework.restdocs.payload.PayloadDocumentation.responseFields;
@@ -17,6 +16,8 @@ import static org.springframework.security.test.web.servlet.request.SecurityMock
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.epages.restdocs.apispec.MockMvcRestDocumentationWrapper;
+import com.epages.restdocs.apispec.ResourceSnippetParameters;
 import io.pinkspider.leveluptogethermvp.config.ControllerTestConfig;
 import io.pinkspider.leveluptogethermvp.towerservice.application.TowerEntryService;
 import io.pinkspider.leveluptogethermvp.towerservice.application.exception.TowerEntryException;
@@ -80,8 +81,14 @@ class TowerEntryControllerTest {
                 .andExpect(jsonPath("$.value.instance_id").value(10))
                 .andExpect(jsonPath("$.value.resumed").value(false))
                 .andDo(
-                        document(
+                        MockMvcRestDocumentationWrapper.document(
                                 "tower-floors-enter",
+                                ResourceSnippetParameters.builder()
+                                        .tag("Tower")
+                                        .description(
+                                                "층 입장·자동 배정 (LUT-630) — 정원이 남은 방 중 사람이 가장 많은 곳. 거절:"
+                                                    + " 없는 층 404 150201 · 비로그인 비허용 403 150202 · 레벨"
+                                                    + " 부족 403 150203. 비로그인 허용"),
                                 pathParameters(
                                         parameterWithName("floorNumber").description("층 번호")),
                                 queryParameters(
@@ -153,8 +160,13 @@ class TowerEntryControllerTest {
                 .andExpect(jsonPath("$.value.queued").value(true))
                 .andExpect(jsonPath("$.value.queue.position").value(3))
                 .andDo(
-                        document(
+                        MockMvcRestDocumentationWrapper.document(
                                 "tower-floors-enter-queued",
+                                ResourceSnippetParameters.builder()
+                                        .tag("Tower")
+                                        .description(
+                                                "층 입장 — 탑 전체 동시 접속 상한이면 배정 대신 대기 순번을 준다"
+                                                        + " (queued=true, LUT-701)"),
                                 responseFields(
                                         fieldWithPath("code").description("응답 코드"),
                                         fieldWithPath("message").description("응답 메시지"),
@@ -232,8 +244,13 @@ class TowerEntryControllerTest {
                 .andExpect(jsonPath("$.value.visitor_key").value("k-1"))
                 .andExpect(jsonPath("$.value.visitor_no").value(4821))
                 .andDo(
-                        document(
+                        MockMvcRestDocumentationWrapper.document(
                                 "tower-floors-enter-visitor",
+                                ResourceSnippetParameters.builder()
+                                        .tag("Tower")
+                                        .description(
+                                                "층 입장 — 방문객(비로그인)은 본문에 visitor_key·device_id 를 보낸다"
+                                                        + " (LUT-705)"),
                                 org.springframework.restdocs.payload.PayloadDocumentation
                                         .requestFields(
                                                 fieldWithPath("visitor_key")
@@ -307,8 +324,13 @@ class TowerEntryControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.value.left").value(true))
                 .andDo(
-                        document(
+                        MockMvcRestDocumentationWrapper.document(
                                 "tower-leave",
+                                ResourceSnippetParameters.builder()
+                                        .tag("Tower")
+                                        .description(
+                                                "탑 퇴장 (LUT-630) — 멱등, 미션 중이면 자리를 남긴다. 방문객은"
+                                                        + " visitor_key. 비로그인 허용"),
                                 requestFields(
                                         fieldWithPath("visitor_key")
                                                 .description("방문객 키 (입장 응답, 비로그인만 — 로그인 유저는 본문 생략)")
@@ -348,8 +370,13 @@ class TowerEntryControllerTest {
                 .andExpect(jsonPath("$.value.left").value(true))
                 .andExpect(jsonPath("$.value.seat_held").value(false))
                 .andDo(
-                        document(
+                        MockMvcRestDocumentationWrapper.document(
                                 "tower-vacate",
+                                ResourceSnippetParameters.builder()
+                                        .tag("Tower")
+                                        .description(
+                                                "자리 직접 비우기 (LUT-632) — 미션은 계속, 자동 착석 자리 포함. 로그인"
+                                                        + " 필요"),
                                 responseFields(
                                         fieldWithPath("code").description("응답 코드"),
                                         fieldWithPath("message").description("응답 메시지"),
@@ -373,8 +400,13 @@ class TowerEntryControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.value.floor_number").value(3))
                 .andDo(
-                        document(
+                        MockMvcRestDocumentationWrapper.document(
                                 "tower-me",
+                                ResourceSnippetParameters.builder()
+                                        .tag("Tower")
+                                        .description(
+                                                "내 자리 (LUT-713) — 미션 진행 화면 탑 카드가 서버 값으로 그린다. 로그인"
+                                                        + " 필요"),
                                 responseFields(
                                         fieldWithPath("code").description("응답 코드"),
                                         fieldWithPath("message").description("응답 메시지"),

@@ -3,7 +3,6 @@ package io.pinkspider.leveluptogethermvp.towerservice.api;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
-import static org.springframework.restdocs.mockmvc.MockMvcRestDocumentation.document;
 import static org.springframework.restdocs.payload.PayloadDocumentation.fieldWithPath;
 import static org.springframework.restdocs.payload.PayloadDocumentation.requestFields;
 import static org.springframework.restdocs.payload.PayloadDocumentation.responseFields;
@@ -12,6 +11,8 @@ import static org.springframework.restdocs.request.RequestDocumentation.pathPara
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.epages.restdocs.apispec.MockMvcRestDocumentationWrapper;
+import com.epages.restdocs.apispec.ResourceSnippetParameters;
 import io.pinkspider.leveluptogethermvp.config.ControllerTestConfig;
 import io.pinkspider.leveluptogethermvp.towerservice.application.TowerFloorGuideService;
 import io.pinkspider.leveluptogethermvp.towerservice.application.exception.TowerFloorGuideException;
@@ -131,8 +132,11 @@ class TowerFloorGuideAdminInternalControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.value.version").value(2))
                 .andDo(
-                        document(
+                        MockMvcRestDocumentationWrapper.document(
                                 "internal-tower-floor-guide-get",
+                                ResourceSnippetParameters.builder()
+                                        .tag("Tower - Admin Internal")
+                                        .description("층 첫 방문 안내 조회 (LUT-734)"),
                                 pathParameters(parameterWithName("floorId").description("층 ID")),
                                 responseFields(responseDocs())));
 
@@ -143,8 +147,13 @@ class TowerFloorGuideAdminInternalControllerTest {
                                 .content(BODY))
                 .andExpect(status().isOk())
                 .andDo(
-                        document(
+                        MockMvcRestDocumentationWrapper.document(
                                 "internal-tower-floor-guide-save",
+                                ResourceSnippetParameters.builder()
+                                        .tag("Tower - Admin Internal")
+                                        .description(
+                                                "층 첫 방문 안내 저장 (LUT-734) — reshow=true 면 버전을 올려 다시"
+                                                        + " 보여 준다. 거절 400 1506xx"),
                                 pathParameters(parameterWithName("floorId").description("층 ID")),
                                 requestFields(
                                         fieldWithPath("enabled").description("켜기 (필수)"),

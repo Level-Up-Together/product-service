@@ -189,6 +189,13 @@ preflight(OPTIONS) 응답의 `Access-Control-Allow-Headers` 를 검증한다. �
 `X-Device-Type`·`Idempotency-Key`) 전부 + 모르는 헤더 거부(와일드카드 아님) + 401 에러 응답의 CORS 헤더까지 고정한다.
 **커스텀 헤더를 추가할 때 `SecurityConfig` 허용목록과 이 테스트의 `ALLOWED_CLIENT_HEADERS` 양쪽에 등록할 것.**
 
+**OpenAPI 커버리지 가드** (`RestDocsOpenApiCoverageTest`, LUT-741): OpenAPI 명세(`openapi3`)는 epages `MockMvcRestDocumentationWrapper.document` 로 만든
+조각만 담는다. 스프링 기본 `MockMvcRestDocumentation.document()` 는 테스트만 통과하고 그 API 는 Swagger·웹 명세 사본에서 빠진다(탑 API 33개·기기 토큰 등 46개가
+그랬다). 이 테스트가 테스트 소스를 읽어 ① 기본 `document()` 사용 ② epages 조각이 하나도 없는 `@WebMvcTest` `*ControllerTest` 를 막는다.
+기존 조각은 그대로 두고 `MockMvcRestDocumentationWrapper.document(id, ResourceSnippetParameters.builder().tag(..).description(..), 조각...)` 로 감싸면
+요청·응답 필드·경로·쿼리 값이 OpenAPI 로 자동으로 옮겨진다. 태그는 사용자 API `Tower`·내부 API `… - Admin Internal` 관례.
+POST·DELETE 의 쿼리 값은 `.param()` 이 아니라 `.queryParam()` 으로 보낼 것(폼 값으로 잡혀 `queryParameters` 조각이 실패한다).
+
 ## 코드 컨벤션
 
 - **API 필드명**: snake_case (프론트 통신)

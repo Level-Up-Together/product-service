@@ -4,7 +4,6 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.when;
-import static org.springframework.restdocs.mockmvc.MockMvcRestDocumentation.document;
 import static org.springframework.restdocs.payload.PayloadDocumentation.fieldWithPath;
 import static org.springframework.restdocs.payload.PayloadDocumentation.requestFields;
 import static org.springframework.restdocs.payload.PayloadDocumentation.responseFields;
@@ -15,6 +14,8 @@ import static org.springframework.security.test.web.servlet.request.SecurityMock
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.epages.restdocs.apispec.MockMvcRestDocumentationWrapper;
+import com.epages.restdocs.apispec.ResourceSnippetParameters;
 import io.pinkspider.leveluptogethermvp.config.ControllerTestConfig;
 import io.pinkspider.leveluptogethermvp.towerservice.application.TowerChatService;
 import io.pinkspider.leveluptogethermvp.towerservice.application.exception.TowerChatException;
@@ -100,8 +101,13 @@ class TowerChatControllerTest {
                 .andExpect(jsonPath("$.value.content").value("안녕 **야"))
                 .andExpect(jsonPath("$.value.masked").value(true))
                 .andDo(
-                        document(
+                        MockMvcRestDocumentationWrapper.document(
                                 "tower-chat-send",
+                                ResourceSnippetParameters.builder()
+                                        .tag("Tower")
+                                        .description(
+                                                "탑 채팅 전송 (LUT-633) — 처리된 메시지(금칙어 가림)를 돌려준다. 거절"
+                                                        + " 1503xx. 비로그인 허용(visitor_key)"),
                                 pathParameters(
                                         parameterWithName("instanceId").description("인스턴스 ID")),
                                 requestFields(
@@ -190,8 +196,13 @@ class TowerChatControllerTest {
                 .andExpect(jsonPath("$.value.cheer").value(true))
                 .andExpect(jsonPath("$.value.cheer_count").value(3))
                 .andDo(
-                        document(
+                        MockMvcRestDocumentationWrapper.document(
                                 "tower-chat-react",
+                                ResourceSnippetParameters.builder()
+                                        .tag("Tower")
+                                        .description(
+                                                "리액션 보내기 (LUT-633) — 프리셋 이모지, 완료 응원 창 안에서"
+                                                    + " target_user_id 를 주면 응원으로 센다. 미션 중에도 허용"),
                                 pathParameters(
                                         parameterWithName("instanceId").description("인스턴스 ID")),
                                 requestFields(
@@ -239,8 +250,13 @@ class TowerChatControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.value.messages[0].id").value("m-1"))
                 .andDo(
-                        document(
+                        MockMvcRestDocumentationWrapper.document(
                                 "tower-chat-history",
+                                ResourceSnippetParameters.builder()
+                                        .tag("Tower")
+                                        .description(
+                                                "최근 채팅 50건 (LUT-633) — 로그인 요청자는 차단 유저를 뺀다. 방문객은"
+                                                        + " visitor_key"),
                                 pathParameters(
                                         parameterWithName("instanceId").description("인스턴스 ID")),
                                 queryParameters(
@@ -290,8 +306,11 @@ class TowerChatControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.value.emojis[0]").value("👍"))
                 .andDo(
-                        document(
+                        MockMvcRestDocumentationWrapper.document(
                                 "tower-chat-reaction-presets",
+                                ResourceSnippetParameters.builder()
+                                        .tag("Tower")
+                                        .description("리액션 프리셋 6종 (LUT-633)"),
                                 responseFields(
                                         fieldWithPath("code").description("응답 코드"),
                                         fieldWithPath("message").description("응답 메시지"),

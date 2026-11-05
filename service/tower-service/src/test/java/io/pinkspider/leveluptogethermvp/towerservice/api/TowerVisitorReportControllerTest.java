@@ -3,7 +3,6 @@ package io.pinkspider.leveluptogethermvp.towerservice.api;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
-import static org.springframework.restdocs.mockmvc.MockMvcRestDocumentation.document;
 import static org.springframework.restdocs.payload.PayloadDocumentation.fieldWithPath;
 import static org.springframework.restdocs.payload.PayloadDocumentation.requestFields;
 import static org.springframework.restdocs.payload.PayloadDocumentation.responseFields;
@@ -13,6 +12,8 @@ import static org.springframework.security.test.web.servlet.request.SecurityMock
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.epages.restdocs.apispec.MockMvcRestDocumentationWrapper;
+import com.epages.restdocs.apispec.ResourceSnippetParameters;
 import io.pinkspider.leveluptogethermvp.config.ControllerTestConfig;
 import io.pinkspider.leveluptogethermvp.towerservice.application.exception.TowerVisitorException;
 import io.pinkspider.leveluptogethermvp.towerservice.application.visitor.TowerVisitorReportService;
@@ -65,8 +66,13 @@ class TowerVisitorReportControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.value.report_id").value(77))
                 .andDo(
-                        document(
+                        MockMvcRestDocumentationWrapper.document(
                                 "tower-visitor-report",
+                                ResourceSnippetParameters.builder()
+                                        .tag("Tower")
+                                        .description(
+                                                "같은 방 방문객 신고 (LUT-705) — 로그인 필요. 대상이 그 방 방문객이 아니면"
+                                                    + " 404 150504, 24시간 안 재신고는 기존 ID(duplicate)"),
                                 pathParameters(parameterWithName("instanceId").description("방 ID")),
                                 requestFields(
                                         fieldWithPath("occupant_id")
