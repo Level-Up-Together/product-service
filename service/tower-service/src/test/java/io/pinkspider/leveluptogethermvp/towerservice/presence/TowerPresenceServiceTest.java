@@ -411,4 +411,116 @@ class TowerPresenceServiceTest {
         assertThat(service.join(occupant(7L, 9L, 1, "u1", TowerOccupantKind.DIRECT, false)).x())
                 .isEqualTo(100);
     }
+
+    private static UserItemDto equipped(String type, String image) {
+        return new UserItemDto(
+                1L,
+                "u1",
+                5L,
+                "아이템",
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                type,
+                TitleRarity.RARE,
+                image,
+                "BACK",
+                null,
+                true,
+                null);
+    }
+
+    @Test
+    @DisplayName("LUT-737 아바타 다시 채우기: 닉네임·사진·레벨·장착 아이템만 지금 값으로, 위치·연결·상태는 그대로 + ENTER · 없으면 새로 만든다")
+    void refreshAvatar() {
+        TowerOccupant o = occupant(7L, 9L, 1, "u1", TowerOccupantKind.DIRECT, true);
+        TowerPresence old =
+                new TowerPresence(
+                        7L,
+                        9L,
+                        1,
+                        "u1",
+                        "DIRECT",
+                        null,
+                        "옛닉",
+                        "old.png",
+                        3,
+                        List.of(new TowerAvatarItem("BASIC", "old-wing.png", "BACK", null, "RARE")),
+                        150,
+                        250,
+                        "MISSION",
+                        true,
+                        false,
+                        LocalDateTime.now(),
+                        null);
+        when(store.find(9L, 7L)).thenReturn(Optional.of(old));
+        when(userFacade.getUserProfile("u1"))
+                .thenReturn(new UserProfileInfo("u1", "새닉", "new.png", 4, null, null, null));
+        when(gamificationFacade.getUserLevel("u1")).thenReturn(5);
+        when(gamificationFacade.getEquippedItemsByUserId("u1"))
+                .thenReturn(List.of(equipped("HEAD", "new-hat.png")));
+
+        TowerPresence refreshed = service.refreshAvatar(o);
+
+        assertThat(refreshed.nickname()).isEqualTo("새닉");
+        assertThat(refreshed.picture()).isEqualTo("new.png");
+        assertThat(refreshed.level()).isEqualTo(5);
+        assertThat(refreshed.items())
+                .extracting(TowerAvatarItem::imageUrl)
+                .containsExactly("new-hat.png");
+        assertThat(refreshed.x()).isEqualTo(150);
+        assertThat(refreshed.y()).isEqualTo(250);
+        assertThat(refreshed.state()).isEqualTo("MISSION");
+        assertThat(refreshed.isConnected()).isTrue();
+        verify(store).save(refreshed);
+        TowerInstanceEvent enter = published(9L, 0);
+        assertThat(enter.type()).isEqualTo(TowerInstanceEvent.TYPE_ENTER);
+
+        // presence 가 없으면(Redis 유실) 새로 만든다
+        when(store.find(9L, 7L)).thenReturn(Optional.empty());
+        TowerPresence rebuilt = service.refreshAvatar(o);
+        assertThat(rebuilt.nickname()).isEqualTo("새닉");
+        assertThat(rebuilt.isConnected()).isFalse();
+    }
+
+    @Test
+    @DisplayName("LUT-737 방문객은 아바타 데이터가 없어 그대로 · 장착 변경: 탑에 있으면 다시 채우고 true, 없으면 false")
+    void visitorAndAvatarChanged() {
+        TowerOccupant visitor = occupant(8L, 9L, 1, null, TowerOccupantKind.VISITOR, false);
+        TowerPresence vp =
+                new TowerPresence(
+                        8L,
+                        9L,
+                        1,
+                        null,
+                        "VISITOR",
+                        4821,
+                        null,
+                        null,
+                        null,
+                        List.of(),
+                        100,
+                        200,
+                        "REST",
+                        true,
+                        false,
+                        LocalDateTime.now(),
+                        "tag");
+        when(store.find(9L, 8L)).thenReturn(Optional.of(vp));
+        assertThat(service.refreshAvatar(visitor)).isSameAs(vp);
+        verify(publisher, never()).publishToInstance(eq(9L), any());
+
+        TowerOccupant o = occupant(7L, 9L, 1, "u1", TowerOccupantKind.DIRECT, false);
+        when(occupantRepository.findByUserId("u1")).thenReturn(Optional.of(o));
+        when(gamificationFacade.getEquippedItemsByUserId("u1"))
+                .thenReturn(List.of(equipped("FULL", "full.png")));
+        assertThat(service.avatarChanged("u1")).isTrue();
+        assertThat(published(9L, 0).type()).isEqualTo(TowerInstanceEvent.TYPE_ENTER);
+        when(occupantRepository.findByUserId("nobody")).thenReturn(Optional.empty());
+        assertThat(service.avatarChanged("nobody")).isFalse();
+    }
 }
