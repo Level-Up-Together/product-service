@@ -107,6 +107,32 @@ public record TowerPresence(
                 visitorTag);
     }
 
+    /** LUT-737: 아바타(닉네임·사진·레벨·장착 아이템)만 바꾼다 — 위치·연결·상태는 그대로 */
+    public TowerPresence withAvatar(
+            String newNickname,
+            String newPicture,
+            Integer newLevel,
+            List<TowerAvatarItem> newItems) {
+        return new TowerPresence(
+                occupantId,
+                instanceId,
+                floorNumber,
+                userId,
+                kind,
+                visitorNo,
+                newNickname,
+                newPicture,
+                newLevel,
+                newItems,
+                x,
+                y,
+                state,
+                connected,
+                autoSeated,
+                lastActiveAt,
+                visitorTag);
+    }
+
     public TowerPresence withLevel(int newLevel) {
         return new TowerPresence(
                 occupantId,

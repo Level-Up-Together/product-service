@@ -216,6 +216,9 @@ public class TowerEntryService {
             occupant = towerOccupantRepository.save(occupant);
             presenceService.register(occupant, false); // LUT-631: 같은 방에 ENTER, 연결은 웹소켓 join 때
             allocator.relocateAutoSeatedOverflow(locked, instance.getId(), now);
+        } else if (userId != null) {
+            // LUT-737: 자리를 이어 쓰는 복귀(자리 유지·자동 착석 → 직접 입장)도 아바타는 지금 값으로 — 탑 밖에서 장착을 바꿨을 수 있다
+            presenceService.refreshAvatar(occupant);
         }
 
         Boolean firstVisit = null;

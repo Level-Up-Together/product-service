@@ -218,6 +218,8 @@ class TowerEntryServiceTest {
         verify(allocator, never()).pickForDirectEntry(any(), any());
         verify(occupantRepository, never()).save(any());
         verify(presenceService, never()).register(any(), org.mockito.ArgumentMatchers.anyBoolean());
+        // LUT-737: 자리를 이어 써도 아바타(장착 아이템 등)는 지금 값으로 다시 채운다
+        verify(presenceService).refreshAvatar(held);
         verify(userStateRepository).save(any(TowerUserState.class));
     }
 
@@ -492,5 +494,14 @@ class TowerEntryServiceTest {
         stub(f1);
         when(allocator.pickForDirectEntry(eq(f1), any())).thenReturn(instance(10L, 1));
         assertThat(service.enter(null, 1).firstVisit()).isNull();
+    }
+
+    @Test
+    @DisplayName("LUT-737 새로 앉는 입장은 register 가 아바타를 읽으므로 다시 채우지 않는다")
+    void newEntryDoesNotRefresh() {
+        stub(f2Unlimited);
+        service.enter(USER, 2);
+        verify(presenceService).register(any(), org.mockito.ArgumentMatchers.anyBoolean());
+        verify(presenceService, never()).refreshAvatar(any());
     }
 }

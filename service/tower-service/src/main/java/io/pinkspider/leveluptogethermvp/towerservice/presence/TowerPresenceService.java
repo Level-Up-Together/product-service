@@ -146,6 +146,39 @@ public class TowerPresenceService implements TowerPresenceGateway {
                 .ifPresent(p -> store.save(p.withState(state)));
     }
 
+    /**
+     * LUT-737: 아바타(닉네임·사진·레벨·장착 아이템)를 지금 값으로 다시 채운다 — 위치·연결·상태는 그대로. 같은 방에 ENTER 로 알린다(클라이언트는 이미 있는
+     * 점유자면 아바타만 바꾸는 업서트). presence 가 없으면(Redis 유실) 새로 만든다. 방문객은 아바타 데이터가 없어 그대로 둔다.
+     */
+    public TowerPresence refreshAvatar(TowerOccupant occupant) {
+        LocalDateTime now = LocalDateTime.now();
+        Optional<TowerPresence> current = store.find(occupant.getInstanceId(), occupant.getId());
+        if (occupant.getUserId() == null && current.isPresent()) {
+            return current.get();
+        }
+        TowerPresence fresh = build(occupant, false, now);
+        TowerPresence presence =
+                current.map(
+                                old ->
+                                        old.withAvatar(
+                                                fresh.nickname(),
+                                                fresh.picture(),
+                                                fresh.level(),
+                                                fresh.items()))
+                        .orElse(fresh);
+        store.save(presence);
+        publisher.publishToInstance(
+                occupant.getInstanceId(), TowerInstanceEvent.enter(presence.toView(), now));
+        return presence;
+    }
+
+    /** LUT-737: 장착 아이템이 바뀌었다 — 탑에 있으면(자리 유지·자동 착석 포함) 아바타를 다시 채워 같은 방에 알린다 */
+    public boolean avatarChanged(String userId) {
+        Optional<TowerOccupant> occupant = occupantRepository.findByUserId(userId);
+        occupant.ifPresent(this::refreshAvatar);
+        return occupant.isPresent();
+    }
+
     /** 레벨이 올랐다 — 탑에 있으면 presence 갱신 + 같은 방에 LEVEL 브로드캐스트(머리 위 이름표) */
     public boolean levelChanged(String userId, int level) {
         Optional<TowerOccupant> occupant = occupantRepository.findByUserId(userId);
