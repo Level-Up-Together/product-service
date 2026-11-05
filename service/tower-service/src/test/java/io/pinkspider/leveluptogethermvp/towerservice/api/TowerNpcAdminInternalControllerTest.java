@@ -183,7 +183,8 @@ class TowerNpcAdminInternalControllerTest {
             fieldWithPath("status_text_en").description("상태 문구 (영어)").optional(),
             fieldWithPath("status_text_ja").description("상태 문구 (일본어)").optional(),
             fieldWithPath("status_text_ar").description("상태 문구 (아랍어)").optional(),
-            fieldWithPath("seat_x").description("자리 X (배경 원본 픽셀) — 마스크 밖이면 150403"),
+            fieldWithPath("seat_x")
+                    .description("자리 X (배경 원본 픽셀) — 배경 그림 밖이면 150403, 이동 불가 영역도 된다(LUT-746)"),
             fieldWithPath("seat_y").description("자리 Y"),
             fieldWithPath("lines").description("대사 목록 (1~50개)"),
             fieldWithPath("lines[].text").description("대사 (한국어) — 2줄을 넘으면 150404"),

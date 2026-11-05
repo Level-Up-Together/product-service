@@ -55,16 +55,15 @@ class TowerNpcAdminServiceTest {
     private final TowerFloor floor1 = floor(10L, 1, null, true, true);
 
     @Test
-    @DisplayName("등록: 마스크 안 자리·2줄 이내 대사면 저장, 공백 상태 문구는 비운다 · 목록은 층별")
+    @DisplayName("등록: 배경 안 자리·2줄 이내 대사면 저장(LUT-746 — 바닥 마스크는 보지 않는다), 공백 상태 문구는 비운다 · 목록은 층별")
     void create() throws IOException {
         when(floorRepository.findById(10L)).thenReturn(Optional.of(floor1));
         when(npcRepository.countByFloorId(10L)).thenReturn(2L);
-        when(maskChecker.isWalkable(
-                        floor1.getFloorMaskUrl(), floor1.getBackgroundImageUrl(), 300, 400))
-                .thenReturn(true);
+        when(maskChecker.isInsideImage(floor1.getBackgroundImageUrl(), 300, 400)).thenReturn(true);
         when(npcRepository.save(any(TowerNpc.class))).thenAnswer(inv -> inv.getArgument(0));
 
         TowerNpcAdminResponse res = service.create(10L, npcRequest(IMG, 300, 400, "가".repeat(40)));
+        verify(maskChecker, never()).isWalkable(any(), any(), anyInt(), anyInt());
 
         ArgumentCaptor<TowerNpc> saved = ArgumentCaptor.forClass(TowerNpc.class);
         verify(npcRepository).save(saved.capture());
@@ -81,7 +80,7 @@ class TowerNpcAdminServiceTest {
     }
 
     @Test
-    @DisplayName("거부: 층 없음 404 150101 · 층당 4번째 150402 · 마스크 밖 150403 · 마스크 못 읽음 150109")
+    @DisplayName("거부: 층 없음 404 150101 · 층당 4번째 150402 · 배경 밖 150403 · 배경 못 읽음 150109")
     void createRejected() throws IOException {
         when(floorRepository.findById(99L)).thenReturn(Optional.empty());
         assertThatThrownBy(() -> service.create(99L, npcRequest(IMG, 1, 1, "안녕")))
@@ -98,14 +97,13 @@ class TowerNpcAdminServiceTest {
                 .isEqualTo(TowerNpcException.LIMIT_EXCEEDED);
 
         when(npcRepository.countByFloorId(10L)).thenReturn(0L);
-        when(maskChecker.isWalkable(anyString(), anyString(), anyInt(), anyInt()))
-                .thenReturn(false);
+        when(maskChecker.isInsideImage(anyString(), anyInt(), anyInt())).thenReturn(false);
         assertThatThrownBy(() -> service.create(10L, npcRequest(IMG, 1, 1, "안녕")))
                 .isInstanceOf(TowerNpcException.class)
                 .extracting("code")
-                .isEqualTo(TowerNpcException.SEAT_OUTSIDE_MASK);
+                .isEqualTo(TowerNpcException.SEAT_OUTSIDE_BACKGROUND);
 
-        when(maskChecker.isWalkable(anyString(), anyString(), anyInt(), anyInt()))
+        when(maskChecker.isInsideImage(anyString(), anyInt(), anyInt()))
                 .thenThrow(new IOException("down"));
         assertThatThrownBy(() -> service.create(10L, npcRequest(IMG, 1, 1, "안녕")))
                 .isInstanceOf(TowerFloorException.class)
@@ -169,7 +167,7 @@ class TowerNpcAdminServiceTest {
         String oldImage = existing.getProfileImageUrl();
         when(floorRepository.findById(10L)).thenReturn(Optional.of(floor1));
         when(npcRepository.findByIdAndFloorId(5L, 10L)).thenReturn(Optional.of(existing));
-        when(maskChecker.isWalkable(anyString(), anyString(), anyInt(), anyInt())).thenReturn(true);
+        when(maskChecker.isInsideImage(anyString(), anyInt(), anyInt())).thenReturn(true);
 
         TowerNpcAdminResponse res = service.update(10L, 5L, npcRequest(IMG, 50, 60, "새 대사"));
 
@@ -197,7 +195,7 @@ class TowerNpcAdminServiceTest {
     void autoBubble() throws IOException {
         when(floorRepository.findById(10L)).thenReturn(Optional.of(floor1));
         when(npcRepository.countByFloorId(10L)).thenReturn(0L);
-        when(maskChecker.isWalkable(anyString(), anyString(), anyInt(), anyInt())).thenReturn(true);
+        when(maskChecker.isInsideImage(anyString(), anyInt(), anyInt())).thenReturn(true);
         when(npcRepository.save(any(TowerNpc.class))).thenAnswer(inv -> inv.getArgument(0));
 
         TowerNpcAdminResponse plain = service.create(10L, npcRequest(IMG, 1, 1, "안녕"));
@@ -287,7 +285,7 @@ class TowerNpcAdminServiceTest {
     void cardValidation() throws IOException {
         when(floorRepository.findById(10L)).thenReturn(Optional.of(floor1));
         when(npcRepository.countByFloorId(10L)).thenReturn(0L);
-        when(maskChecker.isWalkable(anyString(), anyString(), anyInt(), anyInt())).thenReturn(true);
+        when(maskChecker.isInsideImage(anyString(), anyInt(), anyInt())).thenReturn(true);
         when(npcRepository.save(any(TowerNpc.class))).thenAnswer(inv -> inv.getArgument(0));
         TowerNpcAdminRequest base = npcRequest(IMG, 1, 1, "안녕");
         when(gamificationQueryFacade.findOnSaleShopItemIds(List.of(15L))).thenReturn(Set.of(15L));
@@ -405,7 +403,7 @@ class TowerNpcAdminServiceTest {
         String profile = existing.getProfileImageUrl();
         when(floorRepository.findById(10L)).thenReturn(Optional.of(floor1));
         when(npcRepository.findByIdAndFloorId(5L, 10L)).thenReturn(Optional.of(existing));
-        when(maskChecker.isWalkable(anyString(), anyString(), anyInt(), anyInt())).thenReturn(true);
+        when(maskChecker.isInsideImage(anyString(), anyInt(), anyInt())).thenReturn(true);
         TowerNpcAdminRequest base = npcRequest(IMG, 1, 1, "안녕");
 
         service.update(10L, 5L, base);

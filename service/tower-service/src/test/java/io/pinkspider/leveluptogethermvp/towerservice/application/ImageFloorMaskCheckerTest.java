@@ -77,6 +77,23 @@ class ImageFloorMaskCheckerTest {
     }
 
     @Test
+    @DisplayName(
+            "LUT-746 isInsideImage: 그림 너비·높이 안이면 true (마스크와 무관), 밖·음수는 false, 못 읽으면 IOException")
+    void insideImage() throws IOException {
+        assertThat(checker.isInsideImage(backgroundUrl, 0, 0)).isTrue();
+        assertThat(checker.isInsideImage(backgroundUrl, 19, 19)).isTrue(); // 마스크로는 이동 불가인 자리
+        assertThat(checker.isWalkable(maskUrl, backgroundUrl, 19, 19)).isFalse();
+        assertThat(checker.isInsideImage(backgroundUrl, 20, 5)).isFalse();
+        assertThat(checker.isInsideImage(backgroundUrl, 5, 20)).isFalse();
+        assertThat(checker.isInsideImage(backgroundUrl, -1, 0)).isFalse();
+        assertThatThrownBy(
+                        () ->
+                                checker.isInsideImage(
+                                        dir.resolve("none.png").toUri().toString(), 1, 1))
+                .isInstanceOf(IOException.class);
+    }
+
+    @Test
     @DisplayName("붉은색 판정: R 높고 G·B 낮고 불투명해야 한다")
     void isRed() {
         assertThat(ImageFloorMaskChecker.isRed(new Color(255, 0, 0, 255).getRGB())).isTrue();

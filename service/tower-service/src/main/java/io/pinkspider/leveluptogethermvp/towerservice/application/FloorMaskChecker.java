@@ -21,4 +21,11 @@ public interface FloorMaskChecker {
      * @throws IOException 마스크·배경을 읽을 수 없을 때
      */
     boolean sameAspectRatio(String maskUrl, String backgroundUrl) throws IOException;
+
+    /**
+     * LUT-746: 좌표(원본 픽셀)가 그림 안인가 — 0 ≤ x < 너비, 0 ≤ y < 높이. NPC 자리 저장 검증(이동 불가 영역에도 둘 수 있다).
+     *
+     * @throws IOException 그림을 읽을 수 없을 때
+     */
+    boolean isInsideImage(String imageUrl, int x, int y) throws IOException;
 }
