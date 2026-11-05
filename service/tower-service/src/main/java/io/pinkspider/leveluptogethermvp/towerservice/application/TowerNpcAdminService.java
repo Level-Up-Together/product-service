@@ -22,10 +22,11 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * LUT-693: 어드민 NPC CRUD (층마다 등록). 저장 규칙 — 층당 최대 3명(150402) · 자리는 층 마스크 안(150403, 못 읽으면 150109) · 대사
- * 한 문장 2줄 이내({@link TowerNpcTextRule}, 150404). 수정은 다음 입장(스냅샷)부터 반영된다. 안 쓰게 된 프로필 이미지는 커밋 뒤 지운다.
- * LUT-733: 창 이미지·링크 — 상점 아이템은 판매 중(150405)·이벤트는 있는 것(150405), 앱 경로 규칙({@link TowerNpcCardRule},
- * 150406), 기간 시작 ≤ 종료(150407). 안 쓰게 된 창 이미지도 지운다.
+ * LUT-693: 어드민 NPC CRUD (층마다 등록). 저장 규칙 — 층당 최대 3명(150402) · 자리는 배경 그림 안(150403, 못 읽으면 150109 —
+ * LUT-746 부터 이동 불가 영역에도 둘 수 있다. 유저가 걸어와 NPC 를 가리지 않게 카운터 뒤·벽 앞에 둔다) · 대사 한 문장 2줄 이내({@link
+ * TowerNpcTextRule}, 150404). 수정은 다음 입장(스냅샷)부터 반영된다. 안 쓰게 된 프로필 이미지는 커밋 뒤 지운다. LUT-733: 창 이미지·링크 —
+ * 상점 아이템은 판매 중(150405)·이벤트는 있는 것(150405), 앱 경로 규칙({@link TowerNpcCardRule}, 150406), 기간 시작 ≤
+ * 종료(150407). 안 쓰게 된 창 이미지도 지운다.
  */
 @Service
 @RequiredArgsConstructor
@@ -159,28 +160,27 @@ public class TowerNpcAdminService {
         return npc.getCard() != null ? npc.getCard().getImageUrl() : null;
     }
 
+    /** LUT-746: 자리는 배경 그림 안이기만 하면 된다 — 바닥 마스크(이동 가능 영역)는 보지 않는다. 음수는 요청 검증(@Min 0)이 먼저 막는다 */
     private void validateSeat(TowerFloor floor, int x, int y) {
         if (!maskCheckEnabled) {
             log.warn(
-                    "탑 NPC 자리 마스크 검사가 꺼져 있다(tower.floor.mask-check.enabled=false): floor={}",
+                    "탑 NPC 자리 배경 범위 검사가 꺼져 있다(tower.floor.mask-check.enabled=false): floor={}",
                     floor.getFloorNumber());
             return;
         }
         boolean inside;
         try {
-            inside =
-                    floorMaskChecker.isWalkable(
-                            floor.getFloorMaskUrl(), floor.getBackgroundImageUrl(), x, y);
+            inside = floorMaskChecker.isInsideImage(floor.getBackgroundImageUrl(), x, y);
         } catch (IOException | RuntimeException e) {
             log.warn(
-                    "탑 NPC 자리 검사 중 마스크를 읽지 못함: floor={}, mask={}, error={}",
+                    "탑 NPC 자리 검사 중 배경을 읽지 못함: floor={}, background={}, error={}",
                     floor.getFloorNumber(),
-                    floor.getFloorMaskUrl(),
+                    floor.getBackgroundImageUrl(),
                     e.getMessage());
-            throw TowerFloorException.maskUnreadable();
+            throw TowerFloorException.backgroundUnreadable();
         }
         if (!inside) {
-            throw TowerNpcException.seatOutsideMask();
+            throw TowerNpcException.seatOutsideBackground();
         }
     }
 

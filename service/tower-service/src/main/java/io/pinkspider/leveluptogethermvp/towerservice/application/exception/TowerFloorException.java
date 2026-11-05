@@ -80,6 +80,11 @@ public class TowerFloorException extends TowerException {
         return bad(MASK_UNREADABLE, "error.tower.floor.mask_unreadable");
     }
 
+    /** LUT-746: NPC 자리 검사에서 배경을 못 읽음 — 코드는 마스크 못 읽음과 같다 */
+    public static TowerFloorException backgroundUnreadable() {
+        return bad(MASK_UNREADABLE, "error.tower.floor.background_unreadable");
+    }
+
     public static TowerFloorException imageInvalid() {
         return bad(IMAGE_INVALID, "error.tower.floor.image_invalid");
     }

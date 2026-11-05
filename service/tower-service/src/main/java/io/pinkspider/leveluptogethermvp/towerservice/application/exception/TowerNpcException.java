@@ -7,7 +7,10 @@ public class TowerNpcException extends TowerException {
 
     public static final String NOT_FOUND = "150401";
     public static final String LIMIT_EXCEEDED = "150402";
-    public static final String SEAT_OUTSIDE_MASK = "150403";
+
+    /** LUT-746: 배경 그림 밖 (예전엔 바닥 마스크 밖 — 코드는 그대로) */
+    public static final String SEAT_OUTSIDE_BACKGROUND = "150403";
+
     public static final String LINE_TOO_LONG = "150404";
     public static final String CARD_LINK_TARGET_MISSING = "150405";
     public static final String CARD_LINK_INVALID = "150406";
@@ -26,8 +29,8 @@ public class TowerNpcException extends TowerException {
         return bad(LIMIT_EXCEEDED, "error.tower.npc.limit_exceeded");
     }
 
-    public static TowerNpcException seatOutsideMask() {
-        return bad(SEAT_OUTSIDE_MASK, "error.tower.npc.seat_outside_mask");
+    public static TowerNpcException seatOutsideBackground() {
+        return bad(SEAT_OUTSIDE_BACKGROUND, "error.tower.npc.seat_outside_background");
     }
 
     /** 대사 한 문장이 2줄(한글 약 40자)을 넘는다 */

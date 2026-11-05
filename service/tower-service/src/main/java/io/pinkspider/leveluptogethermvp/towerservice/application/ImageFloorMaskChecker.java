@@ -82,6 +82,15 @@ public class ImageFloorMaskChecker implements FloorMaskChecker {
         return isRed(mask.getRGB(mx, my));
     }
 
+    @Override
+    public boolean isInsideImage(String imageUrl, int x, int y) throws IOException {
+        BufferedImage image = load(imageUrl);
+        if (image == null) {
+            throw new IOException("image unreadable: " + imageUrl);
+        }
+        return x >= 0 && y >= 0 && x < image.getWidth() && y < image.getHeight();
+    }
+
     /** 비율 허용 오차 — 4분의 1 축소에서 생기는 반올림(한 변 1px) 정도 */
     static final double ASPECT_TOLERANCE = 0.02;
 
