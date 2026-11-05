@@ -1,6 +1,7 @@
 package io.pinkspider.leveluptogethermvp.towerservice.domain.dto;
 
 import io.pinkspider.global.event.MissionExecutionStartedEvent;
+import io.pinkspider.global.facade.dto.InProgressMissionDto;
 import org.springframework.lang.Nullable;
 
 /**
@@ -23,6 +24,12 @@ public record TowerMissionInfo(
                 e.missionTitle(),
                 e.categoryId(),
                 e.visibility());
+    }
+
+    /** LUT-749: 입장 때 조회한 진행 중 미션 — 실행 ID·종류는 모른다(방송·presence 에는 미션명·카테고리만 쓴다) */
+    public static TowerMissionInfo from(InProgressMissionDto dto) {
+        return new TowerMissionInfo(
+                dto.missionId(), null, null, dto.title(), dto.categoryId(), dto.visibility());
     }
 
     public boolean isPublic() {

@@ -17,6 +17,7 @@ import io.pinkspider.leveluptogethermvp.config.ControllerTestConfig;
 import io.pinkspider.leveluptogethermvp.towerservice.TowerTestFixtures;
 import io.pinkspider.leveluptogethermvp.towerservice.application.TowerPresenceQueryService;
 import io.pinkspider.leveluptogethermvp.towerservice.application.exception.TowerEntryException;
+import io.pinkspider.leveluptogethermvp.towerservice.domain.dto.TowerInstanceEvent;
 import io.pinkspider.leveluptogethermvp.towerservice.domain.dto.TowerNpcCardDto;
 import io.pinkspider.leveluptogethermvp.towerservice.domain.dto.TowerNpcView;
 import io.pinkspider.leveluptogethermvp.towerservice.domain.dto.TowerPresenceSnapshotResponse;
@@ -86,10 +87,12 @@ class TowerPresenceControllerTest {
                                                 1400,
                                                 1000,
                                                 "MISSION",
-                                                null),
+                                                null,
+                                                new TowerInstanceEvent.MissionInfo(
+                                                        "영어 단어 30개", 2L)),
                                         new TowerPresenceView(
                                                 8L, null, "VISITOR", 4821, null, null, null,
-                                                List.of(), 1380, 1010, "REST", null)),
+                                                List.of(), 1380, 1010, "REST", null, null)),
                                 List.of(
                                         TowerNpcView.from(
                                                 TowerTestFixtures.npc(3L, 1L, true),
@@ -105,6 +108,8 @@ class TowerPresenceControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.value.me").value(8))
                 .andExpect(jsonPath("$.value.occupants[0].level").value(12))
+                .andExpect(jsonPath("$.value.occupants[0].mission.title").value("영어 단어 30개"))
+                .andExpect(jsonPath("$.value.occupants[1].mission").doesNotExist())
                 .andExpect(jsonPath("$.value.occupants[1].visitor_no").value(4821))
                 .andExpect(jsonPath("$.value.npcs[0].name").value("탑지기"))
                 .andExpect(jsonPath("$.value.npc_shown").value(true))
@@ -171,6 +176,21 @@ class TowerPresenceControllerTest {
                                         fieldWithPath("value.occupants[].y").description("위치 Y"),
                                         fieldWithPath("value.occupants[].state")
                                                 .description("MISSION / REST"),
+                                        fieldWithPath("value.occupants[].mission")
+                                                .type(JsonFieldType.OBJECT)
+                                                .description(
+                                                        "LUT-749: 미션 중이고 공개 미션일 때만 — 들어올 때 이미 미션"
+                                                                + " 중이던 사람의 미션명. 비공개·휴식이면 내리지"
+                                                                + " 않는다(USER_STATE 와 같은 규칙)")
+                                                .optional(),
+                                        fieldWithPath("value.occupants[].mission.title")
+                                                .type(JsonFieldType.STRING)
+                                                .description("미션명")
+                                                .optional(),
+                                        fieldWithPath("value.occupants[].mission.category_id")
+                                                .type(JsonFieldType.NUMBER)
+                                                .description("미션 카테고리 ID (아이콘)")
+                                                .optional(),
                                         fieldWithPath("value.npcs")
                                                 .description(
                                                         "이 층의 공개 NPC (LUT-693 — 사람"

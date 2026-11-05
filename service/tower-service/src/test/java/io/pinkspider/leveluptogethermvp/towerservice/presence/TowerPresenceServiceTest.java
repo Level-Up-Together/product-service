@@ -183,6 +183,7 @@ class TowerPresenceServiceTest {
                         false,
                         true,
                         LocalDateTime.now(),
+                        null,
                         null);
         when(store.find(9L, 7L)).thenReturn(Optional.of(existing));
         service.moveInstance(o, 9L, 11L);
@@ -216,6 +217,7 @@ class TowerPresenceServiceTest {
                         true,
                         false,
                         LocalDateTime.now(),
+                        null,
                         null);
         when(store.find(9L, 7L)).thenReturn(Optional.of(p));
 
@@ -257,6 +259,7 @@ class TowerPresenceServiceTest {
                         false,
                         false,
                         LocalDateTime.now(),
+                        null,
                         null);
         when(store.find(9L, 7L)).thenReturn(Optional.of(last));
 
@@ -306,6 +309,7 @@ class TowerPresenceServiceTest {
                         true,
                         false,
                         LocalDateTime.now(),
+                        null,
                         null);
         when(store.find(9L, 7L)).thenReturn(Optional.of(p));
 
@@ -320,8 +324,19 @@ class TowerPresenceServiceTest {
         assertThat(service.levelChanged("nobody", 2)).isFalse();
         assertThat(service.isConnected("nobody")).isFalse();
 
-        service.updateState(o, TowerPresence.STATE_MISSION);
-        verify(store).save(p.withState(TowerPresence.STATE_MISSION));
+        // LUT-749: 상태와 함께 공개 미션 정보 — 휴식이면 미션 정보는 늘 비운다
+        TowerInstanceEvent.MissionInfo info = new TowerInstanceEvent.MissionInfo("영어 단어 30개", 2L);
+        service.updateState(o, TowerPresence.STATE_MISSION, info);
+        verify(store).save(p.withState(TowerPresence.STATE_MISSION, info));
+        assertThat(p.withState(TowerPresence.STATE_MISSION, info).toView().mission())
+                .isEqualTo(info);
+        assertThat(p.withState(TowerPresence.STATE_REST, info).mission()).isNull();
+        assertThat(
+                        p.withState(TowerPresence.STATE_MISSION, info)
+                                .withState(TowerPresence.STATE_REST, null)
+                                .toView()
+                                .mission())
+                .isNull();
         service.markDisconnected(9L, 7L);
         ArgumentCaptor<TowerPresence> saved = ArgumentCaptor.forClass(TowerPresence.class);
         verify(store, org.mockito.Mockito.atLeast(3)).save(saved.capture());
@@ -335,15 +350,15 @@ class TowerPresenceServiceTest {
         TowerPresence me =
                 new TowerPresence(
                         1L, 9L, 1, "me", "DIRECT", null, "나", null, 3, List.of(), 1, 1, "REST",
-                        true, false, null, null);
+                        true, false, null, null, null);
         TowerPresence blocked =
                 new TowerPresence(
                         2L, 9L, 1, "bad", "DIRECT", null, "차단", null, 3, List.of(), 2, 2, "REST",
-                        true, false, null, null);
+                        true, false, null, null, null);
         TowerPresence visitor =
                 new TowerPresence(
                         3L, 9L, 1, null, "VISITOR", 4821, null, null, null, List.of(), 3, 3, "REST",
-                        true, false, null, null);
+                        true, false, null, null, null);
         TowerPresence other =
                 new TowerPresence(
                         4L,
@@ -361,6 +376,7 @@ class TowerPresenceServiceTest {
                         "MISSION",
                         false,
                         true,
+                        null,
                         null,
                         null);
         when(store.listByInstance(9L)).thenReturn(List.of(me, blocked, visitor, other));
@@ -404,6 +420,7 @@ class TowerPresenceServiceTest {
                         true,
                         false,
                         LocalDateTime.now(),
+                        null,
                         null);
         when(store.find(9L, 7L)).thenReturn(Optional.of(p));
         assertThat(service.move(9L, 7L, 5, 5)).contains(new WalkableMask.Point(5, 5));
@@ -456,6 +473,7 @@ class TowerPresenceServiceTest {
                         true,
                         false,
                         LocalDateTime.now(),
+                        null,
                         null);
         when(store.find(9L, 7L)).thenReturn(Optional.of(old));
         when(userFacade.getUserProfile("u1"))
@@ -509,7 +527,8 @@ class TowerPresenceServiceTest {
                         true,
                         false,
                         LocalDateTime.now(),
-                        "tag");
+                        "tag",
+                        null);
         when(store.find(9L, 8L)).thenReturn(Optional.of(vp));
         assertThat(service.refreshAvatar(visitor)).isSameAs(vp);
         verify(publisher, never()).publishToInstance(eq(9L), any());

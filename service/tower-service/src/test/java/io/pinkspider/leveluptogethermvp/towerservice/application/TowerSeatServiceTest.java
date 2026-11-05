@@ -159,7 +159,9 @@ class TowerSeatServiceTest {
         assertThat(seat.getValue().getExecutionKind()).isEqualTo("REGULAR");
         // 입장(ENTER) 브로드캐스트는 LUT-631 — 여기서는 상태 이벤트 없음
         verify(publisher, never()).publishToInstance(any(), any());
-        verify(presenceService).register(captor.getValue(), false); // LUT-631: ENTER + 아바타 데이터
+        // LUT-631: ENTER + 아바타 데이터 · LUT-749: 공개 미션이면 미션명·카테고리도
+        verify(presenceService)
+                .register(captor.getValue(), false, new TowerInstanceEvent.MissionInfo("달리기", 3L));
     }
 
     @Test
@@ -205,7 +207,12 @@ class TowerSeatServiceTest {
                 .contains(new TowerSeatResult(2, 9L, false));
         assertThat(inTower.isMissionActive()).isTrue();
         verify(allocator, never()).pickForAutoSeat(any(), any(), any());
-        verify(presenceService).updateState(inTower, TowerInstanceEvent.STATE_MISSION); // LUT-631
+        // LUT-631 · LUT-749: 공개 미션이면 presence 에도 미션명·카테고리
+        verify(presenceService)
+                .updateState(
+                        inTower,
+                        TowerInstanceEvent.STATE_MISSION,
+                        new TowerInstanceEvent.MissionInfo("달리기", 3L));
         TowerInstanceEvent event = lastEvent(9L);
         assertThat(event.type()).isEqualTo(TowerInstanceEvent.TYPE_USER_STATE);
         assertThat(event.state()).isEqualTo(TowerInstanceEvent.STATE_MISSION);
@@ -227,6 +234,8 @@ class TowerSeatServiceTest {
         TowerInstanceEvent event = lastEvent(9L);
         assertThat(event.state()).isEqualTo(TowerInstanceEvent.STATE_MISSION);
         assertThat(event.mission()).isNull();
+        // LUT-749: presence 에도 미션명 없이 — 앞 미션이 공개였어도 지운다
+        verify(presenceService).updateState(inTower, TowerInstanceEvent.STATE_MISSION, null);
     }
 
     @Test
@@ -272,7 +281,7 @@ class TowerSeatServiceTest {
         assertThat(open.getSeatX()).isEqualTo(direct.getSeatX());
         assertThat(open.getSeatY()).isEqualTo(direct.getSeatY());
         verify(allocator, never()).remove(direct);
-        verify(presenceService).updateState(direct, TowerInstanceEvent.STATE_REST); // LUT-631
+        verify(presenceService).updateState(direct, TowerInstanceEvent.STATE_REST, null); // LUT-631
         ArgumentCaptor<Object> events = ArgumentCaptor.forClass(Object.class);
         verify(publisher, times(2)).publishToInstance(eq(9L), events.capture());
         TowerInstanceEvent first = (TowerInstanceEvent) events.getAllValues().get(0);

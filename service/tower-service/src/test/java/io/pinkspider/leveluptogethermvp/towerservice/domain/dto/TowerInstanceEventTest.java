@@ -57,6 +57,7 @@ class TowerInstanceEventTest {
                         10,
                         20,
                         "REST",
+                        null,
                         null);
         TowerInstanceEvent enter = TowerInstanceEvent.enter(view, now);
         assertThat(enter.type()).isEqualTo("ENTER");
