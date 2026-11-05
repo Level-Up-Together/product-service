@@ -92,7 +92,10 @@ public class TowerSeatService {
             TowerOccupant current = existing.get();
             current.startMission(now);
             openSeatRecord(current, mission, false, now);
-            presenceService.updateState(current, TowerInstanceEvent.STATE_MISSION); // LUT-631
+            presenceService.updateState(
+                    current,
+                    TowerInstanceEvent.STATE_MISSION,
+                    mission != null ? mission.toBroadcast() : null); // LUT-631·749
             if (!current.isAutoSeated()) {
                 realtimePublisher.publishToInstance(
                         current.getInstanceId(),
@@ -141,7 +144,8 @@ public class TowerSeatService {
                                 locked.getEntryPointY(),
                                 now));
         openSeatRecord(seated, mission, true, now);
-        presenceService.register(seated, false); // LUT-631: 아바타 데이터와 함께 같은 방에 ENTER
+        // LUT-631: 아바타 데이터와 함께 같은 방에 ENTER · LUT-749: 공개 미션이면 미션명도
+        presenceService.register(seated, false, mission != null ? mission.toBroadcast() : null);
         log.info(
                 "[tower] 자동 착석: userId={} floor={} instanceId={}",
                 userId,
@@ -188,7 +192,7 @@ public class TowerSeatService {
             return true;
         }
         current.endMission();
-        presenceService.updateState(current, TowerInstanceEvent.STATE_REST); // LUT-631
+        presenceService.updateState(current, TowerInstanceEvent.STATE_REST, null); // LUT-631
         realtimePublisher.publishToInstance(
                 current.getInstanceId(), TowerInstanceEvent.restState(userId, now));
         return false;

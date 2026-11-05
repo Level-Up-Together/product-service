@@ -3,13 +3,16 @@ package io.pinkspider.leveluptogethermvp.towerservice.application;
 import io.pinkspider.global.event.TowerFloorFirstEnteredEvent;
 import io.pinkspider.global.facade.GamificationQueryFacade;
 import io.pinkspider.global.facade.MissionQueryFacade;
+import io.pinkspider.global.facade.dto.InProgressMissionDto;
 import io.pinkspider.leveluptogethermvp.towerservice.application.exception.TowerEntryException;
 import io.pinkspider.leveluptogethermvp.towerservice.application.queue.TowerQueueService;
 import io.pinkspider.leveluptogethermvp.towerservice.application.visitor.TowerVisitorContext;
 import io.pinkspider.leveluptogethermvp.towerservice.application.visitor.TowerVisitorGate;
 import io.pinkspider.leveluptogethermvp.towerservice.application.visitor.TowerVisitorSession;
 import io.pinkspider.leveluptogethermvp.towerservice.domain.dto.TowerEnterResponse;
+import io.pinkspider.leveluptogethermvp.towerservice.domain.dto.TowerInstanceEvent;
 import io.pinkspider.leveluptogethermvp.towerservice.domain.dto.TowerLeaveResponse;
+import io.pinkspider.leveluptogethermvp.towerservice.domain.dto.TowerMissionInfo;
 import io.pinkspider.leveluptogethermvp.towerservice.domain.dto.TowerMySeatResponse;
 import io.pinkspider.leveluptogethermvp.towerservice.domain.entity.TowerFloor;
 import io.pinkspider.leveluptogethermvp.towerservice.domain.entity.TowerInstance;
@@ -117,7 +120,15 @@ public class TowerEntryService {
                         .orElseThrow(TowerEntryException::floorNotAvailable);
         checkEntry(floor, userId);
         // LUT-632: 탑 밖에서 시작한 미션도 입장하면 미션 중으로 — 잠그기 전에 미션 DB 를 읽는다
-        boolean inMission = userId != null && hasInProgressMission(userId);
+        Optional<InProgressMissionDto> inProgress =
+                userId != null ? findInProgressMission(userId) : Optional.empty();
+        boolean inMission = inProgress.isPresent();
+        // LUT-749: 공개 미션이면 미션명·카테고리를 presence 에 둔다 — 나중에 들어온 사람의 스냅샷에도 보인다(비공개면 null)
+        TowerInstanceEvent.MissionInfo missionInfo =
+                inProgress
+                        .map(TowerMissionInfo::from)
+                        .map(TowerMissionInfo::toBroadcast)
+                        .orElse(null);
 
         // LUT-705: 방문객은 세션·제재·IP 빈도를 먼저 본다(새 세션이면 키·이름 번호를 여기서 받는다)
         TowerVisitorSession visitorSession = userId == null ? visitorGate.admit(visitor) : null;
@@ -214,9 +225,15 @@ public class TowerEntryService {
                                 now);
             }
             occupant = towerOccupantRepository.save(occupant);
-            presenceService.register(occupant, false); // LUT-631: 같은 방에 ENTER, 연결은 웹소켓 join 때
+            // LUT-631: 같은 방에 ENTER, 연결은 웹소켓 join 때 · LUT-749: 미션 중이면 공개 미션 정보도
+            presenceService.register(occupant, false, missionInfo);
             allocator.relocateAutoSeatedOverflow(locked, instance.getId(), now);
         } else if (userId != null) {
+            // LUT-749: 미션 중 복귀면 미션 정보도 지금 값으로(아래 ENTER 에 실린다). 조회에 실패했으면 있던 값을 둔다
+            if (occupant.isMissionActive() && inProgress.isPresent()) {
+                presenceService.updateState(
+                        occupant, TowerInstanceEvent.STATE_MISSION, missionInfo);
+            }
             // LUT-737: 자리를 이어 쓰는 복귀(자리 유지·자동 착석 → 직접 입장)도 아바타는 지금 값으로 — 탑 밖에서 장착을 바꿨을 수 있다
             presenceService.refreshAvatar(occupant);
         }
@@ -308,12 +325,12 @@ public class TowerEntryService {
         }
     }
 
-    private boolean hasInProgressMission(String userId) {
+    private Optional<InProgressMissionDto> findInProgressMission(String userId) {
         try {
-            return missionQueryFacade.findInProgressMission(userId).isPresent();
+            return missionQueryFacade.findInProgressMission(userId);
         } catch (Exception e) {
             log.warn("탑 입장 미션 상태 조회 실패 — 휴식 중으로 판정: userId={}, error={}", userId, e.getMessage());
-            return false;
+            return Optional.empty();
         }
     }
 

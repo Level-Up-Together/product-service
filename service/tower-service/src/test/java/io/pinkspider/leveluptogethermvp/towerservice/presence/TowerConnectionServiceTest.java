@@ -70,6 +70,7 @@ class TowerConnectionServiceTest {
                 true,
                 false,
                 LocalDateTime.now(),
+                null,
                 null);
     }
 
@@ -146,25 +147,25 @@ class TowerConnectionServiceTest {
         TowerPresence idleVisitor =
                 new TowerPresence(
                         8L, 9L, 1, null, "VISITOR", 1234, null, null, null, List.of(), 1, 1, "REST",
-                        true, false, old, null);
+                        true, false, old, null, null);
         TowerPresence orphan =
                 new TowerPresence(
                         99L, 9L, 1, "gone", "DIRECT", null, null, null, 1, List.of(), 1, 1, "REST",
-                        true, false, old, null);
+                        true, false, old, null, null);
         TowerOccupant inMission = occupant(7L, 9L, 1, "u1", TowerOccupantKind.DIRECT, true);
         TowerPresence missionStale =
                 new TowerPresence(
                         7L, 9L, 1, "u1", "DIRECT", null, null, null, 1, List.of(), 1, 1, "MISSION",
-                        false, false, old, null);
+                        false, false, old, null, null);
         TowerOccupant resting = occupant(6L, 9L, 1, "u2", TowerOccupantKind.DIRECT, false);
         TowerPresence restStale =
                 new TowerPresence(
                         6L, 9L, 1, "u2", "DIRECT", null, null, null, 1, List.of(), 1, 1, "REST",
-                        false, false, old, null);
+                        false, false, old, null, null);
         TowerPresence freshVisitor =
                 new TowerPresence(
                         5L, 9L, 1, null, "VISITOR", 5555, null, null, null, List.of(), 1, 1, "REST",
-                        true, false, fresh, null);
+                        true, false, fresh, null, null);
         TowerOccupant freshVisitorRow = occupant(5L, 9L, 1, "k5", TowerOccupantKind.VISITOR, false);
         when(presenceService.listRaw(9L))
                 .thenReturn(List.of(idleVisitor, orphan, missionStale, restStale, freshVisitor));

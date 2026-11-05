@@ -82,6 +82,7 @@ public final class TowerTestFixtures {
                 true,
                 false,
                 java.time.LocalDateTime.now(),
+                null,
                 null);
     }
 

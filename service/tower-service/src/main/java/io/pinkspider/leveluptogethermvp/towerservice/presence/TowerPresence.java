@@ -3,8 +3,10 @@ package io.pinkspider.leveluptogethermvp.towerservice.presence;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.databind.PropertyNamingStrategies.SnakeCaseStrategy;
 import com.fasterxml.jackson.databind.annotation.JsonNaming;
+import io.pinkspider.leveluptogethermvp.towerservice.domain.dto.TowerInstanceEvent;
 import java.time.LocalDateTime;
 import java.util.List;
+import org.springframework.lang.Nullable;
 
 /**
  * LUT-631: 인스턴스 안 한 사람의 실시간 상태 — Redis 해시 {@code tower:presence:{instanceId}} 의 값. 좌표는 배경 원본 픽셀(썸네일
@@ -31,7 +33,8 @@ public record TowerPresence(
         Boolean connected,
         Boolean autoSeated,
         LocalDateTime lastActiveAt,
-        String visitorTag) {
+        String visitorTag,
+        @Nullable TowerInstanceEvent.MissionInfo mission) {
 
     public static final String STATE_MISSION = "MISSION";
     public static final String STATE_REST = "REST";
@@ -62,7 +65,8 @@ public record TowerPresence(
                 connected,
                 autoSeated,
                 now,
-                visitorTag);
+                visitorTag,
+                mission);
     }
 
     public TowerPresence withConnected(boolean value, LocalDateTime now) {
@@ -83,10 +87,16 @@ public record TowerPresence(
                 value,
                 autoSeated,
                 now,
-                visitorTag);
+                visitorTag,
+                mission);
     }
 
-    public TowerPresence withState(String newState) {
+    /**
+     * LUT-749: 상태와 함께 미션 정보(공개 미션만, 비공개면 null)를 바꾼다 — 휴식이면 항상 null. 입장 스냅샷이 늦게 들어온 사람에게도 미션명을 보여
+     * 주려고 presence 에 둔다(예전엔 USER_STATE 이벤트에만 실렸다)
+     */
+    public TowerPresence withState(
+            String newState, @Nullable TowerInstanceEvent.MissionInfo newMission) {
         return new TowerPresence(
                 occupantId,
                 instanceId,
@@ -104,7 +114,8 @@ public record TowerPresence(
                 connected,
                 autoSeated,
                 lastActiveAt,
-                visitorTag);
+                visitorTag,
+                STATE_MISSION.equals(newState) ? newMission : null);
     }
 
     /** LUT-737: 아바타(닉네임·사진·레벨·장착 아이템)만 바꾼다 — 위치·연결·상태는 그대로 */
@@ -130,7 +141,8 @@ public record TowerPresence(
                 connected,
                 autoSeated,
                 lastActiveAt,
-                visitorTag);
+                visitorTag,
+                mission);
     }
 
     public TowerPresence withLevel(int newLevel) {
@@ -151,7 +163,8 @@ public record TowerPresence(
                 connected,
                 autoSeated,
                 lastActiveAt,
-                visitorTag);
+                visitorTag,
+                mission);
     }
 
     public TowerPresence withInstance(Long newInstanceId) {
@@ -172,7 +185,8 @@ public record TowerPresence(
                 connected,
                 autoSeated,
                 lastActiveAt,
-                visitorTag);
+                visitorTag,
+                mission);
     }
 
     public TowerPresenceView toView() {
@@ -188,6 +202,7 @@ public record TowerPresence(
                 x,
                 y,
                 state,
-                visitorTag);
+                visitorTag,
+                STATE_MISSION.equals(state) ? mission : null);
     }
 }

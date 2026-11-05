@@ -65,8 +65,16 @@ public class TowerPresenceService implements TowerPresenceGateway {
 
     /** 점유자 행이 생겼다 — presence 를 만들고 같은 방에 ENTER 를 보낸다 */
     public TowerPresence register(TowerOccupant occupant, boolean connected) {
+        return register(occupant, connected, null);
+    }
+
+    /** LUT-749: 미션 중으로 들어오면(입장·자동 착석) 공개 미션 정보도 함께 둔다 — 스냅샷이 늦게 들어온 사람에게 미션명을 보여 준다 */
+    public TowerPresence register(
+            TowerOccupant occupant,
+            boolean connected,
+            @Nullable TowerInstanceEvent.MissionInfo mission) {
         LocalDateTime now = LocalDateTime.now();
-        TowerPresence presence = build(occupant, connected, now);
+        TowerPresence presence = build(occupant, connected, now, mission);
         store.save(presence);
         publisher.publishToInstance(
                 occupant.getInstanceId(), TowerInstanceEvent.enter(presence.toView(), now));
@@ -89,7 +97,7 @@ public class TowerPresenceService implements TowerPresenceGateway {
         TowerPresence presence =
                 store.find(fromInstanceId, occupant.getId())
                         .map(p -> p.withInstance(toInstanceId))
-                        .orElseGet(() -> build(occupant, false, now));
+                        .orElseGet(() -> build(occupant, false, now, null));
         store.delete(fromInstanceId, occupant.getId());
         store.save(presence);
         publisher.publishToInstance(
@@ -106,7 +114,7 @@ public class TowerPresenceService implements TowerPresenceGateway {
         LocalDateTime now = LocalDateTime.now();
         TowerPresence presence =
                 store.find(occupant.getInstanceId(), occupant.getId())
-                        .orElseGet(() -> build(occupant, true, now));
+                        .orElseGet(() -> build(occupant, true, now, null));
         WalkableMask.Point restored =
                 restorePosition(occupant.getFloorNumber(), presence.x(), presence.y());
         presence = presence.withConnected(true, now).withPosition(restored.x(), restored.y(), now);
@@ -141,9 +149,13 @@ public class TowerPresenceService implements TowerPresenceGateway {
         return Optional.of(target);
     }
 
-    public void updateState(TowerOccupant occupant, String state) {
+    /** LUT-749: 상태와 미션 정보(공개 미션만, 비공개·휴식이면 null)를 함께 바꾼다 */
+    public void updateState(
+            TowerOccupant occupant,
+            String state,
+            @Nullable TowerInstanceEvent.MissionInfo mission) {
         store.find(occupant.getInstanceId(), occupant.getId())
-                .ifPresent(p -> store.save(p.withState(state)));
+                .ifPresent(p -> store.save(p.withState(state, mission)));
     }
 
     /**
@@ -156,7 +168,7 @@ public class TowerPresenceService implements TowerPresenceGateway {
         if (occupant.getUserId() == null && current.isPresent()) {
             return current.get();
         }
-        TowerPresence fresh = build(occupant, false, now);
+        TowerPresence fresh = build(occupant, false, now, null);
         TowerPresence presence =
                 current.map(
                                 old ->
@@ -235,7 +247,11 @@ public class TowerPresenceService implements TowerPresenceGateway {
                 .orElse(false);
     }
 
-    private TowerPresence build(TowerOccupant occupant, boolean connected, LocalDateTime now) {
+    private TowerPresence build(
+            TowerOccupant occupant,
+            boolean connected,
+            LocalDateTime now,
+            @Nullable TowerInstanceEvent.MissionInfo mission) {
         String nickname = null;
         String picture = null;
         Integer level = null;
@@ -295,7 +311,8 @@ public class TowerPresenceService implements TowerPresenceGateway {
                 connected,
                 occupant.isAutoSeated(),
                 now,
-                TowerVisitorTag.of(occupant.getVisitorKey()));
+                TowerVisitorTag.of(occupant.getVisitorKey()),
+                occupant.isMissionActive() ? mission : null);
     }
 
     private WalkableMask.Point restorePosition(int floorNumber, Integer x, Integer y) {

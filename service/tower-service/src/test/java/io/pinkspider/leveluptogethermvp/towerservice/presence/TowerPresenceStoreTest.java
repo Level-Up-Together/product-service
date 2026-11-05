@@ -56,6 +56,7 @@ class TowerPresenceStoreTest {
                     true,
                     false,
                     LocalDateTime.of(2026, 11, 3, 12, 0),
+                    null,
                     null);
 
     @BeforeEach
@@ -87,6 +88,37 @@ class TowerPresenceStoreTest {
 
         store.delete(9L, 7L);
         verify(hash).delete("tower:presence:9", "7");
+    }
+
+    @Test
+    @DisplayName(
+            "LUT-749: 미션 정보도 Redis 를 오간다 · 옛 형식(mission 없음)은 null 로, 모르는 필드는 무시(롤링 배포 중 옛·새 서버 공존)")
+    void missionRoundTripAndCompatibility() throws Exception {
+        TowerPresence onMission =
+                presence.withState(
+                        TowerPresence.STATE_MISSION,
+                        new io.pinkspider.leveluptogethermvp.towerservice.domain.dto
+                                .TowerInstanceEvent.MissionInfo("영어 단어 30개", 2L));
+        store.save(onMission);
+        ArgumentCaptor<Object> json = ArgumentCaptor.forClass(Object.class);
+        verify(hash).put(eq("tower:presence:9"), eq("7"), json.capture());
+        assertThat(json.getValue().toString())
+                .contains("\"mission\":{\"title\":\"영어 단어 30개\",\"category_id\":2}");
+        when(hash.get("tower:presence:9", "7")).thenReturn(json.getValue());
+        assertThat(store.find(9L, 7L)).contains(onMission);
+
+        // 옛 서버가 쓴 JSON — mission 이 없다
+        String old = om.writeValueAsString(presence).replace(",\"mission\":null", "");
+        assertThat(old).doesNotContain("mission");
+        when(hash.get("tower:presence:9", "7")).thenReturn(old);
+        assertThat(store.find(9L, 7L).orElseThrow().mission()).isNull();
+        // 새 서버가 쓴 JSON 에 모르는 필드가 더 있어도 읽는다(다음 릴리스 대비)
+        when(hash.get("tower:presence:9", "7"))
+                .thenReturn(
+                        json.getValue()
+                                .toString()
+                                .replace("{\"occupant_id\"", "{\"future\":1,\"occupant_id\""));
+        assertThat(store.find(9L, 7L)).contains(onMission);
     }
 
     @Test

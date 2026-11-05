@@ -106,7 +106,7 @@ class TowerChatServiceTest {
                         Optional.of(
                                 new TowerPresence(
                                         7L, 5L, 1, "u1", "DIRECT", null, "루미", null, 12, List.of(),
-                                        10, 10, "REST", true, false, NOW, null)));
+                                        10, 10, "REST", true, false, NOW, null, null)));
 
         TowerChatMessage message = service.send(5L, "u1", null, "  안녕 바보야 ");
 

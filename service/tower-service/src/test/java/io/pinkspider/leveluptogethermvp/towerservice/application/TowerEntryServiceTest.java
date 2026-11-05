@@ -19,6 +19,7 @@ import io.pinkspider.global.facade.MissionQueryFacade;
 import io.pinkspider.global.facade.dto.InProgressMissionDto;
 import io.pinkspider.leveluptogethermvp.towerservice.application.exception.TowerEntryException;
 import io.pinkspider.leveluptogethermvp.towerservice.domain.dto.TowerEnterResponse;
+import io.pinkspider.leveluptogethermvp.towerservice.domain.dto.TowerInstanceEvent;
 import io.pinkspider.leveluptogethermvp.towerservice.domain.dto.TowerLeaveResponse;
 import io.pinkspider.leveluptogethermvp.towerservice.domain.entity.TowerFloor;
 import io.pinkspider.leveluptogethermvp.towerservice.domain.entity.TowerOccupant;
@@ -165,7 +166,7 @@ class TowerEntryServiceTest {
         // LUT-631: 방문객 번호(네 자리) + presence 등록(ENTER)
         assertThat(res.visitorNo()).isBetween(1000, 9999);
         assertThat(captor.getValue().getVisitorNo()).isEqualTo(res.visitorNo());
-        verify(presenceService).register(captor.getValue(), false);
+        verify(presenceService).register(captor.getValue(), false, null);
         verify(allocator).relocateAutoSeatedOverflow(eq(f1), eq(10L), any());
         verify(userStateRepository, never()).save(any());
     }
@@ -217,7 +218,10 @@ class TowerEntryServiceTest {
         assertThat(res.missionActive()).isTrue();
         verify(allocator, never()).pickForDirectEntry(any(), any());
         verify(occupantRepository, never()).save(any());
-        verify(presenceService, never()).register(any(), org.mockito.ArgumentMatchers.anyBoolean());
+        verify(presenceService, never())
+                .register(any(), org.mockito.ArgumentMatchers.anyBoolean(), any());
+        // 미션 조회가 비었으면(진행 중 미션 없음·조회 실패) presence 의 미션 정보는 건드리지 않는다
+        verify(presenceService, never()).updateState(any(), any(), any());
         // LUT-737: 자리를 이어 써도 아바타(장착 아이템 등)는 지금 값으로 다시 채운다
         verify(presenceService).refreshAvatar(held);
         verify(userStateRepository).save(any(TowerUserState.class));
@@ -343,10 +347,59 @@ class TowerEntryServiceTest {
         ArgumentCaptor<TowerOccupant> captor = ArgumentCaptor.forClass(TowerOccupant.class);
         verify(occupantRepository).save(captor.capture());
         assertThat(captor.getValue().isMissionActive()).isTrue();
+        // LUT-749: 공개 미션이면 presence 에 미션명·카테고리 — 나중에 들어온 사람의 스냅샷에도 보인다
+        verify(presenceService)
+                .register(captor.getValue(), false, new TowerInstanceEvent.MissionInfo("달리기", 3L));
 
         when(missionQueryFacade.findInProgressMission(USER))
                 .thenThrow(new RuntimeException("down"));
         assertThat(service.enter(USER, 2).missionActive()).isFalse();
+    }
+
+    @Test
+    @DisplayName(
+            "LUT-749: 비공개 미션으로 들어오면 presence 에 미션명 없이 · 미션 중 복귀는 presence 의 미션 정보를 지금 값으로 맞춘 뒤"
+                    + " ENTER")
+    void enterMissionInfoInPresence() {
+        stub(f2Unlimited);
+        when(missionQueryFacade.findInProgressMission(USER))
+                .thenReturn(
+                        Optional.of(
+                                new InProgressMissionDto(
+                                        11L,
+                                        4L,
+                                        "공부",
+                                        "비밀 미션",
+                                        "PRIVATE",
+                                        null,
+                                        LocalDateTime.now())));
+        service.enter(USER, 2);
+        ArgumentCaptor<TowerOccupant> captor = ArgumentCaptor.forClass(TowerOccupant.class);
+        verify(occupantRepository).save(captor.capture());
+        verify(presenceService).register(captor.getValue(), false, null);
+
+        // 미션 중 자리 유지 → 같은 층 복귀: 공개 미션 정보로 presence 를 고친 뒤 아바타를 다시 채운다(ENTER)
+        TowerOccupant held = occupant(5L, 9L, 2, USER, TowerOccupantKind.DIRECT, true);
+        when(occupantRepository.findByUserId(USER)).thenReturn(Optional.of(held));
+        when(missionQueryFacade.findInProgressMission(USER))
+                .thenReturn(
+                        Optional.of(
+                                new InProgressMissionDto(
+                                        10L,
+                                        3L,
+                                        "운동",
+                                        "달리기",
+                                        "PUBLIC",
+                                        null,
+                                        LocalDateTime.now())));
+        service.enter(USER, 2);
+        org.mockito.InOrder order = org.mockito.Mockito.inOrder(presenceService);
+        order.verify(presenceService)
+                .updateState(
+                        held,
+                        TowerInstanceEvent.STATE_MISSION,
+                        new TowerInstanceEvent.MissionInfo("달리기", 3L));
+        order.verify(presenceService).refreshAvatar(held);
     }
 
     @Test
@@ -501,7 +554,7 @@ class TowerEntryServiceTest {
     void newEntryDoesNotRefresh() {
         stub(f2Unlimited);
         service.enter(USER, 2);
-        verify(presenceService).register(any(), org.mockito.ArgumentMatchers.anyBoolean());
+        verify(presenceService).register(any(), org.mockito.ArgumentMatchers.anyBoolean(), any());
         verify(presenceService, never()).refreshAvatar(any());
     }
 }
