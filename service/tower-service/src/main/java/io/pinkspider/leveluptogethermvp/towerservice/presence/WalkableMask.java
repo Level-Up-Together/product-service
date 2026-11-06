@@ -1,21 +1,27 @@
 package io.pinkspider.leveluptogethermvp.towerservice.presence;
 
 import java.awt.image.BufferedImage;
+import java.util.Random;
 import org.springframework.lang.Nullable;
 
 /**
  * LUT-631: 층 바닥 마스크를 격자로 올린 것. 좌표는 배경 원본 픽셀로 받고, 마스크가 배경보다 작으면 비율로 옮겨 판정한다. {@link #snapInside} 는
- * 마스크 밖 지점을 가장 가까운 안쪽으로 보정한다(클라이언트 조작 방지).
+ * 마스크 밖 지점을 가장 가까운 안쪽으로 보정한다(클라이언트 조작 방지). {@link #randomWalkable} 은 바닥 안 아무 칸을 고른다(LUT-757 자동 착석
+ * 자리).
  */
 public class WalkableMask {
 
     public record Point(int x, int y) {}
+
+    /** 랜덤 칸 고르기 — 무작위로 찍어 보는 횟수. 다 빗나가면 k 번째 바닥 칸을 훑어서 찾는다(바닥이 아주 좁은 마스크) */
+    static final int RANDOM_TRIES = 64;
 
     private final boolean[][] walkable; // [y][x] 마스크 픽셀
     private final int maskWidth;
     private final int maskHeight;
     private final int backgroundWidth;
     private final int backgroundHeight;
+    private final int walkableCount;
 
     public WalkableMask(BufferedImage mask, int backgroundWidth, int backgroundHeight) {
         this.maskWidth = mask.getWidth();
@@ -23,13 +29,19 @@ public class WalkableMask {
         this.backgroundWidth = backgroundWidth > 0 ? backgroundWidth : maskWidth;
         this.backgroundHeight = backgroundHeight > 0 ? backgroundHeight : maskHeight;
         this.walkable = new boolean[maskHeight][maskWidth];
+        int count = 0;
         for (int y = 0; y < maskHeight; y++) {
             for (int x = 0; x < maskWidth; x++) {
-                walkable[y][x] =
+                boolean red =
                         io.pinkspider.leveluptogethermvp.towerservice.application
                                 .ImageFloorMaskChecker.isRed(mask.getRGB(x, y));
+                walkable[y][x] = red;
+                if (red) {
+                    count++;
+                }
             }
         }
+        this.walkableCount = count;
     }
 
     public int backgroundWidth() {
@@ -40,6 +52,11 @@ public class WalkableMask {
         return backgroundHeight;
     }
 
+    /** 바닥(붉은) 칸 수 — 마스크 픽셀 단위 */
+    public int walkableCount() {
+        return walkableCount;
+    }
+
     public boolean isWalkable(int x, int y) {
         if (x < 0 || y < 0 || x >= backgroundWidth || y >= backgroundHeight) {
             return false;
@@ -47,6 +64,33 @@ public class WalkableMask {
         int mx = toMaskX(x);
         int my = toMaskY(y);
         return walkable[my][mx];
+    }
+
+    /**
+     * LUT-757: 바닥 안 칸 하나를 무작위로 골라 배경 좌표(칸 가운데)로 돌려준다. 바닥 칸이 하나도 없으면 null. 무작위로 찍어 {@link
+     * #RANDOM_TRIES} 번 안에 바닥을 못 맞히면(바닥이 아주 좁은 마스크) k 번째 바닥 칸을 훑어서 찾는다 — 바닥이 있으면 반드시 하나를 돌려준다.
+     */
+    @Nullable
+    public Point randomWalkable(Random random) {
+        if (walkableCount == 0) {
+            return null;
+        }
+        for (int i = 0; i < RANDOM_TRIES; i++) {
+            int mx = random.nextInt(maskWidth);
+            int my = random.nextInt(maskHeight);
+            if (walkable[my][mx]) {
+                return new Point(toBackgroundX(mx), toBackgroundY(my));
+            }
+        }
+        int k = random.nextInt(walkableCount);
+        for (int y = 0; y < maskHeight; y++) {
+            for (int x = 0; x < maskWidth; x++) {
+                if (walkable[y][x] && k-- == 0) {
+                    return new Point(toBackgroundX(x), toBackgroundY(y));
+                }
+            }
+        }
+        return null; // walkableCount 와 격자가 어긋날 수 없으므로 오지 않는다
     }
 
     /** 밖이면 반지름 {@code maxRadiusMaskPx}(마스크 픽셀) 안에서 가장 가까운 안쪽 점을 배경 좌표로 돌려준다. 없으면 null */

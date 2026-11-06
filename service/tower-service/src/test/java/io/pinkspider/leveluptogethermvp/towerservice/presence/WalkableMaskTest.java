@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import java.awt.Color;
 import java.awt.image.BufferedImage;
+import java.util.Random;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -46,5 +47,45 @@ class WalkableMaskTest {
         WalkableMask.Point far = m.snapInside(-50, 3, 10); // 화면 밖 좌표도 안으로 당겨서 찾는다
         assertThat(far).isNotNull();
         assertThat(m.isWalkable(far.x(), far.y())).isTrue();
+    }
+
+    @Test
+    @DisplayName("LUT-757: 랜덤 칸은 늘 바닥 안 · 배경 배율이 있으면 칸 가운데의 배경 좌표 · 바닥 칸 수")
+    void randomWalkable() {
+        WalkableMask m = new WalkableMask(mask(), 20, 20);
+        assertThat(m.walkableCount()).isEqualTo(16);
+        Random random = new Random(42);
+        java.util.Set<WalkableMask.Point> seen = new java.util.HashSet<>();
+        for (int i = 0; i < 200; i++) {
+            WalkableMask.Point p = m.randomWalkable(random);
+            assertThat(p).isNotNull();
+            assertThat(m.isWalkable(p.x(), p.y())).isTrue();
+            assertThat(p.x()).isBetween(5, 11); // 마스크 2..5 의 가운데(×2 + 1)
+            assertThat(p.y()).isBetween(5, 11);
+            seen.add(p);
+        }
+        assertThat(seen).hasSizeGreaterThan(1); // 한 자리만 나오지 않는다
+    }
+
+    @Test
+    @DisplayName("LUT-757: 무작위로 못 맞히면 k 번째 바닥 칸을 훑어서 찾는다 · 바닥이 없으면 null")
+    void randomWalkableFallback() {
+        BufferedImage single = new BufferedImage(10, 10, BufferedImage.TYPE_INT_ARGB);
+        single.setRGB(7, 8, new Color(220, 30, 30, 255).getRGB());
+        WalkableMask m = new WalkableMask(single, 0, 0);
+        assertThat(m.walkableCount()).isEqualTo(1);
+        Random alwaysZero =
+                new Random() {
+                    @Override
+                    public int nextInt(int bound) {
+                        return 0; // (0,0) 만 찍는다 → 바닥이 아니라 전부 빗나간다
+                    }
+                };
+        assertThat(m.randomWalkable(alwaysZero)).isEqualTo(new WalkableMask.Point(7, 8));
+
+        WalkableMask empty =
+                new WalkableMask(new BufferedImage(4, 4, BufferedImage.TYPE_INT_ARGB), 0, 0);
+        assertThat(empty.walkableCount()).isZero();
+        assertThat(empty.randomWalkable(new Random(1))).isNull();
     }
 }

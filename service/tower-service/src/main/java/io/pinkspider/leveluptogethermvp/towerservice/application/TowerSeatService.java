@@ -15,6 +15,7 @@ import io.pinkspider.leveluptogethermvp.towerservice.infrastructure.TowerFloorRe
 import io.pinkspider.leveluptogethermvp.towerservice.infrastructure.TowerMissionSeatRepository;
 import io.pinkspider.leveluptogethermvp.towerservice.infrastructure.TowerOccupantRepository;
 import io.pinkspider.leveluptogethermvp.towerservice.presence.TowerPresenceService;
+import io.pinkspider.leveluptogethermvp.towerservice.presence.WalkableMask;
 import io.pinkspider.leveluptogethermvp.towerservice.realtime.TowerRealtimePublisher;
 import java.time.LocalDateTime;
 import java.util.Comparator;
@@ -33,7 +34,8 @@ import org.springframework.transaction.annotation.Transactional;
  *
  * <p><b>미션 시작</b>: 이미 탑에 있으면 그 자리를 미션 중으로 바꾸고 같은 방에 상태를 브로드캐스트한다. 없으면 유저 설정 "탑 자동 착석"(기본 켬)이 켜진 로그인
  * 유저만 <b>자동 착석</b> — 입장할 수 있는 공개 층 중 <b>사람이 가장 적은 층</b>(층 전체 인원, NPC 제외, 같으면 낮은 층) → 그 층에서 <b>사람이
- * 가장 적은 방</b>. 자리는 입장 지점. 한 번 앉은 층은 미션이 끝날 때까지 바꾸지 않는다. 입장 레벨이 부족한 층은 비어 있어도 제외. 방문객은 대상이 아니다.
+ * 가장 적은 방</b>. 자리는 그 층 바닥 마스크 안 랜덤({@link TowerAutoSeatPicker}, LUT-757 — 같은 방 점유자·NPC 와 거리를 두고,
+ * 마스크가 없으면 입장 지점). 한 번 앉은 층은 미션이 끝날 때까지 바꾸지 않는다. 입장 레벨이 부족한 층은 비어 있어도 제외. 방문객은 대상이 아니다.
  *
  * <p><b>미션 종료</b>(완료·취소·자동 종료 전부): 완료면 완료 연출 이벤트(10초 응원 창)를 먼저 보내고, 자동 착석자와 연결이 끊긴 유저는 퇴장, 연결된 유저는
  * 휴식 중으로. 미션 단위 자리 기록({@code tower_mission_seat}: 층·자동 착석·응원 수)은 완료 응답에 실린다.
@@ -46,6 +48,7 @@ public class TowerSeatService {
     private final TowerOccupantRepository towerOccupantRepository;
     private final TowerMissionSeatRepository towerMissionSeatRepository;
     private final TowerInstanceAllocator allocator;
+    private final TowerAutoSeatPicker seatPicker;
     private final TowerPopulationService towerPopulationService;
     private final TowerRealtimePublisher realtimePublisher;
     private final TowerPresenceGateway presenceGateway;
@@ -60,6 +63,7 @@ public class TowerSeatService {
             TowerOccupantRepository towerOccupantRepository,
             TowerMissionSeatRepository towerMissionSeatRepository,
             TowerInstanceAllocator allocator,
+            TowerAutoSeatPicker seatPicker,
             TowerPopulationService towerPopulationService,
             TowerRealtimePublisher realtimePublisher,
             TowerPresenceGateway presenceGateway,
@@ -73,6 +77,7 @@ public class TowerSeatService {
         this.towerOccupantRepository = towerOccupantRepository;
         this.towerMissionSeatRepository = towerMissionSeatRepository;
         this.allocator = allocator;
+        this.seatPicker = seatPicker;
         this.towerPopulationService = towerPopulationService;
         this.realtimePublisher = realtimePublisher;
         this.presenceGateway = presenceGateway;
@@ -134,23 +139,27 @@ public class TowerSeatService {
                         .findByFloorNumberForUpdate(chosen.getFloorNumber())
                         .orElseThrow();
         TowerInstance instance = allocator.pickForAutoSeat(locked, null, now);
+        // LUT-757: 바닥 안 랜덤 자리(같은 방 점유자·NPC 와 거리 두기) — 입장 지점에 겹쳐 서지 않게
+        WalkableMask.Point seat = seatPicker.pick(locked, instance.getId());
         TowerOccupant seated =
                 towerOccupantRepository.save(
                         TowerOccupant.autoSeated(
                                 instance.getId(),
                                 locked.getFloorNumber(),
                                 userId,
-                                locked.getEntryPointX(),
-                                locked.getEntryPointY(),
+                                seat.x(),
+                                seat.y(),
                                 now));
         openSeatRecord(seated, mission, true, now);
         // LUT-631: 아바타 데이터와 함께 같은 방에 ENTER · LUT-749: 공개 미션이면 미션명도
         presenceService.register(seated, false, mission != null ? mission.toBroadcast() : null);
         log.info(
-                "[tower] 자동 착석: userId={} floor={} instanceId={}",
+                "[tower] 자동 착석: userId={} floor={} instanceId={} seat=({},{})",
                 userId,
                 seated.getFloorNumber(),
-                seated.getInstanceId());
+                seated.getInstanceId(),
+                seat.x(),
+                seat.y());
         return Optional.of(
                 new TowerSeatResult(seated.getFloorNumber(), seated.getInstanceId(), true));
     }
