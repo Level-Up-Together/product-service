@@ -513,7 +513,8 @@ prod 첫 적용 파일은 LUT-666 핫픽스 `gamification/V1_1_3_013`(2026-10-29
   직접 입장·방문객은 **정원이 남은 방 중 사람이 가장 많은 곳**(균등 분산 금지), 전부 차면 새 방(31번째 → 2번 방). 정원(`instance_capacity`)에는 직접 입장(자리 유지 중 포함)·방문객만 세고 **자동 착석자는 세지 않는다**.
   서버는 유저 의사 없이 방을 합치거나 옮기지 않는다 — 유일한 예외는 직접 입장으로 방 전체 인원(자동 착석 포함)이 상한을 넘을 때 자동 착석자를 같은 층 다른 방(없으면 새 방)으로 보내는 자리 양보. 아무도 없는 방은 바로 닫는다(행 삭제).
   **복귀**: 미션 중(`mission_active`) 유저가 같은 층에 다시 들어오면 배정·대기열 없이 원래 방(`resumed`), 자동 착석 자리가 있는 유저는 그 자리에서 직접 입장(그 방이 직접 입장자로 차 있으면 일반 배정), 다른 층으로 들어오면 자리를 옮긴다. 퇴장은 멱등이고 미션 중이면 자리를 남긴다(`seat_held`). 입장 응답 `auto_seat_continued` = 자동 착석 자리에서 직접 입장으로 이어졌는가(LUT-646 분석 — 자동 착석 → 직접 입장 전환율, 추가 필드).
-  **자동 착석** `TowerSeatService.onMissionStarted(userId)`(호출·설정값 "탑 자동 착석"·브로드캐스트는 LUT-632): 입장 가능한 공개 층 중 **사람이 가장 적은 층**(층 전체 인원 `byFloorFresh`, 같으면 낮은 층) → 그 층에서 **사람이 가장 적은 방**(일반 입장과 반대), 자리는 입장 지점, 입장 레벨이 부족한 층은 비어 있어도 제외.
+  **자동 착석** `TowerSeatService.onMissionStarted(userId)`(호출·설정값 "탑 자동 착석"·브로드캐스트는 LUT-632): 입장 가능한 공개 층 중 **사람이 가장 적은 층**(층 전체 인원 `byFloorFresh`, 같으면 낮은 층) → 그 층에서 **사람이 가장 적은 방**(일반 입장과 반대), 입장 레벨이 부족한 층은 비어 있어도 제외.
+  **자리는 바닥 마스크 안 랜덤**(LUT-757, `TowerAutoSeatPicker` — 예전엔 늘 입장 지점이라 미션 시작자들이 한 자리에 겹쳤다): `WalkableMask.randomWalkable`(이동·입장과 같은 붉은 픽셀 규칙)로 후보 24개까지 뽑아 **같은 방 점유자(presence 좌표)·그 층 공개 NPC 와 `tower.seat.min-distance-px`(배경 원본 픽셀, 기본 80) 이상** 떨어진 첫 칸, 없으면 후보 중 가장 먼 칸. 마스크를 못 읽거나 바닥 칸이 없으면 입장 지점. 직접 입장은 여전히 입장 지점, 자리 유지·복귀(`resume`·자동 착석 → 직접 입장)는 원래 자리.
   `onMissionEnded(userId, connected)`: 자동 착석자·연결 끊긴 유저는 퇴장, 연결된 유저는 휴식 중. 층 인원 `TowerPopulationService`(모든 종류 합, NPC 제외, 인스턴스 로컬 메모 `tower.population.cache-seconds` 기본 30초).
   방문객 세션·제재·빈도 제한은 아래 "방문객" 절(LUT-705), 좌표·연결 여부는 LUT-631(Redis).
 - **미션 연동·상태 브로드캐스트** (LUT-632): mission-service 가 수행(타이머) 시작·종료에 kernel 이벤트 `MissionExecutionStartedEvent`(일반 `RegularMissionExecutionStrategy.startExecution`·고정 `DailyMissionInstanceService.startInstance`) /

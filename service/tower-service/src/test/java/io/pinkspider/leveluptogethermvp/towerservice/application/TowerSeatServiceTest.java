@@ -29,6 +29,7 @@ import io.pinkspider.leveluptogethermvp.towerservice.domain.enums.TowerOccupantK
 import io.pinkspider.leveluptogethermvp.towerservice.infrastructure.TowerFloorRepository;
 import io.pinkspider.leveluptogethermvp.towerservice.infrastructure.TowerMissionSeatRepository;
 import io.pinkspider.leveluptogethermvp.towerservice.infrastructure.TowerOccupantRepository;
+import io.pinkspider.leveluptogethermvp.towerservice.presence.WalkableMask;
 import io.pinkspider.leveluptogethermvp.towerservice.realtime.TowerRealtimePublisher;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -55,6 +56,7 @@ class TowerSeatServiceTest {
     private final TowerMissionSeatRepository seatRepository =
             mock(TowerMissionSeatRepository.class);
     private final TowerInstanceAllocator allocator = mock(TowerInstanceAllocator.class);
+    private final TowerAutoSeatPicker seatPicker = mock(TowerAutoSeatPicker.class);
     private final TowerPopulationService populationService = mock(TowerPopulationService.class);
     private final TowerRealtimePublisher publisher = mock(TowerRealtimePublisher.class);
     private final io.pinkspider.leveluptogethermvp.towerservice.application.chat
@@ -87,6 +89,7 @@ class TowerSeatServiceTest {
                         occupantRepository,
                         seatRepository,
                         allocator,
+                        seatPicker,
                         populationService,
                         publisher,
                         presence,
@@ -105,6 +108,8 @@ class TowerSeatServiceTest {
         when(allocator.pickForAutoSeat(any(), isNull(), any()))
                 .thenAnswer(
                         inv -> instance(50L, ((TowerFloor) inv.getArgument(0)).getFloorNumber()));
+        // LUT-757: 자리는 picker 가 정한다 — 기본은 입장 지점과 같은 값
+        when(seatPicker.pick(any(), any())).thenReturn(new WalkableMask.Point(100, 200));
         when(occupantRepository.save(any(TowerOccupant.class)))
                 .thenAnswer(
                         inv -> {
@@ -136,7 +141,7 @@ class TowerSeatServiceTest {
 
     @Test
     @DisplayName(
-            "레벨 10 유저(1·2·3층 가능), 1층 5명·2층 3명·3층 0명이면 3층에 자동 착석 — 자리는 입장 지점, AUTO_SEATED, 자리 기록"
+            "레벨 10 유저(1·2·3층 가능), 1층 5명·2층 3명·3층 0명이면 3층에 자동 착석 — 자리는 picker 값, AUTO_SEATED, 자리 기록"
                     + " auto_seated")
     void seatsOnEmptiestFloor() {
         when(gamificationFacade.getUserLevel(USER)).thenReturn(10);
@@ -162,6 +167,25 @@ class TowerSeatServiceTest {
         // LUT-631: ENTER + 아바타 데이터 · LUT-749: 공개 미션이면 미션명·카테고리도
         verify(presenceService)
                 .register(captor.getValue(), false, new TowerInstanceEvent.MissionInfo("달리기", 3L));
+    }
+
+    @Test
+    @DisplayName("LUT-757: 자동 착석 자리는 picker 가 고른 바닥 안 랜덤 칸(배정된 방 기준) — 입장 지점이 아니다")
+    void autoSeatUsesPickedSpot() {
+        when(gamificationFacade.getUserLevel(USER)).thenReturn(1);
+        when(seatPicker.pick(f1, 50L)).thenReturn(new WalkableMask.Point(333, 444));
+
+        assertThat(service.onMissionStarted(USER, PUBLIC_MISSION))
+                .contains(new TowerSeatResult(1, 50L, true));
+
+        ArgumentCaptor<TowerOccupant> captor = ArgumentCaptor.forClass(TowerOccupant.class);
+        verify(occupantRepository).save(captor.capture());
+        assertThat(captor.getValue().getSeatX()).isEqualTo(333);
+        assertThat(captor.getValue().getSeatY()).isEqualTo(444);
+        // presence(ENTER) 도 그 자리로 — register 가 점유자 행의 자리를 읽는다
+        verify(presenceService)
+                .register(captor.getValue(), false, new TowerInstanceEvent.MissionInfo("달리기", 3L));
+        verify(seatPicker).pick(f1, 50L);
     }
 
     @Test
@@ -207,6 +231,7 @@ class TowerSeatServiceTest {
                 .contains(new TowerSeatResult(2, 9L, false));
         assertThat(inTower.isMissionActive()).isTrue();
         verify(allocator, never()).pickForAutoSeat(any(), any(), any());
+        verify(seatPicker, never()).pick(any(), any()); // LUT-757: 있는 자리는 그대로
         // LUT-631 · LUT-749: 공개 미션이면 presence 에도 미션명·카테고리
         verify(presenceService)
                 .updateState(
