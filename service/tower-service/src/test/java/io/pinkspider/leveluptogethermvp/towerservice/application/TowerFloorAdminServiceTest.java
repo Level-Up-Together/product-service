@@ -53,6 +53,10 @@ class TowerFloorAdminServiceTest {
             pixelArtRepository;
 
     @Mock
+    private io.pinkspider.leveluptogethermvp.towerservice.infrastructure.TowerNpcFormRepository
+            towerNpcFormRepository;
+
+    @Mock
     private io.pinkspider.leveluptogethermvp.towerservice.application.pixel.TowerPixelArtService
             pixelArtService;
 
@@ -70,6 +74,7 @@ class TowerFloorAdminServiceTest {
                                 imageStorage,
                                 towerFloorRepository,
                                 towerNpcRepository,
+                                towerNpcFormRepository,
                                 pixelArtRepository),
                         towerNpcRepository,
                         pixelArtService);

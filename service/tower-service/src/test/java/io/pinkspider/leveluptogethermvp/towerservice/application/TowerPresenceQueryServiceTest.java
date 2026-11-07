@@ -39,6 +39,7 @@ class TowerPresenceQueryServiceTest {
     private final TowerTraceService traceService = mock(TowerTraceService.class);
     private final GamificationQueryFacade gamificationQueryFacade =
             mock(GamificationQueryFacade.class);
+    private final TowerNpcEntryService npcEntryService = mock(TowerNpcEntryService.class);
     private final TowerPresenceQueryService service =
             new TowerPresenceQueryService(
                     occupantRepository,
@@ -47,7 +48,8 @@ class TowerPresenceQueryServiceTest {
                     npcRepository,
                     settingService,
                     traceService,
-                    gamificationQueryFacade);
+                    gamificationQueryFacade,
+                    npcEntryService);
 
     {
         when(settingService.getNpcExposurePercent()).thenReturn(100);
@@ -108,10 +110,23 @@ class TowerPresenceQueryServiceTest {
         TowerTraceView trace = new TowerTraceView(3, List.of(new TowerTraceView.Point(5, 6)));
         when(traceService.today(2)).thenReturn(trace);
 
+        // LUT-760: 켜진 입력 받기 설정만 form 으로(공개 글 수 포함), 없는 NPC 는 null
+        when(npcEntryService.formViews(List.of(1L, 2L)))
+                .thenReturn(
+                        java.util.Map.of(
+                                1L,
+                                io.pinkspider.leveluptogethermvp.towerservice.domain.dto
+                                        .TowerNpcFormView.from(
+                                        TowerTestFixtures.npcForm(1L), 128)));
+
         TowerPresenceSnapshotResponse shown = service.snapshot(9L, "u1", null);
         assertThat(shown.npcShown()).isTrue();
         assertThat(shown.npcs()).extracting(TowerNpcView::npcId).containsExactly(1L, 2L);
         assertThat(shown.npcs().get(0).lines()).hasSize(2);
+        assertThat(shown.npcs().get(0).form()).isNotNull();
+        assertThat(shown.npcs().get(0).form().entryCount()).isEqualTo(128);
+        assertThat(shown.npcs().get(0).form().submitLabel()).isEqualTo("저장");
+        assertThat(shown.npcs().get(1).form()).isNull();
         assertThat(shown.traces()).isEqualTo(trace);
 
         when(settingService.getNpcExposurePercent()).thenReturn(0);

@@ -8,23 +8,31 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import io.pinkspider.global.facade.GamificationQueryFacade;
+import io.pinkspider.leveluptogethermvp.towerservice.TowerTestFixtures;
 import io.pinkspider.leveluptogethermvp.towerservice.application.exception.TowerFloorException;
 import io.pinkspider.leveluptogethermvp.towerservice.application.exception.TowerNpcException;
 import io.pinkspider.leveluptogethermvp.towerservice.domain.dto.TowerNpcAdminRequest;
 import io.pinkspider.leveluptogethermvp.towerservice.domain.dto.TowerNpcAdminResponse;
 import io.pinkspider.leveluptogethermvp.towerservice.domain.dto.TowerNpcCardDto;
 import io.pinkspider.leveluptogethermvp.towerservice.domain.dto.TowerNpcCardLinkDto;
+import io.pinkspider.leveluptogethermvp.towerservice.domain.dto.TowerNpcFormDto;
 import io.pinkspider.leveluptogethermvp.towerservice.domain.dto.TowerNpcLineDto;
 import io.pinkspider.leveluptogethermvp.towerservice.domain.dto.TowerNpcView;
 import io.pinkspider.leveluptogethermvp.towerservice.domain.entity.TowerFloor;
 import io.pinkspider.leveluptogethermvp.towerservice.domain.entity.TowerNpc;
+import io.pinkspider.leveluptogethermvp.towerservice.domain.entity.TowerNpcForm;
 import io.pinkspider.leveluptogethermvp.towerservice.domain.enums.TowerNpcCardLinkType;
+import io.pinkspider.leveluptogethermvp.towerservice.domain.enums.TowerNpcFormBodyType;
+import io.pinkspider.leveluptogethermvp.towerservice.domain.enums.TowerNpcFormDisplayMode;
 import io.pinkspider.leveluptogethermvp.towerservice.infrastructure.TowerFloorRepository;
+import io.pinkspider.leveluptogethermvp.towerservice.infrastructure.TowerNpcFormRepository;
 import io.pinkspider.leveluptogethermvp.towerservice.infrastructure.TowerNpcRepository;
 import java.io.IOException;
 import java.util.List;
@@ -46,6 +54,7 @@ class TowerNpcAdminServiceTest {
 
     @Mock private TowerFloorRepository floorRepository;
     @Mock private TowerNpcRepository npcRepository;
+    @Mock private TowerNpcFormRepository formRepository;
     @Mock private FloorMaskChecker maskChecker;
     @Mock private TowerStoredFileCleaner fileCleaner;
     @Mock private GamificationQueryFacade gamificationQueryFacade;
@@ -142,6 +151,7 @@ class TowerNpcAdminServiceTest {
                             List.of(new TowerNpcLineDto(texts[0], texts[1], texts[2], texts[3])),
                             false,
                             2,
+                            null,
                             null,
                             null,
                             null);
@@ -241,7 +251,8 @@ class TowerNpcAdminServiceTest {
                 b.sortOrder(),
                 enabled,
                 interval,
-                b.card());
+                b.card(),
+                b.form());
     }
 
     private static TowerNpcAdminRequest withCard(TowerNpcAdminRequest b, TowerNpcCardDto card) {
@@ -262,7 +273,31 @@ class TowerNpcAdminServiceTest {
                 b.sortOrder(),
                 b.autoBubble(),
                 b.bubbleIntervalSeconds(),
-                card);
+                card,
+                b.form());
+    }
+
+    /** LUT-760 */
+    private static TowerNpcAdminRequest withForm(TowerNpcAdminRequest b, TowerNpcFormDto form) {
+        return new TowerNpcAdminRequest(
+                b.name(),
+                b.nameEn(),
+                b.nameJa(),
+                b.nameAr(),
+                b.profileImageUrl(),
+                b.statusText(),
+                b.statusTextEn(),
+                b.statusTextJa(),
+                b.statusTextAr(),
+                b.seatX(),
+                b.seatY(),
+                b.lines(),
+                b.isPublic(),
+                b.sortOrder(),
+                b.autoBubble(),
+                b.bubbleIntervalSeconds(),
+                b.card(),
+                form);
     }
 
     private static final String CARD_IMG = "https://cdn.test/tower/npc/card.png";
@@ -427,5 +462,226 @@ class TowerNpcAdminServiceTest {
                         .build());
         service.delete(10L, 5L);
         verify(fileCleaner).scheduleCleanup(Set.of(IMG, CARD_IMG), Set.of());
+    }
+
+    // ---------- LUT-760: 입력 받기 설정 ----------
+
+    /** 요청 DTO — 나머지는 고정, 자주 바꾸는 값만 인자 */
+    private static TowerNpcFormDto form(
+            boolean enabled,
+            String labelJa,
+            boolean email,
+            String consentKo,
+            TowerNpcFormDisplayMode mode,
+            String mask) {
+        return new TowerNpcFormDto(
+                enabled,
+                TowerNpcFormBodyType.INPUT,
+                "한마디",
+                null,
+                null,
+                null,
+                100,
+                "저장",
+                "Save",
+                labelJa,
+                "حفظ",
+                false,
+                email,
+                consentKo,
+                email ? "I agree" : null,
+                email ? "同意" : null,
+                email ? "أوافق" : null,
+                mode,
+                mask);
+    }
+
+    private static final String TREE = "https://cdn.test/tower/mask/tree.png";
+    private static final String SKY = "https://cdn.test/tower/mask/sky.png";
+
+    @Test
+    @DisplayName("LUT-760 등록: form 이 있으면 NPC 저장 뒤 설정도 저장(이메일 받기면 로그인 강제), 없으면 설정 없음")
+    void createWithForm() throws IOException {
+        when(floorRepository.findById(10L)).thenReturn(Optional.of(floor1));
+        when(npcRepository.countByFloorId(10L)).thenReturn(0L);
+        when(maskChecker.isInsideImage(floor1.getBackgroundImageUrl(), 300, 400)).thenReturn(true);
+        when(maskChecker.sameAspectRatio(TREE, floor1.getBackgroundImageUrl())).thenReturn(true);
+        when(npcRepository.save(any(TowerNpc.class)))
+                .thenAnswer(
+                        inv -> {
+                            TowerNpc n = inv.getArgument(0);
+                            ReflectionTestUtils.setField(n, "id", 7L);
+                            return n;
+                        });
+        when(formRepository.save(any(TowerNpcForm.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        TowerNpcAdminResponse res =
+                service.create(
+                        10L,
+                        withForm(
+                                npcRequest(IMG, 300, 400, "안녕"),
+                                TowerTestFixtures.npcFormDto(true)));
+
+        ArgumentCaptor<TowerNpcForm> saved = ArgumentCaptor.forClass(TowerNpcForm.class);
+        verify(formRepository).save(saved.capture());
+        assertThat(saved.getValue().getNpcId()).isEqualTo(7L);
+        assertThat(saved.getValue().isEnabled()).isTrue();
+        assertThat(saved.getValue().isEmailEnabled()).isTrue();
+        assertThat(saved.getValue().isLoginRequired()).isTrue(); // 요청은 false 였지만 이메일 받기라 강제
+        assertThat(saved.getValue().getBodyType()).isEqualTo(TowerNpcFormBodyType.TEXTAREA);
+        assertThat(saved.getValue().getMaxLength()).isEqualTo(200);
+        assertThat(res.form()).isNotNull();
+        assertThat(res.form().loginRequired()).isTrue();
+        assertThat(res.form().displayMode()).isEqualTo(TowerNpcFormDisplayMode.FLOAT);
+
+        assertThat(service.create(10L, npcRequest(IMG, 300, 400, "안녕")).form()).isNull();
+        verify(formRepository, times(1)).save(any());
+    }
+
+    @Test
+    @DisplayName(
+            "LUT-760 설정 검증: 켜진 설정의 버튼 문구·동의 문구·공개 마스크 누락 150408, 마스크 비율 불일치 150409, 못 읽음 150109 ·"
+                    + " 꺼진 설정·NONE 은 마스크 검사 없음")
+    void formValidation() throws IOException {
+        when(floorRepository.findById(10L)).thenReturn(Optional.of(floor1));
+        when(npcRepository.countByFloorId(10L)).thenReturn(0L);
+        when(maskChecker.isInsideImage(floor1.getBackgroundImageUrl(), 1, 1)).thenReturn(true);
+        TowerNpcAdminRequest base = npcRequest(IMG, 1, 1, "안녕");
+
+        for (TowerNpcFormDto invalid :
+                List.of(
+                        form(true, " ", false, null, TowerNpcFormDisplayMode.NONE, null),
+                        form(true, "保存", true, null, TowerNpcFormDisplayMode.NONE, null),
+                        form(true, "保存", false, null, TowerNpcFormDisplayMode.TAG, null))) {
+            assertThatThrownBy(() -> service.create(10L, withForm(base, invalid)))
+                    .isInstanceOf(TowerNpcException.class)
+                    .extracting("code")
+                    .isEqualTo(TowerNpcException.FORM_INVALID);
+        }
+
+        when(maskChecker.sameAspectRatio(TREE, floor1.getBackgroundImageUrl())).thenReturn(false);
+        assertThatThrownBy(
+                        () ->
+                                service.create(
+                                        10L,
+                                        withForm(
+                                                base,
+                                                form(
+                                                        true,
+                                                        "保存",
+                                                        false,
+                                                        null,
+                                                        TowerNpcFormDisplayMode.TAG,
+                                                        TREE))))
+                .isInstanceOf(TowerNpcException.class)
+                .extracting("code")
+                .isEqualTo(TowerNpcException.FORM_MASK_ASPECT_MISMATCH);
+
+        when(maskChecker.sameAspectRatio(SKY, floor1.getBackgroundImageUrl()))
+                .thenThrow(new IOException("timeout"));
+        assertThatThrownBy(
+                        () ->
+                                service.create(
+                                        10L,
+                                        withForm(
+                                                base,
+                                                form(
+                                                        true,
+                                                        "保存",
+                                                        false,
+                                                        null,
+                                                        TowerNpcFormDisplayMode.FLOAT,
+                                                        SKY))))
+                .extracting("code")
+                .isEqualTo("150109");
+        verify(npcRepository, never()).save(any());
+
+        // 꺼진 설정은 값만 저장, NONE 은 마스크를 보지 않는다
+        when(npcRepository.save(any(TowerNpc.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(formRepository.save(any(TowerNpcForm.class))).thenAnswer(inv -> inv.getArgument(0));
+        service.create(
+                10L,
+                withForm(base, form(false, " ", true, null, TowerNpcFormDisplayMode.TAG, null)));
+        service.create(
+                10L,
+                withForm(base, form(true, "保存", false, null, TowerNpcFormDisplayMode.NONE, null)));
+        verify(formRepository, times(2)).save(any());
+        verify(maskChecker, times(2)).sameAspectRatio(any(), any());
+    }
+
+    @Test
+    @DisplayName("LUT-760 수정: form 없으면 그대로, 있으면 기존 행 갱신(없으면 생성), 바뀐 공개 마스크는 정리 후보·새 마스크는 유지 목록")
+    void updateForm() throws IOException {
+        TowerNpc existing = TowerTestFixtures.npc(5L, 10L, true);
+        when(floorRepository.findById(10L)).thenReturn(Optional.of(floor1));
+        when(npcRepository.findByIdAndFloorId(5L, 10L)).thenReturn(Optional.of(existing));
+        when(maskChecker.isInsideImage(floor1.getBackgroundImageUrl(), 300, 400)).thenReturn(true);
+        TowerNpcForm form = TowerTestFixtures.npcForm(5L);
+        when(formRepository.findByNpcId(5L)).thenReturn(Optional.of(form));
+        TowerNpcAdminRequest base = npcRequest(IMG, 300, 400, "안녕");
+
+        TowerNpcAdminResponse kept = service.update(10L, 5L, base);
+        assertThat(kept.form()).isNotNull();
+        assertThat(kept.form().displayMaskUrl()).isEqualTo(TREE);
+        verify(formRepository, never()).save(any());
+
+        when(maskChecker.sameAspectRatio(SKY, floor1.getBackgroundImageUrl())).thenReturn(true);
+        TowerNpcAdminResponse updated =
+                service.update(
+                        10L,
+                        5L,
+                        withForm(
+                                base,
+                                form(true, "保存", false, null, TowerNpcFormDisplayMode.FLOAT, SKY)));
+        assertThat(form.getDisplayMode()).isEqualTo(TowerNpcFormDisplayMode.FLOAT);
+        assertThat(updated.form().displayMaskUrl()).isEqualTo(SKY);
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<Set<String>> previous = ArgumentCaptor.forClass(Set.class);
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<Set<String>> stillUsed = ArgumentCaptor.forClass(Set.class);
+        verify(fileCleaner, times(2)).scheduleCleanup(previous.capture(), stillUsed.capture());
+        assertThat(previous.getAllValues().get(1)).contains(TREE);
+        assertThat(stillUsed.getAllValues().get(1)).contains(SKY).doesNotContain(TREE);
+
+        TowerNpc other = TowerTestFixtures.npc(6L, 10L, true);
+        when(npcRepository.findByIdAndFloorId(6L, 10L)).thenReturn(Optional.of(other));
+        when(formRepository.findByNpcId(6L)).thenReturn(Optional.empty());
+        when(formRepository.save(any(TowerNpcForm.class))).thenAnswer(inv -> inv.getArgument(0));
+        TowerNpcAdminResponse created =
+                service.update(
+                        10L,
+                        6L,
+                        withForm(
+                                base,
+                                form(true, "保存", false, null, TowerNpcFormDisplayMode.NONE, null)));
+        assertThat(created.form()).isNotNull();
+        assertThat(created.form().formEnabled()).isTrue();
+        verify(formRepository).save(any());
+    }
+
+    @Test
+    @DisplayName("LUT-760 삭제: 공개 마스크도 정리 후보 · 목록은 NPC 마다 설정을 붙인다(없으면 null)")
+    void deleteAndListWithForm() {
+        TowerNpc existing = TowerTestFixtures.npc(5L, 10L, true);
+        when(npcRepository.findByIdAndFloorId(5L, 10L)).thenReturn(Optional.of(existing));
+        when(formRepository.findByNpcId(5L)).thenReturn(Optional.of(TowerTestFixtures.npcForm(5L)));
+        service.delete(10L, 5L);
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<Set<String>> previous = ArgumentCaptor.forClass(Set.class);
+        verify(fileCleaner).scheduleCleanup(previous.capture(), eq(Set.of()));
+        assertThat(previous.getValue()).contains(existing.getProfileImageUrl(), TREE);
+
+        when(floorRepository.findById(10L)).thenReturn(Optional.of(floor1));
+        when(npcRepository.findAllByFloorIdOrderBySortOrderAscIdAsc(10L))
+                .thenReturn(
+                        List.of(
+                                TowerTestFixtures.npc(1L, 10L, true),
+                                TowerTestFixtures.npc(2L, 10L, true)));
+        when(formRepository.findAllByNpcIdIn(List.of(1L, 2L)))
+                .thenReturn(List.of(TowerTestFixtures.npcForm(2L)));
+        List<TowerNpcAdminResponse> list = service.list(10L);
+        assertThat(list.get(0).form()).isNull();
+        assertThat(list.get(1).form()).isNotNull();
+        assertThat(list.get(1).form().submitLabel()).isEqualTo("저장");
     }
 }

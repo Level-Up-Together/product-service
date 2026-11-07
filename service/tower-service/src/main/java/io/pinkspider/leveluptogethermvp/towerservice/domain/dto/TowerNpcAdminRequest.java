@@ -42,7 +42,9 @@ public record TowerNpcAdminRequest(
         /** LUT-732: 대사 간격(초) 5~60 — 등록 때 비우면 10, 수정 때 비우면 그대로 */
         @Min(5) @Max(60) Integer bubbleIntervalSeconds,
         /** LUT-733: 창 이미지·이동 링크 — 등록 때 비우면 없음, 수정 때 비우면 그대로(구 어드민 호환), 있으면 통째로 바꾼다 */
-        @Valid TowerNpcCardDto card) {
+        @Valid TowerNpcCardDto card,
+        /** LUT-760: 입력 받기 설정 — 등록 때 비우면 없음(안 받음), 수정 때 비우면 그대로, 있으면 통째로 바꾼다 */
+        @Valid TowerNpcFormDto form) {
 
     public TowerNpc toEntity(Long floorId) {
         return TowerNpc.builder()

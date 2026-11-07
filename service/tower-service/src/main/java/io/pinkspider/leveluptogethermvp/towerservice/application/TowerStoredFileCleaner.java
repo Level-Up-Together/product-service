@@ -3,6 +3,7 @@ package io.pinkspider.leveluptogethermvp.towerservice.application;
 import io.pinkspider.leveluptogethermvp.towerservice.application.image.TowerImageStorageService;
 import io.pinkspider.leveluptogethermvp.towerservice.infrastructure.TowerFloorPixelArtRepository;
 import io.pinkspider.leveluptogethermvp.towerservice.infrastructure.TowerFloorRepository;
+import io.pinkspider.leveluptogethermvp.towerservice.infrastructure.TowerNpcFormRepository;
 import io.pinkspider.leveluptogethermvp.towerservice.infrastructure.TowerNpcRepository;
 import java.util.LinkedHashSet;
 import java.util.Set;
@@ -24,6 +25,7 @@ public class TowerStoredFileCleaner {
     private final TowerImageStorageService imageStorage;
     private final TowerFloorRepository towerFloorRepository;
     private final TowerNpcRepository towerNpcRepository;
+    private final TowerNpcFormRepository towerNpcFormRepository;
     private final TowerFloorPixelArtRepository towerFloorPixelArtRepository;
 
     /** null(배경 음악 없음 등)은 뺀다 — Set.of 는 null 을 못 받는다 */
@@ -75,6 +77,7 @@ public class TowerStoredFileCleaner {
                 || towerFloorRepository.countEffectLayersByMaskUrl(url) > 0
                 || towerNpcRepository.countByProfileImageUrl(url) > 0
                 || towerNpcRepository.countByCardImageUrl(url) > 0
+                || towerNpcFormRepository.countByDisplayMaskUrl(url) > 0
                 || towerFloorPixelArtRepository.countByImageUrl(url) > 0;
     }
 }

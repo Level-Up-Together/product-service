@@ -19,6 +19,7 @@ import io.pinkspider.leveluptogethermvp.towerservice.application.TowerPresenceQu
 import io.pinkspider.leveluptogethermvp.towerservice.application.exception.TowerEntryException;
 import io.pinkspider.leveluptogethermvp.towerservice.domain.dto.TowerInstanceEvent;
 import io.pinkspider.leveluptogethermvp.towerservice.domain.dto.TowerNpcCardDto;
+import io.pinkspider.leveluptogethermvp.towerservice.domain.dto.TowerNpcFormView;
 import io.pinkspider.leveluptogethermvp.towerservice.domain.dto.TowerNpcView;
 import io.pinkspider.leveluptogethermvp.towerservice.domain.dto.TowerPresenceSnapshotResponse;
 import io.pinkspider.leveluptogethermvp.towerservice.domain.dto.TowerTraceView;
@@ -96,7 +97,9 @@ class TowerPresenceControllerTest {
                                 List.of(
                                         TowerNpcView.from(
                                                 TowerTestFixtures.npc(3L, 1L, true),
-                                                TowerNpcCardDto.from(TowerTestFixtures.npcCard()))),
+                                                TowerNpcCardDto.from(TowerTestFixtures.npcCard()),
+                                                TowerNpcFormView.from(
+                                                        TowerTestFixtures.npcForm(3L), 128))),
                                 true,
                                 new TowerTraceView(
                                         4, List.of(new TowerTraceView.Point(1300, 980)))));
@@ -112,6 +115,7 @@ class TowerPresenceControllerTest {
                 .andExpect(jsonPath("$.value.occupants[1].mission").doesNotExist())
                 .andExpect(jsonPath("$.value.occupants[1].visitor_no").value(4821))
                 .andExpect(jsonPath("$.value.npcs[0].name").value("탑지기"))
+                .andExpect(jsonPath("$.value.npcs[0].form.entry_count").value(128))
                 .andExpect(jsonPath("$.value.npc_shown").value(true))
                 .andExpect(jsonPath("$.value.traces.completed_today").value(4))
                 .andDo(
@@ -289,6 +293,90 @@ class TowerPresenceControllerTest {
                                         fieldWithPath("value.npcs[].card.ends_on")
                                                 .type(JsonFieldType.STRING)
                                                 .description("노출 종료일 (KST, 포함)")
+                                                .optional(),
+                                        fieldWithPath("value.npcs[].form")
+                                                .type(JsonFieldType.OBJECT)
+                                                .description(
+                                                        "LUT-760 입력 받기 설정 — 켜진 NPC 만, 아니면 null(구"
+                                                                + " 클라이언트는 무시). 카드 대사 아래 입력칸을 그린다")
+                                                .optional(),
+                                        fieldWithPath("value.npcs[].form.body_type")
+                                                .type(JsonFieldType.STRING)
+                                                .description("INPUT(한 줄) | TEXTAREA(여러 줄)")
+                                                .optional(),
+                                        fieldWithPath("value.npcs[].form.placeholder")
+                                                .type(JsonFieldType.STRING)
+                                                .description("안내 문구 (한국어)")
+                                                .optional(),
+                                        fieldWithPath("value.npcs[].form.placeholder_en")
+                                                .type(JsonFieldType.STRING)
+                                                .description("안내 문구 (영어)")
+                                                .optional(),
+                                        fieldWithPath("value.npcs[].form.placeholder_ja")
+                                                .type(JsonFieldType.STRING)
+                                                .description("안내 문구 (일본어)")
+                                                .optional(),
+                                        fieldWithPath("value.npcs[].form.placeholder_ar")
+                                                .type(JsonFieldType.STRING)
+                                                .description("안내 문구 (아랍어)")
+                                                .optional(),
+                                        fieldWithPath("value.npcs[].form.max_length")
+                                                .type(JsonFieldType.NUMBER)
+                                                .description("본문 최대 글자 수")
+                                                .optional(),
+                                        fieldWithPath("value.npcs[].form.submit_label")
+                                                .type(JsonFieldType.STRING)
+                                                .description("버튼 문구 (한국어)")
+                                                .optional(),
+                                        fieldWithPath("value.npcs[].form.submit_label_en")
+                                                .type(JsonFieldType.STRING)
+                                                .description("버튼 문구 (영어)")
+                                                .optional(),
+                                        fieldWithPath("value.npcs[].form.submit_label_ja")
+                                                .type(JsonFieldType.STRING)
+                                                .description("버튼 문구 (일본어)")
+                                                .optional(),
+                                        fieldWithPath("value.npcs[].form.submit_label_ar")
+                                                .type(JsonFieldType.STRING)
+                                                .description("버튼 문구 (아랍어)")
+                                                .optional(),
+                                        fieldWithPath("value.npcs[].form.login_required")
+                                                .type(JsonFieldType.BOOLEAN)
+                                                .description(
+                                                        "로그인 유저만 — 방문객은 폼을 보여 주되 누르면 로그인 모달,"
+                                                                + " 서버도 150411 로 막는다")
+                                                .optional(),
+                                        fieldWithPath("value.npcs[].form.email_enabled")
+                                                .type(JsonFieldType.BOOLEAN)
+                                                .description("이메일 칸 + 동의 체크박스")
+                                                .optional(),
+                                        fieldWithPath("value.npcs[].form.consent_text")
+                                                .type(JsonFieldType.STRING)
+                                                .description("동의 문구 (한국어)")
+                                                .optional(),
+                                        fieldWithPath("value.npcs[].form.consent_text_en")
+                                                .type(JsonFieldType.STRING)
+                                                .description("동의 문구 (영어)")
+                                                .optional(),
+                                        fieldWithPath("value.npcs[].form.consent_text_ja")
+                                                .type(JsonFieldType.STRING)
+                                                .description("동의 문구 (일본어)")
+                                                .optional(),
+                                        fieldWithPath("value.npcs[].form.consent_text_ar")
+                                                .type(JsonFieldType.STRING)
+                                                .description("동의 문구 (아랍어)")
+                                                .optional(),
+                                        fieldWithPath("value.npcs[].form.display_mode")
+                                                .type(JsonFieldType.STRING)
+                                                .description("NONE | TAG(쪽지) | FLOAT(떠오르는 글)")
+                                                .optional(),
+                                        fieldWithPath("value.npcs[].form.display_mask_url")
+                                                .type(JsonFieldType.STRING)
+                                                .description("공개 영역 마스크 PNG (앞 가림 마스크와 같은 형식)")
+                                                .optional(),
+                                        fieldWithPath("value.npcs[].form.entry_count")
+                                                .type(JsonFieldType.NUMBER)
+                                                .description("공개 글 수 (숨김 제외, 시드 포함) — \"쪽지 128개\"")
                                                 .optional(),
                                         fieldWithPath("value.npc_shown")
                                                 .description(
