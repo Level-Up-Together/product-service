@@ -611,7 +611,7 @@ prod 첫 적용 파일은 LUT-666 핫픽스 `gamification/V1_1_3_013`(2026-10-29
 
 | 엔드포인트                                                             | 인증            | 용도                                    |
 |-------------------------------------------------------------------|---------------|---------------------------------------|
-| `GET /api/v1/shop-items`                                          | **비로그인 허용** (GET만) | 판매중 아이템 — 희귀도→가격→ID 순, 유저별 할증가·잠금 포함 |
+| `GET /api/v1/shop-items`                                          | **비로그인 허용** (GET만) | 판매중 아이템 — 희귀도→가격→ID 순, 고정가·유저별 잠금 포함 |
 | `POST /api/v1/shop-items/{id}/purchase`                           | 필요            | 구매 (다이아 차감 + 인벤토리 지급, 단일 트랜잭션)        |
 | `GET /api/v1/user-items`                                          | 필요            | 인벤토리 조회                               |
 | `POST /api/v1/user-items/{id}/equip`, `.../unequip`               | 필요            | 장착 / 해제                               |
@@ -629,21 +629,16 @@ prod 첫 적용 파일은 LUT-666 핫픽스 `gamification/V1_1_3_013`(2026-10-29
 (`UserDiamond.spendCombined`) — 유상 재화 환불 정산 관행. 원장(`diamond_history`)에 `pink_amount`로
 유상 몫을 구분 기록, `balance_after`는 총잔액(블루+핑크) 의미로 통일.
 
-**가격 할증 (`io.pinkspider.global.policy.LevelRarityPolicy`)** — 자기 등급보다 높은 등급의 아이템은 등급 차이만큼 비싸다.
+**가격은 고정가 (LUT-758, 2026-11-08)** — 어드민에 입력한 `shop_item.price` 가 곧 판매가이고 유저 레벨과 무관하다. 목록·상세 응답의
+`price`·`effective_price`·`list_price` 는 **모두 같은 값**이고 구매(`ShopService.purchaseItem`)의 차감·잔액 부족(120605) 판정도 이 값이다.
+LUT-348 의 등급 차이 할증(배수 1~8, 10단위 올림)은 없앴다 — 다이아를 사는 쪽은 대부분 낮은 레벨 유저라 실제로 돈을 쓰는 사람에게 웃돈을 받는 구조였고,
+"등급에 도달하면 더 저렴해요" 안내가 구매를 미루게 했다. 세 필드를 지우지 않은 이유: 구앱 호환 + 나중에 할인 행사를 할 때 `list_price > effective_price` 로
+취소선을 다시 쓴다(프론트는 그 조건에서만 취소선을 그린다). 가격 조정·이미 할증가로 산 유저 보상은 운영 몫(마이그레이션 없음).
+`LevelRarityPolicy` 는 이제 레벨 → 등급 매핑(`fromLevel`: <3 COMMON, <10 UNCOMMON, <200 RARE, <500 EPIC, <900 LEGENDARY, 그 이상 MYTHIC)과
+**잠금**(아래)에만 쓴다. 프론트(`shop-access.ts`)도 가격을 계산하지 않는다(LUT-759).
 
-```
-gap             = max(0, 아이템등급 − fromLevel(내레벨))     // 레벨 구간: <3 COMMON, <10 UNCOMMON, <200 RARE, <500 EPIC, <900 LEGENDARY, 그 이상 MYTHIC
-effective_price = gap == 0 ? base : ceil(base × 배수[gap] / 10) × 10   // 실제 결제가
-list_price      = COMMON 유저 기준가 = 최대 할증가                        // 프론트 취소선 anchor
-배수[0..5]      = 1, 1.5, 2.2, 3.3, 5, 8  (정수 ×10 배열로 보관)
-```
-
-- **배수를 double로 두지 말 것** — `1000 × 2.2 == 2200.0000000000005`라 10단위 올림이 2210을 만든다. 프론트(`shop-access.ts`)와
-  비트 단위로 일치시키려면 정수 연산이어야 한다.
-- 프론트는 백엔드가 내려준 `effective_price`/`list_price`/`locked`를 **표시만** 한다. 결제 금액은 `ShopService.purchaseItem`이
-  유저 레벨로 재계산하므로, 프론트가 같은 공식을 재구현하면 표시가와 결제가가 갈라진다.
-
-**잠금 (LUT-349)** — 내 등급 이하는 전부 해금, 내 등급 위는 **각 섹션에서 가격이 가장 낮은 3개**(`DEFAULT_UNLOCK_COUNT`)만 해금.
+**잠금 (LUT-349, LUT-758 뒤에도 유지)** — 내 등급 이하는 전부 해금, 내 등급 위는 **각 섹션에서 가격이 가장 낮은 3개**(`DEFAULT_UNLOCK_COUNT`)만 해금.
+"가장 낮은 가격" 순서는 어드민 입력가 `price` 로 정한다 — 어드민에서 가격을 바꾸면 열리는 3개도 바뀔 수 있다.
 섹션 = **탭(`ShopTabGroup`: `WINGS`=BASIC·FULL / `ETC`=나머지) × 희귀도**. 희귀도만으로 세면 한쪽 탭의 해금 슬롯을 다른 탭
 아이템이 가져가 특정 탭의 상위 등급이 통째로 잠겨 보인다. 목록 조회와 구매 재판정은 **같은 정렬(`SHOP_ORDER`)·같은 섹션 기준**을 써야 한다.
 
@@ -652,8 +647,7 @@ list_price      = COMMON 유저 기준가 = 최대 할증가                    
 **동시성** — 다이아 차감은 `UserDiamond` 낙관적 락(`@Version`), 지급은 `uk_user_item` 유니크 제약이 방어. `ShopService`는
 `UserItemService.grantItem`(중복 insert 흡수)과 달리 **중복을 실패로 처리**해 이중 차감을 막는다.
 
-**비로그인 열람 (LUT-350)** — `userId == null`이면 보유 아이템 없음 + 레벨 1(COMMON)로 계산한다. 화면에 보이는 값이 곧 가입 후 낼 값이라
-로그인해도 가격이 오르지 않는다.
+**비로그인 열람 (LUT-350)** — `userId == null`이면 보유 아이템 없음 + 레벨 1(COMMON)로 잠금을 판정한다. 가격은 레벨과 무관하다(LUT-758).
 
 ### 가입 보상 아이템 — 성장의 새싹 (LUT-593 → LUT-607, `experience/application/LevelRewardItemService`)
 
