@@ -121,7 +121,67 @@ public final class TowerTestFixtures {
                 null,
                 null,
                 null,
+                null,
                 null);
+    }
+
+    /** LUT-760: 켜진 입력 받기 설정 (한 줄, 로그인 불필요, 태그 공개) */
+    public static io.pinkspider.leveluptogethermvp.towerservice.domain.entity.TowerNpcForm npcForm(
+            Long npcId) {
+        return io.pinkspider.leveluptogethermvp.towerservice.domain.entity.TowerNpcForm.builder()
+                .id(npcId + 100)
+                .npcId(npcId)
+                .enabled(true)
+                .bodyType(
+                        io.pinkspider.leveluptogethermvp.towerservice.domain.enums
+                                .TowerNpcFormBodyType.INPUT)
+                .placeholder("트리에 남길 한마디")
+                .placeholderEn("A note for the tree")
+                .maxLength(100)
+                .submitLabel("저장")
+                .submitLabelEn("Save")
+                .submitLabelJa("保存")
+                .submitLabelAr("حفظ")
+                .loginRequired(false)
+                .emailEnabled(false)
+                .displayMode(
+                        io.pinkspider.leveluptogethermvp.towerservice.domain.enums
+                                .TowerNpcFormDisplayMode.TAG)
+                .displayMaskUrl("https://cdn.test/tower/mask/tree.png")
+                .build();
+    }
+
+    /** LUT-760: 입력 받기 설정 요청 DTO (켬·버튼 문구 4개 언어·공개 방식 TAG + 마스크) */
+    public static io.pinkspider.leveluptogethermvp.towerservice.domain.dto.TowerNpcFormDto
+            npcFormDto(boolean emailEnabled) {
+        return new io.pinkspider.leveluptogethermvp.towerservice.domain.dto.TowerNpcFormDto(
+                true,
+                emailEnabled
+                        ? io.pinkspider.leveluptogethermvp.towerservice.domain.enums
+                                .TowerNpcFormBodyType.TEXTAREA
+                        : io.pinkspider.leveluptogethermvp.towerservice.domain.enums
+                                .TowerNpcFormBodyType.INPUT,
+                "트리에 남길 한마디",
+                "A note for the tree",
+                null,
+                null,
+                emailEnabled ? 200 : 100,
+                emailEnabled ? "소원 빌기" : "저장",
+                emailEnabled ? "Make a wish" : "Save",
+                emailEnabled ? "願う" : "保存",
+                emailEnabled ? "تمنى" : "حفظ",
+                false,
+                emailEnabled,
+                emailEnabled ? "이벤트 안내를 위한 이메일 수집에 동의해요 (이벤트 종료 후 파기)" : null,
+                emailEnabled ? "I agree to email collection for event notices" : null,
+                emailEnabled ? "イベント案内のためのメール収集に同意します" : null,
+                emailEnabled ? "أوافق على جمع البريد الإلكتروني" : null,
+                emailEnabled
+                        ? io.pinkspider.leveluptogethermvp.towerservice.domain.enums
+                                .TowerNpcFormDisplayMode.FLOAT
+                        : io.pinkspider.leveluptogethermvp.towerservice.domain.enums
+                                .TowerNpcFormDisplayMode.TAG,
+                "https://cdn.test/tower/mask/tree.png");
     }
 
     public static TowerFloorAdminRequest request(

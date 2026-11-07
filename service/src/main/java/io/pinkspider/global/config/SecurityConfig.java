@@ -309,6 +309,17 @@ public class SecurityConfig {
                                         .permitAll()
                                         .requestMatchers(HttpMethod.DELETE, "/api/v1/tower/queue/*")
                                         .permitAll()
+                                        // LUT-760: NPC 글 남기기·공개 조회·신고 — 방문객도 참여(visitor_key,
+                                        // 로그인 전용 NPC 는 서비스 150411)
+                                        .requestMatchers(
+                                                HttpMethod.POST,
+                                                "/api/v1/tower/npcs/*/entries",
+                                                "/api/v1/tower/npcs/entries/*/reports")
+                                        .permitAll()
+                                        .requestMatchers(
+                                                HttpMethod.GET,
+                                                "/api/v1/tower/npcs/*/entries/random")
+                                        .permitAll()
                                         .requestMatchers(HttpMethod.GET, "/api/v1/shop-items")
                                         .permitAll()
                                         // LUT-356: 비로그인 핑크다이아 묶음상품 열람 (상점 Browse-First)

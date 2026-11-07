@@ -111,6 +111,7 @@ class SecurityConfigPublicEndpointTest {
                 "/api/v1/tower/chat/reactions", // LUT-633
                 "/api/v1/tower/queue/t-1", // LUT-701
                 "/api/v1/tower/floors/1/instances", // LUT-738
+                "/api/v1/tower/npcs/1/entries/random", // LUT-760
                 "/api/v1/shop-items", // LUT-350
                 "/api/v1/diamond-bundles" // LUT-356
             })
@@ -241,7 +242,9 @@ class SecurityConfigPublicEndpointTest {
                 "/api/v1/tower/leave",
                 "/api/v1/tower/instances/1/chat", // LUT-633
                 "/api/v1/tower/instances/1/reactions", // LUT-633
-                "/api/v1/tower/instances/1/move-in" // LUT-738
+                "/api/v1/tower/instances/1/move-in", // LUT-738
+                "/api/v1/tower/npcs/1/entries", // LUT-760
+                "/api/v1/tower/npcs/entries/1/reports" // LUT-760
             })
     void 탑_익명_POST_는_401_이_아니어야_한다(String path) throws Exception {
         int status = mockMvc.perform(post(path)).andReturn().getResponse().getStatus();

@@ -3,6 +3,7 @@ package io.pinkspider.leveluptogethermvp.towerservice.domain.dto;
 import com.fasterxml.jackson.databind.PropertyNamingStrategies.SnakeCaseStrategy;
 import com.fasterxml.jackson.databind.annotation.JsonNaming;
 import io.pinkspider.leveluptogethermvp.towerservice.domain.entity.TowerNpc;
+import io.pinkspider.leveluptogethermvp.towerservice.domain.entity.TowerNpcForm;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -29,9 +30,15 @@ public record TowerNpcAdminResponse(
         LocalDateTime modifiedAt,
         Boolean autoBubble,
         Integer bubbleIntervalSeconds,
-        TowerNpcCardDto card) {
+        TowerNpcCardDto card,
+        /** LUT-760: 입력 받기 설정 (없으면 null = 안 받음) */
+        TowerNpcFormDto form) {
 
     public static TowerNpcAdminResponse from(TowerNpc n) {
+        return from(n, null);
+    }
+
+    public static TowerNpcAdminResponse from(TowerNpc n, TowerNpcForm form) {
         return new TowerNpcAdminResponse(
                 n.getId(),
                 n.getFloorId(),
@@ -53,6 +60,7 @@ public record TowerNpcAdminResponse(
                 n.getModifiedAt(),
                 n.isAutoBubble(),
                 n.getBubbleIntervalSeconds(),
-                TowerNpcCardDto.from(n.getCard()));
+                TowerNpcCardDto.from(n.getCard()),
+                TowerNpcFormDto.from(form));
     }
 }

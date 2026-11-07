@@ -62,7 +62,10 @@ class TowerNpcAdminInternalControllerTest {
                 + "\"text_ja\":\"ようこそ\",\"text_ar\":\"مرحبا\"}],\"is_public\":true,\"sort_order\":0,"
                 + "\"auto_bubble\":true,\"bubble_interval_seconds\":8,"
                 + "\"card\":{\"image_url\":\"https://cdn/card.png\",\"link\":{\"type\":\"SHOP_ITEM\",\"target_id\":15},\"link_label\":\"상점"
-                + " 가기\",\"starts_on\":\"2026-11-01\",\"ends_on\":\"2026-11-30\"}}";
+                + " 가기\",\"starts_on\":\"2026-11-01\",\"ends_on\":\"2026-11-30\"},\"form\":{\"form_enabled\":true,\"body_type\":\"INPUT\",\"placeholder\":\"트리에"
+                + " 남길 한마디\",\"max_length\":100,\"submit_label\":\"저장\",\"submit_label_en\":\"Save\","
+                + "\"submit_label_ja\":\"保存\",\"submit_label_ar\":\"حفظ\",\"login_required\":false,"
+                + "\"email_enabled\":false,\"display_mode\":\"TAG\",\"display_mask_url\":\"https://cdn/mask.png\"}}";
 
     @Autowired private MockMvc mockMvc;
 
@@ -71,7 +74,7 @@ class TowerNpcAdminInternalControllerTest {
     private static TowerNpcAdminResponse response() {
         var npc = TowerTestFixtures.npc(3L, 10L, true);
         npc.updateCard(TowerTestFixtures.npcCard());
-        return TowerNpcAdminResponse.from(npc);
+        return TowerNpcAdminResponse.from(npc, TowerTestFixtures.npcForm(3L));
     }
 
     /** LUT-733: 창 이미지·이동 링크 문서 필드 */
@@ -158,9 +161,100 @@ class TowerNpcAdminInternalControllerTest {
         };
     }
 
+    /** LUT-760: 입력 받기 설정 문서 필드 (응답·요청 공용 — 요청은 전부 선택) */
+    static FieldDescriptor[] formFields(String prefix) {
+        return new FieldDescriptor[] {
+            fieldWithPath(prefix + "form")
+                    .type(JsonFieldType.OBJECT)
+                    .description(
+                            "LUT-760 입력 받기 설정 (없으면 null = 안 받음). 등록 때 비우면 없음, 수정 때 비우면 그대로, 있으면 통째로"
+                                + " 바꾼다. 켜진 설정은 버튼 문구 4개 언어 필수, 이메일 받기면 동의 문구 4개 언어 필수 + 로그인 유저만 받기"
+                                + " 강제, 공개 방식이면 공개 영역 마스크 필수 — 어기면 400 150408, 마스크 비율 불일치 150409, 못"
+                                + " 읽음 150109")
+                    .optional(),
+            fieldWithPath(prefix + "form.form_enabled")
+                    .type(JsonFieldType.BOOLEAN)
+                    .description("입력 받기 켬")
+                    .optional(),
+            fieldWithPath(prefix + "form.body_type")
+                    .type(JsonFieldType.STRING)
+                    .description("INPUT(한 줄) | TEXTAREA(여러 줄), 비우면 INPUT")
+                    .optional(),
+            fieldWithPath(prefix + "form.placeholder")
+                    .type(JsonFieldType.STRING)
+                    .description("안내 문구 (한국어, 100자)")
+                    .optional(),
+            fieldWithPath(prefix + "form.placeholder_en")
+                    .type(JsonFieldType.STRING)
+                    .description("안내 문구 (영어)")
+                    .optional(),
+            fieldWithPath(prefix + "form.placeholder_ja")
+                    .type(JsonFieldType.STRING)
+                    .description("안내 문구 (일본어)")
+                    .optional(),
+            fieldWithPath(prefix + "form.placeholder_ar")
+                    .type(JsonFieldType.STRING)
+                    .description("안내 문구 (아랍어)")
+                    .optional(),
+            fieldWithPath(prefix + "form.max_length")
+                    .type(JsonFieldType.NUMBER)
+                    .description("본문 최대 글자 수 (1~500, 비우면 100)")
+                    .optional(),
+            fieldWithPath(prefix + "form.submit_label")
+                    .type(JsonFieldType.STRING)
+                    .description("버튼 문구 (한국어, 30자)")
+                    .optional(),
+            fieldWithPath(prefix + "form.submit_label_en")
+                    .type(JsonFieldType.STRING)
+                    .description("버튼 문구 (영어)")
+                    .optional(),
+            fieldWithPath(prefix + "form.submit_label_ja")
+                    .type(JsonFieldType.STRING)
+                    .description("버튼 문구 (일본어)")
+                    .optional(),
+            fieldWithPath(prefix + "form.submit_label_ar")
+                    .type(JsonFieldType.STRING)
+                    .description("버튼 문구 (아랍어)")
+                    .optional(),
+            fieldWithPath(prefix + "form.login_required")
+                    .type(JsonFieldType.BOOLEAN)
+                    .description("로그인 유저만 받기 (이메일 받기를 켜면 서버가 true 로 강제)")
+                    .optional(),
+            fieldWithPath(prefix + "form.email_enabled")
+                    .type(JsonFieldType.BOOLEAN)
+                    .description("이메일 칸 + 동의 체크박스")
+                    .optional(),
+            fieldWithPath(prefix + "form.consent_text")
+                    .type(JsonFieldType.STRING)
+                    .description("동의 문구 (한국어, 200자)")
+                    .optional(),
+            fieldWithPath(prefix + "form.consent_text_en")
+                    .type(JsonFieldType.STRING)
+                    .description("동의 문구 (영어)")
+                    .optional(),
+            fieldWithPath(prefix + "form.consent_text_ja")
+                    .type(JsonFieldType.STRING)
+                    .description("동의 문구 (일본어)")
+                    .optional(),
+            fieldWithPath(prefix + "form.consent_text_ar")
+                    .type(JsonFieldType.STRING)
+                    .description("동의 문구 (아랍어)")
+                    .optional(),
+            fieldWithPath(prefix + "form.display_mode")
+                    .type(JsonFieldType.STRING)
+                    .description("NONE | TAG(쪽지) | FLOAT(떠오르는 글), 비우면 NONE")
+                    .optional(),
+            fieldWithPath(prefix + "form.display_mask_url")
+                    .type(JsonFieldType.STRING)
+                    .description("공개 영역 마스크 PNG (이미지 업로드 kind=MASK, 배경과 같은 비율)")
+                    .optional()
+        };
+    }
+
     private static FieldDescriptor[] npcFieldsWithCard(String prefix) {
         List<FieldDescriptor> all = new ArrayList<>(List.of(npcFields(prefix)));
         all.addAll(List.of(cardFields(prefix)));
+        all.addAll(List.of(formFields(prefix)));
         return all.toArray(new FieldDescriptor[0]);
     }
 
@@ -249,6 +343,12 @@ class TowerNpcAdminInternalControllerTest {
         };
     }
 
+    private static FieldDescriptor[] requestNpcFieldsWithForm() {
+        List<FieldDescriptor> all = new ArrayList<>(List.of(requestNpcFields()));
+        all.addAll(List.of(formFields("")));
+        return all.toArray(new FieldDescriptor[0]);
+    }
+
     @Test
     @DisplayName("GET·POST /api/internal/tower/floors/{floorId}/npcs : 층별 목록·등록")
     void listAndCreate() throws Exception {
@@ -276,6 +376,7 @@ class TowerNpcAdminInternalControllerTest {
                                 .content(BODY))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.value.lines[0].text").value("어서 와"))
+                .andExpect(jsonPath("$.value.form.display_mode").value("TAG"))
                 .andDo(
                         MockMvcRestDocumentationWrapper.document(
                                 "internal-tower-npcs-create",
@@ -285,7 +386,7 @@ class TowerNpcAdminInternalControllerTest {
                                                 "층 NPC 등록 (LUT-693) — 층당 최대 3명(150402), 자동"
                                                         + " 말풍선(LUT-732)·창 이미지·이동 링크(LUT-733)"),
                                 pathParameters(parameterWithName("floorId").description("층 ID")),
-                                requestFields(requestNpcFields()),
+                                requestFields(requestNpcFieldsWithForm()),
                                 responseFields(withEnvelope(npcFieldsWithCard("value.")))));
     }
 
@@ -338,6 +439,22 @@ class TowerNpcAdminInternalControllerTest {
                                 .content(BODY))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("150402"));
+        // LUT-760: 입력 받기 설정 오류
+        when(npcService.create(eq(10L), any(TowerNpcAdminRequest.class)))
+                .thenThrow(TowerNpcException.formInvalid());
+        mockMvc.perform(
+                        RestDocumentationRequestBuilders.post(
+                                        "/api/internal/tower/floors/{floorId}/npcs", 10L)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(BODY))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("150408"));
+        mockMvc.perform(
+                        RestDocumentationRequestBuilders.post(
+                                        "/api/internal/tower/floors/{floorId}/npcs", 10L)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(BODY.replace("\"max_length\":100", "\"max_length\":501")))
+                .andExpect(status().isBadRequest());
 
         when(npcService.list(11L)).thenThrow(TowerNpcException.notFound());
         mockMvc.perform(

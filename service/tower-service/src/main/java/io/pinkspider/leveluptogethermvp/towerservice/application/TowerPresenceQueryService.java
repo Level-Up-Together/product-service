@@ -3,6 +3,7 @@ package io.pinkspider.leveluptogethermvp.towerservice.application;
 import io.pinkspider.global.facade.GamificationQueryFacade;
 import io.pinkspider.leveluptogethermvp.towerservice.application.exception.TowerEntryException;
 import io.pinkspider.leveluptogethermvp.towerservice.domain.dto.TowerNpcCardDto;
+import io.pinkspider.leveluptogethermvp.towerservice.domain.dto.TowerNpcFormView;
 import io.pinkspider.leveluptogethermvp.towerservice.domain.dto.TowerNpcView;
 import io.pinkspider.leveluptogethermvp.towerservice.domain.dto.TowerPresenceSnapshotResponse;
 import io.pinkspider.leveluptogethermvp.towerservice.domain.entity.TowerNpc;
@@ -16,6 +17,7 @@ import io.pinkspider.leveluptogethermvp.towerservice.presence.TowerPresenceServi
 import java.time.LocalDate;
 import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
@@ -40,6 +42,7 @@ public class TowerPresenceQueryService {
     private final TowerSettingService settingService;
     private final TowerTraceService traceService;
     private final GamificationQueryFacade gamificationQueryFacade;
+    private final TowerNpcEntryService npcEntryService;
 
     public TowerPresenceSnapshotResponse snapshot(
             Long instanceId, @Nullable String userId, @Nullable String visitorKey) {
@@ -83,12 +86,17 @@ public class TowerPresenceQueryService {
         return towerFloorRepository
                 .findByFloorNumber(floorNumber)
                 .map(
-                        floor ->
-                                withCards(
-                                        towerNpcRepository
-                                                .findAllByFloorIdAndIsPublicTrueOrderBySortOrderAscIdAsc(
-                                                        floor.getId()),
-                                        LocalDate.now(TowerTraceService.KST)))
+                        floor -> {
+                            List<TowerNpc> npcs =
+                                    towerNpcRepository
+                                            .findAllByFloorIdAndIsPublicTrueOrderBySortOrderAscIdAsc(
+                                                    floor.getId());
+                            // LUT-760: 켜진 입력 받기 설정 + 공개 글 수
+                            Map<Long, TowerNpcFormView> forms =
+                                    npcEntryService.formViews(
+                                            npcs.stream().map(TowerNpc::getId).toList());
+                            return withCards(npcs, LocalDate.now(TowerTraceService.KST), forms);
+                        })
                 .orElse(List.of());
     }
 
@@ -97,6 +105,11 @@ public class TowerPresenceQueryService {
      * 그 대상을 알리는 그림이라). 대상 확인은 층의 NPC 를 모아 종류별 한 번씩, 실패하면 그 종류의 링크 창을 뺀다.
      */
     List<TowerNpcView> withCards(List<TowerNpc> npcs, LocalDate today) {
+        return withCards(npcs, today, Map.of());
+    }
+
+    List<TowerNpcView> withCards(
+            List<TowerNpc> npcs, LocalDate today, Map<Long, TowerNpcFormView> forms) {
         List<TowerNpcCard> active =
                 npcs.stream()
                         .map(TowerNpc::getCard)
@@ -117,7 +130,8 @@ public class TowerPresenceQueryService {
                         npc ->
                                 TowerNpcView.from(
                                         npc,
-                                        visibleCard(npc.getCard(), today, onSaleItems, events)))
+                                        visibleCard(npc.getCard(), today, onSaleItems, events),
+                                        forms.get(npc.getId())))
                 .toList();
     }
 
