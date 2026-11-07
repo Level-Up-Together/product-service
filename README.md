@@ -551,12 +551,10 @@ JaCoCo를 사용하며 `service` 모듈 `jacocoTestCoverageVerification`이 **IN
 - **인벤토리** `GET /api/v1/user-items`, `POST /api/v1/user-items/{id}/equip|unequip`
 - **아이템 타입**: BASIC(날개) / FULL(전신) / HEAD(머리) / EFFECT(이펙트) / ETC(기타)
   - 장착 배타(LUT-308): BASIC ↔ FULL은 몸 영역을 공유하므로 상호 배타, 나머지는 타입 단위
-- **등급 차이 기반 가격 할증** (LUT-348, `LevelRarityPolicy`)
-  - 레벨 → 등급: `<3` COMMON / `<10` UNCOMMON / `<200` RARE / `<500` EPIC / `<900` LEGENDARY / 그 이상 MYTHIC
-  - `gap = max(0, 아이템등급 − 내등급)`, 배수 `[1, 1.5, 2.2, 3.3, 5, 8]`, 10단위 올림
-  - `effective_price`(내 결제가) / `list_price`(COMMON 기준 정가 = 취소선 anchor)를 함께 응답
-  - 레벨업하면 ① 다이아가 늘고 ② 같은 아이템이 싸지는 이중 보상 구조
-  - 결제 금액은 서버가 유저 레벨로 **재계산**하여 검증 (프론트 표시값 불신)
+- **가격은 고정가** (LUT-758 — LUT-348 의 등급 차이 할증 폐지)
+  - 어드민 입력가 `price` 가 곧 판매가. 응답 `price`/`effective_price`/`list_price` 는 모두 같은 값(필드는 구앱 호환·할인 행사용으로 유지)
+  - 구매 차감·잔액 부족(120605) 판정도 같은 값 — 표시가 = 결제가
+  - `LevelRarityPolicy` 는 레벨 → 등급 매핑(`<3` COMMON / `<10` UNCOMMON / `<200` RARE / `<500` EPIC / `<900` LEGENDARY / 그 이상 MYTHIC)과 잠금에만 쓴다
 - **상위 등급 부분 해금** (LUT-349) — 내 등급 이하는 전부 해금, 내 등급 위는 **각 섹션에서 가격이 가장 낮은 3개**만 해금.
   섹션 단위는 **탭(`ShopTabGroup`: WINGS=BASIC·FULL / ETC=나머지) × 희귀도**
 - **동시 구매 방어** — 다이아 낙관적 락(`@Version`) + `uk_user_item` 유니크 제약 (중복 구매는 실패 처리해 이중 차감 방지)

@@ -154,7 +154,8 @@ adminservice/gamification/shopitem/
 | LUT-327 | 유저 상점 API — `GET /api/v1/shop-items`(판매중 목록), `POST /api/v1/shop-items/{id}/purchase`(다이아 차감 + 인벤토리 지급 단일 트랜잭션, `ShopService`) |
 | LUT-328 | 구매이력 내부 API `GET /api/internal/shop-purchases` |
 | LUT-341/342 | `effect_code` 컬럼 추가, 인벤토리·프로필 응답에 노출 |
-| LUT-348 | 등급 차이 할증 — 응답 `effective_price`(실결제가)·`list_price`(COMMON 기준 최대 할증가), `price` 는 기본가 그대로 (`LevelRarityPolicy`) |
+| LUT-348 | 등급 차이 할증 — 응답 `effective_price`(실결제가)·`list_price`(COMMON 기준 최대 할증가), `price` 는 기본가 그대로 (`LevelRarityPolicy`) — **LUT-758 로 폐지** |
+| LUT-758 | 가격 고정 — 할증 폐지. `price`·`effective_price`·`list_price` 모두 어드민 입력가, 구매 차감도 같은 값. 잠금(LUT-349)은 유지, "가장 싼 3개" 순서는 `price` |
 | LUT-349 | 상위 등급 잠금 `locked` — 탭(`ShopTabGroup`: WINGS=BASIC·FULL / ETC) × 희귀도 섹션마다 최저가 3개만 해금 |
 | LUT-350 | 상점 목록 비로그인 허용 (GET 만, 레벨 1(COMMON) 기준 가격) |
 | LUT-354/356/401 | 아이템 구매 차감은 블루+핑크 합산·블루 우선 (`UserDiamond.spendCombined`). 핑크다이아 묶음상품·IAP 결제·결제가 캡처는 별도 도메인(`diamond_bundle`) — CLAUDE.md "상점 · 다이아 경제" |
