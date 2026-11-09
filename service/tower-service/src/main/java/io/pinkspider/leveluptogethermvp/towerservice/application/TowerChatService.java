@@ -38,9 +38,11 @@ import org.springframework.stereotype.Service;
 /**
  * LUT-633: 탑 채팅·리액션. 전송은 REST(거부 사유 코드를 바로 받는다), 전파는 같은 인스턴스 토픽의 {@code CHAT}/{@code REACTION} 이벤트.
  *
- * <p>판정 순서(채팅): 점유자 확인(150301) → 미션 중(150304) → 길이(150307) → 방문객 내용 제한(150308) → 제한 중(150306) → 전송
- * 간격(150302) → 같은 내용(150303) → 금칙어(HIGH 150305, LOW/MEDIUM 가림, MEDIUM 반복은 다음부터 제한). 원문은 운영 로그에만. 차단
- * 유저의 메시지는 이력 API 가 요청자 기준으로 빼고, 실시간은 클라이언트가 {@code user_id} 로 숨긴다(토픽은 방 공용).
+ * <p>판정 순서(채팅): 점유자 확인(150301) → 길이(150307) → 방문객 내용 제한(150308) → 제한 중(150306) → 전송 간격(150302) → 같은
+ * 내용(150303) → 금칙어(HIGH 150305, LOW/MEDIUM 가림, MEDIUM 반복은 다음부터 제한). 원문은 운영 로그에만. 차단 유저의 메시지는 이력 API
+ * 가 요청자 기준으로 빼고, 실시간은 클라이언트가 {@code user_id} 로 숨긴다(토픽은 방 공용).
+ *
+ * <p>LUT-768: 미션 중에도 채팅을 보낼 수 있다 — 예전의 미션 중 거부(150304)는 폐지했고 번호만 예약해 둔다.
  */
 @Service
 @Slf4j
@@ -76,9 +78,6 @@ public class TowerChatService {
             @Nullable String clientIp) {
         TowerOccupant me = resolveOccupant(instanceId, userId, visitorKey);
         String subject = guardSubject(me);
-        if (me.isMissionActive()) {
-            throw TowerChatException.missionInProgress();
-        }
         String content = rawContent == null ? "" : rawContent.trim();
         boolean visitor = me.isVisitor();
         int maxLength = visitor ? properties.getVisitorMaxLength() : properties.getMaxLength();
