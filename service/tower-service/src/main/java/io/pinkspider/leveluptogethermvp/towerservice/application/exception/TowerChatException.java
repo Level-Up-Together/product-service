@@ -10,7 +10,10 @@ public class TowerChatException extends TowerException {
     public static final String NOT_IN_INSTANCE = "150301";
     public static final String RATE_LIMITED = "150302";
     public static final String DUPLICATE = "150303";
+
+    /** LUT-768 부터 쓰지 않는다(미션 중 채팅 허용). 번호는 예약 — 다른 뜻으로 재사용하지 않는다 */
     public static final String MISSION_IN_PROGRESS = "150304";
+
     public static final String PROFANITY_REJECTED = "150305";
     public static final String MUTED = "150306";
     public static final String CONTENT_INVALID = "150307";
@@ -34,11 +37,6 @@ public class TowerChatException extends TowerException {
     public static TowerChatException duplicate() {
         return new TowerChatException(
                 DUPLICATE, "error.tower.chat.duplicate", HttpStatus.BAD_REQUEST);
-    }
-
-    public static TowerChatException missionInProgress() {
-        return new TowerChatException(
-                MISSION_IN_PROGRESS, "error.tower.chat.mission_in_progress", HttpStatus.FORBIDDEN);
     }
 
     public static TowerChatException profanityRejected() {

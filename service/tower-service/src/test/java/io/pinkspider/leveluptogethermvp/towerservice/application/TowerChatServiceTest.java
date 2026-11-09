@@ -130,8 +130,7 @@ class TowerChatServiceTest {
     }
 
     @Test
-    @DisplayName(
-            "거절 순서: 방 밖 150301 · 미션 중 150304 · 길이 150307 · 제한 중 150306 · 간격 150302 · 중복 150303")
+    @DisplayName("거절 순서: 방 밖 150301 · 길이 150307 · 제한 중 150306 · 간격 150302 · 중복 150303")
     void rejections() {
         when(occupantRepository.findByUserId("nobody")).thenReturn(Optional.empty());
         assertThatThrownBy(() -> service.send(5L, "nobody", null, "x"))
@@ -144,10 +143,6 @@ class TowerChatServiceTest {
                 .hasFieldOrPropertyWithValue("code", TowerChatException.NOT_IN_INSTANCE);
 
         loginOk();
-        user.startMission(NOW);
-        assertThatThrownBy(() -> service.send(5L, "u1", null, "x"))
-                .hasFieldOrPropertyWithValue("code", TowerChatException.MISSION_IN_PROGRESS);
-        user.endMission();
 
         assertThatThrownBy(() -> service.send(5L, "u1", null, "   "))
                 .hasFieldOrPropertyWithValue("code", TowerChatException.CONTENT_INVALID);
@@ -166,6 +161,22 @@ class TowerChatServiceTest {
         assertThatThrownBy(() -> service.send(5L, "u1", null, "x"))
                 .hasFieldOrPropertyWithValue("code", TowerChatException.DUPLICATE);
         verify(publisher, never()).publishToInstance(anyLong(), any());
+    }
+
+    @Test
+    @DisplayName("LUT-768: 미션 중에도 채팅을 보낼 수 있다(예전 150304 거부 폐지)")
+    void sendWhileMission() {
+        loginOk();
+        user.startMission(NOW);
+        when(guard.tryAcquireSend("u:u1", false)).thenReturn(true);
+        when(moderationService.moderate("집중 중"))
+                .thenReturn(new ModerationResult("집중 중", false, false, null, List.of()));
+
+        TowerChatMessage message = service.send(5L, "u1", null, "집중 중");
+
+        assertThat(message.content()).isEqualTo("집중 중");
+        verify(historyStore).push(message);
+        verify(publisher).publishToInstance(eq(5L), any());
     }
 
     @Test

@@ -145,17 +145,17 @@ class TowerChatControllerTest {
     }
 
     @Test
-    @DisplayName("거절: 미션 중 403 150304 · 너무 빠름 429 150302 · HIGH 금칙어 400 150305 · 빈 본문 400")
+    @DisplayName("거절: 방 밖 403 150301 · 너무 빠름 429 150302 · HIGH 금칙어 400 150305 · 빈 본문 400")
     void rejected() throws Exception {
         when(chatService.send(eq(5L), eq("user-1"), isNull(), eq("a"), any()))
-                .thenThrow(TowerChatException.missionInProgress());
+                .thenThrow(TowerChatException.notInInstance());
         mockMvc.perform(
                         RestDocumentationRequestBuilders.post("/api/v1/tower/instances/5/chat")
                                 .with(user("user-1"))
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content("{\"content\":\"a\"}"))
                 .andExpect(status().isForbidden())
-                .andExpect(jsonPath("$.code").value("150304"));
+                .andExpect(jsonPath("$.code").value("150301"));
         when(chatService.send(eq(5L), eq("user-1"), isNull(), eq("b"), any()))
                 .thenThrow(TowerChatException.rateLimited());
         mockMvc.perform(
