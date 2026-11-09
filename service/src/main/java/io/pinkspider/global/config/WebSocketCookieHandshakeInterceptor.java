@@ -1,9 +1,11 @@
 package io.pinkspider.global.config;
 
+import io.pinkspider.global.web.ClientIpResolver;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import java.util.Map;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Profile;
 import org.springframework.http.server.ServerHttpRequest;
@@ -29,6 +31,12 @@ public class WebSocketCookieHandshakeInterceptor implements HandshakeInterceptor
     /** STOMP 세션 attribute 키 (내부용 — 쿠키 이름과 무관). */
     public static final String ATTR_ACCESS_TOKEN = "access_token";
 
+    /** LUT-705: 핸드셰이크 요청의 클라이언트 IP — 비로그인 연결 수 제한용 */
+    public static final String ATTR_CLIENT_IP = "client_ip";
+
+    @Autowired(required = false)
+    private ClientIpResolver clientIpResolver;
+
     /** 매칭할 access_token 쿠키 이름. REST JwtAuthenticationFilter 와 동일한 설정 키를 사용한다. */
     @Value("${app.cookie.access-token-name:access_token}")
     private String accessTokenCookieName;
@@ -41,6 +49,12 @@ public class WebSocketCookieHandshakeInterceptor implements HandshakeInterceptor
             Map<String, Object> attributes) {
         if (request instanceof ServletServerHttpRequest servletRequest) {
             HttpServletRequest httpRequest = servletRequest.getServletRequest();
+            if (clientIpResolver != null) {
+                String ip = clientIpResolver.resolve(httpRequest);
+                if (ip != null) {
+                    attributes.put(ATTR_CLIENT_IP, ip);
+                }
+            }
             Cookie[] cookies = httpRequest.getCookies();
             if (cookies != null) {
                 for (Cookie cookie : cookies) {

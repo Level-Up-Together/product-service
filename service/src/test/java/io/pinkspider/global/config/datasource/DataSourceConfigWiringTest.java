@@ -30,7 +30,8 @@ class DataSourceConfigWiringTest {
                     FeedDataSourceConfig.class,
                     NotificationDataSourceConfig.class,
                     GamificationDataSourceConfig.class,
-                    StatsDataSourceConfig.class);
+                    StatsDataSourceConfig.class,
+                    TowerDataSourceConfig.class);
 
     private static String db(Class<?> config) {
         String name = config.getSimpleName().replace("DataSourceConfig", "");

@@ -64,6 +64,12 @@
 | FeedCommandService           | `FeedUnlikedEvent`                 | `UserStatsCounterEventListener`      | likesReceived 감소                        |
 | MissionAutoCompleteScheduler | `MissionAutoEndWarningEvent`       | `NotificationEventListener`          | 자동종료 경고 — 시작 후 180·230분 FIRST/FINAL 2단계 (dedup) |
 | MissionAutoCompleteScheduler·MissionExecutionService | `MissionAutoEndedEvent` | `NotificationEventListener` | 목표시간 도달 자동 종료 알림 `MISSION_AUTO_ENDED` — 스케줄러 (LUT-510) + 클라이언트 `autoEnded=true` 완료 (LUT-551) |
+| RegularMissionExecutionStrategy·DailyMissionInstanceService | `MissionExecutionStartedEvent` | `TowerMissionEventListener` (tower) | 수행(타이머) 시작 → 탑에 있으면 미션 중 + 같은 방 `USER_STATE` 브로드캐스트(공개 미션만 미션명), 없으면 "탑 자동 착석" 설정이 켜진 유저 자동 착석 (LUT-632) |
+| MissionCompletionSaga(완료)·MissionAutoCompleteScheduler(4시간)·strategy/instance skip(취소) | `MissionExecutionEndedEvent` | `TowerMissionEventListener` (tower) | 수행 종료 → 완료면 `MISSION_COMPLETED`(10초 응원 창) 브로드캐스트, 자동 착석자·연결 끊긴 유저 퇴장, 연결된 유저 휴식 중. 자정 MISSED 는 `TowerSeatReconcileScheduler` 가 대조 (LUT-632) |
+| UserExperienceService | `UserLevelUpEvent` | `TowerLevelChangeListener` (tower) | 탑에 있는 유저(자리 유지·자동 착석 포함)면 presence 레벨 갱신 + 같은 방에 `LEVEL` 브로드캐스트(머리 위 이름표, LUT-631) |
+| UserExperienceService | `UserLevelUpEvent` | `TowerFloorUnlockListener` (tower) | 공개 층 중 "이전 레벨 < 입장 레벨 ≤ 새 레벨"(제한 없는 층 제외)이면 가장 높은 층 1건으로 `TowerFloorUnlockedEvent` 재발행 (LUT-634) |
+| TowerFloorUnlockListener | `TowerFloorUnlockedEvent` | `NotificationEventListener` (fallbackExecution) | `TOWER_FLOOR_UNLOCKED` 알림 — referenceId=층 번호 dedup, 장소명 수신자 locale, 링크 `/tower/{n}` (LUT-634) |
+| TowerEntryService.enter | `TowerFloorFirstEnteredEvent` | `AchievementEventListener` (gamification) | 층 첫 입장(`tower_floor_visit` 1행) → `TOWER_SERVICE` 업적 재판정(visitedFloorCount·highestVisitedFloor), 보상 칭호는 `TitleAcquiredEvent` 흐름 (LUT-634) |
 | MissionReminderScheduler     | `MissionReminderEvent`             | `NotificationEventListener`          | 미션 리마인더 — 설정 요일·시각(유저 타임존) 푸시 (LUT-282) |
 | GuildChatService             | `GuildChatMessageEvent`            | `NotificationEventListener`          | 길드 채팅 알림 (발송자 제외 멤버 전원) — 차단 관계 스킵 (LUT-373), 사진만이면 `notification.preview.photo` (LUT-590) |
 | GuildDirectMessageService    | `GuildDirectMessageEvent`          | `NotificationEventListener`          | 길드 DM 알림 — 레코드+실시간+푸시 통합 (LUT-224). 수신자가 방 열람 중(LUT-263)·발신자 차단(shadow block, LUT-383)이면 미발행. 사진만이면 `notification.preview.photo` (LUT-590) |

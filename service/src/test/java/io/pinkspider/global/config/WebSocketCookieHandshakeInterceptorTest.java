@@ -56,4 +56,29 @@ class WebSocketCookieHandshakeInterceptorTest {
         assertThat(attributes)
                 .doesNotContainKey(WebSocketCookieHandshakeInterceptor.ATTR_ACCESS_TOKEN);
     }
+
+    @Test
+    @DisplayName(
+            "LUT-705: 클라이언트 IP 를 세션 attribute 로 남긴다(비로그인 연결 수 제한용) · 판별기가 없거나 IP 가 없으면 남기지 않는다")
+    void attachesClientIp() {
+        WebSocketCookieHandshakeInterceptor interceptor = interceptorWithCookieName("access_token");
+        io.pinkspider.global.web.ClientIpResolver resolver =
+                mock(io.pinkspider.global.web.ClientIpResolver.class);
+        ServletServerHttpRequest request = requestWithCookies();
+        when(resolver.resolve(request.getServletRequest())).thenReturn("1.2.3.4");
+        Map<String, Object> attributes = new HashMap<>();
+        interceptor.beforeHandshake(request, null, null, attributes);
+        assertThat(attributes)
+                .doesNotContainKey(WebSocketCookieHandshakeInterceptor.ATTR_CLIENT_IP);
+
+        ReflectionTestUtils.setField(interceptor, "clientIpResolver", resolver);
+        interceptor.beforeHandshake(request, null, null, attributes);
+        assertThat(attributes)
+                .containsEntry(WebSocketCookieHandshakeInterceptor.ATTR_CLIENT_IP, "1.2.3.4");
+
+        when(resolver.resolve(request.getServletRequest())).thenReturn(null);
+        Map<String, Object> empty = new HashMap<>();
+        interceptor.beforeHandshake(request, null, null, empty);
+        assertThat(empty).doesNotContainKey(WebSocketCookieHandshakeInterceptor.ATTR_CLIENT_IP);
+    }
 }

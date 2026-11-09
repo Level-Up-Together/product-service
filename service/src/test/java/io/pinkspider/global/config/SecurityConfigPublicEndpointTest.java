@@ -14,6 +14,7 @@ import io.pinkspider.global.security.TokenBlacklistChecker;
 import io.pinkspider.global.security.UserExistenceChecker;
 import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -104,6 +105,13 @@ class SecurityConfigPublicEndpointTest {
                 "/api/v1/rankings",
                 "/api/v1/rankings/missions",
                 "/api/v1/rankings/level",
+                "/api/v1/tower/floors", // LUT-629
+                "/api/v1/tower/instances/1/presence", // LUT-631
+                "/api/v1/tower/instances/1/chat", // LUT-633
+                "/api/v1/tower/chat/reactions", // LUT-633
+                "/api/v1/tower/queue/t-1", // LUT-701
+                "/api/v1/tower/floors/1/instances", // LUT-738
+                "/api/v1/tower/npcs/1/entries/random", // LUT-760
                 "/api/v1/shop-items", // LUT-350
                 "/api/v1/diamond-bundles" // LUT-356
             })
@@ -130,7 +138,8 @@ class SecurityConfigPublicEndpointTest {
                 "/api/v1/rankings/nearby",
                 "/api/v1/mypage/profile",
                 "/api/v1/diamonds/balance",
-                "/api/v1/diamonds/me" // LUT-356: 잔액은 개인 데이터 — 묶음상품 permitAll 이 새지 않는지
+                "/api/v1/diamonds/me", // LUT-356: 잔액은 개인 데이터 — 묶음상품 permitAll 이 새지 않는지
+                "/api/v1/tower/me" // LUT-713: 내 자리는 로그인 유저만 — 탑 공개 GET 이 새지 않는지
             })
     void 익명_GET_은_401_이어야_한다(String path) throws Exception {
         int status = mockMvc.perform(get(path)).andReturn().getResponse().getStatus();
@@ -223,5 +232,67 @@ class SecurityConfigPublicEndpointTest {
         OAuth2Properties oAuth2Properties() {
             return new OAuth2Properties();
         }
+    }
+
+    /** LUT-630: 탑 입장·퇴장은 방문객(비로그인)도 허용 층에 한해 들어온다 — 층 판정은 서비스 몫이라 필터는 열려 있어야 한다 */
+    @ParameterizedTest(name = "탑 익명 POST 허용: {0}")
+    @ValueSource(
+            strings = {
+                "/api/v1/tower/floors/1/enter",
+                "/api/v1/tower/leave",
+                "/api/v1/tower/instances/1/chat", // LUT-633
+                "/api/v1/tower/instances/1/reactions", // LUT-633
+                "/api/v1/tower/instances/1/move-in", // LUT-738
+                "/api/v1/tower/npcs/1/entries", // LUT-760
+                "/api/v1/tower/npcs/entries/1/reports" // LUT-760
+            })
+    void 탑_익명_POST_는_401_이_아니어야_한다(String path) throws Exception {
+        int status = mockMvc.perform(post(path)).andReturn().getResponse().getStatus();
+        Assertions.assertThat(status)
+                .as("%s 는 방문객(비로그인) 입장/퇴장이 허용돼야 한다 (LUT-630 permitAll POST 누락 의심)", path)
+                .isNotEqualTo(401);
+    }
+
+    /** LUT-701: 대기 그만하기 — 방문객도 줄을 서므로 DELETE 도 열려 있어야 한다(표 = 본인 확인) */
+    @Test
+    void 탑_대기열_익명_DELETE_는_401_이_아니어야_한다() throws Exception {
+        int status =
+                mockMvc.perform(delete("/api/v1/tower/queue/t-1"))
+                        .andReturn()
+                        .getResponse()
+                        .getStatus();
+        Assertions.assertThat(status).isNotEqualTo(401);
+    }
+
+    /**
+     * LUT-705: 방문객(토큰 없음)이 보낸 미션 시작은 서버가 거부해야 한다 — 클라이언트 가드만으로는 우회된다. 방문객 신고도 로그인 유저만 보낸다(탑 채팅· 리액션
+     * permitAll 과 같은 {@code /instances/*} 아래라 인접 경로가 같이 열리지 않는지 본다).
+     */
+    @ParameterizedTest(name = "익명 쓰기 차단: {0}")
+    @ValueSource(
+            strings = {
+                "/api/v1/missions/1/executions/start",
+                "/api/v1/missions/1/executions/2026-11-04/start",
+                "/api/v1/missions/1/start"
+            })
+    void 방문객_미션_시작은_401(String path) throws Exception {
+        int status =
+                mockMvc.perform(
+                                org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+                                        .patch(path))
+                        .andReturn()
+                        .getResponse()
+                        .getStatus();
+        Assertions.assertThat(status).as("%s 는 로그인이 필요하다", path).isEqualTo(401);
+    }
+
+    @Test
+    void 방문객_신고는_로그인_필요() throws Exception {
+        int status =
+                mockMvc.perform(post("/api/v1/tower/instances/1/visitor-reports"))
+                        .andReturn()
+                        .getResponse()
+                        .getStatus();
+        Assertions.assertThat(status).isEqualTo(401);
     }
 }

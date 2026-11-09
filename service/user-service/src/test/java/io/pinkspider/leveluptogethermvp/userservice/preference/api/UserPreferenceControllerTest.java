@@ -105,7 +105,23 @@ class UserPreferenceControllerTest {
                                                                         .description(
                                                                                 "홈 피드 카테고리 필터 ID 목록"
                                                                                     + " — 빈 배열=전체"
-                                                                                    + " (LUT-548)"))
+                                                                                    + " (LUT-548)"),
+                                                                fieldWithPath(
+                                                                                "value.tower_auto_seat")
+                                                                        .type(JsonFieldType.BOOLEAN)
+                                                                        .description(
+                                                                                "탑 자동 착석 — 탑 밖에서"
+                                                                                    + " 미션을 시작하면 탑에"
+                                                                                    + " 앉힘 (기본"
+                                                                                    + " true,"
+                                                                                    + " LUT-632)"),
+                                                                fieldWithPath(
+                                                                                "value.tower_auto_seat_notice_seen")
+                                                                        .type(JsonFieldType.BOOLEAN)
+                                                                        .description(
+                                                                                "탑 자동 착석 첫 안내를 봤는지"
+                                                                                    + " (기본 false,"
+                                                                                    + " LUT-632/713)"))
                                                         .build())));
 
         // then
@@ -162,6 +178,20 @@ class UserPreferenceControllerTest {
                                                                                     + " 배열=전체, 미존재"
                                                                                     + " ID 는 무시"
                                                                                     + " (LUT-548)")
+                                                                        .optional(),
+                                                                fieldWithPath("tower_auto_seat")
+                                                                        .type(JsonFieldType.BOOLEAN)
+                                                                        .description(
+                                                                                "탑 자동 착석 (null=변경"
+                                                                                    + " 없음, LUT-632)")
+                                                                        .optional(),
+                                                                fieldWithPath(
+                                                                                "tower_auto_seat_notice_seen")
+                                                                        .type(JsonFieldType.BOOLEAN)
+                                                                        .description(
+                                                                                "탑 자동 착석 첫 안내 확인"
+                                                                                    + " (null=변경"
+                                                                                    + " 없음, LUT-632)")
                                                                         .optional())
                                                         .responseFields(
                                                                 fieldWithPath("code")
@@ -186,7 +216,23 @@ class UserPreferenceControllerTest {
                                                                         .description(
                                                                                 "홈 피드 카테고리 필터 ID 목록"
                                                                                     + " — 빈 배열=전체"
-                                                                                    + " (LUT-548)"))
+                                                                                    + " (LUT-548)"),
+                                                                fieldWithPath(
+                                                                                "value.tower_auto_seat")
+                                                                        .type(JsonFieldType.BOOLEAN)
+                                                                        .description(
+                                                                                "탑 자동 착석 — 탑 밖에서"
+                                                                                    + " 미션을 시작하면 탑에"
+                                                                                    + " 앉힘 (기본"
+                                                                                    + " true,"
+                                                                                    + " LUT-632)"),
+                                                                fieldWithPath(
+                                                                                "value.tower_auto_seat_notice_seen")
+                                                                        .type(JsonFieldType.BOOLEAN)
+                                                                        .description(
+                                                                                "탑 자동 착석 첫 안내를 봤는지"
+                                                                                    + " (기본 false,"
+                                                                                    + " LUT-632/713)"))
                                                         .build())));
 
         // then

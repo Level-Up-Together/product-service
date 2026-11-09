@@ -55,7 +55,7 @@ class ShopServiceTest {
 
     private static final String USER_ID = "test-user-123";
 
-    /** LUT-348: 레벨 1 = COMMON 등급 (자기 등급보다 높은 아이템은 할증) */
+    /** LUT-348: 레벨 1 = COMMON 등급 (자기 등급보다 높은 아이템은 잠금 대상 — 가격은 무관, LUT-758) */
     private static final int LEVEL_COMMON = 1;
 
     /** LUT-348: 레벨 106 = RARE 등급 */
@@ -121,8 +121,8 @@ class ShopServiceTest {
         }
 
         @Test
-        @DisplayName("LUT-348: 유저 레벨 기준 할증가와 정가를 함께 내려준다")
-        void getShopItems_includesEffectiveAndListPrice() {
+        @DisplayName("LUT-758: 상위 등급 아이템도 세 가격 필드가 모두 어드민 입력가와 같다 (할증 없음)")
+        void getShopItems_higherRarity_fixedPrice() {
             ShopItem mythic = createShopItem(1L, "대천사의 날개", TitleRarity.MYTHIC, 500);
             when(shopItemRepository.findByIsActiveTrue()).thenReturn(List.of(mythic));
             when(userItemRepository.findShopItemIdsByUserId(USER_ID)).thenReturn(List.of());
@@ -130,38 +130,55 @@ class ShopServiceTest {
 
             ShopItemResponse result = shopService.getShopItems(USER_ID).get(0);
 
-            // RARE 유저 → MYTHIC 은 gap 3 (×3.3), 정가는 COMMON 기준 gap 5 (×8)
+            // 예전(LUT-348)엔 RARE 유저 → MYTHIC 이 1650 / 정가 4000 이었다
             assertThat(result.price()).isEqualTo(500);
-            assertThat(result.effectivePrice()).isEqualTo(1650);
-            assertThat(result.listPrice()).isEqualTo(4000);
+            assertThat(result.effectivePrice()).isEqualTo(500);
+            assertThat(result.listPrice()).isEqualTo(500);
         }
 
         @Test
-        @DisplayName("LUT-348: 자기 등급 이하 아이템은 할증 없이 기본가 그대로다")
-        void getShopItems_noSurchargeForOwnOrLowerRarity() {
+        @DisplayName("LUT-758: 레벨이 다른 두 유저가 같은 아이템을 보면 가격이 같다")
+        void getShopItems_sameItemSamePriceAcrossLevels() {
             ShopItem rare = createShopItem(1L, "메딕의 날개", TitleRarity.RARE, 300);
             when(shopItemRepository.findByIsActiveTrue()).thenReturn(List.of(rare));
             when(userItemRepository.findShopItemIdsByUserId(USER_ID)).thenReturn(List.of());
-            when(userExperienceService.getUserLevel(USER_ID)).thenReturn(LEVEL_RARE);
+            when(userExperienceService.getUserLevel(USER_ID))
+                    .thenReturn(LEVEL_COMMON)
+                    .thenReturn(LEVEL_RARE);
 
-            ShopItemResponse result = shopService.getShopItems(USER_ID).get(0);
+            ShopItemResponse asCommon = shopService.getShopItems(USER_ID).get(0);
+            ShopItemResponse asRare = shopService.getShopItems(USER_ID).get(0);
 
-            assertThat(result.effectivePrice()).isEqualTo(300);
-            // 정가는 COMMON 기준 ×2.2 라 자기 등급 유저에게는 최대 할인으로 보인다
-            assertThat(result.listPrice()).isEqualTo(660);
+            assertThat(asCommon.effectivePrice()).isEqualTo(300);
+            assertThat(asRare.effectivePrice()).isEqualTo(300);
+            assertThat(asCommon.listPrice()).isEqualTo(asRare.listPrice()).isEqualTo(300);
         }
 
         @Test
-        @DisplayName("LUT-350: 비로그인은 레벨 1(COMMON) 기준가로 조회되고 레벨/보유 조회를 하지 않는다")
+        @DisplayName("LUT-758: 가격이 비어 있으면 세 필드 모두 0 이다")
+        void getShopItems_nullPrice_isZero() {
+            ShopItem item = createShopItem(1L, "설명서", TitleRarity.COMMON, 0);
+            item.setPrice(null);
+            when(shopItemRepository.findByIsActiveTrue()).thenReturn(List.of(item));
+
+            ShopItemResponse result = shopService.getShopItems(null).get(0);
+
+            assertThat(result.price()).isZero();
+            assertThat(result.effectivePrice()).isZero();
+            assertThat(result.listPrice()).isZero();
+        }
+
+        @Test
+        @DisplayName("LUT-350: 비로그인은 고정가 그대로 조회되고 레벨/보유 조회를 하지 않는다")
         void getShopItems_anonymous_usesLevelOne() {
             ShopItem mythic = createShopItem(1L, "대천사의 날개", TitleRarity.MYTHIC, 500);
             when(shopItemRepository.findByIsActiveTrue()).thenReturn(List.of(mythic));
 
             ShopItemResponse result = shopService.getShopItems(null).get(0);
 
-            // COMMON 기준 gap 5 (×8) — 가입 직후와 같은 값이라 로그인해도 가격이 오르지 않는다
-            assertThat(result.effectivePrice()).isEqualTo(4000);
-            assertThat(result.listPrice()).isEqualTo(4000);
+            // LUT-758: 가격은 레벨과 무관 — 로그인해도 같은 값
+            assertThat(result.effectivePrice()).isEqualTo(500);
+            assertThat(result.listPrice()).isEqualTo(500);
             assertThat(result.isOwned()).isFalse();
             verify(userExperienceService, never()).getUserLevel(any());
             verify(userItemRepository, never()).findShopItemIdsByUserId(any());
@@ -366,23 +383,42 @@ class ShopServiceTest {
         }
 
         @Test
-        @DisplayName("LUT-348: 상위 등급 아이템은 기본가가 아닌 할증가를 차감한다")
-        void purchaseItem_chargesSurchargedPrice() {
-            // COMMON 유저(Lv.1)가 RARE 아이템 구매 → gap 2 (×2.2), 300 → 660
+        @DisplayName("LUT-758: 상위 등급 아이템도 어드민 입력가 그대로 차감한다 (할증 없음)")
+        void purchaseItem_chargesFixedPrice() {
+            // COMMON 유저(Lv.1)가 RARE 아이템 구매 — 예전(LUT-348)엔 gap 2 (×2.2) 로 660 이었다
             ShopItem item = createShopItem(3L, "메딕의 날개", TitleRarity.RARE, 300);
             when(shopItemRepository.findById(3L)).thenReturn(Optional.of(item));
             when(userItemRepository.existsByUserIdAndShopItemId(USER_ID, 3L)).thenReturn(false);
             when(userExperienceService.getUserLevel(USER_ID)).thenReturn(LEVEL_COMMON);
-            when(diamondService.spendDiamonds(USER_ID, 660, 3L, "메딕의 날개")).thenReturn(40);
+            when(diamondService.spendDiamonds(USER_ID, 300, 3L, "메딕의 날개")).thenReturn(40);
             when(userItemRepository.saveAndFlush(any(UserItem.class)))
                     .thenAnswer(inv -> inv.getArgument(0));
 
             ShopItemPurchaseResponse response = shopService.purchaseItem(USER_ID, 3L);
 
-            // 기본가 300 이 아니라 할증가 660 이 차감되어야 한다 (서버 검증의 핵심)
-            verify(diamondService).spendDiamonds(USER_ID, 660, 3L, "메딕의 날개");
-            verify(diamondService, never()).spendDiamonds(USER_ID, 300, 3L, "메딕의 날개");
-            assertThat(response.price()).isEqualTo(660);
+            // 표시가와 결제가가 같아야 한다
+            verify(diamondService).spendDiamonds(USER_ID, 300, 3L, "메딕의 날개");
+            verify(diamondService, never()).spendDiamonds(USER_ID, 660, 3L, "메딕의 날개");
+            assertThat(response.price()).isEqualTo(300);
+        }
+
+        @Test
+        @DisplayName("LUT-758: 다이아 부족(120605)은 고정가 기준으로 판정한다")
+        void purchaseItem_insufficient_isJudgedByFixedPrice() {
+            // 잔액 500 유저가 MYTHIC 300 아이템 구매 — 예전 할증가 2400 기준이면 부족이었지만 고정가 300 이면 성공
+            ShopItem item = createShopItem(5L, "대천사의 날개", TitleRarity.MYTHIC, 300);
+            when(shopItemRepository.findById(5L)).thenReturn(Optional.of(item));
+            when(userItemRepository.existsByUserIdAndShopItemId(USER_ID, 5L)).thenReturn(false);
+            when(userExperienceService.getUserLevel(USER_ID)).thenReturn(LEVEL_COMMON);
+            when(shopItemRepository.findByIsActiveTrue()).thenReturn(List.of(item));
+            when(diamondService.spendDiamonds(USER_ID, 300, 5L, "대천사의 날개")).thenReturn(200);
+            when(userItemRepository.saveAndFlush(any(UserItem.class)))
+                    .thenAnswer(inv -> inv.getArgument(0));
+
+            ShopItemPurchaseResponse response = shopService.purchaseItem(USER_ID, 5L);
+
+            assertThat(response.price()).isEqualTo(300);
+            assertThat(response.balance()).isEqualTo(200);
         }
 
         @Test
@@ -427,9 +463,9 @@ class ShopServiceTest {
         }
 
         @Test
-        @DisplayName("LUT-349: 상위 등급이라도 최저가 3개 안이면 할증가로 구매된다")
+        @DisplayName("LUT-349: 상위 등급이라도 최저가 3개 안이면 고정가로 구매된다")
         void purchaseItem_cheapestThreeOfHigherRarity_succeeds() {
-            // COMMON 유저가 EPIC 3번째(최저가 3개 안) 구매 → gap 3 (×3.3), 300 → 990
+            // COMMON 유저가 EPIC 3번째(최저가 3개 안) 구매 → 300 그대로 (LUT-758, 예전엔 ×3.3 = 990)
             ShopItem target = createShopItem(3L, "C", TitleRarity.EPIC, 300);
             when(shopItemRepository.findById(3L)).thenReturn(Optional.of(target));
             when(userItemRepository.existsByUserIdAndShopItemId(USER_ID, 3L)).thenReturn(false);
@@ -441,14 +477,14 @@ class ShopServiceTest {
                                     createShopItem(2L, "B", TitleRarity.EPIC, 200),
                                     target,
                                     createShopItem(4L, "D", TitleRarity.EPIC, 400)));
-            when(diamondService.spendDiamonds(USER_ID, 990, 3L, "C")).thenReturn(10);
+            when(diamondService.spendDiamonds(USER_ID, 300, 3L, "C")).thenReturn(10);
             when(userItemRepository.saveAndFlush(any(UserItem.class)))
                     .thenAnswer(inv -> inv.getArgument(0));
 
             ShopItemPurchaseResponse response = shopService.purchaseItem(USER_ID, 3L);
 
-            assertThat(response.price()).isEqualTo(990);
-            verify(diamondService).spendDiamonds(USER_ID, 990, 3L, "C");
+            assertThat(response.price()).isEqualTo(300);
+            verify(diamondService).spendDiamonds(USER_ID, 300, 3L, "C");
         }
 
         @Test

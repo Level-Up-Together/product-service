@@ -22,6 +22,7 @@ import io.pinkspider.global.facade.GamificationQueryFacade;
 import io.pinkspider.global.facade.GuildQueryFacade;
 import io.pinkspider.global.facade.dto.GuildMembershipInfo;
 import io.pinkspider.global.facade.dto.InProgressMissionDto;
+import io.pinkspider.global.facade.dto.PracticeStreakDto;
 import io.pinkspider.global.facade.dto.TitleChangeResultDto;
 import io.pinkspider.global.facade.dto.UserExperienceDto;
 import io.pinkspider.global.facade.dto.UserStatsDto;
@@ -220,6 +221,10 @@ class MyPageServiceTest {
             when(userLevelConfigCacheService.getLevelConfigByLevel(2))
                     .thenReturn(UserLevelConfig.builder().requiredExp(100).build());
             when(gamificationQueryFacadeService.calculateRankingPercentile(0L)).thenReturn(50.0);
+            // LUT-723: 방어 반영 연속 실천 + 남은 방어권·마지막 방어일
+            java.time.LocalDate shielded = java.time.LocalDate.of(2026, 11, 3);
+            when(gamificationQueryFacadeService.getPracticeStreak(TEST_USER_ID))
+                    .thenReturn(new PracticeStreakDto(4, 9, shielded.plusDays(1), 1, shielded));
 
             // when
             MyPageResponse result = myPageService.getMyPage(TEST_USER_ID);
@@ -229,6 +234,9 @@ class MyPageServiceTest {
             assertThat(result.getProfile()).isNotNull();
             assertThat(result.getExperience()).isNotNull();
             assertThat(result.getUserInfo()).isNotNull();
+            assertThat(result.getUserInfo().getPracticeStreakDays()).isEqualTo(4);
+            assertThat(result.getUserInfo().getPracticeShieldsRemaining()).isEqualTo(1);
+            assertThat(result.getUserInfo().getLastPracticeShieldDate()).isEqualTo(shielded);
         }
 
         @Test
@@ -301,6 +309,28 @@ class MyPageServiceTest {
             assertThat(result.getConsecutiveDays()).isEqualTo(23);
             // user_stats 의 streak 이 아니라 출석 체인 전용 파사드를 쓴다
             verify(gamificationQueryFacadeService).getCurrentAttendanceStreak(TEST_USER_ID);
+        }
+
+        @Test
+        @DisplayName("LUT-717: 공개 프로필에 연속 실천(현재·최장)이 실리고 조회 실패는 0 으로 보인다")
+        void getPublicProfile_practiceStreak() {
+            Users user = createTestUser(TEST_USER_ID, "테스터");
+            when(userRepository.findById(TEST_USER_ID)).thenReturn(Optional.of(user));
+            stubPublicProfileDefaults(TEST_USER_ID);
+            when(gamificationQueryFacadeService.getPracticeStreak(TEST_USER_ID))
+                    .thenReturn(new PracticeStreakDto(5, 12, java.time.LocalDate.now()));
+
+            PublicProfileResponse result = myPageService.getPublicProfile(TEST_USER_ID, null);
+
+            assertThat(result.getPracticeStreakDays()).isEqualTo(5);
+            assertThat(result.getMaxPracticeStreakDays()).isEqualTo(12);
+
+            // 조회 실패 → 0 (프로필은 열린다)
+            when(gamificationQueryFacadeService.getPracticeStreak(TEST_USER_ID))
+                    .thenThrow(new RuntimeException("gamification down"));
+            PublicProfileResponse fallback = myPageService.getPublicProfile(TEST_USER_ID, null);
+            assertThat(fallback.getPracticeStreakDays()).isZero();
+            assertThat(fallback.getMaxPracticeStreakDays()).isZero();
         }
 
         @Test
@@ -698,6 +728,7 @@ class MyPageServiceTest {
             when(gamificationQueryFacadeService.countAttendanceDays(TEST_USER_ID)).thenReturn(1L);
             when(guildQueryFacadeService.getUserGuildMemberships(TEST_USER_ID))
                     .thenReturn(List.of(sharedGuild));
+            when(guildQueryFacadeService.isGuildPublic(5L)).thenReturn(true);
             when(guildQueryFacadeService.countActiveMembersByGuildIds(List.of(5L)))
                     .thenReturn(java.util.Map.of(5L, 3));
             when(guildQueryFacadeService.getUserGuildMemberships(viewerId))
@@ -735,6 +766,7 @@ class MyPageServiceTest {
             when(gamificationQueryFacadeService.countAttendanceDays(TEST_USER_ID)).thenReturn(1L);
             when(guildQueryFacadeService.getUserGuildMemberships(TEST_USER_ID))
                     .thenReturn(List.of(targetGuild));
+            when(guildQueryFacadeService.isGuildPublic(5L)).thenReturn(true);
             when(guildQueryFacadeService.countActiveMembersByGuildIds(List.of(5L)))
                     .thenReturn(java.util.Map.of(5L, 3));
             when(guildQueryFacadeService.getUserGuildMemberships(viewerId))
@@ -1074,6 +1106,13 @@ class MyPageServiceTest {
             assertThat(myPageService.isNicknameAvailable("", TEST_USER_ID)).isFalse();
             assertThat(myPageService.isNicknameAvailable("   ", TEST_USER_ID)).isFalse();
         }
+
+        @Test
+        @DisplayName("LUT-705: 방문객 이름(방문객·Visitor)으로 시작하면 중복이 아니어도 false")
+        void isNicknameAvailable_reserved() {
+            assertThat(myPageService.isNicknameAvailable("방문객1", TEST_USER_ID)).isFalse();
+            assertThat(myPageService.isNicknameAvailable("Visitor7", null)).isFalse();
+        }
     }
 
     @Nested
@@ -1182,6 +1221,17 @@ class MyPageServiceTest {
             assertThatThrownBy(() -> myPageService.updateNickname(TEST_USER_ID, "a"))
                     .isInstanceOf(CustomException.class)
                     .hasFieldOrPropertyWithValue("code", "NICKNAME_003");
+        }
+
+        @Test
+        @DisplayName("LUT-705: 방문객 이름으로 시작하는 닉네임은 NICKNAME_006")
+        void updateNickname_reserved_throwsException() {
+            assertThatThrownBy(() -> myPageService.updateNickname(TEST_USER_ID, "방문객1"))
+                    .isInstanceOf(CustomException.class)
+                    .hasFieldOrPropertyWithValue("code", "NICKNAME_006");
+            assertThatThrownBy(() -> myPageService.updateNickname(TEST_USER_ID, "VISITOR12"))
+                    .isInstanceOf(CustomException.class)
+                    .hasFieldOrPropertyWithValue("code", "NICKNAME_006");
         }
 
         @Test
@@ -1854,8 +1904,6 @@ class MyPageServiceTest {
             when(gamificationQueryFacadeService.countUserTitles(TEST_USER_ID)).thenReturn(5L);
             when(guildQueryFacadeService.getUserGuildMemberships(TEST_USER_ID))
                     .thenReturn(Collections.emptyList());
-            when(guildQueryFacadeService.countActiveMembersByGuildIds(Collections.emptyList()))
-                    .thenReturn(java.util.Map.of());
 
             // when
             PublicProfileResponse result = myPageService.getPublicProfile(TEST_USER_ID, null);
@@ -1883,8 +1931,6 @@ class MyPageServiceTest {
             when(gamificationQueryFacadeService.countUserTitles(TEST_USER_ID)).thenReturn(1L);
             when(guildQueryFacadeService.getUserGuildMemberships(TEST_USER_ID))
                     .thenReturn(Collections.emptyList());
-            when(guildQueryFacadeService.countActiveMembersByGuildIds(Collections.emptyList()))
-                    .thenReturn(java.util.Map.of());
 
             // when
             PublicProfileResponse result = myPageService.getPublicProfile(TEST_USER_ID, null);
@@ -1915,6 +1961,7 @@ class MyPageServiceTest {
             when(gamificationQueryFacadeService.countUserTitles(TEST_USER_ID)).thenReturn(2L);
             when(guildQueryFacadeService.getUserGuildMemberships(TEST_USER_ID))
                     .thenReturn(List.of(guild));
+            when(guildQueryFacadeService.isGuildPublic(1L)).thenReturn(true);
             when(guildQueryFacadeService.countActiveMembersByGuildIds(List.of(1L)))
                     .thenReturn(java.util.Map.of(1L, 12));
 
@@ -1925,6 +1972,36 @@ class MyPageServiceTest {
             assertThat(result.getGuilds()).hasSize(1);
             assertThat(result.getGuilds().get(0).getName()).isEqualTo("테스트길드");
             assertThat(result.getGuilds().get(0).getMemberCount()).isEqualTo(12);
+        }
+
+        @Test
+        @DisplayName("LUT-722: 비공개 길드는 프로필 응답에서 빠진다(본인이 봐도) — 공개 길드만, 비공개만이면 빈 목록")
+        void getPublicProfile_excludesPrivateGuilds() {
+            Users user = createTestUser(TEST_USER_ID, "테스터");
+            GuildMembershipInfo open = new GuildMembershipInfo(1L, "공개길드", null, 5, false, false);
+            GuildMembershipInfo secret = new GuildMembershipInfo(2L, "비공개길드", null, 3, true, false);
+            when(userRepository.findById(TEST_USER_ID)).thenReturn(Optional.of(user));
+            when(gamificationQueryFacadeService.getEquippedTitlesByUserId(TEST_USER_ID))
+                    .thenReturn(Collections.emptyList());
+            when(gamificationQueryFacadeService.getUserLevel(TEST_USER_ID)).thenReturn(5);
+            when(gamificationQueryFacadeService.getOrCreateUserStats(TEST_USER_ID))
+                    .thenReturn(createDefaultUserStats(TEST_USER_ID));
+            when(guildQueryFacadeService.getUserGuildMemberships(TEST_USER_ID))
+                    .thenReturn(List.of(open, secret));
+            when(guildQueryFacadeService.isGuildPublic(1L)).thenReturn(true);
+            when(guildQueryFacadeService.isGuildPublic(2L)).thenReturn(false);
+            when(guildQueryFacadeService.countActiveMembersByGuildIds(List.of(1L)))
+                    .thenReturn(java.util.Map.of(1L, 7));
+
+            PublicProfileResponse result =
+                    myPageService.getPublicProfile(TEST_USER_ID, TEST_USER_ID);
+
+            assertThat(result.getGuilds()).extracting("name").containsExactly("공개길드");
+
+            when(guildQueryFacadeService.getUserGuildMemberships(TEST_USER_ID))
+                    .thenReturn(List.of(secret));
+            assertThat(myPageService.getPublicProfile(TEST_USER_ID, "other").getGuilds()).isEmpty();
+            verify(guildQueryFacadeService, never()).countActiveMembersByGuildIds(List.of(2L));
         }
 
         @Test
@@ -1945,6 +2022,7 @@ class MyPageServiceTest {
             when(guildQueryFacadeService.getUserGuildMemberships(TEST_USER_ID))
                     .thenReturn(List.of(guild));
             // 멤버수 map에 99L이 없음
+            when(guildQueryFacadeService.isGuildPublic(99L)).thenReturn(true);
             when(guildQueryFacadeService.countActiveMembersByGuildIds(List.of(99L)))
                     .thenReturn(java.util.Map.of());
 
@@ -1965,8 +2043,6 @@ class MyPageServiceTest {
 
             when(userRepository.findById(TEST_USER_ID)).thenReturn(Optional.of(user));
             stubPublicProfileDefaults(TEST_USER_ID);
-            when(guildQueryFacadeService.countActiveMembersByGuildIds(Collections.emptyList()))
-                    .thenReturn(java.util.Map.of());
 
             // when
             PublicProfileResponse result = myPageService.getPublicProfile(TEST_USER_ID, null);
@@ -2594,6 +2670,7 @@ class MyPageServiceTest {
             GuildMembershipInfo sharedGuild =
                     new GuildMembershipInfo(5L, "공유 길드", null, 1, false, false);
             stubViewerProfile(user, viewerId, List.of(sharedGuild));
+            when(guildQueryFacadeService.isGuildPublic(5L)).thenReturn(true);
             when(guildQueryFacadeService.countActiveMembersByGuildIds(List.of(5L)))
                     .thenReturn(java.util.Map.of(5L, 3));
             when(guildQueryFacadeService.getUserGuildMemberships(viewerId))

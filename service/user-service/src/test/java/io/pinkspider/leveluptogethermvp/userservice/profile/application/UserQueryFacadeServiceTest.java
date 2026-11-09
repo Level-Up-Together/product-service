@@ -33,6 +33,11 @@ class UserQueryFacadeServiceTest {
     @Mock private FriendService friendService;
     @Mock private UserRepository userRepository;
 
+    @Mock
+    private io.pinkspider.leveluptogethermvp.userservice.preference.infrastructure
+                    .UserUiPreferenceRepository
+            userUiPreferenceRepository;
+
     @InjectMocks private UserQueryFacadeService facadeService;
 
     @Test
@@ -192,5 +197,32 @@ class UserQueryFacadeServiceTest {
             assertThat(facadeService.findUserIdsByNicknameContaining("  rumi "))
                     .containsExactly("u1");
         }
+    }
+
+    @Test
+    @DisplayName("LUT-632: 탑 자동 착석 — 저장값 없음·켬은 true, 끔만 false")
+    void isTowerAutoSeatEnabled() {
+        org.mockito.Mockito.when(userUiPreferenceRepository.findByUserId("none"))
+                .thenReturn(java.util.Optional.empty());
+        org.mockito.Mockito.when(userUiPreferenceRepository.findByUserId("on"))
+                .thenReturn(
+                        java.util.Optional.of(
+                                io.pinkspider.leveluptogethermvp.userservice.preference.domain
+                                        .entity.UserUiPreference.createDefault("on")));
+        org.mockito.Mockito.when(userUiPreferenceRepository.findByUserId("off"))
+                .thenReturn(
+                        java.util.Optional.of(
+                                io.pinkspider.leveluptogethermvp.userservice.preference.domain
+                                        .entity.UserUiPreference.builder()
+                                        .userId("off")
+                                        .towerAutoSeat(false)
+                                        .build()));
+
+        org.assertj.core.api.Assertions.assertThat(facadeService.isTowerAutoSeatEnabled("none"))
+                .isTrue();
+        org.assertj.core.api.Assertions.assertThat(facadeService.isTowerAutoSeatEnabled("on"))
+                .isTrue();
+        org.assertj.core.api.Assertions.assertThat(facadeService.isTowerAutoSeatEnabled("off"))
+                .isFalse();
     }
 }

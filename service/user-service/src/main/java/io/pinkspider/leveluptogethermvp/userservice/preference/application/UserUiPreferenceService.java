@@ -56,6 +56,13 @@ public class UserUiPreferenceService {
                     sanitizeCategoryIds(request.getHomeFeedCategoryIds()));
         }
 
+        // LUT-632: 탑 자동 착석 설정 + 첫 안내 확인
+        if (request.getTowerAutoSeat() != null) {
+            preference.setTowerAutoSeat(request.getTowerAutoSeat());
+        }
+        if (request.getTowerAutoSeatNoticeSeen() != null) {
+            preference.setTowerAutoSeatNoticeSeen(request.getTowerAutoSeatNoticeSeen());
+        }
         log.info("UI 환경설정 수정: userId={}", userId);
         return UserUiPreferenceResponse.from(preference);
     }

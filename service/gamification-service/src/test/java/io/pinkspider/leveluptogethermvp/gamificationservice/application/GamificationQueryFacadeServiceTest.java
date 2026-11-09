@@ -102,6 +102,11 @@ class GamificationQueryFacadeServiceTest {
                     .SubscriptionService
             subscriptionService;
 
+    @Mock
+    private io.pinkspider.leveluptogethermvp.gamificationservice.event.infrastructure
+                    .EventRepository
+            eventRepository;
+
     // @Lazy 파라미터가 있어 @InjectMocks 대신 수동 생성
     private GamificationQueryFacadeService facadeService;
 
@@ -122,7 +127,8 @@ class GamificationQueryFacadeServiceTest {
                         shopItemRepository,
                         diamondService,
                         missionCategoryService,
-                        subscriptionService);
+                        subscriptionService,
+                        eventRepository);
     }
 
     // ========== 테스트 픽스처 헬퍼 ==========
@@ -816,6 +822,29 @@ class GamificationQueryFacadeServiceTest {
     }
 
     // ========== 통계 WRITE 테스트 ==========
+
+    @Nested
+    @DisplayName("LUT-717 연속 실천 위임")
+    class PracticeStreakDelegationTest {
+
+        @Test
+        @DisplayName("recordMissionPractice 는 UserStatsService 로 완료 시각을 그대로 넘긴다")
+        void recordMissionPractice_delegates() {
+            java.time.LocalDateTime at = java.time.LocalDateTime.of(2026, 11, 3, 15, 20);
+            facadeService.recordMissionPractice(TEST_USER_ID, at);
+            verify(userStatsService).recordMissionPractice(TEST_USER_ID, at);
+        }
+
+        @Test
+        @DisplayName("getPracticeStreak 은 UserStatsService 의 값을 그대로 돌려준다")
+        void getPracticeStreak_delegates() {
+            io.pinkspider.global.facade.dto.PracticeStreakDto dto =
+                    new io.pinkspider.global.facade.dto.PracticeStreakDto(
+                            3, 9, java.time.LocalDate.of(2026, 11, 3));
+            when(userStatsService.getPracticeStreak(TEST_USER_ID)).thenReturn(dto);
+            assertThat(facadeService.getPracticeStreak(TEST_USER_ID)).isSameAs(dto);
+        }
+    }
 
     @Nested
     @DisplayName("recordMissionCompletion 테스트")
@@ -1587,6 +1616,30 @@ class GamificationQueryFacadeServiceTest {
             // then
             assertThat(result).isEqualTo(rarityMap);
             assertThat(result).doesNotContainKey("other-user");
+        }
+    }
+
+    @Nested
+    @DisplayName("LUT-733 링크 대상 확인")
+    class LinkTargetTest {
+
+        @Test
+        @DisplayName("판매 중 아이템·있는 이벤트 ID 만 돌려주고, 빈 입력이면 조회하지 않는다")
+        void findsOnlyAvailableTargets() {
+            when(shopItemRepository.findOnSaleIdsByIdIn(List.of(1L, 2L))).thenReturn(List.of(2L));
+            when(eventRepository.findIdsByIdIn(List.of(7L, 8L))).thenReturn(List.of(7L, 8L));
+
+            assertThat(facadeService.findOnSaleShopItemIds(List.of(1L, 2L))).containsExactly(2L);
+            assertThat(facadeService.findExistingEventIds(List.of(7L, 8L)))
+                    .containsExactlyInAnyOrder(7L, 8L);
+            assertThat(facadeService.findOnSaleShopItemIds(List.of())).isEmpty();
+            assertThat(facadeService.findOnSaleShopItemIds(null)).isEmpty();
+            assertThat(facadeService.findExistingEventIds(List.of())).isEmpty();
+            assertThat(facadeService.findExistingEventIds(null)).isEmpty();
+            org.mockito.Mockito.verify(shopItemRepository, org.mockito.Mockito.times(1))
+                    .findOnSaleIdsByIdIn(org.mockito.ArgumentMatchers.any());
+            org.mockito.Mockito.verify(eventRepository, org.mockito.Mockito.times(1))
+                    .findIdsByIdIn(org.mockito.ArgumentMatchers.any());
         }
     }
 }

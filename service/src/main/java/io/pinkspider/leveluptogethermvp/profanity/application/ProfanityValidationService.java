@@ -41,6 +41,27 @@ public class ProfanityValidationService {
         return words.stream().map(ProfanityWord::getWord).collect(Collectors.toSet());
     }
 
+    /**
+     * LUT-633: 활성 금칙어 → 심각도 이름(LOW/MEDIUM/HIGH). 탑 채팅이 심각도별(가림/거부)로 처리한다. 같은 캐시라 어드민 변경 시 함께 비워진다.
+     * 값을 enum 이 아닌 문자열로 두는 건 Redis JSON 캐시가 Map 값 타입을 잃기 때문.
+     */
+    @Cacheable(
+            value = "profanityWords",
+            key = "'withSeverity'",
+            unless = "#result == null || #result.isEmpty()")
+    public Map<String, String> getActiveProfanityWordsWithSeverity() {
+        Map<String, String> result = new java.util.LinkedHashMap<>();
+        for (ProfanityWord word : profanityWordRepository.findAllByIsActiveTrue()) {
+            if (word.getWord() == null || word.getWord().isBlank()) {
+                continue;
+            }
+            result.put(
+                    word.getWord(),
+                    word.getSeverity() == null ? "MEDIUM" : word.getSeverity().name());
+        }
+        return result;
+    }
+
     /** 특정 언어의 활성화된 금칙어 목록 조회 (캐싱) */
     @Cacheable(
             value = "profanityWords",

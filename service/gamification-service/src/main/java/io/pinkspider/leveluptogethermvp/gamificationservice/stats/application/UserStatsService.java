@@ -1,13 +1,22 @@
 package io.pinkspider.leveluptogethermvp.gamificationservice.stats.application;
 
 import io.pinkspider.global.facade.GuildQueryFacade;
+import io.pinkspider.global.facade.MissionQueryFacade;
 import io.pinkspider.global.facade.UserQueryFacade;
+import io.pinkspider.global.facade.dto.PracticeStreakDto;
 import io.pinkspider.leveluptogethermvp.gamificationservice.domain.entity.UserStats;
 import io.pinkspider.leveluptogethermvp.gamificationservice.infrastructure.UserStatsRepository;
 import io.pinkspider.leveluptogethermvp.gamificationservice.stats.domain.dto.UserStatsResponse;
+import io.pinkspider.leveluptogethermvp.gamificationservice.subscription.domain.entity.UserSubscription;
+import io.pinkspider.leveluptogethermvp.gamificationservice.subscription.infrastructure.UserSubscriptionRepository;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.ZoneId;
+import java.time.ZoneOffset;
+import java.util.List;
 import java.util.Optional;
+import java.util.Set;
+import java.util.function.Predicate;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -19,23 +28,33 @@ import org.springframework.transaction.annotation.Transactional;
 @Transactional(readOnly = true, transactionManager = "gamificationTransactionManager")
 public class UserStatsService {
 
+    /** LUT-717: 가입일을 모를 때 재계산 조회 범위 상한(일) */
+    private static final int PRACTICE_REBUILD_MAX_DAYS = 400;
+
     private final UserStatsRepository userStatsRepository;
     private final UserStatsCreator userStatsCreator;
     private final UserQueryFacade userQueryFacade;
     private final GuildQueryFacade guildQueryFacade;
+    private final MissionQueryFacade missionQueryFacade;
+    private final UserSubscriptionRepository userSubscriptionRepository;
 
     // LUT-405: userQueryFacadeService → userProfileCacheService → gamificationQueryFacadeService
     // → userStatsService 로 이어지는 user↔gamification 생성 사이클을 @Lazy 로 끊는다.
     // LUT-418: guildQueryFacade 도 같은 이유로 @Lazy (guild↔gamification 생성 사이클 예방).
+    // LUT-717: missionQueryFacade 도 @Lazy (mission→gamification 파사드 의존이 이미 있어 역방향 사이클 예방).
     public UserStatsService(
             UserStatsRepository userStatsRepository,
             UserStatsCreator userStatsCreator,
             @Lazy UserQueryFacade userQueryFacade,
-            @Lazy GuildQueryFacade guildQueryFacade) {
+            @Lazy GuildQueryFacade guildQueryFacade,
+            @Lazy MissionQueryFacade missionQueryFacade,
+            UserSubscriptionRepository userSubscriptionRepository) {
         this.userStatsRepository = userStatsRepository;
+        this.userSubscriptionRepository = userSubscriptionRepository;
         this.userStatsCreator = userStatsCreator;
         this.userQueryFacade = userQueryFacade;
         this.guildQueryFacade = guildQueryFacade;
+        this.missionQueryFacade = missionQueryFacade;
     }
 
     /**
@@ -103,6 +122,113 @@ public class UserStatsService {
                 userId,
                 stats.getCurrentStreak(),
                 stats.getMaxStreak());
+    }
+
+    /**
+     * LUT-717: 미션 완료 1건을 연속 실천에 반영한다. 완료 시각(UTC)을 유저 preferred_timezone 로컬 날짜로 바꿔 센다 — 로컬 23:50 에
+     * 시작해 00:20 에 끝난 미션은 다음 날 실천이다. saga 경로와 saga 를 거치지 않는 자동 종료 경로가 모두 부른다.
+     */
+    @Transactional(transactionManager = "gamificationTransactionManager")
+    public void recordMissionPractice(String userId, LocalDateTime completedAtUtc) {
+        ZoneId zone = resolveUserZone(userId);
+        LocalDateTime at =
+                completedAtUtc != null ? completedAtUtc : LocalDateTime.now(ZoneOffset.UTC);
+        LocalDate practiceDate = at.atZone(ZoneOffset.UTC).withZoneSameInstant(zone).toLocalDate();
+        UserStats stats = getOrCreateUserStats(userId);
+        // LUT-723: 건너뛴 날은 그날 구독 중이었으면 방어권으로 잇는다
+        stats.recordPractice(practiceDate, entitledOn(findSubscription(userId), zone));
+        log.debug(
+                "연속 실천 반영: userId={}, practiceDate={}, current={}, max={}",
+                userId,
+                practiceDate,
+                stats.getPracticeStreak(),
+                stats.getMaxPracticeStreak());
+    }
+
+    /**
+     * LUT-717: 현재·최장 연속 실천 일수. 마지막 실천일이 없으면(배포 전 가입 유저) 미션 완료 이력으로 한 번 재계산해 저장한다. 현재값은 마지막 실천일이 유저
+     * 로컬 오늘·어제일 때만 유지된다 (오늘 아직 안 했으면 어제까지 값, 그 전이면 0).
+     */
+    @Transactional(transactionManager = "gamificationTransactionManager")
+    public PracticeStreakDto getPracticeStreak(String userId) {
+        UserStats stats = getOrCreateUserStats(userId);
+        ZoneId zone = resolveUserZone(userId);
+        if (stats.getLastPracticeDate() == null) {
+            rebuildPracticeStreakFromHistory(userId, stats, zone);
+        }
+        LocalDate today = LocalDate.now(zone);
+        // LUT-723: 놓친 날(어제까지)을 방어권으로 이을 수 있으면 현재값 유지 + 이번 달 남은 방어권(구독 중일 때만)
+        Optional<UserSubscription> subscription = findSubscription(userId);
+        boolean entitledNow =
+                subscription
+                        .map(s -> s.isEntitled(LocalDateTime.now(ZoneOffset.UTC)))
+                        .orElse(false);
+        UserStats.PracticeView view =
+                stats.practiceViewAsOf(today, entitledOn(subscription, zone), entitledNow);
+        return new PracticeStreakDto(
+                view.currentDays(),
+                stats.getMaxPracticeStreak() == null ? 0 : stats.getMaxPracticeStreak(),
+                stats.getLastPracticeDate(),
+                view.shieldsRemaining(),
+                view.lastShieldDate());
+    }
+
+    /** LUT-723: 구독 행 — 조회 실패는 구독 없음으로(연속 실천 조회·반영을 막지 않는다) */
+    private Optional<UserSubscription> findSubscription(String userId) {
+        try {
+            return userSubscriptionRepository.findByUserId(userId);
+        } catch (Exception e) {
+            log.warn("연속 실천 방어권 — 구독 조회 실패: userId={}, error={}", userId, e.getMessage());
+            return Optional.empty();
+        }
+    }
+
+    /**
+     * LUT-723: 그 날(유저 로컬)이 끝날 때 구독 중이었는가 — 방어권은 놓친 날이 끝날 때 쓴다. 그 날이 끝나기 전에 시작했고, 끝나는 순간까지 권한(활성·유예,
+     * 무료 체험 포함)이 있었으면 참.
+     */
+    static Predicate<LocalDate> entitledOn(Optional<UserSubscription> subscription, ZoneId zone) {
+        if (subscription.isEmpty()) {
+            return day -> false;
+        }
+        UserSubscription s = subscription.get();
+        return day -> {
+            LocalDateTime dayEndUtc =
+                    day.plusDays(1)
+                            .atStartOfDay(zone)
+                            .withZoneSameInstant(ZoneOffset.UTC)
+                            .toLocalDateTime()
+                            .minusSeconds(1);
+            return (s.getStartedAt() == null || !s.getStartedAt().isAfter(dayEndUtc))
+                    && s.isEntitled(dayEndUtc);
+        };
+    }
+
+    /** 가입일부터의 미션 완료 로컬 날짜 집합으로 연속 실천을 다시 센다. 실패해도 조회를 막지 않는다(0 으로 응답, 다음 조회 때 재시도). */
+    private void rebuildPracticeStreakFromHistory(String userId, UserStats stats, ZoneId zone) {
+        try {
+            LocalDateTime nowUtc = LocalDateTime.now(ZoneOffset.UTC);
+            LocalDateTime createdAt = userQueryFacade.getCreatedAts(List.of(userId)).get(userId);
+            LocalDateTime start =
+                    createdAt != null
+                            ? createdAt.minusDays(1)
+                            : nowUtc.minusDays(PRACTICE_REBUILD_MAX_DAYS);
+            Set<LocalDate> dates =
+                    missionQueryFacade
+                            .findMissionCompletedLocalDates(
+                                    List.of(userId), start, nowUtc.plusDays(1), zone.getId())
+                            .getOrDefault(userId, Set.of());
+            stats.rebuildPracticeStreak(dates);
+            log.info(
+                    "연속 실천 재계산(LUT-717): userId={}, practiceDays={}, current={}, max={}, last={}",
+                    userId,
+                    dates.size(),
+                    stats.getPracticeStreak(),
+                    stats.getMaxPracticeStreak(),
+                    stats.getLastPracticeDate());
+        } catch (Exception e) {
+            log.warn("연속 실천 재계산 실패 — 0 으로 응답: userId={}, error={}", userId, e.getMessage());
+        }
     }
 
     @Transactional(transactionManager = "gamificationTransactionManager")

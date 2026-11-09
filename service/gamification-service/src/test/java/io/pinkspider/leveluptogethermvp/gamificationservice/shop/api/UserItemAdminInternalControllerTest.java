@@ -1,7 +1,6 @@
 package io.pinkspider.leveluptogethermvp.gamificationservice.shop.api;
 
 import static org.mockito.BDDMockito.given;
-import static org.springframework.restdocs.mockmvc.MockMvcRestDocumentation.document;
 import static org.springframework.restdocs.payload.PayloadDocumentation.fieldWithPath;
 import static org.springframework.restdocs.payload.PayloadDocumentation.responseFields;
 import static org.springframework.restdocs.request.RequestDocumentation.parameterWithName;
@@ -9,6 +8,8 @@ import static org.springframework.restdocs.request.RequestDocumentation.pathPara
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.epages.restdocs.apispec.MockMvcRestDocumentationWrapper;
+import com.epages.restdocs.apispec.ResourceSnippetParameters;
 import io.pinkspider.global.enums.TitleRarity;
 import io.pinkspider.leveluptogethermvp.config.ControllerTestConfig;
 import io.pinkspider.leveluptogethermvp.gamificationservice.shop.application.UserItemService;
@@ -80,8 +81,11 @@ class UserItemAdminInternalControllerTest {
                 .andExpect(jsonPath("$.value[0].rarity_name").value("희귀"))
                 .andExpect(jsonPath("$.value[0].is_equipped").value(true))
                 .andDo(
-                        document(
+                        MockMvcRestDocumentationWrapper.document(
                                 "internal-user-items-get",
+                                ResourceSnippetParameters.builder()
+                                        .tag("UserItem - Admin Internal")
+                                        .description("유저 보유 아이템 목록 (어드민) — 착용 여부·희귀도 라벨/색"),
                                 pathParameters(parameterWithName("userId").description("유저 ID")),
                                 responseFields(
                                         fieldWithPath("code").description("응답 코드"),
