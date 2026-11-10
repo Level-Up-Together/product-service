@@ -121,6 +121,9 @@ class UpdateUserStatsStepTest {
             // then
             assertThat(result.isSuccess()).isTrue();
             verify(gamificationQueryFacadeService).recordMissionCompletion(TEST_USER_ID, false);
+            // LUT-717: 연속 실천도 함께 반영(완료 시각 전달)
+            verify(gamificationQueryFacadeService)
+                    .recordMissionPractice(eq(TEST_USER_ID), org.mockito.ArgumentMatchers.any());
             verify(gamificationQueryFacadeService)
                     .checkAchievementsByDataSource(eq(TEST_USER_ID), eq("USER_STATS"));
         }

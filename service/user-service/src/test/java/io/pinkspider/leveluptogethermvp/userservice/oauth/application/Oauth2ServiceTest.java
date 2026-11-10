@@ -2166,6 +2166,19 @@ class Oauth2ServiceTest {
         }
 
         @Test
+        @DisplayName("LUT-705: 공급자 닉네임이 방문객 이름(Visitor…)으로 시작하면 제안하지 않는다")
+        void reservedProviderNickname_suggestedNull() {
+            try (MockedStatic<CryptoUtils> mockedCrypto = mockStatic(CryptoUtils.class)) {
+                stubNewGoogleUser(mockedCrypto, "Visitor Kim");
+
+                SocialLoginResponseDto result = mobileLogin(null);
+
+                assertThat(result.getSuggestedNickname()).isNull();
+                verify(userRepository, never()).existsByNickname(any());
+            }
+        }
+
+        @Test
         @DisplayName("공급자 닉네임이 공백이면 제안 닉네임은 null")
         void blankProviderNickname_suggestedNull() {
             try (MockedStatic<CryptoUtils> mockedCrypto = mockStatic(CryptoUtils.class)) {
@@ -2496,6 +2509,25 @@ class Oauth2ServiceTest {
                 verify(eventPublisher)
                         .publishEvent(any(io.pinkspider.global.event.UserSignedUpEvent.class));
             }
+        }
+
+        @Test
+        @DisplayName("LUT-705: 방문객 이름(Visitor·방문객)으로 시작하는 닉네임은 NICKNAME_006 으로 차단한다")
+        void reservedNickname_throws() {
+            when(signupTokenService.findByToken("signup-token")).thenReturn(session());
+            io.pinkspider.leveluptogethermvp.userservice.oauth.domain.dto.request
+                            .CompleteSignupRequestDto
+                    request = buildRequest(List.of());
+            request.setNickname("Visitor1");
+
+            assertThatThrownBy(
+                            () ->
+                                    oauth2Service.completeSignup(
+                                            "signup-token", request, httpRequest))
+                    .isInstanceOf(CustomException.class)
+                    .hasFieldOrPropertyWithValue("code", "NICKNAME_006");
+
+            verify(userRepository, never()).save(any(Users.class));
         }
 
         @Test

@@ -112,8 +112,9 @@ public class UserExperienceService {
             // 성장의 새싹은 LUT-607 부터 가입 즉시 지급(UserSignedUpEventListener) — 레벨업 트리거 없음
 
             // 레벨업 피드 프로젝션 이벤트 발행
+            // LUT-634: 이전 레벨도 싣는다 — 탑 층 해제는 "이전 레벨 < 입장 레벨 <= 새 레벨" 로 판정(한 번에 여러 레벨 상승 대응)
             eventPublisher.publishEvent(
-                    new UserLevelUpEvent(userId, levelAfter, userExp.getTotalExp()));
+                    new UserLevelUpEvent(userId, levelBefore, levelAfter, userExp.getTotalExp()));
 
             // 프로필 캐시 무효화 + 스냅샷 동기화는 UserLevelUpProfileSyncListener에서 처리
 

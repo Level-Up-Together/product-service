@@ -1,0 +1,65 @@
+package io.pinkspider.leveluptogethermvp.towerservice.domain.dto;
+
+import com.fasterxml.jackson.databind.PropertyNamingStrategies.SnakeCaseStrategy;
+import com.fasterxml.jackson.databind.annotation.JsonNaming;
+import io.pinkspider.leveluptogethermvp.towerservice.domain.entity.TowerNpc;
+import java.util.List;
+
+/**
+ * LUT-693: 입장 스냅샷의 NPC — 이름·상태 문구·대사는 4개 locale 을 다 내리고 클라이언트가 고른다(층 이름과 같은 방식). 자리는 배경 원본 픽셀. 대사
+ * 순번은 클라이언트가 기기에 기억한다. LUT-732: {@code auto_bubble}·{@code bubble_interval_seconds} = 자동 말풍선(추가 필드,
+ * 구 서버는 없음 → 꺼짐). LUT-733: {@code card} = 창 이미지·이동 링크(오늘 노출 기간이 아니거나 링크 대상이 없으면 null). LUT-760:
+ * {@code form} = 입력 받기 설정 + 공개 글 수(꺼졌거나 없으면 null — 구 클라이언트는 무시).
+ */
+@JsonNaming(SnakeCaseStrategy.class)
+public record TowerNpcView(
+        Long npcId,
+        String name,
+        String nameEn,
+        String nameJa,
+        String nameAr,
+        String profileImageUrl,
+        String statusText,
+        String statusTextEn,
+        String statusTextJa,
+        String statusTextAr,
+        Integer x,
+        Integer y,
+        List<TowerNpcLineDto> lines,
+        Boolean autoBubble,
+        Integer bubbleIntervalSeconds,
+        TowerNpcCardDto card,
+        TowerNpcFormView form) {
+
+    /** 창 이미지·링크 없이 (판정 전) */
+    public static TowerNpcView from(TowerNpc n) {
+        return from(n, null, null);
+    }
+
+    /** LUT-733: {@code card} = 노출 기간·링크 대상 판정을 마친 창 묶음(보여 줄 게 없으면 null) */
+    public static TowerNpcView from(TowerNpc n, TowerNpcCardDto card) {
+        return from(n, card, null);
+    }
+
+    /** LUT-760: {@code form} = 켜진 입력 받기 설정 + 공개 글 수(없으면 null) */
+    public static TowerNpcView from(TowerNpc n, TowerNpcCardDto card, TowerNpcFormView form) {
+        return new TowerNpcView(
+                n.getId(),
+                n.getName(),
+                n.getNameEn(),
+                n.getNameJa(),
+                n.getNameAr(),
+                n.getProfileImageUrl(),
+                n.getStatusText(),
+                n.getStatusTextEn(),
+                n.getStatusTextJa(),
+                n.getStatusTextAr(),
+                n.getSeatX(),
+                n.getSeatY(),
+                n.getLines().stream().map(TowerNpcLineDto::from).toList(),
+                n.isAutoBubble(),
+                n.getBubbleIntervalSeconds(),
+                card,
+                form);
+    }
+}

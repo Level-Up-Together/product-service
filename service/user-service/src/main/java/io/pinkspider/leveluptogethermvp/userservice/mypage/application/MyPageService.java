@@ -10,6 +10,7 @@ import io.pinkspider.global.facade.GamificationQueryFacade;
 import io.pinkspider.global.facade.GuildQueryFacade;
 import io.pinkspider.global.facade.MissionQueryFacade;
 import io.pinkspider.global.facade.dto.GuildMembershipInfo;
+import io.pinkspider.global.facade.dto.PracticeStreakDto;
 import io.pinkspider.global.facade.dto.TitleChangeResultDto;
 import io.pinkspider.global.facade.dto.UserExperienceDto;
 import io.pinkspider.global.facade.dto.UserStatsDto;
@@ -36,6 +37,7 @@ import io.pinkspider.leveluptogethermvp.userservice.mypage.domain.dto.UserTitleL
 import io.pinkspider.leveluptogethermvp.userservice.oauth.application.MultiDeviceTokenService;
 import io.pinkspider.leveluptogethermvp.userservice.profile.application.UserProfileCacheService;
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.entity.Users;
+import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.policy.ReservedNicknamePolicy;
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.infrastructure.UserRepository;
 import java.time.LocalDate;
 import java.util.List;
@@ -126,6 +128,8 @@ public class MyPageService {
         // LUT-555: 연속 출석 일수 — 업적 화면과 같은 출석 체인 (user_stats streak 아님)
         int consecutiveDays =
                 gamificationQueryFacadeService.getCurrentAttendanceStreak(targetUserId);
+        // LUT-717: 연속 실천(미션 완료 기준) — 조회 실패는 프로필을 막지 않는다
+        PracticeStreakDto practice = safePracticeStreak(targetUserId);
 
         // 보유 칭호 수
         long titlesCount = gamificationQueryFacadeService.countUserTitles(targetUserId);
@@ -137,10 +141,21 @@ public class MyPageService {
         List<GuildMembershipInfo> guildMemberships =
                 guildQueryFacadeService.getUserGuildMemberships(targetUserId);
         List<Long> guildIds = guildMemberships.stream().map(GuildMembershipInfo::guildId).toList();
-        Map<Long, Integer> memberCountMap =
-                guildQueryFacadeService.countActiveMembersByGuildIds(guildIds);
-        List<PublicProfileResponse.GuildInfo> guilds =
+        // LUT-722: 프로필에는 공개 길드만 — 비공개 길드는 응답에서도 뺀다(공유 링크로 외부에 노출되는 화면이라 본인·같은 길드원도 같게).
+        // 진행 중 미션 공개 범위(GUILD_ONLY) 판정은 비공개 길드까지 포함한 guildIds 를 그대로 쓴다
+        List<GuildMembershipInfo> publicMemberships =
                 guildMemberships.stream()
+                        .filter(m -> guildQueryFacadeService.isGuildPublic(m.guildId()))
+                        .toList();
+        Map<Long, Integer> memberCountMap =
+                publicMemberships.isEmpty()
+                        ? Map.of()
+                        : guildQueryFacadeService.countActiveMembersByGuildIds(
+                                publicMemberships.stream()
+                                        .map(GuildMembershipInfo::guildId)
+                                        .toList());
+        List<PublicProfileResponse.GuildInfo> guilds =
+                publicMemberships.stream()
                         .map(m -> toGuildInfo(m, memberCountMap.getOrDefault(m.guildId(), 0)))
                         .collect(Collectors.toList());
 
@@ -238,6 +253,8 @@ public class MyPageService {
                 .acquiredTitlesCount((int) titlesCount)
                 .friendsCount(friendsCount)
                 .consecutiveDays(consecutiveDays)
+                .practiceStreakDays(practice.currentDays())
+                .maxPracticeStreakDays(practice.maxDays())
                 .guilds(guilds)
                 .isOwner(isOwner)
                 .isSubscriber(safeIsSubscriber(targetUserId))
@@ -541,6 +558,9 @@ public class MyPageService {
         if (nickname == null || nickname.trim().isEmpty()) {
             return false;
         }
+        if (ReservedNicknamePolicy.isReserved(nickname)) {
+            return false; // LUT-705: 방문객 표기로 시작하는 닉네임
+        }
 
         if (userId != null) {
             // 자신 제외하고 중복 확인 (수정 시)
@@ -607,6 +627,10 @@ public class MyPageService {
         // 한글, 영문, 숫자, 아랍어 허용
         if (!nickname.matches("^[가-힣a-zA-Z0-9\u0600-\u06FF]+$")) {
             throw new CustomException("NICKNAME_005", "error.nickname.invalid_chars");
+        }
+        // LUT-705: 탑 방문객 이름(방문객 / Visitor / ビジター / زائر) 사칭 방지
+        if (ReservedNicknamePolicy.isReserved(nickname)) {
+            throw new CustomException("NICKNAME_006", "error.nickname.reserved");
         }
     }
 
@@ -778,6 +802,9 @@ public class MyPageService {
         // 보유 칭호 수
         long titlesCount = gamificationQueryFacadeService.countUserTitles(userId);
 
+        // LUT-717: 연속 실천(미션 완료 기준) — 연속 출석과 별개
+        PracticeStreakDto practice = safePracticeStreak(userId);
+
         return UserInfo.builder()
                 .startDate(startDate)
                 .daysSinceJoined(daysSinceJoined)
@@ -788,7 +815,22 @@ public class MyPageService {
                 .rankingPercentile(rankingPercentile)
                 .acquiredTitlesCount((int) titlesCount)
                 .rankingPoints(stats.rankingPoints())
+                .practiceStreakDays(practice.currentDays())
+                .maxPracticeStreakDays(practice.maxDays())
+                .practiceShieldsRemaining(practice.shieldsRemaining())
+                .lastPracticeShieldDate(practice.lastShieldDate())
                 .build();
+    }
+
+    /** LUT-717: 연속 실천 조회 실패(재계산 오류 등)는 마이페이지·프로필을 막지 않고 0 으로 보인다 */
+    private PracticeStreakDto safePracticeStreak(String userId) {
+        try {
+            PracticeStreakDto dto = gamificationQueryFacadeService.getPracticeStreak(userId);
+            return dto != null ? dto : PracticeStreakDto.empty();
+        } catch (Exception e) {
+            log.warn("연속 실천 조회 실패: userId={}, error={}", userId, e.getMessage());
+            return PracticeStreakDto.empty();
+        }
     }
 
     private EquippedTitleInfo toEquippedTitleInfo(UserTitleDto userTitle) {

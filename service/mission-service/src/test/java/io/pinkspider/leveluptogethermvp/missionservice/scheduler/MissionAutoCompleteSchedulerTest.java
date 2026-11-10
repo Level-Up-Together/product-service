@@ -132,6 +132,33 @@ class MissionAutoCompleteSchedulerTest {
             assertThat(execution.getStatus()).isEqualTo(ExecutionStatus.COMPLETED);
             assertThat(execution.getIsAutoCompleted()).isTrue();
             assertThat(execution.getExpEarned()).isEqualTo(10); // 기본 경험치
+            // LUT-717: saga 우회 경로도 연속 실천 반영
+            verify(gamificationQueryFacade)
+                    .recordMissionPractice(
+                            org.mockito.ArgumentMatchers.anyString(),
+                            org.mockito.ArgumentMatchers.any());
+            // LUT-632: saga 우회 경로도 탑 종료 이벤트(AUTO_COMPLETED, REGULAR)
+            org.mockito.ArgumentCaptor<Object> published =
+                    org.mockito.ArgumentCaptor.forClass(Object.class);
+            verify(eventPublisher, org.mockito.Mockito.atLeastOnce())
+                    .publishEvent(published.capture());
+            io.pinkspider.global.event.MissionExecutionEndedEvent ended =
+                    published.getAllValues().stream()
+                            .filter(
+                                    io.pinkspider.global.event.MissionExecutionEndedEvent.class
+                                            ::isInstance)
+                            .map(io.pinkspider.global.event.MissionExecutionEndedEvent.class::cast)
+                            .findFirst()
+                            .orElseThrow();
+            assertThat(ended.userId()).isEqualTo(USER_ID);
+            assertThat(ended.executionId()).isEqualTo(1L);
+            assertThat(ended.executionKind())
+                    .isEqualTo(
+                            io.pinkspider.global.event.MissionExecutionStartedEvent.KIND_REGULAR);
+            assertThat(ended.reason())
+                    .isEqualTo(
+                            io.pinkspider.global.event.MissionExecutionEndedEvent.EndReason
+                                    .AUTO_COMPLETED);
         }
 
         @Test
@@ -323,6 +350,11 @@ class MissionAutoCompleteSchedulerTest {
             assertThat(instance.getExpEarned()).isEqualTo(10); // 기본 경험치
             assertThat(instance.getCompletionCount()).isEqualTo(1);
             assertThat(instance.getTotalExpEarned()).isEqualTo(10);
+            // LUT-717: saga 우회 경로도 연속 실천 반영
+            verify(gamificationQueryFacade)
+                    .recordMissionPractice(
+                            org.mockito.ArgumentMatchers.anyString(),
+                            org.mockito.ArgumentMatchers.any());
         }
 
         @Test

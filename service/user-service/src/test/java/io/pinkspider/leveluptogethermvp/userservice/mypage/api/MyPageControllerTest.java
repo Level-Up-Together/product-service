@@ -133,6 +133,10 @@ class MyPageControllerTest {
                         .rankingPercentile(15.5)
                         .acquiredTitlesCount(10)
                         .rankingPoints(1500L)
+                        .practiceStreakDays(4)
+                        .maxPracticeStreakDays(12)
+                        .practiceShieldsRemaining(1)
+                        .lastPracticeShieldDate(LocalDate.of(2026, 11, 3))
                         .build();
 
         MyPageResponse response =
@@ -391,7 +395,42 @@ class MyPageControllerTest {
                                                                 fieldWithPath(
                                                                                 "value.user_info.ranking_points")
                                                                         .type(JsonFieldType.NUMBER)
-                                                                        .description("랭킹 포인트"))
+                                                                        .description("랭킹 포인트"),
+                                                                fieldWithPath(
+                                                                                "value.user_info.practice_streak_days")
+                                                                        .type(JsonFieldType.NUMBER)
+                                                                        .description(
+                                                                                "현재 연속 실천 일수 — 하루"
+                                                                                    + " 미션 1개 이상"
+                                                                                    + " 완료, 유저 로컬"
+                                                                                    + " 자정 기준, 오늘"
+                                                                                    + " 미수행이면 어제까지"
+                                                                                    + " 값·그 전이면 0"
+                                                                                    + " (LUT-717)"),
+                                                                fieldWithPath(
+                                                                                "value.user_info.max_practice_streak_days")
+                                                                        .type(JsonFieldType.NUMBER)
+                                                                        .description(
+                                                                                "최장 연속 실천 일수"
+                                                                                    + " (LUT-717)"),
+                                                                fieldWithPath(
+                                                                                "value.user_info.practice_shields_remaining")
+                                                                        .type(JsonFieldType.NUMBER)
+                                                                        .description(
+                                                                                "이번 달 남은 연속 실천 방어권"
+                                                                                    + " (구독자만, 매달"
+                                                                                    + " 2개, 비구독자 0"
+                                                                                    + " — LUT-723)")
+                                                                        .optional(),
+                                                                fieldWithPath(
+                                                                                "value.user_info.last_practice_shield_date")
+                                                                        .type(JsonFieldType.STRING)
+                                                                        .description(
+                                                                                "마지막으로 방어된 날 (유저 로컬"
+                                                                                    + " YYYY-MM-DD,"
+                                                                                    + " 없으면 null —"
+                                                                                    + " LUT-723)")
+                                                                        .optional())
                                                         .build())));
 
         // then
@@ -1010,6 +1049,8 @@ class MyPageControllerTest {
                         .acquiredTitlesCount(10)
                         .friendsCount(12)
                         .consecutiveDays(23)
+                        .practiceStreakDays(23)
+                        .maxPracticeStreakDays(33)
                         .guilds(List.of(guild1))
                         .isOwner(true) // 본인이므로 true
                         .isSubscriber(true)
@@ -1108,6 +1149,23 @@ class MyPageControllerTest {
                                                                                     + " 체인, 오늘·어제"
                                                                                     + " 출석 없으면 0"
                                                                                     + " (LUT-555)"),
+                                                                fieldWithPath(
+                                                                                "value.practice_streak_days")
+                                                                        .type(JsonFieldType.NUMBER)
+                                                                        .description(
+                                                                                "현재 연속 실천 일수 — 하루"
+                                                                                    + " 미션 1개 이상"
+                                                                                    + " 완료, 유저 로컬"
+                                                                                    + " 자정 기준, 오늘"
+                                                                                    + " 미수행이면 어제까지"
+                                                                                    + " 값·그 전이면 0"
+                                                                                    + " (LUT-717)"),
+                                                                fieldWithPath(
+                                                                                "value.max_practice_streak_days")
+                                                                        .type(JsonFieldType.NUMBER)
+                                                                        .description(
+                                                                                "최장 연속 실천 일수"
+                                                                                    + " (LUT-717)"),
                                                                 fieldWithPath("value.guilds")
                                                                         .type(JsonFieldType.ARRAY)
                                                                         .description("소속 길드 목록")
@@ -1224,6 +1282,8 @@ class MyPageControllerTest {
                         .acquiredTitlesCount(20)
                         .friendsCount(25)
                         .consecutiveDays(5)
+                        .practiceStreakDays(5)
+                        .maxPracticeStreakDays(15)
                         .guilds(List.of(guild1))
                         .isOwner(false) // 타인이므로 false
                         .isSubscriber(false)
@@ -1322,6 +1382,23 @@ class MyPageControllerTest {
                                                                                     + " 체인, 오늘·어제"
                                                                                     + " 출석 없으면 0"
                                                                                     + " (LUT-555)"),
+                                                                fieldWithPath(
+                                                                                "value.practice_streak_days")
+                                                                        .type(JsonFieldType.NUMBER)
+                                                                        .description(
+                                                                                "현재 연속 실천 일수 — 하루"
+                                                                                    + " 미션 1개 이상"
+                                                                                    + " 완료, 유저 로컬"
+                                                                                    + " 자정 기준, 오늘"
+                                                                                    + " 미수행이면 어제까지"
+                                                                                    + " 값·그 전이면 0"
+                                                                                    + " (LUT-717)"),
+                                                                fieldWithPath(
+                                                                                "value.max_practice_streak_days")
+                                                                        .type(JsonFieldType.NUMBER)
+                                                                        .description(
+                                                                                "최장 연속 실천 일수"
+                                                                                    + " (LUT-717)"),
                                                                 fieldWithPath("value.guilds")
                                                                         .type(JsonFieldType.ARRAY)
                                                                         .description("소속 길드 목록")
@@ -1434,6 +1511,8 @@ class MyPageControllerTest {
                         .acquiredTitlesCount(15)
                         .friendsCount(4)
                         .consecutiveDays(0)
+                        .practiceStreakDays(0)
+                        .maxPracticeStreakDays(10)
                         .guilds(List.of())
                         .isOwner(false)
                         .isSubscriber(false)
@@ -1533,6 +1612,23 @@ class MyPageControllerTest {
                                                                                     + " 체인, 오늘·어제"
                                                                                     + " 출석 없으면 0"
                                                                                     + " (LUT-555)"),
+                                                                fieldWithPath(
+                                                                                "value.practice_streak_days")
+                                                                        .type(JsonFieldType.NUMBER)
+                                                                        .description(
+                                                                                "현재 연속 실천 일수 — 하루"
+                                                                                    + " 미션 1개 이상"
+                                                                                    + " 완료, 유저 로컬"
+                                                                                    + " 자정 기준, 오늘"
+                                                                                    + " 미수행이면 어제까지"
+                                                                                    + " 값·그 전이면 0"
+                                                                                    + " (LUT-717)"),
+                                                                fieldWithPath(
+                                                                                "value.max_practice_streak_days")
+                                                                        .type(JsonFieldType.NUMBER)
+                                                                        .description(
+                                                                                "최장 연속 실천 일수"
+                                                                                    + " (LUT-717)"),
                                                                 fieldWithPath("value.guilds")
                                                                         .type(JsonFieldType.ARRAY)
                                                                         .description("소속 길드 목록")
@@ -1614,6 +1710,8 @@ class MyPageControllerTest {
                         .acquiredTitlesCount(30)
                         .friendsCount(31)
                         .consecutiveDays(101)
+                        .practiceStreakDays(101)
+                        .maxPracticeStreakDays(111)
                         .guilds(List.of())
                         .isOwner(false)
                         .isSubscriber(false)
@@ -1713,6 +1811,23 @@ class MyPageControllerTest {
                                                                                     + " 체인, 오늘·어제"
                                                                                     + " 출석 없으면 0"
                                                                                     + " (LUT-555)"),
+                                                                fieldWithPath(
+                                                                                "value.practice_streak_days")
+                                                                        .type(JsonFieldType.NUMBER)
+                                                                        .description(
+                                                                                "현재 연속 실천 일수 — 하루"
+                                                                                    + " 미션 1개 이상"
+                                                                                    + " 완료, 유저 로컬"
+                                                                                    + " 자정 기준, 오늘"
+                                                                                    + " 미수행이면 어제까지"
+                                                                                    + " 값·그 전이면 0"
+                                                                                    + " (LUT-717)"),
+                                                                fieldWithPath(
+                                                                                "value.max_practice_streak_days")
+                                                                        .type(JsonFieldType.NUMBER)
+                                                                        .description(
+                                                                                "최장 연속 실천 일수"
+                                                                                    + " (LUT-717)"),
                                                                 fieldWithPath("value.guilds")
                                                                         .type(JsonFieldType.ARRAY)
                                                                         .description("소속 길드 목록")

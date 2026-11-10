@@ -328,6 +328,11 @@ class DailyMissionInstanceSchedulerTest {
                             anyString(),
                             eq(1L),
                             eq("운동"));
+            // LUT-717: saga 우회 경로도 연속 실천 반영
+            verify(gamificationQueryFacade)
+                    .recordMissionPractice(
+                            org.mockito.ArgumentMatchers.anyString(),
+                            org.mockito.ArgumentMatchers.any());
         }
 
         @Test
@@ -392,6 +397,11 @@ class DailyMissionInstanceSchedulerTest {
                             anyString(),
                             eq(2L),
                             eq("학습"));
+            // LUT-717: saga 우회 경로도 연속 실천 반영
+            verify(gamificationQueryFacade)
+                    .recordMissionPractice(
+                            org.mockito.ArgumentMatchers.anyString(),
+                            org.mockito.ArgumentMatchers.any());
         }
 
         @Test

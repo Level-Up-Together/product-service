@@ -201,6 +201,67 @@ class SecurityConfigCorsTest {
     }
 
     /**
+     * LUT-731: 공개 정적 이미지({@code /uploads/**})는 어드민 등 우리 도메인 출처가 픽셀을 읽을 수 있어야 한다(바닥 마스크 편집). 쿠키 없이
+     * 읽기만. 통과하면 핸들러가 없어 404, CORS 에서 막히면 403 이다.
+     */
+    @ParameterizedTest
+    @ValueSource(
+            strings = {
+                "https://admin-dev.level-up-together.com",
+                "https://admin.level-up-together.com",
+                "https://level-up-together.com",
+                "https://dev.level-up-together.com:3000",
+                "http://localhost:4080",
+                "https://localhost:3000"
+            })
+    @DisplayName("LUT-731: /uploads/** 는 우리 도메인·로컬 출처에 읽기를 허용한다 (쿠키 없음)")
+    void uploads_allowOurOrigins(String origin) throws Exception {
+        MvcResult result =
+                mockMvc.perform(
+                                org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+                                        .get("/uploads/tower/mask/x.png")
+                                        .header(HttpHeaders.ORIGIN, origin))
+                        .andReturn();
+        Assertions.assertThat(result.getResponse().getStatus()).isNotEqualTo(403);
+        Assertions.assertThat(result.getResponse().getHeader("Access-Control-Allow-Origin"))
+                .isEqualTo(origin);
+        Assertions.assertThat(result.getResponse().getHeader("Access-Control-Allow-Credentials"))
+                .isNull();
+    }
+
+    @ParameterizedTest
+    @ValueSource(
+            strings = {
+                "https://evil.example.com",
+                "https://level-up-together.com.evil.com",
+                "http://admin.level-up-together.com"
+            })
+    @DisplayName("LUT-731: /uploads/** 도 남의 출처·http 우리 도메인은 거부한다")
+    void uploads_rejectOtherOrigins(String origin) throws Exception {
+        MvcResult result =
+                mockMvc.perform(
+                                org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+                                        .get("/uploads/tower/mask/x.png")
+                                        .header(HttpHeaders.ORIGIN, origin))
+                        .andReturn();
+        Assertions.assertThat(result.getResponse().getStatus()).isEqualTo(403);
+    }
+
+    @Test
+    @DisplayName("LUT-731: 어드민 출처 허용은 /uploads 한정 — API preflight 는 여전히 거부")
+    void uploads_adminOriginNotAllowedOnApi() throws Exception {
+        MvcResult result =
+                mockMvc.perform(
+                                options("/api/v1/missions")
+                                        .header(
+                                                HttpHeaders.ORIGIN,
+                                                "https://admin.level-up-together.com")
+                                        .header("Access-Control-Request-Method", "POST"))
+                        .andReturn();
+        Assertions.assertThat(result.getResponse().getStatus()).isEqualTo(403);
+    }
+
+    /**
      * 에러 응답에도 CORS 헤더가 실리는지 — 실리지 않으면 멱등 409 처럼 정상 흐름인 에러를 브라우저가 CORS error 로 바꿔 버린다.
      *
      * <p>CORS 필터가 인가 필터보다 앞이라 인증 실패(401)에도 헤더가 붙는다. 같은 체인을 타는 409/400 도 동일하다.

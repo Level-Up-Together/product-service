@@ -34,8 +34,8 @@ import org.springframework.transaction.annotation.Transactional;
  * 락(@Version), 지급 쪽은 uk_user_item 제약이 방어한다. UserItemService.grantItem(중복 insert 흡수)과 달리 중복을 실패로 처리해
  * 이중 차감을 막는다.
  *
- * <p>LUT-348: 자기 등급보다 높은 등급의 아이템은 등급 차이만큼 비싸게 산다(LevelRarityPolicy). 프론트도 같은 공식으로 표시하지만 표시는 신뢰하지
- * 않는다 — 차감액은 여기서 유저 레벨로 다시 계산한다.
+ * <p>LUT-758: 가격은 레벨과 상관없는 고정가다 — 차감액은 어드민 입력가({@code ShopItem.price}) 그대로이고 표시가와 같다. LUT-348 의 등급
+ * 차이 할증은 없앴다. 등급 차이는 잠금(LUT-349, LevelRarityPolicy)에만 쓴다.
  */
 @Service
 @Slf4j
@@ -64,17 +64,17 @@ public class ShopService {
     private final ApplicationEventPublisher eventPublisher;
 
     /**
-     * 판매중 아이템 전체 — 희귀도(일반→신화) → 가격 → ID 오름차순, 보유 여부/유저별 할증가 포함.
+     * 판매중 아이템 전체 — 희귀도(일반→신화) → 가격 → ID 오름차순, 보유 여부/잠금 포함.
      *
-     * <p>LUT-350: 비로그인(userId == null)도 열람할 수 있다. 보유 아이템은 없는 것으로, 레벨은 가입 직후와 같은 1(COMMON)로 계산한다 —
-     * 화면에 보이는 값이 곧 가입하면 낼 값이라 로그인 후 가격이 오르지 않는다.
+     * <p>LUT-350: 비로그인(userId == null)도 열람할 수 있다. 보유 아이템은 없는 것으로, 레벨은 가입 직후와 같은 1(COMMON)로 잠금을
+     * 판정한다. 가격은 레벨과 무관하다(LUT-758).
      */
     public List<ShopItemResponse> getShopItems(String userId) {
         Set<Long> ownedItemIds =
                 userId == null
                         ? Set.of()
                         : Set.copyOf(userItemRepository.findShopItemIdsByUserId(userId));
-        // 아이템마다 조회하지 않도록 레벨은 한 번만 읽는다 (정렬은 기본가 기준 유지)
+        // 아이템마다 조회하지 않도록 레벨은 한 번만 읽는다 (잠금 판정에만 쓴다)
         int userLevel =
                 userId == null ? ANONYMOUS_USER_LEVEL : userExperienceService.getUserLevel(userId);
 
@@ -134,7 +134,7 @@ public class ShopService {
             throw new CustomException("120604", "error.shop.already_owned");
         }
 
-        // LUT-348: 결제가는 유저 레벨로 서버에서 다시 계산한다 (프론트 표시가를 신뢰하지 않는다)
+        // LUT-349: 잠금 판정에 쓸 레벨 (가격은 레벨과 무관 — LUT-758)
         int userLevel = userExperienceService.getUserLevel(userId);
 
         // LUT-349: 잠긴 아이템 구매 차단 — 프론트 locked 플래그는 표시용이라 신뢰하지 않고
@@ -143,16 +143,15 @@ public class ShopService {
             throw new CustomException("120606", "error.shop.item_locked");
         }
 
-        int effectivePrice =
-                LevelRarityPolicy.effectivePrice(
-                        shopItem.getPrice(), userLevel, shopItem.getRarity());
+        // LUT-758: 결제가 = 어드민 입력가 그대로 (표시가와 같다, 할증 없음)
+        int price = ShopItemResponse.fixedPrice(shopItem);
 
         int balance;
         try {
             // LUT-328: 가격 0원 구매도 어드민 구매이력(diamond_history SHOP)에 남도록 항상 기록
             balance =
                     diamondService.spendDiamonds(
-                            userId, effectivePrice, shopItem.getId(), shopItem.getName());
+                            userId, price, shopItem.getId(), shopItem.getName());
         } catch (IllegalStateException e) {
             throw new CustomException("120605", "error.shop.insufficient_diamond");
         }
@@ -180,12 +179,11 @@ public class ShopService {
                         shopItem.getNameJa()));
 
         log.info(
-                "아이템 구매: userId={}, shopItemId={}, basePrice={}, effectivePrice={}, balance={}",
+                "아이템 구매: userId={}, shopItemId={}, price={}, balance={}",
                 userId,
                 shopItemId,
-                shopItem.getPrice(),
-                effectivePrice,
+                price,
                 balance);
-        return ShopItemPurchaseResponse.of(shopItemId, effectivePrice, balance);
+        return ShopItemPurchaseResponse.of(shopItemId, price, balance);
     }
 }

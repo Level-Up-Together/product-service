@@ -2,9 +2,15 @@ package io.pinkspider.leveluptogethermvp.statsservice.activity.api;
 
 import static org.mockito.Mockito.when;
 import static org.springframework.restdocs.mockmvc.RestDocumentationRequestBuilders.post;
+import static org.springframework.restdocs.payload.PayloadDocumentation.fieldWithPath;
+import static org.springframework.restdocs.payload.PayloadDocumentation.responseFields;
+import static org.springframework.restdocs.request.RequestDocumentation.parameterWithName;
+import static org.springframework.restdocs.request.RequestDocumentation.queryParameters;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.epages.restdocs.apispec.MockMvcRestDocumentationWrapper;
+import com.epages.restdocs.apispec.ResourceSnippetParameters;
 import io.pinkspider.leveluptogethermvp.config.ControllerTestConfig;
 import io.pinkspider.leveluptogethermvp.statsservice.activity.application.UserActivityFlushService;
 import java.time.LocalDate;
@@ -47,11 +53,30 @@ class UserActivityInternalControllerTest {
         when(flushService.flush(date)).thenReturn(3);
         when(flushService.countActiveUsers(date)).thenReturn(12L);
 
-        mockMvc.perform(post("/api/internal/stats/activity/flush").param("date", "2026-10-22"))
+        mockMvc.perform(post("/api/internal/stats/activity/flush").queryParam("date", "2026-10-22"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.value.date").value("2026-10-22"))
                 .andExpect(jsonPath("$.value.flushed_rows").value(3))
-                .andExpect(jsonPath("$.value.active_users").value(12));
+                .andExpect(jsonPath("$.value.active_users").value(12))
+                .andDo(
+                        MockMvcRestDocumentationWrapper.document(
+                                "internal-stats-activity-flush",
+                                ResourceSnippetParameters.builder()
+                                        .tag("Stats Activity - Admin Internal")
+                                        .description(
+                                                "활동 집합 수동 적재 (LUT-598) — Redis active:{날짜} →"
+                                                    + " user_daily_activity upsert(멱등). 스케줄러(00:20"
+                                                    + " KST)와 같은 일. 형식 오류 400 100101 · 누락 100102"),
+                                queryParameters(
+                                        parameterWithName("date").description("적재할 날짜 (ISO, KST)")),
+                                responseFields(
+                                        fieldWithPath("code").description("응답 코드"),
+                                        fieldWithPath("message").description("응답 메시지"),
+                                        fieldWithPath("value.date").description("적재한 날짜"),
+                                        fieldWithPath("value.flushed_rows")
+                                                .description("이번에 넣거나 갱신한 행 수"),
+                                        fieldWithPath("value.active_users")
+                                                .description("그날 활동 유저 수"))));
     }
 
     @Test

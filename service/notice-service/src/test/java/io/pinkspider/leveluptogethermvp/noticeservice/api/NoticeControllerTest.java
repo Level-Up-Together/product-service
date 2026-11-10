@@ -64,6 +64,7 @@ class NoticeControllerTest {
                 .id(id)
                 .title("테스트 공지사항 " + id)
                 .content("테스트 공지사항 내용입니다.")
+                .titleEn("Test notice")
                 .contentEn("Test notice content.")
                 .contentJa("テスト お知らせの内容です。")
                 .contentAr("محتوى الإشعار التجريبي.")
@@ -127,6 +128,30 @@ class NoticeControllerTest {
                                                                 fieldWithPath("value[].content")
                                                                         .type(JsonFieldType.STRING)
                                                                         .description("공지사항 내용")
+                                                                        .optional(),
+                                                                fieldWithPath("value[].title_en")
+                                                                        .type(JsonFieldType.STRING)
+                                                                        .description(
+                                                                                "제목 (영어, LUT-128 —"
+                                                                                    + " 없으면 null,"
+                                                                                    + " 한국어 제목으로"
+                                                                                    + " 대신)")
+                                                                        .optional(),
+                                                                fieldWithPath("value[].title_ar")
+                                                                        .type(JsonFieldType.STRING)
+                                                                        .description(
+                                                                                "제목 (아랍어, LUT-128 —"
+                                                                                    + " 없으면 null,"
+                                                                                    + " 한국어 제목으로"
+                                                                                    + " 대신)")
+                                                                        .optional(),
+                                                                fieldWithPath("value[].title_ja")
+                                                                        .type(JsonFieldType.STRING)
+                                                                        .description(
+                                                                                "제목 (일본어, LUT-128 —"
+                                                                                    + " 없으면 null,"
+                                                                                    + " 한국어 제목으로"
+                                                                                    + " 대신)")
                                                                         .optional(),
                                                                 fieldWithPath("value[].content_en")
                                                                         .type(JsonFieldType.STRING)
@@ -260,6 +285,30 @@ class NoticeControllerTest {
                                                                 fieldWithPath("value.content")
                                                                         .type(JsonFieldType.STRING)
                                                                         .description("공지사항 내용")
+                                                                        .optional(),
+                                                                fieldWithPath("value.title_en")
+                                                                        .type(JsonFieldType.STRING)
+                                                                        .description(
+                                                                                "제목 (영어, LUT-128 —"
+                                                                                    + " 없으면 null,"
+                                                                                    + " 한국어 제목으로"
+                                                                                    + " 대신)")
+                                                                        .optional(),
+                                                                fieldWithPath("value.title_ar")
+                                                                        .type(JsonFieldType.STRING)
+                                                                        .description(
+                                                                                "제목 (아랍어, LUT-128 —"
+                                                                                    + " 없으면 null,"
+                                                                                    + " 한국어 제목으로"
+                                                                                    + " 대신)")
+                                                                        .optional(),
+                                                                fieldWithPath("value.title_ja")
+                                                                        .type(JsonFieldType.STRING)
+                                                                        .description(
+                                                                                "제목 (일본어, LUT-128 —"
+                                                                                    + " 없으면 null,"
+                                                                                    + " 한국어 제목으로"
+                                                                                    + " 대신)")
                                                                         .optional(),
                                                                 fieldWithPath("value.content_en")
                                                                         .type(JsonFieldType.STRING)

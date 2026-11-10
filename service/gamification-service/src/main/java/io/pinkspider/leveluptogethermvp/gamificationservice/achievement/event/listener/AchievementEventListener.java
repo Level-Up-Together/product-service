@@ -2,6 +2,7 @@ package io.pinkspider.leveluptogethermvp.gamificationservice.achievement.event.l
 
 import io.pinkspider.global.event.GuildJoinedEvent;
 import io.pinkspider.global.event.GuildMasterAssignedEvent;
+import io.pinkspider.global.event.TowerFloorFirstEnteredEvent;
 import io.pinkspider.leveluptogethermvp.gamificationservice.achievement.application.AchievementService;
 import io.pinkspider.leveluptogethermvp.gamificationservice.achievement.event.AchievementCheckRequestedEvent;
 import lombok.RequiredArgsConstructor;
@@ -71,6 +72,25 @@ public class AchievementEventListener {
                         dataSource,
                         e.getMessage());
             }
+        }
+    }
+
+    /**
+     * LUT-634: 층 첫 입장 → TOWER_SERVICE 업적(첫 입장·N개 층·최고 층) 재판정. 보상 칭호는 기존 흐름(완료 → 자동 수령 →
+     * TitleAcquiredEvent → 칭호 획득 모달)을 그대로 탄다. 응원·탑 전용 경험치는 없다.
+     */
+    @Async(EVENT_EXECUTOR)
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    public void handleTowerFloorFirstEntered(TowerFloorFirstEnteredEvent event) {
+        log.debug(
+                "탑 층 첫 입장 이벤트 수신: userId={}, floor={}, visited={}",
+                event.userId(),
+                event.floorNumber(),
+                event.visitedFloorCount());
+        try {
+            achievementService.checkAchievementsByDataSource(event.userId(), "TOWER_SERVICE");
+        } catch (Exception e) {
+            log.warn("탑 업적 체크 실패: userId={}, error={}", event.userId(), e.getMessage());
         }
     }
 }

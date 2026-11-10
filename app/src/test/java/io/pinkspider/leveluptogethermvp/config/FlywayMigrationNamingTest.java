@@ -14,7 +14,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 /**
- * LUT-595: Flyway 마이그레이션 파일 규칙 가드. 폴더 8개가 있고, 모든 .sql 이 {@code
+ * LUT-595: Flyway 마이그레이션 파일 규칙 가드. 폴더 10개가 있고, 모든 .sql 이 {@code
  * V<major>_<minor>_<patch>_<seq3>__<desc>.sql} 이며, 폴더 안에서 버전이 겹치지 않아야 한다. 규칙을 어기면 서버가 아니라 이 테스트가 먼저
  * 알려 준다.
  */
@@ -32,11 +32,12 @@ class FlywayMigrationNamingTest {
                     "feed",
                     "notification",
                     "gamification",
-                    "stats");
+                    "stats",
+                    "tower");
     static final Path ROOT = Path.of("src/main/resources/db/migration");
 
     @Test
-    @DisplayName("DB 9개 폴더가 모두 있다")
+    @DisplayName("DB 10개 폴더가 모두 있다")
     void allDatabaseFoldersExist() {
         for (String db : DATABASES) {
             assertThat(ROOT.resolve(db)).as("db/migration/%s", db).isDirectory();

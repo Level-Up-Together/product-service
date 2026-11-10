@@ -1,0 +1,336 @@
+### ============================================================
+### 레벨업 탑 (Tower) APIs — LUT-629 층 · LUT-630 입장/배정
+### ============================================================
+
+### ----------------------------------------------------------
+### [유저] 층 목록 — 비로그인 허용 (방문객은 비허용 층이 locked)
+### population = 층 전체 인원(30초 메모), default_floor_number = 마지막 입장 층
+### ----------------------------------------------------------
+GET {{baseUrl}}/api/v1/tower/floors
+Authorization: Bearer {{accessToken}}
+Accept: application/json
+
+### 비로그인 층 목록
+GET {{baseUrl}}/api/v1/tower/floors
+Accept: application/json
+
+### ----------------------------------------------------------
+### [유저] 입장 — 인스턴스 지정 파라미터 없음(자동 배정).
+### 거부: 150201 없는/비공개 층(404) · 150202 비로그인 비허용 층(403) · 150203 레벨 부족(403)
+### 복귀: 미션 중(자리 유지) 유저가 같은 층에 오면 resumed=true, 같은 instance_id
+### ----------------------------------------------------------
+POST {{baseUrl}}/api/v1/tower/floors/1/enter
+Authorization: Bearer {{accessToken}}
+Accept: application/json
+
+### 비로그인(방문객) 입장 — 허용 층만. 응답 visitor_key 를 퇴장에 쓴다
+POST {{baseUrl}}/api/v1/tower/floors/1/enter
+Accept: application/json
+
+### 2층(입장 레벨 있는 층) — 레벨 부족이면 403 150203
+POST {{baseUrl}}/api/v1/tower/floors/2/enter
+Authorization: Bearer {{accessToken}}
+Accept: application/json
+
+### ----------------------------------------------------------
+### [유저] 퇴장(멱등) — 로그인 유저는 본문 없이. 미션 중이면 seat_held=true(자리 유지)
+### ----------------------------------------------------------
+POST {{baseUrl}}/api/v1/tower/leave
+Authorization: Bearer {{accessToken}}
+Accept: application/json
+
+### 입장 스냅샷(LUT-631) — 현재 방의 모든 사람(아바타 데이터·위치·상태). instance_id 는 입장 응답 값, 방문객은 visitor_key
+### 순서: enter → STOMP /topic/tower/instances/{id} 구독 → /app/tower/instances/{id}/join {occupant_id, visitor_key?} → 이 API
+GET {{baseUrl}}/api/v1/tower/instances/1/presence
+Authorization: Bearer {{accessToken}}
+Accept: application/json
+
+### 방문객 스냅샷
+GET {{baseUrl}}/api/v1/tower/instances/1/presence?visitor_key=00000000-0000-0000-0000-000000000000
+Accept: application/json
+
+### 자리 직접 비우기(LUT-632/713) — 미션은 계속, 아바타만 퇴장 (자동 착석 자리 포함, 로그인 필요)
+POST {{baseUrl}}/api/v1/tower/vacate
+Authorization: Bearer {{accessToken}}
+Accept: application/json
+
+### 탑 자동 착석 설정 끄기 (LUT-632, UI 환경설정 부분 업데이트)
+PUT {{baseUrl}}/api/v1/users/me/preferences
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+Accept: application/json
+
+{
+  "tower_auto_seat": false,
+  "tower_auto_seat_notice_seen": true
+}
+
+### 방문객 퇴장 — 입장 응답의 visitor_key
+POST {{baseUrl}}/api/v1/tower/leave
+Content-Type: application/json
+Accept: application/json
+
+{
+  "visitor_key": "00000000-0000-0000-0000-000000000000"
+}
+
+### ----------------------------------------------------------
+### [어드민 내부] 층 CRUD — 저장 규칙 7개 위반은 400 1501xx
+### 로컬은 internal api key 미설정(fail-open)이라 X-Internal-Api-Key 헤더 불필요
+### ----------------------------------------------------------
+GET {{baseUrl}}/api/internal/tower/floors
+Accept: application/json
+
+### 1층 등록 — 제한 없음·비로그인 허용·공개 (이미지 URL 은 https + 허용 호스트만, local 은 마스크 검사 off)
+POST {{baseUrl}}/api/internal/tower/floors
+Content-Type: application/json
+Accept: application/json
+
+{
+  "floor_number": 1,
+  "name": "여행자의 쉼터",
+  "name_en": "Travelers' Rest",
+  "name_ja": "旅人の休息所",
+  "name_ar": "استراحة المسافرين",
+  "entry_level": null,
+  "guest_allowed": true,
+  "background_image_url": "https://dev.level-up-together.com/images/tower/floor1-bg.jpg",
+  "floor_mask_url": "https://dev.level-up-together.com/images/tower/floor1-mask.png",
+  "entry_point_x": 1400,
+  "entry_point_y": 1000,
+  "bgm_url": null,
+  "instance_capacity": 30,
+  "is_public": true
+}
+
+### 2층 등록 — 입장 레벨 5 (비로그인 허용을 켜면 400 150105)
+POST {{baseUrl}}/api/internal/tower/floors
+Content-Type: application/json
+Accept: application/json
+
+{
+  "floor_number": 2,
+  "name": "등나무 정원",
+  "name_en": "Wisteria Garden",
+  "name_ja": "藤の庭",
+  "name_ar": "حديقة الوستارية",
+  "entry_level": 5,
+  "guest_allowed": false,
+  "background_image_url": "https://dev.level-up-together.com/images/tower/floor2-bg.jpg",
+  "floor_mask_url": "https://dev.level-up-together.com/images/tower/floor2-mask.png",
+  "entry_point_x": 1200,
+  "entry_point_y": 900,
+  "bgm_url": null,
+  "instance_capacity": 30,
+  "is_public": true
+}
+
+### 층 수정 (id 는 목록에서)
+PUT {{baseUrl}}/api/internal/tower/floors/1
+Content-Type: application/json
+Accept: application/json
+
+{
+  "floor_number": 1,
+  "name": "여행자의 쉼터",
+  "name_en": "Travelers' Rest",
+  "name_ja": "旅人の休息所",
+  "name_ar": "استراحة المسافرين",
+  "entry_level": null,
+  "guest_allowed": false,
+  "background_image_url": "https://dev.level-up-together.com/images/tower/floor1-bg.jpg",
+  "floor_mask_url": "https://dev.level-up-together.com/images/tower/floor1-mask.png",
+  "entry_point_x": 1400,
+  "entry_point_y": 1000,
+  "bgm_url": null,
+  "instance_capacity": 30,
+  "is_public": true
+}
+
+### LUT-725 층 효과·앞 가림 수정 — 효과 필드를 보내지 않으면(null) 그대로, "" / [] 이면 지운다
+PUT {{baseUrl}}/api/internal/tower/floors/1
+Content-Type: application/json
+Accept: application/json
+
+{
+  "floor_number": 1,
+  "name": "여행자의 쉼터",
+  "name_en": "Travelers' Rest",
+  "name_ja": "旅人の休息所",
+  "name_ar": "استراحة المسافرين",
+  "entry_level": null,
+  "guest_allowed": false,
+  "background_image_url": "https://dev.level-up-together.com/images/tower/floor1-bg.jpg",
+  "floor_mask_url": "https://dev.level-up-together.com/images/tower/floor1-mask.png",
+  "entry_point_x": 1400,
+  "entry_point_y": 1000,
+  "bgm_url": null,
+  "instance_capacity": 30,
+  "is_public": true,
+  "occlusion_mask_url": "https://dev.level-up-together.com/images/tower/floor1-occlusion.png",
+  "lights": [
+    {"x": 640, "y": 320, "radius": 60, "color": "#ffcc66", "brightness": 80, "flicker_intensity": 40, "flicker_speed": 50}
+  ],
+  "effect_layers": [
+    {"kind": "SNOW", "mask_url": "https://dev.level-up-together.com/images/tower/floor1-snow.png", "enabled": true,
+     "starts_on": "2026-12-01", "ends_on": "2026-12-31", "amount": 120, "speed": 40, "size_min": 1, "size_max": 3}
+  ]
+}
+
+### LUT-727 픽셀 배경 재생성 — 보낸 설정만 바꾼다(비우면 지금 값). 바로 PENDING, 몇 초 뒤 층 목록에 pixel_dense·pixel_standard
+POST {{baseUrl}}/api/internal/tower/floors/1/pixel-art
+Content-Type: application/json
+Accept: application/json
+
+{"colors": 64, "sharpness": 100}
+
+### 층 삭제 — 남는 층끼리 규칙 위반이면 400 (예: 1층 삭제 후 공개 2층만 남으면 150107)
+DELETE {{baseUrl}}/api/internal/tower/floors/2
+Accept: application/json
+
+### ----------------------------------------------------------
+### [어드민 내부] 층 이미지 업로드 (LUT-635) — kind=BACKGROUND|MASK, 마스크는 PNG 만.
+### 응답 url(절대 주소, dev 는 https://dev.level-up-together.com:8443/uploads/tower/...)을 등록/수정 본문에 그대로 쓴다.
+### 거절: 150110 파일 없음·15MB 초과·확장자(jpg·png·webp 외) · 150112 마스크가 PNG 아님 · 000012 이미지 아님
+### ----------------------------------------------------------
+POST {{baseUrl}}/api/internal/tower/floors/images?kind=BACKGROUND
+Content-Type: multipart/form-data; boundary=WebAppBoundary
+Accept: application/json
+
+--WebAppBoundary
+Content-Disposition: form-data; name="file"; filename="floor1-bg.jpg"
+Content-Type: image/jpeg
+
+< ./fixtures/floor1-bg.jpg
+--WebAppBoundary--
+
+### 마스크 업로드 (PNG, 붉은색 = 이동 가능, 배경과 같은 좌표계 — 1/4 해상도 가능)
+POST {{baseUrl}}/api/internal/tower/floors/images?kind=MASK
+Content-Type: multipart/form-data; boundary=WebAppBoundary
+Accept: application/json
+
+--WebAppBoundary
+Content-Disposition: form-data; name="file"; filename="floor1-mask.png"
+Content-Type: image/png
+
+< ./fixtures/floor1-mask.png
+--WebAppBoundary--
+
+### ----------------------------------------------------------
+### [어드민 내부] 탑 공통 설정 (LUT-635) — max_concurrent_users = 탑 전체 동시 접속 상한(대기열 LUT-701 기준), null = 제한 없음
+### ----------------------------------------------------------
+GET {{baseUrl}}/api/internal/tower/settings
+Accept: application/json
+
+### 상한 저장 (1 이상) — 저장 즉시 반영
+PUT {{baseUrl}}/api/internal/tower/settings
+Content-Type: application/json
+Accept: application/json
+
+{
+  "max_concurrent_users": 300
+}
+
+### 상한 해제 (제한 없음)
+PUT {{baseUrl}}/api/internal/tower/settings
+Content-Type: application/json
+Accept: application/json
+
+{
+  "max_concurrent_users": null
+}
+
+### ----------------------------------------------------------
+### [유저] 탑 채팅·리액션 (LUT-633) — 전송은 REST, 수신은 /topic/tower/instances/{id} 의 CHAT/REACTION
+### 거부: 150301 방 밖 · 150302 너무 빠름(429) · 150303 같은 내용 · 150304 미션 중 · 150305 HIGH 금칙어
+###       150306 제한 중 · 150307 길이 · 150308 방문객 링크/전화/메신저 · 150309 프리셋 아님
+### ----------------------------------------------------------
+POST {{baseUrl}}/api/v1/tower/instances/1/chat
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+Accept: application/json
+
+{
+  "content": "안녕하세요 같이 미션해요"
+}
+
+### 방문객 채팅 (40자, 링크·전화·메신저 아이디 금지)
+POST {{baseUrl}}/api/v1/tower/instances/1/chat
+Content-Type: application/json
+Accept: application/json
+
+{
+  "content": "반가워요",
+  "visitor_key": "{{visitorKey}}"
+}
+
+### 리액션 — 프리셋만. target_user_id 가 완료 연출 10초 창 안이면 응원으로 집계(cheer=true)
+POST {{baseUrl}}/api/v1/tower/instances/1/reactions
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+Accept: application/json
+
+{
+  "emoji": "👏",
+  "target_user_id": "user-uuid"
+}
+
+### 최근 50건 (오래된 것부터, 차단 유저 제외) — 방문객은 ?visitor_key=
+GET {{baseUrl}}/api/v1/tower/instances/1/chat
+Authorization: Bearer {{accessToken}}
+Accept: application/json
+
+### 리액션 프리셋
+GET {{baseUrl}}/api/v1/tower/chat/reactions
+Accept: application/json
+
+
+### ----------------------------------------------------------
+### LUT-705 방문객 세션·제재·신고
+### ----------------------------------------------------------
+### 방문객 입장 — 이전 입장 응답의 visitor_key 를 보내면 같은 세션(같은 이름 번호, 층 이동은 대기열 없음). device_id = 제재 단위
+POST {{baseUrl}}/api/v1/tower/floors/1/enter
+Content-Type: application/json
+Accept: application/json
+
+{
+  "visitor_key": "previous-visitor-key",
+  "device_id": "web-device-id"
+}
+
+### 방문객 신고(로그인) — 같은 방 방문객의 occupant_id
+POST {{baseUrl}}/api/v1/tower/instances/1/visitor-reports
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+Accept: application/json
+
+{
+  "occupant_id": 12,
+  "reason": "광고 도배"
+}
+
+### [내부] 방문객 신고 목록 — 원문·IP·기기 ID
+GET {{baseUrl}}/api/internal/tower/visitor-reports?page=0&size=20
+Accept: application/json
+
+### [내부] 제재 목록
+GET {{baseUrl}}/api/internal/tower/visitor-sanctions?page=0&size=20
+Accept: application/json
+
+### [내부] 제재 등록 — DEVICE/IP × CHAT/ENTRY, duration_minutes 없으면 해제할 때까지
+POST {{baseUrl}}/api/internal/tower/visitor-sanctions
+Content-Type: application/json
+Accept: application/json
+
+{
+  "target_type": "DEVICE",
+  "target_value": "web-device-id",
+  "sanction_type": "CHAT",
+  "reason": "광고 도배",
+  "duration_minutes": 1440,
+  "created_by": "admin"
+}
+
+### [내부] 제재 해제(멱등, 이력은 남는다)
+DELETE {{baseUrl}}/api/internal/tower/visitor-sanctions/1
+Accept: application/json

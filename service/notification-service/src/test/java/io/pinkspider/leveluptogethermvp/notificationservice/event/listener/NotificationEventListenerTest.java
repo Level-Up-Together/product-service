@@ -42,6 +42,7 @@ import io.pinkspider.global.event.SeasonRewardItemGrantedEvent;
 import io.pinkspider.global.event.ShopItemPurchasedEvent;
 import io.pinkspider.global.event.SubscriptionStipendGrantedEvent;
 import io.pinkspider.global.event.TitleAcquiredEvent;
+import io.pinkspider.global.event.TowerFloorUnlockedEvent;
 import io.pinkspider.global.event.UserLevelUpEvent;
 import io.pinkspider.global.facade.GuildQueryFacade;
 import io.pinkspider.leveluptogethermvp.notificationservice.application.NotificationService;
@@ -1507,6 +1508,60 @@ class NotificationEventListenerTest {
             assertThat(args.apply(Locale.ENGLISH)[0]).isEqualTo("Sprout of Growth");
             assertThat(args.apply(Locale.JAPANESE)[0]).isEqualTo("成長の芽");
             assertThat(args.apply(Locale.forLanguageTag("ar"))[0]).isEqualTo("برعم النمو");
+        }
+    }
+
+    @Nested
+    @DisplayName("탑 층 해제 이벤트 처리 (LUT-634)")
+    class HandleTowerFloorUnlockedTest {
+
+        @Test
+        @DisplayName("referenceId=층 번호, 인자는 층 번호·수신자 locale 장소명·도달 레벨")
+        void handleTowerFloorUnlocked_localizedFloorName() {
+            TowerFloorUnlockedEvent event =
+                    new TowerFloorUnlockedEvent(
+                            TARGET_USER_ID,
+                            3,
+                            "별빛 천문대",
+                            "Starlight Observatory",
+                            null,
+                            "星の天文台",
+                            10);
+            eventListener.handleTowerFloorUnlocked(event);
+
+            @SuppressWarnings("unchecked")
+            ArgumentCaptor<Function<Locale, Object[]>> captor =
+                    ArgumentCaptor.forClass(Function.class);
+            verify(notificationService)
+                    .sendLocalizedNotification(
+                            eq(TARGET_USER_ID),
+                            eq(NotificationType.TOWER_FLOOR_UNLOCKED),
+                            eq(3L),
+                            isNull(),
+                            captor.capture());
+            Function<Locale, Object[]> args = captor.getValue();
+            assertThat(args.apply(Locale.KOREAN)).containsExactly("3", "별빛 천문대", "10");
+            assertThat(args.apply(Locale.ENGLISH))
+                    .containsExactly("3", "Starlight Observatory", "10");
+            assertThat(args.apply(Locale.JAPANESE)).containsExactly("3", "星の天文台", "10");
+            // 아랍어 번역이 없으면 기본(한국어) 이름
+            assertThat(args.apply(Locale.forLanguageTag("ar")))
+                    .containsExactly("3", "별빛 천문대", "10");
+        }
+
+        @Test
+        @DisplayName("알림 생성 실패는 삼킨다")
+        void handleTowerFloorUnlocked_swallowsFailure() {
+            doThrow(new RuntimeException("fail"))
+                    .when(notificationService)
+                    .sendLocalizedNotification(
+                            anyString(),
+                            eq(NotificationType.TOWER_FLOOR_UNLOCKED),
+                            anyLong(),
+                            isNull(),
+                            any(Function.class));
+            eventListener.handleTowerFloorUnlocked(
+                    new TowerFloorUnlockedEvent(TARGET_USER_ID, 2, "이름", null, null, null, 5));
         }
     }
 }

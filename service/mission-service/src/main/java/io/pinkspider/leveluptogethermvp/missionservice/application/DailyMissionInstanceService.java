@@ -1,6 +1,8 @@
 package io.pinkspider.leveluptogethermvp.missionservice.application;
 
 import io.pinkspider.global.api.ApiStatus;
+import io.pinkspider.global.event.MissionExecutionEndedEvent;
+import io.pinkspider.global.event.MissionExecutionStartedEvent;
 import io.pinkspider.global.event.MissionFeedImageChangedEvent;
 import io.pinkspider.global.event.MissionFeedUnsharedEvent;
 import io.pinkspider.global.exception.CustomException;
@@ -167,6 +169,20 @@ public class DailyMissionInstanceService {
                 instanceId,
                 userId,
                 instance.getInstanceDate());
+        // LUT-632: 탑 연동 — 탑에 있으면 미션 중, 밖이면 자동 착석
+        Mission startedMission = instance.getParticipant().getMission();
+        eventPublisher.publishEvent(
+                new MissionExecutionStartedEvent(
+                        userId,
+                        startedMission.getId(),
+                        instance.getId(),
+                        MissionExecutionStartedEvent.KIND_PINNED,
+                        startedMission.getTitle(),
+                        startedMission.getCategoryId(),
+                        startedMission.getVisibility() != null
+                                ? startedMission.getVisibility().name()
+                                : null,
+                        instance.getStartedAt()));
 
         return DailyMissionInstanceResponse.from(instance);
     }
@@ -320,10 +336,21 @@ public class DailyMissionInstanceService {
         DailyMissionInstance instance = findInstanceById(instanceId);
         validateInstanceOwner(instance, userId);
 
+        boolean wasInProgress = instance.getStatus() == ExecutionStatus.IN_PROGRESS;
         instance.skip();
         instanceRepository.save(instance);
 
         log.info("고정 미션 인스턴스 취소: instanceId={}, userId={}", instanceId, userId);
+        // LUT-632: 진행 중이던 인스턴스의 취소만 종료 이벤트
+        if (wasInProgress) {
+            eventPublisher.publishEvent(
+                    new MissionExecutionEndedEvent(
+                            userId,
+                            instance.getParticipant().getMission().getId(),
+                            instance.getId(),
+                            MissionExecutionStartedEvent.KIND_PINNED,
+                            MissionExecutionEndedEvent.EndReason.SKIPPED));
+        }
 
         return DailyMissionInstanceResponse.from(instance);
     }

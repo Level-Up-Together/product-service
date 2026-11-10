@@ -61,6 +61,18 @@ public class UserUiPreference extends LocalDateTimeBaseEntity {
     @lombok.Builder.Default
     private List<Long> homeFeedCategoryIds = new ArrayList<>();
 
+    /** LUT-632: 탑 자동 착석 — 탑 밖에서 미션을 시작하면 탑에 앉힌다 (기본 켬). 끄면 앉히지 않는다 */
+    @Column(name = "tower_auto_seat", nullable = false)
+    @Comment("탑 자동 착석 (기본 켬)")
+    @lombok.Builder.Default
+    private Boolean towerAutoSeat = true;
+
+    /** LUT-632/713: 탑 자동 착석 첫 안내를 봤는지 */
+    @Column(name = "tower_auto_seat_notice_seen", nullable = false)
+    @Comment("탑 자동 착석 첫 안내 확인 여부")
+    @lombok.Builder.Default
+    private Boolean towerAutoSeatNoticeSeen = false;
+
     public static UserUiPreference createDefault(String userId) {
         return UserUiPreference.builder().userId(userId).build();
     }

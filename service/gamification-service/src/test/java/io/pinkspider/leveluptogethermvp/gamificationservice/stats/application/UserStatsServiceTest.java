@@ -4,6 +4,7 @@ import static io.pinkspider.global.test.TestReflectionUtils.setId;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -11,12 +12,16 @@ import static org.mockito.Mockito.when;
 
 import io.pinkspider.global.facade.GuildQueryFacade;
 import io.pinkspider.global.facade.UserQueryFacade;
+import io.pinkspider.global.facade.dto.PracticeStreakDto;
 import io.pinkspider.leveluptogethermvp.gamificationservice.domain.entity.UserStats;
 import io.pinkspider.leveluptogethermvp.gamificationservice.infrastructure.UserStatsRepository;
 import io.pinkspider.leveluptogethermvp.gamificationservice.stats.domain.dto.UserStatsResponse;
 import java.time.LocalDate;
 import java.time.ZoneId;
+import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -37,6 +42,13 @@ class UserStatsServiceTest {
     @Mock private UserQueryFacade userQueryFacade;
 
     @Mock private GuildQueryFacade guildQueryFacade;
+
+    @Mock private io.pinkspider.global.facade.MissionQueryFacade missionQueryFacade;
+
+    @Mock
+    private io.pinkspider.leveluptogethermvp.gamificationservice.subscription.infrastructure
+                    .UserSubscriptionRepository
+            userSubscriptionRepository;
 
     @InjectMocks private UserStatsService userStatsService;
 
@@ -648,6 +660,213 @@ class UserStatsServiceTest {
 
             // then
             assertThat(result).isEqualTo(37.5);
+        }
+    }
+
+    @Nested
+    @DisplayName("LUT-717 연속 실천 (recordMissionPractice / getPracticeStreak)")
+    class PracticeStreakTest {
+
+        private static final String ZONE = "Asia/Seoul";
+
+        private UserStats statsWithPractice(int streak, int max, java.time.LocalDate last) {
+            return UserStats.builder()
+                    .userId(TEST_USER_ID)
+                    .practiceStreak(streak)
+                    .maxPracticeStreak(max)
+                    .lastPracticeDate(last)
+                    .build();
+        }
+
+        @Test
+        @DisplayName("완료 시각(UTC)을 유저 로컬 날짜로 바꿔 센다 — 로컬 00:20 완료는 다음 날 실천")
+        void recordMissionPractice_convertsToUserLocalDate() {
+            UserStats stats = statsWithPractice(0, 0, null);
+            when(userStatsRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.of(stats));
+            when(userQueryFacade.getPreferredTimezone(TEST_USER_ID)).thenReturn(ZONE);
+
+            // KST 11/04 00:20 = UTC 11/03 15:20
+            userStatsService.recordMissionPractice(
+                    TEST_USER_ID, java.time.LocalDateTime.of(2026, 11, 3, 15, 20));
+
+            assertThat(stats.getLastPracticeDate()).isEqualTo(java.time.LocalDate.of(2026, 11, 4));
+            assertThat(stats.getPracticeStreak()).isEqualTo(1);
+        }
+
+        @Test
+        @DisplayName("오늘 아직 미션이 없어도 어제까지의 연속을 돌려준다")
+        void getPracticeStreak_keepsYesterday() {
+            java.time.LocalDate yesterday =
+                    java.time.LocalDate.now(java.time.ZoneId.of(ZONE)).minusDays(1);
+            UserStats stats = statsWithPractice(3, 7, yesterday);
+            when(userStatsRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.of(stats));
+            when(userQueryFacade.getPreferredTimezone(TEST_USER_ID)).thenReturn(ZONE);
+
+            PracticeStreakDto result = userStatsService.getPracticeStreak(TEST_USER_ID);
+
+            assertThat(result.currentDays()).isEqualTo(3);
+            assertThat(result.maxDays()).isEqualTo(7);
+            verify(missionQueryFacade, never())
+                    .findMissionCompletedLocalDates(any(), any(), any(), any());
+        }
+
+        private io.pinkspider.leveluptogethermvp.gamificationservice.subscription.domain.entity
+                        .UserSubscription
+                subscription(java.time.LocalDateTime startedAt, java.time.LocalDateTime expiresAt) {
+            return io.pinkspider.leveluptogethermvp.gamificationservice.subscription.domain.entity
+                    .UserSubscription.builder()
+                    .userId(TEST_USER_ID)
+                    .startedAt(startedAt)
+                    .expiresAt(expiresAt)
+                    .build();
+        }
+
+        @Test
+        @DisplayName("LUT-723: 구독자는 놓친 하루를 방어권으로 이어 현재값을 유지하고 남은 방어권을 내린다 · 비구독자는 0")
+        void getPracticeStreak_shieldForSubscriber() {
+            java.time.ZoneId zone = java.time.ZoneId.of(ZONE);
+            java.time.LocalDate twoDaysAgo = java.time.LocalDate.now(zone).minusDays(2);
+            UserStats stats = statsWithPractice(3, 7, twoDaysAgo);
+            when(userStatsRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.of(stats));
+            when(userQueryFacade.getPreferredTimezone(TEST_USER_ID)).thenReturn(ZONE);
+            java.time.LocalDateTime now = java.time.LocalDateTime.now(java.time.ZoneOffset.UTC);
+            when(userSubscriptionRepository.findByUserId(TEST_USER_ID))
+                    .thenReturn(Optional.of(subscription(now.minusDays(30), now.plusDays(30))));
+
+            PracticeStreakDto result = userStatsService.getPracticeStreak(TEST_USER_ID);
+
+            assertThat(result.currentDays()).isEqualTo(3);
+            // 어제(방어한 날)가 이번 달이면 1개 남고, 지난 달이면(오늘이 1일) 이번 달 2개 그대로
+            java.time.LocalDate today = java.time.LocalDate.now(zone);
+            int expected =
+                    java.time.YearMonth.from(today)
+                                    .equals(java.time.YearMonth.from(today.minusDays(1)))
+                            ? 1
+                            : 2;
+            assertThat(result.shieldsRemaining()).isEqualTo(expected);
+            assertThat(result.lastShieldDate()).isEqualTo(twoDaysAgo.plusDays(1));
+
+            when(userSubscriptionRepository.findByUserId(TEST_USER_ID))
+                    .thenReturn(Optional.empty());
+            PracticeStreakDto free = userStatsService.getPracticeStreak(TEST_USER_ID);
+            assertThat(free.currentDays()).isZero();
+            assertThat(free.shieldsRemaining()).isZero();
+
+            when(userSubscriptionRepository.findByUserId(TEST_USER_ID))
+                    .thenThrow(new IllegalStateException("db"));
+            assertThat(userStatsService.getPracticeStreak(TEST_USER_ID).currentDays()).isZero();
+        }
+
+        @Test
+        @DisplayName("LUT-723: 구독 판정 — 그 날(로컬)이 끝날 때까지 권한이 있고 그 전에 시작했어야 한다")
+        void entitledOnDay() {
+            java.time.ZoneId zone = java.time.ZoneId.of("Asia/Seoul");
+            java.time.LocalDate day =
+                    java.time.LocalDate.of(2026, 11, 4); // KST 11/4 끝 = UTC 11/4 14:59:59
+            java.util.function.Predicate<java.time.LocalDate> covered =
+                    UserStatsService.entitledOn(
+                            Optional.of(
+                                    subscription(
+                                            java.time.LocalDateTime.of(2026, 11, 1, 0, 0),
+                                            java.time.LocalDateTime.of(2026, 11, 5, 0, 0))),
+                            zone);
+            assertThat(covered.test(day)).isTrue();
+            assertThat(covered.test(day.plusDays(1))).isFalse(); // 11/5 끝(UTC 11/5 15:00) 전에 만료
+            assertThat(covered.test(java.time.LocalDate.of(2026, 10, 31))).isFalse(); // 시작 전
+            assertThat(UserStatsService.entitledOn(Optional.empty(), zone).test(day)).isFalse();
+            assertThat(
+                            UserStatsService.entitledOn(
+                                            Optional.of(
+                                                    subscription(
+                                                            null,
+                                                            java.time.LocalDateTime.of(
+                                                                    2026, 12, 1, 0, 0))),
+                                            zone)
+                                    .test(day))
+                    .isTrue();
+        }
+
+        @Test
+        @DisplayName("LUT-723: 미션 완료 반영 때 놓친 날을 구독 방어권으로 잇는다")
+        void recordMissionPractice_usesShield() {
+            UserStats stats = statsWithPractice(3, 3, java.time.LocalDate.of(2026, 11, 3));
+            when(userStatsRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.of(stats));
+            when(userQueryFacade.getPreferredTimezone(TEST_USER_ID)).thenReturn(ZONE);
+            when(userSubscriptionRepository.findByUserId(TEST_USER_ID))
+                    .thenReturn(
+                            Optional.of(
+                                    subscription(
+                                            java.time.LocalDateTime.of(2026, 10, 1, 0, 0),
+                                            java.time.LocalDateTime.of(2026, 12, 1, 0, 0))));
+
+            // KST 11/05 10:00 실천 — 11/04 놓침
+            userStatsService.recordMissionPractice(
+                    TEST_USER_ID, java.time.LocalDateTime.of(2026, 11, 5, 1, 0));
+
+            assertThat(stats.getPracticeStreak()).isEqualTo(4);
+            assertThat(stats.getPracticeShieldsUsed()).isEqualTo(1);
+            assertThat(stats.getLastPracticeShieldDate())
+                    .isEqualTo(java.time.LocalDate.of(2026, 11, 4));
+        }
+
+        @Test
+        @DisplayName("마지막 실천이 그제 이전이면 현재 0, 최장은 유지한다")
+        void getPracticeStreak_zeroWhenStale() {
+            java.time.LocalDate twoDaysAgo =
+                    java.time.LocalDate.now(java.time.ZoneId.of(ZONE)).minusDays(2);
+            UserStats stats = statsWithPractice(3, 7, twoDaysAgo);
+            when(userStatsRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.of(stats));
+            when(userQueryFacade.getPreferredTimezone(TEST_USER_ID)).thenReturn(ZONE);
+
+            PracticeStreakDto result = userStatsService.getPracticeStreak(TEST_USER_ID);
+
+            assertThat(result.currentDays()).isZero();
+            assertThat(result.maxDays()).isEqualTo(7);
+        }
+
+        @Test
+        @DisplayName("마지막 실천일이 없으면(배포 전 가입 유저) 가입일부터의 완료 이력으로 재계산해 저장한다")
+        void getPracticeStreak_rebuildsFromHistoryWhenNull() {
+            java.time.ZoneId zone = java.time.ZoneId.of(ZONE);
+            java.time.LocalDate today = java.time.LocalDate.now(zone);
+            UserStats stats = statsWithPractice(0, 0, null);
+            when(userStatsRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.of(stats));
+            when(userQueryFacade.getPreferredTimezone(TEST_USER_ID)).thenReturn(ZONE);
+            when(userQueryFacade.getCreatedAts(List.of(TEST_USER_ID)))
+                    .thenReturn(Map.of(TEST_USER_ID, java.time.LocalDateTime.of(2026, 1, 1, 0, 0)));
+            when(missionQueryFacade.findMissionCompletedLocalDates(
+                            eq(List.of(TEST_USER_ID)), any(), any(), eq(ZONE)))
+                    .thenReturn(
+                            Map.of(
+                                    TEST_USER_ID,
+                                    Set.of(
+                                            today.minusDays(5),
+                                            today.minusDays(2),
+                                            today.minusDays(1),
+                                            today)));
+
+            PracticeStreakDto result = userStatsService.getPracticeStreak(TEST_USER_ID);
+
+            assertThat(result.currentDays()).isEqualTo(3);
+            assertThat(result.maxDays()).isEqualTo(3);
+            assertThat(result.lastPracticeDate()).isEqualTo(today);
+            assertThat(stats.getLastPracticeDate()).isEqualTo(today);
+        }
+
+        @Test
+        @DisplayName("재계산이 실패해도 예외 없이 0 을 돌려준다(다음 조회 때 재시도)")
+        void getPracticeStreak_rebuildFailureReturnsZero() {
+            UserStats stats = statsWithPractice(0, 0, null);
+            when(userStatsRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.of(stats));
+            when(userQueryFacade.getPreferredTimezone(TEST_USER_ID)).thenReturn(ZONE);
+            when(userQueryFacade.getCreatedAts(any()))
+                    .thenThrow(new RuntimeException("user_db down"));
+
+            PracticeStreakDto result = userStatsService.getPracticeStreak(TEST_USER_ID);
+
+            assertThat(result.currentDays()).isZero();
+            assertThat(result.maxDays()).isZero();
+            assertThat(stats.getLastPracticeDate()).isNull();
         }
     }
 }

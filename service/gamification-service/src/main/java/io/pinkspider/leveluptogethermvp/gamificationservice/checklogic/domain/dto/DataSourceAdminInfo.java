@@ -60,6 +60,11 @@ public record DataSourceAdminInfo(
                             new DataFieldInfo("isGuildMember", "길드 가입 여부"),
                             new DataFieldInfo("isGuildMaster", "길드장 여부"));
             case FEED_SERVICE -> List.of(new DataFieldInfo("totalLikesReceived", "받은 좋아요 수"));
+                // LUT-634: TowerServiceCheckStrategy 가 처리하는 필드
+            case TOWER_SERVICE ->
+                    List.of(
+                            new DataFieldInfo("visitedFloorCount", "탑에서 처음 들어가 본 층 수"),
+                            new DataFieldInfo("highestVisitedFloor", "탑에서 들어가 본 가장 높은 층"));
         };
     }
 }

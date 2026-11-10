@@ -4,6 +4,7 @@ import io.pinkspider.global.security.AuthEntryPointJwt;
 import io.pinkspider.global.security.InternalApiKeyFilter;
 import io.pinkspider.global.security.JwtAuthenticationFilter;
 import io.pinkspider.global.security.OAuth2Properties;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
@@ -38,6 +39,16 @@ public class SecurityConfig {
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
     private final InternalApiKeyFilter internalApiKeyFilter;
     private final OAuth2Properties oAuth2Properties;
+
+    /**
+     * LUT-731: {@code /uploads/**}(비로그인 공개 정적 이미지)를 읽을 수 있는 출처 패턴. 어드민이 바닥 마스크 픽셀을 읽으려고 {@code
+     * crossOrigin="anonymous"} 로 받으면 Origin 이 붙는데, 웹 출처만 허용하던 전역 설정이 403 을 냈다. 우리 도메인(웹·어드민, 하위
+     * 도메인·포트 포함)과 로컬만 — 웹 출처 목록({@code oauth2.allowed-origins})은 자동으로 더해진다.
+     */
+    @Value(
+            "${app.cors.uploads.allowed-origin-patterns:https://level-up-together.com:[*],"
+                + "https://*.level-up-together.com:[*],http://localhost:[*],https://localhost:[*]}")
+    private String[] uploadsAllowedOriginPatterns = new String[0];
 
     @Bean
     public AuthenticationManager authenticationManager(AuthenticationConfiguration authConfig)
@@ -82,8 +93,27 @@ public class SecurityConfig {
         configuration.setMaxAge(3600L);
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        // 먼저 등록한 패턴이 먼저 맞는다 — /uploads/** 를 전역보다 앞에
+        source.registerCorsConfiguration("/uploads/**", uploadsCorsConfiguration(allowedOrigins));
         source.registerCorsConfiguration("/**", configuration);
         return source;
+    }
+
+    /**
+     * LUT-731: 공개 정적 이미지 — 읽기(GET/HEAD)만, 쿠키 없음. 응답 Access-Control-Allow-Origin 은 요청 출처를 그대로 돌려주고
+     * {@code Vary: Origin} 이 붙는다.
+     */
+    private CorsConfiguration uploadsCorsConfiguration(List<String> webOrigins) {
+        List<String> patterns = new ArrayList<>(Arrays.asList(uploadsAllowedOriginPatterns));
+        if (webOrigins != null) {
+            patterns.addAll(webOrigins);
+        }
+        CorsConfiguration uploads = new CorsConfiguration();
+        uploads.setAllowedOriginPatterns(patterns);
+        uploads.setAllowedMethods(Arrays.asList("GET", "HEAD", "OPTIONS"));
+        uploads.setAllowCredentials(false);
+        uploads.setMaxAge(3600L);
+        return uploads;
     }
 
     @Bean
@@ -238,6 +268,58 @@ public class SecurityConfig {
                                         .permitAll()
                                         // LUT-350: 비로그인 상점 열람 (레벨 1 = COMMON 기준가).
                                         // 구매는 POST 라 여기 걸리지 않고 인증이 유지된다.
+                                        // LUT-629: 탑 층 목록 — 비로그인 열람 허용(방문객 입구)
+                                        .requestMatchers(HttpMethod.GET, "/api/v1/tower/floors")
+                                        .permitAll()
+                                        // LUT-631: 입장 스냅샷 — 방문객은 visitor_key 로 점유자 확인(서비스 403)
+                                        .requestMatchers(
+                                                HttpMethod.GET,
+                                                "/api/v1/tower/instances/*/presence")
+                                        .permitAll()
+                                        // LUT-630: 탑 입장·퇴장 — 방문객(비로그인)도 허용 층에 들어온다.
+                                        // 허용 층 판정은 TowerEntryService 가 한다(비허용 층은 150202)
+                                        .requestMatchers(
+                                                HttpMethod.POST,
+                                                "/api/v1/tower/floors/*/enter",
+                                                "/api/v1/tower/leave")
+                                        .permitAll()
+                                        // LUT-633: 탑 채팅·리액션 — 방문객도 보낸다(점유자 판정은 서비스 150301)
+                                        .requestMatchers(
+                                                HttpMethod.POST,
+                                                "/api/v1/tower/instances/*/chat",
+                                                "/api/v1/tower/instances/*/reactions")
+                                        .permitAll()
+                                        .requestMatchers(
+                                                HttpMethod.GET,
+                                                "/api/v1/tower/instances/*/chat",
+                                                "/api/v1/tower/chat/reactions")
+                                        .permitAll()
+                                        // LUT-701: 입장 대기 상태·대기 그만하기 — 방문객도 줄을 선다(표 = 본인 확인,
+                                        // 로그인 표는 서비스가 주인을 본다)
+                                        .requestMatchers(HttpMethod.GET, "/api/v1/tower/queue/*")
+                                        .permitAll()
+                                        // LUT-738: 방 목록·방 이동 — 방문객도 같은 층 안에서 옮긴다(visitor_key, 판정은
+                                        // 서비스)
+                                        .requestMatchers(
+                                                HttpMethod.GET, "/api/v1/tower/floors/*/instances")
+                                        .permitAll()
+                                        .requestMatchers(
+                                                HttpMethod.POST,
+                                                "/api/v1/tower/instances/*/move-in")
+                                        .permitAll()
+                                        .requestMatchers(HttpMethod.DELETE, "/api/v1/tower/queue/*")
+                                        .permitAll()
+                                        // LUT-760: NPC 글 남기기·공개 조회·신고 — 방문객도 참여(visitor_key,
+                                        // 로그인 전용 NPC 는 서비스 150411)
+                                        .requestMatchers(
+                                                HttpMethod.POST,
+                                                "/api/v1/tower/npcs/*/entries",
+                                                "/api/v1/tower/npcs/entries/*/reports")
+                                        .permitAll()
+                                        .requestMatchers(
+                                                HttpMethod.GET,
+                                                "/api/v1/tower/npcs/*/entries/random")
+                                        .permitAll()
                                         .requestMatchers(HttpMethod.GET, "/api/v1/shop-items")
                                         .permitAll()
                                         // LUT-356: 비로그인 핑크다이아 묶음상품 열람 (상점 Browse-First)

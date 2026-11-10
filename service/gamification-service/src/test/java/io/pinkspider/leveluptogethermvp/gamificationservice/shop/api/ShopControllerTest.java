@@ -15,7 +15,6 @@ import com.epages.restdocs.apispec.MockMvcRestDocumentationWrapper;
 import com.epages.restdocs.apispec.ResourceSnippetParameters;
 import com.epages.restdocs.apispec.SimpleType;
 import io.pinkspider.global.enums.TitleRarity;
-import io.pinkspider.global.policy.LevelRarityPolicy;
 import io.pinkspider.leveluptogethermvp.config.ControllerTestConfig;
 import io.pinkspider.leveluptogethermvp.gamificationservice.shop.application.ShopService;
 import io.pinkspider.leveluptogethermvp.gamificationservice.shop.domain.dto.ShopItemPurchaseResponse;
@@ -62,9 +61,6 @@ class ShopControllerTest {
 
     private static final String MOCK_USER_ID = "test-user-123";
 
-    /** LUT-348: 문서 샘플은 레벨 1(COMMON) 유저 기준으로 할증가를 계산한다 */
-    private static final int MOCK_USER_LEVEL = 1;
-
     private ShopItemResponse createMockShopItem(
             Long shopItemId,
             String name,
@@ -87,8 +83,8 @@ class ShopControllerTest {
                 "/uploads/shop-items/" + shopItemId + ".png",
                 ShopItemImagePosition.BACK,
                 price,
-                LevelRarityPolicy.effectivePrice(price, MOCK_USER_LEVEL, rarity),
-                LevelRarityPolicy.listPrice(price, rarity),
+                price, // LUT-758: 고정가 — 세 가격 필드가 같다
+                price,
                 false,
                 owned);
     }
@@ -144,13 +140,13 @@ class ShopControllerTest {
                     .optional(),
             fieldWithPath(prefix + "price")
                     .type(JsonFieldType.NUMBER)
-                    .description("기본가 (아이템 정찰가, 유저와 무관)"),
+                    .description("판매가 (어드민 입력값, 유저 레벨과 무관 — LUT-758)"),
             fieldWithPath(prefix + "effective_price")
                     .type(JsonFieldType.NUMBER)
-                    .description("실제 결제가 = 기본가 × 등급차 배수 (LUT-348)"),
+                    .description("실제 결제가 — 현재 price 와 같다 (LUT-758 고정가, 할인 행사 때 다시 쓴다)"),
             fieldWithPath(prefix + "list_price")
                     .type(JsonFieldType.NUMBER)
-                    .description("정가 (최저등급 기준 최대 할증가, 취소선 표기용)"),
+                    .description("정가(취소선 표기용) — 현재 price 와 같다"),
             fieldWithPath(prefix + "locked")
                     .type(JsonFieldType.BOOLEAN)
                     .description("구매 잠금 여부 (현재 항상 false)"),

@@ -37,7 +37,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Architecture Overview
 
 **Multi-Service Monolith**: Spring Boot 3.4.5, Java 21, Gradle multi-module (`service` + `app` +
-`includeBuild ../level-up-together-platform`). 12개 서비스가 단일 배포 단위지만 **서비스별 별도 DB** + Saga 패턴으로 MSA 전환 준비.
+`includeBuild ../level-up-together-platform`). 13개 서비스가 단일 배포 단위지만 **서비스별 별도 DB** + Saga 패턴으로 MSA 전환 준비.
 (adminservice는 별도 레포 `admin-service`(Admin Backend)로 이전됨)
 
 **Why single service module**: 서비스 간 순환 의존성(user↔guild, user↔gamification 등)으로 독립 Gradle 모듈 불가.
@@ -67,6 +67,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 | `noticeservice`       | -               | 공지/안내 (Admin Feign)                          |
 | `supportservice`      | -               | 1:1 문의 + 신고 처리 (Admin Feign)               |
 | `statsservice`        | stats_db        | **지표 집계(IR KPI)** — 유저 일별 활동(DAU 신호) 수집·적재 (LUT-598) + 일별 KPI 스냅샷·코호트 리텐션·코호트 매출 (LUT-601) |
+| `towerservice`        | tower_db        | **레벨업 탑**(v1.1.5, LUT-629~) — 층(어드민 CRUD·유저 목록, 저장 규칙 7개), 입장·인스턴스 배정·자동 착석(630), 미션 연동·상태 브로드캐스트·자리 기록(632). presence·채팅·NPC·대기열은 후속 티켓 |
 
 ### Transaction Manager (Critical)
 
@@ -89,6 +90,7 @@ public void updateGuild(...) { ...}
 | notificationservice | `notificationTransactionManager`   |
 | gamificationservice | `gamificationTransactionManager`   |
 | statsservice        | `statsTransactionManager`          |
+| towerservice        | `towerTransactionManager`          |
 
 ### Service Layer Pattern
 
@@ -140,7 +142,7 @@ All REST endpoints return `ApiResult<T>`:
 | guild-service        | 04  | batch-service        | 11  |
 | mission-service      | 05  | gamification-service | 12  |
 | app-push-service     | 06  | feed-service         | 13  |
-| notification-service | 14  |                      |     |
+| notification-service | 14  | tower-service        | 15  |
 
 ## Testing
 
@@ -186,6 +188,13 @@ BRANCH 88.0%. 분기 커버리지는 if/switch의 **모든 경로**를 요구하
 preflight(OPTIONS) 응답의 `Access-Control-Allow-Headers` 를 검증한다. 클라이언트가 붙이는 커스텀 헤더(`X-Timezone`·`X-Signup-Token`·
 `X-Device-Type`·`Idempotency-Key`) 전부 + 모르는 헤더 거부(와일드카드 아님) + 401 에러 응답의 CORS 헤더까지 고정한다.
 **커스텀 헤더를 추가할 때 `SecurityConfig` 허용목록과 이 테스트의 `ALLOWED_CLIENT_HEADERS` 양쪽에 등록할 것.**
+
+**OpenAPI 커버리지 가드** (`RestDocsOpenApiCoverageTest`, LUT-741): OpenAPI 명세(`openapi3`)는 epages `MockMvcRestDocumentationWrapper.document` 로 만든
+조각만 담는다. 스프링 기본 `MockMvcRestDocumentation.document()` 는 테스트만 통과하고 그 API 는 Swagger·웹 명세 사본에서 빠진다(탑 API 33개·기기 토큰 등 46개가
+그랬다). 이 테스트가 테스트 소스를 읽어 ① 기본 `document()` 사용 ② epages 조각이 하나도 없는 `@WebMvcTest` `*ControllerTest` 를 막는다.
+기존 조각은 그대로 두고 `MockMvcRestDocumentationWrapper.document(id, ResourceSnippetParameters.builder().tag(..).description(..), 조각...)` 로 감싸면
+요청·응답 필드·경로·쿼리 값이 OpenAPI 로 자동으로 옮겨진다. 태그는 사용자 API `Tower`·내부 API `… - Admin Internal` 관례.
+POST·DELETE 의 쿼리 값은 `.param()` 이 아니라 `.queryParam()` 으로 보낼 것(폼 값으로 잡혀 `queryParameters` 조각이 실패한다).
 
 ## 코드 컨벤션
 
@@ -307,7 +316,7 @@ Redis Stream `stream:app-push` → `AppPushMessageConsumer` → `FcmPushService`
 
 - `NotificationType`은 platform kernel에 정의 (category, messageTemplate, actionUrlPattern, dedup 여부)
 - 방해금지(quiet hours)는 유저 `preferred_timezone` 기준 판정, **푸시만 억제** (DB 저장은 유지)
-- 카테고리 토글은 FRIEND/GUILD/SOCIAL/SYSTEM만 — MISSION/ACHIEVEMENT/INQUIRY/LEVEL/ITEM은 항상 발송 (`NotificationType` 35종, LUT-410 아이템·LUT-489 스티펜드·LUT-508 `ADMIN_PUSH` 포함)
+- 카테고리 토글은 FRIEND/GUILD/SOCIAL/SYSTEM만 — MISSION/ACHIEVEMENT/INQUIRY/LEVEL/ITEM은 항상 발송 (`NotificationType` 36종, LUT-410 아이템·LUT-489 스티펜드·LUT-508 `ADMIN_PUSH`·LUT-634 `TOWER_FLOOR_UNLOCKED` 포함)
 - GUILD_DM은 수신자가 DM방 열람 중이면 이벤트 자체 미발행 (`DmPresenceService`, Redis TTL 60초, LUT-263)
 - Consumer 재현지화는 외부 발행 타입(INQUIRY_REPLIED, admin-service 발행)만 — 내부 발행분을 재현지화하면 `{1}` 리터럴 노출 (LUT-262)
 - 뱃지 동기화 3경로: 푸시 발송 시 +1 / 읽음 처리 시 badge-only silent push(iOS, content-available 없음) / 웹→앱 `badgeSync` 브릿지(Android 유일 해제 경로) (LUT-291)
@@ -362,10 +371,11 @@ Redis Stream `stream:app-push` → `AppPushMessageConsumer` → `FcmPushService`
 | 경로 | 퍼블리셔 → 릴레이 | Redis 채널 |
 |---|---|---|
 | 알림 `/user/queue/notifications` | `NotificationRealtimePublisher` → `NotificationRealtimeRelay` | `notification:realtime` |
+| 탑 인스턴스 `/topic/tower/instances/{id}` | `TowerRealtimePublisher.publishToInstance` → `TowerRealtimeRelay` | `tower:instance:realtime` (LUT-632 USER_STATE·MISSION_COMPLETED, LUT-631 ENTER·LEAVE·MOVE·LEVEL, LUT-633 CHAT·REACTION) |
 | DM `/user/queue/dm*` | `DmRealtimePublisher.publishToUser` → `DmRealtimeRelay` | `chat:dm:realtime` |
 | 길드 채팅 `/topic/guild/{id}/chat`·`/read` | `GuildChatRealtimePublisher.publishToTopic` → `GuildChatRealtimeRelay` | `chat:guild:realtime` |
 
-리스너 컨테이너는 `ChatRealtimeConfig`(chat 2채널)·`NotificationRealtimeConfig`. 퍼블리셔는 활성 트랜잭션이 있으면 afterCommit에
+리스너 컨테이너는 `ChatRealtimeConfig`(chat 2채널)·`NotificationRealtimeConfig`·`TowerRealtimeConfig`. 퍼블리셔는 활성 트랜잭션이 있으면 afterCommit에
 발행하고, 릴레이는 body를 **JSON 문자열 그대로** `convertAndSend`한다(프론트는 content-type 무관 `JSON.parse`). 브로드캐스트 DTO는
 `@JsonNaming(SnakeCase)`를 붙여야 프론트와 필드가 맞는다(LUT-395). 유일한 직접 전송 허용 예외는 **발신자 본인에게 보내는 에러 에코**
 (`GuildDirectMessageWebSocketController` `/queue/dm/errors`) — 발신자 세션은 반드시 현재 인스턴스에 있다.
@@ -460,13 +470,17 @@ public void run() { ...}
 | `MissionIdempotencyKeyCleanupScheduler.cleanupExpiredKeys`  | `0 15 * * * *` KST (매시)    | 24시간 지난 미션 생성 멱등 키 삭제 (LUT-577) |
 | `UserActivityFlushScheduler.flushRecentDays`                 | `0 20 0 * * *` KST          | Redis `active:{날짜}` 활동 집합 → `stats_db.user_daily_activity` 적재(그제·어제 2일, 멱등) (LUT-598) |
 | `KpiSnapshotScheduler.buildDailySnapshot`                    | `0 40 0 * * *` KST          | 어제·그제 `daily_kpi_snapshot` + 최근 31일 `cohort_retention` + 13개월 전~당월 `cohort_revenue` 재계산(멱등) (LUT-601·660) |
+| `TowerSeatReconcileScheduler.reconcile`                       | 5분 fixedDelay (`tower.seat.reconcile-delay-ms`) | 탑 미션 중 점유자를 실제 미션 상태와 대조해 끝난 유저 정리 — 이벤트 없는 자정 MISSED·유실 대비 (LUT-632) |
+| `TowerPresenceCleanupScheduler.cleanup`                       | 1분 fixedDelay (`tower.presence.cleanup-delay-ms`) | 탑 방문객 10분 무조작 퇴장·고아 presence 삭제·끊김 유실 정리 (LUT-631) · 연결 집합 고아 항목 정리 (LUT-701) |
+| `TowerQueueScheduler.process`                                 | 2초 fixedDelay (`tower.queue.process-delay-ms`) | 탑 입장 대기열 — 마감 지난 입장 신호·조회 끊긴 표 정리, 남는 자리만큼 다음 순번 입장 신호 (LUT-701, 상한 없으면 아무것도 안 함) |
+| `TowerPixelArtRecoveryScheduler.recover`                     | 10분 fixedDelay (`tower.pixel.recovery-delay-ms`) | 탑 픽셀아트 변환이 대기로 10분 넘게 남은 층을 다시 보낸다(서버가 변환 도중 꺼짐) (LUT-727) |
 
 ## DB 마이그레이션 — Flyway (LUT-595, `global/config/datasource/flyway`)
 
 **dev·prod 모두 Flyway** (dev 2026-10-23 · prod 는 v1.1.3 운영 배포를 수동 psql 로 마친 직후 config `app.flyway.enabled=true`·`baseline-version=1.1.3.12`, 2026-10-28).
 prod 첫 적용 파일은 LUT-666 핫픽스 `gamification/V1_1_3_013`(2026-10-29). `admin_db` 는 이 레포가 아니라 admin-service 자체 Flyway(LUT-676, v1.1.4 부터).
 상세 레퍼런스·새 마이그레이션 체크리스트: [`docs/DB_MIGRATION.md`](docs/DB_MIGRATION.md), 설계 결정: `docs/adr/ADR-007`. Boot 자동설정은 DB 하나만 다루므로
-`spring.flyway.enabled=false` 로 끄고, 9개 `XxxDataSourceConfig`(LUT-598 `stats` 포함) 가 각각 `xxxFlywayMigration` 빈(`initMethod=migrate`)을 두며 `xxxEntityManagerFactory`
+`spring.flyway.enabled=false` 로 끄고, 10개 `XxxDataSourceConfig`(LUT-598 `stats`·LUT-629 `tower` 포함) 가 각각 `xxxFlywayMigration` 빈(`initMethod=migrate`)을 두며 `xxxEntityManagerFactory`
 가 `@DependsOn` 한다 — Flyway 가 스키마를 맞춘 뒤 Hibernate `validate`(각 config 의 `jpaProperties()` 가 코드로 지정, yml `ddl-auto` 와 무관)가 돈다.
 
 - 파일: `app/src/main/resources/db/migration/<db>/V<major>_<minor>_<patch>_<seq3>__<ticket>_<desc>.sql` (예 `V1_1_4_001__lut600_add_x.sql`).
@@ -484,6 +498,84 @@ prod 첫 적용 파일은 LUT-666 핫픽스 `gamification/V1_1_3_013`(2026-10-29
 멱등성 고려 필수. 각 step 은 자기 서비스 트랜잭션 매니저로 따로 커밋한다.
 **Saga 실행 상태는 DB 에 저장하지 않는다**(오케스트레이터 메모리 로그만, `saga_db` 는 한 번도 쓰이지 않아 2026-10-29 dev·prod 삭제 — ADR-003·LUT-665).
 그래서 요청 처리 중 서버가 종료되면 일부 step 만 반영된 채 남고 복구 기록이 없다 — 긴 작업·외부 호출을 필수 step 에 넣지 말 것.
+
+## 레벨업 탑 (towerservice, v1.1.5 LUT-629~)
+
+기획서는 Claude Docs "레벨업 탑 기획서"(2026-10-23). 10번째 DB `tower_db`(LUT-629) — dev·prod 모두 `CREATE DATABASE tower_db` 는 수동, 표는 Flyway `db/migration/tower/`.
+
+- **층 `tower_floor`** (LUT-629): 층 번호(유일)·이름 4 locale·입장 레벨(null = 제한 없음)·비로그인 허용·배경/마스크 URL·입장 지점(배경 원본 픽셀)·BGM·인스턴스 상한(30)·공개.
+  어드민 내부 API `GET/POST/PUT/DELETE /api/internal/tower/floors[/{id}]`(admin-service 패스스루는 LUT-635). **저장 규칙 7개**는 `TowerFloorRuleValidator` 가 저장 뒤 전체 목록으로 판정 — 번호 중복 · 1층 입장 레벨 금지 · 입장 레벨 있는 층 비로그인 허용 금지 · 위층 입장 레벨 역전 금지(제한 없음 = 최저) · 비로그인 허용 1층부터 연속 · 공개 층 번호 1부터 연속 · 입장 지점 마스크 안(`ImageFloorMaskChecker` 가 마스크 PNG 픽셀을 읽는다 — **SSRF 방어**: https 만, `tower.floor.allowed-image-hosts`(CDN 호스트, config-repository 환경별) 만, 사설·루프백 주소 거부, 리다이렉트 금지; `tower.floor.mask-check.enabled` 로 local 에서만 끌 수 있음). 삭제도 남는 층끼리 같은 규칙. 거절은 **400 `1501xx`**(`TowerExceptionHandler`, 플랫폼 500 보다 먼저), 없음 404 `150101`.
+- **유저 목록** `GET /api/v1/tower/floors` — **비로그인 허용**(permitAll GET + `@CurrentUser(required = false)`, `SecurityConfigPublicEndpointTest` 등록). 공개 층만 번호 순, 잠금은 서버 판정(로그인 = 레벨 부족, 방문객 = 비허용 층), `default_floor_number` = 마지막 입장 층(`tower_user_state`, 입장 API LUT-630 이 갱신) 아니면 입장 가능한 가장 낮은 층. 공개 층이 없으면 빈 목록(디폴트 층 없음).
+  각 층에 `population`(층 전체 인원, LUT-630) 포함.
+- **입장·배정** (LUT-630, `tower_instance`·`tower_occupant`, Flyway V1_1_5_003): `POST /api/v1/tower/floors/{n}/enter`(비로그인 허용 POST, 인스턴스 지정 파라미터 없음 — 처음 진입은 무조건 자동 배정) ·
+  `POST /api/v1/tower/leave`(방문객은 입장 응답의 `visitor_key` 로 본인 확인). **판정은 서버**(`TowerEntryService`): 비공개/없는 층 404 `150201` · 비로그인 비허용 층 403 `150202`(제한 없는 층도 허용이 꺼져 있으면 로그인 필요) ·
+  레벨 < 입장 레벨 403 `150203`(층 번호가 아니라 **그 층에 등록된 입장 레벨**로 판정). 배정은 층 행 `SELECT … FOR UPDATE`(`findByFloorNumberForUpdate`) 안에서 `TowerInstanceAllocator` —
+  직접 입장·방문객은 **정원이 남은 방 중 사람이 가장 많은 곳**(균등 분산 금지), 전부 차면 새 방(31번째 → 2번 방). 정원(`instance_capacity`)에는 직접 입장(자리 유지 중 포함)·방문객만 세고 **자동 착석자는 세지 않는다**.
+  서버는 유저 의사 없이 방을 합치거나 옮기지 않는다 — 유일한 예외는 직접 입장으로 방 전체 인원(자동 착석 포함)이 상한을 넘을 때 자동 착석자를 같은 층 다른 방(없으면 새 방)으로 보내는 자리 양보. 아무도 없는 방은 바로 닫는다(행 삭제).
+  **복귀**: 미션 중(`mission_active`) 유저가 같은 층에 다시 들어오면 배정·대기열 없이 원래 방(`resumed`), 자동 착석 자리가 있는 유저는 그 자리에서 직접 입장(그 방이 직접 입장자로 차 있으면 일반 배정), 다른 층으로 들어오면 자리를 옮긴다. 퇴장은 멱등이고 미션 중이면 자리를 남긴다(`seat_held`). 입장 응답 `auto_seat_continued` = 자동 착석 자리에서 직접 입장으로 이어졌는가(LUT-646 분석 — 자동 착석 → 직접 입장 전환율, 추가 필드).
+  **자동 착석** `TowerSeatService.onMissionStarted(userId)`(호출·설정값 "탑 자동 착석"·브로드캐스트는 LUT-632): 입장 가능한 공개 층 중 **사람이 가장 적은 층**(층 전체 인원 `byFloorFresh`, 같으면 낮은 층) → 그 층에서 **사람이 가장 적은 방**(일반 입장과 반대), 입장 레벨이 부족한 층은 비어 있어도 제외.
+  **자리는 바닥 마스크 안 랜덤**(LUT-757, `TowerAutoSeatPicker` — 예전엔 늘 입장 지점이라 미션 시작자들이 한 자리에 겹쳤다): `WalkableMask.randomWalkable`(이동·입장과 같은 붉은 픽셀 규칙)로 후보 24개까지 뽑아 **같은 방 점유자(presence 좌표)·그 층 공개 NPC 와 `tower.seat.min-distance-px`(배경 원본 픽셀, 기본 80) 이상** 떨어진 첫 칸, 없으면 후보 중 가장 먼 칸. 마스크를 못 읽거나 바닥 칸이 없으면 입장 지점. 직접 입장은 여전히 입장 지점, 자리 유지·복귀(`resume`·자동 착석 → 직접 입장)는 원래 자리.
+  `onMissionEnded(userId, connected)`: 자동 착석자·연결 끊긴 유저는 퇴장, 연결된 유저는 휴식 중. 층 인원 `TowerPopulationService`(모든 종류 합, NPC 제외, 인스턴스 로컬 메모 `tower.population.cache-seconds` 기본 30초).
+  방문객 세션·제재·빈도 제한은 아래 "방문객" 절(LUT-705), 좌표·연결 여부는 LUT-631(Redis).
+- **미션 연동·상태 브로드캐스트** (LUT-632): mission-service 가 수행(타이머) 시작·종료에 kernel 이벤트 `MissionExecutionStartedEvent`(일반 `RegularMissionExecutionStrategy.startExecution`·고정 `DailyMissionInstanceService.startInstance`) /
+  `MissionExecutionEndedEvent`(완료 = `MissionCompletionSaga.runSaga` 성공 단일 지점 `COMPLETED`, 4시간 자동 종료 = `MissionAutoCompleteScheduler` `AUTO_COMPLETED`, 진행 중 취소 skip = `SKIPPED`)를 낸다 —
+  미션 자체 상태 이벤트(`MissionStateChangedEvent`)와 다르다. `TowerMissionEventListener`(AFTER_COMMIT + `fallbackExecution`) → `TowerSeatService.onMissionStarted(userId, TowerMissionInfo)`: 탑에 있으면 미션 중 + 같은 방에
+  `USER_STATE{MISSION}` 브로드캐스트(**공개(PUBLIC) 미션만 미션명·카테고리, 나머지는 "미션 중"만**), 없으면 유저 설정 **"탑 자동 착석"**(`user_ui_preference.tower_auto_seat` 기본 켬 + `tower_auto_seat_notice_seen`, `UserQueryFacade.isTowerAutoSeatEnabled`)이 켜진 유저만 자동 착석.
+  `onMissionEnded(userId, completed)`: 완료면 `MISSION_COMPLETED{cheer_window_seconds:10}` 를 먼저 보내고, 자동 착석자·연결 끊긴 유저(`TowerPresenceGateway` — 631 전까지 `DefaultTowerPresenceGateway` 는 전부 연결로 봄)는 퇴장, 연결된 유저는 `USER_STATE{REST}`.
+  자정 일괄 MISSED 처럼 이벤트가 없는 경로는 `TowerSeatReconcileScheduler`(5분, ShedLock)가 `MissionQueryFacade.findInProgressMissions` 로 대조해 정리. 탑 밖에서 시작한 미션도 입장하면 미션 중(`TowerEntryService.enter` 가 `findInProgressMission` 조회).
+  **실시간은 Redis 릴레이** `TowerRealtimePublisher`(`tower:instance:realtime`) → `TowerRealtimeRelay` → `/topic/tower/instances/{id}`(`TowerRealtimeConfig`, LUT-631 이 ENTER/LEAVE/MOVE 를 같은 토픽에 보탠다).
+  `POST /api/v1/tower/vacate`(로그인) = 자리 직접 비우기(미션은 계속, 자동 착석 자리 포함). `GET /api/v1/tower/me`(로그인) = 내 자리 `{seated, floor_number, auto_seated, mission_active}` — 미션 진행 화면 탑 카드(LUT-713)가 앱을 다시 열어도 서버 값으로 그린다. 미션 단위 자리 기록 `tower_mission_seat`(층·자동 착석·응원 수, 응원은 LUT-633 이 `addCheer`) → 완료 응답 `tower_seat{floor_number, auto_seated, cheer_count}`(`TowerQueryFacade`, 탑에 앉지 않았으면 없음).
+- **presence·실시간 위치** (LUT-631, `towerservice/presence`): "누가 어느 방에 있는가" 는 DB(`tower_occupant`), **좌표·상태·연결 여부·아바타 데이터는 Redis** `tower:presence:{instanceId}`(해시, 점유자 ID → `TowerPresence` JSON, `TowerPresenceStore`) — 노드 메모리 금지(prod 2대).
+  단일 창구 `TowerPresenceService`: 점유자 행 생성 → `register`(프로필 썸네일·닉네임·레벨·장착 아이템을 한 번 읽어 저장 + `ENTER`), 삭제 → `unregister`(`LEAVE`, `TowerInstanceAllocator.remove` 가 호출), 자리 양보 → `moveInstance`.
+  **클라이언트 순서**: `POST .../enter` → `/topic/tower/instances/{id}` 구독 → `/app/tower/instances/{id}/join {occupant_id, visitor_key?}`(세션 ↔ 점유자 묶기, 마지막 위치 마스크 재검증 후 `MOVE` 로 복원, 밖이면 입장 지점) → `GET /api/v1/tower/instances/{id}/presence[?visitor_key]`(스냅샷, 그 방 점유자만 — 아니면 403 `150205`; 요청자와 차단 관계는 제외).
+  **이동** `/app/tower/instances/{id}/move {x, y}` 는 목적지만 — 서버가 `TowerFloorMaskCache`(마스크 PNG 격자, `tower.floor.mask-cache-seconds` 600초, 어드민 수정 시 evict)로 검증하고 밖이면 `WalkableMask.snapInside`(반지름 `tower.presence.snap-radius-mask-px` 150)로 가장 가까운 안쪽으로 보정해 `MOVE` 브로드캐스트(너무 멀면 무시).
+  **끊김**: `WebSocketConfig` 가 STOMP heartbeat 10초(**전역** — 채팅·DM·알림 연결도 heartbeat 없이 조용하면 닫힌다)로 감지 → `SessionDisconnectEvent` → `TowerConnectionService.disconnect`: 미션 중 로그인 유저는 자리 유지(presence `connected=false`, 퇴장 이벤트 없음 — 다른 유저에겐 연결된 것과 같음), 휴식 중 유저·방문객은 즉시 퇴장. 재접속은 같은 점유자로 join(옛 세션 끊김은 무시).
+  방문객 10분 무조작(`tower.presence.visitor-idle-minutes`)·고아 presence·끊김 유실은 `TowerPresenceCleanupScheduler`(매분, ShedLock)가 정리. 레벨업(`UserLevelUpEvent`) → `TowerLevelChangeListener` → `LEVEL` 브로드캐스트(이름표). **미션 정보도 presence 에**(LUT-749): presence 에 `mission{title, category_id}`(공개 미션만, 비공개·휴식 null)를 두고 스냅샷이 내린다 — 예전엔 `USER_STATE` 이벤트에만 실려 늦게 들어온 사람에게 이미 미션 중이던 사람의 미션명이 안 보였다. 채우는 곳: 미션 시작(`onMissionStarted` 의 `updateState`·자동 착석 `register`), 미션 중 입장(`findInProgressMission` → `register`), 미션 중 복귀(`updateState` 뒤 `refreshAvatar` 의 ENTER), 휴식이면 비운다. `TowerPresence` 는 `@JsonIgnoreProperties(ignoreUnknown)` 라 롤링 배포 중 옛 서버도 새 JSON 을 읽는다. **아바타 재조회**(LUT-737): presence 의 닉네임·사진·레벨·장착 아이템은 점유자를 새로 만들 때만 읽혀서, 자리를 이어 쓰는 복귀(자리 유지·자동 착석 → 직접 입장)에서 옛 아이템이 보였다 — 로그인 유저의 복귀 입장과 장착 변경(`ItemEquippedEvent` → `TowerAvatarChangeListener`)은 `TowerPresenceService.refreshAvatar` 로 다시 채우고 같은 방에 `ENTER` 를 보낸다(클라이언트 ENTER 는 업서트라 다른 유저 화면도 바뀐다, 위치·연결·상태는 그대로). 방문객 이름은 `visitor_no`(네 자리, 입장 때 발급)를 클라이언트가 locale 로 조립.
+  미결(631 완료 조건 중 사람 몫): **부하 테스트**(동시 접속별 지연·오류율, 탑 전체 상한 확정 → LUT-701 설정값)와 인스턴스별 노드 고정(Redis 릴레이로 정합성은 보장되므로 성능 결과를 보고 결정).
+- **어드민 이미지 업로드·공통 설정** (LUT-635, `application/image/`·`TowerSettingService`): 층 API 는 이미지 **주소**만 받으므로 `POST /api/internal/tower/floors/images?kind=BACKGROUND|MASK`(multipart `file`, jpg·png·webp 15MB, **마스크는 PNG 만** 150112)가
+  저장 후 **절대 https 주소**를 돌려준다 — prod `S3TowerImageStorageService`(키 `tower/{kind}/{uuid}.{ext}`, CDN `images.level-up-together.com` = 허용 호스트), 그 외 `LocalTowerImageStorageService`(`uploads/tower/{kind}/`, `TowerImageWebConfig` 정적 서빙, 절대 주소는
+  `app.upload.tower-image.public-base-url`(config-repository dev `https://dev.level-up-together.com:8443`) 로 조립 — 비면 상대 경로가 나와 층 API 가 거절한다). 응답 `width`/`height` 는 헤더만 읽어(webp 는 null) 어드민이 짧은 변 1536px 미만 경고에 쓴다.
+  층 수정·삭제로 안 쓰게 된 **우리 저장소 이미지는 커밋 뒤 삭제**(다른 층이 같은 주소를 쓰면 유지, 외부 주소 무시). 거절 150110(파일 없음·크기·확장자)·150111(저장 실패 500)·`000012`(이미지 아님, LUT-710).
+  **배경 음악** (LUT-637): `POST /api/internal/tower/floors/audio`(multipart `file`, mp3·aac·m4a **10MB**, `TowerFloorAudioService` 가 헤더(ID3·MPEG/ADTS 프레임 동기·M4A `ftyp`)로 진짜 오디오인지 본다 → 아니면 400 `150113`)가 같은 저장소 `tower/bgm/` 에 두고 `{url, size_bytes, content_type}` 를 돌려준다(이미지 API 에 `kind=BGM` 은 150110). **공개 층은 `bgm_url` 필수** — `TowerFloorRuleValidator` 가 저장 대상 층만 보고 400 `150114`(기존 공개 층은 다음 저장 때 걸린다). 교체해도 이미 안에 있는 유저는 그대로이고 다음 입장부터 새 곡(층 API 가 입장 때 URL 을 준다). 안 쓰게 된 곡도 이미지처럼 커밋 뒤 삭제(`countByBackgroundImageUrlOrFloorMaskUrlOrBgmUrl`). 길이(권장 1분 30초~2분)는 서버가 디코딩하지 않고 어드민이 `<audio>` 메타데이터로 안내한다. 재생은 웹 LUT-645.
+  **i18n 주의**: ja·ar properties 에 유니코드 이스케이프를 넣을 때 백슬래시를 두 번 쓰지 말 것 — 629·633·635 의 탑 오류 문구 23줄이 `\\u3053…` 로 저장돼 화면에 코드가 그대로 보였다(LUT-637 에서 수정, `app` `I18nUnicodeEscapeTest` 가 모든 번들을 읽어 막는다).
+  **탑 공통 설정** `tower_setting`(키-값, Flyway V1_1_5_006) — `GET/PUT /api/internal/tower/settings {max_concurrent_users}`(null = 제한 없음, 캐시 없이 읽어 저장 즉시 반영). 대기열 LUT-701 이 `TowerSettingService.getMaxConcurrentUsers()` 로 판정하며 기본값은 631 부하 테스트 결과. admin-service 패스스루·화면은 LUT-635/636.
+- **채팅·리액션·모더레이션** (LUT-633, `application/chat/`·`TowerChatService`): 전송은 **REST**(거부 사유 코드를 바로 받는다 — 비로그인 허용, 방문객은 `visitor_key`), 수신은 같은 인스턴스 토픽의 `CHAT`/`REACTION` 이벤트.
+  `POST /api/v1/tower/instances/{id}/chat {content, visitor_key?}` → 처리된 메시지(원문 아님) · `POST .../reactions {emoji, target_user_id?, visitor_key?}` · `GET .../chat`(최근 50건, Redis `tower:chat:history:{id}`, 로그인 요청자는 차단 유저 제외) · `GET /api/v1/tower/chat/reactions`(프리셋 6종).
+  **판정 순서**(서버가 최종, LUT-768 부터 **미션 중에도 채팅 허용** — 예전 `150304` 거부 폐지·번호 예약): 점유자 아님 403 `150301` → 길이(로그인 200·방문객 40) 400 `150307` → 방문객 URL·전화·메신저 400 `150308` → 제한 중 403 `150306` → 간격(로그인 1초·방문객 5초, Redis SETNX) 429 `150302` → 같은 내용 연속 400 `150303` → 금칙어.
+  **금칙어**는 어드민 비속어 목록(`ProfanityValidationService.getActiveProfanityWordsWithSeverity`, 캐시 `profanityWords` — 어드민 변경 시 evict)으로 **공백·특수문자를 지운 소문자**로 비교: LOW·MEDIUM 은 그 단어만 `**` 로 가리고 전송, HIGH 는 전체 거부 400 `150305`, MEDIUM 이 60초 안 3회면 300초 제한(`tower.chat.*` 설정). 원문은 `tower_chat_log`(Flyway V1_1_5_007, 거절도 기록)에만 남고 다른 유저에게는 절대 안 나간다.
+  **응원** = 완료 연출 뒤 10초 창(`TowerCheerWindowStore`, `MISSION_COMPLETED` 때 `TowerSeatService` 가 연다) 안에 `target_user_id` 로 보낸 리액션 1회(점유자당) → `addCheer`, 보상 없음. 차단 유저 숨김은 토픽이 방 공용이라 **클라이언트가 `user_id` 로**(이력 API 는 서버가 뺀다). Redis 장애 시 제한은 통과(fail-open). 운영자 뮤트·로그 보관 기간·어드민 화면은 미결. 웹 UI 는 LUT-643.
+- **입장 대기열** (LUT-701, `application/queue/` — `TowerQueueService` + `TowerQueueStore`(Redis 구현 `RedisTowerQueueStore`)): 상한 = 어드민 `max_concurrent_users`(null = 제한 없음 → 대기열 꺼짐, 5초 메모). 기준은 **웹소켓 연결 수**(`tower:ws:connected` 집합 — `TowerPresenceStore` 가 세션을 묶을 때 넣고 풀 때 뺀다, 자리만 유지 중인 미션 유저는 빠진다) **+ 아직 마감 전인 입장 가능 표 수**.
+  `POST .../enter` 가 상한이면 배정 대신 `queued=true` + `queue{ticket, status WAITING|ADMITTED, position, estimated_wait_seconds(순번×20초), population, admit_expires_in_seconds}`(추가 필드). **이미 안(직접 입장·방문객 점유자, 자리 유지 포함)이면 층 이동·복귀라 대기열을 거치지 않는다**(상한을 잠시 넘을 수 있다), 자동 착석만 한 유저는 새 입장으로 본다.
+  줄은 둘 — **로그인 줄이 방문객 줄보다 늘 앞**(먼저 선 방문객도 나중 로그인 유저에게 밀린다, 안의 방문객을 내보내지는 않는다). 자리가 나면 앞 순번에 ADMITTED(30초 창, `tower.queue.admit-window-seconds`) → `enter?queue_ticket=` 로 들어오면 표 소비. 창이 지나면 표를 버리고 다음 순번(그 표로 오면 줄 끝에 다시). 기다리는 사람이 있으면 표 없는 요청도 줄 끝(건너뛰기 불가), 같은 유저의 재요청은 같은 표.
+  대기 화면은 `GET /api/v1/tower/queue/{ticket}` 을 몇 초마다 조회(비로그인 허용, 로그인 표는 주인만, 없거나 끝난 표 404 `150206`) — **20초(`tower.queue.stale-seconds`) 조회가 없으면 화면을 벗어난 것으로 보고 줄에서 뺀다**(1단계: 백그라운드 대기·입장 푸시 없음), `DELETE` = 대기 그만하기. 입장 허용 계산(`admitPending`)은 조회·입장 요청마다 + `TowerQueueScheduler`(2초, ShedLock) 안전망, Redis 잠금으로 한 노드만. 대기 중 시작한 미션은 입장 때 `findInProgressMission`(또는 자동 착석 → 직접 입장 전환)으로 미션 중. 연결 집합의 점유자 행 없는 항목은 presence 정리 스케줄러가 뺀다.
+- **방 목록·방 이동** (LUT-738, `TowerRoomService`, Flyway V1_1_5_016 `tower_instance.instance_no`): 방 번호는 층 안에서 1부터, 방을 열 때 **비어 있는 가장 작은 번호**(닫힌 방 번호 재사용, 방을 여는 두 경로가 층 행 잠금 안이라 겹치지 않음). 롤링 중 옛 코드가 연 방은 번호가 null 일 수 있어 목록은 빈 번호로 대신 보여 주고 다음에 방을 열 때 채운다. `GET /api/v1/tower/floors/{n}/instances[?visitor_key]` = 그 층에 있는 사람(직접 입장·방문객, 자동 착석만 한 유저 제외)만, 방 번호 순 `{instance_id, instance_no, population(정원 기준 — 자동 착석 제외), total_population, capacity, full, current}` + 층 전체 인원. `POST /api/v1/tower/instances/{id}/move-in {visitor_key?}` = 같은 층 다른 방으로(처음 입장은 여전히 자동 배정): 층 행 잠금 안에서 판정, 미션 중 상태·좌표 그대로, 이전 방 LEAVE·새 방 ENTER(`moveInstance`), 빈 방 닫기·자동 착석 넘침 정리, 응답은 입장 응답 모양. 거절 409 `150207` 가득 참(다른 방으로 대신 보내지 않음) · 429 `150208` 10초 안 재이동(`TowerRoomMoveLimiter`, 단위 `u:`/`v:`, 성공 때만 표시, 문구 `{0}`초 + `value.retry_after_seconds` — `TowerException` 이 문구 인자·세부 값을 실을 수 있다) · 400 `150209` 다른 층 · 404 `150210` 없는 방, 탑에 없으면 403 `150205`. 두 경로 모두 비로그인 허용(`SecurityConfigPublicEndpointTest`). 친구·길드원 수는 아직 없다.
+- **방문객(비로그인) 세션·제재·신고** (LUT-705, `application/visitor/` — 단일 창구 `TowerVisitorGate`): 방문객 입장은 `POST .../enter` 본문(선택) `{visitor_key, device_id}` + 서버가 본 IP(`global/web/ClientIpResolver` — admin LUT-684 와 같은 규칙, 신뢰 프록시 뒤면 XFF 오른쪽 값)·User-Agent 로 판정한다.
+  **세션** = Redis `tower:visitor:session:{key}`(24시간, `TowerVisitorSessionStore`) — 서버가 발급한 키로 다시 오면 **같은 이름 번호**로 들어오고, 이미 안에 있으면(같은 층 = 그 자리로 복귀, 다른 층 = 옮김) **대기열을 거치지 않는다**. 서버가 모르는 키는 무시하고 새 세션(클라이언트가 고른 키를 믿지 않는다). 공개 식별자 `visitor_tag`(키 SHA-256 앞 16자리, `TowerVisitorTag`)가 presence·스냅샷·`CHAT` 에 붙어 로그인 유저가 **세션 기준으로 숨기기**를 이어 간다(키는 비밀이라 내리지 않는다).
+  **제재**(`tower_visitor_sanction`, Flyway V1_1_5_010) = IP 또는 기기 ID × CHAT(채팅·리액션) / ENTRY(입장 + 채팅), 기간 또는 해제할 때까지 — 입장 403 `150501`, 채팅·리액션 403 `150502`(세션의 IP·기기와 지금 요청 IP 모두 본다). 활성 목록은 노드마다 30초 메모. **IP 빈도**(`TowerVisitorRateLimiter`, Redis): 방문객 입장 1분 20건·IP 당 쓰는 중인 세션 10개(10분 창) 초과 429 `150503`, 방문객 채팅·리액션 IP 1분 12건 초과 429 `150302`. 전송 간격·같은 내용·MEDIUM 제한(`TowerChatGuard`)의 단위는 점유자가 아니라 **유저 `u:{userId}` / 방문객 세션 `v:{key}`** — 층 이동·재입장으로 초기화되지 않는다.
+  **연결·이동**: 토큰 없는 STOMP CONNECT 는 IP 당 20개(`WebSocketAnonymousConnectionLimiter`, `ws:anon:{ip}`, 끊기면 뺀다 — `WebSocketCookieHandshakeInterceptor` 가 IP 를 세션 attribute 로 남긴다), 이동 메시지는 세션당 1초 5건(`TowerMoveRateLimiter`, 노드 메모리, 넘으면 버림). Redis 장애 시 제한은 모두 통과(fail-open).
+  **신고** `POST /api/v1/tower/instances/{id}/visitor-reports {occupant_id, reason?}`(로그인 필요, 신고자도 그 방에 있어야 403 `150205`, 대상이 그 방 방문객이 아니면 404 `150504`, 24시간 안 같은 방문객 재신고는 기존 ID `duplicate`) → `tower_visitor_report` 에 세션의 IP·기기 ID·UA 와 최근 원문(`tower_chat_log`, 최대 20줄 JSON)을 남긴다. 어드민은 `/api/internal/tower/visitor-reports` 를 보고 `/visitor-sanctions` 로 제재(패스스루·화면은 후속). 방문객의 미션 시작은 인증 필요 경로라 401(`SecurityConfigPublicEndpointTest`).
+  **닉네임**: "방문객"·"Visitor"·"ビジター"·"زائر" 로 시작하는 닉네임(대소문자·앞뒤 공백 무시)은 가입(`completeSignup`)·변경(`updateNickname`) 때 `NICKNAME_006`, 중복 확인 API 는 사용 불가, 공급자 닉네임은 제안하지 않는다(`ReservedNicknamePolicy`).
+- **NPC·실제 흔적** (LUT-693, `tower_npc`·`tower_npc_line`, Flyway V1_1_5_009): NPC(층 주민)는 층마다 어드민이 등록(층당 최대 3명 150402, 다른 층에 쓰려면 그 층에 다시 등록) — 이름·상태 문구(선택)·대사 목록(순서, 문장마다) 4 locale, 프로필 이미지(층 이미지 API `kind=NPC`), 자리(배경 그림 안 150403 — LUT-746 부터 이동 불가 영역에도 둔다: 유저가 걸어와 NPC 를 가리지 않게 카운터 뒤·벽 앞. 배경을 못 읽으면 150109), 공개. 대사 한 문장은 **글자 수 160**(LUT-751 `TowerNpcTextRule.fitsNpcLine` — 언어와 상관없이 유니코드 문자 단위, 넘으면 150404. 예전엔 표시 폭 80 = 한글 40자). 첫 방문 안내 문장(LUT-734)은 여전히 **표시 폭 80**(`fits` — 한글·한자·가나·전각·이모지 2, 그 외 1, 말풍선 2줄).
+  **자동 말풍선**(LUT-732, Flyway V1_1_5_013): NPC 마다 `auto_bubble`(기본 꺼짐)·`bubble_interval_seconds`(5~60, 기본 10, 범위 밖 400) — 켜면 클라이언트가 n초마다 대사를 순서대로 머리 위 말풍선으로 띄운다(터치 대사 카드와 같은 순번, 채팅 기록엔 안 남김). 수정 요청에서 null = 그대로(구 어드민 호환), 스냅샷 `npcs[]` 에 두 값(추가 필드).
+  **창 이미지·이동 링크**(LUT-733, Flyway V1_1_5_014): NPC 요청·응답·스냅샷의 `card{image_url, link{type SHOP_ITEM·EVENT·SUBSCRIPTION·PATH, target_id, path}, link_label×4, starts_on, ends_on}` — 수정 요청에서 `card` 없음 = 그대로(구 어드민 호환), 있으면 통째로 바꾸고 이미지·링크가 다 비면 지움. 저장 검증: 상점 아이템은 **판매 중**·이벤트는 있는 것(150405, 파사드 `GamificationQueryFacade.findOnSaleShopItemIds/findExistingEventIds` — platform kernel), PATH 는 `/` 로 시작하는 앱 경로만(`//`·`://`·공백·역슬래시 금지, `TowerNpcCardRule`, 150406), 기간 역전 150407. 스냅샷은 오늘(KST) 기간 밖이거나 링크 대상이 없으면 `card` 를 null 로(대상 확인 실패도 그 종류만 뺀다). 창 이미지도 `TowerStoredFileCleaner` 참조 확인·커밋 뒤 삭제 대상.
+  **NPC 입력 받기**(LUT-760, `tower_npc_form`·`tower_npc_entry`·`tower_npc_entry_report`, Flyway V1_1_5_018 — `TowerNpcEntryService`·`TowerNpcEntryAdminService`): NPC 카드 대사 아래 입력칸으로 유저 글을 받아 어드민이 보고 방에도 보여 준다. 어드민 설정만 바꿔 트리 쪽지(한 줄·비로그인·태그)·보름달 소원(여러 줄·이메일·로그인만·떠오르는 글) 같은 이벤트를 만든다.
+  설정은 NPC 요청의 `form`(NPC 당 1행, 수정 요청에서 null = 그대로): 켬·본문 칸 `INPUT|TEXTAREA`·안내 문구×4·최대 글자 수(기본 100, 상한 500)·버튼 문구×4·로그인만·이메일 받기·동의 문구×4·공개 방식 `NONE|TAG|FLOAT`·공개 영역 마스크. **이메일 받기를 켜면 로그인만 받기를 서버가 강제**(엔티티 `isLoginRequired` 도 다시 강제). 켜진 설정은 버튼 문구 4개 언어 필수, 이메일이면 동의 문구 4개 언어 필수, 공개 방식이면 마스크 필수(150408)·배경과 비율 동일(150409, 못 읽음 150109). 스냅샷 `npcs[].form`(켜진 것만, `entry_count` = 공개 글 수) — 구 클라이언트는 무시.
+  제출 `POST /api/v1/tower/npcs/{npcId}/entries {body, email?, consent?, visitor_key?}`(비로그인 허용): 공개 NPC·켜진 설정(150401·150410) → 로그인 전용이면 방문객 403 `150411`(화면에서 막아도 서버가 다시 막는다) → 방문객은 세션 키(150204)·채팅과 같은 기기·IP 제재·IP 빈도 → 본문 비었거나 초과 `150412` → 이메일 형식·동의 `150413` → **같은 NPC 하루(KST) 1회**(로그인 user_id / 방문객 visitor_key 또는 요청 IP) 429 `150414` → 채팅과 같은 욕설 가림(`**`, HIGH 는 150305). 닉네임은 제출 때 스냅샷(`author_name`), 이메일은 `CryptoConverter` 로 암호화 저장.
+  공개 조회 `GET .../npcs/{npcId}/entries/random?limit=50&exclude=1,2`: 공개 글을 **덜 보여 준 글부터**(`view_count` 오름차순, 같으면 `random()`) 최대 50개, 내려준 글은 노출 수 일괄 +1(정확한 집계 불필요). `NONE`·꺼짐이면 빈 목록. 응답은 `entry_id, body, author_name(로그인), visitor_no·visitor_tag(방문객), user_id, is_seed(시드 = NPC 이름 표시), total` — **이메일은 절대 안 내린다**. 신고 `POST .../npcs/entries/{entryId}/reports {visitor_key?}` — `tower_npc_entry_report` PK(`u:userId`/`v:visitorKey`)로 1인 1회(`ON CONFLICT DO NOTHING`), **3건이면 자동 HIDDEN**(어드민이 다시 공개 가능).
+  어드민 내부 API `/api/internal/tower/npcs/{npcId}/entries`: `GET ?status&reported&from&to&page&size`(KST 날짜, 최신 먼저, 이메일 포함) · `GET /export`(전체 — CSV·감사 로그는 admin-service) · `PUT /{entryId}/status {status}` · `POST /seed {body}`(운영자 글, 금칙어 가림 없음) · `DELETE /emails`(이메일 일괄 파기, 본문 유지). 안 쓰게 된 공개 영역 마스크도 `TowerStoredFileCleaner` 가 지운다. 어드민 화면·패스스루는 LUT-761, 웹은 LUT-762/764.
+  **NPC 는 점유자가 아니다** — 퇴장하지 않고, 인원 표시·인스턴스 배정·지표에 들어가지 않는다(별도 표라 자연히 0명). 입장 스냅샷(`GET .../presence`)이 `npcs`(그 층 공개 NPC 전원, 모든 방 같은 자리 — 수정은 다음 스냅샷부터)·`npc_shown`·`traces` 를 함께 내린다(추가 필드).
+  **A/B**: `tower_setting.npc_exposure_percent`(0~100, 기본 100, `PUT /api/internal/tower/settings` 에서 null = 안 바꿈) — 유저 ID(방문객은 방문객 키) `hashCode` 0~99 버킷이 비율보다 작으면 노출, 같은 유저는 늘 같은 그룹. 숨김 그룹은 `npcs` 빈 배열 + `npc_shown=false`(분석 이벤트 파라미터).
+  **실제 흔적** `traces{completed_today, seats[]}`: 미션 완료 때 `TowerSeatService.onMissionEnded(completed)` 가 열린 자리 기록 `tower_mission_seat` 에 `completed_at`·완료 자리(presence 좌표, 못 읽으면 점유자 자리, 탑 밖이면 null)를 남기고, `TowerTraceService` 가 오늘(KST) 이 층의 완료 **사람 수**(distinct)와 자리(최근 50곳, 누구인지 비노출)를 센다. 조회 실패는 빈 흔적(스냅샷은 내려간다). 층·NPC 수정·삭제로 안 쓰게 된 파일은 공용 `TowerStoredFileCleaner`(층·NPC 참조 둘 다 확인)가 커밋 뒤 지운다(층 삭제 = 그 층 NPC 이미지 포함, DB 는 ON DELETE CASCADE).
+- **층별 첫 방문 안내** (LUT-734, `TowerFloorGuideService`, Flyway V1_1_5_015 `tower_floor_guide`·`tower_floor_guide_line` + `tower_floor_visit.guide_seen_version`): 층당 1행 — 켜기, 안내 NPC(그 층 NPC, 지우면 NULL), 문장 1~5개(4 locale, NPC 대사와 같은 2줄 규칙), 마지막 문장의 미션 시작 버튼·문구(4 locale), 버전. 어드민 `GET/PUT /api/internal/tower/floors/{floorId}/guide`(150601 NPC 없음·다른 층 · 150602 2줄 초과 · 150603 켰는데 문장 없음), **`reshow=true` 로 저장할 때만 버전을 올린다**. 유저 층 목록 `floors[].guide` = 켜짐 + 안내 NPC 가 그 층 **공개** NPC + 문장 있음일 때만(아니면 null). **첫 방문 판정은 서버**: 입장이 방문 행을 넣은 뒤 `UPDATE tower_floor_visit SET guide_seen_version = v WHERE … AND guide_seen_version < v` 1행이면 입장 응답 `first_visit=true`(기기를 바꿔도 다시 안 뜸, 다시 보여 주기 = 버전 올림), 안내 없으면 false, **방문객·대기는 null**(웹이 기기에 기억). 1층 탑지기 하드코딩 안내(LUT-695)는 웹에서 이 설정으로 바뀌었다.
+- **효과 레이어·앞 가림** (LUT-725, Flyway V1_1_5_011 — `tower_floor.occlusion_mask_url` + `tower_floor_light`·`tower_floor_effect_layer`): 층 어드민 요청에 추가 필드 3개 — `occlusion_mask_url`(선택, 층당 1개) · `lights[]`(불빛 점 최대 50개: 좌표·반경 배경 원본 픽셀, `#rrggbb`, 밝기·깜빡임 세기·속도 0~100, 항상 켜짐) · `effect_layers[]`(SNOW·STARS 각 1개: 마스크 URL·켜기·기간 `starts_on`/`ends_on`(KST, 양끝 포함, 비우면 상시)·`amount` 1~300(눈 밀도/별 개수)·`speed` 1~100·크기 1~20).
+  **수정 요청에서 null = 그대로**(구 어드민·패스스루 호환), 앞 가림 빈 문자열·목록 `[]` = 지움. 거절: 종류 중복·크기 최소 > 최대·시작 > 종료 400 `150115`, 앞 가림·효과 마스크가 배경과 비율이 다름(2% 허용 — 4분의 1 해상도 반올림) 400 `150116`, 못 읽음 `150109`(비율 검사는 `tower.floor.mask-check.enabled` 를 따른다). 상한·범위는 요청 검증(@Size·@Min·@Max).
+  **구름(CLOUD, LUT-740, Flyway V1_1_5_017 `spread`)**: 같은 표에 종류만 추가 — `amount` = 짙기 0~100(기본 60) · `speed` = 흐름 속도 0~100(기본 40) · `spread` = 번짐(원본 px 0~200, 비우면 60), 크기는 쓰지 않아 1 로 저장. 요청 검증(@Min/@Max)은 두 종류를 합친 범위만 막고 **종류별 범위는 `TowerFloorRuleValidator.inKindRange`**(눈·별 개수 1~300·속도 1~100·크기 1~20, 어기면 150115).
+  유저 층 목록은 앞 가림·불빛 점을 그대로, 효과 레이어는 **오늘(KST) 켜진 것만** 내린다(추가 필드, 어드민 응답은 전부). 마스크 업로드는 기존 `floors/images?kind=MASK`(PNG). 안 쓰게 된 앞 가림·효과 마스크도 `TowerStoredFileCleaner` 가 커밋 뒤 지운다(다른 층의 앞 가림·효과 레이어 참조 확인). 기준선 계산·렌더링은 웹 LUT-726.
+- **픽셀아트 배경** (LUT-727, `application/pixel/` — Flyway V1_1_5_012 `tower_floor_pixel_art` 층당 1행): 원본(배경)을 등록·교체하면 커밋 뒤 **탑 전용 1스레드 실행기**(`TowerPixelArtConfig`, 대기열 20)에서 `TowerPixelArtConverter`(순수 Java — OpenCV·별도 작업자 없음)가 고밀도(높이 576, 입장 기본)·픽셀(높이 384) 두 장을 만든다. 가로는 원본 비율(2816×1536 → 1056·704). 순서는 시안과 같다: 기준 높이 768 로 면적 축소 → 양방향 필터 2회 + mean-shift → 목표 크기 면적 축소 → 채도 ×1.12·언샤프 → Lab k-means(기본 64색) → 외톨이 픽셀 정리 → 8비트 인덱스 PNG. 한 장 약 2.5초.
+  **결정성**: 같은 원본·같은 설정이면 바이트 단위로 같은 PNG(단일 스레드·`StrictMath`·고정 시드·팔레트 정렬) → 버전 = PNG SHA-256 앞 16자리, 파일 이름도 `tower/pixel/{버전}.png`(같은 결과 = 같은 주소). 프론트 효과 맵(LUT-729)이 이 버전으로 대조한다 — **JDK 를 바꾸면 PNG 압축 바이트가 달라질 수 있으니 재생성 후 효과 맵을 다시 확인할 것**.
+  요청 번호(`request_seq`)로 늦게 끝난 옛 작업이 새 결과를 덮지 않는다. 실패는 1회 재시도 뒤 FAILED(결과 비움). 대기로 10분 넘게 남은 행(서버가 변환 도중 꺼짐·대기열 넘침)은 `TowerPixelArtRecoveryScheduler`(10분, ShedLock)가 다시 보낸다. 유저 층 목록은 **지금 배경으로 만든 DONE 결과만** `pixel_dense`·`pixel_standard{url,width,height,version}`(아니면 null → 원본), 어드민 응답은 `pixel_art{status,colors,sharpness,stale,dense,standard,error_message,…}`. 재생성 `POST /api/internal/tower/floors/{id}/pixel-art {colors? 8~256, sharpness? 0~200}`(LUT-728). 업로드 API 는 `kind=PIXEL` 을 받지 않는다(150110). 바닥·자리·앞 가림 좌표는 그대로 원본 좌표계(픽셀 배경은 배율만 곱한다).
+- **보상** (LUT-634): **탑 전용 경험치 없음**(어디서 시작하든 같은 EXP, 응원 보상 없음). ① **층 해제 알림**: `TowerFloorUnlockListener`(tower, `UserLevelUpEvent` AFTER_COMMIT+fallback)가 공개 층 중 **입장 레벨 기준** "이전 레벨 < 입장 레벨 ≤ 새 레벨"(제한 없는 층 제외, 층 번호와 무관)인 층을 찾아 **가장 높은 층 1건**으로 kernel `TowerFloorUnlockedEvent` 를 재발행 → `NotificationEventListener`(`fallbackExecution = true` 필수, LUT-653) → `TOWER_FLOOR_UNLOCKED`(SYSTEM, referenceId=층 번호 dedup, 링크 `/tower/{n}`, 장소명은 수신자 locale). `UserLevelUpEvent` 에 `previousLevel` 이 생겼다(3-인자 생성자는 newLevel-1).
+  ② **층 첫 입장 업적·칭호**: `tower_floor_visit`(유저×층 유니크, Flyway V008)에 `ON CONFLICT DO NOTHING` 으로 넣어 1행이면 `TowerFloorFirstEnteredEvent` → gamification `AchievementEventListener` 가 `TOWER_SERVICE` 데이터 소스 업적을 재판정(`TowerServiceCheckStrategy`: `visitedFloorCount`·`highestVisitedFloor`, 값은 `TowerQueryFacade.countVisitedFloors/highestVisitedFloor`). 보상 칭호는 기존 흐름(완료 → 자동 수령 → `TitleAcquiredEvent` → 웹 `TitleAcquisitionModal`). **업적·칭호 행은 어드민 마스터 데이터**(check_logic_type `TOWER_SERVICE` + achievement `category_code SPECIAL` + title) — 시드는 SQL 레포 `queries/developing/1.1.5/lut634_tower_achievements.sql`(dev·prod 수동) — **선행 조건: Flyway gamification `V1_1_5_002` 가 `check_logic_type.chk_data_source` 제약에 `TOWER_SERVICE` 를 더한다**(없으면 시드가 23514). 판정 소스 enum `CheckLogicDataSource` 에 값을 더하면 이 제약도 같이 넓힐 것 — app `CheckLogicDataSourceConstraintTest` 가 둘이 같은지 본다. 방문객은 기록하지 않는다.
 
 ## 상점 · 다이아 경제 (gamificationservice/shop, LUT-327/348/349/350/354/356/401)
 
@@ -524,7 +616,7 @@ prod 첫 적용 파일은 LUT-666 핫픽스 `gamification/V1_1_3_013`(2026-10-29
 
 | 엔드포인트                                                             | 인증            | 용도                                    |
 |-------------------------------------------------------------------|---------------|---------------------------------------|
-| `GET /api/v1/shop-items`                                          | **비로그인 허용** (GET만) | 판매중 아이템 — 희귀도→가격→ID 순, 유저별 할증가·잠금 포함 |
+| `GET /api/v1/shop-items`                                          | **비로그인 허용** (GET만) | 판매중 아이템 — 희귀도→가격→ID 순, 고정가·유저별 잠금 포함 |
 | `POST /api/v1/shop-items/{id}/purchase`                           | 필요            | 구매 (다이아 차감 + 인벤토리 지급, 단일 트랜잭션)        |
 | `GET /api/v1/user-items`                                          | 필요            | 인벤토리 조회                               |
 | `POST /api/v1/user-items/{id}/equip`, `.../unequip`               | 필요            | 장착 / 해제                               |
@@ -542,21 +634,16 @@ prod 첫 적용 파일은 LUT-666 핫픽스 `gamification/V1_1_3_013`(2026-10-29
 (`UserDiamond.spendCombined`) — 유상 재화 환불 정산 관행. 원장(`diamond_history`)에 `pink_amount`로
 유상 몫을 구분 기록, `balance_after`는 총잔액(블루+핑크) 의미로 통일.
 
-**가격 할증 (`io.pinkspider.global.policy.LevelRarityPolicy`)** — 자기 등급보다 높은 등급의 아이템은 등급 차이만큼 비싸다.
+**가격은 고정가 (LUT-758, 2026-11-08)** — 어드민에 입력한 `shop_item.price` 가 곧 판매가이고 유저 레벨과 무관하다. 목록·상세 응답의
+`price`·`effective_price`·`list_price` 는 **모두 같은 값**이고 구매(`ShopService.purchaseItem`)의 차감·잔액 부족(120605) 판정도 이 값이다.
+LUT-348 의 등급 차이 할증(배수 1~8, 10단위 올림)은 없앴다 — 다이아를 사는 쪽은 대부분 낮은 레벨 유저라 실제로 돈을 쓰는 사람에게 웃돈을 받는 구조였고,
+"등급에 도달하면 더 저렴해요" 안내가 구매를 미루게 했다. 세 필드를 지우지 않은 이유: 구앱 호환 + 나중에 할인 행사를 할 때 `list_price > effective_price` 로
+취소선을 다시 쓴다(프론트는 그 조건에서만 취소선을 그린다). 가격 조정·이미 할증가로 산 유저 보상은 운영 몫(마이그레이션 없음).
+`LevelRarityPolicy` 는 이제 레벨 → 등급 매핑(`fromLevel`: <3 COMMON, <10 UNCOMMON, <200 RARE, <500 EPIC, <900 LEGENDARY, 그 이상 MYTHIC)과
+**잠금**(아래)에만 쓴다. 프론트(`shop-access.ts`)도 가격을 계산하지 않는다(LUT-759).
 
-```
-gap             = max(0, 아이템등급 − fromLevel(내레벨))     // 레벨 구간: <3 COMMON, <10 UNCOMMON, <200 RARE, <500 EPIC, <900 LEGENDARY, 그 이상 MYTHIC
-effective_price = gap == 0 ? base : ceil(base × 배수[gap] / 10) × 10   // 실제 결제가
-list_price      = COMMON 유저 기준가 = 최대 할증가                        // 프론트 취소선 anchor
-배수[0..5]      = 1, 1.5, 2.2, 3.3, 5, 8  (정수 ×10 배열로 보관)
-```
-
-- **배수를 double로 두지 말 것** — `1000 × 2.2 == 2200.0000000000005`라 10단위 올림이 2210을 만든다. 프론트(`shop-access.ts`)와
-  비트 단위로 일치시키려면 정수 연산이어야 한다.
-- 프론트는 백엔드가 내려준 `effective_price`/`list_price`/`locked`를 **표시만** 한다. 결제 금액은 `ShopService.purchaseItem`이
-  유저 레벨로 재계산하므로, 프론트가 같은 공식을 재구현하면 표시가와 결제가가 갈라진다.
-
-**잠금 (LUT-349)** — 내 등급 이하는 전부 해금, 내 등급 위는 **각 섹션에서 가격이 가장 낮은 3개**(`DEFAULT_UNLOCK_COUNT`)만 해금.
+**잠금 (LUT-349, LUT-758 뒤에도 유지)** — 내 등급 이하는 전부 해금, 내 등급 위는 **각 섹션에서 가격이 가장 낮은 3개**(`DEFAULT_UNLOCK_COUNT`)만 해금.
+"가장 낮은 가격" 순서는 어드민 입력가 `price` 로 정한다 — 어드민에서 가격을 바꾸면 열리는 3개도 바뀔 수 있다.
 섹션 = **탭(`ShopTabGroup`: `WINGS`=BASIC·FULL / `ETC`=나머지) × 희귀도**. 희귀도만으로 세면 한쪽 탭의 해금 슬롯을 다른 탭
 아이템이 가져가 특정 탭의 상위 등급이 통째로 잠겨 보인다. 목록 조회와 구매 재판정은 **같은 정렬(`SHOP_ORDER`)·같은 섹션 기준**을 써야 한다.
 
@@ -565,8 +652,7 @@ list_price      = COMMON 유저 기준가 = 최대 할증가                    
 **동시성** — 다이아 차감은 `UserDiamond` 낙관적 락(`@Version`), 지급은 `uk_user_item` 유니크 제약이 방어. `ShopService`는
 `UserItemService.grantItem`(중복 insert 흡수)과 달리 **중복을 실패로 처리**해 이중 차감을 막는다.
 
-**비로그인 열람 (LUT-350)** — `userId == null`이면 보유 아이템 없음 + 레벨 1(COMMON)로 계산한다. 화면에 보이는 값이 곧 가입 후 낼 값이라
-로그인해도 가격이 오르지 않는다.
+**비로그인 열람 (LUT-350)** — `userId == null`이면 보유 아이템 없음 + 레벨 1(COMMON)로 잠금을 판정한다. 가격은 레벨과 무관하다(LUT-758).
 
 ### 가입 보상 아이템 — 성장의 새싹 (LUT-593 → LUT-607, `experience/application/LevelRewardItemService`)
 
@@ -636,10 +722,10 @@ list_price      = COMMON 유저 기준가 = 최대 할증가                    
   `SecurityConfig` permitAll + `SecurityConfigPublicEndpointTest`), `/my*`·`/nearby`는 인증 필요.
 - **출석 응답 `store_review_due`** (LUT-708, 2026-11-02): 체크인 응답에 "이번 연속 일수가 어드민 설정 마일스톤(meta `app_setting.store_review_milestone_days`, 기본 `7,14,30`)과 같은가" 를 서버가 판정해 싣는다. 웹은 그 값이 true 일 때만 OS 인앱 평가 팝업을 요청(LUT-609)하고, 값이 없으면(구 서버) 7·14·30 으로 폴백한다. "평가했는지" 는 OS 가 알려 주지 않으므로 목록의 각 시점에 1회씩 요청하고 끝낸다. 설정 조회 실패는 출석을 막지 않는다(false). 어드민은 `/api/admin/attendance-reward-configs/store-review-milestones`(권한 `attendance-config:*`).
 - **출석은 가입 당일부터 1일차** (LUT-597): 예전 `AttendanceController` 의 "가입 첫날 출석 제외" 규칙(2025-12-25, 이유 미기재)은 폐지됐다. `isNewUserToday` 가 UTC 날짜(JVM 기본)를 비교해 차단 창이 KST 09:00~다음날 09:00 로 어긋났고, 웹은 `already_checked_in` 응답을 조용히 삼켜 유저에게 아무 안내도 없었다. IR 리텐션 D1 정의(가입 다음 날 재방문)와 맞추기 위해 제거 — **배포 전 가입 코호트의 가입 당일 출석 행은 구조적으로 0건**이라 출석 기반 D0 는 그 구간에서 측정 불가. kernel `UserQueryFacade.isNewUserToday` 는 호환 위해 남아 있다(호출처 없음).
-- **스트릭 소스는 2종이고 섞으면 안 된다** (LUT-405/555): ① **연속 출석** = `attendance_record.consecutive_days` 체인
+- **스트릭 소스는 3종이고 섞으면 안 된다** (LUT-405/555/717): ① **연속 출석** = `attendance_record.consecutive_days` 체인
   (`AttendanceService.getCurrentStreak`, 유저 타임존, 오늘·어제 출석 없으면 0) — 업적 화면 "현재 n일 출석중"·공개 프로필
   `consecutive_days`(파사드 `getCurrentAttendanceStreak`) ② **활동 스트릭** = `user_stats.current_streak/max_streak`
-  (출석+미션 완료 날짜 기준, `UserStats.updateStreak`) — USER_STATS 업적·스트릭 랭킹(`/rankings/streaks`는 max_streak). 같은 유저라도 두 값은 다르다.
+  (출석+미션 완료 날짜 기준, `UserStats.updateStreak`) — USER_STATS 업적·스트릭 랭킹(`/rankings/streaks`는 max_streak) ③ **연속 실천** = `user_stats.practice_streak/max_practice_streak/last_practice_date`(LUT-717 — 하루 **미션 1개 이상 완료**한 날의 연속, 유저 로컬 자정·**완료 시각** 기준, 출석 무관; saga `UpdateUserStatsStep` + saga 우회 자동 종료 2곳이 `GamificationQueryFacade.recordMissionPractice(userId, completedAtUtc)` 로 적립, 조회 `getPracticeStreak` 은 마지막 실천일이 오늘·어제일 때만 현재값, `last_practice_date` 가 NULL 인 기존 유저는 첫 조회 때 `MissionQueryFacade.findMissionCompletedLocalDates` 로 재계산) — 마이페이지 `user_info.practice_streak_days`·공개 프로필 `practice_streak_days`(+`max_…`). 세 값은 서로 다르다. **구독자 방어권**(LUT-723): 매달(유저 로컬) 2개, 이월 없음 — 놓친 날이 연속 최대 2일이고 그날 끝까지 구독 중(체험·유예 포함, `UserStatsService.entitledOn`)이면 방어권으로 연속을 잇되 일수에는 더하지 않는다(3일 + 2일 방어 + 실천 = 4일). 저장은 실천 반영 때만(`user_stats.practice_shield_month`·`practice_shields_used`·`last_practice_shield_date`, Flyway gamification V1_1_5_003), 조회는 어제까지 놓친 날을 가상으로 방어해 현재값·이번 달 남은 방어권을 낸다(`UserStats.practiceViewAsOf`). 마이페이지 `user_info.practice_shields_remaining`·`last_practice_shield_date`. 최장·월간 리포트·업적의 실천 일수는 방어일을 세지 않는다.
 - **UI 환경설정** (LUT-437): `GET/PUT /api/v1/users/me/preferences` — 기기 간 동기화되는 화면 토글(완료 미션 접기 등). 알림 설정
   (`/api/v1/notifications/preferences`)과 별개 테이블(`user_ui_preference`). **홈 피드 카테고리 필터** (LUT-548):
   `home_feed_category_ids: number[]` — **빈 배열 = 전체**, null = 변경 없음(부분 업데이트). 쉼표 구분 VARCHAR(500) 컬럼을
@@ -728,6 +814,9 @@ uk 멱등) — 쪼개서 수행해도 몰아서 한 것과 같은 점수. "하�
   호출)도 누락된 것을 발견했다(실패를 try/catch 로 삼켜 증상이 안 보였다). **프론트·RN 에 커스텀 헤더를 추가하면 이 목록과
   `SecurityConfigCorsTest.ALLOWED_CLIENT_HEADERS` 에 함께 추가할 것.** 에러 응답(401/409 등)에는 CORS 필터가 인가 필터보다 앞이라
   헤더가 정상 포함된다. `maxAge=3600` 이므로 수정 배포 후에도 브라우저가 최대 1시간 옛 preflight 를 캐시한다 — 검증은 하드 리로드/시크릿 창.
+- **어드민·웹이 이미지 픽셀을 못 읽음 (`crossOrigin` + 403 Invalid CORS request)** (LUT-731): `crossOrigin="anonymous"` 로 이미지를 받으면 브라우저가 Origin 을 붙인다. 전역 CORS(`/**`)는 웹 출처(`oauth2.allowed-origins`)만 허용해 어드민의 탑 마스크 읽기가 403 이었다.
+  `SecurityConfig` 가 **`/uploads/**` 만 따로** 등록한다 — 우리 도메인 패턴(`app.cors.uploads.allowed-origin-patterns`, 기본 `https://level-up-together.com:[*]`·`https://*.level-up-together.com:[*]`·localhost) + 웹 출처, GET/HEAD, 쿠키 없음(`SecurityConfigCorsTest`). 어드민 출처는 API 경로에는 여전히 거부.
+  prod 이미지 CDN(`images.`)은 CloudFront 캐시 키에 Origin 이 없어 첫 요청 출처의 `Access-Control-Allow-Origin` 이 캐시돼 다른 출처에 나갔다 → infra `cloudfront.tf` 응답 헤더 정책 `cors_config` 로 `*` 고정(origin_override).
 - **데이터 미저장/미조회**: `@Transactional`의 트랜잭션 매니저 확인
 - **Integration test 실패**: SSH 터널/외부 서비스 의존, `@ActiveProfiles("test")` 확인
 - **비로그인 API가 401** (LUT-350): 비로그인 허용은 **필터(`SecurityConfig`의 `permitAll`) + resolver(`@CurrentUser(required = false)`)
@@ -743,7 +832,9 @@ uk 멱등) — 쪼개서 수행해도 몰아서 한 것과 같은 점수. "하�
   내부 트랜잭션이 반환한 엔티티는 detached 라 이후 `setXxx` 가 flush 되지 않으므로 **반환값을 쓰지 말고 재조회**한다.
   LUT-539 로 `AttendanceRecordCreator` · `GuildMemberDailyPointCreator` · `UserItemCreator` · `NotificationCreator`(dedup) ·
   `DailyMissionInstanceCreator`(`CreateNextPinnedInstanceStep`) 까지 전부 이 구조로 전환됐다 — 새 "없으면 생성" 지점은 같은
-  `*Creator` 빈 패턴을 따를 것. 트레이드오프: 내부 트랜잭션이 먼저 커밋되므로 호출자가 그 뒤에 실패하면 생성된 행은 남는다(빈 행·멱등 행만 둘 것).
+  `*Creator` 빈 패턴을 따를 것. **경합이 잦은 지점은 insert 를 `ON CONFLICT DO NOTHING` 네이티브 쿼리로**(LUT-719 `UserAchievementCreator`):
+  catch 로 흡수해도 Hibernate `SqlExceptionHelper`·log4jdbc `jdbc.sqltiming` 이 중복 키마다 ERROR 3줄을 남겨 운영 로그를 더럽힌다(홈 BFF 병렬
+  섹션이 같은 유저 업적 동기화를 동시에 돌려 하루 수백 줄). 반환 행 수(1/0)로 생성 여부를 알린다. 트레이드오프: 내부 트랜잭션이 먼저 커밋되므로 호출자가 그 뒤에 실패하면 생성된 행은 남는다(빈 행·멱등 행만 둘 것).
 
 ## Image Moderation & Storage
 
@@ -781,7 +872,7 @@ JWT 발급/만료/슬라이딩 로직의 백엔드·웹·앱별 동작과 환경
 
 소셜 로그인 연동 해제 정합(탈퇴 시 unlink/revoke, 카카오·Apple 수신 웹훅, 콘솔·config 등록 현황): [`docs/SOCIAL_ACCOUNT_LIFECYCLE.md`](docs/SOCIAL_ACCOUNT_LIFECYCLE.md)
 
-**회원 탈퇴에는 유예 기간이 없다** — `MyPageService.withdrawUser` 가 즉시 `WITHDRAWN` + 익명화(soft delete, 행 보존)하고 토큰 무효화·소셜 해제·`UserWithdrawnEvent` 를 낸다. 유일한 "유예"는 **재가입 cool-down**(QA-115, `app.user.withdrawal.cool-down-days` 기본 7일 — 같은 이메일+provider 가 `030001`). 어드민 **즉시 탈퇴**(LUT-584, `POST /api/internal/users/{id}/withdraw` → `withdrawUserByAdmin`)는 같은 정리를 하되 `users.withdrawal_cooldown_exempt=true` 로 cool-down 을 면제해 바로 재가입할 수 있다(`Oauth2Service.findExistingUser` 가 판정). **완전 삭제**(DB 행 제거)는 `docs/scripts/delete_user/`(9개 DB, LUT-691 2026-11-02 현행화) — 결제 기록 3표(`user_subscription`·`subscription_payment_history`·`diamond_bundle_purchase`)는 지우지 않는다(유저 결정, 회계·환불 근거). 새 유저 표를 만들면 그 스크립트의 `count/`·`delete/` 에도 넣을 것.
+**회원 탈퇴에는 유예 기간이 없다** — `MyPageService.withdrawUser` 가 즉시 `WITHDRAWN` + 익명화(soft delete, 행 보존)하고 토큰 무효화·소셜 해제·`UserWithdrawnEvent` 를 낸다. 유일한 "유예"는 **재가입 cool-down**(QA-115, `app.user.withdrawal.cool-down-days` 기본 7일 — 같은 이메일+provider 가 `030001`). 어드민 **즉시 탈퇴**(LUT-584, `POST /api/internal/users/{id}/withdraw` → `withdrawUserByAdmin`)는 같은 정리를 하되 `users.withdrawal_cooldown_exempt=true` 로 cool-down 을 면제해 바로 재가입할 수 있다(`Oauth2Service.findExistingUser` 가 판정). **완전 삭제**(DB 행 제거)는 `docs/scripts/delete_user/`(10개 DB — LUT-691 2026-11-02 현행화, LUT-629 tower_db 추가) — 결제 기록 3표(`user_subscription`·`subscription_payment_history`·`diamond_bundle_purchase`)는 지우지 않는다(유저 결정, 회계·환불 근거). 새 유저 표를 만들면 그 스크립트의 `count/`·`delete/` 에도 넣을 것.
 
 **세션 키는 `deviceId` 기준** (LUT-336) — `deviceType`은 세션 키의 일부가 아니다. 예전에는 재발급/로그아웃/모바일 로그인이 각각 다른 방식으로
 `deviceType`을 해석해(요청 본문 / `X-Device-Type` 헤더 / `"mobile"` 폴백) 같은 기기가 로그인은 `mobile`, 재발급은 `ios`로 기록되며 세션이
@@ -816,5 +907,5 @@ ALB·배포 스크립트(`gradle-*.yml`) 헬스체크는 `/showmethemoney/health
 탈퇴 행까지 세었다), 탈퇴 수는 `withdrawn_users`, 가입경로 분포(`users_by_provider`)도 탈퇴 제외라 합이 `total_users` 와 맞는다.
 `daily_new_users` 는 가입 시점 집계라 이후 탈퇴해도 포함된다.
 
-베이스 경로는 코드 기준 40개 — 서비스별 전체 목록·주요 엔드포인트·도입 티켓은 [`docs/INTERNAL_API.md`](docs/INTERNAL_API.md)(2026-10-29 코드 대조).
+베이스 경로는 코드 기준 46개 — 서비스별 전체 목록·주요 엔드포인트·도입 티켓은 [`docs/INTERNAL_API.md`](docs/INTERNAL_API.md)(2026-11-04 tower 4개 추가, 2026-11-08 LUT-760 NPC 수집함 추가).
 README "Internal API" 절도 같은 40개를 서비스별로 요약한다(2026-10-29).

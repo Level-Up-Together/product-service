@@ -18,6 +18,12 @@ public class NoticeResponse {
 
     private Long id;
     private String title;
+
+    /** LUT-128: 제목 다국어 (없으면 null — 클라이언트가 한국어 제목으로 대신) */
+    private String titleEn;
+
+    private String titleAr;
+    private String titleJa;
     private String content;
     private String contentEn;
     private String contentAr;

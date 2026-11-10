@@ -1,0 +1,408 @@
+package io.pinkspider.leveluptogethermvp.towerservice.api;
+
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.when;
+import static org.springframework.restdocs.payload.PayloadDocumentation.fieldWithPath;
+import static org.springframework.restdocs.payload.PayloadDocumentation.responseFields;
+import static org.springframework.restdocs.request.RequestDocumentation.parameterWithName;
+import static org.springframework.restdocs.request.RequestDocumentation.pathParameters;
+import static org.springframework.restdocs.request.RequestDocumentation.queryParameters;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
+import com.epages.restdocs.apispec.MockMvcRestDocumentationWrapper;
+import com.epages.restdocs.apispec.ResourceSnippetParameters;
+import io.pinkspider.leveluptogethermvp.config.ControllerTestConfig;
+import io.pinkspider.leveluptogethermvp.towerservice.TowerTestFixtures;
+import io.pinkspider.leveluptogethermvp.towerservice.application.TowerPresenceQueryService;
+import io.pinkspider.leveluptogethermvp.towerservice.application.exception.TowerEntryException;
+import io.pinkspider.leveluptogethermvp.towerservice.domain.dto.TowerInstanceEvent;
+import io.pinkspider.leveluptogethermvp.towerservice.domain.dto.TowerNpcCardDto;
+import io.pinkspider.leveluptogethermvp.towerservice.domain.dto.TowerNpcFormView;
+import io.pinkspider.leveluptogethermvp.towerservice.domain.dto.TowerNpcView;
+import io.pinkspider.leveluptogethermvp.towerservice.domain.dto.TowerPresenceSnapshotResponse;
+import io.pinkspider.leveluptogethermvp.towerservice.domain.dto.TowerTraceView;
+import io.pinkspider.leveluptogethermvp.towerservice.presence.TowerAvatarItem;
+import io.pinkspider.leveluptogethermvp.towerservice.presence.TowerPresenceView;
+import java.util.List;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration;
+import org.springframework.boot.autoconfigure.jdbc.DataSourceTransactionManagerAutoConfiguration;
+import org.springframework.boot.autoconfigure.orm.jpa.HibernateJpaAutoConfiguration;
+import org.springframework.boot.test.autoconfigure.restdocs.AutoConfigureRestDocs;
+import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
+import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+import org.springframework.context.annotation.Import;
+import org.springframework.restdocs.mockmvc.RestDocumentationRequestBuilders;
+import org.springframework.restdocs.payload.JsonFieldType;
+import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.test.web.servlet.MockMvc;
+
+@WebMvcTest(
+        controllers = TowerPresenceController.class,
+        excludeAutoConfiguration = {
+            DataSourceAutoConfiguration.class,
+            HibernateJpaAutoConfiguration.class,
+            DataSourceTransactionManagerAutoConfiguration.class
+        })
+@Import(ControllerTestConfig.class)
+@AutoConfigureRestDocs
+@AutoConfigureMockMvc(addFilters = false)
+@ActiveProfiles("test")
+@DisplayName("TowerPresenceController 테스트 (LUT-631)")
+class TowerPresenceControllerTest {
+
+    @Autowired private MockMvc mockMvc;
+
+    @MockitoBean private TowerPresenceQueryService queryService;
+
+    @Test
+    @DisplayName("GET /api/v1/tower/instances/{instanceId}/presence : 입장 스냅샷 (방문객은 visitor_key)")
+    void snapshot() throws Exception {
+        when(queryService.snapshot(eq(9L), any(), eq("k-1")))
+                .thenReturn(
+                        new TowerPresenceSnapshotResponse(
+                                9L,
+                                1,
+                                8L,
+                                List.of(
+                                        new TowerPresenceView(
+                                                7L,
+                                                "user-1",
+                                                "DIRECT",
+                                                null,
+                                                "닉네임",
+                                                "https://cdn/p.jpg",
+                                                12,
+                                                List.of(
+                                                        new TowerAvatarItem(
+                                                                "BASIC",
+                                                                "https://cdn/wing.png",
+                                                                "BACK",
+                                                                null,
+                                                                "RARE")),
+                                                1400,
+                                                1000,
+                                                "MISSION",
+                                                null,
+                                                new TowerInstanceEvent.MissionInfo(
+                                                        "영어 단어 30개", 2L)),
+                                        new TowerPresenceView(
+                                                8L, null, "VISITOR", 4821, null, null, null,
+                                                List.of(), 1380, 1010, "REST", null, null)),
+                                List.of(
+                                        TowerNpcView.from(
+                                                TowerTestFixtures.npc(3L, 1L, true),
+                                                TowerNpcCardDto.from(TowerTestFixtures.npcCard()),
+                                                TowerNpcFormView.from(
+                                                        TowerTestFixtures.npcForm(3L), 128))),
+                                true,
+                                new TowerTraceView(
+                                        4, List.of(new TowerTraceView.Point(1300, 980)))));
+
+        mockMvc.perform(
+                        RestDocumentationRequestBuilders.get(
+                                        "/api/v1/tower/instances/{instanceId}/presence", 9L)
+                                .queryParam("visitor_key", "k-1"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.value.me").value(8))
+                .andExpect(jsonPath("$.value.occupants[0].level").value(12))
+                .andExpect(jsonPath("$.value.occupants[0].mission.title").value("영어 단어 30개"))
+                .andExpect(jsonPath("$.value.occupants[1].mission").doesNotExist())
+                .andExpect(jsonPath("$.value.occupants[1].visitor_no").value(4821))
+                .andExpect(jsonPath("$.value.npcs[0].name").value("탑지기"))
+                .andExpect(jsonPath("$.value.npcs[0].form.entry_count").value(128))
+                .andExpect(jsonPath("$.value.npc_shown").value(true))
+                .andExpect(jsonPath("$.value.traces.completed_today").value(4))
+                .andDo(
+                        MockMvcRestDocumentationWrapper.document(
+                                "tower-instance-presence",
+                                ResourceSnippetParameters.builder()
+                                        .tag("Tower")
+                                        .description(
+                                                "방 입장 스냅샷 (LUT-631) — 점유자 위치·상태·아바타 + NPC·오늘의"
+                                                        + " 흔적(LUT-693). 그 방 점유자만, 아니면 403 150205"),
+                                pathParameters(
+                                        parameterWithName("instanceId")
+                                                .description("인스턴스(방) ID — 입장 응답 instance_id")),
+                                queryParameters(
+                                        parameterWithName("visitor_key")
+                                                .description("방문객 키 (비로그인만)")
+                                                .optional()),
+                                responseFields(
+                                        fieldWithPath("code").description("응답 코드"),
+                                        fieldWithPath("message").description("응답 메시지"),
+                                        fieldWithPath("value.instance_id").description("인스턴스 ID"),
+                                        fieldWithPath("value.floor_number").description("층 번호"),
+                                        fieldWithPath("value.me").description("요청자의 점유자 ID"),
+                                        fieldWithPath("value.occupants[].occupant_id")
+                                                .description("점유자 ID (이동·퇴장 이벤트의 키)"),
+                                        fieldWithPath("value.occupants[].user_id")
+                                                .description("유저 ID (방문객은 없음)")
+                                                .optional(),
+                                        fieldWithPath("value.occupants[].kind")
+                                                .description("DIRECT / VISITOR / AUTO_SEATED"),
+                                        fieldWithPath("value.occupants[].visitor_no")
+                                                .description(
+                                                        "방문객 번호 — 클라이언트가 locale 로 '방문객 1234' 조립")
+                                                .optional(),
+                                        fieldWithPath("value.occupants[].nickname")
+                                                .description("닉네임 (방문객은 없음)")
+                                                .optional(),
+                                        fieldWithPath("value.occupants[].picture")
+                                                .description("프로필 썸네일 URL")
+                                                .optional(),
+                                        fieldWithPath("value.occupants[].level")
+                                                .description("레벨 (방문객은 없음, LEVEL 이벤트로 갱신)")
+                                                .optional(),
+                                        fieldWithPath("value.occupants[].items")
+                                                .description("장착 아이템 목록 (방문객은 빈 배열)"),
+                                        fieldWithPath("value.occupants[].items[].item_type")
+                                                .description(
+                                                        "장착 아이템 종류 (BASIC/FULL/HEAD/EFFECT/ETC)"),
+                                        fieldWithPath("value.occupants[].items[].image_url")
+                                                .description("아이템 이미지"),
+                                        fieldWithPath("value.occupants[].items[].image_position")
+                                                .description("FRONT/BACK")
+                                                .optional(),
+                                        fieldWithPath("value.occupants[].items[].effect_code")
+                                                .description("이펙트 코드")
+                                                .optional(),
+                                        fieldWithPath("value.occupants[].items[].rarity")
+                                                .description("희귀도")
+                                                .optional(),
+                                        fieldWithPath("value.occupants[].x")
+                                                .description("위치 X (배경 원본 픽셀, 썸네일 맨 아래 중앙)"),
+                                        fieldWithPath("value.occupants[].y").description("위치 Y"),
+                                        fieldWithPath("value.occupants[].state")
+                                                .description("MISSION / REST"),
+                                        fieldWithPath("value.occupants[].mission")
+                                                .type(JsonFieldType.OBJECT)
+                                                .description(
+                                                        "LUT-749: 미션 중이고 공개 미션일 때만 — 들어올 때 이미 미션"
+                                                                + " 중이던 사람의 미션명. 비공개·휴식이면 내리지"
+                                                                + " 않는다(USER_STATE 와 같은 규칙)")
+                                                .optional(),
+                                        fieldWithPath("value.occupants[].mission.title")
+                                                .type(JsonFieldType.STRING)
+                                                .description("미션명")
+                                                .optional(),
+                                        fieldWithPath("value.occupants[].mission.category_id")
+                                                .type(JsonFieldType.NUMBER)
+                                                .description("미션 카테고리 ID (아이콘)")
+                                                .optional(),
+                                        fieldWithPath("value.npcs")
+                                                .description(
+                                                        "이 층의 공개 NPC (LUT-693 — 사람"
+                                                                + " 수에 넣지 않는다, 노출 그룹이"
+                                                                + " 아니면 빈 배열)"),
+                                        fieldWithPath("value.npcs[].npc_id").description("NPC ID"),
+                                        fieldWithPath("value.npcs[].name").description("이름 (한국어)"),
+                                        fieldWithPath("value.npcs[].name_en")
+                                                .description("이름 (영어)"),
+                                        fieldWithPath("value.npcs[].name_ja")
+                                                .description("이름 (일본어)"),
+                                        fieldWithPath("value.npcs[].name_ar")
+                                                .description("이름 (아랍어)"),
+                                        fieldWithPath("value.npcs[].profile_image_url")
+                                                .description("프로필 이미지 (정사각, 원형으로 잘라" + " 그린다)"),
+                                        fieldWithPath("value.npcs[].status_text")
+                                                .description("상태 문구 (한국어, 없으면 표시 안 함)")
+                                                .optional(),
+                                        fieldWithPath("value.npcs[].status_text_en")
+                                                .description("상태 문구 (영어)")
+                                                .optional(),
+                                        fieldWithPath("value.npcs[].status_text_ja")
+                                                .description("상태 문구 (일본어)")
+                                                .optional(),
+                                        fieldWithPath("value.npcs[].status_text_ar")
+                                                .description("상태 문구 (아랍어)")
+                                                .optional(),
+                                        fieldWithPath("value.npcs[].x")
+                                                .description("자리 X (배경 원본 픽셀, 모든 방에 같은" + " 자리)"),
+                                        fieldWithPath("value.npcs[].y").description("자리 Y"),
+                                        fieldWithPath("value.npcs[].lines")
+                                                .description(
+                                                        "대사 목록 (순서대로, 클릭마다 다음 문장 —"
+                                                                + " 순번은 기기에 기억)"),
+                                        fieldWithPath("value.npcs[].lines[].text")
+                                                .description("대사 (한국어)"),
+                                        fieldWithPath("value.npcs[].lines[].text_en")
+                                                .description("대사 (영어)"),
+                                        fieldWithPath("value.npcs[].lines[].text_ja")
+                                                .description("대사 (일본어)"),
+                                        fieldWithPath("value.npcs[].lines[].text_ar")
+                                                .description("대사 (아랍어)"),
+                                        fieldWithPath("value.npcs[].auto_bubble")
+                                                .description(
+                                                        "자동 말풍선 (LUT-732 — 켜면 n초마다 대사를 순서대로"
+                                                                + " 머리 위에, 구 서버는 없음 = 꺼짐)"),
+                                        fieldWithPath("value.npcs[].bubble_interval_seconds")
+                                                .description("자동 말풍선 대사 간격(초, 5~60)"),
+                                        fieldWithPath("value.npcs[].card")
+                                                .type(JsonFieldType.OBJECT)
+                                                .description(
+                                                        "LUT-733 NPC 창 이미지·이동 링크 — 오늘(KST) 노출 기간이"
+                                                            + " 아니거나 링크 대상(판매 중 아이템·이벤트)이 없으면 null")
+                                                .optional(),
+                                        fieldWithPath("value.npcs[].card.image_url")
+                                                .type(JsonFieldType.STRING)
+                                                .description("창 이미지 (가로 2 : 세로 1)")
+                                                .optional(),
+                                        fieldWithPath("value.npcs[].card.link")
+                                                .type(JsonFieldType.OBJECT)
+                                                .description("이동 링크 (없으면 null)")
+                                                .optional(),
+                                        fieldWithPath("value.npcs[].card.link.type")
+                                                .type(JsonFieldType.STRING)
+                                                .description(
+                                                        "SHOP_ITEM · EVENT · SUBSCRIPTION · PATH")
+                                                .optional(),
+                                        fieldWithPath("value.npcs[].card.link.target_id")
+                                                .type(JsonFieldType.NUMBER)
+                                                .description("SHOP_ITEM·EVENT 대상 ID")
+                                                .optional(),
+                                        fieldWithPath("value.npcs[].card.link.path")
+                                                .type(JsonFieldType.STRING)
+                                                .description("PATH 앱 경로")
+                                                .optional(),
+                                        fieldWithPath("value.npcs[].card.link_label")
+                                                .type(JsonFieldType.STRING)
+                                                .description("버튼 문구 (한국어, 비우면 기본 문구)")
+                                                .optional(),
+                                        fieldWithPath("value.npcs[].card.link_label_en")
+                                                .type(JsonFieldType.STRING)
+                                                .description("버튼 문구 (영어)")
+                                                .optional(),
+                                        fieldWithPath("value.npcs[].card.link_label_ja")
+                                                .type(JsonFieldType.STRING)
+                                                .description("버튼 문구 (일본어)")
+                                                .optional(),
+                                        fieldWithPath("value.npcs[].card.link_label_ar")
+                                                .type(JsonFieldType.STRING)
+                                                .description("버튼 문구 (아랍어)")
+                                                .optional(),
+                                        fieldWithPath("value.npcs[].card.starts_on")
+                                                .type(JsonFieldType.STRING)
+                                                .description("노출 시작일 (KST)")
+                                                .optional(),
+                                        fieldWithPath("value.npcs[].card.ends_on")
+                                                .type(JsonFieldType.STRING)
+                                                .description("노출 종료일 (KST, 포함)")
+                                                .optional(),
+                                        fieldWithPath("value.npcs[].form")
+                                                .type(JsonFieldType.OBJECT)
+                                                .description(
+                                                        "LUT-760 입력 받기 설정 — 켜진 NPC 만, 아니면 null(구"
+                                                                + " 클라이언트는 무시). 카드 대사 아래 입력칸을 그린다")
+                                                .optional(),
+                                        fieldWithPath("value.npcs[].form.body_type")
+                                                .type(JsonFieldType.STRING)
+                                                .description("INPUT(한 줄) | TEXTAREA(여러 줄)")
+                                                .optional(),
+                                        fieldWithPath("value.npcs[].form.placeholder")
+                                                .type(JsonFieldType.STRING)
+                                                .description("안내 문구 (한국어)")
+                                                .optional(),
+                                        fieldWithPath("value.npcs[].form.placeholder_en")
+                                                .type(JsonFieldType.STRING)
+                                                .description("안내 문구 (영어)")
+                                                .optional(),
+                                        fieldWithPath("value.npcs[].form.placeholder_ja")
+                                                .type(JsonFieldType.STRING)
+                                                .description("안내 문구 (일본어)")
+                                                .optional(),
+                                        fieldWithPath("value.npcs[].form.placeholder_ar")
+                                                .type(JsonFieldType.STRING)
+                                                .description("안내 문구 (아랍어)")
+                                                .optional(),
+                                        fieldWithPath("value.npcs[].form.max_length")
+                                                .type(JsonFieldType.NUMBER)
+                                                .description("본문 최대 글자 수")
+                                                .optional(),
+                                        fieldWithPath("value.npcs[].form.submit_label")
+                                                .type(JsonFieldType.STRING)
+                                                .description("버튼 문구 (한국어)")
+                                                .optional(),
+                                        fieldWithPath("value.npcs[].form.submit_label_en")
+                                                .type(JsonFieldType.STRING)
+                                                .description("버튼 문구 (영어)")
+                                                .optional(),
+                                        fieldWithPath("value.npcs[].form.submit_label_ja")
+                                                .type(JsonFieldType.STRING)
+                                                .description("버튼 문구 (일본어)")
+                                                .optional(),
+                                        fieldWithPath("value.npcs[].form.submit_label_ar")
+                                                .type(JsonFieldType.STRING)
+                                                .description("버튼 문구 (아랍어)")
+                                                .optional(),
+                                        fieldWithPath("value.npcs[].form.login_required")
+                                                .type(JsonFieldType.BOOLEAN)
+                                                .description(
+                                                        "로그인 유저만 — 방문객은 폼을 보여 주되 누르면 로그인 모달,"
+                                                                + " 서버도 150411 로 막는다")
+                                                .optional(),
+                                        fieldWithPath("value.npcs[].form.email_enabled")
+                                                .type(JsonFieldType.BOOLEAN)
+                                                .description("이메일 칸 + 동의 체크박스")
+                                                .optional(),
+                                        fieldWithPath("value.npcs[].form.consent_text")
+                                                .type(JsonFieldType.STRING)
+                                                .description("동의 문구 (한국어)")
+                                                .optional(),
+                                        fieldWithPath("value.npcs[].form.consent_text_en")
+                                                .type(JsonFieldType.STRING)
+                                                .description("동의 문구 (영어)")
+                                                .optional(),
+                                        fieldWithPath("value.npcs[].form.consent_text_ja")
+                                                .type(JsonFieldType.STRING)
+                                                .description("동의 문구 (일본어)")
+                                                .optional(),
+                                        fieldWithPath("value.npcs[].form.consent_text_ar")
+                                                .type(JsonFieldType.STRING)
+                                                .description("동의 문구 (아랍어)")
+                                                .optional(),
+                                        fieldWithPath("value.npcs[].form.display_mode")
+                                                .type(JsonFieldType.STRING)
+                                                .description("NONE | TAG(쪽지) | FLOAT(떠오르는 글)")
+                                                .optional(),
+                                        fieldWithPath("value.npcs[].form.display_mask_url")
+                                                .type(JsonFieldType.STRING)
+                                                .description("공개 영역 마스크 PNG (앞 가림 마스크와 같은 형식)")
+                                                .optional(),
+                                        fieldWithPath("value.npcs[].form.entry_count")
+                                                .type(JsonFieldType.NUMBER)
+                                                .description("공개 글 수 (숨김 제외, 시드 포함) — \"쪽지 128개\"")
+                                                .optional(),
+                                        fieldWithPath("value.npc_shown")
+                                                .description(
+                                                        "이 요청자가 NPC 노출 그룹인가 (A/B,"
+                                                                + " 분석 이벤트 파라미터용)"),
+                                        fieldWithPath("value.traces")
+                                                .description("오늘(KST) 이 층의 실제 흔적 (NPC" + " 제외)"),
+                                        fieldWithPath("value.traces.completed_today")
+                                                .description("오늘 이 층에서 미션을 완료한 사람 수 (실제" + " 수치만)"),
+                                        fieldWithPath("value.traces.seats")
+                                                .description(
+                                                        "오늘 미션을 완료한 자리 (누구인지 비노출," + " 최근 50곳)"),
+                                        fieldWithPath("value.traces.seats[].x").description("자리 X"),
+                                        fieldWithPath("value.traces.seats[].y")
+                                                .description("자리 Y"))));
+    }
+
+    @Test
+    @DisplayName("그 방의 점유자가 아니면 403 150205")
+    void notInInstance() throws Exception {
+        when(queryService.snapshot(eq(10L), any(), any()))
+                .thenThrow(TowerEntryException.notInInstance());
+        mockMvc.perform(
+                        RestDocumentationRequestBuilders.get(
+                                "/api/v1/tower/instances/{instanceId}/presence", 10L))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("150205"));
+    }
+}
