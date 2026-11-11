@@ -2,7 +2,7 @@
 
 `/api/internal/**` 경로는 `SecurityConfig`에서 `permitAll`이지만 **공유 시크릿 헤더 인증 + VPC 내부 접근**으로 보호. Admin Backend가 MVP의 도메인 데이터를 읽거나 액션을 실행할 때 사용.
 
-> 2026-10-29 코드 기준 현행화 — `@RequestMapping("/api/internal…")` 컨트롤러 **49개 = 베이스 경로 49개**(중첩 경로 포함, 2026-11-02 LUT-708 `app-settings` 추가, 2026-11-04 LUT-629/635 `tower/floors`·`tower/settings`, LUT-693 `tower/floors/{floorId}/npcs`, LUT-705 `tower`(방문객 신고·제재), 2026-11-08 LUT-760 `tower/npcs/{npcId}/entries`, 2026-11-11 LUT-775 `widget-messages`·LUT-779 `kpi/first-day-retention`·LUT-782 `recommended-missions` 추가). chat·bff·notice·support 서비스에는 내부 API 컨트롤러가 없다.
+> 2026-10-29 코드 기준 현행화 — `@RequestMapping("/api/internal…")` 컨트롤러 **50개 = 베이스 경로 50개**(중첩 경로 포함, 2026-11-02 LUT-708 `app-settings` 추가, 2026-11-04 LUT-629/635 `tower/floors`·`tower/settings`, LUT-693 `tower/floors/{floorId}/npcs`, LUT-705 `tower`(방문객 신고·제재), 2026-11-08 LUT-760 `tower/npcs/{npcId}/entries`, 2026-11-11 LUT-775 `widget-messages`·LUT-779 `kpi/first-day-retention`·LUT-782 `recommended-missions` 추가, 2026-11-12 LUT-790 `mission-stats` 추가). chat·bff·notice·support 서비스에는 내부 API 컨트롤러가 없다.
 
 ## 인증 (LUT-244)
 
@@ -113,6 +113,7 @@
 | `/api/internal/stats/activity` | Redis `active:{KST날짜}` 활동 집합 수동 적재(스케줄러 00:20 대기 없이 배포 검증·누락 보정, 멱등). `POST /flush?date=YYYY-MM-DD` | LUT-598 |
 | `/api/internal/kpi` | KPI 스냅샷·코호트 조회 + 소급 재계산. `GET /daily?from&to` · `GET /retention?cohort_from&cohort_to[&source=REQUEST\|ATTENDANCE]` · `GET /revenue/cohorts?from_month&to_month` · `GET /signups/by-channel?from_month&to_month`(KST 월 × `signup_channel`, null→`unknown`, user_db 직접 집계 — 어드민 CAC 분모) · `POST /rebuild?from&to`(어제까지로 자르고 최대 400일, 넘으면 최근 400일만) | LUT-601 · LUT-602 · LUT-616 |
 | `/api/internal/kpi/first-day-retention` | 첫날 행동별 리텐션(LUT-779) — `GET ?range=4w\|8w\|12w&platform=ALL\|IOS\|ANDROID\|WEB`(그룹 NOT_COMPLETED·SOLO·SOCIAL 의 D1·D7·D30 + D7 판정 `verdicts`, 허용값 밖 400 `100101`) · `POST /rebuild`(표를 비우고 처음부터). 집계는 00:50 KST 스케줄러, 상세 `docs/KPI_STATS.md` §3.8 | LUT-779 (2026-11-11) |
+| `/api/internal/mission-stats` | 미션 통계(LUT-790, 어드민 미션 통계 화면 LUT-791) — `GET /summary?from&to`(생성·완료·완료율·일별 추이·종류/수행 방식/카테고리별 표) · `GET /users?from&to[&page&size&sort&keyword]`(사용자별 완료 수·타이머 분·마지막 완료일 + 분포 1/2~4/5~9/10+). KST 날짜 양끝 포함·최대 400일, 완료 수는 KPI 미션 완료 수와 같은 SQL, 완료율은 예정일 기준(월간 리포트 정의). 형식·허용값 오류 400 `100101`. 상세 `docs/KPI_STATS.md` §3.9 | LUT-790 (2026-11-12) |
 
 - 날짜는 ISO(`yyyy-MM-dd`), 월은 `yyyy-MM`. `from > to` 는 서로 바꿔 처리한다.
 - **파라미터 오류는 400 (LUT-616)**: `StatsRequestExceptionHandler`(statsservice 패키지 한정 `HIGHEST_PRECEDENCE` 어드바이스) 가 형식 오류·enum 허용값 밖 → `100101`, 필수 파라미터 누락 → `100102` 로 응답한다. 이게 없으면 플랫폼 `RestExceptionHandler` 의 `Exception.class` 핸들러가 500(`000500`) 으로 바꾼다(`@WebMvcTest` 슬라이스엔 플랫폼 핸들러가 없어 테스트로는 안 보임).

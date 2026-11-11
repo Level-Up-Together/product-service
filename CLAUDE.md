@@ -66,7 +66,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 | `bffservice`          | -               | BFF API 통합, 통합 검색, 홈 화면 위젯 요약(LUT-775) |
 | `noticeservice`       | -               | 공지/안내 (Admin Feign)                          |
 | `supportservice`      | -               | 1:1 문의 + 신고 처리 (Admin Feign)               |
-| `statsservice`        | stats_db        | **지표 집계(IR KPI)** — 유저 일별 활동(DAU 신호) 수집·적재 (LUT-598) + 일별 KPI 스냅샷·코호트 리텐션·코호트 매출 (LUT-601) |
+| `statsservice`        | stats_db        | **지표 집계(IR KPI)** — 유저 일별 활동(DAU 신호) 수집·적재 (LUT-598) + 일별 KPI 스냅샷·코호트 리텐션·코호트 매출 (LUT-601) + 미션 통계 조회 (LUT-790) |
 | `towerservice`        | tower_db        | **레벨업 탑**(v1.1.5, LUT-629~) — 층(어드민 CRUD·유저 목록, 저장 규칙 7개), 입장·인스턴스 배정·자동 착석(630), 미션 연동·상태 브로드캐스트·자리 기록(632). presence·채팅·NPC·대기열은 후속 티켓 |
 
 ### Transaction Manager (Critical)
@@ -427,6 +427,7 @@ IR 용 KPI(DAU/WAU/MAU·리텐션)의 원천. 예전엔 "앱을 열었다" 신�
 - **HTTP 지연 히스토그램은 SLO 버킷만** (LUT-615, `application.yml` `management.metrics.distribution.slo.[http.server.requests]=100ms,300ms,1s,3s`): Boot 기본은 버킷 off 라 p95 를 낼 수 없고, `percentiles-histogram=true` 는 버킷 ~70개 × uri·status 조합이라 Grafana Cloud Free 시리즈 한도(1만)를 넘긴다. 경계 5개(+Inf)만 노출해 `histogram_quantile` 로 추정한다. 새 지표를 추가할 때는 시리즈 수(라벨 조합)를 먼저 세어 볼 것.
 - **내부 API 파라미터 오류는 400** (LUT-616, `statsservice/api/exception/StatsRequestExceptionHandler`): `@DateTimeFormat` 변환 실패·enum 허용값 밖 → `100101`, 필수 파라미터 누락 → `100102`. 플랫폼 `RestExceptionHandler` 의 `Exception.class` 핸들러가 Spring 기본 400 보다 먼저 500 을 내므로 statsservice 패키지 한정 `HIGHEST_PRECEDENCE` 어드바이스로 가로챈다(LUT-577 미션 어드바이스와 같은 구조). `@WebMvcTest` 슬라이스에는 플랫폼 핸들러가 없어 테스트만으로는 500 이 안 보인다.
 - **첫날 행동별 리텐션** (LUT-779, `statsservice/firstday`): 가입 후 24시간 행동으로 NOT_COMPLETED(미션 미완료)·SOLO(완료, 상호작용 없음)·SOCIAL(완료, 친구 요청·수락·길드 가입·피드 좋아요/댓글 주고받음·DM·탑 채팅/받은 응원)로 나눠 `first_day_retention`(stats_db, 유저 1행)에 D1·D7·D30(KST 가입일+N 접속)을 채운다. 00:50 KST 스케줄러, 접속 기록 시작일 이후 가입자·탈퇴자 포함. `GET /api/internal/kpi/first-day-retention?range=4w|8w|12w&platform=` 이 D7 판정(`RetentionVerdictPolicy` — 5%p·30명·z 95%)까지 낸다. 탑 리액션은 DB 에 없어 셀 수 없다. 상세 `docs/KPI_STATS.md` §3.8.
+- **미션 통계** (LUT-790, `statsservice/missionstats`): `GET /api/internal/mission-stats/summary?from&to`(생성·완료·완료율·일별·종류/수행 방식/카테고리별) · `/users?from&to&page&size&sort&keyword`(사용자별 완료 수·분포) — 어드민 미션 통계 화면(LUT-791). 스냅샷 없이 요청 때 mission_db 를 읽는다(KST, 최대 400일). **완료 수는 KPI `mission_completions` 와 같은 SQL**(제외 규칙도 같아 `provider='test'` 는 빼지 않는다), **완료율은 예정일 기준**(월간 리포트 LUT-566 정의 — 예정 중 완료 ÷ 예정). 생성은 미션북 가져오기·길드 포함, 어드민이 직접 만든 시스템 미션(`source=SYSTEM`·원본 없음) 제외, 지운 미션의 기록도 센다(LUT-789). 카테고리 이름은 meta_db(`MetaSourceReader`). 상세 `docs/KPI_STATS.md` §3.9.
 - 내부 API `GET /api/internal/kpi/daily|retention|revenue/cohorts|signups/by-channel` 는 P3-a admin Feign(`MvpKpiFeignClient`, LUT-602) 이 그대로 읽는다. `signups/by-channel?from_month&to_month` 는 KST 월 × `signup_channel`(null→`unknown`, provider≠test) 가입자로 어드민 CAC 분모 — 스냅샷이 아니라 user_db 직접 집계. 날짜 파라미터는 ISO(`@DateTimeFormat`), 월은 `yyyy-MM`; 형식 오류 400, from>to 는 바꿔서 처리.
 
 ## 가입 유입 채널 — CAC 원천 (LUT-599, `userservice/oauth/domain/policy/SignupChannelPolicy`)
@@ -927,5 +928,5 @@ ALB·배포 스크립트(`gradle-*.yml`) 헬스체크는 `/showmethemoney/health
 탈퇴 행까지 세었다), 탈퇴 수는 `withdrawn_users`, 가입경로 분포(`users_by_provider`)도 탈퇴 제외라 합이 `total_users` 와 맞는다.
 `daily_new_users` 는 가입 시점 집계라 이후 탈퇴해도 포함된다.
 
-베이스 경로는 코드 기준 49개 — 서비스별 전체 목록·주요 엔드포인트·도입 티켓은 [`docs/INTERNAL_API.md`](docs/INTERNAL_API.md)(2026-11-04 tower 4개 추가, 2026-11-08 LUT-760 NPC 수집함, 2026-11-11 LUT-775 위젯 문장·LUT-779 첫날 리텐션·LUT-782 추천 미션 추가).
+베이스 경로는 코드 기준 50개 — 서비스별 전체 목록·주요 엔드포인트·도입 티켓은 [`docs/INTERNAL_API.md`](docs/INTERNAL_API.md)(2026-11-04 tower 4개 추가, 2026-11-08 LUT-760 NPC 수집함, 2026-11-11 LUT-775 위젯 문장·LUT-779 첫날 리텐션·LUT-782 추천 미션 추가, 2026-11-12 LUT-790 미션 통계).
 README "Internal API" 절도 같은 40개를 서비스별로 요약한다(2026-10-29).

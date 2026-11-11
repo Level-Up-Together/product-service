@@ -4,9 +4,11 @@ import io.pinkspider.leveluptogethermvp.statsservice.kpi.domain.ExcludedUsers;
 import io.pinkspider.leveluptogethermvp.statsservice.kpi.domain.dto.source.SignupRecord;
 import io.pinkspider.leveluptogethermvp.statsservice.kpi.domain.dto.source.SignupsByChannel;
 import io.pinkspider.leveluptogethermvp.statsservice.kpi.domain.dto.source.UserEvent;
+import io.pinkspider.leveluptogethermvp.statsservice.kpi.domain.dto.source.UserNickname;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
@@ -74,6 +76,13 @@ public class UserSourceReader {
                     + " AND ((COALESCE(requested_at, created_at) >= :from"
                     + " AND COALESCE(requested_at, created_at) < :to)"
                     + " OR (accepted_at >= :from AND accepted_at < :to))";
+
+    /**
+     * LUT-790: 미션 통계 유저 목록의 닉네임 — 집계가 아니라 이미 거른(제외 유저 없는) ID 목록을 푸는 조회라 제외 조건을 걸지 않는다. 탈퇴 유저도 행이 남아
+     * 있어(익명화) 그대로 읽는다.
+     */
+    static final String FIND_NICKNAMES =
+            "SELECT id, nickname, status FROM users WHERE id IN (:ids)";
 
     private final NamedParameterJdbcTemplate jdbc;
 
@@ -145,6 +154,25 @@ public class UserSourceReader {
                     }
                 });
         return events;
+    }
+
+    /** LUT-790: 유저 ID → 닉네임·탈퇴 여부. 없는 ID 는 결과에 없다 */
+    public Map<String, UserNickname> findNicknames(Collection<String> userIds) {
+        Map<String, UserNickname> nicknames = new HashMap<>();
+        if (userIds.isEmpty()) {
+            return nicknames;
+        }
+        jdbc.query(
+                FIND_NICKNAMES,
+                Map.of("ids", userIds),
+                rs -> {
+                    nicknames.put(
+                            rs.getString("id"),
+                            new UserNickname(
+                                    rs.getString("nickname"),
+                                    "WITHDRAWN".equals(rs.getString("status"))));
+                });
+        return nicknames;
     }
 
     private static Map<String, Object> range(

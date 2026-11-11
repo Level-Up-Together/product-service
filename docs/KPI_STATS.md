@@ -102,7 +102,7 @@ user_db · gamification_db · mission_db ─ *SourceReader(JDBC 읽기 전용) �
 
 ### 3.2 원천 리더 — Facade 가 아니라 JDBC 인 이유
 
-- `KpiSourceConfig` 가 `userDataSource`·`gamificationDataSource`·`missionDataSource` 빈에 `NamedParameterJdbcTemplate` 를 붙여 `UserSourceReader`·`GamificationSourceReader`·`MissionSourceReader` 를 만든다.
+- `KpiSourceConfig` 가 `userDataSource`·`gamificationDataSource`·`missionDataSource` 빈에 `NamedParameterJdbcTemplate` 를 붙여 `UserSourceReader`·`GamificationSourceReader`·`MissionSourceReader` 를 만든다. LUT-779 가 guild·feed·chat·tower, LUT-790 이 `metaDataSource`(`MetaSourceReader` — 미션 카테고리 이름)를 더했다.
 - 이유
   - KPI 는 범위 집계(`COUNT DISTINCT`, `GROUP BY`, 기간 합)를 하는 **읽기 모델**이다. 유저 단건 조회 위주인 Facade 로는 N회 호출하거나 DTO 를 키워야 한다.
   - 다른 서비스의 Repository/Service 를 import 하지 않는다는 경계 규칙은 지킨다.
@@ -122,7 +122,7 @@ user_db · gamification_db · mission_db ─ *SourceReader(JDBC 읽기 전용) �
 |---|---|---|---|
 | signups, withdrawals, active_users, 코호트 멤버(리텐션·매출 분모), 채널별 가입자 | O | **O** (`id NOT IN`) | — |
 | dau/wau/mau/dau_*, REQUEST 리텐션의 활동 | **X** | O (인터셉터 + Java 필터) | — |
-| attendance_dau, ATTENDANCE 리텐션, 미션 | X | **O** (`user_id NOT IN`) | — |
+| attendance_dau, ATTENDANCE 리텐션, 미션, 미션 통계(LUT-790) | X | **O** (`user_id NOT IN`, 미션 생성은 `creator_id NOT IN`) | — |
 | 구독, 결제 유저, 매출(일별) | X | **O** (`user_id NOT IN`) | **O** (LUT-666) |
 | 코호트 매출 | X | O (모수에서 빠짐 — 매출 SQL 은 `user_id IN (:ids)` 기준) | **O** |
 
@@ -213,6 +213,25 @@ user_db · gamification_db · mission_db ─ *SourceReader(JDBC 읽기 전용) �
 - **조회** `FirstDayRetentionQueryService`: 기간 = 최근 4·8·12주 가입일, 끝 = 오늘 − 2일(그날 가입자의 첫날이 모두 끝났다). 각 리텐션은 **확정된 유저만** 센다(D7 은 가입 후 7일 지난 유저만) — 확정 유저가 없으면 null(화면 "–", 0% 로 보이지 않게). `dN_users` = 판정 가능 인원. % 는 소수 한 자리.
 - **판정**(D7, `RetentionVerdictPolicy` 상수): ① SOLO vs NOT_COMPLETED → 차이 ≥ +5%p·유의 `SOLO_RETAINS`, 아니면 `SOLO_WEAK` ② SOCIAL vs SOLO → ≥ +5%p·유의 `SOCIAL_BOOSTS`, ≤ −5%p·유의 `SOCIAL_HURTS`, 그 외 `SOCIAL_NO_DIFF`. 비교 그룹 중 하나라도 D7 판정 가능 인원 30명 미만이면 그 비교는 `NOT_ENOUGH_DATA`. 유의성 = 두 비율 z-검정(합동 비율) |z| ≥ 1.96, 표준오차 0 이면 유의하지 않음. 응답 `comparison` 으로 어느 비교인지 구분한다.
 
+### 3.9 미션 통계 (LUT-790, `statsservice/missionstats`)
+
+어드민 "미션관리 > 미션 통계"(LUT-791)가 읽는다. 스냅샷 없이 요청 때 mission_db 를 읽어 계산한다(건수가 적다 — 느려지면 그때 캐시). 기간은 KST `from`~`to`(양끝 포함, 최대 400일 — 넘으면 400 `100101`, 잘라서 다른 기간을 답하지 않는다), from>to 는 바꾼다.
+
+| 숫자 | 정의 |
+|---|---|
+| 생성 | `mission.created_at` ∈ 기간, 만든 사람이 제외 유저가 아닌 미션. **미션북에서 가져온 미션**(`source=SYSTEM` + `base_mission_id` 있음)·**길드 미션** 포함, **어드민이 미션 표에 직접 만든 시스템 미션**(`source=SYSTEM` + `base_mission_id` 없음) 제외. 나중에 지운 미션도 생성으로 세고 `deleted` 로 따로 낸다. 고정/일반(`is_pinned`) |
+| 완료 | KPI `mission_completions` 와 **같은 SQL**(`MissionSourceReader.COUNT_COMPLETIONS`) — `completed_at` ∈ 기간인 COMPLETED. 완료 총수·완료 유저 수는 이 쿼리로 읽어 KPI 화면 숫자와 맞춘다. 4시간 자동 종료(`is_auto_completed`)는 따로 |
+| 예정 | 월간 리포트(LUT-566 `countScheduledInPeriod`)와 같은 정의 — 예정일(`execution_date`·`instance_date`) ∈ 기간인 일반 미션 수행 전 상태 + 고정 미션 1회차 전 상태 + 2회차 이상은 완료만 |
+| 완료율 | **예정 중 완료 ÷ 예정**(예정일 기준). 분자·분모가 같은 수행이라 100% 를 넘지 않는다. 분모 0 이면 null |
+| 사용자별 | 기간에 1번 이상 완료한 유저 — 완료 수(완료 조건은 KPI 와 같음)·타이머 분(시간 측정 미션의 시작~완료 분 버림 합, 월간 리포트 수행 시간과 같은 계산)·마지막 완료일(KST). 분포 1 / 2~4 / 5~9 / 10+ |
+
+- **두 완료 수**: 요약의 `completions.total`·`daily[].completed` 는 완료 **시각** 기준, 완료율의 `completed`·`scheduled_completed` 는 **예정일** 기준이다. 자정을 넘겨 끝낸 수행 때문에 두 숫자는 조금 다를 수 있다.
+- **종류** = 어드민 유저 미션 이력(QA-205)과 같은 분류: `type=GUILD` → GUILD, 아니고 `source=SYSTEM` → MISSION_BOOK, 그 외 PERSONAL. 분류별 표는 종류·수행 방식(TIMED·SIMPLE)은 0 이어도 항상 내고, 카테고리는 meta_db 의 **지금 이름**(`mission.category_name` 은 만들 때 이름이 굳어 있다), 카테고리 없음 = key null.
+- **지운 미션의 기록도 센다**(LUT-789 — 과거 사실). 삭제 조건을 넣지 않는다(`MissionStatsSourceReadersTest` 가 막는다).
+- **제외 규칙은 KPI 미션 지표와 같다**: `excluded-user-ids` 만 뺀다. `provider='test'` 는 user_db 지표에서만 빠지는 규칙(§3.4)이라 여기서도 빼지 않는다 — 빼면 KPI 미션 완료 수와 숫자가 어긋난다.
+- **시작 대비 완료율은 없다**: 진행 중 취소(skip)가 `started_at` 을 지워 "시작했다가 그만둔 수행"을 DB 에서 셀 수 없다.
+- **사용자별**: 완료 유저 전원을 한 번에 읽고 검색·정렬·페이지는 메모리에서 한다. 닉네임(user_db)·레벨(gamification_db)은 기본 그 페이지 유저만 읽고, 닉네임 검색·닉네임 정렬이면 닉네임을, 레벨 정렬이면 레벨을 전원 읽는다(500명씩). 검색은 닉네임 일부(대소문자 무시) 또는 유저 ID 전체. 공용 닉네임 검색 파사드는 200명에서 잘라 쓰지 않는다. 정렬 `completions`·`timer_minutes`·`last_completed_at`·`nickname`·`level`[`,asc|desc`], 값이 없는 유저는 맨 뒤, 같으면 완료 많은 순 → 최근 완료 순 → ID 순.
+
 ## 4. 내부 API (`X-Internal-Api-Key`)
 
 모든 날짜는 ISO `yyyy-MM-dd`, 월은 `yyyy-MM` 이다. 조회 API 는 from>to 면 바꿔서 처리한다. 응답은 전역 snake_case 다. 어드민은 admin-service `MvpKpiFeignClient` 로 `/api/admin/kpi/*`(`KPI_READ`, rebuild 는 `KPI_MANAGE`)에 그대로 패스스루한다.
@@ -227,6 +246,8 @@ user_db · gamification_db · mission_db ─ *SourceReader(JDBC 읽기 전용) �
 | `GET /api/internal/kpi/signups/by-channel` | `from_month`, `to_month` | `{month, channel, signups}` 목록 |
 | `GET /api/internal/kpi/first-day-retention` (LUT-779) | `range`(`4w`·`8w`·`12w`, 기본 4w), `platform`(`ALL`·`IOS`·`ANDROID`·`WEB`, 기본 ALL) | `{range, platform, range_start, range_end, data_start_date, signups, first_day_completion_rate, groups[{group, users, d1, d1_users, d7, d7_users, d30, d30_users}], verdicts[{comparison, code, diff_pp, significant}]}` — §3.8 |
 | `POST /api/internal/kpi/first-day-retention/rebuild` (LUT-779) | — | `{data_start_date, classified, retention_updated}` — 표를 비우고 처음부터 |
+| `GET /api/internal/mission-stats/summary` (LUT-790) | `from`, `to` | `{from, to, created{total, deleted, pinned, regular}, completions{total, auto_completed, users, avg_per_user}, completion_rate{scheduled, completed, rate}, daily[{date, created, completed, scheduled, scheduled_completed, completion_rate}], by_type[], by_mode[], by_category[]}` — 분류 행 `{key, name, name_en, created, completed, scheduled, scheduled_completed, completion_rate}`, §3.9 |
+| `GET /api/internal/mission-stats/users` (LUT-790) | `from`, `to`, `page`(0부터, 기본 0), `size`(1~100, 기본 20), `sort`(기본 `completions,desc`), `keyword` | `{from, to, keyword, sort, page, size, total_users, total_pages, distribution[{bucket, min, max, users}], users[{user_id, nickname, level, withdrawn, completions, timer_minutes, last_completed_date}]}` — §3.9 |
 
 **파라미터 오류는 400** (LUT-616, `statsservice/api/exception/StatsRequestExceptionHandler`)
 
@@ -234,7 +255,7 @@ user_db · gamification_db · mission_db ─ *SourceReader(JDBC 읽기 전용) �
 |---|---|---|
 | `MethodArgumentTypeMismatchException`: 날짜·월 형식 오류, enum 허용값 밖 | `100101` | `error.stats.param.invalid` (파라미터명, 기대 형식 `yyyy-MM-dd`/`yyyy-MM`/enum 목록) |
 | `MissingServletRequestParameterException`: 필수 파라미터 누락 | `100102` | `error.stats.param.missing` (파라미터명) |
-| `StatsInvalidParamException`: 문자열 파라미터 허용값 밖 (`range=5w` 등, LUT-779) | `100101` | `error.stats.param.invalid` (파라미터명, 허용값 목록) |
+| `StatsInvalidParamException`: 문자열 파라미터 허용값 밖 (`range=5w` 등, LUT-779 · 미션 통계 기간 400일 초과·`page`·`size`·`sort`, LUT-790) | `100101` | `error.stats.param.invalid` (파라미터명, 허용값 목록) |
 
 - 플랫폼 `RestExceptionHandler` 의 `@ExceptionHandler(Exception.class)` 가 Spring 기본 400 보다 먼저 잡아 500 `000500` 을 낸다. 그래서 `@RestControllerAdvice(basePackages = "...statsservice")` + `@Order(HIGHEST_PRECEDENCE)` 로 가로챈다. 다른 서비스 응답은 영향이 없다(LUT-577 미션 어드바이스와 같은 구조).
 - `@WebMvcTest` 슬라이스에는 플랫폼 핸들러가 없으므로, 테스트만으로는 500 이 보이지 않는다.

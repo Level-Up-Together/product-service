@@ -116,6 +116,10 @@ public class GamificationSourceReader {
                     + " AND created_at < :cutoff AND status = 'PAID' AND price_amount > 0"
                     + " AND price_currency IS NOT NULL AND test_purchase = FALSE";
 
+    /** LUT-790: 미션 통계 유저 목록의 레벨 — 이미 거른 ID 목록을 푸는 조회라 제외 조건을 걸지 않는다 */
+    static final String FIND_LEVELS =
+            "SELECT user_id, current_level FROM user_experience WHERE user_id IN (:ids)";
+
     private final NamedParameterJdbcTemplate jdbc;
 
     public GamificationSourceReader(NamedParameterJdbcTemplate jdbc) {
@@ -205,6 +209,24 @@ public class GamificationSourceReader {
         Map<String, BigDecimal> byCurrency = new HashMap<>();
         byCurrency.put("KRW", subscription.add(diamond));
         return new RevenueAggregate(byCurrency, paying);
+    }
+
+    /** LUT-790: 유저 ID → 현재 레벨. 경험치 행이 없는 유저는 결과에 없다 */
+    public Map<String, Integer> findLevels(Collection<String> userIds) {
+        Map<String, Integer> levels = new HashMap<>();
+        if (userIds.isEmpty()) {
+            return levels;
+        }
+        jdbc.query(
+                FIND_LEVELS,
+                Map.of("ids", userIds),
+                rs -> {
+                    int level = rs.getInt("current_level");
+                    if (!rs.wasNull()) {
+                        levels.put(rs.getString("user_id"), level);
+                    }
+                });
+        return levels;
     }
 
     private Map<String, BigDecimal> amountsByCurrency(String sql, Map<String, Object> params) {

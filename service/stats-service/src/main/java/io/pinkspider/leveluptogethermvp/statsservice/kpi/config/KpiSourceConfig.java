@@ -4,6 +4,7 @@ import io.pinkspider.leveluptogethermvp.statsservice.kpi.infrastructure.source.C
 import io.pinkspider.leveluptogethermvp.statsservice.kpi.infrastructure.source.FeedSourceReader;
 import io.pinkspider.leveluptogethermvp.statsservice.kpi.infrastructure.source.GamificationSourceReader;
 import io.pinkspider.leveluptogethermvp.statsservice.kpi.infrastructure.source.GuildSourceReader;
+import io.pinkspider.leveluptogethermvp.statsservice.kpi.infrastructure.source.MetaSourceReader;
 import io.pinkspider.leveluptogethermvp.statsservice.kpi.infrastructure.source.MissionSourceReader;
 import io.pinkspider.leveluptogethermvp.statsservice.kpi.infrastructure.source.TowerSourceReader;
 import io.pinkspider.leveluptogethermvp.statsservice.kpi.infrastructure.source.UserSourceReader;
@@ -56,6 +57,12 @@ public class KpiSourceConfig {
     public TowerSourceReader towerSourceReader(
             @Qualifier("towerDataSource") DataSource dataSource) {
         return new TowerSourceReader(new NamedParameterJdbcTemplate(dataSource));
+    }
+
+    /** LUT-790: 미션 통계 — 카테고리 이름 */
+    @Bean
+    public MetaSourceReader metaSourceReader(@Qualifier("metaDataSource") DataSource dataSource) {
+        return new MetaSourceReader(new NamedParameterJdbcTemplate(dataSource));
     }
 
     @Bean
