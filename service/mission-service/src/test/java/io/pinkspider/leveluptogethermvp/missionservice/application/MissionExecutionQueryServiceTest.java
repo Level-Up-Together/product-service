@@ -789,6 +789,25 @@ class MissionExecutionQueryServiceTest {
         }
 
         @Test
+        @DisplayName("LUT-789: 지운 미션의 완료 기록도 그대로 나온다 (기록은 과거 사실)")
+        void getWeeklyCalendarData_deletedMission_kept() {
+            LocalDate date = LocalDate.of(2026, 11, 2);
+            MissionExecution execution =
+                    createExecutionWithVisibility(1L, date, MissionVisibility.PUBLIC);
+            execution.getParticipant().getMission().delete();
+            mockRepositories(List.of(execution), List.of());
+
+            var response =
+                    executionService.getWeeklyCalendarData(
+                            testUserId, testUserId, date, "Asia/Seoul");
+
+            var missions = response.getDailyMissions().get("2026-11-02");
+            assertThat(missions).hasSize(1);
+            assertThat(missions.get(0).getMissionTitle()).isEqualTo("미션-PUBLIC");
+            assertThat(missions.get(0).getIsVisible()).isTrue();
+        }
+
+        @Test
         @DisplayName("비로그인 조회 시 PUBLIC 만 노출되고 나머지는 마스킹된다")
         void getWeeklyCalendarData_anonymous() {
             LocalDate date = LocalDate.of(2026, 8, 5);

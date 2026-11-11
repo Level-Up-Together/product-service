@@ -215,6 +215,10 @@ FeedSearchType { ALL, FRIENDS, GUILD, MINE }
 
 - `Mission.isDeleted` (boolean) + `Mission.deletedAt` (LocalDateTime) — `Mission.delete()`
 - 목록 조회 시 `isDeleted=false` 필터링. 연결된 피드는 남는다(위 "Mission Feed Sync")
+- **지운 미션의 수행 기록은 과거 사실이라 남긴다** (LUT-789): 주간·월간 캘린더, 월간 리포트(예정·완료 수·분포·EXP 합), 기록 시간 수정의 겹침 검사가
+  모두 지운 미션의 기록을 포함한다 — 삭제는 "앞으로 안 한다" 이지 "한 적 없다" 가 아니다(EXP·레벨·통계·클리어 이력 QA-158 도 그대로).
+  한 곳에만 삭제 조건을 넣으면 캘린더에 안 보이는 기록 때문에 시간 수정이 거절되는 식으로 어긋난다. `DeletedMissionHistoryQueryContractTest` 가
+  해당 쿼리 10개(일반·고정 × 5)에 삭제 조건이 들어오면 실패한다 — 규칙을 바꾸려면 전부 함께 바꿀 것.
 
 ## Timer Mission 목표시간 (LUT-551)
 
