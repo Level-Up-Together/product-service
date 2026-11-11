@@ -51,4 +51,27 @@ class MissionIdempotencyExceptionHandlerTest {
         assertThat(body.getCode()).isEqualTo("050402");
         assertThat(body.getMessage()).isEqualTo("error.mission.idempotency_key.in_progress");
     }
+
+    @Test
+    @DisplayName("LUT-782 추천 미션 없음 → 404 + 050501, 입력 오류 → 400 + 050502")
+    void recommended_statuses() {
+        MissionIdempotencyExceptionHandler handler = new MissionIdempotencyExceptionHandler();
+
+        ResponseEntity<Object> notFound =
+                handler.handleRecommended(RecommendedMissionException.notFound());
+        assertThat(notFound.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
+        assertThat(((ApiResult<?>) notFound.getBody()).getCode()).isEqualTo("050501");
+
+        for (RecommendedMissionException e :
+                java.util.List.of(
+                        RecommendedMissionException.targetMinutesRequired(),
+                        RecommendedMissionException.invalidCategory(),
+                        RecommendedMissionException.invalidReorder())) {
+            ResponseEntity<Object> res = handler.handleRecommended(e);
+            assertThat(res.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+            ApiResult<?> body = (ApiResult<?>) res.getBody();
+            assertThat(body.getCode()).isEqualTo("050502");
+            assertThat(body.getMessage()).startsWith("error.mission.recommended.");
+        }
+    }
 }

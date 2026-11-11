@@ -2,7 +2,7 @@
 
 `/api/internal/**` 경로는 `SecurityConfig`에서 `permitAll`이지만 **공유 시크릿 헤더 인증 + VPC 내부 접근**으로 보호. Admin Backend가 MVP의 도메인 데이터를 읽거나 액션을 실행할 때 사용.
 
-> 2026-10-29 코드 기준 현행화 — `@RequestMapping("/api/internal…")` 컨트롤러 **48개 = 베이스 경로 48개**(중첩 경로 포함, 2026-11-02 LUT-708 `app-settings` 추가, 2026-11-04 LUT-629/635 `tower/floors`·`tower/settings`, LUT-693 `tower/floors/{floorId}/npcs`, LUT-705 `tower`(방문객 신고·제재), 2026-11-08 LUT-760 `tower/npcs/{npcId}/entries`, 2026-11-11 LUT-775 `widget-messages`·LUT-779 `kpi/first-day-retention` 추가). chat·bff·notice·support 서비스에는 내부 API 컨트롤러가 없다.
+> 2026-10-29 코드 기준 현행화 — `@RequestMapping("/api/internal…")` 컨트롤러 **49개 = 베이스 경로 49개**(중첩 경로 포함, 2026-11-02 LUT-708 `app-settings` 추가, 2026-11-04 LUT-629/635 `tower/floors`·`tower/settings`, LUT-693 `tower/floors/{floorId}/npcs`, LUT-705 `tower`(방문객 신고·제재), 2026-11-08 LUT-760 `tower/npcs/{npcId}/entries`, 2026-11-11 LUT-775 `widget-messages`·LUT-779 `kpi/first-day-retention`·LUT-782 `recommended-missions` 추가). chat·bff·notice·support 서비스에는 내부 API 컨트롤러가 없다.
 
 ## 인증 (LUT-244)
 
@@ -50,6 +50,7 @@
 |---|---|---|
 | `/api/internal/missions` | 미션 검색(`keyword`·`source`·`status`·`type`·`participation_type`·`creator_id`·`category_id`)·CRUD·상태 변경. `GET /`·`/all`·`/{id}`·`/count` · `POST` · `PUT /{id}` · `PATCH /{id}/status?status=` · `DELETE /{id}` | Feign 전환(2026-02) |
 | `/api/internal/mission-templates` | 미션 템플릿 CRUD. `GET /`·`/all`·`/{id}`·`/count` · `POST` · `PUT`/`DELETE /{id}` | Feign 전환(2026-02) |
+| `/api/internal/recommended-missions` | 첫 미션 온보딩 추천 미션(LUT-782, 화면 LUT-783). `GET /`(전부 순서대로 + `started_count`·`completed_count`)·`/{id}` · `POST` · `PUT`/`DELETE /{id}` · `PATCH /{id}/toggle-active` · `PUT /reorder {ordered_ids}`(전체 ID). 없음 404 `050501`, 입력 오류 400 `050502` | LUT-782 (2026-11-11) |
 | `/api/internal/mission-participants` | 수행 기록·건수(유저 상세용). `GET /user/{userId}/history`(`type`·`start_date`·`end_date`) · `GET /guild/{guildId}/history` · `GET /user/{userId}/count` · `GET /user/{userId}/executions/count` · `GET /user/{userId}/executions/completed/count` | Feign 전환(2026-02) · QA-165 · QA-205(수행 건 기반) · LUT-239(길드 기록) |
 | `/api/internal/mission-comments` | 미션 댓글 어드민 삭제(신고 `CONTENT_DELETED`). `DELETE /{commentId}?reason=` | 신고 처리(2026-04) |
 | `/api/internal/mission-images` | 과거 업로드 이미지 thumb/medium 변형 백필. `POST /backfill-variants?limit=` | LUT-409 |

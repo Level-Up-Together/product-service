@@ -4,6 +4,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MissionCreateRequest;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MissionResponse;
+import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.RecommendedMissionStartResponse;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.MissionIdempotencyKey;
 import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.MissionIdempotencyKeyRepository;
 import java.time.LocalDateTime;
@@ -26,6 +27,7 @@ public class MissionIdempotencyTxService {
 
     private final MissionIdempotencyKeyRepository repository;
     private final MissionService missionService;
+    private final RecommendedMissionService recommendedMissionService;
     private final ObjectMapper objectMapper;
 
     /**
@@ -58,15 +60,19 @@ public class MissionIdempotencyTxService {
     public MissionResponse createAndComplete(
             Long keyId, String userId, MissionCreateRequest request) {
         MissionResponse response = missionService.createMission(userId, request);
-        MissionIdempotencyKey row =
-                repository
-                        .findById(keyId)
-                        .orElseThrow(
-                                () ->
-                                        new IllegalStateException(
-                                                "mission idempotency key row not found: id="
-                                                        + keyId));
-        row.complete(response.getId(), serialize(response));
+        MissionIdempotencyKey row = findRow(keyId);
+        row.complete(response.getId(), serialize(response.getId(), response));
+        return response;
+    }
+
+    /** LUT-782: 추천 미션으로 만들고 시작 + 키 완료를 한 트랜잭션에서 (시작이 실패하면 미션·키 완료 모두 롤백) */
+    @Transactional(transactionManager = "missionTransactionManager")
+    public RecommendedMissionStartResponse startRecommendedAndComplete(
+            Long keyId, String userId, Long recommendedId, String locale) {
+        RecommendedMissionStartResponse response =
+                recommendedMissionService.start(userId, recommendedId, locale);
+        Long missionId = response.mission().getId();
+        findRow(keyId).complete(missionId, serialize(missionId, response));
         return response;
     }
 
@@ -75,12 +81,21 @@ public class MissionIdempotencyTxService {
         return repository.deleteByCreatedAtBefore(threshold);
     }
 
+    private MissionIdempotencyKey findRow(Long keyId) {
+        return repository
+                .findById(keyId)
+                .orElseThrow(
+                        () ->
+                                new IllegalStateException(
+                                        "mission idempotency key row not found: id=" + keyId));
+    }
+
     /** 직렬화 실패는 생성 자체를 막지 않는다 — 본문 없이 완료되면 재요청 시 mission_id 로 재조회해 응답한다. */
-    private String serialize(MissionResponse response) {
+    private String serialize(Long missionId, Object response) {
         try {
             return objectMapper.writeValueAsString(response);
         } catch (JsonProcessingException e) {
-            log.warn("미션 생성 멱등 응답 직렬화 실패 — mission_id 로 재조회 폴백: missionId={}", response.getId(), e);
+            log.warn("미션 생성 멱등 응답 직렬화 실패 — mission_id 로 재조회 폴백: missionId={}", missionId, e);
             return null;
         }
     }

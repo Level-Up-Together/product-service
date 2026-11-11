@@ -87,6 +87,10 @@ public class MyPageResponse {
         private LocalDate startDate;
         private Long daysSinceJoined;
         private Integer clearedMissionsCount;
+
+        // LUT-782: 미션을 한 번이라도 완료했는가 — 웹이 첫 완료 축하를 한 번만 띄우고 분석 is_first 에 쓴다(LUT-784)
+        private Boolean hasCompletedMission;
+
         private Integer clearedMissionBooksCount;
         private Double rankingPercentile;
         private Integer acquiredTitlesCount;
