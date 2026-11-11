@@ -406,7 +406,7 @@ IR 용 KPI(DAU/WAU/MAU·리텐션)의 원천. 예전엔 "앱을 열었다" 신�
 
 - **수집**: `UserActivityInterceptor`(`StatsActivityConfig` 의 `@Bean` — `@Component` 로 두면 `@WebMvcTest` 슬라이스가 HandlerInterceptor 를 스캔해 컨트롤러
   테스트가 깨진다)가 인증된 요청마다 `UserActivityRecorder.recordAsync` → Redis `SADD active:{KST날짜} userId` + `active:{KST날짜}:{deviceType}`(TTL 40일).
-  `WebMvcConfig` 가 `ObjectProvider` 로 있을 때만 등록. 경로 `/api/**`·`/jwt/reissue`·`/graphql`, 제외 `/api/internal/**`·`/api/test/**`·`/api/v1/webhooks/**`.
+  `WebMvcConfig` 가 `ObjectProvider` 로 있을 때만 등록. 경로 `/api/**`·`/jwt/reissue`·`/graphql`, 제외 `/api/internal/**`·`/api/test/**`·`/api/v1/webhooks/**`·`/api/v1/widget/**`(LUT-777 — 홈 화면 위젯은 앱을 열지 않아도 30분마다 부른다, 가드 `WebMvcConfigActivityPathTest`).
   principal 이 userId 문자열인 인증만 인정(anonymousUser 제외). **어떤 예외도 요청을 막지 않는다**(비동기 + try/catch, Redis 장애 구간은 DAU 결측 허용).
 - **적재**: `UserActivityFlushScheduler` 00:20 KST → `UserActivityFlushService.flush(date)` 가 집합을 읽어 `user_daily_activity`(user_id×activity_date 유니크, `device_types` 정렬 쉼표) 에 upsert. 멱등. 수동: `POST /api/internal/stats/activity/flush?date=YYYY-MM-DD`.
 - **설정** `app.stats.activity.enabled`(기본 true) · `excluded-user-ids`(팀원·운영자·QA·E2E 봇 — config-repository 환경별, 운영 20명 LUT-678). 이 목록은 DAU 수집(인터셉터)뿐 아니라 **KPI 전 지표**에서 뺀다(아래). `DeviceTypeResolver` 는 LUT-598 에서 `global/web` 로 이동(user-service 전용 아님).
@@ -750,6 +750,7 @@ LUT-348 의 등급 차이 할증(배수 1~8, 10단위 올림)은 없앴다 — �
   어드민 내부 API `/api/internal/widget-messages`(`docs/INTERNAL_API.md`) — 목록 응답 `gaps` 가 완료 전·후 각각 활성 문장이 안 걸리는 시각(어드민 "빈 시간대" 경고, LUT-776).
 - **캐시는 Redis 가 아니라 인스턴스 로컬 메모**(`WidgetMessageService`, `widget.message.cache-seconds` 기본 60초, 쓰기 때와 커밋 뒤 비움, 조회 실패는 마지막 메모) — Redis 캐시 직렬화(`NON_FINAL` 타입 정보)가 record 를 되살리지 못하고, 엔티티 캐시는 컬럼 추가 뒤 옛 값이 남는다(LUT-534).
 - 웹은 미션 완료·취소·로그인·로그아웃 때 브릿지 `widgetRefresh` 로 앱에 즉시 갱신을 알린다(LUT-778).
+- **위젯 호출은 DAU 가 아니다**(LUT-777): 위젯이 30분마다 부르므로 활동 수집(LUT-598)에서 `/api/v1/widget/**` 를 뺀다 — 세면 위젯을 둔 유저가 매일 활동으로 잡혀 DAU·리텐션(LUT-779)이 부풀려진다.
 
 ## 길드 활동 포인트 (LUT-483)
 

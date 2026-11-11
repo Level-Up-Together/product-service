@@ -44,7 +44,7 @@ user_db · gamification_db · mission_db ─ *SourceReader(JDBC 읽기 전용) �
   - `@Configuration` 은 슬라이스에 올라오지 않는다. `WebMvcConfig` 는 `ObjectProvider<UserActivityInterceptor>` 로 받아서 빈이 있을 때만 등록한다.
 - 경로
   - 포함: `/api/**`, `/jwt/reissue`, `/graphql`
-  - 제외: `/api/internal/**`, `/api/test/**`, `/api/v1/webhooks/**`
+  - 제외: `/api/internal/**`, `/api/test/**`, `/api/v1/webhooks/**`, `/api/v1/widget/**`(LUT-777 홈 화면 위젯 — 앱을 열지 않아도 30분마다 부른다)
 - 인정하는 인증
   - `SecurityContext` principal 이 비어 있지 않은 **String(userId)** 인 경우만 센다.
   - 미인증, `AnonymousAuthenticationToken`, 다른 principal 타입은 무시한다.

@@ -25,12 +25,14 @@ public class WebMvcConfig implements WebMvcConfigurer {
         "/uploads/**", "/favicon.ico", "/error"
     };
 
-    // LUT-598: 활동(DAU) 수집 — 인증된 사용자 요청만. 내부 API·테스트 로그인·스토어 웹훅은 사람의 활동이 아니다
+    // LUT-598: 활동(DAU) 수집 — 인증된 사용자 요청만. 내부 API·테스트 로그인·스토어 웹훅은 사람의 활동이 아니다.
+    // LUT-777: 홈 화면 위젯은 앱을 열지 않아도 30분마다 요약을 받는다 — 세면 위젯을 둔 유저가 매일 "활동" 으로 잡혀
+    // DAU·리텐션(LUT-779)이 부풀려진다
     private static final String[] ACTIVITY_INCLUDE_PATTERNS = {
         "/api/**", "/jwt/reissue", "/graphql"
     };
     private static final String[] ACTIVITY_EXCLUDE_PATTERNS = {
-        "/api/internal/**", "/api/test/**", "/api/v1/webhooks/**"
+        "/api/internal/**", "/api/test/**", "/api/v1/webhooks/**", "/api/v1/widget/**"
     };
     private final LocaleInterceptor localeInterceptor;
     private final JwtInterceptor jwtInterceptor;
