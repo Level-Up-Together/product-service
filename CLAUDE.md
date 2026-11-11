@@ -59,11 +59,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 | `missionservice`      | mission_db      | 미션 정의/진행/Saga, 미션북, daily instance(pinned) |
 | `guildservice`        | guild_db        | 길드, 멤버, 경험치, 게시판, 초대                       |
 | `chatservice`         | chat_db         | 길드 채팅, DM, 읽음 상태                           |
-| `metaservice`         | meta_db         | 공통 코드, 캘린더, 레벨/출석 보상·길드 레벨 설정, **어드민 서비스 설정 `app_setting`**(LUT-708) (Redis 캐시). 금칙어·콘텐츠 번역 캐시 저장소도 meta_db |
+| `metaservice`         | meta_db         | 공통 코드, 캘린더, 레벨/출석 보상·길드 레벨 설정, **어드민 서비스 설정 `app_setting`**(LUT-708) (Redis 캐시), 홈 화면 위젯 문장 `widget_message`(LUT-775). 금칙어·콘텐츠 번역 캐시 저장소도 meta_db |
 | `feedservice`         | feed_db         | 피드 (CQRS Read Model), 좋아요, 댓글              |
 | `notificationservice` | notification_db | 알림 생성/조회, FCM 푸시, 실시간(WS), 디바이스 토큰      |
 | `gamificationservice` | gamification_db | 칭호, 업적, 통계, 경험치, 출석, 이벤트, 시즌, **상점/인벤토리/다이아** |
-| `bffservice`          | -               | BFF API 통합, 통합 검색                          |
+| `bffservice`          | -               | BFF API 통합, 통합 검색, 홈 화면 위젯 요약(LUT-775) |
 | `noticeservice`       | -               | 공지/안내 (Admin Feign)                          |
 | `supportservice`      | -               | 1:1 문의 + 신고 처리 (Admin Feign)               |
 | `statsservice`        | stats_db        | **지표 집계(IR KPI)** — 유저 일별 활동(DAU 신호) 수집·적재 (LUT-598) + 일별 KPI 스냅샷·코호트 리텐션·코호트 매출 (LUT-601) |
@@ -737,6 +737,20 @@ LUT-348 의 등급 차이 할증(배수 1~8, 10단위 올림)은 없앴다 — �
   전체 카테고리** — 프론트가 카테고리를 넘기지 않는다. 웹은 로그인 유저의 저장값을 RSC 프리페치(`bff-home-server.ts`)가 먼저 읽어
   첫 피드를 그 카테고리로 받아와 "전체→필터" 플리커를 없앤다.
 
+## 홈 화면 위젯 (LUT-775 · 776 · 777 · 778)
+
+앱 홈 화면 위젯(작은 크기, iOS WidgetKit·안드로이드 Glance — RN LUT-777)이 **연속 실천 일수**와 **시간대·오늘 완료 여부에 따라 바뀌는 문장**을 보여 준다. "지금 n명이 미션 중" 은 없다.
+
+- **API** `GET /api/v1/widget/summary`(로그인, `BffWidgetController`) → `{practice_streak_days, completed_today, server_time(UTC Instant), timezone, messages[{id, start_hour, end_hour, condition, text}]}`.
+  `practice_streak_days` = 프로필 값(`GamificationQueryFacade.getPracticeStreak`, 방어권 반영). `completed_today` = 마지막 실천일(유저 `preferred_timezone` 로컬, 없거나 잘못되면 Asia/Seoul)이 오늘 이후인가 — 유저 자정에 false 로 바뀐다.
+  연속 실천 조회가 실패하면 0 으로 덮지 않고 오류를 낸다(위젯은 마지막 값 유지). 비로그인 위젯은 서버를 부르지 않는다(앱 고정 문구).
+- **문장은 전부 내려 주고 위젯이 고른다** — 위젯은 서버를 자주 못 부르므로 시간대 경계마다 저장된 목록으로 다시 그린다. `text` 는 Accept-Language(ko·en·ja·ar, 없거나 모르면 en) 문장, 비면 en → ko. `{streak}` 는 위젯이 바꾼다.
+  같은 시간대·조건에 여러 개면 위젯이 무작위로 하나.
+- **문장 `widget_message`**(meta_db, Flyway `meta/V1_1_6_001` — 초기 8개 = 아침 6~12·낮 12~18·저녁 18~22·밤 22~6 × 완료 전·후): 시간대는 유저 로컬 `[start_hour, end_hour)`(0~23 / 1~24, 같으면 400), **start > end 면 자정을 넘는 구간**(`WidgetHourRange`). 조건 컬럼 이름은 `done_condition`(API 는 `condition`: `NOT_DONE`·`DONE`·`ALL`). ko 필수·120자.
+  어드민 내부 API `/api/internal/widget-messages`(`docs/INTERNAL_API.md`) — 목록 응답 `gaps` 가 완료 전·후 각각 활성 문장이 안 걸리는 시각(어드민 "빈 시간대" 경고, LUT-776).
+- **캐시는 Redis 가 아니라 인스턴스 로컬 메모**(`WidgetMessageService`, `widget.message.cache-seconds` 기본 60초, 쓰기 때와 커밋 뒤 비움, 조회 실패는 마지막 메모) — Redis 캐시 직렬화(`NON_FINAL` 타입 정보)가 record 를 되살리지 못하고, 엔티티 캐시는 컬럼 추가 뒤 옛 값이 남는다(LUT-534).
+- 웹은 미션 완료·취소·로그인·로그아웃 때 브릿지 `widgetRefresh` 로 앱에 즉시 갱신을 알린다(LUT-778).
+
 ## 길드 활동 포인트 (LUT-483)
 
 길드 **랭킹·레벨의 기준은 누적 EXP 가 아니라 활동 포인트**다 (EXP 는 표기용 잔존).
@@ -907,5 +921,5 @@ ALB·배포 스크립트(`gradle-*.yml`) 헬스체크는 `/showmethemoney/health
 탈퇴 행까지 세었다), 탈퇴 수는 `withdrawn_users`, 가입경로 분포(`users_by_provider`)도 탈퇴 제외라 합이 `total_users` 와 맞는다.
 `daily_new_users` 는 가입 시점 집계라 이후 탈퇴해도 포함된다.
 
-베이스 경로는 코드 기준 46개 — 서비스별 전체 목록·주요 엔드포인트·도입 티켓은 [`docs/INTERNAL_API.md`](docs/INTERNAL_API.md)(2026-11-04 tower 4개 추가, 2026-11-08 LUT-760 NPC 수집함 추가).
+베이스 경로는 코드 기준 47개 — 서비스별 전체 목록·주요 엔드포인트·도입 티켓은 [`docs/INTERNAL_API.md`](docs/INTERNAL_API.md)(2026-11-04 tower 4개 추가, 2026-11-08 LUT-760 NPC 수집함, 2026-11-11 LUT-775 위젯 문장 추가).
 README "Internal API" 절도 같은 40개를 서비스별로 요약한다(2026-10-29).

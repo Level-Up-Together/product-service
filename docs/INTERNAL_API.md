@@ -2,7 +2,7 @@
 
 `/api/internal/**` 경로는 `SecurityConfig`에서 `permitAll`이지만 **공유 시크릿 헤더 인증 + VPC 내부 접근**으로 보호. Admin Backend가 MVP의 도메인 데이터를 읽거나 액션을 실행할 때 사용.
 
-> 2026-10-29 코드 기준 현행화 — `@RequestMapping("/api/internal…")` 컨트롤러 **46개 = 베이스 경로 46개**(중첩 경로 포함, 2026-11-02 LUT-708 `app-settings` 추가, 2026-11-04 LUT-629/635 `tower/floors`·`tower/settings`, LUT-693 `tower/floors/{floorId}/npcs`, LUT-705 `tower`(방문객 신고·제재), 2026-11-08 LUT-760 `tower/npcs/{npcId}/entries` 추가). chat·bff·notice·support 서비스에는 내부 API 컨트롤러가 없다.
+> 2026-10-29 코드 기준 현행화 — `@RequestMapping("/api/internal…")` 컨트롤러 **47개 = 베이스 경로 47개**(중첩 경로 포함, 2026-11-02 LUT-708 `app-settings` 추가, 2026-11-04 LUT-629/635 `tower/floors`·`tower/settings`, LUT-693 `tower/floors/{floorId}/npcs`, LUT-705 `tower`(방문객 신고·제재), 2026-11-08 LUT-760 `tower/npcs/{npcId}/entries`, 2026-11-11 LUT-775 `widget-messages` 추가). chat·bff·notice·support 서비스에는 내부 API 컨트롤러가 없다.
 
 ## 인증 (LUT-244)
 
@@ -71,6 +71,7 @@
 | `/api/internal/attendance-reward-configs` | 출석 보상 설정. `GET /`·`/all`·`/active`·`/consecutive`·`/{id}` · `POST` · `PUT /{id}` · `PATCH /{id}/toggle-active` · `DELETE /{id}` | Feign 전환(2026-02) · QA-131 |
 | `/api/internal/mission-categories` | 미션 카테고리. `GET /`·`/all`·`/active`·`/{id}`·`/by-name/{name}`·`/by-ids` · `POST` · `PUT`/`DELETE /{id}` · `POST /{id}/toggle-active`(PATCH 아님) | Feign 전환(2026-02) |
 | `/api/internal/app-settings` | 어드민 서비스 설정(`app_setting` 키-값). `GET`/`PUT /store-review-milestones` — 스토어 인앱 평가 팝업을 요청할 연속 출석 일수 목록(기본 7·14·30, 1~365·최대 10개, 빈 목록=끔). 캐시 `appSettings`(TTL 없음, PUT 때 evict). 출석 체크인 응답 `store_review_due` 의 원천 | LUT-708 (2026-11-02) |
+| `/api/internal/widget-messages` | 홈 화면 위젯 시간대별 문장(`widget_message`). `GET /?condition=`(목록 + 빈 시간대 `gaps` — 완료 전·후 각각 활성 문장이 안 걸리는 시각, 필터 무관) · `GET /{id}` · `POST` · `PUT /{id}`(active·sort_order 비우면 그대로) · `PATCH /{id}/toggle-active` · `DELETE /{id}`. 시간대는 유저 로컬 `[start_hour, end_hour)`, start > end 면 자정을 넘는 구간. 없음 404 `080201`, 조건 값 오류 400 `080202`, 입력 오류 400. 위젯 조회 메모(노드별 60초)는 쓰기 때 비운다. 패스스루·화면은 LUT-776 | LUT-775 (2026-11-11) |
 | `/api/internal/profanity-words` | 금칙어. `GET /`·`/all`·`/active`·`/{id}` · `POST` · `PUT`/`DELETE /{id}` · `PATCH /{id}/toggle` | Feign 전환(2026-02) |
 
 ### gamification-service (gamification_db)
