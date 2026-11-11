@@ -5,11 +5,14 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import io.pinkspider.leveluptogethermvp.missionservice.api.exception.MissionIdempotencyException;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MissionCreateRequest;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MissionResponse;
+import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.RecommendedMissionStartResponse;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.MissionIdempotencyKey;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.Locale;
 import java.util.Optional;
+import java.util.function.Function;
+import java.util.function.LongFunction;
 import java.util.regex.Pattern;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -32,6 +35,9 @@ import org.springframework.stereotype.Service;
  * </ul>
  *
  * 이 클래스 자체는 트랜잭션을 열지 않는다 — 경계는 {@link MissionIdempotencyTxService} 가 가진다.
+ *
+ * <p>LUT-782: 추천 미션 원탭 시작({@code POST /missions/recommended/{id}/start})도 같은 키 표·같은 규칙을 쓴다(LUT-578
+ * 규약). 키는 유저당 유일하므로 두 API 가 표를 함께 써도 충돌하지 않는다 — 클라이언트는 누를 때마다 새 키를 만든다.
  */
 @Service
 @RequiredArgsConstructor
@@ -51,6 +57,7 @@ public class MissionIdempotencyService {
             Pattern.compile("^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$");
 
     private final MissionService missionService;
+    private final RecommendedMissionService recommendedMissionService;
     private final MissionIdempotencyTxService txService;
     private final ObjectMapper objectMapper;
 
@@ -59,6 +66,33 @@ public class MissionIdempotencyService {
         if (idempotencyKey == null || idempotencyKey.isBlank()) {
             return missionService.createMission(userId, request);
         }
+        return runOnce(
+                userId,
+                idempotencyKey,
+                keyId -> txService.createAndComplete(keyId, userId, request),
+                this::replay);
+    }
+
+    /** LUT-782: 추천 미션 원탭 시작 — 헤더 없으면 매번 실행, 있으면 같은 키 재요청에 같은 미션을 돌려준다 */
+    public RecommendedMissionStartResponse startRecommended(
+            String userId, String idempotencyKey, Long recommendedId, String locale) {
+        if (idempotencyKey == null || idempotencyKey.isBlank()) {
+            return recommendedMissionService.start(userId, recommendedId, locale);
+        }
+        return runOnce(
+                userId,
+                idempotencyKey,
+                keyId ->
+                        txService.startRecommendedAndComplete(keyId, userId, recommendedId, locale),
+                this::replayRecommendedStart);
+    }
+
+    /** 키 선점 → 실행(실행과 키 완료는 한 트랜잭션) → 실패하면 선점 해제. 같은 키가 이미 있으면 {@code replay} 로 저장된 결과를 돌려준다. */
+    private <T> T runOnce(
+            String userId,
+            String idempotencyKey,
+            LongFunction<T> runWithClaim,
+            Function<MissionIdempotencyKey, T> replay) {
         String key = normalize(idempotencyKey);
 
         for (int attempt = 1; attempt <= MAX_CLAIM_ATTEMPTS; attempt++) {
@@ -66,14 +100,14 @@ public class MissionIdempotencyService {
             try {
                 keyId = txService.claim(userId, key);
             } catch (DataIntegrityViolationException e) {
-                Optional<MissionResponse> replay = resolveExisting(userId, key);
-                if (replay.isPresent()) {
-                    return replay.get();
+                Optional<T> replayed = resolveExisting(userId, key, replay);
+                if (replayed.isPresent()) {
+                    return replayed.get();
                 }
                 // 만료·stale·삭제된 행 — 다시 선점
                 continue;
             }
-            return createWithClaim(keyId, userId, request);
+            return runWithClaim(keyId, runWithClaim);
         }
         // 재선점까지 연속 충돌 — 다른 요청이 방금 선점한 것이므로 처리 중으로 응답
         throw MissionIdempotencyException.inProgress();
@@ -102,7 +136,8 @@ public class MissionIdempotencyService {
      * @return 재생할 응답. 비어 있으면 행을 지웠거나 이미 없어 호출자가 다시 선점해야 한다
      * @throws MissionIdempotencyException 처리 중(409)
      */
-    private Optional<MissionResponse> resolveExisting(String userId, String key) {
+    private <T> Optional<T> resolveExisting(
+            String userId, String key, Function<MissionIdempotencyKey, T> replay) {
         MissionIdempotencyKey existing = txService.find(userId, key).orElse(null);
         if (existing == null) {
             return Optional.empty();
@@ -123,7 +158,7 @@ public class MissionIdempotencyService {
                     userId,
                     key,
                     existing.getMissionId());
-            return Optional.of(replay(existing));
+            return Optional.of(replay.apply(existing));
         }
         if (existing.isOlderThan(STALE_PROCESSING, now)) {
             log.warn(
@@ -153,10 +188,27 @@ public class MissionIdempotencyService {
                 "mission idempotency key completed without mission: id=" + existing.getId());
     }
 
-    private MissionResponse createWithClaim(
-            Long keyId, String userId, MissionCreateRequest request) {
+    /** LUT-782: 저장된 원탭 시작 결과. 본문을 못 읽으면 미션만 다시 읽어 돌려준다(실행은 null — 클라이언트는 mission_id 로 이동) */
+    private RecommendedMissionStartResponse replayRecommendedStart(MissionIdempotencyKey existing) {
+        if (existing.getResponseBody() != null) {
+            try {
+                return objectMapper.readValue(
+                        existing.getResponseBody(), RecommendedMissionStartResponse.class);
+            } catch (JsonProcessingException e) {
+                log.warn("추천 미션 시작 멱등 응답 역직렬화 실패 — mission_id 로 재조회: id={}", existing.getId(), e);
+            }
+        }
+        if (existing.getMissionId() != null) {
+            return new RecommendedMissionStartResponse(
+                    missionService.getMission(existing.getMissionId(), null), null);
+        }
+        throw new IllegalStateException(
+                "mission idempotency key completed without mission: id=" + existing.getId());
+    }
+
+    private <T> T runWithClaim(Long keyId, LongFunction<T> action) {
         try {
-            return txService.createAndComplete(keyId, userId, request);
+            return action.apply(keyId);
         } catch (RuntimeException e) {
             // 생성 실패 — 선점 행을 지워 같은 키 재시도가 다시 생성을 시도할 수 있게 한다
             try {

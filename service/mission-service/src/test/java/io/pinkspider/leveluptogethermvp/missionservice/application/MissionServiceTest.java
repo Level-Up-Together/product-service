@@ -26,6 +26,7 @@ import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MissionRespons
 import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MissionTemplateResponse;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.Mission;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.MissionTemplate;
+import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.RecommendedMission;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionInterval;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionSource;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionType;
@@ -4165,6 +4166,119 @@ class MissionServiceTest {
                     .hasMessageContaining("error.mission.cannot_withdraw_in_progress");
             verify(dailyMissionInstanceRepository, never())
                     .existsInProgressByMissionIdAndUserId(any(), any());
+        }
+    }
+
+    @Nested
+    @DisplayName("createMissionFromRecommended — 첫 미션 온보딩 추천 미션 (LUT-782)")
+    class CreateMissionFromRecommended {
+
+        private RecommendedMission recommended(Long categoryId) {
+            RecommendedMission r =
+                    RecommendedMission.create(
+                            "5분 독서",
+                            "Read for 5 minutes",
+                            "5分間読書",
+                            "اقرأ لمدة 5 دقائق",
+                            categoryId,
+                            io.pinkspider.leveluptogethermvp.missionservice.domain.enums
+                                    .MissionExecutionMode.TIMED,
+                            5,
+                            "📖",
+                            true,
+                            1);
+            TestReflectionUtils.setField(r, "id", 3L);
+            return r;
+        }
+
+        private Mission saveAndCapture() {
+            ArgumentCaptor<Mission> captor = ArgumentCaptor.forClass(Mission.class);
+            verify(missionRepository).save(captor.capture());
+            return captor.getValue();
+        }
+
+        @org.junit.jupiter.api.BeforeEach
+        void stubSave() {
+            when(missionRepository.save(any(Mission.class)))
+                    .thenAnswer(
+                            invocation -> {
+                                Mission m = invocation.getArgument(0);
+                                setId(m, 10L);
+                                return m;
+                            });
+        }
+
+        @Test
+        @DisplayName("일반·공개·유저 출처 미션을 만들고, 4개 언어 이름·종류·목표 시간·추천 ID 를 옮긴다")
+        void createsMission() {
+            when(missionCategoryService.getCategory(5L))
+                    .thenReturn(
+                            MissionCategoryResponse.builder()
+                                    .id(5L)
+                                    .name("독서")
+                                    .isActive(true)
+                                    .build());
+
+            MissionResponse result =
+                    missionService.createMissionFromRecommended(
+                            recommended(5L), TEST_USER_ID, "en");
+
+            Mission saved = saveAndCapture();
+            assertThat(saved.getTitle()).isEqualTo("5분 독서");
+            assertThat(saved.getTitleEn()).isEqualTo("Read for 5 minutes");
+            assertThat(saved.getTitleJa()).isEqualTo("5分間読書");
+            assertThat(saved.getTitleAr()).isEqualTo("اقرأ لمدة 5 دقائق");
+            assertThat(saved.getStatus()).isEqualTo(MissionStatus.DRAFT);
+            assertThat(saved.getVisibility()).isEqualTo(MissionVisibility.PUBLIC);
+            assertThat(saved.getType()).isEqualTo(MissionType.PERSONAL);
+            assertThat(saved.getSource()).isEqualTo(MissionSource.USER);
+            assertThat(saved.getIsPinned()).isFalse();
+            assertThat(saved.getTargetDurationMinutes()).isEqualTo(5);
+            assertThat(saved.getCategoryId()).isEqualTo(5L);
+            assertThat(saved.getCategoryName()).isEqualTo("독서");
+            assertThat(saved.getRecommendedMissionId()).isEqualTo(3L);
+            // 응답 이름은 요청 언어
+            assertThat(result.getTitle()).isEqualTo("Read for 5 minutes");
+            verify(missionParticipantService).addCreatorAsParticipant(saved, TEST_USER_ID);
+            verify(eventPublisher).publishEvent(any(MissionStateChangedEvent.class));
+        }
+
+        @Test
+        @DisplayName("카테고리가 꺼져 있으면 카테고리 없이 만든다")
+        void inactiveCategory() {
+            when(missionCategoryService.getCategory(5L))
+                    .thenReturn(
+                            MissionCategoryResponse.builder()
+                                    .id(5L)
+                                    .name("독서")
+                                    .isActive(false)
+                                    .build());
+
+            missionService.createMissionFromRecommended(recommended(5L), TEST_USER_ID, null);
+
+            Mission saved = saveAndCapture();
+            assertThat(saved.getCategoryId()).isNull();
+            assertThat(saved.getCategoryName()).isNull();
+        }
+
+        @Test
+        @DisplayName("카테고리 조회가 실패해도 시작을 막지 않는다")
+        void categoryLookupFails() {
+            when(missionCategoryService.getCategory(5L))
+                    .thenThrow(new RuntimeException("not found"));
+
+            missionService.createMissionFromRecommended(recommended(5L), TEST_USER_ID, null);
+
+            assertThat(saveAndCapture().getCategoryId()).isNull();
+        }
+
+        @Test
+        @DisplayName("카테고리 없는 추천 미션은 카테고리 조회를 하지 않는다")
+        void noCategory() {
+            missionService.createMissionFromRecommended(recommended(null), TEST_USER_ID, null);
+
+            assertThat(saveAndCapture().getCategoryId()).isNull();
+            verify(missionCategoryService, never()).getCategory(any());
         }
     }
 }

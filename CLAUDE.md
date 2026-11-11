@@ -877,6 +877,8 @@ uk 멱등) — 쪼개서 수행해도 몰아서 한 것과 같은 점수. "하�
 미션(고정/실행 모드/생성 한도/자동완료), 피드(공개범위/필터/동기화), 길드(초대/자동 참가), 인증(Browse-First/Signup Token Flow) 등 도메인별 비즈니스 규칙: [
 `docs/FEATURES.md`](docs/FEATURES.md)
 
+**첫 미션 온보딩 추천 미션** (LUT-782): `recommended_mission`(mission_db) — `GET /api/v1/missions/recommended` · `POST .../{id}/start`(내 미션 생성 + 오늘 수행 시작을 한 트랜잭션, 진행 중이면 기존 오류·미션 롤백, `Idempotency-Key` 는 미션 생성과 같은 표). 만든 미션에 `recommended_mission_id`(어드민 성과), 마이페이지 `user_info.has_completed_mission`. 어드민 `/api/internal/recommended-missions`. 상세는 FEATURES.md "첫 미션 온보딩 추천 미션" 절.
+
 **미션 생성 멱등성** (LUT-577): `POST /api/v1/missions` 의 `Idempotency-Key`(UUID) 헤더 — 같은 유저·같은 키 재요청은 저장된 응답(같은 id) 재생,
 처리 중이면 409(`050402`), 형식 오류 400(`050401`), 헤더 없으면 기존처럼 매번 생성. 선점/해제는 REQUIRES_NEW, 생성+완료는 한 트랜잭션. 400/409 는
 플랫폼 `CustomException`(항상 500)이 아니라 미션 로컬 어드바이스가 낸다. 상세는 FEATURES.md "Mission 생성 멱등성" 절.
@@ -924,5 +926,5 @@ ALB·배포 스크립트(`gradle-*.yml`) 헬스체크는 `/showmethemoney/health
 탈퇴 행까지 세었다), 탈퇴 수는 `withdrawn_users`, 가입경로 분포(`users_by_provider`)도 탈퇴 제외라 합이 `total_users` 와 맞는다.
 `daily_new_users` 는 가입 시점 집계라 이후 탈퇴해도 포함된다.
 
-베이스 경로는 코드 기준 47개 — 서비스별 전체 목록·주요 엔드포인트·도입 티켓은 [`docs/INTERNAL_API.md`](docs/INTERNAL_API.md)(2026-11-04 tower 4개 추가, 2026-11-08 LUT-760 NPC 수집함, 2026-11-11 LUT-775 위젯 문장 추가).
+베이스 경로는 코드 기준 49개 — 서비스별 전체 목록·주요 엔드포인트·도입 티켓은 [`docs/INTERNAL_API.md`](docs/INTERNAL_API.md)(2026-11-04 tower 4개 추가, 2026-11-08 LUT-760 NPC 수집함, 2026-11-11 LUT-775 위젯 문장·LUT-779 첫날 리텐션·LUT-782 추천 미션 추가).
 README "Internal API" 절도 같은 40개를 서비스별로 요약한다(2026-10-29).

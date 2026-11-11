@@ -11,7 +11,9 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import io.pinkspider.global.component.LmObjectMapper;
 import io.pinkspider.global.test.TestReflectionUtils;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MissionCreateRequest;
+import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MissionExecutionResponse;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MissionResponse;
+import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.RecommendedMissionStartResponse;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.MissionIdempotencyKey;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.IdempotencyStatus;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionType;
@@ -34,12 +36,14 @@ class MissionIdempotencyTxServiceTest {
 
     @Mock private MissionIdempotencyKeyRepository repository;
     @Mock private MissionService missionService;
+    @Mock private RecommendedMissionService recommendedMissionService;
 
     private final MissionCreateRequest request =
             MissionCreateRequest.builder().title("t").type(MissionType.PERSONAL).build();
 
     private MissionIdempotencyTxService service(ObjectMapper mapper) {
-        return new MissionIdempotencyTxService(repository, missionService, mapper);
+        return new MissionIdempotencyTxService(
+                repository, missionService, recommendedMissionService, mapper);
     }
 
     private static MissionIdempotencyKey processingRow(long id) {
@@ -130,6 +134,42 @@ class MissionIdempotencyTxServiceTest {
         when(repository.findById(5L)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> service(new LmObjectMapper()).createAndComplete(5L, USER, request))
+                .isInstanceOf(IllegalStateException.class);
+    }
+
+    @Test
+    @DisplayName("startRecommendedAndComplete: 추천 미션으로 만들고 시작한 뒤 같은 트랜잭션에서 키를 완료한다 (LUT-782)")
+    void startRecommendedAndComplete_marksRowCompleted() {
+        RecommendedMissionStartResponse response =
+                new RecommendedMissionStartResponse(
+                        MissionResponse.builder().id(7L).title("물 한 잔").build(),
+                        MissionExecutionResponse.builder().id(70L).build());
+        when(recommendedMissionService.start(USER, 3L, "ko")).thenReturn(response);
+        MissionIdempotencyKey row = processingRow(5L);
+        when(repository.findById(5L)).thenReturn(Optional.of(row));
+
+        RecommendedMissionStartResponse result =
+                service(new LmObjectMapper()).startRecommendedAndComplete(5L, USER, 3L, "ko");
+
+        assertThat(result).isSameAs(response);
+        assertThat(row.isCompleted()).isTrue();
+        assertThat(row.getMissionId()).isEqualTo(7L);
+        assertThat(row.getResponseBody()).contains("\"mission\"").contains("\"execution\"");
+    }
+
+    @Test
+    @DisplayName("startRecommendedAndComplete: 선점 행이 없으면 IllegalStateException")
+    void startRecommendedAndComplete_rowMissing_fails() {
+        when(recommendedMissionService.start(USER, 3L, null))
+                .thenReturn(
+                        new RecommendedMissionStartResponse(
+                                MissionResponse.builder().id(7L).build(), null));
+        when(repository.findById(5L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(
+                        () ->
+                                service(new LmObjectMapper())
+                                        .startRecommendedAndComplete(5L, USER, 3L, null))
                 .isInstanceOf(IllegalStateException.class);
     }
 

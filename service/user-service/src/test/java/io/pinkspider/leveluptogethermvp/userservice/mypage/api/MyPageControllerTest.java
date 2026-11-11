@@ -380,6 +380,15 @@ class MyPageControllerTest {
                                                                         .type(JsonFieldType.NUMBER)
                                                                         .description("완료한 미션 수"),
                                                                 fieldWithPath(
+                                                                                "value.user_info.has_completed_mission")
+                                                                        .type(JsonFieldType.BOOLEAN)
+                                                                        .description(
+                                                                                "미션을 한 번이라도 완료했는가"
+                                                                                    + " (LUT-782 —"
+                                                                                    + " 첫 완료 축하·분석"
+                                                                                    + " is_first)")
+                                                                        .optional(),
+                                                                fieldWithPath(
                                                                                 "value.user_info.cleared_mission_books_count")
                                                                         .type(JsonFieldType.NUMBER)
                                                                         .description("완료한 미션북 수"),
