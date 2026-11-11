@@ -41,8 +41,11 @@ public record TowerFloorAdminRequest(
                 String occlusionMaskUrl,
         /** LUT-725: 불빛 점(최대 50개) — null 이면 그대로, [] 이면 모두 지운다 */
         @Size(max = 50) List<@Valid @NotNull TowerFloorLightDto> lights,
-        /** LUT-725: 효과 레이어(SNOW·STARS 각 1개) — null 이면 그대로, [] 이면 모두 지운다 */
-        @Size(max = 2) List<@Valid @NotNull TowerFloorEffectLayerDto> effectLayers) {
+        /**
+         * LUT-725: 효과 레이어(종류당 1개 — SNOW·STARS·CLOUD·RAIN) — null 이면 그대로, [] 이면 모두 지운다. LUT-785: 상한을
+         * 종류 수(4)로 (예전 2 는 CLOUD 가 생긴 뒤 세 종류를 한 층에 다 켤 수 없었다)
+         */
+        @Size(max = 4) List<@Valid @NotNull TowerFloorEffectLayerDto> effectLayers) {
 
     /** 서버가 이 URL 을 읽으므로(마스크 검사) https 만 받는다 — 호스트 허용 목록은 ImageFloorMaskChecker */
     public static final String HTTPS_URL = "^https://.+";

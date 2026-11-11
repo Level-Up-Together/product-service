@@ -114,6 +114,7 @@ class TowerFloorAdminInternalControllerTest {
                                 40,
                                 1,
                                 3,
+                                null,
                                 null)),
                 pixelArt());
     }
@@ -213,6 +214,13 @@ class TowerFloorAdminInternalControllerTest {
                         .description(
                                 "LUT-740 CLOUD 번짐(원본 px 0~200, 비우면 60) — 구름은 amount 짙기 0~100·speed"
                                         + " 흐름 0~100, 크기는 쓰지 않는다. 종류별 범위 밖 150115")
+                        .optional(),
+                fieldWithPath(prefix + "effect_layers[].drop_count")
+                        .type(JsonFieldType.NUMBER)
+                        .description(
+                                "LUT-785 RAIN(유리창 빗물) 흐르는 물방울 수 0~120(비우면 46) — 물방울은 amount 맺힌"
+                                        + " 물방울 밀도 1~100·speed 흐르는 속도 1~100(50 = 시안), 크기는 쓰지 않는다."
+                                        + " 다른 종류는 null")
                         .optional());
     }
 
