@@ -47,3 +47,26 @@ Accept: application/json
 ### ----------------------------------------------------------
 DELETE {{baseUrl}}/meta-service/common-code
 Accept: application/json
+
+### ----------------------------------------------------------
+### 위젯 문장 목록 + 빈 시간대 (LUT-775, 내부 API)
+### ----------------------------------------------------------
+GET {{baseUrl}}/api/internal/widget-messages?condition=NOT_DONE
+Accept: application/json
+
+### ----------------------------------------------------------
+### 위젯 문장 작성 (LUT-775) — 22~2 는 자정을 넘는 구간
+### ----------------------------------------------------------
+POST {{baseUrl}}/api/internal/widget-messages
+Content-Type: application/json
+Accept: application/json
+
+{
+  "start_hour": 22,
+  "end_hour": 2,
+  "condition": "NOT_DONE",
+  "text_ko": "아직 늦지 않았어요. 자기 전 5분, 오늘을 채워 볼까요?",
+  "text_en": "It's not too late. Five minutes before bed to finish today?",
+  "active": true,
+  "sort_order": 9
+}

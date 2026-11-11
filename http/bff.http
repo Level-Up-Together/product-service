@@ -125,3 +125,14 @@ Authorization: Bearer {{accessToken}}
 Accept: application/json
 Accept-Language: ko
 
+
+### ----------------------------------------------------------
+### 홈 화면 위젯 요약 (LUT-775)
+### - practice_streak_days: 연속 실천 일수(프로필과 같은 값, 방어권 반영)
+### - completed_today: 유저 타임존 기준 오늘 미션 완료 여부
+### - messages[]: 활성 문장 전체(Accept-Language), 위젯이 시간대·완료 여부로 고른다
+### ----------------------------------------------------------
+GET {{baseUrl}}/api/v1/widget/summary
+Authorization: Bearer {{accessToken}}
+Accept: application/json
+Accept-Language: ko
