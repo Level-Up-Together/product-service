@@ -59,6 +59,13 @@ public class StatsRequestExceptionHandler {
         return badRequest(CODE_INVALID_PARAM, KEY_INVALID_PARAM, e.getName(), expected);
     }
 
+    /** LUT-779: 문자열 파라미터 허용값 밖 — enum 변환 실패와 같은 400 100101 */
+    @ExceptionHandler(StatsInvalidParamException.class)
+    public ResponseEntity<Object> handleInvalidParam(StatsInvalidParamException e) {
+        log.info("[stats] 파라미터 값 오류 name={} expected={}", e.getName(), e.getExpected());
+        return badRequest(CODE_INVALID_PARAM, KEY_INVALID_PARAM, e.getName(), e.getExpected());
+    }
+
     @ExceptionHandler(MissingServletRequestParameterException.class)
     public ResponseEntity<Object> handleMissing(MissingServletRequestParameterException e) {
         log.info("[stats] 필수 파라미터 누락 name={}", e.getParameterName());

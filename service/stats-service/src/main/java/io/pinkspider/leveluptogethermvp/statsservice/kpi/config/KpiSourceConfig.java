@@ -1,7 +1,11 @@
 package io.pinkspider.leveluptogethermvp.statsservice.kpi.config;
 
+import io.pinkspider.leveluptogethermvp.statsservice.kpi.infrastructure.source.ChatSourceReader;
+import io.pinkspider.leveluptogethermvp.statsservice.kpi.infrastructure.source.FeedSourceReader;
 import io.pinkspider.leveluptogethermvp.statsservice.kpi.infrastructure.source.GamificationSourceReader;
+import io.pinkspider.leveluptogethermvp.statsservice.kpi.infrastructure.source.GuildSourceReader;
 import io.pinkspider.leveluptogethermvp.statsservice.kpi.infrastructure.source.MissionSourceReader;
+import io.pinkspider.leveluptogethermvp.statsservice.kpi.infrastructure.source.TowerSourceReader;
 import io.pinkspider.leveluptogethermvp.statsservice.kpi.infrastructure.source.UserSourceReader;
 import javax.sql.DataSource;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -26,6 +30,32 @@ public class KpiSourceConfig {
     public GamificationSourceReader gamificationSourceReader(
             @Qualifier("gamificationDataSource") DataSource dataSource) {
         return new GamificationSourceReader(new NamedParameterJdbcTemplate(dataSource));
+    }
+
+    /** LUT-779: 첫날 상호작용 — 길드 가입 */
+    @Bean
+    public GuildSourceReader guildSourceReader(
+            @Qualifier("guildDataSource") DataSource dataSource) {
+        return new GuildSourceReader(new NamedParameterJdbcTemplate(dataSource));
+    }
+
+    /** LUT-779: 첫날 상호작용 — 피드 좋아요·댓글(주고받음) */
+    @Bean
+    public FeedSourceReader feedSourceReader(@Qualifier("feedDataSource") DataSource dataSource) {
+        return new FeedSourceReader(new NamedParameterJdbcTemplate(dataSource));
+    }
+
+    /** LUT-779: 첫날 상호작용 — DM */
+    @Bean
+    public ChatSourceReader chatSourceReader(@Qualifier("chatDataSource") DataSource dataSource) {
+        return new ChatSourceReader(new NamedParameterJdbcTemplate(dataSource));
+    }
+
+    /** LUT-779: 첫날 상호작용 — 탑 채팅·받은 응원 */
+    @Bean
+    public TowerSourceReader towerSourceReader(
+            @Qualifier("towerDataSource") DataSource dataSource) {
+        return new TowerSourceReader(new NamedParameterJdbcTemplate(dataSource));
     }
 
     @Bean

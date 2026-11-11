@@ -199,6 +199,20 @@ user_db · gamification_db · mission_db ─ *SourceReader(JDBC 읽기 전용) �
   - `unknown` = LUT-599 배포 전 가입자
 - 입력은 클라이언트가 보내는 optional 필드다: `invite_code`, `utm_source/medium/campaign`. 기기는 `DeviceTypeResolver` 로 판정한다. 웹은 first-touch 쿠키 `{prefix}utm`(30일)에서 꺼낸다.
 
+### 3.8 첫날 행동별 리텐션 (LUT-779, `statsservice/firstday`)
+
+"혼자 써도 남는 앱인가, 함께해야 남는 앱인가" 를 숫자로 본다. 가입 첫날 행동으로 유저를 세 그룹으로 나누고 D1·D7·D30 과 판정을 낸다. 어드민 리텐션 화면(LUT-780)은 이 표만 읽는다.
+
+- **표** `first_day_retention`(stats_db, Flyway `stats/V1_1_6_001`) — 유저 1행: `signup_at`(UTC)·`signup_date`(KST)·`platform`(IOS·ANDROID·WEB·UNKNOWN — `signup_device_type`, iPad 는 IOS, LUT-599 전 가입자는 UNKNOWN)·`first_day_completed`·`first_day_interacted`·`first_day_group`·`d1`·`d7`·`d30`(null = 아직 확정 전).
+- **첫날** = 가입 시각부터 24시간 `[가입, 가입 + 24h)`(날짜가 아니라 시각). **첫날 완료** = 그 안에 미션 완료 1회 이상(`mission_execution`·`daily_mission_instance` COMPLETED).
+- **상호작용**(그 안에 다른 사람과 주고받음): 친구 요청·수락(요청자·상대 모두, user_db) · 길드 가입(guild_db) · 피드 좋아요·댓글(준 쪽·받은 쪽, 자기 피드 제외, feed_db) · DM(대화 두 사람, chat_db) · 탑 채팅(전달된 것 SENT·MASKED)·받은 응원(`tower_mission_seat.cheer_count > 0`, 시각은 앉은 시각, tower_db). **탑 리액션은 DB 에 남지 않아 셀 수 없다.** 원천 리더는 `kpi/infrastructure/source/{User,Mission,Guild,Feed,Chat,Tower}SourceReader`(LUT-601 원칙: 다른 서비스 코드 import 없이 DataSource 에 SQL), 500명씩 IN 목록.
+- **그룹**: NOT_COMPLETED(첫날 미완료, 상호작용 무관) · SOLO(완료·상호작용 없음) · SOCIAL(완료·상호작용 있음).
+- **D1·D7·D30** = KST 가입일 + N 에 접속(`user_daily_activity`)했는가 — 기존 코호트 리텐션 classic 과 같은 정의. 그날이 닫혀야(≤ 어제) 채운다.
+- **대상**: 접속 기록 시작일(`min(activity_date)`) 이후 가입자. 테스트 계정(provider=test)·제외 유저(LUT-678) 빼고, **탈퇴자는 포함**(분모에 남겨 "돌아오지 않음" — 빼면 리텐션이 부풀려진다).
+- **집계** `FirstDayRetentionScheduler` 00:50 KST(활동 flush 00:20·KPI 00:40 뒤) → `FirstDayRetentionService.runDaily`: ① 가입 후 24시간이 지난 새 가입자 분류(이미 분류한 마지막 가입일 − 2일부터 읽고 있는 유저는 건너뜀) ② D1·D7·D30 이 빈 행만 채움. 멱등. 정의를 바꾸면 `POST .../first-day-retention/rebuild`(표 비우고 처음부터).
+- **조회** `FirstDayRetentionQueryService`: 기간 = 최근 4·8·12주 가입일, 끝 = 오늘 − 2일(그날 가입자의 첫날이 모두 끝났다). 각 리텐션은 **확정된 유저만** 센다(D7 은 가입 후 7일 지난 유저만) — 확정 유저가 없으면 null(화면 "–", 0% 로 보이지 않게). `dN_users` = 판정 가능 인원. % 는 소수 한 자리.
+- **판정**(D7, `RetentionVerdictPolicy` 상수): ① SOLO vs NOT_COMPLETED → 차이 ≥ +5%p·유의 `SOLO_RETAINS`, 아니면 `SOLO_WEAK` ② SOCIAL vs SOLO → ≥ +5%p·유의 `SOCIAL_BOOSTS`, ≤ −5%p·유의 `SOCIAL_HURTS`, 그 외 `SOCIAL_NO_DIFF`. 비교 그룹 중 하나라도 D7 판정 가능 인원 30명 미만이면 그 비교는 `NOT_ENOUGH_DATA`. 유의성 = 두 비율 z-검정(합동 비율) |z| ≥ 1.96, 표준오차 0 이면 유의하지 않음. 응답 `comparison` 으로 어느 비교인지 구분한다.
+
 ## 4. 내부 API (`X-Internal-Api-Key`)
 
 모든 날짜는 ISO `yyyy-MM-dd`, 월은 `yyyy-MM` 이다. 조회 API 는 from>to 면 바꿔서 처리한다. 응답은 전역 snake_case 다. 어드민은 admin-service `MvpKpiFeignClient` 로 `/api/admin/kpi/*`(`KPI_READ`, rebuild 는 `KPI_MANAGE`)에 그대로 패스스루한다.
@@ -211,6 +225,8 @@ user_db · gamification_db · mission_db ─ *SourceReader(JDBC 읽기 전용) �
 | `GET /api/internal/kpi/retention` | `cohort_from`, `cohort_to`, `source`(선택: `REQUEST`/`ATTENDANCE`) | `{cohort_date, metric, source, cohort_size, retained, rate}` 목록 |
 | `GET /api/internal/kpi/revenue/cohorts` | `from_month`, `to_month` | `{cohort_month, month_n, cohort_size, paying_users, cumulative_revenue_krw, ltv_krw}` 목록 |
 | `GET /api/internal/kpi/signups/by-channel` | `from_month`, `to_month` | `{month, channel, signups}` 목록 |
+| `GET /api/internal/kpi/first-day-retention` (LUT-779) | `range`(`4w`·`8w`·`12w`, 기본 4w), `platform`(`ALL`·`IOS`·`ANDROID`·`WEB`, 기본 ALL) | `{range, platform, range_start, range_end, data_start_date, signups, first_day_completion_rate, groups[{group, users, d1, d1_users, d7, d7_users, d30, d30_users}], verdicts[{comparison, code, diff_pp, significant}]}` — §3.8 |
+| `POST /api/internal/kpi/first-day-retention/rebuild` (LUT-779) | — | `{data_start_date, classified, retention_updated}` — 표를 비우고 처음부터 |
 
 **파라미터 오류는 400** (LUT-616, `statsservice/api/exception/StatsRequestExceptionHandler`)
 
@@ -218,6 +234,7 @@ user_db · gamification_db · mission_db ─ *SourceReader(JDBC 읽기 전용) �
 |---|---|---|
 | `MethodArgumentTypeMismatchException`: 날짜·월 형식 오류, enum 허용값 밖 | `100101` | `error.stats.param.invalid` (파라미터명, 기대 형식 `yyyy-MM-dd`/`yyyy-MM`/enum 목록) |
 | `MissingServletRequestParameterException`: 필수 파라미터 누락 | `100102` | `error.stats.param.missing` (파라미터명) |
+| `StatsInvalidParamException`: 문자열 파라미터 허용값 밖 (`range=5w` 등, LUT-779) | `100101` | `error.stats.param.invalid` (파라미터명, 허용값 목록) |
 
 - 플랫폼 `RestExceptionHandler` 의 `@ExceptionHandler(Exception.class)` 가 Spring 기본 400 보다 먼저 잡아 500 `000500` 을 낸다. 그래서 `@RestControllerAdvice(basePackages = "...statsservice")` + `@Order(HIGHEST_PRECEDENCE)` 로 가로챈다. 다른 서비스 응답은 영향이 없다(LUT-577 미션 어드바이스와 같은 구조).
 - `@WebMvcTest` 슬라이스에는 플랫폼 핸들러가 없으므로, 테스트만으로는 500 이 보이지 않는다.
