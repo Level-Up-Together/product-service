@@ -1,8 +1,12 @@
 package io.pinkspider.leveluptogethermvp.statsservice.kpi.infrastructure.source;
 
 import io.pinkspider.leveluptogethermvp.statsservice.kpi.domain.ExcludedUsers;
+import io.pinkspider.leveluptogethermvp.statsservice.kpi.domain.dto.source.SignupRecord;
 import io.pinkspider.leveluptogethermvp.statsservice.kpi.domain.dto.source.SignupsByChannel;
+import io.pinkspider.leveluptogethermvp.statsservice.kpi.domain.dto.source.UserEvent;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
@@ -49,6 +53,28 @@ public class UserSourceReader {
                     + EXCLUDE_IDS
                     + " GROUP BY 1, 2 ORDER BY 1, 2";
 
+    /**
+     * LUT-779: 첫날 행동 분류 대상 — 탈퇴자도 포함한다(분모에 남겨 "돌아오지 않음" 으로 센다, 빼면 리텐션이 부풀려진다). 테스트 계정·제외 유저는 뺀다.
+     */
+    static final String FIND_SIGNUPS =
+            "SELECT id, created_at, signup_device_type FROM users"
+                    + " WHERE created_at >= :from AND created_at < :to"
+                    + EXCLUDE_TEST
+                    + EXCLUDE_IDS
+                    + " ORDER BY created_at";
+
+    /**
+     * LUT-779: 친구 요청·수락 — 요청한 쪽·받은 쪽 모두에게 상호작용(주고받음). 요청 시각이 없던 예전 행은 생성 시각. 대상 유저 목록·기간으로만 거르고 유저별
+     * 첫날 창은 호출자가 본다.
+     */
+    static final String FIND_FRIENDSHIP_EVENTS =
+            "SELECT user_id, friend_id, COALESCE(requested_at, created_at) AS requested_at,"
+                    + " accepted_at FROM friendship"
+                    + " WHERE (user_id IN (:ids) OR friend_id IN (:ids))"
+                    + " AND ((COALESCE(requested_at, created_at) >= :from"
+                    + " AND COALESCE(requested_at, created_at) < :to)"
+                    + " OR (accepted_at >= :from AND accepted_at < :to))";
+
     private final NamedParameterJdbcTemplate jdbc;
 
     public UserSourceReader(NamedParameterJdbcTemplate jdbc) {
@@ -85,6 +111,40 @@ public class UserSourceReader {
                                 rs.getString("month"),
                                 rs.getString("channel"),
                                 rs.getInt("signups")));
+    }
+
+    /** LUT-779: 기간(UTC) 가입자 — 가입 시각 순 */
+    public List<SignupRecord> findSignups(
+            LocalDateTime fromUtc, LocalDateTime toUtc, ExcludedUsers excluded) {
+        return jdbc.query(
+                FIND_SIGNUPS,
+                range(fromUtc, toUtc, excluded),
+                (rs, i) ->
+                        new SignupRecord(
+                                rs.getString("id"),
+                                rs.getObject("created_at", LocalDateTime.class),
+                                rs.getString("signup_device_type")));
+    }
+
+    /** LUT-779: 대상 유저들의 친구 요청·수락 이벤트(요청자·상대 모두) */
+    public List<UserEvent> findFriendshipEvents(
+            Collection<String> userIds, LocalDateTime fromUtc, LocalDateTime toUtc) {
+        List<UserEvent> events = new ArrayList<>();
+        jdbc.query(
+                FIND_FRIENDSHIP_EVENTS,
+                Map.of("ids", userIds, "from", fromUtc, "to", toUtc),
+                rs -> {
+                    String user = rs.getString("user_id");
+                    String friend = rs.getString("friend_id");
+                    for (String column : List.of("requested_at", "accepted_at")) {
+                        LocalDateTime at = rs.getObject(column, LocalDateTime.class);
+                        if (at != null) {
+                            events.add(new UserEvent(user, at));
+                            events.add(new UserEvent(friend, at));
+                        }
+                    }
+                });
+        return events;
     }
 
     private static Map<String, Object> range(
