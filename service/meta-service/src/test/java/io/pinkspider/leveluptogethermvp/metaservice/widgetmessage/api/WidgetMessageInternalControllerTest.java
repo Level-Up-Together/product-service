@@ -12,6 +12,9 @@ import static org.springframework.restdocs.operation.preprocess.Preprocessors.pr
 import static org.springframework.restdocs.operation.preprocess.Preprocessors.preprocessResponse;
 import static org.springframework.restdocs.operation.preprocess.Preprocessors.prettyPrint;
 import static org.springframework.restdocs.payload.PayloadDocumentation.fieldWithPath;
+import static org.springframework.restdocs.payload.PayloadDocumentation.responseFields;
+import static org.springframework.restdocs.request.RequestDocumentation.partWithName;
+import static org.springframework.restdocs.request.RequestDocumentation.requestParts;
 
 import com.epages.restdocs.apispec.MockMvcRestDocumentationWrapper;
 import com.epages.restdocs.apispec.ResourceSnippetParameters;
@@ -19,8 +22,11 @@ import com.epages.restdocs.apispec.SimpleType;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.pinkspider.leveluptogethermvp.config.ControllerTestConfig;
 import io.pinkspider.leveluptogethermvp.metaservice.widgetmessage.api.exception.WidgetMessageExceptionHandler;
+import io.pinkspider.leveluptogethermvp.metaservice.widgetmessage.application.WidgetMessageImageException;
+import io.pinkspider.leveluptogethermvp.metaservice.widgetmessage.application.WidgetMessageImageService;
 import io.pinkspider.leveluptogethermvp.metaservice.widgetmessage.application.WidgetMessageNotFoundException;
 import io.pinkspider.leveluptogethermvp.metaservice.widgetmessage.application.WidgetMessageService;
+import io.pinkspider.leveluptogethermvp.metaservice.widgetmessage.domain.dto.WidgetMessageImageUploadResponse;
 import io.pinkspider.leveluptogethermvp.metaservice.widgetmessage.domain.dto.WidgetMessageListResponse;
 import io.pinkspider.leveluptogethermvp.metaservice.widgetmessage.domain.dto.WidgetMessageListResponse.WidgetMessageGapResponse;
 import io.pinkspider.leveluptogethermvp.metaservice.widgetmessage.domain.dto.WidgetMessageRequest;
@@ -39,6 +45,7 @@ import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMock
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
+import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.restdocs.mockmvc.RestDocumentationRequestBuilders;
 import org.springframework.restdocs.payload.FieldDescriptor;
 import org.springframework.restdocs.payload.JsonFieldType;
@@ -66,6 +73,10 @@ class WidgetMessageInternalControllerTest {
     @Autowired MockMvc mockMvc;
     @Autowired ObjectMapper objectMapper;
     @MockitoBean WidgetMessageService widgetMessageService;
+    @MockitoBean WidgetMessageImageService widgetMessageImageService;
+
+    private static final String IMAGE_URL =
+            "https://images.level-up-together.com/widget/0b6f8c1e-5d2a-4f0e-9a7b-3c1d2e4f5a6b.png";
 
     private static WidgetMessageResponse response(long id, boolean active) {
         return new WidgetMessageResponse(
@@ -79,6 +90,7 @@ class WidgetMessageInternalControllerTest {
                 "خطوة صغيرة في الصباح تغيّر يومك.",
                 active,
                 1,
+                IMAGE_URL,
                 LocalDateTime.of(2026, 11, 11, 0, 0),
                 LocalDateTime.of(2026, 11, 11, 1, 0));
     }
@@ -93,7 +105,8 @@ class WidgetMessageInternalControllerTest {
                 "朝の一歩が一日を変えます。",
                 "خطوة صغيرة في الصباح تغيّر يومك.",
                 true,
-                1);
+                1,
+                IMAGE_URL);
     }
 
     private static FieldDescriptor[] messageFields(String prefix) {
@@ -125,6 +138,10 @@ class WidgetMessageInternalControllerTest {
             fieldWithPath(prefix + "sort_order")
                     .type(JsonFieldType.NUMBER)
                     .description("관리 화면 정렬(같은 시작 시각 안)"),
+            fieldWithPath(prefix + "background_image_url")
+                    .type(JsonFieldType.STRING)
+                    .description("위젯 배경 이미지 절대 URL(LUT-797). 없으면 null — 위젯은 하얀 배경")
+                    .optional(),
             fieldWithPath(prefix + "created_at").type(JsonFieldType.STRING).description("생성 일시"),
             fieldWithPath(prefix + "modified_at")
                     .type(JsonFieldType.STRING)
@@ -173,6 +190,12 @@ class WidgetMessageInternalControllerTest {
             fieldWithPath("sort_order")
                     .type(JsonFieldType.NUMBER)
                     .description("정렬(0 이상). 비우면 작성 = 0, 수정 = 그대로")
+                    .optional(),
+            fieldWithPath("background_image_url")
+                    .type(JsonFieldType.STRING)
+                    .description(
+                            "위젯 배경 이미지(LUT-797) — 업로드 API(POST /images)가 준 주소만(아니면 400 080205)."
+                                    + " 수정에서 비우면(null) 그대로, 빈 문자열이면 지움(하얀 배경)")
                     .optional()
         };
     }
@@ -402,7 +425,7 @@ class WidgetMessageInternalControllerTest {
     void sameHours() throws Exception {
         WidgetMessageRequest same =
                 new WidgetMessageRequest(
-                        6, 6, WidgetMessageCondition.ALL, "문장", null, null, null, null, null);
+                        6, 6, WidgetMessageCondition.ALL, "문장", null, null, null, null, null, null);
 
         mockMvc.perform(
                         RestDocumentationRequestBuilders.post("/api/internal/widget-messages")
@@ -423,5 +446,120 @@ class WidgetMessageInternalControllerTest {
                                 .content(body))
                 .andExpect(MockMvcResultMatchers.status().isBadRequest());
         verifyNoInteractions(widgetMessageService);
+    }
+
+    @Test
+    @DisplayName("POST /api/internal/widget-messages/images : 배경 이미지 업로드 (LUT-797)")
+    void uploadImage() throws Exception {
+        when(widgetMessageImageService.upload(any()))
+                .thenReturn(new WidgetMessageImageUploadResponse(IMAGE_URL, 1024, 1024, 312_480L));
+
+        mockMvc.perform(
+                        RestDocumentationRequestBuilders.multipart(
+                                        "/api/internal/widget-messages/images")
+                                .file(
+                                        new MockMultipartFile(
+                                                "file",
+                                                "morning.png",
+                                                "image/png",
+                                                new byte[] {1, 2, 3}))
+                                .contentType(MediaType.MULTIPART_FORM_DATA))
+                .andExpect(MockMvcResultMatchers.status().isOk())
+                .andExpect(MockMvcResultMatchers.jsonPath("$.value.url").value(IMAGE_URL))
+                .andExpect(MockMvcResultMatchers.jsonPath("$.value.width").value(1024))
+                .andExpect(MockMvcResultMatchers.jsonPath("$.value.size_bytes").value(312480))
+                .andDo(
+                        MockMvcRestDocumentationWrapper.document(
+                                "internal-widget-message-image-upload",
+                                ResourceSnippetParameters.builder()
+                                        .tag(TAG)
+                                        .description(
+                                                "위젯 문장 배경 이미지 업로드 (LUT-797) — JPG·PNG, 1MB 이하. 절대"
+                                                        + " 주소를 돌려준다. 거절 400 080203, 저장 실패"
+                                                        + " 500 080204"),
+                                requestParts(
+                                        partWithName("file")
+                                                .description("이미지 파일 (JPG·PNG, 1MB 이하)")),
+                                responseFields(
+                                        fieldWithPath("code")
+                                                .type(JsonFieldType.STRING)
+                                                .description("응답 코드"),
+                                        fieldWithPath("message")
+                                                .type(JsonFieldType.STRING)
+                                                .description("응답 메시지"),
+                                        fieldWithPath("value.url")
+                                                .type(JsonFieldType.STRING)
+                                                .description(
+                                                        "절대 URL — 문장 작성·수정의"
+                                                                + " background_image_url 에 그대로"),
+                                        fieldWithPath("value.width")
+                                                .type(JsonFieldType.NUMBER)
+                                                .description("가로 픽셀(헤더를 못 읽으면 null)")
+                                                .optional(),
+                                        fieldWithPath("value.height")
+                                                .type(JsonFieldType.NUMBER)
+                                                .description("세로 픽셀(헤더를 못 읽으면 null)")
+                                                .optional(),
+                                        fieldWithPath("value.size_bytes")
+                                                .type(JsonFieldType.NUMBER)
+                                                .description("파일 크기(바이트)"))));
+    }
+
+    @Test
+    @DisplayName("배경 이미지 — 형식·크기 거절은 400 080203, 저장 실패는 500 080204")
+    void uploadImageErrors() throws Exception {
+        MockMultipartFile file =
+                new MockMultipartFile("file", "a.gif", "image/gif", new byte[] {1});
+        when(widgetMessageImageService.upload(any()))
+                .thenThrow(WidgetMessageImageException.invalid())
+                .thenThrow(WidgetMessageImageException.saveFailed());
+
+        mockMvc.perform(
+                        RestDocumentationRequestBuilders.multipart(
+                                        "/api/internal/widget-messages/images")
+                                .file(file)
+                                .contentType(MediaType.MULTIPART_FORM_DATA))
+                .andExpect(MockMvcResultMatchers.status().isBadRequest())
+                .andExpect(
+                        MockMvcResultMatchers.jsonPath("$.code")
+                                .value(WidgetMessageImageException.CODE_INVALID));
+        mockMvc.perform(
+                        RestDocumentationRequestBuilders.multipart(
+                                        "/api/internal/widget-messages/images")
+                                .file(file)
+                                .contentType(MediaType.MULTIPART_FORM_DATA))
+                .andExpect(MockMvcResultMatchers.status().isInternalServerError())
+                .andExpect(
+                        MockMvcResultMatchers.jsonPath("$.code")
+                                .value(WidgetMessageImageException.CODE_SAVE_FAILED));
+    }
+
+    @Test
+    @DisplayName("배경 이미지 — file 파트가 없으면 400 080203")
+    void uploadImageWithoutFile() throws Exception {
+        mockMvc.perform(
+                        RestDocumentationRequestBuilders.multipart(
+                                        "/api/internal/widget-messages/images")
+                                .contentType(MediaType.MULTIPART_FORM_DATA))
+                .andExpect(MockMvcResultMatchers.status().isBadRequest())
+                .andExpect(
+                        MockMvcResultMatchers.jsonPath("$.code")
+                                .value(WidgetMessageImageException.CODE_INVALID));
+        verifyNoInteractions(widgetMessageImageService);
+    }
+
+    @Test
+    @DisplayName("업로드 API 가 발급하지 않은 배경 주소로 저장하면 400 080205")
+    void foreignImageUrl() throws Exception {
+        when(widgetMessageService.create(any())).thenThrow(WidgetMessageImageException.notOwned());
+
+        mockMvc.perform(
+                        RestDocumentationRequestBuilders.post("/api/internal/widget-messages")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(request())))
+                .andExpect(MockMvcResultMatchers.status().isBadRequest())
+                .andExpect(
+                        MockMvcResultMatchers.jsonPath("$.code")
+                                .value(WidgetMessageImageException.CODE_NOT_OWNED));
     }
 }

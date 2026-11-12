@@ -1,6 +1,7 @@
 package io.pinkspider.leveluptogethermvp.metaservice.widgetmessage.api.exception;
 
 import io.pinkspider.global.api.ApiResult;
+import io.pinkspider.leveluptogethermvp.metaservice.widgetmessage.application.WidgetMessageImageException;
 import io.pinkspider.leveluptogethermvp.metaservice.widgetmessage.application.WidgetMessageNotFoundException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.MessageSource;
@@ -13,11 +14,12 @@ import org.springframework.lang.Nullable;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.springframework.web.multipart.support.MissingServletRequestPartException;
 
 /**
- * LUT-775: 위젯 문장 API 의 "없음" 을 404, 파라미터 형식 오류를 400 으로 돌려준다. 플랫폼 {@code CustomException} 은 늘 500
- * 이라(LUT-616 과 같은 이유) widgetmessage 패키지 컨트롤러로 범위를 한정한 {@code HIGHEST_PRECEDENCE} 어드바이스를 둔다. 입력 오류는
- * Bean Validation → 플랫폼 400.
+ * LUT-775: 위젯 문장 API 의 "없음" 을 404, 파라미터 형식 오류를 400 으로 돌려준다. LUT-797: 배경 이미지 오류도 여기서. 플랫폼 {@code
+ * CustomException} 은 늘 500 이라(LUT-616 과 같은 이유) widgetmessage 패키지 컨트롤러로 범위를 한정한 {@code
+ * HIGHEST_PRECEDENCE} 어드바이스를 둔다. 입력 오류는 Bean Validation → 플랫폼 400.
  */
 @RestControllerAdvice(basePackages = "io.pinkspider.leveluptogethermvp.metaservice.widgetmessage")
 @Order(Ordered.HIGHEST_PRECEDENCE)
@@ -42,6 +44,24 @@ public class WidgetMessageExceptionHandler {
     public ResponseEntity<Object> handleNotFound(WidgetMessageNotFoundException e) {
         log.info("[widget-message] {}", e.getMessage());
         return respond(HttpStatus.NOT_FOUND, CODE_NOT_FOUND, KEY_NOT_FOUND);
+    }
+
+    /**
+     * LUT-797: 배경 이미지 — 형식·크기 400 {@code 080203}, 저장 실패 500 {@code 080204}, 발급하지 않은 주소 400 {@code
+     * 080205}
+     */
+    @ExceptionHandler(WidgetMessageImageException.class)
+    public ResponseEntity<Object> handleImage(WidgetMessageImageException e) {
+        log.info("[widget-message] 배경 이미지 오류 code={}", e.getCode());
+        return respond(e.getStatus(), e.getCode(), e.getMessageKey());
+    }
+
+    /** LUT-797: 업로드 요청에 file 파트가 없다 — 플랫폼 기본은 500 */
+    @ExceptionHandler(MissingServletRequestPartException.class)
+    public ResponseEntity<Object> handleMissingPart(MissingServletRequestPartException e) {
+        log.info("[widget-message] 업로드 파트 없음 name={}", e.getRequestPartName());
+        WidgetMessageImageException invalid = WidgetMessageImageException.invalid();
+        return respond(invalid.getStatus(), invalid.getCode(), invalid.getMessageKey());
     }
 
     @ExceptionHandler(MethodArgumentTypeMismatchException.class)

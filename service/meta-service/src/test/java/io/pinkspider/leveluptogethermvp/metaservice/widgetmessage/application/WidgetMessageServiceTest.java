@@ -4,11 +4,13 @@ import static io.pinkspider.global.test.TestReflectionUtils.setId;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import io.pinkspider.leveluptogethermvp.metaservice.widgetmessage.application.image.WidgetImageStorageService;
 import io.pinkspider.leveluptogethermvp.metaservice.widgetmessage.domain.dto.WidgetMessageListResponse;
 import io.pinkspider.leveluptogethermvp.metaservice.widgetmessage.domain.dto.WidgetMessageListResponse.WidgetMessageGapResponse;
 import io.pinkspider.leveluptogethermvp.metaservice.widgetmessage.domain.dto.WidgetMessageRequest;
@@ -37,13 +39,14 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 class WidgetMessageServiceTest {
 
     @Mock WidgetMessageRepository repository;
+    @Mock WidgetImageStorageService imageStorage;
 
     private final AtomicLong clock = new AtomicLong(1_000_000L);
     private WidgetMessageService service;
 
     @BeforeEach
     void setUp() {
-        service = new WidgetMessageService(repository, 60, clock::get);
+        service = new WidgetMessageService(repository, imageStorage, 60, clock::get);
     }
 
     @AfterEach
@@ -70,8 +73,40 @@ class WidgetMessageServiceTest {
     }
 
     private static WidgetMessageRequest request(Boolean active, Integer sortOrder) {
+        return request(active, sortOrder, null);
+    }
+
+    private static WidgetMessageRequest request(
+            Boolean active, Integer sortOrder, String backgroundImageUrl) {
         return new WidgetMessageRequest(
-                22, 2, WidgetMessageCondition.DONE, "  밤 문장 ", " ", "夜", null, active, sortOrder);
+                22,
+                2,
+                WidgetMessageCondition.DONE,
+                "  밤 문장 ",
+                " ",
+                "夜",
+                null,
+                active,
+                sortOrder,
+                backgroundImageUrl);
+    }
+
+    private static final String IMAGE = "https://cdn.test/widget/a.png";
+    private static final String OTHER_IMAGE = "https://cdn.test/widget/b.png";
+
+    private static WidgetMessage messageWithImage(long id, String imageUrl) {
+        WidgetMessage m =
+                WidgetMessage.builder()
+                        .startHour(6)
+                        .endHour(12)
+                        .condition(WidgetMessageCondition.ALL)
+                        .textKo("문장" + id)
+                        .active(true)
+                        .sortOrder((int) id)
+                        .backgroundImageUrl(imageUrl)
+                        .build();
+        setId(m, id);
+        return m;
     }
 
     @Nested
@@ -90,7 +125,7 @@ class WidgetMessageServiceTest {
             assertThat(ko)
                     .containsExactly(
                             new WidgetMessageView(
-                                    1L, 6, 12, WidgetMessageCondition.NOT_DONE, "문장1"));
+                                    1L, 6, 12, WidgetMessageCondition.NOT_DONE, "문장1", null));
             assertThat(ja.get(0).text()).isEqualTo("text1");
         }
 
@@ -325,6 +360,165 @@ class WidgetMessageServiceTest {
             assertThatThrownBy(() -> service.delete(99L))
                     .isInstanceOf(WidgetMessageNotFoundException.class);
             verify(repository, never()).delete(any());
+        }
+    }
+
+    @Nested
+    @DisplayName("배경 이미지 (LUT-797)")
+    class BackgroundImage {
+
+        @Test
+        @DisplayName("위젯 조회 — 배경 이미지 주소를 함께 내려 준다(없으면 null)")
+        void viewCarriesImage() {
+            when(repository.findByActiveTrueOrderByStartHourAscSortOrderAscIdAsc())
+                    .thenReturn(List.of(messageWithImage(1, IMAGE), messageWithImage(2, null)));
+
+            List<WidgetMessageView> views = service.getActiveMessages("ko");
+
+            assertThat(views)
+                    .extracting(WidgetMessageView::backgroundImageUrl)
+                    .containsExactly(IMAGE, null);
+        }
+
+        @Test
+        @DisplayName("작성 — 우리 저장소가 발급한 주소면 다듬어 저장한다")
+        void createWithOwnedImage() {
+            when(imageStorage.isOwned(IMAGE)).thenReturn(true);
+            when(repository.save(any(WidgetMessage.class))).thenAnswer(inv -> inv.getArgument(0));
+
+            WidgetMessageResponse response = service.create(request(null, null, " " + IMAGE + " "));
+
+            assertThat(response.backgroundImageUrl()).isEqualTo(IMAGE);
+        }
+
+        @Test
+        @DisplayName("작성 — 비우거나 빈 문자열이면 배경 없음")
+        void createWithoutImage() {
+            when(repository.save(any(WidgetMessage.class))).thenAnswer(inv -> inv.getArgument(0));
+
+            assertThat(service.create(request(null, null, null)).backgroundImageUrl()).isNull();
+            assertThat(service.create(request(null, null, "  ")).backgroundImageUrl()).isNull();
+            verify(imageStorage, never()).isOwned(any());
+        }
+
+        @Test
+        @DisplayName("작성·수정 — 발급하지 않은 주소는 080205 로 거절하고 저장하지 않는다")
+        void rejectsForeignImage() {
+            when(imageStorage.isOwned("https://evil.test/x.png")).thenReturn(false);
+            WidgetMessage m = messageWithImage(5, IMAGE);
+            when(repository.findById(5L)).thenReturn(Optional.of(m));
+
+            assertThatThrownBy(() -> service.create(request(null, null, "https://evil.test/x.png")))
+                    .isInstanceOfSatisfying(
+                            WidgetMessageImageException.class,
+                            e ->
+                                    assertThat(e.getCode())
+                                            .isEqualTo(WidgetMessageImageException.CODE_NOT_OWNED));
+            assertThatThrownBy(
+                            () ->
+                                    service.update(
+                                            5L, request(null, null, "https://evil.test/x.png")))
+                    .isInstanceOf(WidgetMessageImageException.class);
+
+            verify(repository, never()).save(any());
+            assertThat(m.getBackgroundImageUrl()).isEqualTo(IMAGE);
+            verify(imageStorage, never()).delete(any());
+        }
+
+        @Test
+        @DisplayName("수정 — 필드를 비우면(null) 그대로 둔다 (구 어드민 호환)")
+        void updateKeepsImageWhenNull() {
+            WidgetMessage m = messageWithImage(5, IMAGE);
+            when(repository.findById(5L)).thenReturn(Optional.of(m));
+
+            WidgetMessageResponse response = service.update(5L, request(null, null, null));
+
+            assertThat(response.backgroundImageUrl()).isEqualTo(IMAGE);
+            verify(imageStorage, never()).delete(any());
+        }
+
+        @Test
+        @DisplayName("수정 — 같은 주소를 다시 보내면 파일을 지우지 않는다")
+        void updateSameImage() {
+            WidgetMessage m = messageWithImage(5, IMAGE);
+            when(repository.findById(5L)).thenReturn(Optional.of(m));
+            when(imageStorage.isOwned(IMAGE)).thenReturn(true);
+
+            service.update(5L, request(null, null, IMAGE));
+
+            verify(imageStorage, never()).delete(any());
+        }
+
+        @Test
+        @DisplayName("수정 — 빈 문자열이면 지우고, 어느 문장도 안 쓰는 파일은 저장소에서 지운다")
+        void updateRemovesImage() {
+            WidgetMessage m = messageWithImage(5, IMAGE);
+            when(repository.findById(5L)).thenReturn(Optional.of(m));
+            when(repository.countByBackgroundImageUrl(IMAGE)).thenReturn(0L);
+
+            WidgetMessageResponse response = service.update(5L, request(null, null, ""));
+
+            assertThat(response.backgroundImageUrl()).isNull();
+            verify(imageStorage).delete(IMAGE);
+        }
+
+        @Test
+        @DisplayName("수정 — 다른 이미지로 바꾸면 옛 파일을 지운다. 다른 문장이 쓰고 있으면 둔다")
+        void updateReplacesImage() {
+            WidgetMessage m = messageWithImage(5, IMAGE);
+            when(repository.findById(5L)).thenReturn(Optional.of(m));
+            when(imageStorage.isOwned(OTHER_IMAGE)).thenReturn(true);
+            when(repository.countByBackgroundImageUrl(IMAGE)).thenReturn(1L);
+
+            WidgetMessageResponse response = service.update(5L, request(null, null, OTHER_IMAGE));
+
+            assertThat(response.backgroundImageUrl()).isEqualTo(OTHER_IMAGE);
+            verify(imageStorage, never()).delete(any());
+        }
+
+        @Test
+        @DisplayName("트랜잭션 안에서는 커밋 뒤에만 파일을 지운다 (롤백되면 지우지 않는다)")
+        void deletesAfterCommitOnly() {
+            WidgetMessage m = messageWithImage(5, IMAGE);
+            when(repository.findById(5L)).thenReturn(Optional.of(m));
+            when(repository.countByBackgroundImageUrl(IMAGE)).thenReturn(0L);
+            TransactionSynchronizationManager.initSynchronization();
+
+            service.update(5L, request(null, null, ""));
+            verify(imageStorage, never()).delete(any());
+
+            TransactionSynchronizationManager.getSynchronizations()
+                    .forEach(TransactionSynchronization::afterCommit);
+            verify(imageStorage).delete(IMAGE);
+        }
+
+        @Test
+        @DisplayName("문장 삭제 — 그 문장만 쓰던 배경 파일도 지운다. 배경이 없으면 저장소를 부르지 않는다")
+        void deleteMessageRemovesImage() {
+            WidgetMessage withImage = messageWithImage(5, IMAGE);
+            WidgetMessage plain = messageWithImage(6, null);
+            when(repository.findById(5L)).thenReturn(Optional.of(withImage));
+            when(repository.findById(6L)).thenReturn(Optional.of(plain));
+            when(repository.countByBackgroundImageUrl(IMAGE)).thenReturn(0L);
+
+            service.delete(5L);
+            service.delete(6L);
+
+            verify(imageStorage, times(1)).delete(IMAGE);
+            verify(repository, times(1)).countByBackgroundImageUrl(any());
+        }
+
+        @Test
+        @DisplayName("파일 정리가 실패해도 문장 변경은 성공한다")
+        void cleanupFailureIsSwallowed() {
+            WidgetMessage m = messageWithImage(5, IMAGE);
+            when(repository.findById(5L)).thenReturn(Optional.of(m));
+            when(repository.countByBackgroundImageUrl(IMAGE)).thenReturn(0L);
+            doThrow(new IllegalStateException("s3 down")).when(imageStorage).delete(IMAGE);
+
+            WidgetMessageResponse response = service.update(5L, request(null, null, ""));
+
+            assertThat(response.backgroundImageUrl()).isNull();
         }
     }
 }

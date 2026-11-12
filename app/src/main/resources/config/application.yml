@@ -85,6 +85,12 @@ app:
       allowed-extensions: jpg,jpeg,png,webp
       url-prefix: /uploads/tower
       public-base-url: ""
+    widget-image: # LUT-797 위젯 문장 배경 (prod 는 S3 widget/ 키 + CDN, 그 외 로컬 + 절대 주소). 공개 주소는 탑 이미지와 같은 값을 따른다
+      path: ${user.dir}/uploads/widget
+      max-size: 1048576
+      allowed-extensions: jpg,jpeg,png
+      url-prefix: /uploads/widget
+      public-base-url: ${app.upload.tower-image.public-base-url:}
     s3:
       bucket: ""
       cdn-base-url: ""

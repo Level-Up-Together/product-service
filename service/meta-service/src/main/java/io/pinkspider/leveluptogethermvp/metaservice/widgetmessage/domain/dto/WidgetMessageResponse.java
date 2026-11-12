@@ -6,7 +6,7 @@ import io.pinkspider.leveluptogethermvp.metaservice.widgetmessage.domain.entity.
 import io.pinkspider.leveluptogethermvp.metaservice.widgetmessage.domain.enums.WidgetMessageCondition;
 import java.time.LocalDateTime;
 
-/** LUT-775: 위젯 문장 (어드민 응답 — 4개 언어 원문) */
+/** LUT-775: 위젯 문장 (어드민 응답 — 4개 언어 원문). LUT-797: {@code background_image_url} 은 없으면 null(하얀 배경) */
 @JsonNaming(SnakeCaseStrategy.class)
 public record WidgetMessageResponse(
         Long id,
@@ -19,6 +19,7 @@ public record WidgetMessageResponse(
         String textAr,
         boolean active,
         int sortOrder,
+        String backgroundImageUrl,
         LocalDateTime createdAt,
         LocalDateTime modifiedAt) {
 
@@ -34,6 +35,7 @@ public record WidgetMessageResponse(
                 message.getTextAr(),
                 message.isActive(),
                 message.getSortOrder(),
+                message.getBackgroundImageUrl(),
                 message.getCreatedAt(),
                 message.getModifiedAt());
     }
