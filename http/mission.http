@@ -416,3 +416,24 @@ Accept: application/json
 ### 전량 실행 (limit 미지정)
 POST {{baseUrl}}/api/internal/mission-images/backfill-variants
 Accept: application/json
+
+### ----------------------------------------------------------
+### LUT-782·803: 첫 미션 온보딩 추천 미션
+### ----------------------------------------------------------
+### 켜진 추천 미션 목록
+GET {{baseUrl}}/api/v1/missions/recommended
+Accept: application/json
+Accept-Language: ko
+Authorization: Bearer {{accessToken}}
+
+### 타이머(TIMED) 추천 — 내 미션 생성 + 오늘 수행 시작
+POST {{baseUrl}}/api/v1/missions/recommended/2/start
+Accept: application/json
+Authorization: Bearer {{accessToken}}
+Idempotency-Key: {{$uuid}}
+
+### LUT-803: 체크(SIMPLE) 추천 — 내 미션 생성 + 바로 완료 (수행 중을 거치지 않는다). 타이머 추천이면 400 050503
+POST {{baseUrl}}/api/v1/missions/recommended/1/complete
+Accept: application/json
+Authorization: Bearer {{accessToken}}
+Idempotency-Key: {{$uuid}}
