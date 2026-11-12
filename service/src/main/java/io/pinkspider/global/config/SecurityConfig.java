@@ -192,6 +192,13 @@ public class SecurityConfig {
                                         .permitAll() // LUT-252: 비로그인 오늘의 MVP (QA-222 분리 시 누락)
                                         .requestMatchers(HttpMethod.GET, "/api/v1/bff/guild/list")
                                         .permitAll()
+                                        // LUT-804: 시즌 상세 — 웹 서버가 방문자·검색엔진에게 미리 그려 준다
+                                        // (비로그인이면 my_ranking 은 빈 값). GET 만 연다.
+                                        .requestMatchers(
+                                                HttpMethod.GET,
+                                                "/api/v1/bff/season/current",
+                                                "/api/v1/bff/season/{seasonId}")
+                                        .permitAll()
                                         .requestMatchers(
                                                 HttpMethod.GET, "/api/v1/bff/guild/{guildId}")
                                         .permitAll()

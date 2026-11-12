@@ -119,9 +119,17 @@ Accept-Language: ko
 
 ### ----------------------------------------------------------
 ### 현재 활성 시즌 상세 데이터 조회
+### 시즌이 없으면 404 NO_ACTIVE_SEASON (LUT-804, 예전엔 500)
 ### ----------------------------------------------------------
 GET {{baseUrl}}/api/v1/bff/season/current
 Authorization: Bearer {{accessToken}}
+Accept: application/json
+Accept-Language: ko
+
+### ----------------------------------------------------------
+### LUT-804: 현재 활성 시즌 — 비로그인 (my_ranking 은 빈 값)
+### ----------------------------------------------------------
+GET {{baseUrl}}/api/v1/bff/season/current
 Accept: application/json
 Accept-Language: ko
 

@@ -14,7 +14,13 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-/** BFF (Backend for Frontend) 시즌 컨트롤러 시즌 상세 화면에 필요한 데이터를 한 번의 API 호출로 제공합니다. */
+/**
+ * BFF (Backend for Frontend) 시즌 컨트롤러 시즌 상세 화면에 필요한 데이터를 한 번의 API 호출로 제공합니다.
+ *
+ * <p>LUT-804: 두 조회 모두 **비로그인 허용**(SecurityConfig GET permitAll + {@code @CurrentUser(required =
+ * false)}) — 웹 서버가 방문자·검색엔진에게 시즌 화면을 미리 그려 준다. 비로그인이면 {@code my_ranking} 은 빈 값이다. 시즌이 없으면
+ * 404({@code NO_ACTIVE_SEASON}·{@code SEASON_NOT_FOUND}, 예전엔 500).
+ */
 @RestController
 @RequestMapping("/api/v1/bff/season")
 @RequiredArgsConstructor
@@ -28,7 +34,7 @@ public class BffSeasonController {
      * <p>다음 데이터를 한 번에 조회합니다: - 시즌 정보 (제목, 기간, 상태) - 순위별 보상 목록 - 플레이어 랭킹 (1-10위) - 길드 랭킹 (1-10위) - 내
      * 랭킹 정보 - 미션 카테고리 목록 (탭용)
      *
-     * @param userId 인증된 사용자 ID
+     * @param userId 인증된 사용자 ID (비로그인이면 null)
      * @param seasonId 시즌 ID
      * @param categoryName 카테고리명 (선택적, null이면 전체)
      * @param acceptLanguage Accept-Language 헤더 (다국어 지원)
@@ -36,7 +42,7 @@ public class BffSeasonController {
      */
     @GetMapping("/{seasonId}")
     public ResponseEntity<ApiResult<SeasonDetailResponse>> getSeasonDetail(
-            @CurrentUser String userId,
+            @CurrentUser(required = false) String userId,
             @PathVariable Long seasonId,
             @RequestParam(required = false) String categoryName,
             @RequestHeader(value = HttpHeaders.ACCEPT_LANGUAGE, required = false)
@@ -51,14 +57,14 @@ public class BffSeasonController {
      *
      * <p>현재 활성화된 시즌의 상세 정보를 조회합니다. 활성 시즌이 없는 경우 에러를 반환합니다.
      *
-     * @param userId 인증된 사용자 ID
+     * @param userId 인증된 사용자 ID (비로그인이면 null)
      * @param categoryName 카테고리명 (선택적, null이면 전체)
      * @param acceptLanguage Accept-Language 헤더 (다국어 지원)
      * @return SeasonDetailResponse
      */
     @GetMapping("/current")
     public ResponseEntity<ApiResult<SeasonDetailResponse>> getCurrentSeasonDetail(
-            @CurrentUser String userId,
+            @CurrentUser(required = false) String userId,
             @RequestParam(required = false) String categoryName,
             @RequestHeader(value = HttpHeaders.ACCEPT_LANGUAGE, required = false)
                     String acceptLanguage) {
