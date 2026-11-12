@@ -20,8 +20,22 @@
 
 후속 티켓
 
-- **LUT-799** 랜딩 언어별 주소 + hreflang (아래 "문제 1")
+- **LUT-799** 랜딩 언어별 주소 + hreflang (아래 "문제 1") — **개발 끝 2026-11-12**(웹 `epic/v1.1.6`), 아래 "LUT-799 반영 내용"
 - **LUT-800** 공개 페이지 검색 노출 (아래 "문제 2")
+
+LUT-799 반영 내용 (2026-11-12, 웹)
+
+- 랜딩 주소가 다섯 개가 됐다: `/`(방문자 언어, 예전과 같다)와 `/ko`·`/en`·`/ja`·`/ar`(그 언어로 고정).
+- 언어별 주소는 방문자의 쿠키·`Accept-Language` 와 상관없이 그 언어로 나온다. `<html lang>`·제목·설명·og·JSON-LD(`WebPage.inLanguage`)가 그 언어다.
+- 다섯 주소 모두 같은 hreflang 묶음을 싣는다: `ko`·`en`·`ja`·`ar` + `x-default`(= `/`). canonical 은 각자 자기 주소다.
+- 사이트맵이 1개 → 5개 항목이 됐고, 항목마다 대체 언어 링크가 있다.
+- 기존 링크는 그대로 동작한다: `/`, `/landing`(→ `/` 301), UTM 쿼리.
+- 정한 것(티켓 "정할 것"): 주소는 `/ko` 같은 경로 · `/` 는 그대로 두고 `x-default` · 로그인한 유저가 `/ko` 로 오면 `/home`(`/` 와 같은 규칙).
+- **운영 배포 뒤 사람이 할 일**
+  1. Search Console "URL 검사"에 `https://level-up-together.com/ko` 를 넣고 "색인 생성 요청". 며칠 뒤 저장된 페이지가 `<html lang="ko">` 인지 본다.
+  2. Search Console 사이트맵 화면에서 "발견된 페이지"가 1 → 5 로 바뀌는지 본다(다시 제출하지 않아도 Google 이 주기적으로 읽는다).
+  3. 네이버 서치어드바이저 "웹 페이지 수집"에 `/ko` 를 넣는다(소유확인을 마친 뒤).
+  4. Google 이 저장한 랜딩에서 리소스 51개 중 26개가 "기타 오류"였던 것을 "실제 URL 테스트"로 다시 본다(이번 작업에서는 확인하지 못했다).
 
 Google 등록 기록
 
@@ -51,9 +65,9 @@ Google 등록 기록
 |---|---|
 | 등록 흔적 | 없음. DNS TXT 레코드(도메인에 붙이는 확인용 글자) 없음. 웹 코드에 확인용 메타 태그·파일 없음. Search Console 에 도메인 속성이 추가만 돼 있고 "확인 안됨"이었다 (→ 같은 날 Google 등록, 위 "진행 현황") |
 | `robots.txt` | 200. 전체 허용, `/api/` 만 차단, 사이트맵 주소 포함 (웹 `src/app/robots.ts`) |
-| 사이트맵 `sitemap.xml` | 200. `/` 1개만 (웹 `src/app/sitemap.ts`) |
+| 사이트맵 `sitemap.xml` | 200. `/` 1개만 (웹 `src/app/sitemap.ts`) → LUT-799 로 5개(`/` + 언어별 4개, 대체 언어 링크 포함. 운영 배포 뒤 반영) |
 | 랜딩 언어 | 같은 주소가 요청 헤더 `Accept-Language` 에 따라 ko·en·ja 로 바뀐다. 헤더 없이 오면 영어 |
-| hreflang(언어별 페이지를 서로 이어 주는 표시) | 없음 |
+| hreflang(언어별 페이지를 서로 이어 주는 표시) | 없음 → LUT-799 로 추가(운영 배포 뒤 반영) |
 | canonical(대표 주소 표시) | 랜딩에 `https://level-up-together.com` |
 | 공개 페이지 `/ranking` `/shop` `/tower` `/season` | 200, 검색 차단 없음. 제목이 전부 `Level Up Together` 로 같다. 사이트맵에 없다 |
 | DNS | Route53. 인프라 레포 `level-up-together-infra/route53.tf` 에서 Terraform 으로 관리 |
@@ -96,8 +110,8 @@ Google 등록 기록
 
 ### 2단계: 등록 효과를 키우는 코드 작업 (티켓 1~2건)
 
-1. **언어마다 주소를 나누고 hreflang 을 붙인다.** (LUT-799)
-   - 예: `/ko`, `/ja` (지금은 404). 주소 모양은 티켓에서 정한다.
+1. **언어마다 주소를 나누고 hreflang 을 붙인다.** (LUT-799 — 개발 끝, 위 "LUT-799 반영 내용")
+   - `/ko`·`/en`·`/ja`·`/ar` (운영은 배포 전까지 404).
    - 검색엔진이 언어별 랜딩을 따로 저장한다. 한국어 검색 노출에 가장 큰 영향을 준다.
 2. **공개 페이지를 검색엔진이 읽을 수 있게 만든다.** (LUT-800)
    - 노출할 페이지를 고르고, 서버에서 내용을 미리 그리고, 페이지마다 다른 제목·설명을 달고, 사이트맵에 넣는다.
@@ -130,6 +144,12 @@ curl -s -o /dev/null -D - https://level-up-together.com/home | grep -i x-robots
 for lang in "" ko en ja; do
   curl -s ${lang:+-H "Accept-Language: $lang"} https://level-up-together.com/ | grep -o '<title>[^<]*</title>'
 done
+
+# LUT-799: 언어별 랜딩 — 헤더 없이도 그 언어인가, canonical·hreflang 이 맞는가
+for lang in ko en ja ar; do
+  curl -s https://level-up-together.com/$lang | grep -oE '<html lang="[a-z]+"|<title>[^<]*</title>|rel="canonical" href="[^"]+"'
+done
+curl -s https://level-up-together.com/ko | grep -oiE 'hreflang="[^"]+" href="[^"]+"'
 
 # 검색엔진 확인용 DNS TXT 레코드
 dig +short TXT level-up-together.com
