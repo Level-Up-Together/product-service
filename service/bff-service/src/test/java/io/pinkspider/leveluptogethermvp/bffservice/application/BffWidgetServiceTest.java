@@ -41,7 +41,7 @@ class BffWidgetServiceTest {
     @Mock WidgetMessageService widgetMessageService;
 
     private final List<WidgetMessageView> messages =
-            List.of(new WidgetMessageView(1L, 6, 12, WidgetMessageCondition.NOT_DONE, "문장"));
+            List.of(new WidgetMessageView(1L, 6, 12, WidgetMessageCondition.NOT_DONE, "문장", null));
 
     @BeforeEach
     void setUp() {

@@ -1,5 +1,6 @@
 package io.pinkspider.leveluptogethermvp.metaservice.widgetmessage.application;
 
+import io.pinkspider.leveluptogethermvp.metaservice.widgetmessage.application.image.WidgetImageStorageService;
 import io.pinkspider.leveluptogethermvp.metaservice.widgetmessage.domain.dto.WidgetMessageListResponse;
 import io.pinkspider.leveluptogethermvp.metaservice.widgetmessage.domain.dto.WidgetMessageListResponse.WidgetMessageGapResponse;
 import io.pinkspider.leveluptogethermvp.metaservice.widgetmessage.domain.dto.WidgetMessageRequest;
@@ -11,6 +12,7 @@ import io.pinkspider.leveluptogethermvp.metaservice.widgetmessage.domain.policy.
 import io.pinkspider.leveluptogethermvp.metaservice.widgetmessage.infrastructure.WidgetMessageRepository;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.function.LongSupplier;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -27,12 +29,16 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
  * <p>위젯 조회는 하루 수십 번이라 활성 문장을 인스턴스 로컬로 {@code widget.message.cache-seconds}(기본 60초) 메모한다 — 어드민 변경은 그
  * 노드에서 즉시, 다른 노드에는 그 안에 반영된다. Redis 캐시를 쓰지 않는 이유: 캐시 직렬화가 final 클래스(record)의 타입 정보를 남기지 않고, 엔티티를
  * 캐시하면 컬럼 추가 뒤 옛 값이 남는다(LUT-534). 조회 실패는 마지막 메모가 있으면 그것으로 응답한다.
+ *
+ * <p>LUT-797 배경 이미지: 문장에는 업로드 API 가 발급한 주소만 붙일 수 있다(아니면 400 {@code 080205} — 임의 외부 주소를 위젯이 받아 가게 두지
+ * 않는다). 바꾸거나 지워서 어느 문장도 쓰지 않게 된 파일은 커밋 뒤 저장소에서 지운다.
  */
 @Slf4j
 @Service
 public class WidgetMessageService {
 
     private final WidgetMessageRepository repository;
+    private final WidgetImageStorageService imageStorage;
     private final long memoMillis;
     private final LongSupplier clock;
 
@@ -42,13 +48,18 @@ public class WidgetMessageService {
     @Autowired
     public WidgetMessageService(
             WidgetMessageRepository repository,
+            WidgetImageStorageService imageStorage,
             @Value("${widget.message.cache-seconds:60}") long cacheSeconds) {
-        this(repository, cacheSeconds, System::currentTimeMillis);
+        this(repository, imageStorage, cacheSeconds, System::currentTimeMillis);
     }
 
     WidgetMessageService(
-            WidgetMessageRepository repository, long cacheSeconds, LongSupplier clock) {
+            WidgetMessageRepository repository,
+            WidgetImageStorageService imageStorage,
+            long cacheSeconds,
+            LongSupplier clock) {
         this.repository = repository;
+        this.imageStorage = imageStorage;
         this.memoMillis = cacheSeconds * 1000L;
         this.clock = clock;
     }
@@ -148,6 +159,7 @@ public class WidgetMessageService {
                                 .textAr(optionalText(request.textAr()))
                                 .active(request.active() == null || request.active())
                                 .sortOrder(request.sortOrder() == null ? 0 : request.sortOrder())
+                                .backgroundImageUrl(ownedImage(request.backgroundImageUrl()))
                                 .build());
         evictAfterCommit();
         log.info(
@@ -162,6 +174,12 @@ public class WidgetMessageService {
     @Transactional(transactionManager = "metaTransactionManager")
     public WidgetMessageResponse update(Long id, WidgetMessageRequest request) {
         WidgetMessage message = find(id);
+        String previousImage = message.getBackgroundImageUrl();
+        // null = 그대로(이 필드를 모르는 구 어드민), 빈 문자열 = 지움
+        String nextImage =
+                request.backgroundImageUrl() == null
+                        ? previousImage
+                        : ownedImage(request.backgroundImageUrl());
         message.update(
                 request.startHour(),
                 request.endHour(),
@@ -171,7 +189,11 @@ public class WidgetMessageService {
                 optionalText(request.textJa()),
                 optionalText(request.textAr()),
                 request.active() == null ? message.isActive() : request.active(),
-                request.sortOrder() == null ? message.getSortOrder() : request.sortOrder());
+                request.sortOrder() == null ? message.getSortOrder() : request.sortOrder(),
+                nextImage);
+        if (!Objects.equals(previousImage, nextImage)) {
+            deleteUnusedImageAfterCommit(previousImage);
+        }
         evictAfterCommit();
         log.info("[widget-message] 수정 id={}", id);
         return WidgetMessageResponse.from(message);
@@ -188,13 +210,56 @@ public class WidgetMessageService {
 
     @Transactional(transactionManager = "metaTransactionManager")
     public void delete(Long id) {
-        repository.delete(find(id));
+        WidgetMessage message = find(id);
+        repository.delete(message);
+        deleteUnusedImageAfterCommit(message.getBackgroundImageUrl());
         evictAfterCommit();
         log.info("[widget-message] 삭제 id={}", id);
     }
 
     private WidgetMessage find(Long id) {
         return repository.findById(id).orElseThrow(() -> new WidgetMessageNotFoundException(id));
+    }
+
+    /** 비어 있으면 null(배경 없음), 있으면 우리 저장소가 발급한 주소여야 한다 */
+    @Nullable
+    private String ownedImage(@Nullable String url) {
+        if (url == null || url.isBlank()) {
+            return null;
+        }
+        String trimmed = url.trim();
+        if (!imageStorage.isOwned(trimmed)) {
+            throw WidgetMessageImageException.notOwned();
+        }
+        return trimmed;
+    }
+
+    /** 커밋 뒤, 어느 문장도 쓰지 않으면 파일을 지운다(다른 문장이 같은 주소를 쓰면 둔다). 롤백되면 지우지 않는다 */
+    private void deleteUnusedImageAfterCommit(@Nullable String url) {
+        if (url == null) {
+            return;
+        }
+        if (!TransactionSynchronizationManager.isSynchronizationActive()) {
+            deleteIfUnused(url);
+            return;
+        }
+        TransactionSynchronizationManager.registerSynchronization(
+                new TransactionSynchronization() {
+                    @Override
+                    public void afterCommit() {
+                        deleteIfUnused(url);
+                    }
+                });
+    }
+
+    private void deleteIfUnused(String url) {
+        try {
+            if (repository.countByBackgroundImageUrl(url) == 0) {
+                imageStorage.delete(url);
+            }
+        } catch (RuntimeException e) {
+            log.warn("[widget-message] 안 쓰는 배경 이미지 정리 실패 url={} : {}", url, e.getMessage());
+        }
     }
 
     /** 선택 언어 — 비우면 null(위젯이 en → ko 로 대체) */

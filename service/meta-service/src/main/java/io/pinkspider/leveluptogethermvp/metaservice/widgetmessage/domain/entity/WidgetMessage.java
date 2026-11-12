@@ -70,6 +70,11 @@ public class WidgetMessage extends LocalDateTimeBaseEntity {
     @Comment("관리 화면 정렬")
     private int sortOrder;
 
+    /** LUT-797: 위젯 배경 이미지(절대 URL). 없으면 위젯은 하얀 배경 */
+    @Column(name = "background_image_url", length = 500)
+    @Comment("위젯 배경 이미지 URL(없으면 하얀 배경)")
+    private String backgroundImageUrl;
+
     @Builder
     public WidgetMessage(
             Integer startHour,
@@ -80,7 +85,8 @@ public class WidgetMessage extends LocalDateTimeBaseEntity {
             String textJa,
             String textAr,
             boolean active,
-            int sortOrder) {
+            int sortOrder,
+            String backgroundImageUrl) {
         this.startHour = startHour;
         this.endHour = endHour;
         this.condition = condition;
@@ -90,6 +96,7 @@ public class WidgetMessage extends LocalDateTimeBaseEntity {
         this.textAr = textAr;
         this.active = active;
         this.sortOrder = sortOrder;
+        this.backgroundImageUrl = backgroundImageUrl;
     }
 
     public void update(
@@ -101,7 +108,8 @@ public class WidgetMessage extends LocalDateTimeBaseEntity {
             String textJa,
             String textAr,
             boolean active,
-            int sortOrder) {
+            int sortOrder,
+            String backgroundImageUrl) {
         this.startHour = startHour;
         this.endHour = endHour;
         this.condition = condition;
@@ -111,6 +119,7 @@ public class WidgetMessage extends LocalDateTimeBaseEntity {
         this.textAr = textAr;
         this.active = active;
         this.sortOrder = sortOrder;
+        this.backgroundImageUrl = backgroundImageUrl;
     }
 
     public void toggleActive() {

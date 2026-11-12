@@ -17,6 +17,7 @@ import io.pinkspider.leveluptogethermvp.chatservice.application.ChatImagePropert
 import io.pinkspider.leveluptogethermvp.gamificationservice.event.application.EventImageProperties;
 import io.pinkspider.leveluptogethermvp.gamificationservice.shop.application.ShopItemImageProperties;
 import io.pinkspider.leveluptogethermvp.guildservice.application.GuildImageProperties;
+import io.pinkspider.leveluptogethermvp.metaservice.widgetmessage.application.image.WidgetImageProperties;
 import io.pinkspider.leveluptogethermvp.missionservice.application.MissionImageProperties;
 import io.pinkspider.leveluptogethermvp.profanity.application.ProfanityDetectionEngine;
 import io.pinkspider.leveluptogethermvp.profanity.application.ProfanityValidationService;
@@ -158,6 +159,12 @@ public class ControllerTestConfig implements WebMvcConfigurer {
     @Bean
     public TowerImageProperties towerImageProperties() {
         return new TowerImageProperties();
+    }
+
+    /** LUT-797: WidgetImageWebConfig(WebMvcConfigurer) 도 슬라이스에 올라온다 — 설정 빈을 같이 준다 */
+    @Bean
+    public WidgetImageProperties widgetImageProperties() {
+        return new WidgetImageProperties();
     }
 
     @Bean

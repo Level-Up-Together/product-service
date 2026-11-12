@@ -72,13 +72,15 @@ class BffWidgetControllerTest {
                                                 6,
                                                 12,
                                                 WidgetMessageCondition.NOT_DONE,
-                                                "아침의 한 걸음이 하루를 바꿔요. 오늘 미션을 시작해 볼까요?"),
+                                                "아침의 한 걸음이 하루를 바꿔요. 오늘 미션을 시작해 볼까요?",
+                                                "https://images.level-up-together.com/widget/0b6f8c1e.png"),
                                         new WidgetMessageView(
                                                 2L,
                                                 6,
                                                 12,
                                                 WidgetMessageCondition.DONE,
-                                                "아침부터 해냈어요! {streak}일 연속 실천 중이에요."))));
+                                                "아침부터 해냈어요! {streak}일 연속 실천 중이에요.",
+                                                null))));
 
         mockMvc.perform(
                         RestDocumentationRequestBuilders.get("/api/v1/widget/summary")
@@ -164,7 +166,15 @@ class BffWidgetControllerTest {
                                                                 .description(
                                                                         "요청 언어 문장(비면 en → ko)."
                                                                             + " {streak} 는 위젯이 연속"
-                                                                            + " 일수로 바꾼다"))
+                                                                            + " 일수로 바꾼다"),
+                                                        fieldWithPath(
+                                                                        "value.messages[].background_image_url")
+                                                                .type(JsonFieldType.STRING)
+                                                                .description(
+                                                                        "그 문장을 보여 줄 때 위젯 배경에 깔 이미지"
+                                                                            + " 절대 URL(LUT-797)."
+                                                                            + " 없으면 null — 하얀 배경")
+                                                                .optional())
                                                 .build())));
 
         verify(bffWidgetService).getSummary(MOCK_USER_ID, "ko");

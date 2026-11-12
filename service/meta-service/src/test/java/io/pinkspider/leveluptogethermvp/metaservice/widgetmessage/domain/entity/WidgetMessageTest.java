@@ -88,4 +88,23 @@ class WidgetMessageTest {
             assertThat(condition.matches(completedToday)).isEqualTo(expected);
         }
     }
+
+    @Test
+    @DisplayName("LUT-797: 배경 이미지 — 작성 때 넣고, 수정으로 바꾸거나 지운다(null = 없음)")
+    void backgroundImage() {
+        WidgetMessage m =
+                WidgetMessage.builder()
+                        .startHour(6)
+                        .endHour(12)
+                        .condition(WidgetMessageCondition.ALL)
+                        .textKo("문장")
+                        .active(true)
+                        .backgroundImageUrl("https://cdn.test/widget/a.png")
+                        .build();
+        assertThat(m.getBackgroundImageUrl()).isEqualTo("https://cdn.test/widget/a.png");
+
+        m.update(6, 12, WidgetMessageCondition.ALL, "문장", null, null, null, true, 0, null);
+        assertThat(m.getBackgroundImageUrl()).isNull();
+        assertThat(message("가", null, null, null).getBackgroundImageUrl()).isNull();
+    }
 }

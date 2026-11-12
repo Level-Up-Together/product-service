@@ -104,6 +104,8 @@ Micrometer 카운터(`ImageModerationMetrics`, `/showmethemoney/prometheus`):
 | 이벤트     | `S3EventImageStorageService`      | `LocalEventImageStorageService`      |
 | 상점 아이템  | `S3ShopItemImageStorageService`   | `LocalShopItemImageStorageService`   |
 | 길드 채팅·DM | `S3ChatImageStorageService`      | `LocalChatImageStorageService`       |
+| 탑 층·NPC·음악 | `S3TowerImageStorageService`(키 `tower/{kind}/`) | `LocalTowerImageStorageService` |
+| 위젯 문장 배경 (LUT-797) | `S3WidgetImageStorageService`(키 `widget/{uuid}.ext`, JPG·PNG 1MB, Content-Type 은 확장자에서) | `LocalWidgetImageStorageService`(`uploads/widget/`) |
 
 각 서비스가 독립된 인터페이스(`*ImageStorageService`)를 정의하며 공유 상위 타입은 없다 — 프로필·길드·미션·이벤트·상점 5종은 동일 패턴(`store`/`delete`/`isValidImage`)을 반복한다.
 채팅(LUT-590)만 검증·파일명 유틸을 로컬/S3 공용 `ChatImageFileValidator` 로 뽑았고, 인터페이스에 `isOwnedBy` 가 추가돼 있다(아래 절).
