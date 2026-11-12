@@ -83,16 +83,33 @@ Google 등록 기록
 |---|---|---|
 | 탑 입구 `/tower` | **검색에 올린다** — 서버가 층 목록을 미리 그린다. 제목·설명·canonical·공유 이미지, 사이트맵 추가 | 운영자가 쓴 내용(층 이름·입장 조건)이고 개인 정보가 없다. 로그인 없이 들어가 볼 수 있는 기능이다 |
 | 상점 `/shop` | **올리지 않는다(noindex)**. 제목만 "상점" | 아이템 목록을 브라우저에서 받아 그려 서버 HTML 에 내용이 없다. 검색으로 찾아오는 화면이 아니다 |
-| 시즌 `/season` | **지금은 올리지 않는다(noindex)**. 제목만 "시즌". 올리는 일은 **LUT-804** | 시즌 조회 API 가 로그인을 요구해(비로그인 401) 서버 HTML 에 내용이 없다. 진행 중인 시즌도 없다(운영은 4월, dev 는 9월에 마지막 시즌이 끝남) |
+| 시즌 `/season` | LUT-800 때는 noindex. **LUT-804 에서 "진행 중인 시즌이 있을 때만 올린다"로 바꿨다**(아래 절) | 그때는 시즌 조회 API 가 로그인을 요구해(비로그인 401) 서버 HTML 에 내용이 없었다 |
 | `/ranking` | **올리지 않는다(noindex)** | 내용이 없는 빈 자리다(화면에 `ranking` 한 단어) |
 
 - 확인(로컬 서버, 헤더 없는 요청): `/tower` 본문 10자("Loading...") → 330자(층 5개의 이름·입장 조건). 한국어 요청은 164자.
 - 사이트맵은 6개 항목이다: 랜딩 5개 + `/tower`.
 - 언어: 이 페이지들은 언어별 주소가 없다. 방문자 언어로 나오고 크롤러는 영어판을 본다. 한국어 검색의 입구는 `/ko` 랜딩이다.
 - **정해진 것 (2026-11-12 유저 결정)**
-  - 시즌 랭킹의 닉네임은 검색에 나와도 된다. 다만 지금은 올릴 내용이 없고 API 도 로그인이 필요해서, 서버에서 API 를 열고 웹에서 서버 렌더하는 일을 **LUT-804** 로 남겼다(시즌을 다시 열 때 진행).
+  - 시즌 랭킹의 닉네임은 검색에 나와도 된다. 서버에서 API 를 열고 웹에서 서버 렌더하는 일은 **LUT-804** 로 진행했다(아래 절).
   - 상점은 검색에 올리지 않는다.
 - **운영 배포 뒤 사람이 할 일**: Search Console "URL 검사"에 `https://level-up-together.com/tower` → "색인 생성 요청". 며칠 뒤 저장된 페이지에 층 이름이 있는지 본다.
+
+## LUT-804 반영 내용 (2026-11-12, 서버 + 웹) — 시즌 화면
+
+**진행 중인 시즌이 있을 때만 `/season` 을 검색에 올린다.** 시즌이 없으면 올릴 내용이 없으므로 noindex 다.
+
+| 구분 | 바뀐 것 |
+|---|---|
+| 서버 | `GET /api/v1/bff/season/current`·`/{seasonId}` 를 비로그인에게 열었다(GET 만). 비로그인이면 `my_ranking` 은 빈 값이다(필드는 그대로). |
+| 서버 | 시즌이 없을 때의 응답을 **500 → 404** 로 바꿨다. 본문의 `code`(`NO_ACTIVE_SEASON`·`SEASON_NOT_FOUND`)와 문구는 그대로다. 웹 서버가 방문자 요청마다 이 API 를 부르게 돼서, 500 으로 두면 "시즌 없음"이라는 정상 상황이 오류 지표·로그에 쌓인다. |
+| 웹 | 비로그인 요청의 `/season`(주소에 `?id`·`?category` 없음)은 서버가 현재 시즌을 미리 받아 그린다. 첫 HTML 에 시즌 제목·보상·TOP 10 이 들어간다. |
+| 웹 | 서버가 시즌을 그렸을 때만 색인을 허용한다(제목 = 시즌 이름, canonical `/season`). 시즌이 없거나 받지 못하면 noindex 다. 사이트맵도 같은 조회로 그때만 `/season` 을 넣는다. |
+| 웹 | 날짜·남은 일수·진행률과 "내 랭킹" 카드는 서버 HTML 에 넣지 않는다. 서버(UTC·비로그인)와 브라우저가 다른 글자를 그리기 때문이다. 브라우저에서 채운다. |
+
+- 확인(로컬 웹 + 가짜 시즌 API, 개발 서버·운영 빌드 둘 다): 헤더·쿠키 없는 요청의 HTML 에 시즌 제목·보상·닉네임 10개가 있다. 시즌 없음·API 실패·로그인 쿠키·`?id` 주소는 noindex 다. 사이트맵은 시즌이 있을 때 7개, 없을 때 6개 항목이다.
+- **지금은 운영·dev 모두 진행 중인 시즌이 없다.** 그래서 배포해도 `/season` 은 noindex 이고 사이트맵에 없다. 시즌을 열면 자동으로 색인 대상이 된다.
+- 배포 순서: 서버 → 웹. 웹이 먼저 나가면 서버 조회가 401 이라 예전처럼 동작한다(깨지지 않는다).
+- **시즌을 연 뒤 사람이 할 일**: Search Console "URL 검사"에 `https://level-up-together.com/season` → "색인 생성 요청". 저장된 페이지에 시즌 제목과 랭킹이 있는지 본다.
 
 ## 문제
 
@@ -170,11 +187,16 @@ for lang in ko en ja ar; do
 done
 curl -s https://level-up-together.com/ko | grep -oiE 'hreflang="[^"]+" href="[^"]+"'
 
-# LUT-800: 탑 입구 — 서버 HTML 에 층 이름이 있는가 / 상점·시즌·ranking 은 noindex 인가
+# LUT-800: 탑 입구 — 서버 HTML 에 층 이름이 있는가 / 상점·ranking 은 noindex 인가 (시즌은 진행 중인 시즌이 없을 때만 noindex)
 curl -s https://level-up-together.com/tower | grep -o 'tower-floor__name[^<]*>[^<]*' | head -3
 for p in tower shop season ranking; do
   echo "$p: $(curl -s https://level-up-together.com/$p | grep -o '<meta name="robots" content="[^"]*"' || echo '(robots 없음 = 색인 허용)')"
 done
+
+# LUT-804: 시즌 — API 가 로그인 없이 답하는가(시즌 있으면 200, 없으면 404 NO_ACTIVE_SEASON) / 색인 허용과 사이트맵이 같이 가는가
+curl -s -o /dev/null -w '%{http_code}\n' https://api.level-up-together.com/api/v1/bff/season/current
+curl -s https://level-up-together.com/season | grep -oE 'season-header__title[^<]*>[^<]*|<meta name="robots" content="[^"]*"'
+curl -s https://level-up-together.com/sitemap.xml | grep -o '<loc>[^<]*</loc>'
 
 # 검색엔진 확인용 DNS TXT 레코드
 dig +short TXT level-up-together.com

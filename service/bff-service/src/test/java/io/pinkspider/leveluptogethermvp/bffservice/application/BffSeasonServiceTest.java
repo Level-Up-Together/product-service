@@ -6,10 +6,11 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import io.pinkspider.global.enums.TitleRarity;
-import io.pinkspider.global.exception.CustomException;
 import io.pinkspider.global.facade.GamificationQueryFacade;
 import io.pinkspider.global.facade.dto.SeasonDto;
 import io.pinkspider.global.facade.dto.SeasonMvpGuildDto;
@@ -17,6 +18,7 @@ import io.pinkspider.global.facade.dto.SeasonMvpPlayerDto;
 import io.pinkspider.global.facade.dto.SeasonMyRankingDto;
 import io.pinkspider.global.facade.dto.SeasonRankRewardDto;
 import io.pinkspider.leveluptogethermvp.bffservice.api.dto.SeasonDetailResponse;
+import io.pinkspider.leveluptogethermvp.bffservice.api.exception.SeasonNotFoundException;
 import io.pinkspider.leveluptogethermvp.metaservice.application.MissionCategoryService;
 import io.pinkspider.leveluptogethermvp.metaservice.domain.dto.MissionCategoryResponse;
 import java.time.LocalDateTime;
@@ -208,8 +210,33 @@ class BffSeasonServiceTest {
 
             // when & then
             assertThatThrownBy(() -> bffSeasonService.getSeasonDetail(999L, testUserId, null, "ko"))
-                    .isInstanceOf(CustomException.class)
+                    .isInstanceOfSatisfying(
+                            SeasonNotFoundException.class,
+                            e -> assertThat(e.getCode()).isEqualTo("SEASON_NOT_FOUND"))
                     .hasMessageContaining("error.season.not_found");
+        }
+
+        @Test
+        @DisplayName("LUT-804: 비로그인(userId null)이면 내 랭킹을 조회하지 않고 빈 값으로 준다")
+        void getSeasonDetail_anonymous_emptyMyRanking() {
+            // given
+            when(gamificationQueryFacade.getSeasonById(1L)).thenReturn(Optional.of(testSeasonDto));
+            when(gamificationQueryFacade.getSeasonRankRewards(1L))
+                    .thenReturn(List.of(testRankRewardDto));
+            when(gamificationQueryFacade.getSeasonPlayerRankings(anyLong(), any(), anyInt(), any()))
+                    .thenReturn(List.of(testPlayerRanking));
+            when(gamificationQueryFacade.getSeasonGuildRankings(anyLong(), anyInt()))
+                    .thenReturn(List.of(testGuildRanking));
+            when(missionCategoryService.getActiveCategories()).thenReturn(List.of(testCategory));
+
+            // when
+            SeasonDetailResponse response = bffSeasonService.getSeasonDetail(1L, null, null, "ko");
+
+            // then — 랭킹·보상은 로그인 유저와 같고, 내 랭킹만 빈 값(필드는 그대로 있다)
+            assertThat(response.playerRankings()).hasSize(1);
+            assertThat(response.rankRewards()).hasSize(1);
+            assertThat(response.myRanking()).isEqualTo(SeasonMyRankingDto.empty());
+            verify(gamificationQueryFacade, never()).getMySeasonRanking(anyLong(), any());
         }
 
         @Test
@@ -374,7 +401,9 @@ class BffSeasonServiceTest {
             // when & then
             assertThatThrownBy(
                             () -> bffSeasonService.getCurrentSeasonDetail(testUserId, null, "ko"))
-                    .isInstanceOf(CustomException.class)
+                    .isInstanceOfSatisfying(
+                            SeasonNotFoundException.class,
+                            e -> assertThat(e.getCode()).isEqualTo("NO_ACTIVE_SEASON"))
                     .hasMessageContaining("error.season.no_active");
         }
     }

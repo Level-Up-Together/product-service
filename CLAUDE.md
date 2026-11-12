@@ -722,6 +722,10 @@ LUT-348 의 등급 차이 할증(배수 1~8, 10단위 올림)은 없앴다 — �
   (LUT-566 — 완료 직후 자동 생성되는 seq+1 PENDING이 자정에 MISSED가 되어 완료 1건당 미완료 1건이 붙던 것을 제외). 달성률·완료 수는 **예정일**
   기준, 카테고리·요일·시간 분포는 **완료 시각 + `X-Timezone`** 기준이라 자정 넘김에서 1~2건 어긋날 수 있다. 종료된 고정 미션의 잔존 MISSED는
   쿼리가 아니라 **데이터 정리(sql V009)** 로 제거 — 미션 상태로 소급 제외하면 활성이던 달의 정당한 미수행까지 빠진다.
+- **시즌 상세 BFF** `GET /api/v1/bff/season/current`·`/{seasonId}` 는 **비로그인 허용**(LUT-804, GET 한정 permitAll + `@CurrentUser(required = false)`,
+  `SecurityConfigPublicEndpointTest`) — 웹 서버가 방문자·검색엔진에게 `/season` 을 미리 그려 준다. 비로그인이면 `my_ranking` 은 조회하지 않고 빈 값
+  (`SeasonMyRankingDto.empty()`, 필드는 유지). 시즌이 없으면 **404**(`NO_ACTIVE_SEASON`·`SEASON_NOT_FOUND`, `bffservice/api/exception/BffSeasonExceptionHandler`
+  — 예전엔 플랫폼 `CustomException` 이라 500 + error 로그였다. 웹 서버가 방문자 요청·사이트맵 요청마다 부르므로 "시즌 없음"을 오류로 두지 않는다. `code`·문구는 그대로).
 - **랭킹** `/api/v1/rankings` 14개: 전체·`/missions`·`/streaks`·`/achievements`·`/realtime`·`/level`·`/level/**`는 **비로그인 허용**(LUT-297,
   `SecurityConfig` permitAll + `SecurityConfigPublicEndpointTest`), `/my*`·`/nearby`는 인증 필요.
 - **출석 응답 `store_review_due`** (LUT-708, 2026-11-02): 체크인 응답에 "이번 연속 일수가 어드민 설정 마일스톤(meta `app_setting.store_review_milestone_days`, 기본 `7,14,30`)과 같은가" 를 서버가 판정해 싣는다. 웹은 그 값이 true 일 때만 OS 인앱 평가 팝업을 요청(LUT-609)하고, 값이 없으면(구 서버) 7·14·30 으로 폴백한다. "평가했는지" 는 OS 가 알려 주지 않으므로 목록의 각 시점에 1회씩 요청하고 끝낸다. 설정 조회 실패는 출석을 막지 않는다(false). 어드민은 `/api/admin/attendance-reward-configs/store-review-milestones`(권한 `attendance-config:*`).

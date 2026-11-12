@@ -5,6 +5,8 @@ import static com.epages.restdocs.apispec.ResourceDocumentation.resource;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.restdocs.operation.preprocess.Preprocessors.preprocessRequest;
 import static org.springframework.restdocs.operation.preprocess.Preprocessors.preprocessResponse;
@@ -17,7 +19,6 @@ import com.epages.restdocs.apispec.ResourceSnippetParameters;
 import com.epages.restdocs.apispec.SimpleType;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.pinkspider.global.enums.TitleRarity;
-import io.pinkspider.global.exception.CustomException;
 import io.pinkspider.global.facade.GamificationQueryFacade;
 import io.pinkspider.global.facade.dto.EquippedItemRarityDto;
 import io.pinkspider.global.facade.dto.SeasonDto;
@@ -26,6 +27,7 @@ import io.pinkspider.global.facade.dto.SeasonMvpPlayerDto;
 import io.pinkspider.global.facade.dto.SeasonMyRankingDto;
 import io.pinkspider.global.facade.dto.SeasonRankRewardDto;
 import io.pinkspider.leveluptogethermvp.bffservice.api.dto.SeasonDetailResponse;
+import io.pinkspider.leveluptogethermvp.bffservice.api.exception.SeasonNotFoundException;
 import io.pinkspider.leveluptogethermvp.bffservice.application.BffSeasonService;
 import io.pinkspider.leveluptogethermvp.config.ControllerTestConfig;
 import io.pinkspider.leveluptogethermvp.metaservice.domain.dto.MissionCategoryResponse;
@@ -224,7 +226,10 @@ class BffSeasonControllerTest {
                                                         .description(
                                                                 "시즌 상세 화면에 필요한 모든 데이터를 한 번에 조회 (시즌"
                                                                     + " 정보, 순위별 보상, 플레이어/길드 랭킹, 내"
-                                                                    + " 랭킹, 카테고리)")
+                                                                    + " 랭킹, 카테고리). 비로그인 허용(LUT-804)"
+                                                                    + " — 비로그인이면 my_ranking 은 빈 값."
+                                                                    + " 없는 시즌이면 404"
+                                                                    + " SEASON_NOT_FOUND")
                                                         .pathParameters(
                                                                 parameterWithName("seasonId")
                                                                         .type(SimpleType.INTEGER)
@@ -755,8 +760,10 @@ class BffSeasonControllerTest {
                                                 ResourceSnippetParameters.builder()
                                                         .tag("BFF - Season")
                                                         .description(
-                                                                "현재 활성화된 시즌의 상세 데이터를 조회합니다. 활성 시즌이"
-                                                                        + " 없는 경우 에러를 반환합니다.")
+                                                                "현재 활성화된 시즌의 상세 데이터를 조회합니다. 비로그인"
+                                                                    + " 허용(LUT-804) — 비로그인이면"
+                                                                    + " my_ranking 은 빈 값. 활성 시즌이"
+                                                                    + " 없으면 404 NO_ACTIVE_SEASON")
                                                         .queryParameters(
                                                                 parameterWithName("categoryName")
                                                                         .type(SimpleType.STRING)
@@ -1248,32 +1255,70 @@ class BffSeasonControllerTest {
     }
 
     @Test
-    @DisplayName("GET /api/v1/bff/season/current : 활성 시즌이 없는 경우 에러 반환")
+    @DisplayName(
+            "GET /api/v1/bff/season/current : 활성 시즌이 없으면 404 + NO_ACTIVE_SEASON (LUT-804, 예전엔 500)")
     void getCurrentSeasonDetail_noActiveSeason() throws Exception {
         // given
         when(bffSeasonService.getCurrentSeasonDetail(anyString(), any(), any()))
-                .thenThrow(new CustomException("NO_ACTIVE_SEASON", "error.season.no_active"));
+                .thenThrow(SeasonNotFoundException.noActive());
 
         // when & then
         mockMvc.perform(
                         RestDocumentationRequestBuilders.get("/api/v1/bff/season/current")
                                 .with(user(MOCK_USER_ID))
                                 .contentType(MediaType.APPLICATION_JSON))
-                .andExpect(MockMvcResultMatchers.status().is4xxClientError());
+                .andExpect(MockMvcResultMatchers.status().isNotFound())
+                .andExpect(MockMvcResultMatchers.jsonPath("$.code").value("NO_ACTIVE_SEASON"));
     }
 
     @Test
-    @DisplayName("GET /api/v1/bff/season/{seasonId} : 존재하지 않는 시즌 조회 시 에러 반환")
+    @DisplayName("LUT-804: GET /api/v1/bff/season/current — 비로그인도 조회한다 (userId null 로 서비스 호출)")
+    void getCurrentSeasonDetail_anonymous() throws Exception {
+        // given
+        when(bffSeasonService.getCurrentSeasonDetail(isNull(), any(), any()))
+                .thenReturn(createMockSeasonDetailResponse());
+
+        // when & then
+        mockMvc.perform(
+                        RestDocumentationRequestBuilders.get("/api/v1/bff/season/current")
+                                .header("Accept-Language", "en")
+                                .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(MockMvcResultMatchers.status().isOk())
+                .andExpect(MockMvcResultMatchers.jsonPath("$.value.season.id").exists())
+                .andExpect(MockMvcResultMatchers.jsonPath("$.value.my_ranking").exists());
+
+        verify(bffSeasonService).getCurrentSeasonDetail(isNull(), isNull(), any());
+    }
+
+    @Test
+    @DisplayName("LUT-804: GET /api/v1/bff/season/{seasonId} — 비로그인도 조회한다")
+    void getSeasonDetail_anonymous() throws Exception {
+        // given
+        when(bffSeasonService.getSeasonDetail(anyLong(), isNull(), any(), any()))
+                .thenReturn(createMockSeasonDetailResponse());
+
+        // when & then
+        mockMvc.perform(
+                        RestDocumentationRequestBuilders.get("/api/v1/bff/season/{seasonId}", 1L)
+                                .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(MockMvcResultMatchers.status().isOk());
+
+        verify(bffSeasonService).getSeasonDetail(anyLong(), isNull(), isNull(), any());
+    }
+
+    @Test
+    @DisplayName("GET /api/v1/bff/season/{seasonId} : 존재하지 않는 시즌이면 404 + SEASON_NOT_FOUND")
     void getSeasonDetail_notFound() throws Exception {
         // given
         when(bffSeasonService.getSeasonDetail(anyLong(), anyString(), any(), any()))
-                .thenThrow(new CustomException("SEASON_NOT_FOUND", "error.season.not_found"));
+                .thenThrow(SeasonNotFoundException.notFound());
 
         // when & then
         mockMvc.perform(
                         RestDocumentationRequestBuilders.get("/api/v1/bff/season/{seasonId}", 999L)
                                 .with(user(MOCK_USER_ID))
                                 .contentType(MediaType.APPLICATION_JSON))
-                .andExpect(MockMvcResultMatchers.status().is4xxClientError());
+                .andExpect(MockMvcResultMatchers.status().isNotFound())
+                .andExpect(MockMvcResultMatchers.jsonPath("$.code").value("SEASON_NOT_FOUND"));
     }
 }
