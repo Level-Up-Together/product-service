@@ -76,6 +76,12 @@ public class MissionIdempotencyTxService {
         return response;
     }
 
+    /** LUT-803: 이미 끝난 작업의 결과로 키를 완료한다. 원탭 완료는 Saga 라 미션 생성·완료와 한 트랜잭션으로 묶을 수 없어, 끝난 뒤에 따로 표시한다. */
+    @Transactional(transactionManager = "missionTransactionManager")
+    public void complete(Long keyId, Long missionId, Object response) {
+        findRow(keyId).complete(missionId, serialize(missionId, response));
+    }
+
     @Transactional(transactionManager = "missionTransactionManager")
     public int deleteExpired(LocalDateTime threshold) {
         return repository.deleteByCreatedAtBefore(threshold);

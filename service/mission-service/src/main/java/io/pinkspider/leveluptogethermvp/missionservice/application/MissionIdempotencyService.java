@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import io.pinkspider.leveluptogethermvp.missionservice.api.exception.MissionIdempotencyException;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MissionCreateRequest;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MissionResponse;
+import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.RecommendedMissionCompleteResponse;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.RecommendedMissionStartResponse;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.MissionIdempotencyKey;
 import java.time.Duration;
@@ -38,6 +39,8 @@ import org.springframework.stereotype.Service;
  *
  * <p>LUT-782: 추천 미션 원탭 시작({@code POST /missions/recommended/{id}/start})도 같은 키 표·같은 규칙을 쓴다(LUT-578
  * 규약). 키는 유저당 유일하므로 두 API 가 표를 함께 써도 충돌하지 않는다 — 클라이언트는 누를 때마다 새 키를 만든다.
+ *
+ * <p>LUT-803: 체크 추천 미션 원탭 완료({@code POST /missions/recommended/{id}/complete})도 같은 표·같은 규칙.
  */
 @Service
 @RequiredArgsConstructor
@@ -58,6 +61,7 @@ public class MissionIdempotencyService {
 
     private final MissionService missionService;
     private final RecommendedMissionService recommendedMissionService;
+    private final RecommendedMissionCompleteService recommendedMissionCompleteService;
     private final MissionIdempotencyTxService txService;
     private final ObjectMapper objectMapper;
 
@@ -85,6 +89,38 @@ public class MissionIdempotencyService {
                 keyId ->
                         txService.startRecommendedAndComplete(keyId, userId, recommendedId, locale),
                 this::replayRecommendedStart);
+    }
+
+    /**
+     * LUT-803: 체크 추천 미션 원탭 완료 — 헤더 없으면 매번 실행, 있으면 같은 키 재요청에 저장된 결과(같은 미션·같은 완료)를 돌려준다.
+     *
+     * <p>완료는 Saga 라 키 완료를 같은 트랜잭션에 묶지 못한다 — 완료가 끝난 뒤 키를 표시한다. 표시가 실패해도 완료는 이미 끝났으므로 결과를 그대로 돌려준다(키는
+     * 처리 중으로 남아 5분 뒤 stale 로 정리된다).
+     */
+    public RecommendedMissionCompleteResponse completeRecommended(
+            String userId, String idempotencyKey, Long recommendedId, String locale) {
+        if (idempotencyKey == null || idempotencyKey.isBlank()) {
+            return recommendedMissionCompleteService.complete(userId, recommendedId, locale);
+        }
+        return runOnce(
+                userId,
+                idempotencyKey,
+                keyId -> {
+                    RecommendedMissionCompleteResponse response =
+                            recommendedMissionCompleteService.complete(
+                                    userId, recommendedId, locale);
+                    try {
+                        txService.complete(keyId, response.mission().getId(), response);
+                    } catch (RuntimeException e) {
+                        log.error(
+                                "추천 미션 원탭 완료 멱등 키 표시 실패 — 완료는 끝났다: keyId={}, missionId={}",
+                                keyId,
+                                response.mission().getId(),
+                                e);
+                    }
+                    return response;
+                },
+                this::replayRecommendedComplete);
     }
 
     /** 키 선점 → 실행(실행과 키 완료는 한 트랜잭션) → 실패하면 선점 해제. 같은 키가 이미 있으면 {@code replay} 로 저장된 결과를 돌려준다. */
@@ -200,6 +236,25 @@ public class MissionIdempotencyService {
         }
         if (existing.getMissionId() != null) {
             return new RecommendedMissionStartResponse(
+                    missionService.getMission(existing.getMissionId(), null), null);
+        }
+        throw new IllegalStateException(
+                "mission idempotency key completed without mission: id=" + existing.getId());
+    }
+
+    /** LUT-803: 저장된 원탭 완료 결과. 본문을 못 읽으면 미션만 다시 읽어 돌려준다(수행은 null) */
+    private RecommendedMissionCompleteResponse replayRecommendedComplete(
+            MissionIdempotencyKey existing) {
+        if (existing.getResponseBody() != null) {
+            try {
+                return objectMapper.readValue(
+                        existing.getResponseBody(), RecommendedMissionCompleteResponse.class);
+            } catch (JsonProcessingException e) {
+                log.warn("추천 미션 완료 멱등 응답 역직렬화 실패 — mission_id 로 재조회: id={}", existing.getId(), e);
+            }
+        }
+        if (existing.getMissionId() != null) {
+            return new RecommendedMissionCompleteResponse(
                     missionService.getMission(existing.getMissionId(), null), null);
         }
         throw new IllegalStateException(

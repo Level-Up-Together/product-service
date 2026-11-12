@@ -62,6 +62,14 @@ class MissionIdempotencyExceptionHandlerTest {
         assertThat(notFound.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
         assertThat(((ApiResult<?>) notFound.getBody()).getCode()).isEqualTo("050501");
 
+        // LUT-803: 체크 미션이 아닌데 원탭 완료 → 400 050503
+        ResponseEntity<Object> notSimple =
+                handler.handleRecommended(RecommendedMissionException.notSimple());
+        assertThat(notSimple.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        assertThat(((ApiResult<?>) notSimple.getBody()).getCode()).isEqualTo("050503");
+        assertThat(((ApiResult<?>) notSimple.getBody()).getMessage())
+                .isEqualTo("error.mission.recommended.not_simple");
+
         for (RecommendedMissionException e :
                 java.util.List.of(
                         RecommendedMissionException.targetMinutesRequired(),

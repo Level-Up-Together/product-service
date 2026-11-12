@@ -103,4 +103,26 @@ class RecommendedMissionServiceTest {
                 .hasFieldOrPropertyWithValue("code", RecommendedMissionException.CODE_NOT_FOUND);
         verify(missionService, never()).createMissionFromRecommended(any(), any(), any());
     }
+
+    @Test
+    @DisplayName("LUT-803: 원탭 완료 대상 — 켜진 체크 추천은 통과, 타이머는 400(050503), 없으면 404(050501)")
+    void requireActiveSimple() {
+        RecommendedMission simple = mission(1, MissionExecutionMode.SIMPLE, null);
+        when(repository.findByIdAndActiveTrue(1L)).thenReturn(Optional.of(simple));
+        when(repository.findByIdAndActiveTrue(2L))
+                .thenReturn(Optional.of(mission(2, MissionExecutionMode.TIMED, 5)));
+        when(repository.findByIdAndActiveTrue(9L)).thenReturn(Optional.empty());
+
+        assertThat(service.requireActiveSimple(1L)).isSameAs(simple);
+        assertThatThrownBy(() -> service.requireActiveSimple(2L))
+                .isInstanceOf(RecommendedMissionException.class)
+                .hasFieldOrPropertyWithValue("code", RecommendedMissionException.CODE_NOT_SIMPLE)
+                .hasFieldOrPropertyWithValue(
+                        "status", org.springframework.http.HttpStatus.BAD_REQUEST);
+        assertThatThrownBy(() -> service.requireActiveSimple(9L))
+                .isInstanceOf(RecommendedMissionException.class)
+                .hasFieldOrPropertyWithValue("code", RecommendedMissionException.CODE_NOT_FOUND);
+        // 확인만 한다 — 미션을 만들지 않는다
+        verify(missionService, never()).createMissionFromRecommended(any(), any(), any());
+    }
 }

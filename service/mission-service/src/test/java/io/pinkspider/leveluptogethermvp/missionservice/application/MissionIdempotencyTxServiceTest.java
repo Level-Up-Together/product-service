@@ -13,6 +13,7 @@ import io.pinkspider.global.test.TestReflectionUtils;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MissionCreateRequest;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MissionExecutionResponse;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MissionResponse;
+import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.RecommendedMissionCompleteResponse;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.RecommendedMissionStartResponse;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.MissionIdempotencyKey;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.IdempotencyStatus;
@@ -170,6 +171,32 @@ class MissionIdempotencyTxServiceTest {
                         () ->
                                 service(new LmObjectMapper())
                                         .startRecommendedAndComplete(5L, USER, 3L, null))
+                .isInstanceOf(IllegalStateException.class);
+    }
+
+    @Test
+    @DisplayName("complete: 이미 끝난 작업의 결과로 키를 완료한다 — 미션 ID 와 응답 본문 보관 (LUT-803)")
+    void complete_marksRowCompleted() {
+        MissionIdempotencyKey row = processingRow(5L);
+        when(repository.findById(5L)).thenReturn(Optional.of(row));
+        RecommendedMissionCompleteResponse response =
+                new RecommendedMissionCompleteResponse(
+                        MissionResponse.builder().id(7L).title("물 한 잔").build(),
+                        MissionExecutionResponse.builder().id(70L).expEarned(10).build());
+
+        service(new LmObjectMapper()).complete(5L, 7L, response);
+
+        assertThat(row.isCompleted()).isTrue();
+        assertThat(row.getMissionId()).isEqualTo(7L);
+        assertThat(row.getResponseBody()).contains("\"mission\"").contains("\"exp_earned\":10");
+    }
+
+    @Test
+    @DisplayName("complete: 선점 행이 없으면 IllegalStateException")
+    void complete_rowMissing_fails() {
+        when(repository.findById(5L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> service(new LmObjectMapper()).complete(5L, 7L, "x"))
                 .isInstanceOf(IllegalStateException.class);
     }
 

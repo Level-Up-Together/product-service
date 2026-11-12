@@ -132,6 +132,15 @@ SIMPLE  // 수행 여부 — 즉시 완료, 고정 +10 EXP (LUT-568: 5 → 10)
 - `POST /api/v1/missions/recommended/{id}/start`(로그인, `Idempotency-Key` 선택) — **한 트랜잭션**에서 내 미션 생성(일반·공개·`source=USER` — 미션북 다이아 없음, 이름 4개 언어 복사, 꺼진 카테고리는 빼고 생성, 생성 한도 20개 동일) + 오늘 수행 시작.
   진행 중인 미션이 있으면 기존 시작과 같은 오류이고 만든 미션도 롤백된다(생성 이벤트는 AFTER_COMMIT 이라 안 나감). 체크 미션도 시작만 — 완료는 기존 완료 API. 없거나 꺼진 추천 **404** `050501`. 응답 `{mission, execution}`(기존 미션 조회·시작 응답 모양).
   멱등 키는 미션 생성과 같은 표·규칙(`MissionIdempotencyService.runOnce`) — 재요청은 저장된 응답, 본문을 못 읽으면 미션만(실행 null).
+- `POST /api/v1/missions/recommended/{id}/complete`(로그인, `Idempotency-Key` 선택, LUT-803) — **체크(SIMPLE) 추천 전용 원탭 완료**: 내 미션 생성 + 오늘 수행 시작 + 완료를 한 요청에서 한다.
+  체크 미션은 "수행 중"을 거치지 않는다 — `/start` 는 미션을 만들며 수행을 시작해, 화면의 확인("다 했으면 눌러 주세요")이 떠 있는 동안 체크 미션이 수행 중으로 잡히고 타이머가 돌았다.
+  화면은 **확인을 누른 뒤에** 이 API 를 한 번 부르고, "나중에 할게요"면 아무것도 부르지 않는다(미션이 생기지 않는다). 타이머(TIMED) 추천은 지금처럼 `/start`.
+  - 순서: ① 생성 + 시작(한 트랜잭션, **먼저 커밋**) → ② 기존 완료 Saga. 한 트랜잭션으로 묶지 못한다 — Saga step 이 `REQUIRES_NEW` 라 커밋된 수행만 읽는다. ②가 실패하면 ①을 되돌린다(수행 취소 + 미션 삭제) → 수행 중인 미션이 남지 않는다.
+    ①과 ② 사이(한 요청 안, 수십 ms)에는 수행 중이 잠깐 커밋돼 있고 시작·종료 이벤트도 기존 체크 미션(시작 API → 완료 API)과 똑같이 나간다.
+  - 경험치·체크 일일 한도(`daily_simple_exp_capped`)·마일스톤 보너스는 기존 완료와 같은 Saga 가 판정한다. 피드는 만들지 않는다(공개범위 미지정 = PRIVATE). 완료 횟수 제한은 기존 완료 API 와 같은 한도(`missionCompletion`, 1분 10회)를 함께 센다.
+  - 응답 `{mission, execution}` — `execution` 은 기존 완료 응답 모양(`exp_earned`·`daily_simple_exp_capped` 등). 타이머 추천이면 **400** `050503`, 없거나 꺼진 추천 404 `050501`, 진행 중인 미션이 있으면 기존 시작과 같은 오류.
+  - 멱등 키는 시작과 같은 표·규칙. 완료가 Saga 라 키 완료를 같은 트랜잭션에 못 묶어 **완료가 끝난 뒤** 표시한다(`MissionIdempotencyTxService.complete`) — 표시가 실패해도 완료 결과는 돌려준다.
+  - 코드: `RecommendedMissionCompleteService`(트랜잭션을 열지 않는다 — `RecommendedMissionService` 안에 두면 자기 호출이라 `start` 의 트랜잭션이 걸리지 않는다).
 - 만든 미션에 `mission.recommended_mission_id` 를 남겨 어드민 성과(시작 수 = 만든 미션 수, 완료 = 그중 COMPLETED 수행이 있는 미션 수, 유저가 지운 미션 제외)를 낸다.
 - 어드민 내부 API `/api/internal/recommended-missions`(목록·단건·작성·수정·삭제·활성 토글·`PUT /reorder` 전체 ID) — 입력 오류 **400** `050502`(타이머 목표 시간 없음·꺼지거나 없는 카테고리·순서 목록 불일치).
 - 마이페이지 `user_info.has_completed_mission` = 누적 완료 수 > 0 — 웹이 첫 완료 축하를 한 번만 띄우고 분석 `is_first` 에 쓴다.
