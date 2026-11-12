@@ -8,7 +8,7 @@
 | 검색엔진 | 상태 | 계정 | 확인 방법 |
 |---|---|---|---|
 | Google Search Console | **등록 끝** (2026-11-12) — 소유 확인, 사이트맵 제출(성공, 페이지 1개), GA4 연결 | `ceo@pink-spider.io` (GA4 계정과 같다) | 도메인 속성 + DNS TXT |
-| Bing Webmaster Tools | 남음 — 사람이 로그인해서 "Google Search Console 에서 가져오기" | - | - |
+| Bing Webmaster Tools | **등록 끝** (2026-11-12) — 사이트 `https://level-up-together.com/` 추가, 사이트맵 제출(처리 중으로 표시, 오류 0) | `ceo@pink-spider.io` | Google Search Console 에서 가져오기 |
 | 네이버 서치어드바이저 | 값은 웹 코드에 넣음(`epic/v1.1.6`). **v1.1.6 운영 배포 뒤** 서치어드바이저에서 "소유확인"을 누르고 사이트맵을 제출한다 | 유저 계정 | HTML 메타 태그 |
 | 다음 웹마스터도구 | 값은 웹 코드에 넣음(`epic/v1.1.6`). **v1.1.6 운영 배포 뒤** 웹마스터도구에서 인증을 마친다 | 유저 계정 | `robots.txt` 줄 |
 
@@ -58,7 +58,7 @@ Google 등록 기록
 | 공개 페이지 `/ranking` `/shop` `/tower` `/season` | 200, 검색 차단 없음. 제목이 전부 `Level Up Together` 로 같다. 사이트맵에 없다 |
 | DNS | Route53. 인프라 레포 `level-up-together-infra/route53.tf` 에서 Terraform 으로 관리 |
 
-- GA(구글 애널리틱스) 연결 같은, 위에서 보이지 않는 방법으로 이미 등록됐을 수는 있다. 각 도구에서 한 번 확인한다. Google 은 확인했다(등록 안 돼 있었다). Bing·네이버·다음은 로그인해야 볼 수 있어 아직 모른다.
+- GA(구글 애널리틱스) 연결 같은, 위에서 보이지 않는 방법으로 이미 등록됐을 수는 있다. 각 도구에서 한 번 확인한다. Google 은 확인했다(등록 안 돼 있었다). Bing 도 같은 날 등록했다. 네이버·다음은 사이트 추가까지 했고 소유 확인은 운영 배포 뒤다.
 - 2026-11-11 ASO 점검 때도 검색엔진 미등록으로 봤다.
 
 ## 문제
@@ -88,7 +88,7 @@ Google 등록 기록
 2. Search Console 에 사이트맵 `https://level-up-together.com/sitemap.xml` 을 제출한다. — 끝
 3. Search Console "URL 검사"로 `/` 를 Google 이 어떻게 보는지 확인한다. — 끝(영어로 저장돼 있다, 아래 "문제 1")
 4. Search Console 을 GA4 운영 속성(523226971)과 연결한다. 검색어 보고서를 볼 수 있다. — 끝(2026-11-12)
-5. **Bing Webmaster Tools**: "Google Search Console 에서 가져오기"를 고른다. 확인 절차와 사이트맵이 한 번에 넘어간다.
+5. **Bing Webmaster Tools**: "Google Search Console 에서 가져오기"를 고른다. 확인 절차가 넘어간다. **사이트맵은 넘어오지 않았다** — Sitemaps 화면에서 따로 제출해야 한다. — 끝(2026-11-12)
 6. **네이버 서치어드바이저**: 사이트를 추가하고 확인용 HTML 태그나 파일을 받는다.
    - 웹 코드에 넣고 배포해야 한다. 메타 태그는 Next.js `metadata.verification.other`, 파일은 `public/` 에 둔다.
    - 네이버에도 사이트맵을 제출한다.
