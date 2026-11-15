@@ -70,3 +70,26 @@ Accept: application/json
   "active": true,
   "sort_order": 9
 }
+
+### ----------------------------------------------------------
+### 위젯 'N일' 숫자 색 구간 조회 (LUT-816, 내부 API) — 모든 위젯 문장 공통
+### ----------------------------------------------------------
+GET {{baseUrl}}/api/internal/widget-messages/streak-colors
+Accept: application/json
+
+### ----------------------------------------------------------
+### 위젯 'N일' 숫자 색 구간 저장 (LUT-816) — 보낸 목록으로 통째로 바꾼다
+### - max_days 를 비우면 끝 없음(이상), 마지막 구간만
+### - 겹치면 400 080206, 구간 사이가 비면 400 080207
+### ----------------------------------------------------------
+PUT {{baseUrl}}/api/internal/widget-messages/streak-colors
+Content-Type: application/json
+Accept: application/json
+
+{
+  "ranges": [
+    { "min_days": 1, "max_days": 7, "color": "#1dec06" },
+    { "min_days": 8, "max_days": 30, "color": "#00f9ff" },
+    { "min_days": 31, "color": "#ff4fa3" }
+  ]
+}

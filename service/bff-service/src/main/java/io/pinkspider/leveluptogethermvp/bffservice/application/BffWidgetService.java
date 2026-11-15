@@ -5,6 +5,7 @@ import io.pinkspider.global.facade.UserQueryFacade;
 import io.pinkspider.global.facade.dto.PracticeStreakDto;
 import io.pinkspider.leveluptogethermvp.bffservice.api.dto.WidgetSummaryResponse;
 import io.pinkspider.leveluptogethermvp.metaservice.widgetmessage.application.WidgetMessageService;
+import io.pinkspider.leveluptogethermvp.metaservice.widgetmessage.application.WidgetStreakColorService;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -15,7 +16,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 /**
- * LUT-775: 홈 화면 위젯 요약 — 연속 실천 일수 + 오늘 완료 여부 + 활성 문장.
+ * LUT-775: 홈 화면 위젯 요약 — 연속 실천 일수 + 오늘 완료 여부 + 활성 문장 + 'N일' 숫자 색 구간(LUT-816).
  *
  * <p>"오늘 완료" 는 연속 실천의 마지막 실천일(유저 로컬, 미션 완료 시각 기준 — LUT-717)이 오늘인가로 본다. 연속 실천 조회가 실패하면 0 으로 덮지 않고
  * 오류를 그대로 낸다 — 위젯은 실패하면 마지막으로 받은 값을 그린다(LUT-777).
@@ -29,24 +30,33 @@ public class BffWidgetService {
     private final GamificationQueryFacade gamificationQueryFacade;
     private final UserQueryFacade userQueryFacade;
     private final WidgetMessageService widgetMessageService;
+    private final WidgetStreakColorService widgetStreakColorService;
     private final Clock clock;
 
     @Autowired
     public BffWidgetService(
             GamificationQueryFacade gamificationQueryFacade,
             UserQueryFacade userQueryFacade,
-            WidgetMessageService widgetMessageService) {
-        this(gamificationQueryFacade, userQueryFacade, widgetMessageService, Clock.systemUTC());
+            WidgetMessageService widgetMessageService,
+            WidgetStreakColorService widgetStreakColorService) {
+        this(
+                gamificationQueryFacade,
+                userQueryFacade,
+                widgetMessageService,
+                widgetStreakColorService,
+                Clock.systemUTC());
     }
 
     BffWidgetService(
             GamificationQueryFacade gamificationQueryFacade,
             UserQueryFacade userQueryFacade,
             WidgetMessageService widgetMessageService,
+            WidgetStreakColorService widgetStreakColorService,
             Clock clock) {
         this.gamificationQueryFacade = gamificationQueryFacade;
         this.userQueryFacade = userQueryFacade;
         this.widgetMessageService = widgetMessageService;
+        this.widgetStreakColorService = widgetStreakColorService;
         this.clock = clock;
     }
 
@@ -63,7 +73,8 @@ public class BffWidgetService {
                 completedToday,
                 now.truncatedTo(ChronoUnit.SECONDS),
                 zone.getId(),
-                widgetMessageService.getActiveMessages(language));
+                widgetMessageService.getActiveMessages(language),
+                widgetStreakColorService.getRanges());
     }
 
     /** 연속 실천 반영(UserStatsService)과 같은 규칙 — 없거나 잘못된 값이면 Asia/Seoul */

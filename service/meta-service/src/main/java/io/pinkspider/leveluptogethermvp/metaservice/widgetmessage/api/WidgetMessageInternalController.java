@@ -3,10 +3,13 @@ package io.pinkspider.leveluptogethermvp.metaservice.widgetmessage.api;
 import io.pinkspider.global.api.ApiResult;
 import io.pinkspider.leveluptogethermvp.metaservice.widgetmessage.application.WidgetMessageImageService;
 import io.pinkspider.leveluptogethermvp.metaservice.widgetmessage.application.WidgetMessageService;
+import io.pinkspider.leveluptogethermvp.metaservice.widgetmessage.application.WidgetStreakColorService;
 import io.pinkspider.leveluptogethermvp.metaservice.widgetmessage.domain.dto.WidgetMessageImageUploadResponse;
 import io.pinkspider.leveluptogethermvp.metaservice.widgetmessage.domain.dto.WidgetMessageListResponse;
 import io.pinkspider.leveluptogethermvp.metaservice.widgetmessage.domain.dto.WidgetMessageRequest;
 import io.pinkspider.leveluptogethermvp.metaservice.widgetmessage.domain.dto.WidgetMessageResponse;
+import io.pinkspider.leveluptogethermvp.metaservice.widgetmessage.domain.dto.WidgetStreakColorRequest;
+import io.pinkspider.leveluptogethermvp.metaservice.widgetmessage.domain.dto.WidgetStreakColorResponse;
 import io.pinkspider.leveluptogethermvp.metaservice.widgetmessage.domain.enums.WidgetMessageCondition;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -32,6 +35,7 @@ public class WidgetMessageInternalController {
 
     private final WidgetMessageService widgetMessageService;
     private final WidgetMessageImageService widgetMessageImageService;
+    private final WidgetStreakColorService widgetStreakColorService;
 
     @GetMapping
     public ApiResult<WidgetMessageListResponse> list(
@@ -87,5 +91,22 @@ public class WidgetMessageInternalController {
     public ApiResult<Void> delete(@PathVariable Long id) {
         widgetMessageService.delete(id);
         return ApiResult.<Void>builder().build();
+    }
+
+    /** LUT-816: 'N일' 숫자 색 구간 — 모든 위젯 문장 공통. 비어 있으면 모든 N 이 위젯 기본 색 */
+    @GetMapping("/streak-colors")
+    public ApiResult<WidgetStreakColorResponse> getStreakColors() {
+        return ApiResult.<WidgetStreakColorResponse>builder()
+                .value(widgetStreakColorService.list())
+                .build();
+    }
+
+    /** LUT-816: 'N일' 숫자 색 구간을 보낸 목록으로 통째로 바꾼다 — 겹침 400 {@code 080206}, 빈 곳 400 {@code 080207} */
+    @PutMapping("/streak-colors")
+    public ApiResult<WidgetStreakColorResponse> replaceStreakColors(
+            @Valid @RequestBody WidgetStreakColorRequest request) {
+        return ApiResult.<WidgetStreakColorResponse>builder()
+                .value(widgetStreakColorService.replace(request))
+                .build();
     }
 }
