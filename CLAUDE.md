@@ -745,11 +745,11 @@ LUT-348 의 등급 차이 할증(배수 1~8, 10단위 올림)은 없앴다 — �
   전체 카테고리** — 프론트가 카테고리를 넘기지 않는다. 웹은 로그인 유저의 저장값을 RSC 프리페치(`bff-home-server.ts`)가 먼저 읽어
   첫 피드를 그 카테고리로 받아와 "전체→필터" 플리커를 없앤다.
 
-## 홈 화면 위젯 (LUT-775 · 776 · 777 · 778)
+## 홈 화면 위젯 (LUT-775 · 776 · 777 · 778 · 816)
 
 앱 홈 화면 위젯(작은 크기, iOS WidgetKit·안드로이드 Glance — RN LUT-777)이 **연속 실천 일수**와 **시간대·오늘 완료 여부에 따라 바뀌는 문장**을 보여 준다. "지금 n명이 미션 중" 은 없다.
 
-- **API** `GET /api/v1/widget/summary`(로그인, `BffWidgetController`) → `{practice_streak_days, completed_today, server_time(UTC Instant), timezone, messages[{id, start_hour, end_hour, condition, text}]}`.
+- **API** `GET /api/v1/widget/summary`(로그인, `BffWidgetController`) → `{practice_streak_days, completed_today, server_time(UTC Instant), timezone, messages[{id, start_hour, end_hour, condition, text}], streak_colors[{min_days, max_days, color}]}`.
   `practice_streak_days` = 프로필 값(`GamificationQueryFacade.getPracticeStreak`, 방어권 반영). `completed_today` = 마지막 실천일(유저 `preferred_timezone` 로컬, 없거나 잘못되면 Asia/Seoul)이 오늘 이후인가 — 유저 자정에 false 로 바뀐다.
   연속 실천 조회가 실패하면 0 으로 덮지 않고 오류를 낸다(위젯은 마지막 값 유지). 비로그인 위젯은 서버를 부르지 않는다(앱 고정 문구).
 - **문장은 전부 내려 주고 위젯이 고른다** — 위젯은 서버를 자주 못 부르므로 시간대 경계마다 저장된 목록으로 다시 그린다. `text` 는 Accept-Language(ko·en·ja·ar, 없거나 모르면 en) 문장, 비면 en → ko. `{streak}` 는 위젯이 바꾼다.
@@ -757,6 +757,7 @@ LUT-348 의 등급 차이 할증(배수 1~8, 10단위 올림)은 없앴다 — �
 - **문장 `widget_message`**(meta_db, Flyway `meta/V1_1_6_001` — 초기 8개 = 아침 6~12·낮 12~18·저녁 18~22·밤 22~6 × 완료 전·후): 시간대는 유저 로컬 `[start_hour, end_hour)`(0~23 / 1~24, 같으면 400), **start > end 면 자정을 넘는 구간**(`WidgetHourRange`). 조건 컬럼 이름은 `done_condition`(API 는 `condition`: `NOT_DONE`·`DONE`·`ALL`). ko 필수·120자.
   어드민 내부 API `/api/internal/widget-messages`(`docs/INTERNAL_API.md`) — 목록 응답 `gaps` 가 완료 전·후 각각 활성 문장이 안 걸리는 시각(어드민 "빈 시간대" 경고, LUT-776).
 - **문장 배경 이미지** (LUT-797, `widget_message.background_image_url`, Flyway `meta/V1_1_6_002`): 어드민이 문장마다 배경 이미지를 첨부하면 `messages[].background_image_url`(절대 URL, 없으면 null = 하얀 배경 — 추가 필드라 구앱 위젯은 무시)로 내려가고, 위젯이 갱신 때 받아 기기에 저장해 그 문장의 배경으로 그린다. 업로드 `POST /api/internal/widget-messages/images`(JPG·PNG 1MB 이하, 확장자가 아니라 내용 헤더로 판정 → `WidgetMessageImageService`) → prod `S3WidgetImageStorageService`(키 `widget/{uuid}.{ext}`, Content-Type 은 확장자에서 정함), 그 외 `LocalWidgetImageStorageService`(`uploads/widget/`, `WidgetImageWebConfig` 정적 서빙, 절대 주소는 `app.upload.widget-image.public-base-url` — 기본값이 탑 이미지의 `app.upload.tower-image.public-base-url` 을 따라가 config 추가 없음). 문장에는 **업로드 API 가 발급한 주소만**(아니면 400 `080205` — 위젯이 임의 외부 주소를 받아 가지 않게), 수정 요청의 null = 그대로·빈 문자열 = 지움. 바꾸거나 지워 어느 문장도 안 쓰는 파일은 커밋 뒤 삭제한다(올리고 저장하지 않은 파일은 남는다). 오류 `080203`(형식·크기)·`080204`(저장 실패).
+- **'N일' 숫자 색 구간** (LUT-816, `widget_streak_color`, Flyway `meta/V1_1_6_003` — 초기 1~7 `#1dec06`·8~30 `#00f9ff`): 위젯의 연속 실천 일수 숫자 색을 어드민이 구간으로 정한다. **문장마다가 아니라 구간 한 벌을 모든 문장에** 쓴다. 구간은 `[min_days, max_days]` 양끝 포함, `max_days` null = 끝 없음(이상). 위젯 요약의 `streak_colors`(전체, 시작 일수 순 — 추가 필드라 구앱 위젯은 무시)를 받은 위젯이 N 이 드는 구간의 색으로 숫자를 그리고, **드는 구간이 없으면(빈 목록·0일·끝이 있는 마지막 구간 뒤) 지금 색**(배경 없음 = 보라색 계열, 배경 이미지 위 = 흰색). 어드민 내부 API `GET/PUT /api/internal/widget-messages/streak-colors` — PUT 은 **보낸 목록으로 통째로 바꾼다**(빈 목록 = 모두 지움, 최대 20개, 색 `#rrggbb`). 규칙은 `WidgetStreakColorRule`: 겹치면 400 `080206`(끝 없는 구간은 마지막에만), 구간 사이가 비면 400 `080207`(다음 구간은 앞 구간 끝 + 1 에서 시작), 항목 형식 오류는 Bean Validation 400. 조회는 문장과 같은 60초 로컬 메모(`WidgetStreakColorService`)이고 **조회 실패는 위젯 요약을 막지 않는다**(마지막 메모, 없으면 빈 목록 = 기본 색).
 - **캐시는 Redis 가 아니라 인스턴스 로컬 메모**(`WidgetMessageService`, `widget.message.cache-seconds` 기본 60초, 쓰기 때와 커밋 뒤 비움, 조회 실패는 마지막 메모) — Redis 캐시 직렬화(`NON_FINAL` 타입 정보)가 record 를 되살리지 못하고, 엔티티 캐시는 컬럼 추가 뒤 옛 값이 남는다(LUT-534).
 - 웹은 미션 완료·취소·로그인·로그아웃 때 브릿지 `widgetRefresh` 로 앱에 즉시 갱신을 알린다(LUT-778).
 - **위젯 호출은 DAU 가 아니다**(LUT-777): 위젯이 30분마다 부르므로 활동 수집(LUT-598)에서 `/api/v1/widget/**` 를 뺀다 — 세면 위젯을 둔 유저가 매일 활동으로 잡혀 DAU·리텐션(LUT-779)이 부풀려진다.

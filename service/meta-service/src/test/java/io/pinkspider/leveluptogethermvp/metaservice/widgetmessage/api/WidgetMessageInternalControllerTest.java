@@ -5,6 +5,7 @@ import static com.epages.restdocs.apispec.ResourceDocumentation.resource;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -26,14 +27,21 @@ import io.pinkspider.leveluptogethermvp.metaservice.widgetmessage.application.Wi
 import io.pinkspider.leveluptogethermvp.metaservice.widgetmessage.application.WidgetMessageImageService;
 import io.pinkspider.leveluptogethermvp.metaservice.widgetmessage.application.WidgetMessageNotFoundException;
 import io.pinkspider.leveluptogethermvp.metaservice.widgetmessage.application.WidgetMessageService;
+import io.pinkspider.leveluptogethermvp.metaservice.widgetmessage.application.WidgetStreakColorException;
+import io.pinkspider.leveluptogethermvp.metaservice.widgetmessage.application.WidgetStreakColorService;
 import io.pinkspider.leveluptogethermvp.metaservice.widgetmessage.domain.dto.WidgetMessageImageUploadResponse;
 import io.pinkspider.leveluptogethermvp.metaservice.widgetmessage.domain.dto.WidgetMessageListResponse;
 import io.pinkspider.leveluptogethermvp.metaservice.widgetmessage.domain.dto.WidgetMessageListResponse.WidgetMessageGapResponse;
 import io.pinkspider.leveluptogethermvp.metaservice.widgetmessage.domain.dto.WidgetMessageRequest;
 import io.pinkspider.leveluptogethermvp.metaservice.widgetmessage.domain.dto.WidgetMessageResponse;
+import io.pinkspider.leveluptogethermvp.metaservice.widgetmessage.domain.dto.WidgetStreakColorRequest;
+import io.pinkspider.leveluptogethermvp.metaservice.widgetmessage.domain.dto.WidgetStreakColorResponse;
+import io.pinkspider.leveluptogethermvp.metaservice.widgetmessage.domain.dto.WidgetStreakColorView;
 import io.pinkspider.leveluptogethermvp.metaservice.widgetmessage.domain.enums.WidgetMessageCondition;
+import io.pinkspider.leveluptogethermvp.metaservice.widgetmessage.domain.policy.WidgetStreakColorRule.Violation;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.stream.IntStream;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -74,6 +82,7 @@ class WidgetMessageInternalControllerTest {
     @Autowired ObjectMapper objectMapper;
     @MockitoBean WidgetMessageService widgetMessageService;
     @MockitoBean WidgetMessageImageService widgetMessageImageService;
+    @MockitoBean WidgetStreakColorService widgetStreakColorService;
 
     private static final String IMAGE_URL =
             "https://images.level-up-together.com/widget/0b6f8c1e-5d2a-4f0e-9a7b-3c1d2e4f5a6b.png";
@@ -561,5 +570,201 @@ class WidgetMessageInternalControllerTest {
                 .andExpect(
                         MockMvcResultMatchers.jsonPath("$.code")
                                 .value(WidgetMessageImageException.CODE_NOT_OWNED));
+    }
+
+    // ========== LUT-816: 'N일' 숫자 색 구간 ==========
+
+    private static WidgetStreakColorResponse streakColors() {
+        return new WidgetStreakColorResponse(
+                List.of(
+                        new WidgetStreakColorView(1, 7, "#1dec06"),
+                        new WidgetStreakColorView(8, 30, "#00f9ff"),
+                        new WidgetStreakColorView(31, null, "#ff4fa3")));
+    }
+
+    private static FieldDescriptor[] streakColorResponseFields() {
+        return new FieldDescriptor[] {
+            fieldWithPath("code").type(JsonFieldType.STRING).description("응답 코드"),
+            fieldWithPath("message").type(JsonFieldType.STRING).description("응답 메시지"),
+            fieldWithPath("value.ranges")
+                    .type(JsonFieldType.ARRAY)
+                    .description("구간 목록(시작 일수 순). 비어 있으면 모든 N 이 위젯 기본 색"),
+            fieldWithPath("value.ranges[].min_days")
+                    .type(JsonFieldType.NUMBER)
+                    .description("구간 시작 일수(포함)"),
+            fieldWithPath("value.ranges[].max_days")
+                    .type(JsonFieldType.NUMBER)
+                    .description("구간 끝 일수(포함). null 이면 끝 없음(이상)")
+                    .optional(),
+            fieldWithPath("value.ranges[].color")
+                    .type(JsonFieldType.STRING)
+                    .description("숫자 색(#rrggbb, 소문자)")
+        };
+    }
+
+    @Test
+    @DisplayName("GET /api/internal/widget-messages/streak-colors : 'N일' 숫자 색 구간 (LUT-816)")
+    void getStreakColors() throws Exception {
+        when(widgetStreakColorService.list()).thenReturn(streakColors());
+
+        mockMvc.perform(
+                        RestDocumentationRequestBuilders.get(
+                                "/api/internal/widget-messages/streak-colors"))
+                .andExpect(MockMvcResultMatchers.status().isOk())
+                .andExpect(MockMvcResultMatchers.jsonPath("$.value.ranges[0].min_days").value(1))
+                .andExpect(MockMvcResultMatchers.jsonPath("$.value.ranges[0].max_days").value(7))
+                .andExpect(
+                        MockMvcResultMatchers.jsonPath("$.value.ranges[2].color").value("#ff4fa3"))
+                .andDo(
+                        MockMvcRestDocumentationWrapper.document(
+                                "내부API-위젯문장-08. N일 숫자 색 구간 조회",
+                                preprocessRequest(prettyPrint()),
+                                preprocessResponse(prettyPrint()),
+                                resource(
+                                        ResourceSnippetParameters.builder()
+                                                .tag(TAG)
+                                                .description(
+                                                        "위젯 'N일' 숫자 색 구간(LUT-816) — 구간 한 벌을 모든"
+                                                                + " 위젯 문장에 쓴다. 연속 실천 일수가 드는 구간의"
+                                                                + " 색으로 숫자를 그리고, 드는 구간이 없으면 위젯"
+                                                                + " 기본 색")
+                                                .responseFields(streakColorResponseFields())
+                                                .build())));
+        // 문자 경로가 /{id} 로 가지 않는다
+        verifyNoInteractions(widgetMessageService);
+    }
+
+    @Test
+    @DisplayName("PUT /api/internal/widget-messages/streak-colors : 구간을 통째로 바꾼다 (LUT-816)")
+    void replaceStreakColors() throws Exception {
+        when(widgetStreakColorService.replace(any())).thenReturn(streakColors());
+        WidgetStreakColorRequest request =
+                new WidgetStreakColorRequest(
+                        List.of(
+                                new WidgetStreakColorRequest.Range(1, 7, "#1dec06"),
+                                new WidgetStreakColorRequest.Range(8, 30, "#00f9ff"),
+                                new WidgetStreakColorRequest.Range(31, null, "#ff4fa3")));
+
+        mockMvc.perform(
+                        RestDocumentationRequestBuilders.put(
+                                        "/api/internal/widget-messages/streak-colors")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(request)))
+                .andExpect(MockMvcResultMatchers.status().isOk())
+                .andExpect(MockMvcResultMatchers.jsonPath("$.value.ranges.length()").value(3))
+                .andDo(
+                        MockMvcRestDocumentationWrapper.document(
+                                "내부API-위젯문장-09. N일 숫자 색 구간 저장",
+                                preprocessRequest(prettyPrint()),
+                                preprocessResponse(prettyPrint()),
+                                resource(
+                                        ResourceSnippetParameters.builder()
+                                                .tag(TAG)
+                                                .description(
+                                                        "위젯 'N일' 숫자 색 구간을 보낸 목록으로 통째로"
+                                                                + " 바꾼다(LUT-816). 빈 목록이면 모두 지운다."
+                                                                + " 구간이 겹치면 400 080206(끝 없는 구간은"
+                                                                + " 마지막에만), 구간 사이가 비면 400 080207."
+                                                                + " 저장하면 위젯 조회 메모(노드별 60초)를"
+                                                                + " 비운다")
+                                                .requestFields(
+                                                        fieldWithPath("ranges")
+                                                                .type(JsonFieldType.ARRAY)
+                                                                .description(
+                                                                        "구간 목록(최대 20개, 순서 무관)"),
+                                                        fieldWithPath("ranges[].min_days")
+                                                                .type(JsonFieldType.NUMBER)
+                                                                .description(
+                                                                        "구간 시작 일수(포함, 0~99999)"),
+                                                        fieldWithPath("ranges[].max_days")
+                                                                .type(JsonFieldType.NUMBER)
+                                                                .description(
+                                                                        "구간 끝 일수(포함, 시작 이상)."
+                                                                                + " 비우면 끝 없음(이상) —"
+                                                                                + " 마지막 구간만")
+                                                                .optional(),
+                                                        fieldWithPath("ranges[].color")
+                                                                .type(JsonFieldType.STRING)
+                                                                .description(
+                                                                        "숫자 색(#rrggbb, 대소문자"
+                                                                                + " 무관)"))
+                                                .responseFields(streakColorResponseFields())
+                                                .build())));
+        verifyNoInteractions(widgetMessageService);
+    }
+
+    @Test
+    @DisplayName("숫자 색 구간 — 겹치면 400 080206, 사이가 비면 400 080207")
+    void streakColorViolations() throws Exception {
+        String body = "{\"ranges\":[{\"min_days\":1,\"max_days\":7,\"color\":\"#1dec06\"}]}";
+
+        when(widgetStreakColorService.replace(any()))
+                .thenThrow(WidgetStreakColorException.of(Violation.OVERLAP));
+        mockMvc.perform(
+                        RestDocumentationRequestBuilders.put(
+                                        "/api/internal/widget-messages/streak-colors")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(body))
+                .andExpect(MockMvcResultMatchers.status().isBadRequest())
+                .andExpect(
+                        MockMvcResultMatchers.jsonPath("$.code")
+                                .value(WidgetStreakColorException.CODE_OVERLAP));
+
+        reset(widgetStreakColorService);
+        when(widgetStreakColorService.replace(any()))
+                .thenThrow(WidgetStreakColorException.of(Violation.GAP));
+        mockMvc.perform(
+                        RestDocumentationRequestBuilders.put(
+                                        "/api/internal/widget-messages/streak-colors")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(body))
+                .andExpect(MockMvcResultMatchers.status().isBadRequest())
+                .andExpect(
+                        MockMvcResultMatchers.jsonPath("$.code")
+                                .value(WidgetStreakColorException.CODE_GAP));
+    }
+
+    @Test
+    @DisplayName("숫자 색 구간 — 색 형식·음수·끝이 시작보다 작음·목록 없음은 400 (서비스를 부르지 않는다)")
+    void streakColorInvalidFields() throws Exception {
+        List<String> bodies =
+                List.of(
+                        "{\"ranges\":[{\"min_days\":1,\"max_days\":7,\"color\":\"green\"}]}",
+                        "{\"ranges\":[{\"min_days\":1,\"max_days\":7,\"color\":\"#1dec0\"}]}",
+                        "{\"ranges\":[{\"min_days\":-1,\"max_days\":7,\"color\":\"#1dec06\"}]}",
+                        "{\"ranges\":[{\"min_days\":8,\"max_days\":7,\"color\":\"#1dec06\"}]}",
+                        "{\"ranges\":[{\"max_days\":7,\"color\":\"#1dec06\"}]}",
+                        "{\"ranges\":[{\"min_days\":1,\"max_days\":100000,\"color\":\"#1dec06\"}]}",
+                        "{\"ranges\":[null]}",
+                        "{}");
+
+        for (String body : bodies) {
+            mockMvc.perform(
+                            RestDocumentationRequestBuilders.put(
+                                            "/api/internal/widget-messages/streak-colors")
+                                    .contentType(MediaType.APPLICATION_JSON)
+                                    .content(body))
+                    .andExpect(MockMvcResultMatchers.status().isBadRequest());
+        }
+        verifyNoInteractions(widgetStreakColorService);
+    }
+
+    @Test
+    @DisplayName("숫자 색 구간 — 20개를 넘으면 400")
+    void streakColorTooMany() throws Exception {
+        List<WidgetStreakColorRequest.Range> ranges =
+                IntStream.range(0, 21)
+                        .mapToObj(i -> new WidgetStreakColorRequest.Range(i, i, "#1dec06"))
+                        .toList();
+
+        mockMvc.perform(
+                        RestDocumentationRequestBuilders.put(
+                                        "/api/internal/widget-messages/streak-colors")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(
+                                        objectMapper.writeValueAsString(
+                                                new WidgetStreakColorRequest(ranges))))
+                .andExpect(MockMvcResultMatchers.status().isBadRequest());
+        verifyNoInteractions(widgetStreakColorService);
     }
 }

@@ -16,6 +16,7 @@ import io.pinkspider.leveluptogethermvp.bffservice.api.dto.WidgetSummaryResponse
 import io.pinkspider.leveluptogethermvp.bffservice.application.BffWidgetService;
 import io.pinkspider.leveluptogethermvp.config.ControllerTestConfig;
 import io.pinkspider.leveluptogethermvp.metaservice.widgetmessage.domain.dto.WidgetMessageView;
+import io.pinkspider.leveluptogethermvp.metaservice.widgetmessage.domain.dto.WidgetStreakColorView;
 import io.pinkspider.leveluptogethermvp.metaservice.widgetmessage.domain.enums.WidgetMessageCondition;
 import java.time.Instant;
 import java.util.List;
@@ -80,7 +81,10 @@ class BffWidgetControllerTest {
                                                 12,
                                                 WidgetMessageCondition.DONE,
                                                 "아침부터 해냈어요! {streak}일 연속 실천 중이에요.",
-                                                null))));
+                                                null)),
+                                List.of(
+                                        new WidgetStreakColorView(1, 7, "#1dec06"),
+                                        new WidgetStreakColorView(8, null, "#00f9ff"))));
 
         mockMvc.perform(
                         RestDocumentationRequestBuilders.get("/api/v1/widget/summary")
@@ -94,6 +98,12 @@ class BffWidgetControllerTest {
                 .andExpect(
                         MockMvcResultMatchers.jsonPath("$.value.messages[1].text")
                                 .value("아침부터 해냈어요! {streak}일 연속 실천 중이에요."))
+                .andExpect(
+                        MockMvcResultMatchers.jsonPath("$.value.streak_colors[0].color")
+                                .value("#1dec06"))
+                .andExpect(
+                        MockMvcResultMatchers.jsonPath("$.value.streak_colors[1].max_days")
+                                .doesNotExist())
                 .andDo(
                         MockMvcRestDocumentationWrapper.document(
                                 "위젯-01. 위젯 요약",
@@ -174,7 +184,30 @@ class BffWidgetControllerTest {
                                                                         "그 문장을 보여 줄 때 위젯 배경에 깔 이미지"
                                                                             + " 절대 URL(LUT-797)."
                                                                             + " 없으면 null — 하얀 배경")
-                                                                .optional())
+                                                                .optional(),
+                                                        fieldWithPath("value.streak_colors")
+                                                                .type(JsonFieldType.ARRAY)
+                                                                .description(
+                                                                        "'N일' 숫자 색 구간 전체(LUT-816,"
+                                                                                + " 시작 일수 순). 연속 실천"
+                                                                                + " 일수가 드는 구간의 색으로"
+                                                                                + " 숫자를 그린다. 드는 구간이"
+                                                                                + " 없으면(빈 배열 포함) 위젯"
+                                                                                + " 기본 색"),
+                                                        fieldWithPath(
+                                                                        "value.streak_colors[].min_days")
+                                                                .type(JsonFieldType.NUMBER)
+                                                                .description("구간 시작 일수(포함)"),
+                                                        fieldWithPath(
+                                                                        "value.streak_colors[].max_days")
+                                                                .type(JsonFieldType.NUMBER)
+                                                                .description(
+                                                                        "구간 끝 일수(포함). null 이면 끝"
+                                                                                + " 없음(이상)")
+                                                                .optional(),
+                                                        fieldWithPath("value.streak_colors[].color")
+                                                                .type(JsonFieldType.STRING)
+                                                                .description("숫자 색(#rrggbb)"))
                                                 .build())));
 
         verify(bffWidgetService).getSummary(MOCK_USER_ID, "ko");
@@ -186,13 +219,19 @@ class BffWidgetControllerTest {
         when(bffWidgetService.getSummary(MOCK_USER_ID, "en"))
                 .thenReturn(
                         new WidgetSummaryResponse(
-                                0, false, Instant.parse("2026-11-11T09:00:00Z"), "UTC", List.of()));
+                                0,
+                                false,
+                                Instant.parse("2026-11-11T09:00:00Z"),
+                                "UTC",
+                                List.of(),
+                                List.of()));
 
         mockMvc.perform(
                         RestDocumentationRequestBuilders.get("/api/v1/widget/summary")
                                 .with(user(MOCK_USER_ID)))
                 .andExpect(MockMvcResultMatchers.status().isOk())
-                .andExpect(MockMvcResultMatchers.jsonPath("$.value.messages").isEmpty());
+                .andExpect(MockMvcResultMatchers.jsonPath("$.value.messages").isEmpty())
+                .andExpect(MockMvcResultMatchers.jsonPath("$.value.streak_colors").isEmpty());
 
         verify(bffWidgetService).getSummary(MOCK_USER_ID, "en");
     }

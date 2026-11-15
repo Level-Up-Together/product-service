@@ -3,6 +3,7 @@ package io.pinkspider.leveluptogethermvp.metaservice.widgetmessage.api.exception
 import io.pinkspider.global.api.ApiResult;
 import io.pinkspider.leveluptogethermvp.metaservice.widgetmessage.application.WidgetMessageImageException;
 import io.pinkspider.leveluptogethermvp.metaservice.widgetmessage.application.WidgetMessageNotFoundException;
+import io.pinkspider.leveluptogethermvp.metaservice.widgetmessage.application.WidgetStreakColorException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.MessageSource;
 import org.springframework.context.i18n.LocaleContextHolder;
@@ -17,9 +18,9 @@ import org.springframework.web.method.annotation.MethodArgumentTypeMismatchExcep
 import org.springframework.web.multipart.support.MissingServletRequestPartException;
 
 /**
- * LUT-775: 위젯 문장 API 의 "없음" 을 404, 파라미터 형식 오류를 400 으로 돌려준다. LUT-797: 배경 이미지 오류도 여기서. 플랫폼 {@code
- * CustomException} 은 늘 500 이라(LUT-616 과 같은 이유) widgetmessage 패키지 컨트롤러로 범위를 한정한 {@code
- * HIGHEST_PRECEDENCE} 어드바이스를 둔다. 입력 오류는 Bean Validation → 플랫폼 400.
+ * LUT-775: 위젯 문장 API 의 "없음" 을 404, 파라미터 형식 오류를 400 으로 돌려준다. LUT-797: 배경 이미지 오류도 여기서. LUT-816: 'N일'
+ * 숫자 색 구간 거절도 여기서. 플랫폼 {@code CustomException} 은 늘 500 이라(LUT-616 과 같은 이유) widgetmessage 패키지 컨트롤러로
+ * 범위를 한정한 {@code HIGHEST_PRECEDENCE} 어드바이스를 둔다. 입력 오류는 Bean Validation → 플랫폼 400.
  */
 @RestControllerAdvice(basePackages = "io.pinkspider.leveluptogethermvp.metaservice.widgetmessage")
 @Order(Ordered.HIGHEST_PRECEDENCE)
@@ -54,6 +55,13 @@ public class WidgetMessageExceptionHandler {
     public ResponseEntity<Object> handleImage(WidgetMessageImageException e) {
         log.info("[widget-message] 배경 이미지 오류 code={}", e.getCode());
         return respond(e.getStatus(), e.getCode(), e.getMessageKey());
+    }
+
+    /** LUT-816: 'N일' 숫자 색 구간 — 겹침 400 {@code 080206}, 빈 곳 400 {@code 080207} */
+    @ExceptionHandler(WidgetStreakColorException.class)
+    public ResponseEntity<Object> handleStreakColor(WidgetStreakColorException e) {
+        log.info("[widget-message] 숫자 색 구간 거절 code={}", e.getCode());
+        return respond(HttpStatus.BAD_REQUEST, e.getCode(), e.getMessageKey());
     }
 
     /** LUT-797: 업로드 요청에 file 파트가 없다 — 플랫폼 기본은 500 */

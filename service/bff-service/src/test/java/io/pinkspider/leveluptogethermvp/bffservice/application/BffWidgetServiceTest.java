@@ -10,7 +10,9 @@ import io.pinkspider.global.facade.UserQueryFacade;
 import io.pinkspider.global.facade.dto.PracticeStreakDto;
 import io.pinkspider.leveluptogethermvp.bffservice.api.dto.WidgetSummaryResponse;
 import io.pinkspider.leveluptogethermvp.metaservice.widgetmessage.application.WidgetMessageService;
+import io.pinkspider.leveluptogethermvp.metaservice.widgetmessage.application.WidgetStreakColorService;
 import io.pinkspider.leveluptogethermvp.metaservice.widgetmessage.domain.dto.WidgetMessageView;
+import io.pinkspider.leveluptogethermvp.metaservice.widgetmessage.domain.dto.WidgetStreakColorView;
 import io.pinkspider.leveluptogethermvp.metaservice.widgetmessage.domain.enums.WidgetMessageCondition;
 import java.time.Clock;
 import java.time.Instant;
@@ -39,9 +41,14 @@ class BffWidgetServiceTest {
     @Mock GamificationQueryFacade gamificationQueryFacade;
     @Mock UserQueryFacade userQueryFacade;
     @Mock WidgetMessageService widgetMessageService;
+    @Mock WidgetStreakColorService widgetStreakColorService;
 
     private final List<WidgetMessageView> messages =
             List.of(new WidgetMessageView(1L, 6, 12, WidgetMessageCondition.NOT_DONE, "문장", null));
+    private final List<WidgetStreakColorView> streakColors =
+            List.of(
+                    new WidgetStreakColorView(1, 7, "#1dec06"),
+                    new WidgetStreakColorView(8, null, "#00f9ff"));
 
     @BeforeEach
     void setUp() {
@@ -50,6 +57,7 @@ class BffWidgetServiceTest {
                 .when(gamificationQueryFacade.getPracticeStreak(USER_ID))
                 .thenReturn(new PracticeStreakDto(12, 20, LocalDate.of(2026, 11, 11), 1, null));
         lenient().when(widgetMessageService.getActiveMessages("ko")).thenReturn(messages);
+        lenient().when(widgetStreakColorService.getRanges()).thenReturn(streakColors);
     }
 
     private BffWidgetService service(Instant now) {
@@ -57,6 +65,7 @@ class BffWidgetServiceTest {
                 gamificationQueryFacade,
                 userQueryFacade,
                 widgetMessageService,
+                widgetStreakColorService,
                 Clock.fixed(now, ZoneOffset.UTC));
     }
 
@@ -72,6 +81,8 @@ class BffWidgetServiceTest {
         assertThat(response.timezone()).isEqualTo("Asia/Seoul");
         assertThat(response.serverTime()).isEqualTo(Instant.parse("2026-11-11T14:59:59Z"));
         assertThat(response.messages()).isEqualTo(messages);
+        // LUT-816: 'N일' 숫자 색 구간도 그대로 — 고르는 것은 위젯
+        assertThat(response.streakColors()).isEqualTo(streakColors);
     }
 
     @Test
