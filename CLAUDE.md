@@ -727,8 +727,11 @@ LUT-348 의 등급 차이 할증(배수 1~8, 10단위 올림)은 없앴다 — �
   `SecurityConfigPublicEndpointTest`) — 웹 서버가 방문자·검색엔진에게 `/season` 을 미리 그려 준다. 비로그인이면 `my_ranking` 은 조회하지 않고 빈 값
   (`SeasonMyRankingDto.empty()`, 필드는 유지). 시즌이 없으면 **404**(`NO_ACTIVE_SEASON`·`SEASON_NOT_FOUND`, `bffservice/api/exception/BffSeasonExceptionHandler`
   — 예전엔 플랫폼 `CustomException` 이라 500 + error 로그였다. 웹 서버가 방문자 요청·사이트맵 요청마다 부르므로 "시즌 없음"을 오류로 두지 않는다. `code`·문구는 그대로).
-- **랭킹** `/api/v1/rankings` 14개: 전체·`/missions`·`/streaks`·`/achievements`·`/realtime`·`/level`·`/level/**`는 **비로그인 허용**(LUT-297,
-  `SecurityConfig` permitAll + `SecurityConfigPublicEndpointTest`), `/my*`·`/nearby`는 인증 필요.
+- **랭킹** `/api/v1/rankings` 15개: 전체·`/missions`·`/streaks`·`/achievements`·`/realtime`·`/level`·`/level/**`는 **비로그인 허용**(LUT-297,
+  `SecurityConfig` permitAll + `SecurityConfigPublicEndpointTest`), `/my*`·`/nearby`·`/friends`는 인증 필요.
+  **친구 랭킹** `GET /rankings/friends?period=WEEKLY|MONTHLY`(LUT-833, 기본 WEEKLY — 모르는 값도 WEEKLY): 나 + 수락된 친구(`UserQueryFacade.getFriendIds`, 내가 차단한 유저·탈퇴 유저 제외)를
+  기간 획득 경험치 순으로. 응답은 주간 랭킹과 같은 페이지 모양이고 `rank` 는 친구 안에서의 순위, 얻은 것이 없는 친구도 `period_exp` 0 으로 든다(전체 주간 랭킹과 다른 점).
+  **보여 줄 친구가 없으면 빈 목록**(나 혼자만 든 목록은 주지 않는다 — 웹이 빈 상태를 보여 준다). 집계는 전체 유저를 훑지 않고 `findUserExpByPeriodAndUserIdIn` 으로 그 유저들만.
 - **출석 응답 `store_review_due`** (LUT-708, 2026-11-02): 체크인 응답에 "이번 연속 일수가 어드민 설정 마일스톤(meta `app_setting.store_review_milestone_days`, 기본 `7,14,30`)과 같은가" 를 서버가 판정해 싣는다. 웹은 그 값이 true 일 때만 OS 인앱 평가 팝업을 요청(LUT-609)하고, 값이 없으면(구 서버) 7·14·30 으로 폴백한다. "평가했는지" 는 OS 가 알려 주지 않으므로 목록의 각 시점에 1회씩 요청하고 끝낸다. 설정 조회 실패는 출석을 막지 않는다(false). 어드민은 `/api/admin/attendance-reward-configs/store-review-milestones`(권한 `attendance-config:*`).
 - **출석은 가입 당일부터 1일차** (LUT-597): 예전 `AttendanceController` 의 "가입 첫날 출석 제외" 규칙(2025-12-25, 이유 미기재)은 폐지됐다. `isNewUserToday` 가 UTC 날짜(JVM 기본)를 비교해 차단 창이 KST 09:00~다음날 09:00 로 어긋났고, 웹은 `already_checked_in` 응답을 조용히 삼켜 유저에게 아무 안내도 없었다. IR 리텐션 D1 정의(가입 다음 날 재방문)와 맞추기 위해 제거 — **배포 전 가입 코호트의 가입 당일 출석 행은 구조적으로 0건**이라 출석 기반 D0 는 그 구간에서 측정 불가. kernel `UserQueryFacade.isNewUserToday` 는 호환 위해 남아 있다(호출처 없음).
 - **스트릭 소스는 3종이고 섞으면 안 된다** (LUT-405/555/717): ① **연속 출석** = `attendance_record.consecutive_days` 체인

@@ -3,6 +3,7 @@ package io.pinkspider.leveluptogethermvp.gamificationservice.infrastructure;
 import io.pinkspider.global.enums.ExpSourceType;
 import io.pinkspider.leveluptogethermvp.gamificationservice.domain.entity.ExperienceHistory;
 import java.time.LocalDateTime;
+import java.util.Collection;
 import java.util.List;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -74,6 +75,24 @@ public interface ExperienceHistoryRepository extends JpaRepository<ExperienceHis
             """)
     List<Object[]> findUserExpRankingByPeriod(
             @Param("startDate") LocalDateTime startDate, @Param("endDate") LocalDateTime endDate);
+
+    /**
+     * LUT-833: 주어진 유저들의 기간 내 획득 경험치 합계 (친구 랭킹용). 그 기간에 얻은 것이 없는 유저는 행이 없다 — 호출하는 쪽이 0 으로 채운다. 합계
+     * 기준은 {@link #findUserExpRankingByPeriod} 와 같다.
+     */
+    @Query(
+            """
+            SELECT eh.userId, SUM(eh.expAmount)
+            FROM ExperienceHistory eh
+            WHERE eh.userId IN :userIds
+            AND eh.createdAt >= :startDate AND eh.createdAt < :endDate
+            AND eh.expAmount > 0
+            GROUP BY eh.userId
+            """)
+    List<Object[]> findUserExpByPeriodAndUserIdIn(
+            @Param("userIds") Collection<String> userIds,
+            @Param("startDate") LocalDateTime startDate,
+            @Param("endDate") LocalDateTime endDate);
 
     /** 특정 카테고리의 전체 사용자 수 조회 */
     @Query(

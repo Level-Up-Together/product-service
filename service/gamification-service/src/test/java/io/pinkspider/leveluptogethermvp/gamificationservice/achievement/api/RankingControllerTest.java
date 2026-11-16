@@ -3,8 +3,10 @@ package io.pinkspider.leveluptogethermvp.gamificationservice.achievement.api;
 import static com.epages.restdocs.apispec.ResourceDocumentation.parameterWithName;
 import static com.epages.restdocs.apispec.ResourceDocumentation.resource;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 import static org.springframework.restdocs.operation.preprocess.Preprocessors.preprocessRequest;
 import static org.springframework.restdocs.operation.preprocess.Preprocessors.preprocessResponse;
@@ -1984,6 +1986,102 @@ class RankingControllerTest {
 
         // then
         resultActions.andExpect(MockMvcResultMatchers.status().isOk());
+    }
+
+    @Test
+    @DisplayName("GET /api/v1/rankings/friends : 친구 랭킹 조회 (LUT-833)")
+    void getFriendsLevelRankingTest() throws Exception {
+        // given
+        Page<LevelRankingResponse> page =
+                new PageImpl<>(
+                        List.of(
+                                createMockPeriodRanking(1L, "friend-001", 50, 150000, 800L),
+                                createMockPeriodRanking(2L, MOCK_USER_ID, 48, 140000, 300L)),
+                        PageRequest.of(0, 20),
+                        2);
+
+        when(rankingService.getFriendsLevelRanking(
+                        anyString(), eq(false), any(Pageable.class), any(), any()))
+                .thenReturn(page);
+
+        // when
+        ResultActions resultActions =
+                mockMvc.perform(
+                                RestDocumentationRequestBuilders.get("/api/v1/rankings/friends")
+                                        .with(user(MOCK_USER_ID))
+                                        .param("period", "WEEKLY")
+                                        .param("page", "0")
+                                        .param("size", "20")
+                                        .header("X-Timezone", "Asia/Seoul")
+                                        .contentType(MediaType.APPLICATION_JSON))
+                        .andDo(
+                                MockMvcRestDocumentationWrapper.document(
+                                        "랭킹-15. 친구 랭킹 조회",
+                                        preprocessRequest(prettyPrint()),
+                                        preprocessResponse(prettyPrint()),
+                                        resource(
+                                                ResourceSnippetParameters.builder()
+                                                        .tag("Ranking")
+                                                        .description(
+                                                                "나 + 수락된 친구만 모은 랭킹 (LUT-833). 기간(기본"
+                                                                    + " 이번 주, X-Timezone 기준) 획득 경험치"
+                                                                    + " 순이고 rank 는 친구 안에서의 순위다. 그"
+                                                                    + " 기간에 얻은 것이 없는 친구도 period_exp"
+                                                                    + " 0 으로 든다. 내가 차단한 유저 · 탈퇴 유저는"
+                                                                    + " 빠지고, 친구가 없으면 빈 목록이다. JWT 토큰"
+                                                                    + " 인증 필요")
+                                                        .queryParameters(
+                                                                parameterWithName("period")
+                                                                        .description(
+                                                                                "WEEKLY(기본) ·"
+                                                                                    + " MONTHLY — 그"
+                                                                                    + " 밖의 값은"
+                                                                                    + " WEEKLY 로"
+                                                                                    + " 본다")
+                                                                        .optional(),
+                                                                parameterWithName("page")
+                                                                        .type(SimpleType.NUMBER)
+                                                                        .description(
+                                                                                "페이지 번호 (0부터 시작)")
+                                                                        .optional(),
+                                                                parameterWithName("size")
+                                                                        .type(SimpleType.NUMBER)
+                                                                        .description("페이지 크기")
+                                                                        .optional())
+                                                        .responseFields(
+                                                                levelRankingPageResponseFields())
+                                                        .build())));
+
+        // then
+        resultActions.andExpect(MockMvcResultMatchers.status().isOk());
+    }
+
+    @Test
+    @DisplayName("GET /api/v1/rankings/friends : period 가 MONTHLY 면 이번 달, 모르는 값이면 이번 주 (LUT-833)")
+    void getFriendsLevelRankingPeriodTest() throws Exception {
+        when(rankingService.getFriendsLevelRanking(
+                        anyString(), anyBoolean(), any(Pageable.class), any(), any()))
+                .thenReturn(new PageImpl<>(List.of(), PageRequest.of(0, 20), 0));
+
+        mockMvc.perform(
+                        RestDocumentationRequestBuilders.get("/api/v1/rankings/friends")
+                                .with(user(MOCK_USER_ID))
+                                .param("period", "monthly"))
+                .andExpect(MockMvcResultMatchers.status().isOk());
+        mockMvc.perform(
+                        RestDocumentationRequestBuilders.get("/api/v1/rankings/friends")
+                                .with(user(MOCK_USER_ID))
+                                .param("period", "YEARLY"))
+                .andExpect(MockMvcResultMatchers.status().isOk());
+        mockMvc.perform(
+                        RestDocumentationRequestBuilders.get("/api/v1/rankings/friends")
+                                .with(user(MOCK_USER_ID)))
+                .andExpect(MockMvcResultMatchers.status().isOk());
+
+        org.mockito.Mockito.verify(rankingService)
+                .getFriendsLevelRanking(anyString(), eq(true), any(Pageable.class), any(), any());
+        org.mockito.Mockito.verify(rankingService, org.mockito.Mockito.times(2))
+                .getFriendsLevelRanking(anyString(), eq(false), any(Pageable.class), any(), any());
     }
 
     @Test

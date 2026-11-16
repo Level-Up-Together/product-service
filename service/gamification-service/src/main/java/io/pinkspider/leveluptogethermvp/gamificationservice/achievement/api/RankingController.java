@@ -169,6 +169,27 @@ public class RankingController {
                 ApiResult.<Page<LevelRankingResponse>>builder().value(responses).build());
     }
 
+    // LUT-833: 친구 랭킹 — 나 + 수락된 친구만, 기간(기본 이번 주) 획득 경험치 순. 로그인 필요.
+    // period 는 WEEKLY(기본)·MONTHLY — 그 밖의 값은 WEEKLY 로 본다(잘못된 값으로 오류를 내지 않는다)
+    @GetMapping("/friends")
+    public ResponseEntity<ApiResult<Page<LevelRankingResponse>>> getFriendsLevelRanking(
+            @PageableDefault(size = 20) Pageable pageable,
+            @CurrentUser String userId,
+            @RequestParam(defaultValue = "WEEKLY") String period,
+            @RequestHeader(value = HttpHeaders.ACCEPT_LANGUAGE, required = false)
+                    String acceptLanguage,
+            @RequestHeader(value = "X-Timezone", required = false) String timezone) {
+        Page<LevelRankingResponse> responses =
+                rankingService.getFriendsLevelRanking(
+                        userId,
+                        "MONTHLY".equalsIgnoreCase(period),
+                        pageable,
+                        acceptLanguage,
+                        timezone);
+        return ResponseEntity.ok(
+                ApiResult.<Page<LevelRankingResponse>>builder().value(responses).build());
+    }
+
     // LUT-316: 주간 내 랭킹 (이번주 획득 경험치 기준, X-Timezone 기준)
     @GetMapping("/my/level/weekly")
     public ResponseEntity<ApiResult<LevelRankingResponse>> getMyWeeklyLevelRanking(

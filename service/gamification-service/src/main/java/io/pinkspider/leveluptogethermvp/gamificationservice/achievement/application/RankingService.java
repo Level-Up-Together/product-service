@@ -24,6 +24,7 @@ import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -549,6 +550,61 @@ public class RankingService {
                 viewerUserId);
     }
 
+    /**
+     * LUT-833: 친구 랭킹 — 나 + 수락된 친구만 모아 기간 획득 경험치 순으로 줄 세운다. 기간은 이번 주(기본, 주간 탭과 같은 기준) 또는 이번 달.
+     *
+     * <ul>
+     *   <li>내가 차단한 유저와 탈퇴한 유저는 뺀다
+     *   <li>그 기간에 얻은 경험치가 없는 친구도 0 으로 목록에 든다(전체 주간 랭킹과 다르다 — 친구는 다 보여야 한다)
+     *   <li>순위는 친구 안에서의 순위다(동점은 같은 순위). 같은 점수끼리는 유저 ID 순으로 놓아 순서가 흔들리지 않게 한다
+     *   <li>보여 줄 친구가 한 명도 없으면 빈 목록 — 나 혼자만 든 목록은 주지 않는다(화면이 빈 상태 안내를 보여 준다)
+     * </ul>
+     *
+     * @param monthly true 면 이번 달, 아니면 이번 주
+     */
+    public Page<LevelRankingResponse> getFriendsLevelRanking(
+            String userId, boolean monthly, Pageable pageable, String locale, String timezone) {
+        Set<String> blocked = new HashSet<>(userQueryFacadeService.getBlockedUserIds(userId));
+        List<String> friendIds =
+                userQueryFacadeService.getFriendIds(userId).stream()
+                        .filter(id -> !id.equals(userId) && !blocked.contains(id))
+                        .distinct()
+                        .collect(Collectors.toList());
+        if (friendIds.isEmpty()) {
+            return Page.empty(pageable);
+        }
+        Set<String> activeFriends =
+                new HashSet<>(userQueryFacadeService.getActiveUserIds(friendIds));
+        List<String> members =
+                friendIds.stream().filter(activeFriends::contains).collect(Collectors.toList());
+        if (members.isEmpty()) {
+            return Page.empty(pageable);
+        }
+        members.add(userId);
+
+        ZoneId zone = resolveZone(timezone);
+        LocalDate start =
+                monthly
+                        ? LocalDate.now(zone).withDayOfMonth(1)
+                        : LocalDate.now(zone).with(DayOfWeek.MONDAY);
+        LocalDate end = monthly ? start.plusMonths(1) : start.plusWeeks(1);
+        Map<String, Long> expByUser = new HashMap<>();
+        for (Object[] row :
+                experienceHistoryRepository.findUserExpByPeriodAndUserIdIn(
+                        members, toUtc(start, zone), toUtc(end, zone))) {
+            expByUser.put((String) row[0], categoryExpOf(row));
+        }
+        List<Object[]> ranked =
+                members.stream()
+                        .map(id -> new Object[] {id, expByUser.getOrDefault(id, 0L)})
+                        .sorted(
+                                Comparator.comparingLong((Object[] row) -> (Long) row[1])
+                                        .reversed()
+                                        .thenComparing(row -> (String) row[0]))
+                        .collect(Collectors.toList());
+        return toPeriodRankingPage(ranked, pageable, locale, userId);
+    }
+
     /** LUT-316: 주간 내 랭킹 — 주간 목록(getWeeklyLevelRanking)과 동일 기준의 내 순위 */
     public LevelRankingResponse getMyWeeklyLevelRanking(
             String userId, String locale, String timezone) {
@@ -654,6 +710,15 @@ public class RankingService {
                 allRows.stream()
                         .filter(row -> activeUserIds.contains((String) row[0]))
                         .collect(Collectors.toList());
+        return toPeriodRankingPage(active, pageable, locale, viewerUserId);
+    }
+
+    /**
+     * 기간 경험치 순으로 줄 세운 유저 목록({@code [userId, 기간 경험치]}, 내림차순)을 랭킹 페이지로 만든다 — 공동순위(동점 동일 순위) · 프로필 ·
+     * 칭호 · 장착 아이템 · 진행 중 미션. 전체 기간 랭킹(LUT-297)과 친구 랭킹(LUT-833)이 같이 쓴다.
+     */
+    private Page<LevelRankingResponse> toPeriodRankingPage(
+            List<Object[]> active, Pageable pageable, String locale, String viewerUserId) {
         long totalUsers = active.size();
 
         long[] ranks =
