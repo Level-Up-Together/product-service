@@ -405,4 +405,29 @@ class TowerFloorRuleValidatorTest {
 
         verify(floorMaskChecker, never()).sameAspectRatio(anyString(), anyString());
     }
+
+    @Test
+    @DisplayName("LUT-835: 계단 영역 마스크도 배경과 비율을 비교한다 — 다르면 150116, 못 읽으면 150109, 검사가 꺼져 있으면 안 본다")
+    void stairsMaskAspect() throws IOException {
+        TowerFloor f = floor(1L, 1, null, true, true);
+        f.updateStairsMask("https://cdn.test/tower/stairs.png");
+
+        when(floorMaskChecker.sameAspectRatio(anyString(), anyString())).thenReturn(true);
+        assertThatCode(() -> validator.validate(List.of(f), f)).doesNotThrowAnyException();
+        verify(floorMaskChecker)
+                .sameAspectRatio("https://cdn.test/tower/stairs.png", f.getBackgroundImageUrl());
+
+        when(floorMaskChecker.sameAspectRatio(anyString(), anyString())).thenReturn(false);
+        assertCode(
+                () -> validator.validate(List.of(f), f), TowerFloorException.MASK_ASPECT_MISMATCH);
+
+        when(floorMaskChecker.sameAspectRatio(anyString(), anyString()))
+                .thenThrow(new IOException("unreadable"));
+        assertCode(() -> validator.validate(List.of(f), f), TowerFloorException.MASK_UNREADABLE);
+
+        org.mockito.Mockito.clearInvocations(floorMaskChecker);
+        ReflectionTestUtils.setField(validator, "maskCheckEnabled", false);
+        validator.validate(List.of(f), f);
+        verify(floorMaskChecker, never()).sameAspectRatio(anyString(), anyString());
+    }
 }

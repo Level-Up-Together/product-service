@@ -37,7 +37,9 @@ public record TowerFloorResponse(
         List<TowerFloorEffectLayerDto> effectLayers,
         TowerPixelBackgroundDto pixelDense,
         TowerPixelBackgroundDto pixelStandard,
-        TowerFloorGuideView guide) {
+        TowerFloorGuideView guide,
+        /** LUT-835: 계단 영역 마스크 — 아바타가 닿으면 층 선택 시트를 연다. 없으면 null(그 층은 기능 꺼짐) */
+        String stairsMaskUrl) {
 
     public static TowerFloorResponse from(TowerFloor f, boolean locked, long population) {
         return from(f, locked, population, null, LocalDate.now(KST));
@@ -101,7 +103,8 @@ public record TowerFloorResponse(
                 f.activeEffectLayers(today).stream().map(TowerFloorEffectLayerDto::from).toList(),
                 ready ? TowerPixelBackgroundDto.from(pixelArt.getDense()) : null,
                 ready ? TowerPixelBackgroundDto.from(pixelArt.getStandard()) : null,
-                guide);
+                guide,
+                f.getStairsMaskUrl());
     }
 
     private static final ZoneId KST = ZoneId.of("Asia/Seoul");
