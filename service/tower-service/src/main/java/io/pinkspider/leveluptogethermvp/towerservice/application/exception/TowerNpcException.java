@@ -9,7 +9,8 @@ import org.springframework.http.HttpStatus;
 public class TowerNpcException extends TowerException {
 
     public static final String NOT_FOUND = "150401";
-    public static final String LIMIT_EXCEEDED = "150402";
+
+    // 150402(층당 최대 3명)는 LUT-836 에서 없앴다 — 번호는 다시 쓰지 않는다
 
     /** LUT-746: 배경 그림 밖 (예전엔 바닥 마스크 밖 — 코드는 그대로) */
     public static final String SEAT_OUTSIDE_BACKGROUND = "150403";
@@ -49,11 +50,6 @@ public class TowerNpcException extends TowerException {
 
     public static TowerNpcException notFound() {
         return new TowerNpcException(NOT_FOUND, "error.tower.npc.not_found", HttpStatus.NOT_FOUND);
-    }
-
-    /** 층당 최대 3명 */
-    public static TowerNpcException limitExceeded() {
-        return bad(LIMIT_EXCEEDED, "error.tower.npc.limit_exceeded");
     }
 
     public static TowerNpcException seatOutsideBackground() {

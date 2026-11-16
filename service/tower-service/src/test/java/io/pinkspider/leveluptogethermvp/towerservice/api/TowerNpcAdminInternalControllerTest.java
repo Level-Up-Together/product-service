@@ -383,7 +383,7 @@ class TowerNpcAdminInternalControllerTest {
                                 ResourceSnippetParameters.builder()
                                         .tag("Tower - Admin Internal")
                                         .description(
-                                                "층 NPC 등록 (LUT-693) — 층당 최대 3명(150402), 자동"
+                                                "층 NPC 등록 (LUT-693) — 층당 인원 제한 없음(LUT-836), 자동"
                                                         + " 말풍선(LUT-732)·창 이미지·이동 링크(LUT-733)"),
                                 pathParameters(parameterWithName("floorId").description("층 ID")),
                                 requestFields(requestNpcFieldsWithForm()),
@@ -430,15 +430,6 @@ class TowerNpcAdminInternalControllerTest {
                                         parameterWithName("npcId").description("NPC ID"))));
         verify(npcService).delete(10L, 3L);
 
-        when(npcService.create(eq(10L), any(TowerNpcAdminRequest.class)))
-                .thenThrow(TowerNpcException.limitExceeded());
-        mockMvc.perform(
-                        RestDocumentationRequestBuilders.post(
-                                        "/api/internal/tower/floors/{floorId}/npcs", 10L)
-                                .contentType(MediaType.APPLICATION_JSON)
-                                .content(BODY))
-                .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.code").value("150402"));
         // LUT-760: 입력 받기 설정 오류
         when(npcService.create(eq(10L), any(TowerNpcAdminRequest.class)))
                 .thenThrow(TowerNpcException.formInvalid());

@@ -18,8 +18,6 @@ public interface TowerNpcRepository extends JpaRepository<TowerNpc, Long> {
 
     Optional<TowerNpc> findByIdAndFloorId(Long id, Long floorId);
 
-    long countByFloorId(Long floorId);
-
     /** 지운 프로필 이미지를 다른 NPC 가 쓰는지 */
     long countByProfileImageUrl(String profileImageUrl);
 
