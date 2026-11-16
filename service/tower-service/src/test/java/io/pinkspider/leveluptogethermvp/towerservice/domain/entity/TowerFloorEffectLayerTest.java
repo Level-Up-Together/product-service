@@ -119,6 +119,7 @@ class TowerFloorEffectLayerTest {
     void userResponseFiltersLayers() {
         TowerFloor f = floor(1L, 1, null, true, true);
         f.updateOcclusionMask("https://cdn/occlusion.png");
+        f.updateStairsMask("https://cdn/stairs.png");
         f.replaceLights(
                 List.of(new TowerFloorLightDto(10, 20, 30, "#FFCC66", 80, 40, 50).toEmbeddable()));
         f.replaceEffectLayers(
@@ -131,6 +132,8 @@ class TowerFloorEffectLayerTest {
                 .extracting(TowerFloorEffectLayerDto::kind)
                 .containsExactly(TowerEffectKind.SNOW, TowerEffectKind.STARS);
         assertThat(inSeason.occlusionMaskUrl()).isEqualTo("https://cdn/occlusion.png");
+        // LUT-835: 계단 영역 마스크도 그대로 내린다
+        assertThat(inSeason.stairsMaskUrl()).isEqualTo("https://cdn/stairs.png");
         // 색은 소문자로 저장한다
         assertThat(inSeason.lights())
                 .extracting(TowerFloorLightDto::color)
@@ -143,6 +146,19 @@ class TowerFloorEffectLayerTest {
                 .containsExactly(TowerEffectKind.STARS);
         // 오늘(KST) 기준 오버로드도 같은 필드를 채운다
         assertThat(TowerFloorResponse.from(f, false, 3L).lights()).hasSize(1);
+    }
+
+    @Test
+    @DisplayName("LUT-835 계단 영역 마스크: 빈 값·null 이면 지운다, 없는 층의 유저 응답은 null")
+    void stairsMaskBlankClears() {
+        TowerFloor f = floor(1L, 1, null, true, true);
+        assertThat(TowerFloorResponse.from(f, false, 0L).stairsMaskUrl()).isNull();
+        f.updateStairsMask("https://cdn/stairs.png");
+        f.updateStairsMask("  ");
+        assertThat(f.getStairsMaskUrl()).isNull();
+        f.updateStairsMask("https://cdn/stairs.png");
+        f.updateStairsMask(null);
+        assertThat(f.getStairsMaskUrl()).isNull();
     }
 
     @Test

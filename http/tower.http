@@ -168,6 +168,7 @@ Accept: application/json
   "instance_capacity": 30,
   "is_public": true,
   "occlusion_mask_url": "https://dev.level-up-together.com/images/tower/floor1-occlusion.png",
+  "stairs_mask_url": "https://dev.level-up-together.com/images/tower/floor1-stairs.png",
   "lights": [
     {"x": 640, "y": 320, "radius": 60, "color": "#ffcc66", "brightness": 80, "flicker_intensity": 40, "flicker_speed": 50}
   ],

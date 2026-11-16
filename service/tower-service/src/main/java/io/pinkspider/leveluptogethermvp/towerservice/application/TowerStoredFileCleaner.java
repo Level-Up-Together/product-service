@@ -74,6 +74,7 @@ public class TowerStoredFileCleaner {
         return towerFloorRepository.countByBackgroundImageUrlOrFloorMaskUrlOrBgmUrl(url, url, url)
                         > 0
                 || towerFloorRepository.countByOcclusionMaskUrl(url) > 0
+                || towerFloorRepository.countByStairsMaskUrl(url) > 0
                 || towerFloorRepository.countEffectLayersByMaskUrl(url) > 0
                 || towerNpcRepository.countByProfileImageUrl(url) > 0
                 || towerNpcRepository.countByCardImageUrl(url) > 0

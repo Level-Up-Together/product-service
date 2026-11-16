@@ -126,7 +126,8 @@ class TowerFloorControllerTest {
                                         "미션 시작하기",
                                         "Start a mission",
                                         null,
-                                        null)),
+                                        null),
+                                "https://cdn/stairs1.png"),
                         new TowerFloorResponse(
                                 2L,
                                 2,
@@ -147,6 +148,7 @@ class TowerFloorControllerTest {
                                 null,
                                 List.of(),
                                 List.of(),
+                                null,
                                 null,
                                 null,
                                 null)),
@@ -224,6 +226,12 @@ class TowerFloorControllerTest {
                                                         "앞 가림 영역 마스크 PNG URL (LUT-725, 없으면 null) —"
                                                             + " 칠한 덩어리의 아래쪽 가장자리를 기준선으로 캐릭터 앞·뒤를"
                                                             + " 정한다")
+                                                .optional(),
+                                        fieldWithPath("value.floors[].stairs_mask_url")
+                                                .description(
+                                                        "계단 영역 마스크 PNG URL (LUT-835, 없으면 null = 그"
+                                                            + " 층은 기능 꺼짐) — 아바타가 칠한 영역에 닿으면 화면이 층"
+                                                            + " 선택 시트를 연다. 앞 가림 마스크와 같은 빨간 칠 PNG")
                                                 .optional(),
                                         fieldWithPath("value.floors[].lights[]")
                                                 .description("불빛 점 (LUT-725, 최대 50개)"),

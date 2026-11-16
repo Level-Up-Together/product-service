@@ -106,6 +106,13 @@ public class TowerFloor extends LocalDateTimeBaseEntity {
     @Column(name = "occlusion_mask_url", length = 500)
     private String occlusionMaskUrl;
 
+    /**
+     * LUT-835: 계단 영역 마스크 (선택) — 아바타가 이 영역에 닿으면 화면이 층 선택 시트를 연다. 앞 가림 마스크와 같은 빨간 칠 PNG 이고, 없으면 그 층은
+     * 기능이 꺼진다. 서버는 저장·전달만 한다(판정은 화면)
+     */
+    @Column(name = "stairs_mask_url", length = 500)
+    private String stairsMaskUrl;
+
     /** LUT-725: 불빛 점 (최대 50개, 항상 켜짐) */
     @ElementCollection(fetch = FetchType.LAZY)
     @CollectionTable(name = "tower_floor_light", joinColumns = @JoinColumn(name = "floor_id"))
@@ -155,6 +162,11 @@ public class TowerFloor extends LocalDateTimeBaseEntity {
     /** LUT-725: 앞 가림 마스크 교체 — 빈 값이면 지운다 */
     public void updateOcclusionMask(String url) {
         this.occlusionMaskUrl = url == null || url.isBlank() ? null : url;
+    }
+
+    /** LUT-835: 계단 영역 마스크 교체 — 빈 값이면 지운다 */
+    public void updateStairsMask(String url) {
+        this.stairsMaskUrl = url == null || url.isBlank() ? null : url;
     }
 
     /** LUT-725: 불빛 점 전체 교체 */

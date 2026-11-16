@@ -76,7 +76,7 @@ class TowerFloorAdminInternalControllerTest {
 {"floor_number":2,"name":"등나무 정원","name_en":"Wisteria Garden","name_ja":"藤の庭","name_ar":"حديقة الوستارية",
  "entry_level":5,"guest_allowed":false,"background_image_url":"https://cdn/bg2.jpg","floor_mask_url":"https://cdn/mask2.png",
  "entry_point_x":1200,"entry_point_y":900,"bgm_url":null,"instance_capacity":30,"is_public":true,
- "occlusion_mask_url":"https://cdn/occlusion2.png",
+ "occlusion_mask_url":"https://cdn/occlusion2.png","stairs_mask_url":"https://cdn/stairs2.png",
  "lights":[{"x":640,"y":320,"radius":60,"color":"#ffcc66","brightness":80,"flicker_intensity":40,"flicker_speed":50}],
  "effect_layers":[{"kind":"SNOW","mask_url":"https://cdn/snow2.png","enabled":true,"starts_on":"2026-12-01","ends_on":"2026-12-31",
    "amount":120,"speed":40,"size_min":1,"size_max":3}]}
@@ -116,7 +116,8 @@ class TowerFloorAdminInternalControllerTest {
                                 3,
                                 null,
                                 null)),
-                pixelArt());
+                pixelArt(),
+                "https://cdn/stairs2.png");
     }
 
     private static TowerPixelArtAdminDto pixelArt() {
@@ -171,6 +172,13 @@ class TowerFloorAdminInternalControllerTest {
                 fieldWithPath(prefix + "occlusion_mask_url")
                         .description(
                                 "앞 가림 영역 마스크 PNG URL (선택, 배경과 같은 비율 — 150116)"
+                                        + keep
+                                        + (request ? "빈 문자열이면 지운다" : "없으면 null"))
+                        .optional(),
+                fieldWithPath(prefix + "stairs_mask_url")
+                        .description(
+                                "계단 영역 마스크 PNG URL (LUT-835, 선택, 배경과 같은 비율 — 150116) —"
+                                        + " 아바타가 닿으면 층 선택 시트가 열린다"
                                         + keep
                                         + (request ? "빈 문자열이면 지운다" : "없으면 null"))
                         .optional(),

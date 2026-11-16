@@ -156,6 +156,10 @@ public class TowerFloorRuleValidator {
         if (target.getOcclusionMaskUrl() != null) {
             masks.add(target.getOcclusionMaskUrl());
         }
+        // LUT-835: 계단 영역 마스크도 배경과 비율이 같아야 한다(화면이 같은 좌표계로 읽는다)
+        if (target.getStairsMaskUrl() != null) {
+            masks.add(target.getStairsMaskUrl());
+        }
         target.getEffectLayers().forEach(layer -> masks.add(layer.getMaskUrl()));
         for (String mask : masks) {
             boolean same;
