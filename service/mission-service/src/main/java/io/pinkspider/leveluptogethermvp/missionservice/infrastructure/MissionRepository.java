@@ -206,6 +206,21 @@ public interface MissionRepository extends JpaRepository<Mission, Long> {
     boolean existsActiveByBaseMissionIdAndCreatorId(
             @Param("templateId") Long templateId, @Param("creatorId") String creatorId);
 
+    /**
+     * LUT-782: 추천 미션별 성과 — [추천 미션 ID, 만든(=시작한) 미션 수, 그중 한 번이라도 완료된 미션 수]. 원탭 시작은 생성과 시작이 한 트랜잭션이라
+     * 미션이 있으면 시작한 것이다. 유저가 지운 미션은 세지 않는다.
+     */
+    @Query(
+            value =
+                    "SELECT m.recommended_mission_id, COUNT(*) AS started_count, COUNT(*) FILTER"
+                            + " (WHERE EXISTS (SELECT 1 FROM mission_participant p JOIN"
+                            + " mission_execution e ON e.participant_id = p.id WHERE p.mission_id ="
+                            + " m.id AND e.status = 'COMPLETED')) AS completed_count FROM mission m"
+                            + " WHERE m.recommended_mission_id IS NOT NULL GROUP BY"
+                            + " m.recommended_mission_id",
+            nativeQuery = true)
+    List<Object[]> countRecommendedMissionStats();
+
     // QA-160: 템플릿 수정 시 이미 복제된 mission 인스턴스에 어드민 정책값을 전파.
     // duration/target/bonusExp 3종 cascade. expPerCompletion 은 template 컬럼이 없어 대상 아님.
     @org.springframework.data.jpa.repository.Modifying

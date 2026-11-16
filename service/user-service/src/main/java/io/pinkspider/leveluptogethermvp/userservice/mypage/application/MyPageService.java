@@ -809,6 +809,9 @@ public class MyPageService {
                 .startDate(startDate)
                 .daysSinceJoined(daysSinceJoined)
                 .clearedMissionsCount(stats.totalMissionCompletions())
+                .hasCompletedMission(
+                        stats.totalMissionCompletions() != null
+                                && stats.totalMissionCompletions() > 0)
                 // QA-158: 유니크 미션북(mission_template) 클리어 수. UserStats 누적값이 아닌 실시간 distinct count.
                 .clearedMissionBooksCount(
                         missionQueryFacadeService.countClearedMissionBookTemplates(userId))

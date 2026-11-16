@@ -1,6 +1,5 @@
 package io.pinkspider.leveluptogethermvp.bffservice.application;
 
-import io.pinkspider.global.exception.CustomException;
 import io.pinkspider.global.facade.GamificationQueryFacade;
 import io.pinkspider.global.facade.dto.SeasonDto;
 import io.pinkspider.global.facade.dto.SeasonMvpGuildDto;
@@ -8,6 +7,7 @@ import io.pinkspider.global.facade.dto.SeasonMvpPlayerDto;
 import io.pinkspider.global.facade.dto.SeasonMyRankingDto;
 import io.pinkspider.global.facade.dto.SeasonRankRewardDto;
 import io.pinkspider.leveluptogethermvp.bffservice.api.dto.SeasonDetailResponse;
+import io.pinkspider.leveluptogethermvp.bffservice.api.exception.SeasonNotFoundException;
 import io.pinkspider.leveluptogethermvp.metaservice.application.MissionCategoryService;
 import io.pinkspider.leveluptogethermvp.metaservice.domain.dto.MissionCategoryResponse;
 import java.util.List;
@@ -33,7 +33,7 @@ public class BffSeasonService {
      * 시즌 상세 정보 조회
      *
      * @param seasonId 시즌 ID
-     * @param userId 현재 로그인한 사용자 ID
+     * @param userId 현재 로그인한 사용자 ID. 비로그인이면 null(LUT-804) — 내 랭킹은 조회하지 않고 빈 값으로 준다
      * @param categoryName 카테고리명 (null이면 전체)
      * @param locale 다국어 지원
      * @return SeasonDetailResponse 시즌 상세 데이터
@@ -51,10 +51,7 @@ public class BffSeasonService {
         SeasonDto season =
                 gamificationQueryFacade
                         .getSeasonById(seasonId)
-                        .orElseThrow(
-                                () ->
-                                        new CustomException(
-                                                "SEASON_NOT_FOUND", "error.season.not_found"));
+                        .orElseThrow(SeasonNotFoundException::notFound);
 
         // 2. 병렬로 데이터 조회
         CompletableFuture<List<SeasonRankRewardDto>> rewardsFuture =
@@ -96,20 +93,24 @@ public class BffSeasonService {
                             }
                         });
 
+        // LUT-804: 비로그인은 내 랭킹이 없다 — 조회하지 않는다. 필드는 빼지 않고 빈 값으로 준다(구 웹·앱이 객체로 읽는다)
         CompletableFuture<SeasonMyRankingDto> myRankingFuture =
-                CompletableFuture.supplyAsync(
-                        () -> {
-                            try {
-                                return gamificationQueryFacade.getMySeasonRanking(seasonId, userId);
-                            } catch (Exception e) {
-                                log.error(
-                                        "내 시즌 랭킹 조회 실패: seasonId={}, userId={}",
-                                        seasonId,
-                                        userId,
-                                        e);
-                                return SeasonMyRankingDto.empty();
-                            }
-                        });
+                userId == null
+                        ? CompletableFuture.completedFuture(SeasonMyRankingDto.empty())
+                        : CompletableFuture.supplyAsync(
+                                () -> {
+                                    try {
+                                        return gamificationQueryFacade.getMySeasonRanking(
+                                                seasonId, userId);
+                                    } catch (Exception e) {
+                                        log.error(
+                                                "내 시즌 랭킹 조회 실패: seasonId={}, userId={}",
+                                                seasonId,
+                                                userId,
+                                                e);
+                                        return SeasonMyRankingDto.empty();
+                                    }
+                                });
 
         CompletableFuture<List<MissionCategoryResponse>> categoriesFuture =
                 CompletableFuture.supplyAsync(
@@ -146,10 +147,7 @@ public class BffSeasonService {
         SeasonDto currentSeason =
                 gamificationQueryFacade
                         .getCurrentSeason()
-                        .orElseThrow(
-                                () ->
-                                        new CustomException(
-                                                "NO_ACTIVE_SEASON", "error.season.no_active"));
+                        .orElseThrow(SeasonNotFoundException::noActive);
 
         return getSeasonDetail(currentSeason.id(), userId, categoryName, locale);
     }

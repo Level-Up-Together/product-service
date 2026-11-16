@@ -1080,6 +1080,51 @@ class MissionExecutionServiceTest {
         }
 
         @Test
+        @DisplayName("LUT-789: 지운 미션의 수행 기록도 겹침 검사에 센다 (기록은 과거 사실)")
+        void updateExecutionTime_overlappingDeletedMission_throwsException() {
+            LocalDate date = today();
+            Mission deletedMission =
+                    Mission.builder()
+                            .title("지운 미션")
+                            .status(MissionStatus.IN_PROGRESS)
+                            .visibility(MissionVisibility.PUBLIC)
+                            .type(MissionType.PERSONAL)
+                            .creatorId(testUserId)
+                            .expPerCompletion(30)
+                            .build();
+            setId(deletedMission, 998L);
+            deletedMission.delete();
+            MissionParticipant participant =
+                    MissionParticipant.builder()
+                            .mission(deletedMission)
+                            .userId(testUserId)
+                            .status(ParticipantStatus.COMPLETED)
+                            .build();
+            setId(participant, 998L);
+            MissionExecution deletedExecution =
+                    MissionExecution.builder()
+                            .participant(participant)
+                            .executionDate(date)
+                            .status(ExecutionStatus.COMPLETED)
+                            .build();
+            setId(deletedExecution, 998L);
+            TestReflectionUtils.setField(deletedExecution, "startedAt", date.atTime(7, 0));
+            TestReflectionUtils.setField(deletedExecution, "completedAt", date.atTime(7, 30));
+            when(executionRepository.findCompletedByUserIdAndDateRange(testUserId, date, date))
+                    .thenReturn(List.of(deletedExecution));
+
+            org.junit.jupiter.api.Assertions.assertThrows(
+                    IllegalStateException.class,
+                    () ->
+                            executionService.updateExecutionTime(
+                                    testMission.getId(),
+                                    testUserId,
+                                    date,
+                                    date.atTime(7, 15),
+                                    date.atTime(7, 45)));
+        }
+
+        @Test
         @DisplayName("고정 미션 수행 시간 수정 시 DailyMissionInstance를 업데이트한다")
         void updateExecutionTime_pinnedMission_updatesInstance() {
             // given

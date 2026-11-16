@@ -130,6 +130,11 @@ public class Mission extends LocalDateTimeBaseEntity {
     @Comment("원본 시스템 미션 ID (복제된 경우)")
     private Long baseMissionId;
 
+    /** LUT-782: 첫 미션 온보딩 추천 미션으로 만든 미션이면 그 추천 미션 ID — 어드민 성과(시작 수·완료율) 집계용 */
+    @Column(name = "recommended_mission_id")
+    @Comment("첫 미션 온보딩 추천 미션 ID (추천으로 만든 미션만)")
+    private Long recommendedMissionId;
+
     @Column(name = "is_customizable", nullable = false)
     @Comment("커스터마이징 가능 여부")
     @Builder.Default

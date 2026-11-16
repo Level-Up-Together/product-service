@@ -96,6 +96,7 @@ class TowerFloorControllerTest {
                                                 40,
                                                 1,
                                                 3,
+                                                null,
                                                 null)),
                                 new TowerPixelBackgroundDto(
                                         "https://cdn/tower/pixel/9f2c41aa0b7d3e11.png",
@@ -271,6 +272,14 @@ class TowerFloorControllerTest {
                                                             + " 거리(원본 px 0~200), 눈·별은 null. 구름은"
                                                             + " amount = 짙기 0~100, speed = 흐름 속도"
                                                             + " 0~100")
+                                                .optional(),
+                                        fieldWithPath("value.floors[].effect_layers[].drop_count")
+                                                .type(JsonFieldType.NUMBER)
+                                                .description(
+                                                        "LUT-785 물방울(RAIN, 유리창 빗물) 흐르는 물방울 수 0~120,"
+                                                            + " 다른 종류는 null. 물방울은 amount = 맺힌 물방울"
+                                                            + " 밀도 1~100, speed = 흐르는 속도 1~100 (둘 다"
+                                                            + " 50 = 시안 그대로)")
                                                 .optional(),
                                         fieldWithPath("value.floors[].pixel_dense")
                                                 .description(

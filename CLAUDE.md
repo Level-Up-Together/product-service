@@ -59,14 +59,14 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 | `missionservice`      | mission_db      | 미션 정의/진행/Saga, 미션북, daily instance(pinned) |
 | `guildservice`        | guild_db        | 길드, 멤버, 경험치, 게시판, 초대                       |
 | `chatservice`         | chat_db         | 길드 채팅, DM, 읽음 상태                           |
-| `metaservice`         | meta_db         | 공통 코드, 캘린더, 레벨/출석 보상·길드 레벨 설정, **어드민 서비스 설정 `app_setting`**(LUT-708) (Redis 캐시). 금칙어·콘텐츠 번역 캐시 저장소도 meta_db |
+| `metaservice`         | meta_db         | 공통 코드, 캘린더, 레벨/출석 보상·길드 레벨 설정, **어드민 서비스 설정 `app_setting`**(LUT-708) (Redis 캐시), 홈 화면 위젯 문장 `widget_message`(LUT-775). 금칙어·콘텐츠 번역 캐시 저장소도 meta_db |
 | `feedservice`         | feed_db         | 피드 (CQRS Read Model), 좋아요, 댓글              |
 | `notificationservice` | notification_db | 알림 생성/조회, FCM 푸시, 실시간(WS), 디바이스 토큰      |
 | `gamificationservice` | gamification_db | 칭호, 업적, 통계, 경험치, 출석, 이벤트, 시즌, **상점/인벤토리/다이아** |
-| `bffservice`          | -               | BFF API 통합, 통합 검색                          |
+| `bffservice`          | -               | BFF API 통합, 통합 검색, 홈 화면 위젯 요약(LUT-775) |
 | `noticeservice`       | -               | 공지/안내 (Admin Feign)                          |
 | `supportservice`      | -               | 1:1 문의 + 신고 처리 (Admin Feign)               |
-| `statsservice`        | stats_db        | **지표 집계(IR KPI)** — 유저 일별 활동(DAU 신호) 수집·적재 (LUT-598) + 일별 KPI 스냅샷·코호트 리텐션·코호트 매출 (LUT-601) |
+| `statsservice`        | stats_db        | **지표 집계(IR KPI)** — 유저 일별 활동(DAU 신호) 수집·적재 (LUT-598) + 일별 KPI 스냅샷·코호트 리텐션·코호트 매출 (LUT-601) + 미션 통계 조회 (LUT-790) |
 | `towerservice`        | tower_db        | **레벨업 탑**(v1.1.5, LUT-629~) — 층(어드민 CRUD·유저 목록, 저장 규칙 7개), 입장·인스턴스 배정·자동 착석(630), 미션 연동·상태 브로드캐스트·자리 기록(632). presence·채팅·NPC·대기열은 후속 티켓 |
 
 ### Transaction Manager (Critical)
@@ -406,7 +406,7 @@ IR 용 KPI(DAU/WAU/MAU·리텐션)의 원천. 예전엔 "앱을 열었다" 신�
 
 - **수집**: `UserActivityInterceptor`(`StatsActivityConfig` 의 `@Bean` — `@Component` 로 두면 `@WebMvcTest` 슬라이스가 HandlerInterceptor 를 스캔해 컨트롤러
   테스트가 깨진다)가 인증된 요청마다 `UserActivityRecorder.recordAsync` → Redis `SADD active:{KST날짜} userId` + `active:{KST날짜}:{deviceType}`(TTL 40일).
-  `WebMvcConfig` 가 `ObjectProvider` 로 있을 때만 등록. 경로 `/api/**`·`/jwt/reissue`·`/graphql`, 제외 `/api/internal/**`·`/api/test/**`·`/api/v1/webhooks/**`.
+  `WebMvcConfig` 가 `ObjectProvider` 로 있을 때만 등록. 경로 `/api/**`·`/jwt/reissue`·`/graphql`, 제외 `/api/internal/**`·`/api/test/**`·`/api/v1/webhooks/**`·`/api/v1/widget/**`(LUT-777 — 홈 화면 위젯은 앱을 열지 않아도 30분마다 부른다, 가드 `WebMvcConfigActivityPathTest`).
   principal 이 userId 문자열인 인증만 인정(anonymousUser 제외). **어떤 예외도 요청을 막지 않는다**(비동기 + try/catch, Redis 장애 구간은 DAU 결측 허용).
 - **적재**: `UserActivityFlushScheduler` 00:20 KST → `UserActivityFlushService.flush(date)` 가 집합을 읽어 `user_daily_activity`(user_id×activity_date 유니크, `device_types` 정렬 쉼표) 에 upsert. 멱등. 수동: `POST /api/internal/stats/activity/flush?date=YYYY-MM-DD`.
 - **설정** `app.stats.activity.enabled`(기본 true) · `excluded-user-ids`(팀원·운영자·QA·E2E 봇 — config-repository 환경별, 운영 20명 LUT-678). 이 목록은 DAU 수집(인터셉터)뿐 아니라 **KPI 전 지표**에서 뺀다(아래). `DeviceTypeResolver` 는 LUT-598 에서 `global/web` 로 이동(user-service 전용 아님).
@@ -426,6 +426,8 @@ IR 용 KPI(DAU/WAU/MAU·리텐션)의 원천. 예전엔 "앱을 열었다" 신�
 - **Micrometer 게이지** (LUT-605, `kpi/metrics/KpiMetricsExporter`): 최신 스냅샷 1행을 `lut_kpi_{dau,wau,mau,attendance_dau,signups,withdrawals,active_users,mission_completions,mission_active_users,paying_users,active_subscriptions,new_subscriptions,churned_subscriptions,revenue_krw}` + `lut_kpi_snapshot_age_days`(KST 오늘−snapshot_date, 정상 1 — 2 이상이면 00:40 스케줄러 실패) + `lut_kpi_snapshot_date_epoch_seconds` 로 `/showmethemoney/prometheus` 에 노출한다. 스크레이프마다 DB 를 치지 않게 5분 캐시, 조회 실패는 NaN(스크레이프를 깨지 않음). `@Scheduled` 가 아니라 인스턴스별 독립(ShedLock 불필요). Grafana Cloud 연동은 infra 레포 `docs/grafana-cloud.md`.
 - **HTTP 지연 히스토그램은 SLO 버킷만** (LUT-615, `application.yml` `management.metrics.distribution.slo.[http.server.requests]=100ms,300ms,1s,3s`): Boot 기본은 버킷 off 라 p95 를 낼 수 없고, `percentiles-histogram=true` 는 버킷 ~70개 × uri·status 조합이라 Grafana Cloud Free 시리즈 한도(1만)를 넘긴다. 경계 5개(+Inf)만 노출해 `histogram_quantile` 로 추정한다. 새 지표를 추가할 때는 시리즈 수(라벨 조합)를 먼저 세어 볼 것.
 - **내부 API 파라미터 오류는 400** (LUT-616, `statsservice/api/exception/StatsRequestExceptionHandler`): `@DateTimeFormat` 변환 실패·enum 허용값 밖 → `100101`, 필수 파라미터 누락 → `100102`. 플랫폼 `RestExceptionHandler` 의 `Exception.class` 핸들러가 Spring 기본 400 보다 먼저 500 을 내므로 statsservice 패키지 한정 `HIGHEST_PRECEDENCE` 어드바이스로 가로챈다(LUT-577 미션 어드바이스와 같은 구조). `@WebMvcTest` 슬라이스에는 플랫폼 핸들러가 없어 테스트만으로는 500 이 안 보인다.
+- **첫날 행동별 리텐션** (LUT-779, `statsservice/firstday`): 가입 후 24시간 행동으로 NOT_COMPLETED(미션 미완료)·SOLO(완료, 상호작용 없음)·SOCIAL(완료, 친구 요청·수락·길드 가입·피드 좋아요/댓글 주고받음·DM·탑 채팅/받은 응원)로 나눠 `first_day_retention`(stats_db, 유저 1행)에 D1·D7·D30(KST 가입일+N 접속)을 채운다. 00:50 KST 스케줄러, 접속 기록 시작일 이후 가입자·탈퇴자 포함. `GET /api/internal/kpi/first-day-retention?range=4w|8w|12w&platform=` 이 D7 판정(`RetentionVerdictPolicy` — 5%p·30명·z 95%)까지 낸다. 탑 리액션은 DB 에 없어 셀 수 없다. 상세 `docs/KPI_STATS.md` §3.8.
+- **미션 통계** (LUT-790, `statsservice/missionstats`): `GET /api/internal/mission-stats/summary?from&to`(생성·완료·완료율·일별·종류/수행 방식/카테고리별) · `/users?from&to&page&size&sort&keyword`(사용자별 완료 수·분포) — 어드민 미션 통계 화면(LUT-791). 스냅샷 없이 요청 때 mission_db 를 읽는다(KST, 최대 400일). **완료 수는 KPI `mission_completions` 와 같은 SQL**(제외 규칙도 같아 `provider='test'` 는 빼지 않는다), **완료율은 예정일 기준**(월간 리포트 LUT-566 정의 — 예정 중 완료 ÷ 예정). 생성은 미션북 가져오기·길드 포함, 어드민이 직접 만든 시스템 미션(`source=SYSTEM`·원본 없음) 제외, 지운 미션의 기록도 센다(LUT-789). 카테고리 이름은 meta_db(`MetaSourceReader`). 상세 `docs/KPI_STATS.md` §3.9.
 - 내부 API `GET /api/internal/kpi/daily|retention|revenue/cohorts|signups/by-channel` 는 P3-a admin Feign(`MvpKpiFeignClient`, LUT-602) 이 그대로 읽는다. `signups/by-channel?from_month&to_month` 는 KST 월 × `signup_channel`(null→`unknown`, provider≠test) 가입자로 어드민 CAC 분모 — 스냅샷이 아니라 user_db 직접 집계. 날짜 파라미터는 ISO(`@DateTimeFormat`), 월은 `yyyy-MM`; 형식 오류 400, from>to 는 바꿔서 처리.
 
 ## 가입 유입 채널 — CAC 원천 (LUT-599, `userservice/oauth/domain/policy/SignupChannelPolicy`)
@@ -470,6 +472,7 @@ public void run() { ...}
 | `MissionIdempotencyKeyCleanupScheduler.cleanupExpiredKeys`  | `0 15 * * * *` KST (매시)    | 24시간 지난 미션 생성 멱등 키 삭제 (LUT-577) |
 | `UserActivityFlushScheduler.flushRecentDays`                 | `0 20 0 * * *` KST          | Redis `active:{날짜}` 활동 집합 → `stats_db.user_daily_activity` 적재(그제·어제 2일, 멱등) (LUT-598) |
 | `KpiSnapshotScheduler.buildDailySnapshot`                    | `0 40 0 * * *` KST          | 어제·그제 `daily_kpi_snapshot` + 최근 31일 `cohort_retention` + 13개월 전~당월 `cohort_revenue` 재계산(멱등) (LUT-601·660) |
+| `FirstDayRetentionScheduler.run`                             | `0 50 0 * * *` KST          | 첫날 행동별 리텐션 — 가입 후 24시간 지난 새 가입자 그룹 분류 + 미확정 D1·D7·D30 채우기(멱등) (LUT-779) |
 | `TowerSeatReconcileScheduler.reconcile`                       | 5분 fixedDelay (`tower.seat.reconcile-delay-ms`) | 탑 미션 중 점유자를 실제 미션 상태와 대조해 끝난 유저 정리 — 이벤트 없는 자정 MISSED·유실 대비 (LUT-632) |
 | `TowerPresenceCleanupScheduler.cleanup`                       | 1분 fixedDelay (`tower.presence.cleanup-delay-ms`) | 탑 방문객 10분 무조작 퇴장·고아 presence 삭제·끊김 유실 정리 (LUT-631) · 연결 집합 고아 항목 정리 (LUT-701) |
 | `TowerQueueScheduler.process`                                 | 2초 fixedDelay (`tower.queue.process-delay-ms`) | 탑 입장 대기열 — 마감 지난 입장 신호·조회 끊긴 표 정리, 남는 자리만큼 다음 순번 입장 신호 (LUT-701, 상한 없으면 아무것도 안 함) |
@@ -570,6 +573,7 @@ prod 첫 적용 파일은 LUT-666 핫픽스 `gamification/V1_1_3_013`(2026-10-29
 - **효과 레이어·앞 가림** (LUT-725, Flyway V1_1_5_011 — `tower_floor.occlusion_mask_url` + `tower_floor_light`·`tower_floor_effect_layer`): 층 어드민 요청에 추가 필드 3개 — `occlusion_mask_url`(선택, 층당 1개) · `lights[]`(불빛 점 최대 50개: 좌표·반경 배경 원본 픽셀, `#rrggbb`, 밝기·깜빡임 세기·속도 0~100, 항상 켜짐) · `effect_layers[]`(SNOW·STARS 각 1개: 마스크 URL·켜기·기간 `starts_on`/`ends_on`(KST, 양끝 포함, 비우면 상시)·`amount` 1~300(눈 밀도/별 개수)·`speed` 1~100·크기 1~20).
   **수정 요청에서 null = 그대로**(구 어드민·패스스루 호환), 앞 가림 빈 문자열·목록 `[]` = 지움. 거절: 종류 중복·크기 최소 > 최대·시작 > 종료 400 `150115`, 앞 가림·효과 마스크가 배경과 비율이 다름(2% 허용 — 4분의 1 해상도 반올림) 400 `150116`, 못 읽음 `150109`(비율 검사는 `tower.floor.mask-check.enabled` 를 따른다). 상한·범위는 요청 검증(@Size·@Min·@Max).
   **구름(CLOUD, LUT-740, Flyway V1_1_5_017 `spread`)**: 같은 표에 종류만 추가 — `amount` = 짙기 0~100(기본 60) · `speed` = 흐름 속도 0~100(기본 40) · `spread` = 번짐(원본 px 0~200, 비우면 60), 크기는 쓰지 않아 1 로 저장. 요청 검증(@Min/@Max)은 두 종류를 합친 범위만 막고 **종류별 범위는 `TowerFloorRuleValidator.inKindRange`**(눈·별 개수 1~300·속도 1~100·크기 1~20, 어기면 150115).
+  **물방울(RAIN, LUT-785, Flyway tower `V1_1_6_001` `drop_count`)**: 유리창 빗물 — 칠한 유리 영역에 빗물이 맺히고 흘러내린다(시안 6층 "비 오는 온실"). `amount` = 맺힌 물방울 밀도 1~100 · `speed` = 흐르는 속도 1~100(둘 다 50 = 시안 그대로) · `drop_count` = 흐르는 물방울 수 0~120(비우면 46 — 시안 유리 302,072칸 ÷ 6,500), 크기는 1 로 저장. 렌더링은 웹 LUT-786. 요청의 `effect_layers` 상한은 종류 수 4(예전 2 는 구름 추가 뒤 세 종류를 다 켤 수 없었다).
   유저 층 목록은 앞 가림·불빛 점을 그대로, 효과 레이어는 **오늘(KST) 켜진 것만** 내린다(추가 필드, 어드민 응답은 전부). 마스크 업로드는 기존 `floors/images?kind=MASK`(PNG). 안 쓰게 된 앞 가림·효과 마스크도 `TowerStoredFileCleaner` 가 커밋 뒤 지운다(다른 층의 앞 가림·효과 레이어 참조 확인). 기준선 계산·렌더링은 웹 LUT-726.
 - **픽셀아트 배경** (LUT-727, `application/pixel/` — Flyway V1_1_5_012 `tower_floor_pixel_art` 층당 1행): 원본(배경)을 등록·교체하면 커밋 뒤 **탑 전용 1스레드 실행기**(`TowerPixelArtConfig`, 대기열 20)에서 `TowerPixelArtConverter`(순수 Java — OpenCV·별도 작업자 없음)가 고밀도(높이 576, 입장 기본)·픽셀(높이 384) 두 장을 만든다. 가로는 원본 비율(2816×1536 → 1056·704). 순서는 시안과 같다: 기준 높이 768 로 면적 축소 → 양방향 필터 2회 + mean-shift → 목표 크기 면적 축소 → 채도 ×1.12·언샤프 → Lab k-means(기본 64색) → 외톨이 픽셀 정리 → 8비트 인덱스 PNG. 한 장 약 2.5초.
   **결정성**: 같은 원본·같은 설정이면 바이트 단위로 같은 PNG(단일 스레드·`StrictMath`·고정 시드·팔레트 정렬) → 버전 = PNG SHA-256 앞 16자리, 파일 이름도 `tower/pixel/{버전}.png`(같은 결과 = 같은 주소). 프론트 효과 맵(LUT-729)이 이 버전으로 대조한다 — **JDK 를 바꾸면 PNG 압축 바이트가 달라질 수 있으니 재생성 후 효과 맵을 다시 확인할 것**.
@@ -718,6 +722,10 @@ LUT-348 의 등급 차이 할증(배수 1~8, 10단위 올림)은 없앴다 — �
   (LUT-566 — 완료 직후 자동 생성되는 seq+1 PENDING이 자정에 MISSED가 되어 완료 1건당 미완료 1건이 붙던 것을 제외). 달성률·완료 수는 **예정일**
   기준, 카테고리·요일·시간 분포는 **완료 시각 + `X-Timezone`** 기준이라 자정 넘김에서 1~2건 어긋날 수 있다. 종료된 고정 미션의 잔존 MISSED는
   쿼리가 아니라 **데이터 정리(sql V009)** 로 제거 — 미션 상태로 소급 제외하면 활성이던 달의 정당한 미수행까지 빠진다.
+- **시즌 상세 BFF** `GET /api/v1/bff/season/current`·`/{seasonId}` 는 **비로그인 허용**(LUT-804, GET 한정 permitAll + `@CurrentUser(required = false)`,
+  `SecurityConfigPublicEndpointTest`) — 웹 서버가 방문자·검색엔진에게 `/season` 을 미리 그려 준다. 비로그인이면 `my_ranking` 은 조회하지 않고 빈 값
+  (`SeasonMyRankingDto.empty()`, 필드는 유지). 시즌이 없으면 **404**(`NO_ACTIVE_SEASON`·`SEASON_NOT_FOUND`, `bffservice/api/exception/BffSeasonExceptionHandler`
+  — 예전엔 플랫폼 `CustomException` 이라 500 + error 로그였다. 웹 서버가 방문자 요청·사이트맵 요청마다 부르므로 "시즌 없음"을 오류로 두지 않는다. `code`·문구는 그대로).
 - **랭킹** `/api/v1/rankings` 14개: 전체·`/missions`·`/streaks`·`/achievements`·`/realtime`·`/level`·`/level/**`는 **비로그인 허용**(LUT-297,
   `SecurityConfig` permitAll + `SecurityConfigPublicEndpointTest`), `/my*`·`/nearby`는 인증 필요.
 - **출석 응답 `store_review_due`** (LUT-708, 2026-11-02): 체크인 응답에 "이번 연속 일수가 어드민 설정 마일스톤(meta `app_setting.store_review_milestone_days`, 기본 `7,14,30`)과 같은가" 를 서버가 판정해 싣는다. 웹은 그 값이 true 일 때만 OS 인앱 평가 팝업을 요청(LUT-609)하고, 값이 없으면(구 서버) 7·14·30 으로 폴백한다. "평가했는지" 는 OS 가 알려 주지 않으므로 목록의 각 시점에 1회씩 요청하고 끝낸다. 설정 조회 실패는 출석을 막지 않는다(false). 어드민은 `/api/admin/attendance-reward-configs/store-review-milestones`(권한 `attendance-config:*`).
@@ -736,6 +744,24 @@ LUT-348 의 등급 차이 할증(배수 1~8, 10단위 올림)은 없앴다 — �
   합쳐 첫 페이지에만 붙인다. BFF 공개 길드 섹션은 카테고리가 **정확히 1개**일 때만 카테고리별 조회. **MVP(`/bff/home/mvp`)는 항상
   전체 카테고리** — 프론트가 카테고리를 넘기지 않는다. 웹은 로그인 유저의 저장값을 RSC 프리페치(`bff-home-server.ts`)가 먼저 읽어
   첫 피드를 그 카테고리로 받아와 "전체→필터" 플리커를 없앤다.
+
+## 홈 화면 위젯 (LUT-775 · 776 · 777 · 778 · 816)
+
+앱 홈 화면 위젯(작은 크기, iOS WidgetKit·안드로이드 Glance — RN LUT-777)이 **연속 실천 일수**와 **시간대·오늘 완료 여부에 따라 바뀌는 문장**을 보여 준다. "지금 n명이 미션 중" 은 없다.
+
+- **API** `GET /api/v1/widget/summary`(로그인, `BffWidgetController`) → `{practice_streak_days, completed_today, server_time(UTC Instant), timezone, messages[{id, start_hour, end_hour, condition, text}], streak_colors[{min_days, max_days, color}]}`.
+  `practice_streak_days` = 프로필 값(`GamificationQueryFacade.getPracticeStreak`, 방어권 반영). `completed_today` = 마지막 실천일(유저 `preferred_timezone` 로컬, 없거나 잘못되면 Asia/Seoul)이 오늘 이후인가 — 유저 자정에 false 로 바뀐다.
+  연속 실천 조회가 실패하면 0 으로 덮지 않고 오류를 낸다(위젯은 마지막 값 유지). 비로그인 위젯은 서버를 부르지 않는다(앱 고정 문구).
+- **문장은 전부 내려 주고 위젯이 고른다** — 위젯은 서버를 자주 못 부르므로 시간대 경계마다 저장된 목록으로 다시 그린다. `text` 는 Accept-Language(ko·en·ja·ar, 없거나 모르면 en) 문장, 비면 en → ko. `{streak}` 는 위젯이 바꾼다.
+  같은 시간대·조건에 여러 개면 위젯이 무작위로 하나.
+- **문장 `widget_message`**(meta_db, Flyway `meta/V1_1_6_001` — 초기 8개 = 아침 6~12·낮 12~18·저녁 18~22·밤 22~6 × 완료 전·후): 시간대는 유저 로컬 `[start_hour, end_hour)`(0~23 / 1~24, 같으면 400), **start > end 면 자정을 넘는 구간**(`WidgetHourRange`). 조건 컬럼 이름은 `done_condition`(API 는 `condition`: `NOT_DONE`·`DONE`·`ALL`). ko 필수·120자.
+  어드민 내부 API `/api/internal/widget-messages`(`docs/INTERNAL_API.md`) — 목록 응답 `gaps` 가 완료 전·후 각각 활성 문장이 안 걸리는 시각(어드민 "빈 시간대" 경고, LUT-776).
+- **문장 배경 이미지** (LUT-797, `widget_message.background_image_url`, Flyway `meta/V1_1_6_002`): 어드민이 문장마다 배경 이미지를 첨부하면 `messages[].background_image_url`(절대 URL, 없으면 null = 하얀 배경 — 추가 필드라 구앱 위젯은 무시)로 내려가고, 위젯이 갱신 때 받아 기기에 저장해 그 문장의 배경으로 그린다. 업로드 `POST /api/internal/widget-messages/images`(JPG·PNG 1MB 이하, 확장자가 아니라 내용 헤더로 판정 → `WidgetMessageImageService`) → prod `S3WidgetImageStorageService`(키 `widget/{uuid}.{ext}`, Content-Type 은 확장자에서 정함), 그 외 `LocalWidgetImageStorageService`(`uploads/widget/`, `WidgetImageWebConfig` 정적 서빙, 절대 주소는 `app.upload.widget-image.public-base-url` — 기본값이 탑 이미지의 `app.upload.tower-image.public-base-url` 을 따라가 config 추가 없음). 문장에는 **업로드 API 가 발급한 주소만**(아니면 400 `080205` — 위젯이 임의 외부 주소를 받아 가지 않게), 수정 요청의 null = 그대로·빈 문자열 = 지움. 바꾸거나 지워 어느 문장도 안 쓰는 파일은 커밋 뒤 삭제한다(올리고 저장하지 않은 파일은 남는다). 오류 `080203`(형식·크기)·`080204`(저장 실패).
+- **'N일' 숫자 색 구간** (LUT-816, `widget_streak_color`, Flyway `meta/V1_1_6_003` — 초기 1~7 `#1dec06`·8~30 `#00f9ff`): 위젯의 연속 실천 일수 숫자 색을 어드민이 구간으로 정한다. **문장마다가 아니라 구간 한 벌을 모든 문장에** 쓴다. 구간은 `[min_days, max_days]` 양끝 포함, `max_days` null = 끝 없음(이상). 위젯 요약의 `streak_colors`(전체, 시작 일수 순 — 추가 필드라 구앱 위젯은 무시)를 받은 위젯이 N 이 드는 구간의 색으로 숫자를 그리고, **드는 구간이 없으면(빈 목록·0일·끝이 있는 마지막 구간 뒤) 지금 색**(배경 없음 = 보라색 계열, 배경 이미지 위 = 흰색). 어드민 내부 API `GET/PUT /api/internal/widget-messages/streak-colors` — PUT 은 **보낸 목록으로 통째로 바꾼다**(빈 목록 = 모두 지움, 최대 20개, 색 `#rrggbb`). 규칙은 `WidgetStreakColorRule`: 겹치면 400 `080206`(끝 없는 구간은 마지막에만), 구간 사이가 비면 400 `080207`(다음 구간은 앞 구간 끝 + 1 에서 시작), 항목 형식 오류는 Bean Validation 400. 조회는 문장과 같은 60초 로컬 메모(`WidgetStreakColorService`)이고 **조회 실패는 위젯 요약을 막지 않는다**(마지막 메모, 없으면 빈 목록 = 기본 색).
+- **운영 초기 데이터는 Flyway 가 아니라 SQL 레포 스크립트가 한 번 옮긴다** (LUT-817): dev 어드민에서 다듬은 위젯 문장·'N일' 색 구간·첫 미션 추천(`recommended_mission`)은 v1.1.6 운영 배포 때 `level-up-together-sql/queries/developing/1.1.6/apply_prod_v116.sh`(`seed-dump` → `seed-assets` → `seed-rehearse` → `seed-apply` → `seed-verify`)로 넣는다 — 배포 직전에 dev 에서 다시 뽑아야 하고 배경 이미지를 S3 `widget/` 로 복사해야 하며, Flyway 파일은 dev 에도 적용돼 한 번 적용되면 고칠 수 없기 때문이다. 스크립트는 표마다 **운영 표가 Flyway 초기 데이터 그대로일 때만**(행 수 8·2·6, 수정된 행 없음, 추천은 그 추천으로 만든 미션 0) 바꾸고 다시 돌리면 건너뛴다. 그래서 **이 세 표의 Flyway 시드 행 수를 바꾸는 마이그레이션을 더하면 스크립트의 `SEED_COUNT_*` 도 같이 고칠 것**(안 고치면 "초기 상태가 아니다" 로 건너뛴다 — 안전한 쪽으로 실패). `seed-apply` 는 product 배포 뒤·웹 배포 전에 돌린다.
+- **캐시는 Redis 가 아니라 인스턴스 로컬 메모**(`WidgetMessageService`, `widget.message.cache-seconds` 기본 60초, 쓰기 때와 커밋 뒤 비움, 조회 실패는 마지막 메모) — Redis 캐시 직렬화(`NON_FINAL` 타입 정보)가 record 를 되살리지 못하고, 엔티티 캐시는 컬럼 추가 뒤 옛 값이 남는다(LUT-534).
+- 웹은 미션 완료·취소·로그인·로그아웃 때 브릿지 `widgetRefresh` 로 앱에 즉시 갱신을 알린다(LUT-778).
+- **위젯 호출은 DAU 가 아니다**(LUT-777): 위젯이 30분마다 부르므로 활동 수집(LUT-598)에서 `/api/v1/widget/**` 를 뺀다 — 세면 위젯을 둔 유저가 매일 활동으로 잡혀 DAU·리텐션(LUT-779)이 부풀려진다.
 
 ## 길드 활동 포인트 (LUT-483)
 
@@ -860,6 +886,8 @@ uk 멱등) — 쪼개서 수행해도 몰아서 한 것과 같은 점수. "하�
 미션(고정/실행 모드/생성 한도/자동완료), 피드(공개범위/필터/동기화), 길드(초대/자동 참가), 인증(Browse-First/Signup Token Flow) 등 도메인별 비즈니스 규칙: [
 `docs/FEATURES.md`](docs/FEATURES.md)
 
+**첫 미션 온보딩 추천 미션** (LUT-782): `recommended_mission`(mission_db) — `GET /api/v1/missions/recommended` · `POST .../{id}/start`(내 미션 생성 + 오늘 수행 시작을 한 트랜잭션, 진행 중이면 기존 오류·미션 롤백, `Idempotency-Key` 는 미션 생성과 같은 표). **체크(SIMPLE) 추천은 `POST .../{id}/complete`**(LUT-803 — 생성 + 시작 + 완료를 한 요청에서, 수행 중을 거치지 않는다. 화면은 확인을 누른 뒤에 부른다. 타이머 추천이면 400 `050503`, 완료 Saga 가 실패하면 만든 미션을 지운다). 만든 미션에 `recommended_mission_id`(어드민 성과), 마이페이지 `user_info.has_completed_mission`. 어드민 `/api/internal/recommended-missions`. 상세는 FEATURES.md "첫 미션 온보딩 추천 미션" 절.
+
 **미션 생성 멱등성** (LUT-577): `POST /api/v1/missions` 의 `Idempotency-Key`(UUID) 헤더 — 같은 유저·같은 키 재요청은 저장된 응답(같은 id) 재생,
 처리 중이면 409(`050402`), 형식 오류 400(`050401`), 헤더 없으면 기존처럼 매번 생성. 선점/해제는 REQUIRES_NEW, 생성+완료는 한 트랜잭션. 400/409 는
 플랫폼 `CustomException`(항상 500)이 아니라 미션 로컬 어드바이스가 낸다. 상세는 FEATURES.md "Mission 생성 멱등성" 절.
@@ -907,5 +935,5 @@ ALB·배포 스크립트(`gradle-*.yml`) 헬스체크는 `/showmethemoney/health
 탈퇴 행까지 세었다), 탈퇴 수는 `withdrawn_users`, 가입경로 분포(`users_by_provider`)도 탈퇴 제외라 합이 `total_users` 와 맞는다.
 `daily_new_users` 는 가입 시점 집계라 이후 탈퇴해도 포함된다.
 
-베이스 경로는 코드 기준 46개 — 서비스별 전체 목록·주요 엔드포인트·도입 티켓은 [`docs/INTERNAL_API.md`](docs/INTERNAL_API.md)(2026-11-04 tower 4개 추가, 2026-11-08 LUT-760 NPC 수집함 추가).
+베이스 경로는 코드 기준 50개 — 서비스별 전체 목록·주요 엔드포인트·도입 티켓은 [`docs/INTERNAL_API.md`](docs/INTERNAL_API.md)(2026-11-04 tower 4개 추가, 2026-11-08 LUT-760 NPC 수집함, 2026-11-11 LUT-775 위젯 문장·LUT-779 첫날 리텐션·LUT-782 추천 미션 추가, 2026-11-12 LUT-790 미션 통계).
 README "Internal API" 절도 같은 40개를 서비스별로 요약한다(2026-10-29).

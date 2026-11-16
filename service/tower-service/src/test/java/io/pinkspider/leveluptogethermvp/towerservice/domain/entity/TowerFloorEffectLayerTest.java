@@ -30,7 +30,58 @@ class TowerFloorEffectLayerTest {
                 50,
                 1,
                 3,
+                null,
                 null);
+    }
+
+    private static TowerFloorEffectLayerDto rainDto(
+            Integer sizeMin, Integer spread, Integer dropCount) {
+        return new TowerFloorEffectLayerDto(
+                TowerEffectKind.RAIN,
+                "https://cdn/r.png",
+                true,
+                null,
+                null,
+                50,
+                50,
+                sizeMin,
+                sizeMin,
+                spread,
+                dropCount);
+    }
+
+    @Test
+    @DisplayName("LUT-785: 물방울 — 흐르는 물방울 수를 비우면 46, 크기는 1, 번짐은 버린다 · 다른 종류의 물방울 수는 버린다")
+    void rainToEmbeddable() {
+        TowerFloorEffectLayer defaulted = rainDto(null, 80, null).toEmbeddable();
+        assertThat(defaulted.getDropCount())
+                .isEqualTo(TowerFloorEffectLayerDto.DEFAULT_RAIN_DROP_COUNT)
+                .isEqualTo(46);
+        assertThat(defaulted.getSizeMin()).isEqualTo(1);
+        assertThat(defaulted.getSizeMax()).isEqualTo(1);
+        assertThat(defaulted.getSpread()).isNull();
+        assertThat(rainDto(7, null, 0).toEmbeddable().getDropCount()).isZero();
+        assertThat(
+                        TowerFloorEffectLayerDto.from(rainDto(null, null, 30).toEmbeddable())
+                                .dropCount())
+                .isEqualTo(30);
+
+        TowerFloorEffectLayer snow =
+                new TowerFloorEffectLayerDto(
+                                TowerEffectKind.SNOW,
+                                "https://cdn/s.png",
+                                true,
+                                null,
+                                null,
+                                100,
+                                50,
+                                1,
+                                3,
+                                null,
+                                30)
+                        .toEmbeddable();
+        assertThat(snow.getDropCount()).isNull();
+        assertThat(snow.getSizeMax()).isEqualTo(3);
     }
 
     @Test
@@ -121,6 +172,7 @@ class TowerFloorEffectLayerTest {
                         40,
                         null,
                         null,
+                        null,
                         null);
         TowerFloorEffectLayer saved = cloud.toEmbeddable();
         org.assertj.core.api.Assertions.assertThat(saved.getSpread()).isEqualTo(60);
@@ -138,7 +190,8 @@ class TowerFloorEffectLayerTest {
                         40,
                         5,
                         9,
-                        80);
+                        80,
+                        null);
         org.assertj.core.api.Assertions.assertThat(spread80.toEmbeddable().getSpread())
                 .isEqualTo(80);
         var snow =
@@ -153,7 +206,8 @@ class TowerFloorEffectLayerTest {
                         50,
                         1,
                         3,
-                        80);
+                        80,
+                        null);
         TowerFloorEffectLayer snowSaved = snow.toEmbeddable();
         org.assertj.core.api.Assertions.assertThat(snowSaved.getSpread()).isNull();
         org.assertj.core.api.Assertions.assertThat(snowSaved.getSizeMax()).isEqualTo(3);

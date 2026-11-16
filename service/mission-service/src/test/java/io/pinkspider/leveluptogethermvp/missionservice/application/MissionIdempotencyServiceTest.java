@@ -17,8 +17,12 @@ import io.pinkspider.global.component.LmObjectMapper;
 import io.pinkspider.global.test.TestReflectionUtils;
 import io.pinkspider.leveluptogethermvp.missionservice.api.exception.MissionIdempotencyException;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MissionCreateRequest;
+import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MissionExecutionResponse;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MissionResponse;
+import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.RecommendedMissionCompleteResponse;
+import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.RecommendedMissionStartResponse;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.MissionIdempotencyKey;
+import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.ExecutionStatus;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.IdempotencyStatus;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionType;
 import java.time.LocalDateTime;
@@ -45,6 +49,8 @@ class MissionIdempotencyServiceTest {
     private static final String KEY = "11111111-2222-4333-8444-555555555555";
 
     @Mock private MissionService missionService;
+    @Mock private RecommendedMissionService recommendedMissionService;
+    @Mock private RecommendedMissionCompleteService recommendedMissionCompleteService;
     @Mock private MissionIdempotencyTxService txService;
     private final ObjectMapper objectMapper = new LmObjectMapper();
 
@@ -53,7 +59,13 @@ class MissionIdempotencyServiceTest {
 
     @BeforeEach
     void setUp() {
-        service = new MissionIdempotencyService(missionService, txService, objectMapper);
+        service =
+                new MissionIdempotencyService(
+                        missionService,
+                        recommendedMissionService,
+                        recommendedMissionCompleteService,
+                        txService,
+                        objectMapper);
         request =
                 MissionCreateRequest.builder()
                         .title("아침 운동")
@@ -394,6 +406,267 @@ class MissionIdempotencyServiceTest {
             when(txService.deleteExpired(any())).thenReturn(0);
 
             assertThat(service.cleanupExpired()).isZero();
+        }
+    }
+
+    @Nested
+    @DisplayName("추천 미션 원탭 시작 (LUT-782)")
+    class StartRecommended {
+
+        private RecommendedMissionStartResponse started(long missionId) {
+            return new RecommendedMissionStartResponse(
+                    response(missionId),
+                    MissionExecutionResponse.builder().id(500L).missionId(missionId).build());
+        }
+
+        @ParameterizedTest(name = "키 \"{0}\" → 매번 시작, 멱등 저장소 미사용")
+        @NullAndEmptySource
+        void noKey_delegates(String key) {
+            when(recommendedMissionService.start(USER, 3L, "en")).thenReturn(started(7));
+
+            RecommendedMissionStartResponse result = service.startRecommended(USER, key, 3L, "en");
+
+            assertThat(result.mission().getId()).isEqualTo(7L);
+            verifyNoInteractions(txService);
+        }
+
+        @Test
+        @DisplayName("처음 보는 키 → 선점 후 시작+키 완료를 한 트랜잭션에서")
+        void newKey_startsWithClaim() {
+            when(txService.claim(USER, KEY)).thenReturn(10L);
+            when(txService.startRecommendedAndComplete(10L, USER, 3L, "ko")).thenReturn(started(7));
+
+            RecommendedMissionStartResponse result = service.startRecommended(USER, KEY, 3L, "ko");
+
+            assertThat(result.execution().getId()).isEqualTo(500L);
+            verify(txService, never()).release(anyLong());
+        }
+
+        @Test
+        @DisplayName("시작 실패(진행 중 미션 등) → 선점 행을 지우고 그 예외를 그대로 던진다")
+        void failure_releasesClaim() {
+            when(txService.claim(USER, KEY)).thenReturn(10L);
+            when(txService.startRecommendedAndComplete(10L, USER, 3L, null))
+                    .thenThrow(new IllegalStateException("이미 진행 중인 미션이 있습니다"));
+
+            assertThatThrownBy(() -> service.startRecommended(USER, KEY, 3L, null))
+                    .isInstanceOf(IllegalStateException.class);
+            verify(txService).release(10L);
+        }
+
+        @Test
+        @DisplayName("같은 키 재요청 → 저장된 응답 재생(같은 미션)")
+        void sameKey_replaysBody() throws Exception {
+            when(txService.claim(USER, KEY)).thenThrow(new DataIntegrityViolationException("dup"));
+            when(txService.find(USER, KEY))
+                    .thenReturn(
+                            Optional.of(
+                                    row(
+                                            IdempotencyStatus.COMPLETED,
+                                            LocalDateTime.now(),
+                                            7L,
+                                            objectMapper.writeValueAsString(started(7)))));
+
+            RecommendedMissionStartResponse result = service.startRecommended(USER, KEY, 3L, null);
+
+            assertThat(result.mission().getId()).isEqualTo(7L);
+            assertThat(result.execution().getId()).isEqualTo(500L);
+            verify(recommendedMissionService, never()).start(any(), any(), any());
+        }
+
+        @Test
+        @DisplayName("저장된 본문을 못 읽으면 미션만 다시 읽는다(실행 null)")
+        void sameKey_fallbackToMission() {
+            when(txService.claim(USER, KEY)).thenThrow(new DataIntegrityViolationException("dup"));
+            when(txService.find(USER, KEY))
+                    .thenReturn(
+                            Optional.of(
+                                    row(
+                                            IdempotencyStatus.COMPLETED,
+                                            LocalDateTime.now(),
+                                            7L,
+                                            "{not json")));
+            when(missionService.getMission(7L, null)).thenReturn(response(7));
+
+            RecommendedMissionStartResponse result = service.startRecommended(USER, KEY, 3L, null);
+
+            assertThat(result.mission().getId()).isEqualTo(7L);
+            assertThat(result.execution()).isNull();
+        }
+
+        @Test
+        @DisplayName("본문 없음 → 미션만, 미션 ID 도 없으면 오류")
+        void sameKey_noBody() {
+            when(txService.claim(USER, KEY)).thenThrow(new DataIntegrityViolationException("dup"));
+            when(txService.find(USER, KEY))
+                    .thenReturn(
+                            Optional.of(
+                                    row(
+                                            IdempotencyStatus.COMPLETED,
+                                            LocalDateTime.now(),
+                                            7L,
+                                            null)))
+                    .thenReturn(
+                            Optional.of(
+                                    row(
+                                            IdempotencyStatus.COMPLETED,
+                                            LocalDateTime.now(),
+                                            null,
+                                            null)));
+            when(missionService.getMission(7L, null)).thenReturn(response(7));
+
+            assertThat(service.startRecommended(USER, KEY, 3L, null).mission().getId())
+                    .isEqualTo(7L);
+            assertThatThrownBy(() -> service.startRecommended(USER, KEY, 3L, null))
+                    .isInstanceOf(IllegalStateException.class);
+        }
+    }
+
+    @Nested
+    @DisplayName("체크 추천 미션 원탭 완료 (LUT-803)")
+    class CompleteRecommended {
+
+        private RecommendedMissionCompleteResponse completed(long missionId) {
+            return new RecommendedMissionCompleteResponse(
+                    response(missionId),
+                    MissionExecutionResponse.builder()
+                            .id(500L)
+                            .missionId(missionId)
+                            .status(ExecutionStatus.COMPLETED)
+                            .expEarned(10)
+                            .build());
+        }
+
+        @ParameterizedTest(name = "키 \"{0}\" → 매번 실행, 멱등 저장소 미사용")
+        @NullAndEmptySource
+        void noKey_delegates(String key) {
+            when(recommendedMissionCompleteService.complete(USER, 1L, "en"))
+                    .thenReturn(completed(7));
+
+            RecommendedMissionCompleteResponse result =
+                    service.completeRecommended(USER, key, 1L, "en");
+
+            assertThat(result.execution().getExpEarned()).isEqualTo(10);
+            verifyNoInteractions(txService);
+        }
+
+        @Test
+        @DisplayName("처음 보는 키 → 선점 → 완료 → 끝난 뒤 키에 결과를 남긴다")
+        void newKey_completesThenMarksKey() {
+            when(txService.claim(USER, KEY)).thenReturn(10L);
+            RecommendedMissionCompleteResponse done = completed(7);
+            when(recommendedMissionCompleteService.complete(USER, 1L, "ko")).thenReturn(done);
+
+            RecommendedMissionCompleteResponse result =
+                    service.completeRecommended(USER, KEY, 1L, "ko");
+
+            assertThat(result).isSameAs(done);
+            verify(txService).complete(10L, 7L, done);
+            verify(txService, never()).release(anyLong());
+        }
+
+        @Test
+        @DisplayName("완료 실패 → 선점 행을 지우고 그 예외를 그대로 던진다 (같은 키로 다시 시도할 수 있다)")
+        void failure_releasesClaim() {
+            when(txService.claim(USER, KEY)).thenReturn(10L);
+            when(recommendedMissionCompleteService.complete(USER, 1L, null))
+                    .thenThrow(new IllegalStateException("이미 진행 중인 미션이 있습니다"));
+
+            assertThatThrownBy(() -> service.completeRecommended(USER, KEY, 1L, null))
+                    .isInstanceOf(IllegalStateException.class);
+            verify(txService).release(10L);
+            verify(txService, never()).complete(anyLong(), any(), any());
+        }
+
+        // 완료는 이미 끝났다 — 표시 실패로 오류를 내면 화면은 실패로 알고 다시 눌러 미션이 하나 더 생긴다
+        @Test
+        @DisplayName("키 표시가 실패해도 완료 결과를 돌려주고 선점 행을 지우지 않는다")
+        void markFailure_stillReturnsResult() {
+            when(txService.claim(USER, KEY)).thenReturn(10L);
+            RecommendedMissionCompleteResponse done = completed(7);
+            when(recommendedMissionCompleteService.complete(USER, 1L, null)).thenReturn(done);
+            doThrow(new IllegalStateException("db down")).when(txService).complete(10L, 7L, done);
+
+            assertThat(service.completeRecommended(USER, KEY, 1L, null)).isSameAs(done);
+            verify(txService, never()).release(anyLong());
+        }
+
+        @Test
+        @DisplayName("같은 키 재요청 → 저장된 완료 결과 재생(다시 완료하지 않는다)")
+        void sameKey_replaysBody() throws Exception {
+            when(txService.claim(USER, KEY)).thenThrow(new DataIntegrityViolationException("dup"));
+            when(txService.find(USER, KEY))
+                    .thenReturn(
+                            Optional.of(
+                                    row(
+                                            IdempotencyStatus.COMPLETED,
+                                            LocalDateTime.now(),
+                                            7L,
+                                            objectMapper.writeValueAsString(completed(7)))));
+
+            RecommendedMissionCompleteResponse result =
+                    service.completeRecommended(USER, KEY, 1L, null);
+
+            assertThat(result.mission().getId()).isEqualTo(7L);
+            assertThat(result.execution().getStatus()).isEqualTo(ExecutionStatus.COMPLETED);
+            assertThat(result.execution().getExpEarned()).isEqualTo(10);
+            verifyNoInteractions(recommendedMissionCompleteService);
+        }
+
+        @Test
+        @DisplayName("저장된 본문을 못 읽거나 없으면 미션만 다시 읽는다(수행 null), 미션 ID 도 없으면 오류")
+        void sameKey_fallbacks() {
+            when(txService.claim(USER, KEY)).thenThrow(new DataIntegrityViolationException("dup"));
+            when(txService.find(USER, KEY))
+                    .thenReturn(
+                            Optional.of(
+                                    row(
+                                            IdempotencyStatus.COMPLETED,
+                                            LocalDateTime.now(),
+                                            7L,
+                                            "{not json")))
+                    .thenReturn(
+                            Optional.of(
+                                    row(
+                                            IdempotencyStatus.COMPLETED,
+                                            LocalDateTime.now(),
+                                            7L,
+                                            null)))
+                    .thenReturn(
+                            Optional.of(
+                                    row(
+                                            IdempotencyStatus.COMPLETED,
+                                            LocalDateTime.now(),
+                                            null,
+                                            null)));
+            when(missionService.getMission(7L, null)).thenReturn(response(7));
+
+            RecommendedMissionCompleteResponse broken =
+                    service.completeRecommended(USER, KEY, 1L, null);
+            assertThat(broken.mission().getId()).isEqualTo(7L);
+            assertThat(broken.execution()).isNull();
+            assertThat(service.completeRecommended(USER, KEY, 1L, null).mission().getId())
+                    .isEqualTo(7L);
+            assertThatThrownBy(() -> service.completeRecommended(USER, KEY, 1L, null))
+                    .isInstanceOf(IllegalStateException.class);
+        }
+
+        @Test
+        @DisplayName("같은 키가 처리 중이면 409 — 완료를 두 번 돌리지 않는다")
+        void sameKey_inProgress() {
+            when(txService.claim(USER, KEY)).thenThrow(new DataIntegrityViolationException("dup"));
+            when(txService.find(USER, KEY))
+                    .thenReturn(
+                            Optional.of(
+                                    row(
+                                            IdempotencyStatus.PROCESSING,
+                                            LocalDateTime.now(),
+                                            null,
+                                            null)));
+
+            assertThatThrownBy(() -> service.completeRecommended(USER, KEY, 1L, null))
+                    .isInstanceOf(MissionIdempotencyException.class);
+            verifyNoInteractions(recommendedMissionCompleteService);
         }
     }
 }

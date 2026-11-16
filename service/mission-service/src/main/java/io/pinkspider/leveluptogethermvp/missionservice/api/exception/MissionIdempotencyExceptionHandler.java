@@ -14,9 +14,10 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 /**
- * LUT-577: {@link MissionIdempotencyException} 을 예외가 지정한 상태(400/409)로 응답한다. 본문은 다른 에러와 같은 {@code
- * ApiResult} (code + 현지화 message). 플랫폼 RestExceptionHandler(HIGHEST_PRECEDENCE+1) 보다 먼저 잡도록
- * HIGHEST_PRECEDENCE 로 둔다 — user-service {@code JwtExceptionHandler} 와 같은 구조.
+ * LUT-577: {@link MissionIdempotencyException} 을 예외가 지정한 상태(400/409)로 응답한다(LUT-782 {@link
+ * RecommendedMissionException} 404/400 도 같은 방식). 본문은 다른 에러와 같은 {@code ApiResult} (code + 현지화
+ * message). 플랫폼 RestExceptionHandler(HIGHEST_PRECEDENCE+1) 보다 먼저 잡도록 HIGHEST_PRECEDENCE 로 둔다 —
+ * user-service {@code JwtExceptionHandler} 와 같은 구조.
  */
 @RestControllerAdvice(annotations = RestController.class)
 @Order(Ordered.HIGHEST_PRECEDENCE)
@@ -30,6 +31,18 @@ public class MissionIdempotencyExceptionHandler {
     public ResponseEntity<Object> handle(MissionIdempotencyException e) {
         // 재시도 가능한 정상 흐름(409)·클라이언트 입력 오류(400)라 error 가 아닌 info
         log.info("[mission-idempotency] code={} status={}", e.getCode(), e.getStatus().value());
+        return ResponseEntity.status(e.getStatus())
+                .body(
+                        ApiResult.builder()
+                                .code(e.getCode())
+                                .message(resolveMessage(e.getMessage()))
+                                .build());
+    }
+
+    /** LUT-782: 추천 미션 — 없음 404 · 입력 오류 400 */
+    @ExceptionHandler(RecommendedMissionException.class)
+    public ResponseEntity<Object> handleRecommended(RecommendedMissionException e) {
+        log.info("[recommended-mission] code={} status={}", e.getCode(), e.getStatus().value());
         return ResponseEntity.status(e.getStatus())
                 .body(
                         ApiResult.builder()

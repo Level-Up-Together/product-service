@@ -239,6 +239,44 @@ class MyPageServiceTest {
             assertThat(result.getUserInfo().getLastPracticeShieldDate()).isEqualTo(shielded);
         }
 
+        @org.junit.jupiter.params.ParameterizedTest(name = "누적 완료 {0} → has_completed_mission {1}")
+        @org.junit.jupiter.params.provider.CsvSource(
+                value = {"NULL, false", "0, false", "1, true", "12, true"},
+                nullValues = "NULL")
+        @DisplayName("LUT-782: 미션을 한 번이라도 완료했는가")
+        void getMyPage_hasCompletedMission(Integer completions, boolean expected) {
+            Users user = createTestUser(TEST_USER_ID, "테스터");
+            when(userRepository.findById(TEST_USER_ID)).thenReturn(Optional.of(user));
+            when(gamificationQueryFacadeService.getEquippedTitlesByUserId(TEST_USER_ID))
+                    .thenReturn(Collections.emptyList());
+            when(gamificationQueryFacadeService.getOrCreateUserExperience(TEST_USER_ID))
+                    .thenReturn(
+                            new UserExperienceDto(null, TEST_USER_ID, 1, 0, 0, null, null, null));
+            when(gamificationQueryFacadeService.getOrCreateUserStats(TEST_USER_ID))
+                    .thenReturn(
+                            new UserStatsDto(
+                                    null,
+                                    TEST_USER_ID,
+                                    completions,
+                                    0,
+                                    0,
+                                    0,
+                                    0,
+                                    null,
+                                    0,
+                                    0,
+                                    0L,
+                                    0,
+                                    0L,
+                                    0));
+            when(userLevelConfigCacheService.getLevelConfigByLevel(2))
+                    .thenReturn(UserLevelConfig.builder().requiredExp(100).build());
+
+            MyPageResponse result = myPageService.getMyPage(TEST_USER_ID);
+
+            assertThat(result.getUserInfo().getHasCompletedMission()).isEqualTo(expected);
+        }
+
         @Test
         @DisplayName("존재하지 않는 사용자 조회 시 예외가 발생한다")
         void getMyPage_userNotFound_throwsException() {

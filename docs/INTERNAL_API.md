@@ -2,7 +2,7 @@
 
 `/api/internal/**` 경로는 `SecurityConfig`에서 `permitAll`이지만 **공유 시크릿 헤더 인증 + VPC 내부 접근**으로 보호. Admin Backend가 MVP의 도메인 데이터를 읽거나 액션을 실행할 때 사용.
 
-> 2026-10-29 코드 기준 현행화 — `@RequestMapping("/api/internal…")` 컨트롤러 **46개 = 베이스 경로 46개**(중첩 경로 포함, 2026-11-02 LUT-708 `app-settings` 추가, 2026-11-04 LUT-629/635 `tower/floors`·`tower/settings`, LUT-693 `tower/floors/{floorId}/npcs`, LUT-705 `tower`(방문객 신고·제재), 2026-11-08 LUT-760 `tower/npcs/{npcId}/entries` 추가). chat·bff·notice·support 서비스에는 내부 API 컨트롤러가 없다.
+> 2026-10-29 코드 기준 현행화 — `@RequestMapping("/api/internal…")` 컨트롤러 **50개 = 베이스 경로 50개**(중첩 경로 포함, 2026-11-02 LUT-708 `app-settings` 추가, 2026-11-04 LUT-629/635 `tower/floors`·`tower/settings`, LUT-693 `tower/floors/{floorId}/npcs`, LUT-705 `tower`(방문객 신고·제재), 2026-11-08 LUT-760 `tower/npcs/{npcId}/entries`, 2026-11-11 LUT-775 `widget-messages`·LUT-779 `kpi/first-day-retention`·LUT-782 `recommended-missions` 추가, 2026-11-12 LUT-790 `mission-stats` 추가). chat·bff·notice·support 서비스에는 내부 API 컨트롤러가 없다.
 
 ## 인증 (LUT-244)
 
@@ -50,6 +50,7 @@
 |---|---|---|
 | `/api/internal/missions` | 미션 검색(`keyword`·`source`·`status`·`type`·`participation_type`·`creator_id`·`category_id`)·CRUD·상태 변경. `GET /`·`/all`·`/{id}`·`/count` · `POST` · `PUT /{id}` · `PATCH /{id}/status?status=` · `DELETE /{id}` | Feign 전환(2026-02) |
 | `/api/internal/mission-templates` | 미션 템플릿 CRUD. `GET /`·`/all`·`/{id}`·`/count` · `POST` · `PUT`/`DELETE /{id}` | Feign 전환(2026-02) |
+| `/api/internal/recommended-missions` | 첫 미션 온보딩 추천 미션(LUT-782, 화면 LUT-783). `GET /`(전부 순서대로 + `started_count`·`completed_count`)·`/{id}` · `POST` · `PUT`/`DELETE /{id}` · `PATCH /{id}/toggle-active` · `PUT /reorder {ordered_ids}`(전체 ID). 없음 404 `050501`, 입력 오류 400 `050502` | LUT-782 (2026-11-11) |
 | `/api/internal/mission-participants` | 수행 기록·건수(유저 상세용). `GET /user/{userId}/history`(`type`·`start_date`·`end_date`) · `GET /guild/{guildId}/history` · `GET /user/{userId}/count` · `GET /user/{userId}/executions/count` · `GET /user/{userId}/executions/completed/count` | Feign 전환(2026-02) · QA-165 · QA-205(수행 건 기반) · LUT-239(길드 기록) |
 | `/api/internal/mission-comments` | 미션 댓글 어드민 삭제(신고 `CONTENT_DELETED`). `DELETE /{commentId}?reason=` | 신고 처리(2026-04) |
 | `/api/internal/mission-images` | 과거 업로드 이미지 thumb/medium 변형 백필. `POST /backfill-variants?limit=` | LUT-409 |
@@ -71,6 +72,7 @@
 | `/api/internal/attendance-reward-configs` | 출석 보상 설정. `GET /`·`/all`·`/active`·`/consecutive`·`/{id}` · `POST` · `PUT /{id}` · `PATCH /{id}/toggle-active` · `DELETE /{id}` | Feign 전환(2026-02) · QA-131 |
 | `/api/internal/mission-categories` | 미션 카테고리. `GET /`·`/all`·`/active`·`/{id}`·`/by-name/{name}`·`/by-ids` · `POST` · `PUT`/`DELETE /{id}` · `POST /{id}/toggle-active`(PATCH 아님) | Feign 전환(2026-02) |
 | `/api/internal/app-settings` | 어드민 서비스 설정(`app_setting` 키-값). `GET`/`PUT /store-review-milestones` — 스토어 인앱 평가 팝업을 요청할 연속 출석 일수 목록(기본 7·14·30, 1~365·최대 10개, 빈 목록=끔). 캐시 `appSettings`(TTL 없음, PUT 때 evict). 출석 체크인 응답 `store_review_due` 의 원천 | LUT-708 (2026-11-02) |
+| `/api/internal/widget-messages` | 홈 화면 위젯 시간대별 문장(`widget_message`). `GET /?condition=`(목록 + 빈 시간대 `gaps` — 완료 전·후 각각 활성 문장이 안 걸리는 시각, 필터 무관) · `GET /{id}` · `POST` · `PUT /{id}`(active·sort_order 비우면 그대로) · `PATCH /{id}/toggle-active` · `DELETE /{id}`. 시간대는 유저 로컬 `[start_hour, end_hour)`, start > end 면 자정을 넘는 구간. 없음 404 `080201`, 조건 값 오류 400 `080202`, 입력 오류 400. 위젯 조회 메모(노드별 60초)는 쓰기 때 비운다. 패스스루·화면은 LUT-776. **배경 이미지(LUT-797)**: `POST /images`(multipart `file`, JPG·PNG 1MB 이하 — 내용 헤더로 판정) → `{url, width, height, size_bytes}`, 그 `url` 을 작성·수정의 `background_image_url` 에(수정에서 null = 그대로, 빈 문자열 = 지움). 거절 400 `080203`, 저장 실패 500 `080204`, 업로드 API 가 발급하지 않은 주소 400 `080205`. 안 쓰게 된 파일은 커밋 뒤 삭제. **'N일' 숫자 색 구간(LUT-816)**: `GET /streak-colors` → `{ranges[{min_days, max_days, color}]}`(시작 일수 순) · `PUT /streak-colors {ranges[]}` = 보낸 목록으로 통째로 바꿈(빈 목록 = 모두 지움, 최대 20개, `max_days` null = 끝 없음, 색 `#rrggbb`). 모든 위젯 문장 공통(`widget_streak_color`). 겹침 400 `080206`(끝 없는 구간은 마지막에만), 구간 사이 빈 곳 400 `080207`, 항목 형식 오류 400 | LUT-775 (2026-11-11) · LUT-797 (2026-11-12) · LUT-816 (2026-11-15) |
 | `/api/internal/profanity-words` | 금칙어. `GET /`·`/all`·`/active`·`/{id}` · `POST` · `PUT`/`DELETE /{id}` · `PATCH /{id}/toggle` | Feign 전환(2026-02) |
 
 ### gamification-service (gamification_db)
@@ -110,6 +112,8 @@
 |---|---|---|
 | `/api/internal/stats/activity` | Redis `active:{KST날짜}` 활동 집합 수동 적재(스케줄러 00:20 대기 없이 배포 검증·누락 보정, 멱등). `POST /flush?date=YYYY-MM-DD` | LUT-598 |
 | `/api/internal/kpi` | KPI 스냅샷·코호트 조회 + 소급 재계산. `GET /daily?from&to` · `GET /retention?cohort_from&cohort_to[&source=REQUEST\|ATTENDANCE]` · `GET /revenue/cohorts?from_month&to_month` · `GET /signups/by-channel?from_month&to_month`(KST 월 × `signup_channel`, null→`unknown`, user_db 직접 집계 — 어드민 CAC 분모) · `POST /rebuild?from&to`(어제까지로 자르고 최대 400일, 넘으면 최근 400일만) | LUT-601 · LUT-602 · LUT-616 |
+| `/api/internal/kpi/first-day-retention` | 첫날 행동별 리텐션(LUT-779) — `GET ?range=4w\|8w\|12w&platform=ALL\|IOS\|ANDROID\|WEB`(그룹 NOT_COMPLETED·SOLO·SOCIAL 의 D1·D7·D30 + D7 판정 `verdicts`, 허용값 밖 400 `100101`) · `POST /rebuild`(표를 비우고 처음부터). 집계는 00:50 KST 스케줄러, 상세 `docs/KPI_STATS.md` §3.8 | LUT-779 (2026-11-11) |
+| `/api/internal/mission-stats` | 미션 통계(LUT-790, 어드민 미션 통계 화면 LUT-791) — `GET /summary?from&to`(생성·완료·완료율·일별 추이·종류/수행 방식/카테고리별 표) · `GET /users?from&to[&page&size&sort&keyword]`(사용자별 완료 수·타이머 분·마지막 완료일 + 분포 1/2~4/5~9/10+). KST 날짜 양끝 포함·최대 400일, 완료 수는 KPI 미션 완료 수와 같은 SQL, 완료율은 예정일 기준(월간 리포트 정의). 형식·허용값 오류 400 `100101`. 상세 `docs/KPI_STATS.md` §3.9 | LUT-790 (2026-11-12) |
 
 - 날짜는 ISO(`yyyy-MM-dd`), 월은 `yyyy-MM`. `from > to` 는 서로 바꿔 처리한다.
 - **파라미터 오류는 400 (LUT-616)**: `StatsRequestExceptionHandler`(statsservice 패키지 한정 `HIGHEST_PRECEDENCE` 어드바이스) 가 형식 오류·enum 허용값 밖 → `100101`, 필수 파라미터 누락 → `100102` 로 응답한다. 이게 없으면 플랫폼 `RestExceptionHandler` 의 `Exception.class` 핸들러가 500(`000500`) 으로 바꾼다(`@WebMvcTest` 슬라이스엔 플랫폼 핸들러가 없어 테스트로는 안 보임).

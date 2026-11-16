@@ -214,6 +214,7 @@ class TowerFloorRuleValidatorTest {
                 50,
                 sizeMin,
                 sizeMax,
+                null,
                 null);
     }
 
@@ -228,7 +229,8 @@ class TowerFloorRuleValidatorTest {
                 speed,
                 1,
                 1,
-                spread);
+                spread,
+                null);
     }
 
     @Test
@@ -256,6 +258,7 @@ class TowerFloorRuleValidatorTest {
                                 50,
                                 1,
                                 3,
+                                null,
                                 null),
                         new TowerFloorEffectLayer(
                                 TowerEffectKind.STARS,
@@ -267,6 +270,7 @@ class TowerFloorRuleValidatorTest {
                                 0,
                                 1,
                                 3,
+                                null,
                                 null),
                         new TowerFloorEffectLayer(
                                 TowerEffectKind.SNOW,
@@ -278,6 +282,7 @@ class TowerFloorRuleValidatorTest {
                                 50,
                                 null,
                                 3,
+                                null,
                                 null))) {
             TowerFloor f = withEffects(bad);
             assertCode(() -> validator.validate(List.of(f), f), TowerFloorException.EFFECT_INVALID);
@@ -285,6 +290,55 @@ class TowerFloorRuleValidatorTest {
         TowerFloor twoClouds = withEffects(cloud(60, 40, 60), cloud(50, 40, 60));
         assertCode(
                 () -> validator.validate(List.of(twoClouds), twoClouds),
+                TowerFloorException.EFFECT_INVALID);
+    }
+
+    private static TowerFloorEffectLayer rain(int amount, int speed, Integer dropCount) {
+        return new TowerFloorEffectLayer(
+                TowerEffectKind.RAIN,
+                "https://cdn.test/tower/RAIN.png",
+                true,
+                null,
+                null,
+                amount,
+                speed,
+                1,
+                1,
+                null,
+                dropCount);
+    }
+
+    @Test
+    @DisplayName("LUT-785: 물방울 범위 — 밀도·속도 1~100, 흐르는 물방울 수 0~120(비면 거부), 네 종류를 한 층에 함께 켤 수 있다")
+    void rainRanges() {
+        ReflectionTestUtils.setField(validator, "maskCheckEnabled", false);
+        for (TowerFloorEffectLayer ok :
+                List.of(rain(1, 1, 0), rain(100, 100, 120), rain(50, 50, 46))) {
+            TowerFloor f = withEffects(ok);
+            assertThatCode(() -> validator.validate(List.of(f), f)).doesNotThrowAnyException();
+        }
+        for (TowerFloorEffectLayer bad :
+                List.of(
+                        rain(0, 50, 46),
+                        rain(101, 50, 46),
+                        rain(50, 0, 46),
+                        rain(50, 101, 46),
+                        rain(50, 50, 121),
+                        rain(50, 50, -1),
+                        rain(50, 50, null))) {
+            TowerFloor f = withEffects(bad);
+            assertCode(() -> validator.validate(List.of(f), f), TowerFloorException.EFFECT_INVALID);
+        }
+        TowerFloor all =
+                withEffects(
+                        layer(TowerEffectKind.SNOW, 1, 3, null, null),
+                        layer(TowerEffectKind.STARS, 1, 3, null, null),
+                        cloud(60, 40, 60),
+                        rain(50, 50, 46));
+        assertThatCode(() -> validator.validate(List.of(all), all)).doesNotThrowAnyException();
+        TowerFloor twoRains = withEffects(rain(50, 50, 46), rain(40, 50, 20));
+        assertCode(
+                () -> validator.validate(List.of(twoRains), twoRains),
                 TowerFloorException.EFFECT_INVALID);
     }
 

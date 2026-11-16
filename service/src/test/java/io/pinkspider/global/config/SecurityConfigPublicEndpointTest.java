@@ -83,6 +83,8 @@ class SecurityConfigPublicEndpointTest {
                 "/api/v1/bff/home/mvp",
                 "/api/v1/bff/guild/list",
                 "/api/v1/bff/guild/1",
+                "/api/v1/bff/season/current", // LUT-804: 시즌 상세 — 웹 서버가 방문자에게 미리 그린다
+                "/api/v1/bff/season/1", // LUT-804
                 "/api/v1/feeds/public",
                 "/api/v1/feeds/1",
                 "/api/v1/feeds/1/comments",

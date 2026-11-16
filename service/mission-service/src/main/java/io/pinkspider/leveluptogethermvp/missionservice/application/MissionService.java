@@ -16,6 +16,7 @@ import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MissionTemplat
 import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MissionUpdateRequest;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.Mission;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.MissionTemplate;
+import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.RecommendedMission;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionSource;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionType;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionVisibility;
@@ -232,6 +233,68 @@ public class MissionService {
         missionParticipantService.addCreatorAsParticipant(saved, userId);
 
         return MissionResponse.from(saved);
+    }
+
+    /**
+     * LUT-782: 첫 미션 온보딩 추천 미션으로 내 미션을 만든다 (원탭 시작의 앞 절반 — 시작은 호출자가 같은 트랜잭션에서 한다). 일반 미션(고정 아님)·공개·
+     * 유저 출처(미션북 다이아 없음)이고 이름은 4개 언어를 그대로 옮긴다. 카테고리가 꺼졌거나 없으면 카테고리 없이 만든다 — 어드민 설정 실수로 시작이 막히지 않게.
+     * 생성 한도(20개)는 일반 생성과 같다.
+     */
+    @Transactional(transactionManager = "missionTransactionManager")
+    public MissionResponse createMissionFromRecommended(
+            RecommendedMission recommended, String userId, String locale) {
+        validateMissionCreationLimit(userId, MissionType.PERSONAL);
+
+        Long categoryId = null;
+        String categoryName = null;
+        if (recommended.getCategoryId() != null) {
+            try {
+                MissionCategoryResponse category =
+                        missionCategoryService.getCategory(recommended.getCategoryId());
+                if (Boolean.TRUE.equals(category.getIsActive())) {
+                    categoryId = category.getId();
+                    categoryName = category.getName();
+                }
+            } catch (RuntimeException e) {
+                log.warn(
+                        "추천 미션 카테고리 조회 실패 — 카테고리 없이 생성: recommendedId={}, categoryId={}",
+                        recommended.getId(),
+                        recommended.getCategoryId(),
+                        e);
+            }
+        }
+
+        Mission mission =
+                Mission.builder()
+                        .title(recommended.getTitleKo())
+                        .titleEn(recommended.getTitleEn())
+                        .titleAr(recommended.getTitleAr())
+                        .titleJa(recommended.getTitleJa())
+                        .status(MissionStatus.DRAFT)
+                        .visibility(MissionVisibility.PUBLIC)
+                        .type(MissionType.PERSONAL)
+                        .source(MissionSource.USER)
+                        .creatorId(userId)
+                        .isPinned(false)
+                        .executionMode(recommended.getExecutionMode())
+                        .targetDurationMinutes(recommended.getTargetMinutes())
+                        .categoryId(categoryId)
+                        .categoryName(categoryName)
+                        .recommendedMissionId(recommended.getId())
+                        .build();
+
+        Mission saved = missionRepository.save(mission);
+        log.info(
+                "추천 미션으로 미션 생성: missionId={}, recommendedId={}, userId={}",
+                saved.getId(),
+                recommended.getId(),
+                userId);
+
+        eventPublisher.publishEvent(
+                MissionStateChangedEvent.ofCreation(userId, saved.getId(), saved.getStatus()));
+        missionParticipantService.addCreatorAsParticipant(saved, userId);
+
+        return MissionResponse.from(saved, locale);
     }
 
     public MissionResponse getMission(Long missionId) {

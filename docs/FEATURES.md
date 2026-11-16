@@ -122,6 +122,29 @@ SIMPLE  // 수행 여부 — 즉시 완료, 고정 +10 EXP (LUT-568: 5 → 10)
 - 웹은 `useIdempotencyKey` 훅(LUT-578, 개인·길드 미션 생성 페이지)으로 키를 발급·전송한다. 브라우저에서 보내려면 `SecurityConfig` CORS
   허용 헤더에 `Idempotency-Key` 가 있어야 한다(LUT-587 — 누락 시 preflight 에서 막혀 요청이 서버에 오지 않는다).
 
+## 첫 미션 온보딩 추천 미션 (LUT-782) — `missionservice/application/RecommendedMission*`
+
+가입 직후 미션 0개인 빈 화면 대신 **누르면 바로 시작되는 추천 미션**을 준다(웹 환영 모달·미션 탭 빈 화면 LUT-784, 어드민 관리 LUT-783).
+
+- 표 `recommended_mission`(mission_db, Flyway `mission/V1_1_6_001`): 이름 ko(필수)·en·ja·ar · 카테고리 ID(meta_db, FK 없음) · `execution_mode` TIMED·SIMPLE · 타이머 목표 분(1~240, 체크는 NULL — DB 제약) · 이모지 · 활성 · 순서.
+  초기 6개(물 한 잔·5분 독서·10분 산책·책상 정리·5분 스트레칭·오늘 할 일 3개 — 카테고리 1·5·10 은 dev·prod 같은 ID).
+- `GET /api/v1/missions/recommended`(로그인) — 켜진 것만 순서대로, 이름은 Accept-Language(비면 한국어).
+- `POST /api/v1/missions/recommended/{id}/start`(로그인, `Idempotency-Key` 선택) — **한 트랜잭션**에서 내 미션 생성(일반·공개·`source=USER` — 미션북 다이아 없음, 이름 4개 언어 복사, 꺼진 카테고리는 빼고 생성, 생성 한도 20개 동일) + 오늘 수행 시작.
+  진행 중인 미션이 있으면 기존 시작과 같은 오류이고 만든 미션도 롤백된다(생성 이벤트는 AFTER_COMMIT 이라 안 나감). 체크 미션도 시작만 — 완료는 기존 완료 API. 없거나 꺼진 추천 **404** `050501`. 응답 `{mission, execution}`(기존 미션 조회·시작 응답 모양).
+  멱등 키는 미션 생성과 같은 표·규칙(`MissionIdempotencyService.runOnce`) — 재요청은 저장된 응답, 본문을 못 읽으면 미션만(실행 null).
+- `POST /api/v1/missions/recommended/{id}/complete`(로그인, `Idempotency-Key` 선택, LUT-803) — **체크(SIMPLE) 추천 전용 원탭 완료**: 내 미션 생성 + 오늘 수행 시작 + 완료를 한 요청에서 한다.
+  체크 미션은 "수행 중"을 거치지 않는다 — `/start` 는 미션을 만들며 수행을 시작해, 화면의 확인("다 했으면 눌러 주세요")이 떠 있는 동안 체크 미션이 수행 중으로 잡히고 타이머가 돌았다.
+  화면은 **확인을 누른 뒤에** 이 API 를 한 번 부르고, "나중에 할게요"면 아무것도 부르지 않는다(미션이 생기지 않는다). 타이머(TIMED) 추천은 지금처럼 `/start`.
+  - 순서: ① 생성 + 시작(한 트랜잭션, **먼저 커밋**) → ② 기존 완료 Saga. 한 트랜잭션으로 묶지 못한다 — Saga step 이 `REQUIRES_NEW` 라 커밋된 수행만 읽는다. ②가 실패하면 ①을 되돌린다(수행 취소 + 미션 삭제) → 수행 중인 미션이 남지 않는다.
+    ①과 ② 사이(한 요청 안, 수십 ms)에는 수행 중이 잠깐 커밋돼 있고 시작·종료 이벤트도 기존 체크 미션(시작 API → 완료 API)과 똑같이 나간다.
+  - 경험치·체크 일일 한도(`daily_simple_exp_capped`)·마일스톤 보너스는 기존 완료와 같은 Saga 가 판정한다. 피드는 만들지 않는다(공개범위 미지정 = PRIVATE). 완료 횟수 제한은 기존 완료 API 와 같은 한도(`missionCompletion`, 1분 10회)를 함께 센다.
+  - 응답 `{mission, execution}` — `execution` 은 기존 완료 응답 모양(`exp_earned`·`daily_simple_exp_capped` 등). 타이머 추천이면 **400** `050503`, 없거나 꺼진 추천 404 `050501`, 진행 중인 미션이 있으면 기존 시작과 같은 오류.
+  - 멱등 키는 시작과 같은 표·규칙. 완료가 Saga 라 키 완료를 같은 트랜잭션에 못 묶어 **완료가 끝난 뒤** 표시한다(`MissionIdempotencyTxService.complete`) — 표시가 실패해도 완료 결과는 돌려준다.
+  - 코드: `RecommendedMissionCompleteService`(트랜잭션을 열지 않는다 — `RecommendedMissionService` 안에 두면 자기 호출이라 `start` 의 트랜잭션이 걸리지 않는다).
+- 만든 미션에 `mission.recommended_mission_id` 를 남겨 어드민 성과(시작 수 = 만든 미션 수, 완료 = 그중 COMPLETED 수행이 있는 미션 수, 유저가 지운 미션 제외)를 낸다.
+- 어드민 내부 API `/api/internal/recommended-missions`(목록·단건·작성·수정·삭제·활성 토글·`PUT /reorder` 전체 ID) — 입력 오류 **400** `050502`(타이머 목표 시간 없음·꺼지거나 없는 카테고리·순서 목록 불일치).
+- 마이페이지 `user_info.has_completed_mission` = 누적 완료 수 > 0 — 웹이 첫 완료 축하를 한 번만 띄우고 분석 `is_first` 에 쓴다.
+
 ## Mission 생성 한도 (QA-130 · QA-138)
 
 사용자별 **활성** PERSONAL 미션 최대 20개 (`Mission.MAX_PERSONAL_MISSIONS_PER_USER`, QA-138 에서 30 → 20 + 활성만 카운트):
@@ -201,6 +224,10 @@ FeedSearchType { ALL, FRIENDS, GUILD, MINE }
 
 - `Mission.isDeleted` (boolean) + `Mission.deletedAt` (LocalDateTime) — `Mission.delete()`
 - 목록 조회 시 `isDeleted=false` 필터링. 연결된 피드는 남는다(위 "Mission Feed Sync")
+- **지운 미션의 수행 기록은 과거 사실이라 남긴다** (LUT-789): 주간·월간 캘린더, 월간 리포트(예정·완료 수·분포·EXP 합), 기록 시간 수정의 겹침 검사가
+  모두 지운 미션의 기록을 포함한다 — 삭제는 "앞으로 안 한다" 이지 "한 적 없다" 가 아니다(EXP·레벨·통계·클리어 이력 QA-158 도 그대로).
+  한 곳에만 삭제 조건을 넣으면 캘린더에 안 보이는 기록 때문에 시간 수정이 거절되는 식으로 어긋난다. `DeletedMissionHistoryQueryContractTest` 가
+  해당 쿼리 10개(일반·고정 × 5)에 삭제 조건이 들어오면 실패한다 — 규칙을 바꾸려면 전부 함께 바꿀 것.
 
 ## Timer Mission 목표시간 (LUT-551)
 

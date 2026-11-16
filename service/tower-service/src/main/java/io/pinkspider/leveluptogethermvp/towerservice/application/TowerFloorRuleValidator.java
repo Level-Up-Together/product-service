@@ -114,13 +114,18 @@ public class TowerFloorRuleValidator {
      */
     /**
      * LUT-740: 종류별 값 범위 — 눈·별은 개수(밀도) 1~300·속도 1~100·크기 1~20(최소 ≤ 최대), 구름은 짙기·속도 0~100·번짐 0~200(크기
-     * 무시). 요청 검증은 두 종류를 합친 범위만 막는다.
+     * 무시). 요청 검증은 두 종류를 합친 범위만 막는다. LUT-785: 물방울은 밀도·속도 1~100·흐르는 물방울 수 0~120(크기 무시).
      */
     static boolean inKindRange(TowerFloorEffectLayer layer) {
         if (layer.getKind() == TowerEffectKind.CLOUD) {
             return between(layer.getAmount(), 0, 100)
                     && between(layer.getSpeed(), 0, 100)
                     && between(layer.getSpread(), 0, 200);
+        }
+        if (layer.getKind() == TowerEffectKind.RAIN) {
+            return between(layer.getAmount(), 1, 100)
+                    && between(layer.getSpeed(), 1, 100)
+                    && between(layer.getDropCount(), 0, 120);
         }
         return between(layer.getAmount(), 1, 300)
                 && between(layer.getSpeed(), 1, 100)
