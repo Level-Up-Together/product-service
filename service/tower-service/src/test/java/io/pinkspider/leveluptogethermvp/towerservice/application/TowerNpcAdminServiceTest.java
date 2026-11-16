@@ -67,7 +67,6 @@ class TowerNpcAdminServiceTest {
     @DisplayName("등록: 배경 안 자리·2줄 이내 대사면 저장(LUT-746 — 바닥 마스크는 보지 않는다), 공백 상태 문구는 비운다 · 목록은 층별")
     void create() throws IOException {
         when(floorRepository.findById(10L)).thenReturn(Optional.of(floor1));
-        when(npcRepository.countByFloorId(10L)).thenReturn(2L);
         when(maskChecker.isInsideImage(floor1.getBackgroundImageUrl(), 300, 400)).thenReturn(true);
         when(npcRepository.save(any(TowerNpc.class))).thenAnswer(inv -> inv.getArgument(0));
 
@@ -90,7 +89,21 @@ class TowerNpcAdminServiceTest {
     }
 
     @Test
-    @DisplayName("거부: 층 없음 404 150101 · 층당 4번째 150402 · 배경 밖 150403 · 배경 못 읽음 150109")
+    @DisplayName("LUT-836: 층당 인원 제한이 없다 — 이미 NPC 가 여러 명 있는 층에도 저장되고, 몇 명인지 세지 않는다")
+    void createHasNoPerFloorLimit() throws IOException {
+        when(floorRepository.findById(10L)).thenReturn(Optional.of(floor1));
+        when(maskChecker.isInsideImage(floor1.getBackgroundImageUrl(), 300, 400)).thenReturn(true);
+        when(npcRepository.save(any(TowerNpc.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        for (int i = 0; i < 5; i++) {
+            assertThat(service.create(10L, npcRequest(IMG, 300, 400, "안녕")).lines()).hasSize(1);
+        }
+
+        verify(npcRepository, org.mockito.Mockito.times(5)).save(any(TowerNpc.class));
+    }
+
+    @Test
+    @DisplayName("거부: 층 없음 404 150101 · 배경 밖 150403 · 배경 못 읽음 150109")
     void createRejected() throws IOException {
         when(floorRepository.findById(99L)).thenReturn(Optional.empty());
         assertThatThrownBy(() -> service.create(99L, npcRequest(IMG, 1, 1, "안녕")))
@@ -100,13 +113,6 @@ class TowerNpcAdminServiceTest {
         assertThatThrownBy(() -> service.list(99L)).isInstanceOf(TowerFloorException.class);
 
         when(floorRepository.findById(10L)).thenReturn(Optional.of(floor1));
-        when(npcRepository.countByFloorId(10L)).thenReturn(3L);
-        assertThatThrownBy(() -> service.create(10L, npcRequest(IMG, 1, 1, "안녕")))
-                .isInstanceOf(TowerNpcException.class)
-                .extracting("code")
-                .isEqualTo(TowerNpcException.LIMIT_EXCEEDED);
-
-        when(npcRepository.countByFloorId(10L)).thenReturn(0L);
         when(maskChecker.isInsideImage(anyString(), anyInt(), anyInt())).thenReturn(false);
         assertThatThrownBy(() -> service.create(10L, npcRequest(IMG, 1, 1, "안녕")))
                 .isInstanceOf(TowerNpcException.class)
@@ -126,7 +132,6 @@ class TowerNpcAdminServiceTest {
     @DisplayName("LUT-751: 대사 한 문장이 160자를 넘으면 어느 언어든 150404 — 160자는 저장된다(예전 상한 한글 40자를 넘어도)")
     void lineTooLong() {
         when(floorRepository.findById(10L)).thenReturn(Optional.of(floor1));
-        when(npcRepository.countByFloorId(10L)).thenReturn(0L);
         assertThatThrownBy(() -> service.create(10L, npcRequest(IMG, 1, 1, "가".repeat(161))))
                 .isInstanceOf(TowerNpcException.class)
                 .extracting("code")
@@ -165,7 +170,6 @@ class TowerNpcAdminServiceTest {
     void maskCheckDisabled() {
         ReflectionTestUtils.setField(service, "maskCheckEnabled", false);
         when(floorRepository.findById(10L)).thenReturn(Optional.of(floor1));
-        when(npcRepository.countByFloorId(10L)).thenReturn(0L);
         when(npcRepository.save(any(TowerNpc.class))).thenAnswer(inv -> inv.getArgument(0));
         service.create(10L, npcRequest(IMG, 9999, 9999, "안녕"));
         verify(npcRepository).save(any(TowerNpc.class));
@@ -205,7 +209,6 @@ class TowerNpcAdminServiceTest {
     @DisplayName("LUT-732 자동 말풍선: 등록 때 비우면 꺼짐·10초, 넘기면 그 값 · 수정 때 비우면 그대로(구 어드민 호환)")
     void autoBubble() throws IOException {
         when(floorRepository.findById(10L)).thenReturn(Optional.of(floor1));
-        when(npcRepository.countByFloorId(10L)).thenReturn(0L);
         when(maskChecker.isInsideImage(anyString(), anyInt(), anyInt())).thenReturn(true);
         when(npcRepository.save(any(TowerNpc.class))).thenAnswer(inv -> inv.getArgument(0));
 
@@ -320,7 +323,6 @@ class TowerNpcAdminServiceTest {
             "LUT-733 창 링크 저장 검증: 판매 중 아이템·있는 이벤트만(150405) · 대상 ID 없음·앱 경로 아님 150406 · 기간 역전 150407")
     void cardValidation() throws IOException {
         when(floorRepository.findById(10L)).thenReturn(Optional.of(floor1));
-        when(npcRepository.countByFloorId(10L)).thenReturn(0L);
         when(maskChecker.isInsideImage(anyString(), anyInt(), anyInt())).thenReturn(true);
         when(npcRepository.save(any(TowerNpc.class))).thenAnswer(inv -> inv.getArgument(0));
         TowerNpcAdminRequest base = npcRequest(IMG, 1, 1, "안녕");
@@ -503,7 +505,6 @@ class TowerNpcAdminServiceTest {
     @DisplayName("LUT-760 등록: form 이 있으면 NPC 저장 뒤 설정도 저장(이메일 받기면 로그인 강제), 없으면 설정 없음")
     void createWithForm() throws IOException {
         when(floorRepository.findById(10L)).thenReturn(Optional.of(floor1));
-        when(npcRepository.countByFloorId(10L)).thenReturn(0L);
         when(maskChecker.isInsideImage(floor1.getBackgroundImageUrl(), 300, 400)).thenReturn(true);
         when(maskChecker.sameAspectRatio(TREE, floor1.getBackgroundImageUrl())).thenReturn(true);
         when(npcRepository.save(any(TowerNpc.class)))
@@ -544,7 +545,6 @@ class TowerNpcAdminServiceTest {
                     + " 꺼진 설정·NONE 은 마스크 검사 없음")
     void formValidation() throws IOException {
         when(floorRepository.findById(10L)).thenReturn(Optional.of(floor1));
-        when(npcRepository.countByFloorId(10L)).thenReturn(0L);
         when(maskChecker.isInsideImage(floor1.getBackgroundImageUrl(), 1, 1)).thenReturn(true);
         TowerNpcAdminRequest base = npcRequest(IMG, 1, 1, "안녕");
 

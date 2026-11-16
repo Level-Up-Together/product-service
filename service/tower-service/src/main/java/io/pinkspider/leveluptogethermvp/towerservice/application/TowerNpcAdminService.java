@@ -28,13 +28,13 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * LUT-693: 어드민 NPC CRUD (층마다 등록). 저장 규칙 — 층당 최대 3명(150402) · 자리는 배경 그림 안(150403, 못 읽으면 150109 —
- * LUT-746 부터 이동 불가 영역에도 둘 수 있다. 유저가 걸어와 NPC 를 가리지 않게 카운터 뒤·벽 앞에 둔다) · 대사 한 문장 160자 이내(LUT-751
- * {@link TowerNpcTextRule#fitsNpcLine}, 150404 — 예전엔 표시 폭 80). 수정은 다음 입장(스냅샷)부터 반영된다. 안 쓰게 된 프로필
- * 이미지는 커밋 뒤 지운다. LUT-733: 창 이미지·링크 — 상점 아이템은 판매 중(150405)·이벤트는 있는 것(150405), 앱 경로 규칙({@link
- * TowerNpcCardRule}, 150406), 기간 시작 ≤ 종료(150407). 안 쓰게 된 창 이미지도 지운다. LUT-760: 입력 받기 설정({@code
- * form}, NPC 당 1행) — 켜진 설정은 버튼 문구 4개 언어 필수, 이메일 받기면 동의 문구 4개 언어 필수 + 로그인 유저만 받기 강제, 공개 방식을 고르면 공개
- * 영역 마스크 필수(150408)이고 배경과 비율이 같아야 한다(150409, 못 읽으면 150109). 안 쓰게 된 공개 영역 마스크도 지운다.
+ * LUT-693: 어드민 NPC CRUD (층마다 등록, 층당 인원 제한 없음 — LUT-836 에서 3명 제한을 없앴다). 저장 규칙 — 자리는 배경 그림 안(150403,
+ * 못 읽으면 150109 — LUT-746 부터 이동 불가 영역에도 둘 수 있다. 유저가 걸어와 NPC 를 가리지 않게 카운터 뒤·벽 앞에 둔다) · 대사 한 문장 160자
+ * 이내(LUT-751 {@link TowerNpcTextRule#fitsNpcLine}, 150404 — 예전엔 표시 폭 80). 수정은 다음 입장(스냅샷)부터 반영된다. 안
+ * 쓰게 된 프로필 이미지는 커밋 뒤 지운다. LUT-733: 창 이미지·링크 — 상점 아이템은 판매 중(150405)·이벤트는 있는 것(150405), 앱 경로
+ * 규칙({@link TowerNpcCardRule}, 150406), 기간 시작 ≤ 종료(150407). 안 쓰게 된 창 이미지도 지운다. LUT-760: 입력 받기
+ * 설정({@code form}, NPC 당 1행) — 켜진 설정은 버튼 문구 4개 언어 필수, 이메일 받기면 동의 문구 4개 언어 필수 + 로그인 유저만 받기 강제, 공개
+ * 방식을 고르면 공개 영역 마스크 필수(150408)이고 배경과 비율이 같아야 한다(150409, 못 읽으면 150109). 안 쓰게 된 공개 영역 마스크도 지운다.
  */
 @Service
 @RequiredArgsConstructor
@@ -68,9 +68,6 @@ public class TowerNpcAdminService {
     @Transactional(transactionManager = "towerTransactionManager")
     public TowerNpcAdminResponse create(Long floorId, TowerNpcAdminRequest request) {
         TowerFloor floor = findFloor(floorId);
-        if (towerNpcRepository.countByFloorId(floorId) >= TowerNpc.MAX_PER_FLOOR) {
-            throw TowerNpcException.limitExceeded();
-        }
         validate(floor, request);
         TowerNpc saved = towerNpcRepository.save(request.toEntity(floorId));
         TowerNpcForm form = null;

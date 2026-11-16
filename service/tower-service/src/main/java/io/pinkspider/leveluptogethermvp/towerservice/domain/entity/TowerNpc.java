@@ -36,8 +36,6 @@ import org.hibernate.annotations.Comment;
 @Comment("레벨업 탑 NPC")
 public class TowerNpc extends LocalDateTimeBaseEntity {
 
-    public static final int MAX_PER_FLOOR = 3;
-
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "id", nullable = false)
