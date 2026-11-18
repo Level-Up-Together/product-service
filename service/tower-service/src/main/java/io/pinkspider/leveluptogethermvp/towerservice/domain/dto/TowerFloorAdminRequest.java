@@ -42,10 +42,10 @@ public record TowerFloorAdminRequest(
         /** LUT-725: 불빛 점(최대 50개) — null 이면 그대로, [] 이면 모두 지운다 */
         @Size(max = 50) List<@Valid @NotNull TowerFloorLightDto> lights,
         /**
-         * LUT-725: 효과 레이어(종류당 1개 — SNOW·STARS·CLOUD·RAIN·POLLEN) — null 이면 그대로, [] 이면 모두 지운다. 상한은
-         * 종류 수(LUT-838 부터 5 — 예전 2 는 CLOUD 가 생긴 뒤 세 종류를 한 층에 다 켤 수 없었다)
+         * LUT-725: 효과 레이어(종류당 1개 — SNOW·STARS·CLOUD·RAIN·POLLEN·RAINFALL) — null 이면 그대로, [] 이면 모두
+         * 지운다. 상한은 종류 수(LUT-839 부터 6 — 예전 2 는 CLOUD 가 생긴 뒤 세 종류를 한 층에 다 켤 수 없었다)
          */
-        @Size(max = 5) List<@Valid @NotNull TowerFloorEffectLayerDto> effectLayers,
+        @Size(max = 6) List<@Valid @NotNull TowerFloorEffectLayerDto> effectLayers,
         /** LUT-835: 계단 영역 마스크 — null 이면 그대로(구 어드민), 빈 문자열이면 지운다 */
         @Size(max = 500) @Pattern(regexp = "^$|" + HTTPS_URL, message = "https URL 만 허용합니다")
                 String stairsMaskUrl) {
