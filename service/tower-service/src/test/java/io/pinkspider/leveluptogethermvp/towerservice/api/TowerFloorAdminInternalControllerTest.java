@@ -115,6 +115,7 @@ class TowerFloorAdminInternalControllerTest {
                                 1,
                                 3,
                                 null,
+                                null,
                                 null)),
                 pixelArt(),
                 "https://cdn/stairs2.png");
@@ -195,12 +196,14 @@ class TowerFloorAdminInternalControllerTest {
                 fieldWithPath(prefix + "lights[].flicker_speed").description("깜빡임 속도 0~100"),
                 fieldWithPath(prefix + "effect_layers[]")
                         .description(
-                                "효과 레이어 SNOW·STARS 각 1개 (중복 150115)"
+                                "효과 레이어 SNOW·STARS·CLOUD·RAIN·POLLEN 각 1개, 5개까지 (중복 150115)"
                                         + keep
                                         + (request ? "[] 이면 모두 지운다" : "꺼진 것·기간 밖 포함"))
                         .optional(),
                 fieldWithPath(prefix + "effect_layers[].kind")
-                        .description("SNOW(눈) / STARS(별 반짝임)"),
+                        .description(
+                                "SNOW(눈) / STARS(별 반짝임) / CLOUD(구름) / RAIN(유리창 빗물) / POLLEN(꽃가루,"
+                                        + " LUT-838)"),
                 fieldWithPath(prefix + "effect_layers[].mask_url")
                         .description("효과 영역 마스크 PNG URL (배경과 같은 비율 — 150116)"),
                 fieldWithPath(prefix + "effect_layers[].enabled").description("켜기"),
@@ -229,6 +232,13 @@ class TowerFloorAdminInternalControllerTest {
                                 "LUT-785 RAIN(유리창 빗물) 흐르는 물방울 수 0~120(비우면 46) — 물방울은 amount 맺힌"
                                         + " 물방울 밀도 1~100·speed 흐르는 속도 1~100(50 = 시안), 크기는 쓰지 않는다."
                                         + " 다른 종류는 null")
+                        .optional(),
+                fieldWithPath(prefix + "effect_layers[].color")
+                        .type(JsonFieldType.STRING)
+                        .description(
+                                "LUT-838 POLLEN(꽃가루) 기준 색 #RRGGBB(비우면 #c9b3f0, 소문자로 저장) — 꽃가루는"
+                                        + " amount 밀도 1~100·speed 떨어지는 속도 1~100(50 = 시안), 크기는 쓰지"
+                                        + " 않는다. 다른 종류는 null")
                         .optional());
     }
 

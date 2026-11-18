@@ -31,6 +31,7 @@ class TowerFloorEffectLayerTest {
                 1,
                 3,
                 null,
+                null,
                 null);
     }
 
@@ -47,7 +48,8 @@ class TowerFloorEffectLayerTest {
                 sizeMin,
                 sizeMin,
                 spread,
-                dropCount);
+                dropCount,
+                null);
     }
 
     @Test
@@ -78,10 +80,84 @@ class TowerFloorEffectLayerTest {
                                 1,
                                 3,
                                 null,
-                                30)
+                                30,
+                                null)
                         .toEmbeddable();
         assertThat(snow.getDropCount()).isNull();
         assertThat(snow.getSizeMax()).isEqualTo(3);
+    }
+
+    private static TowerFloorEffectLayerDto pollenDto(
+            Integer sizeMin, Integer spread, Integer dropCount, String color) {
+        return new TowerFloorEffectLayerDto(
+                TowerEffectKind.POLLEN,
+                "https://cdn/p.png",
+                true,
+                null,
+                null,
+                50,
+                50,
+                sizeMin,
+                sizeMin,
+                spread,
+                dropCount,
+                color);
+    }
+
+    @Test
+    @DisplayName("LUT-838: 꽃가루 — 색을 비우면 등나무 보라, 소문자로 저장, 크기는 1, 번짐·물방울 수는 버린다 · 다른 종류의 색은 버린다")
+    void pollenToEmbeddable() {
+        TowerFloorEffectLayer defaulted = pollenDto(null, 80, 30, null).toEmbeddable();
+        assertThat(defaulted.getColor())
+                .isEqualTo(TowerFloorEffectLayerDto.DEFAULT_POLLEN_COLOR)
+                .isEqualTo("#c9b3f0");
+        assertThat(defaulted.getSizeMin()).isEqualTo(1);
+        assertThat(defaulted.getSizeMax()).isEqualTo(1);
+        assertThat(defaulted.getSpread()).isNull();
+        assertThat(defaulted.getDropCount()).isNull();
+        assertThat(pollenDto(7, null, null, "").toEmbeddable().getColor()).isEqualTo("#c9b3f0");
+        assertThat(pollenDto(7, null, null, "#FFCC66").toEmbeddable().getColor())
+                .isEqualTo("#ffcc66");
+        assertThat(
+                        TowerFloorEffectLayerDto.from(
+                                        pollenDto(null, null, null, "#A98EE0").toEmbeddable())
+                                .color())
+                .isEqualTo("#a98ee0");
+
+        TowerFloorEffectLayer snow =
+                new TowerFloorEffectLayerDto(
+                                TowerEffectKind.SNOW,
+                                "https://cdn/s.png",
+                                true,
+                                null,
+                                null,
+                                100,
+                                50,
+                                1,
+                                3,
+                                null,
+                                null,
+                                "#ffcc66")
+                        .toEmbeddable();
+        assertThat(snow.getColor()).isNull();
+        assertThat(snow.getSizeMax()).isEqualTo(3);
+    }
+
+    @Test
+    @DisplayName("LUT-838: 요청 검증 — 색은 #RRGGBB 또는 빈 값만")
+    void pollenColorPattern() {
+        try (jakarta.validation.ValidatorFactory factory =
+                jakarta.validation.Validation.buildDefaultValidatorFactory()) {
+            jakarta.validation.Validator beanValidator = factory.getValidator();
+            for (String ok : new String[] {null, "", "#c9b3f0", "#C9B3F0"}) {
+                assertThat(beanValidator.validate(pollenDto(null, null, null, ok))).isEmpty();
+            }
+            for (String bad : new String[] {"c9b3f0", "#c9b3f", "#c9b3f0ff", "purple", " "}) {
+                assertThat(beanValidator.validate(pollenDto(null, null, null, bad)))
+                        .extracting(v -> v.getPropertyPath().toString())
+                        .containsExactly("color");
+            }
+        }
     }
 
     @Test
@@ -189,6 +265,7 @@ class TowerFloorEffectLayerTest {
                         null,
                         null,
                         null,
+                        null,
                         null);
         TowerFloorEffectLayer saved = cloud.toEmbeddable();
         org.assertj.core.api.Assertions.assertThat(saved.getSpread()).isEqualTo(60);
@@ -207,6 +284,7 @@ class TowerFloorEffectLayerTest {
                         5,
                         9,
                         80,
+                        null,
                         null);
         org.assertj.core.api.Assertions.assertThat(spread80.toEmbeddable().getSpread())
                 .isEqualTo(80);
@@ -223,6 +301,7 @@ class TowerFloorEffectLayerTest {
                         1,
                         3,
                         80,
+                        null,
                         null);
         TowerFloorEffectLayer snowSaved = snow.toEmbeddable();
         org.assertj.core.api.Assertions.assertThat(snowSaved.getSpread()).isNull();

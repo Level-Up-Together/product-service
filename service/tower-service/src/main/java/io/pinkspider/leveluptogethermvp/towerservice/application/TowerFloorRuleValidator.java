@@ -1,6 +1,7 @@
 package io.pinkspider.leveluptogethermvp.towerservice.application;
 
 import io.pinkspider.leveluptogethermvp.towerservice.application.exception.TowerFloorException;
+import io.pinkspider.leveluptogethermvp.towerservice.domain.dto.TowerFloorEffectLayerDto;
 import io.pinkspider.leveluptogethermvp.towerservice.domain.entity.TowerFloor;
 import io.pinkspider.leveluptogethermvp.towerservice.domain.entity.TowerFloorEffectLayer;
 import io.pinkspider.leveluptogethermvp.towerservice.domain.enums.TowerEffectKind;
@@ -114,7 +115,8 @@ public class TowerFloorRuleValidator {
      */
     /**
      * LUT-740: 종류별 값 범위 — 눈·별은 개수(밀도) 1~300·속도 1~100·크기 1~20(최소 ≤ 최대), 구름은 짙기·속도 0~100·번짐 0~200(크기
-     * 무시). 요청 검증은 두 종류를 합친 범위만 막는다. LUT-785: 물방울은 밀도·속도 1~100·흐르는 물방울 수 0~120(크기 무시).
+     * 무시). 요청 검증은 두 종류를 합친 범위만 막는다. LUT-785: 물방울은 밀도·속도 1~100·흐르는 물방울 수 0~120(크기 무시). LUT-838: 꽃가루는
+     * 밀도·속도 1~100·색 {@code #rrggbb}(크기 무시).
      */
     static boolean inKindRange(TowerFloorEffectLayer layer) {
         if (layer.getKind() == TowerEffectKind.CLOUD) {
@@ -126,6 +128,12 @@ public class TowerFloorRuleValidator {
             return between(layer.getAmount(), 1, 100)
                     && between(layer.getSpeed(), 1, 100)
                     && between(layer.getDropCount(), 0, 120);
+        }
+        if (layer.getKind() == TowerEffectKind.POLLEN) {
+            return between(layer.getAmount(), 1, 100)
+                    && between(layer.getSpeed(), 1, 100)
+                    && layer.getColor() != null
+                    && layer.getColor().matches(TowerFloorEffectLayerDto.HEX_COLOR);
         }
         return between(layer.getAmount(), 1, 300)
                 && between(layer.getSpeed(), 1, 100)
