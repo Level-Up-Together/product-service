@@ -116,6 +116,8 @@ class TowerFloorAdminInternalControllerTest {
                                 3,
                                 null,
                                 null,
+                                null,
+                                null,
                                 null)),
                 pixelArt(),
                 "https://cdn/stairs2.png");
@@ -196,13 +198,15 @@ class TowerFloorAdminInternalControllerTest {
                 fieldWithPath(prefix + "lights[].flicker_speed").description("깜빡임 속도 0~100"),
                 fieldWithPath(prefix + "effect_layers[]")
                         .description(
-                                "효과 레이어 SNOW·STARS·CLOUD·RAIN·POLLEN 각 1개, 5개까지 (중복 150115)"
+                                "효과 레이어 SNOW·STARS·CLOUD·RAIN·POLLEN·RAINFALL 각 1개, 6개까지 (중복"
+                                        + " 150115)"
                                         + keep
                                         + (request ? "[] 이면 모두 지운다" : "꺼진 것·기간 밖 포함"))
                         .optional(),
                 fieldWithPath(prefix + "effect_layers[].kind")
                         .description(
-                                "SNOW(눈) / STARS(별 반짝임) / CLOUD(구름) / RAIN(유리창 빗물) / POLLEN(꽃가루,"
+                                "SNOW(눈) / STARS(별 반짝임) / CLOUD(구름) / RAIN(유리창 빗물) / RAINFALL(비 내림,"
+                                        + " LUT-839) / POLLEN(꽃가루,"
                                         + " LUT-838)"),
                 fieldWithPath(prefix + "effect_layers[].mask_url")
                         .description("효과 영역 마스크 PNG URL (배경과 같은 비율 — 150116)"),
@@ -239,6 +243,20 @@ class TowerFloorAdminInternalControllerTest {
                                 "LUT-838 POLLEN(꽃가루) 기준 색 #RRGGBB(비우면 #c9b3f0, 소문자로 저장) — 꽃가루는"
                                         + " amount 밀도 1~100·speed 떨어지는 속도 1~100(50 = 시안), 크기는 쓰지"
                                         + " 않는다. 다른 종류는 null")
+                        .optional(),
+                fieldWithPath(prefix + "effect_layers[].direction")
+                        .type(JsonFieldType.STRING)
+                        .description(
+                                "LUT-839 RAINFALL(비 내림) 방향 STRAIGHT(일자, 비우면 일자) / SLANTED(사선) — 비"
+                                        + " 내림은 amount 밀도 1~100·speed 내리는 속도 1~100(50 = 기본), 크기는 쓰지"
+                                        + " 않는다. 다른 종류는 null")
+                        .optional(),
+                fieldWithPath(prefix + "effect_layers[].angle")
+                        .type(JsonFieldType.NUMBER)
+                        .description(
+                                "LUT-839 RAINFALL 사선 각도 — 수직에서 기운 정도(도). 양수 = 오른쪽 아래로, 음수 = 왼쪽"
+                                        + " 아래로, 절댓값 5~45(사선인데 비우면 20, 범위 밖 150115). 일자와 다른 종류는"
+                                        + " null")
                         .optional());
     }
 

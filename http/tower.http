@@ -176,7 +176,9 @@ Accept: application/json
     {"kind": "SNOW", "mask_url": "https://dev.level-up-together.com/images/tower/floor1-snow.png", "enabled": true,
      "starts_on": "2026-12-01", "ends_on": "2026-12-31", "amount": 120, "speed": 40, "size_min": 1, "size_max": 3},
     {"kind": "POLLEN", "mask_url": "https://dev.level-up-together.com/images/tower/floor1-pollen.png", "enabled": true,
-     "amount": 50, "speed": 50, "color": "#c9b3f0"}
+     "amount": 50, "speed": 50, "color": "#c9b3f0"},
+    {"kind": "RAINFALL", "mask_url": "https://dev.level-up-together.com/images/tower/floor1-rainfall.png", "enabled": true,
+     "amount": 50, "speed": 50, "direction": "SLANTED", "angle": -20}
   ]
 }
 

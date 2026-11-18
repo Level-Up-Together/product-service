@@ -7,6 +7,7 @@ import io.pinkspider.leveluptogethermvp.towerservice.domain.dto.TowerFloorEffect
 import io.pinkspider.leveluptogethermvp.towerservice.domain.dto.TowerFloorLightDto;
 import io.pinkspider.leveluptogethermvp.towerservice.domain.dto.TowerFloorResponse;
 import io.pinkspider.leveluptogethermvp.towerservice.domain.enums.TowerEffectKind;
+import io.pinkspider.leveluptogethermvp.towerservice.domain.enums.TowerRainDirection;
 import java.time.LocalDate;
 import java.util.List;
 import org.junit.jupiter.api.DisplayName;
@@ -32,6 +33,8 @@ class TowerFloorEffectLayerTest {
                 3,
                 null,
                 null,
+                null,
+                null,
                 null);
     }
 
@@ -49,6 +52,8 @@ class TowerFloorEffectLayerTest {
                 sizeMin,
                 spread,
                 dropCount,
+                null,
+                null,
                 null);
     }
 
@@ -81,6 +86,8 @@ class TowerFloorEffectLayerTest {
                                 3,
                                 null,
                                 30,
+                                null,
+                                null,
                                 null)
                         .toEmbeddable();
         assertThat(snow.getDropCount()).isNull();
@@ -101,7 +108,9 @@ class TowerFloorEffectLayerTest {
                 sizeMin,
                 spread,
                 dropCount,
-                color);
+                color,
+                null,
+                null);
     }
 
     @Test
@@ -137,7 +146,9 @@ class TowerFloorEffectLayerTest {
                                 3,
                                 null,
                                 null,
-                                "#ffcc66")
+                                "#ffcc66",
+                                null,
+                                null)
                         .toEmbeddable();
         assertThat(snow.getColor()).isNull();
         assertThat(snow.getSizeMax()).isEqualTo(3);
@@ -156,6 +167,123 @@ class TowerFloorEffectLayerTest {
                 assertThat(beanValidator.validate(pollenDto(null, null, null, bad)))
                         .extracting(v -> v.getPropertyPath().toString())
                         .containsExactly("color");
+            }
+        }
+    }
+
+    private static TowerFloorEffectLayerDto rainfallDto(
+            TowerRainDirection direction, Integer angle) {
+        return new TowerFloorEffectLayerDto(
+                TowerEffectKind.RAINFALL,
+                "https://cdn/rf.png",
+                true,
+                null,
+                null,
+                50,
+                50,
+                7,
+                9,
+                80,
+                30,
+                "#ffcc66",
+                direction,
+                angle);
+    }
+
+    @Test
+    @DisplayName(
+            "LUT-839: 비 내림 — 방향을 비우면 일자, 사선 각도를 비우면 20, 일자면 각도를 버린다, 크기는 1 · 다른 종류의 방향·각도는 버린다")
+    void rainfallToEmbeddable() {
+        TowerFloorEffectLayer defaulted = rainfallDto(null, 30).toEmbeddable();
+        assertThat(defaulted.getDirection()).isEqualTo(TowerRainDirection.STRAIGHT);
+        assertThat(defaulted.getAngle()).isNull();
+        assertThat(defaulted.getSizeMin()).isEqualTo(1);
+        assertThat(defaulted.getSizeMax()).isEqualTo(1);
+        assertThat(defaulted.getSpread()).isNull();
+        assertThat(defaulted.getDropCount()).isNull();
+        assertThat(defaulted.getColor()).isNull();
+        assertThat(rainfallDto(TowerRainDirection.STRAIGHT, -30).toEmbeddable().getAngle())
+                .isNull();
+
+        TowerFloorEffectLayer slanted =
+                rainfallDto(TowerRainDirection.SLANTED, null).toEmbeddable();
+        assertThat(slanted.getDirection()).isEqualTo(TowerRainDirection.SLANTED);
+        assertThat(slanted.getAngle())
+                .isEqualTo(TowerFloorEffectLayerDto.DEFAULT_RAINFALL_ANGLE)
+                .isEqualTo(20);
+        TowerFloorEffectLayerDto left =
+                TowerFloorEffectLayerDto.from(
+                        rainfallDto(TowerRainDirection.SLANTED, -30).toEmbeddable());
+        assertThat(left.direction()).isEqualTo(TowerRainDirection.SLANTED);
+        assertThat(left.angle()).isEqualTo(-30);
+
+        TowerFloorEffectLayer snow =
+                new TowerFloorEffectLayerDto(
+                                TowerEffectKind.SNOW,
+                                "https://cdn/s.png",
+                                true,
+                                null,
+                                null,
+                                100,
+                                50,
+                                1,
+                                3,
+                                null,
+                                null,
+                                null,
+                                TowerRainDirection.SLANTED,
+                                20)
+                        .toEmbeddable();
+        assertThat(snow.getDirection()).isNull();
+        assertThat(snow.getAngle()).isNull();
+    }
+
+    @Test
+    @DisplayName("LUT-839: 요청 검증 — 각도는 -45~45 만")
+    void rainfallAnglePattern() {
+        try (jakarta.validation.ValidatorFactory factory =
+                jakarta.validation.Validation.buildDefaultValidatorFactory()) {
+            jakarta.validation.Validator beanValidator = factory.getValidator();
+            for (Integer ok : new Integer[] {null, -45, 0, 45}) {
+                assertThat(
+                                beanValidator.validate(
+                                        new TowerFloorEffectLayerDto(
+                                                TowerEffectKind.RAINFALL,
+                                                "https://cdn/rf.png",
+                                                true,
+                                                null,
+                                                null,
+                                                50,
+                                                50,
+                                                null,
+                                                null,
+                                                null,
+                                                null,
+                                                null,
+                                                TowerRainDirection.SLANTED,
+                                                ok)))
+                        .isEmpty();
+            }
+            for (Integer bad : new Integer[] {-46, 46}) {
+                assertThat(
+                                beanValidator.validate(
+                                        new TowerFloorEffectLayerDto(
+                                                TowerEffectKind.RAINFALL,
+                                                "https://cdn/rf.png",
+                                                true,
+                                                null,
+                                                null,
+                                                50,
+                                                50,
+                                                null,
+                                                null,
+                                                null,
+                                                null,
+                                                null,
+                                                TowerRainDirection.SLANTED,
+                                                bad)))
+                        .extracting(v -> v.getPropertyPath().toString())
+                        .containsExactly("angle");
             }
         }
     }
@@ -266,6 +394,8 @@ class TowerFloorEffectLayerTest {
                         null,
                         null,
                         null,
+                        null,
+                        null,
                         null);
         TowerFloorEffectLayer saved = cloud.toEmbeddable();
         org.assertj.core.api.Assertions.assertThat(saved.getSpread()).isEqualTo(60);
@@ -285,6 +415,8 @@ class TowerFloorEffectLayerTest {
                         9,
                         80,
                         null,
+                        null,
+                        null,
                         null);
         org.assertj.core.api.Assertions.assertThat(spread80.toEmbeddable().getSpread())
                 .isEqualTo(80);
@@ -301,6 +433,8 @@ class TowerFloorEffectLayerTest {
                         1,
                         3,
                         80,
+                        null,
+                        null,
                         null,
                         null);
         TowerFloorEffectLayer snowSaved = snow.toEmbeddable();

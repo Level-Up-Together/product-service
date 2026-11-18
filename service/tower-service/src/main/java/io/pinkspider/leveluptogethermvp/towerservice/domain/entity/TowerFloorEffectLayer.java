@@ -1,6 +1,7 @@
 package io.pinkspider.leveluptogethermvp.towerservice.domain.entity;
 
 import io.pinkspider.leveluptogethermvp.towerservice.domain.enums.TowerEffectKind;
+import io.pinkspider.leveluptogethermvp.towerservice.domain.enums.TowerRainDirection;
 import jakarta.persistence.Column;
 import jakarta.persistence.Embeddable;
 import jakarta.persistence.EnumType;
@@ -17,6 +18,8 @@ import lombok.NoArgsConstructor;
  * spread} = 번짐(크기는 쓰지 않음). LUT-785: 물방울은 {@code amount} = 맺힌 물방울 밀도 1~100, {@code speed} = 흐르는 속도
  * 1~100(둘 다 50 = 시안 그대로), {@code dropCount} = 흐르는 물방울 수(크기는 쓰지 않음). LUT-838: 꽃가루는 {@code amount} =
  * 밀도 1~100, {@code speed} = 떨어지는 속도 1~100(둘 다 50 = 시안 그대로), {@code color} = 기준 색(크기는 쓰지 않음).
+ * LUT-839: 비 내림은 {@code amount} = 밀도 1~100, {@code speed} = 내리는 속도 1~100(둘 다 50 = 기본), {@code
+ * direction} = 일자·사선, {@code angle} = 사선 각도(크기는 쓰지 않음).
  */
 @Embeddable
 @Getter
@@ -63,6 +66,17 @@ public class TowerFloorEffectLayer {
     /** LUT-838: POLLEN 기준 색({@code #rrggbb} 소문자) — 다른 종류는 null */
     @Column(name = "color", length = 7)
     private String color;
+
+    /** LUT-839: RAINFALL 방향(일자·사선) — 다른 종류는 null */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "direction", length = 10)
+    private TowerRainDirection direction;
+
+    /**
+     * LUT-839: RAINFALL 사선 각도 — 수직에서 기운 정도(도). 양수 = 오른쪽 아래로, 음수 = 왼쪽 아래로, 절댓값 5~45. 일자와 다른 종류는 null
+     */
+    @Column(name = "angle")
+    private Integer angle;
 
     /** 켜져 있고 {@code today} 가 기간 안(양끝 포함, 비우면 상시)인가 */
     public boolean isActiveOn(LocalDate today) {

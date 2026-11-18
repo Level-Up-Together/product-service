@@ -98,6 +98,8 @@ class TowerFloorControllerTest {
                                                 3,
                                                 null,
                                                 null,
+                                                null,
+                                                null,
                                                 null)),
                                 new TowerPixelBackgroundDto(
                                         "https://cdn/tower/pixel/9f2c41aa0b7d3e11.png",
@@ -257,7 +259,8 @@ class TowerFloorControllerTest {
                                         fieldWithPath("value.floors[].effect_layers[].kind")
                                                 .description(
                                                         "SNOW(눈) / STARS(별 반짝임) / CLOUD(구름) /"
-                                                                + " RAIN(유리창 빗물) / POLLEN(꽃가루,"
+                                                                + " RAIN(유리창 빗물) / RAINFALL(비 내림,"
+                                                                + " LUT-839) / POLLEN(꽃가루,"
                                                                 + " LUT-838) — 모르는 종류는 무시한다"),
                                         fieldWithPath("value.floors[].effect_layers[].mask_url")
                                                 .description("효과 영역 마스크 PNG URL (칠한 곳에서만 그린다)"),
@@ -300,6 +303,21 @@ class TowerFloorControllerTest {
                                                             + " 화면이 이 색과 비슷한 계열 여러 색으로 그린다, 다른 종류는"
                                                             + " null. 꽃가루는 amount = 밀도 1~100, speed"
                                                             + " = 떨어지는 속도 1~100 (둘 다 50 = 시안 그대로)")
+                                                .optional(),
+                                        fieldWithPath("value.floors[].effect_layers[].direction")
+                                                .type(JsonFieldType.STRING)
+                                                .description(
+                                                        "LUT-839 비 내림(RAINFALL) 방향 — STRAIGHT(일자) /"
+                                                            + " SLANTED(사선), 다른 종류는 null. 비 내림은 칠한"
+                                                            + " 영역 안에서만 빗줄기가 내린다(amount = 밀도 1~100,"
+                                                            + " speed = 내리는 속도 1~100, 둘 다 50 = 기본)")
+                                                .optional(),
+                                        fieldWithPath("value.floors[].effect_layers[].angle")
+                                                .type(JsonFieldType.NUMBER)
+                                                .description(
+                                                        "LUT-839 비 내림 사선 각도 — 수직에서 기운 정도(도). 양수 ="
+                                                                + " 오른쪽 아래로, 음수 = 왼쪽 아래로, 절댓값 5~45."
+                                                                + " 일자와 다른 종류는 null")
                                                 .optional(),
                                         fieldWithPath("value.floors[].pixel_dense")
                                                 .description(

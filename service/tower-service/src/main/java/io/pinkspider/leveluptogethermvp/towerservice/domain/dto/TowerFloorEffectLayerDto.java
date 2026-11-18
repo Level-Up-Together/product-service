@@ -6,6 +6,7 @@ import com.fasterxml.jackson.databind.PropertyNamingStrategies.SnakeCaseStrategy
 import com.fasterxml.jackson.databind.annotation.JsonNaming;
 import io.pinkspider.leveluptogethermvp.towerservice.domain.entity.TowerFloorEffectLayer;
 import io.pinkspider.leveluptogethermvp.towerservice.domain.enums.TowerEffectKind;
+import io.pinkspider.leveluptogethermvp.towerservice.domain.enums.TowerRainDirection;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
@@ -28,6 +29,10 @@ import java.time.LocalDate;
  * <p>LUT-838 꽃가루(POLLEN): {@code amount} = 밀도 1~100, {@code speed} = 떨어지는 속도 1~100(둘 다 50 = 시안 "등나무
  * 꽃잎" 그대로), {@code color} = 기준 색 {@code #rrggbb}(비우면 등나무 보라 {@code #c9b3f0}) — 화면이 이 색과 비슷한 계열 여러
  * 색으로 그린다. 크기는 쓰지 않는다.
+ *
+ * <p>LUT-839 비 내림(RAINFALL): {@code amount} = 밀도 1~100, {@code speed} = 내리는 속도 1~100(둘 다 50 = 기본),
+ * {@code direction} = 일자 {@code STRAIGHT}(비우면 일자) / 사선 {@code SLANTED}, {@code angle} = 사선일 때 수직에서
+ * 기운 각도(도) — 양수 = 오른쪽 아래로, 음수 = 왼쪽 아래로, 절댓값 5~45(비우면 20). 일자면 각도를 버린다. 크기는 쓰지 않는다.
  */
 @JsonNaming(SnakeCaseStrategy.class)
 public record TowerFloorEffectLayerDto(
@@ -43,7 +48,15 @@ public record TowerFloorEffectLayerDto(
         @Min(1) @Max(20) Integer sizeMax,
         @Min(0) @Max(200) Integer spread,
         @Min(0) @Max(120) Integer dropCount,
-        @Pattern(regexp = "^$|" + HEX_COLOR, message = "#RRGGBB 만 허용합니다") String color) {
+        @Pattern(regexp = "^$|" + HEX_COLOR, message = "#RRGGBB 만 허용합니다") String color,
+        TowerRainDirection direction,
+        @Min(-MAX_RAINFALL_ANGLE) @Max(MAX_RAINFALL_ANGLE) Integer angle) {
+
+    /** LUT-839: 비 내림 사선 각도 — 절댓값 5~45, 비우면 20(오른쪽 아래로) */
+    public static final int MIN_RAINFALL_ANGLE = 5;
+
+    public static final int MAX_RAINFALL_ANGLE = 45;
+    public static final int DEFAULT_RAINFALL_ANGLE = 20;
 
     /** LUT-838: 색 형식 — 불빛 점과 같다 */
     public static final String HEX_COLOR = "^#[0-9A-Fa-f]{6}$";
@@ -70,18 +83,23 @@ public record TowerFloorEffectLayerDto(
                 layer.getSizeMax(),
                 layer.getSpread(),
                 layer.getDropCount(),
-                layer.getColor());
+                layer.getColor(),
+                layer.getDirection(),
+                layer.getAngle());
     }
 
     /**
-     * 구름·물방울·꽃가루는 크기를 쓰지 않아 1 로. 구름 번짐을 비우면 60, 물방울 수를 비우면 46, 꽃가루 색을 비우면 등나무 보라(소문자로 저장). 다른 종류의
-     * 번짐·물방울 수·색은 버린다
+     * 구름·물방울·꽃가루·비 내림은 크기를 쓰지 않아 1 로. 구름 번짐을 비우면 60, 물방울 수를 비우면 46, 꽃가루 색을 비우면 등나무 보라(소문자로 저장), 비
+     * 내림 방향을 비우면 일자·사선 각도를 비우면 20(일자면 각도를 버린다). 다른 종류의 번짐·물방울 수·색·방향·각도는 버린다
      */
     public TowerFloorEffectLayer toEmbeddable() {
         boolean cloud = kind == TowerEffectKind.CLOUD;
         boolean rain = kind == TowerEffectKind.RAIN;
         boolean pollen = kind == TowerEffectKind.POLLEN;
-        boolean noSize = cloud || rain || pollen;
+        boolean rainfall = kind == TowerEffectKind.RAINFALL;
+        boolean noSize = cloud || rain || pollen || rainfall;
+        TowerRainDirection savedDirection =
+                rainfall ? (direction != null ? direction : TowerRainDirection.STRAIGHT) : null;
         return new TowerFloorEffectLayer(
                 kind,
                 maskUrl,
@@ -94,7 +112,11 @@ public record TowerFloorEffectLayerDto(
                 noSize ? 1 : sizeMax,
                 cloud ? (spread != null ? spread : DEFAULT_CLOUD_SPREAD) : null,
                 rain ? (dropCount != null ? dropCount : DEFAULT_RAIN_DROP_COUNT) : null,
-                pollen ? pollenColor() : null);
+                pollen ? pollenColor() : null,
+                savedDirection,
+                savedDirection == TowerRainDirection.SLANTED
+                        ? (angle != null ? angle : DEFAULT_RAINFALL_ANGLE)
+                        : null);
     }
 
     private String pollenColor() {

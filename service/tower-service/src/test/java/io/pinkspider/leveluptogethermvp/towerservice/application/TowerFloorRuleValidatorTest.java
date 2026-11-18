@@ -16,6 +16,7 @@ import io.pinkspider.leveluptogethermvp.towerservice.application.exception.Tower
 import io.pinkspider.leveluptogethermvp.towerservice.domain.entity.TowerFloor;
 import io.pinkspider.leveluptogethermvp.towerservice.domain.entity.TowerFloorEffectLayer;
 import io.pinkspider.leveluptogethermvp.towerservice.domain.enums.TowerEffectKind;
+import io.pinkspider.leveluptogethermvp.towerservice.domain.enums.TowerRainDirection;
 import java.io.IOException;
 import java.time.LocalDate;
 import java.util.List;
@@ -216,6 +217,8 @@ class TowerFloorRuleValidatorTest {
                 sizeMax,
                 null,
                 null,
+                null,
+                null,
                 null);
     }
 
@@ -231,6 +234,8 @@ class TowerFloorRuleValidatorTest {
                 1,
                 1,
                 spread,
+                null,
+                null,
                 null,
                 null);
     }
@@ -262,6 +267,8 @@ class TowerFloorRuleValidatorTest {
                                 3,
                                 null,
                                 null,
+                                null,
+                                null,
                                 null),
                         new TowerFloorEffectLayer(
                                 TowerEffectKind.STARS,
@@ -275,6 +282,8 @@ class TowerFloorRuleValidatorTest {
                                 3,
                                 null,
                                 null,
+                                null,
+                                null,
                                 null),
                         new TowerFloorEffectLayer(
                                 TowerEffectKind.SNOW,
@@ -286,6 +295,8 @@ class TowerFloorRuleValidatorTest {
                                 50,
                                 null,
                                 3,
+                                null,
+                                null,
                                 null,
                                 null,
                                 null))) {
@@ -311,6 +322,8 @@ class TowerFloorRuleValidatorTest {
                 1,
                 null,
                 dropCount,
+                null,
+                null,
                 null);
     }
 
@@ -361,7 +374,9 @@ class TowerFloorRuleValidatorTest {
                 1,
                 null,
                 null,
-                color);
+                color,
+                null,
+                null);
     }
 
     @Test
@@ -401,6 +416,74 @@ class TowerFloorRuleValidatorTest {
         TowerFloor twoPollens = withEffects(pollen(50, 50, "#c9b3f0"), pollen(40, 50, "#ffcc66"));
         assertCode(
                 () -> validator.validate(List.of(twoPollens), twoPollens),
+                TowerFloorException.EFFECT_INVALID);
+    }
+
+    private static TowerFloorEffectLayer rainfall(
+            int amount, int speed, TowerRainDirection direction, Integer angle) {
+        return new TowerFloorEffectLayer(
+                TowerEffectKind.RAINFALL,
+                "https://cdn.test/tower/RAINFALL.png",
+                true,
+                null,
+                null,
+                amount,
+                speed,
+                1,
+                1,
+                null,
+                null,
+                null,
+                direction,
+                angle);
+    }
+
+    @Test
+    @DisplayName(
+            "LUT-839: 비 내림 범위 — 밀도·속도 1~100, 방향 필수, 사선이면 각도 절댓값 5~45(비면 거부), 여섯 종류를 한 층에 함께 켤 수 있다")
+    void rainfallRanges() {
+        ReflectionTestUtils.setField(validator, "maskCheckEnabled", false);
+        for (TowerFloorEffectLayer ok :
+                List.of(
+                        rainfall(1, 1, TowerRainDirection.STRAIGHT, null),
+                        rainfall(100, 100, TowerRainDirection.SLANTED, 45),
+                        rainfall(50, 50, TowerRainDirection.SLANTED, -45),
+                        rainfall(50, 50, TowerRainDirection.SLANTED, 5),
+                        rainfall(50, 50, TowerRainDirection.SLANTED, -5))) {
+            TowerFloor f = withEffects(ok);
+            assertThatCode(() -> validator.validate(List.of(f), f)).doesNotThrowAnyException();
+        }
+        for (TowerFloorEffectLayer bad :
+                List.of(
+                        rainfall(0, 50, TowerRainDirection.STRAIGHT, null),
+                        rainfall(101, 50, TowerRainDirection.STRAIGHT, null),
+                        rainfall(50, 0, TowerRainDirection.STRAIGHT, null),
+                        rainfall(50, 101, TowerRainDirection.STRAIGHT, null),
+                        rainfall(50, 50, null, null),
+                        rainfall(50, 50, TowerRainDirection.SLANTED, null),
+                        rainfall(50, 50, TowerRainDirection.SLANTED, 0),
+                        rainfall(50, 50, TowerRainDirection.SLANTED, 4),
+                        rainfall(50, 50, TowerRainDirection.SLANTED, -4),
+                        rainfall(50, 50, TowerRainDirection.SLANTED, 46),
+                        rainfall(50, 50, TowerRainDirection.SLANTED, -46))) {
+            TowerFloor f = withEffects(bad);
+            assertCode(() -> validator.validate(List.of(f), f), TowerFloorException.EFFECT_INVALID);
+        }
+        TowerFloor all =
+                withEffects(
+                        layer(TowerEffectKind.SNOW, 1, 3, null, null),
+                        layer(TowerEffectKind.STARS, 1, 3, null, null),
+                        cloud(60, 40, 60),
+                        rain(50, 50, 46),
+                        pollen(50, 50, "#c9b3f0"),
+                        rainfall(50, 50, TowerRainDirection.SLANTED, 20));
+        assertThatCode(() -> validator.validate(List.of(all), all)).doesNotThrowAnyException();
+        TowerFloor twoRainfalls =
+                withEffects(
+                        rainfall(50, 50, TowerRainDirection.STRAIGHT, null),
+                        rainfall(40, 50, TowerRainDirection.SLANTED, 20));
+        assertCode(
+                () -> validator.validate(List.of(twoRainfalls), twoRainfalls),
                 TowerFloorException.EFFECT_INVALID);
     }
 
