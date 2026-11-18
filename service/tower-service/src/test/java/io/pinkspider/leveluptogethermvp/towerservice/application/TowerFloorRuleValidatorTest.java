@@ -215,6 +215,7 @@ class TowerFloorRuleValidatorTest {
                 sizeMin,
                 sizeMax,
                 null,
+                null,
                 null);
     }
 
@@ -230,6 +231,7 @@ class TowerFloorRuleValidatorTest {
                 1,
                 1,
                 spread,
+                null,
                 null);
     }
 
@@ -259,6 +261,7 @@ class TowerFloorRuleValidatorTest {
                                 1,
                                 3,
                                 null,
+                                null,
                                 null),
                         new TowerFloorEffectLayer(
                                 TowerEffectKind.STARS,
@@ -271,6 +274,7 @@ class TowerFloorRuleValidatorTest {
                                 1,
                                 3,
                                 null,
+                                null,
                                 null),
                         new TowerFloorEffectLayer(
                                 TowerEffectKind.SNOW,
@@ -282,6 +286,7 @@ class TowerFloorRuleValidatorTest {
                                 50,
                                 null,
                                 3,
+                                null,
                                 null,
                                 null))) {
             TowerFloor f = withEffects(bad);
@@ -305,7 +310,8 @@ class TowerFloorRuleValidatorTest {
                 1,
                 1,
                 null,
-                dropCount);
+                dropCount,
+                null);
     }
 
     @Test
@@ -339,6 +345,62 @@ class TowerFloorRuleValidatorTest {
         TowerFloor twoRains = withEffects(rain(50, 50, 46), rain(40, 50, 20));
         assertCode(
                 () -> validator.validate(List.of(twoRains), twoRains),
+                TowerFloorException.EFFECT_INVALID);
+    }
+
+    private static TowerFloorEffectLayer pollen(int amount, int speed, String color) {
+        return new TowerFloorEffectLayer(
+                TowerEffectKind.POLLEN,
+                "https://cdn.test/tower/POLLEN.png",
+                true,
+                null,
+                null,
+                amount,
+                speed,
+                1,
+                1,
+                null,
+                null,
+                color);
+    }
+
+    @Test
+    @DisplayName("LUT-838: 꽃가루 범위 — 밀도·속도 1~100, 색 #rrggbb(비거나 형식이 다르면 거부), 다섯 종류를 한 층에 함께 켤 수 있다")
+    void pollenRanges() {
+        ReflectionTestUtils.setField(validator, "maskCheckEnabled", false);
+        for (TowerFloorEffectLayer ok :
+                List.of(
+                        pollen(1, 1, "#c9b3f0"),
+                        pollen(100, 100, "#FFFFFF"),
+                        pollen(50, 50, "#000000"))) {
+            TowerFloor f = withEffects(ok);
+            assertThatCode(() -> validator.validate(List.of(f), f)).doesNotThrowAnyException();
+        }
+        for (TowerFloorEffectLayer bad :
+                List.of(
+                        pollen(0, 50, "#c9b3f0"),
+                        pollen(101, 50, "#c9b3f0"),
+                        pollen(50, 0, "#c9b3f0"),
+                        pollen(50, 101, "#c9b3f0"),
+                        pollen(50, 50, null),
+                        pollen(50, 50, ""),
+                        pollen(50, 50, "#c9b3f"),
+                        pollen(50, 50, "c9b3f0ff"),
+                        pollen(50, 50, "purple"))) {
+            TowerFloor f = withEffects(bad);
+            assertCode(() -> validator.validate(List.of(f), f), TowerFloorException.EFFECT_INVALID);
+        }
+        TowerFloor all =
+                withEffects(
+                        layer(TowerEffectKind.SNOW, 1, 3, null, null),
+                        layer(TowerEffectKind.STARS, 1, 3, null, null),
+                        cloud(60, 40, 60),
+                        rain(50, 50, 46),
+                        pollen(50, 50, "#c9b3f0"));
+        assertThatCode(() -> validator.validate(List.of(all), all)).doesNotThrowAnyException();
+        TowerFloor twoPollens = withEffects(pollen(50, 50, "#c9b3f0"), pollen(40, 50, "#ffcc66"));
+        assertCode(
+                () -> validator.validate(List.of(twoPollens), twoPollens),
                 TowerFloorException.EFFECT_INVALID);
     }
 

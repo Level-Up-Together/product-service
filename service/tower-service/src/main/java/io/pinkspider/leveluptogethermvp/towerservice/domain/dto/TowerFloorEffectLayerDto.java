@@ -24,6 +24,10 @@ import java.time.LocalDate;
  *
  * <p>LUT-785 물방울(RAIN, 유리창 빗물): {@code amount} = 맺힌 물방울 밀도 1~100, {@code speed} = 흐르는 속도 1~100(둘 다
  * 50 = 시안 6층 "비 오는 온실" 그대로), {@code dropCount} = 흐르는 물방울 수 0~120(비우면 46 — 시안 유리 영역 기준), 크기는 쓰지 않는다.
+ *
+ * <p>LUT-838 꽃가루(POLLEN): {@code amount} = 밀도 1~100, {@code speed} = 떨어지는 속도 1~100(둘 다 50 = 시안 "등나무
+ * 꽃잎" 그대로), {@code color} = 기준 색 {@code #rrggbb}(비우면 등나무 보라 {@code #c9b3f0}) — 화면이 이 색과 비슷한 계열 여러
+ * 색으로 그린다. 크기는 쓰지 않는다.
  */
 @JsonNaming(SnakeCaseStrategy.class)
 public record TowerFloorEffectLayerDto(
@@ -38,7 +42,14 @@ public record TowerFloorEffectLayerDto(
         @Min(1) @Max(20) Integer sizeMin,
         @Min(1) @Max(20) Integer sizeMax,
         @Min(0) @Max(200) Integer spread,
-        @Min(0) @Max(120) Integer dropCount) {
+        @Min(0) @Max(120) Integer dropCount,
+        @Pattern(regexp = "^$|" + HEX_COLOR, message = "#RRGGBB 만 허용합니다") String color) {
+
+    /** LUT-838: 색 형식 — 불빛 점과 같다 */
+    public static final String HEX_COLOR = "^#[0-9A-Fa-f]{6}$";
+
+    /** LUT-838: 꽃가루 기준 색 기본값 — 시안 등나무 보라 */
+    public static final String DEFAULT_POLLEN_COLOR = "#c9b3f0";
 
     /** LUT-740: 구름 번짐 기본값 */
     public static final int DEFAULT_CLOUD_SPREAD = 60;
@@ -58,14 +69,19 @@ public record TowerFloorEffectLayerDto(
                 layer.getSizeMin(),
                 layer.getSizeMax(),
                 layer.getSpread(),
-                layer.getDropCount());
+                layer.getDropCount(),
+                layer.getColor());
     }
 
-    /** 구름·물방울은 크기를 쓰지 않아 1 로. 구름 번짐을 비우면 60, 물방울 수를 비우면 46. 다른 종류의 번짐·물방울 수는 버린다 */
+    /**
+     * 구름·물방울·꽃가루는 크기를 쓰지 않아 1 로. 구름 번짐을 비우면 60, 물방울 수를 비우면 46, 꽃가루 색을 비우면 등나무 보라(소문자로 저장). 다른 종류의
+     * 번짐·물방울 수·색은 버린다
+     */
     public TowerFloorEffectLayer toEmbeddable() {
         boolean cloud = kind == TowerEffectKind.CLOUD;
         boolean rain = kind == TowerEffectKind.RAIN;
-        boolean noSize = cloud || rain;
+        boolean pollen = kind == TowerEffectKind.POLLEN;
+        boolean noSize = cloud || rain || pollen;
         return new TowerFloorEffectLayer(
                 kind,
                 maskUrl,
@@ -77,6 +93,11 @@ public record TowerFloorEffectLayerDto(
                 noSize ? 1 : sizeMin,
                 noSize ? 1 : sizeMax,
                 cloud ? (spread != null ? spread : DEFAULT_CLOUD_SPREAD) : null,
-                rain ? (dropCount != null ? dropCount : DEFAULT_RAIN_DROP_COUNT) : null);
+                rain ? (dropCount != null ? dropCount : DEFAULT_RAIN_DROP_COUNT) : null,
+                pollen ? pollenColor() : null);
+    }
+
+    private String pollenColor() {
+        return color == null || color.isBlank() ? DEFAULT_POLLEN_COLOR : color.toLowerCase();
     }
 }

@@ -15,7 +15,8 @@ import lombok.NoArgsConstructor;
  * LUT-725: 층 효과 레이어(눈·별) — 칠한 마스크 안에서만 그린다. {@code amount} = 눈 밀도 / 별 개수. 켜져 있고 오늘(KST)이 기간 안(비우면
  * 상시)일 때만 유저 응답에 내린다. LUT-740: 구름은 {@code amount} = 짙기 0~100, {@code speed} = 흐름 속도 0~100, {@code
  * spread} = 번짐(크기는 쓰지 않음). LUT-785: 물방울은 {@code amount} = 맺힌 물방울 밀도 1~100, {@code speed} = 흐르는 속도
- * 1~100(둘 다 50 = 시안 그대로), {@code dropCount} = 흐르는 물방울 수(크기는 쓰지 않음).
+ * 1~100(둘 다 50 = 시안 그대로), {@code dropCount} = 흐르는 물방울 수(크기는 쓰지 않음). LUT-838: 꽃가루는 {@code amount} =
+ * 밀도 1~100, {@code speed} = 떨어지는 속도 1~100(둘 다 50 = 시안 그대로), {@code color} = 기준 색(크기는 쓰지 않음).
  */
 @Embeddable
 @Getter
@@ -58,6 +59,10 @@ public class TowerFloorEffectLayer {
     /** LUT-785: RAIN 흐르는 물방울 수(0~120) — 다른 종류는 null */
     @Column(name = "drop_count")
     private Integer dropCount;
+
+    /** LUT-838: POLLEN 기준 색({@code #rrggbb} 소문자) — 다른 종류는 null */
+    @Column(name = "color", length = 7)
+    private String color;
 
     /** 켜져 있고 {@code today} 가 기간 안(양끝 포함, 비우면 상시)인가 */
     public boolean isActiveOn(LocalDate today) {
