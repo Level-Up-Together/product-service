@@ -64,6 +64,14 @@ public class MonthlyCalendarResponse {
         /** LUT-434: 미션 유형 (PERSONAL/GUILD) — 캘린더 블록 길드 색상 판별용 */
         @JsonInclude(JsonInclude.Include.NON_NULL)
         private String missionType;
+
+        /**
+         * LUT-850: 이 기록의 날짜 키("yyyy-MM-dd" — 일반 미션 execution_date, 고정 미션 instance_date). 시간 수정
+         * API({@code PATCH /{missionId}/executions/{executionDate}/time})가 이 날짜로 기록을 찾는다. 목록은 완료 시각
+         * 날짜로 묶이므로(LUT-240) 자정을 넘긴 기록은 묶인 날짜와 다르다 — 예전엔 웹이 묶인 날짜(블록 칸)를 보내 "수행 기록을 찾을 수 없습니다" 가 났다.
+         */
+        @JsonInclude(JsonInclude.Include.NON_NULL)
+        private String executionDate;
     }
 
     /** LUT-568: 날짜별 보상 행 */

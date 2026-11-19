@@ -346,6 +346,53 @@ class MissionExecutionQueryServiceTest {
             // then: 완료 KST 날짜(12-16)에 그룹, executionDate(12-15)에는 없음
             assertThat(response.getDailyMissions()).containsKey("2024-12-16");
             assertThat(response.getDailyMissions()).doesNotContainKey("2024-12-15");
+            // LUT-850: 시간 수정 API 가 찾는 기록 날짜(12-15)를 함께 내린다 — 묶인 날짜(12-16)와 다르다
+            assertThat(response.getDailyMissions().get("2024-12-16").get(0).getExecutionDate())
+                    .isEqualTo("2024-12-15");
+        }
+
+        @Test
+        @DisplayName("LUT-850: 자정 넘겨 완료된 고정 미션도 instance_date 를 기록 날짜로 내린다")
+        void getMonthlyCalendarData_pinnedCrossMidnight_executionDateIsInstanceDate() {
+            // given: instanceDate=12-15, 시작 KST 12-15 22:44, 완료 KST 12-16 02:46
+            int year = 2024;
+            int month = 12;
+            LocalDate instanceDate = LocalDate.of(year, month, 15);
+            DailyMissionInstance instance =
+                    DailyMissionInstance.builder()
+                            .participant(testParticipant)
+                            .instanceDate(instanceDate)
+                            .missionTitle("게임개발")
+                            .categoryName("업무")
+                            .build();
+            setId(instance, 1L);
+            TestReflectionUtils.setField(instance, "expEarned", 144);
+            TestReflectionUtils.setField(
+                    instance, "startedAt", LocalDateTime.of(year, month, 15, 13, 44));
+            TestReflectionUtils.setField(
+                    instance, "completedAt", LocalDateTime.of(year, month, 15, 17, 46));
+
+            when(executionRepository.findCompletedByUserIdAndCompletedAtBetween(
+                            eq(testUserId), any(LocalDateTime.class), any(LocalDateTime.class)))
+                    .thenReturn(List.of());
+            when(dailyMissionInstanceRepository.findCompletedByUserIdAndCompletedAtBetween(
+                            eq(testUserId), any(LocalDateTime.class), any(LocalDateTime.class)))
+                    .thenReturn(List.of(instance));
+            when(gamificationQueryFacade.getDailyExpSummary(
+                            eq(testUserId),
+                            any(LocalDateTime.class),
+                            any(LocalDateTime.class),
+                            any()))
+                    .thenReturn(java.util.Map.of());
+
+            // when
+            MonthlyCalendarResponse response =
+                    executionService.getMonthlyCalendarData(testUserId, year, month, "Asia/Seoul");
+
+            // then: 완료 KST 날짜(12-16)에 묶이고, 기록 날짜는 instance_date(12-15)
+            assertThat(response.getDailyMissions().get("2024-12-16")).hasSize(1);
+            assertThat(response.getDailyMissions().get("2024-12-16").get(0).getExecutionDate())
+                    .isEqualTo("2024-12-15");
         }
 
         @Test

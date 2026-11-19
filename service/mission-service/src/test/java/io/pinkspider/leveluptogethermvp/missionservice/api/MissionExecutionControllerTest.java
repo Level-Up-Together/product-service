@@ -712,6 +712,7 @@ class MissionExecutionControllerTest {
                                                                 .durationMinutes(60)
                                                                 .completedAt(today.atTime(9, 0))
                                                                 .missionType("GUILD")
+                                                                .executionDate(todayStr)
                                                                 .build(),
                                                         DailyMission.builder()
                                                                 .missionId(2L)
@@ -909,6 +910,21 @@ class MissionExecutionControllerTest {
                                                                                     + " — 캘린더 블록 길드"
                                                                                     + " 색상 판별용"
                                                                                     + " (LUT-434)")
+                                                                        .optional(),
+                                                                fieldWithPath(
+                                                                                "value.daily_missions.*[].execution_date")
+                                                                        .type(JsonFieldType.STRING)
+                                                                        .description(
+                                                                                "기록의 날짜 키"
+                                                                                    + " (yyyy-MM-dd,"
+                                                                                    + " 일반 execution_date"
+                                                                                    + " · 고정"
+                                                                                    + " instance_date)"
+                                                                                    + " — 시간 수정 API"
+                                                                                    + " 경로 날짜. 자정을"
+                                                                                    + " 넘긴 기록은 묶인"
+                                                                                    + " 날짜(완료 시각)와"
+                                                                                    + " 다르다 (LUT-850)")
                                                                         .optional(),
                                                                 fieldWithPath(
                                                                                 "value.completed_dates[]")
