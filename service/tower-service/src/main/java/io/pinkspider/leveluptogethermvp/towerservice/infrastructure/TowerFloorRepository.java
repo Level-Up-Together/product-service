@@ -23,6 +23,9 @@ public interface TowerFloorRepository extends JpaRepository<TowerFloor, Long> {
     /** LUT-725: 앞 가림 마스크로 쓰는 층 수 */
     long countByOcclusionMaskUrl(String occlusionMaskUrl);
 
+    /** LUT-835: 지운 계단 영역 마스크를 다른 층이 쓰는지 */
+    long countByStairsMaskUrl(String stairsMaskUrl);
+
     /** LUT-725: 효과 레이어 마스크로 쓰는 레이어 수 */
     @Query("select count(l) from TowerFloor f join f.effectLayers l where l.maskUrl = :url")
     long countEffectLayersByMaskUrl(

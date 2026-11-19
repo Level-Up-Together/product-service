@@ -92,6 +92,9 @@ public class TowerFloorAdminService {
         if (request.occlusionMaskUrl() != null) {
             floor.updateOcclusionMask(source.getOcclusionMaskUrl());
         }
+        if (request.stairsMaskUrl() != null) {
+            floor.updateStairsMask(source.getStairsMaskUrl());
+        }
         if (request.lights() != null) {
             floor.replaceLights(source.getLights());
         }
@@ -149,9 +152,10 @@ public class TowerFloorAdminService {
         log.info("탑 층 삭제: id={}, floor={}", id, floor.getFloorNumber());
     }
 
-    /** LUT-725: 층이 쓰는 앞 가림·효과 레이어 마스크 */
+    /** LUT-725: 층이 쓰는 앞 가림·효과 레이어 마스크 + 계단 영역 마스크(LUT-835) */
     static Set<String> effectMasks(TowerFloor floor) {
-        Set<String> masks = TowerStoredFileCleaner.urls(floor.getOcclusionMaskUrl());
+        Set<String> masks =
+                TowerStoredFileCleaner.urls(floor.getOcclusionMaskUrl(), floor.getStairsMaskUrl());
         floor.getEffectLayers().forEach(layer -> masks.add(layer.getMaskUrl()));
         return masks;
     }

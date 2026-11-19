@@ -76,7 +76,7 @@ class TowerFloorAdminInternalControllerTest {
 {"floor_number":2,"name":"등나무 정원","name_en":"Wisteria Garden","name_ja":"藤の庭","name_ar":"حديقة الوستارية",
  "entry_level":5,"guest_allowed":false,"background_image_url":"https://cdn/bg2.jpg","floor_mask_url":"https://cdn/mask2.png",
  "entry_point_x":1200,"entry_point_y":900,"bgm_url":null,"instance_capacity":30,"is_public":true,
- "occlusion_mask_url":"https://cdn/occlusion2.png",
+ "occlusion_mask_url":"https://cdn/occlusion2.png","stairs_mask_url":"https://cdn/stairs2.png",
  "lights":[{"x":640,"y":320,"radius":60,"color":"#ffcc66","brightness":80,"flicker_intensity":40,"flicker_speed":50}],
  "effect_layers":[{"kind":"SNOW","mask_url":"https://cdn/snow2.png","enabled":true,"starts_on":"2026-12-01","ends_on":"2026-12-31",
    "amount":120,"speed":40,"size_min":1,"size_max":3}]}
@@ -115,8 +115,12 @@ class TowerFloorAdminInternalControllerTest {
                                 1,
                                 3,
                                 null,
+                                null,
+                                null,
+                                null,
                                 null)),
-                pixelArt());
+                pixelArt(),
+                "https://cdn/stairs2.png");
     }
 
     private static TowerPixelArtAdminDto pixelArt() {
@@ -174,6 +178,13 @@ class TowerFloorAdminInternalControllerTest {
                                         + keep
                                         + (request ? "빈 문자열이면 지운다" : "없으면 null"))
                         .optional(),
+                fieldWithPath(prefix + "stairs_mask_url")
+                        .description(
+                                "계단 영역 마스크 PNG URL (LUT-835, 선택, 배경과 같은 비율 — 150116) —"
+                                        + " 아바타가 닿으면 층 선택 시트가 열린다"
+                                        + keep
+                                        + (request ? "빈 문자열이면 지운다" : "없으면 null"))
+                        .optional(),
                 fieldWithPath(prefix + "lights[]")
                         .description("불빛 점 (최대 50개)" + keep + (request ? "[] 이면 모두 지운다" : "등록 순서"))
                         .optional(),
@@ -187,12 +198,16 @@ class TowerFloorAdminInternalControllerTest {
                 fieldWithPath(prefix + "lights[].flicker_speed").description("깜빡임 속도 0~100"),
                 fieldWithPath(prefix + "effect_layers[]")
                         .description(
-                                "효과 레이어 SNOW·STARS 각 1개 (중복 150115)"
+                                "효과 레이어 SNOW·STARS·CLOUD·RAIN·POLLEN·RAINFALL 각 1개, 6개까지 (중복"
+                                        + " 150115)"
                                         + keep
                                         + (request ? "[] 이면 모두 지운다" : "꺼진 것·기간 밖 포함"))
                         .optional(),
                 fieldWithPath(prefix + "effect_layers[].kind")
-                        .description("SNOW(눈) / STARS(별 반짝임)"),
+                        .description(
+                                "SNOW(눈) / STARS(별 반짝임) / CLOUD(구름) / RAIN(유리창 빗물) / RAINFALL(비 내림,"
+                                        + " LUT-839) / POLLEN(꽃가루,"
+                                        + " LUT-838)"),
                 fieldWithPath(prefix + "effect_layers[].mask_url")
                         .description("효과 영역 마스크 PNG URL (배경과 같은 비율 — 150116)"),
                 fieldWithPath(prefix + "effect_layers[].enabled").description("켜기"),
@@ -221,6 +236,27 @@ class TowerFloorAdminInternalControllerTest {
                                 "LUT-785 RAIN(유리창 빗물) 흐르는 물방울 수 0~120(비우면 46) — 물방울은 amount 맺힌"
                                         + " 물방울 밀도 1~100·speed 흐르는 속도 1~100(50 = 시안), 크기는 쓰지 않는다."
                                         + " 다른 종류는 null")
+                        .optional(),
+                fieldWithPath(prefix + "effect_layers[].color")
+                        .type(JsonFieldType.STRING)
+                        .description(
+                                "LUT-838 POLLEN(꽃가루) 기준 색 #RRGGBB(비우면 #c9b3f0, 소문자로 저장) — 꽃가루는"
+                                        + " amount 밀도 1~100·speed 떨어지는 속도 1~100(50 = 시안), 크기는 쓰지"
+                                        + " 않는다. 다른 종류는 null")
+                        .optional(),
+                fieldWithPath(prefix + "effect_layers[].direction")
+                        .type(JsonFieldType.STRING)
+                        .description(
+                                "LUT-839 RAINFALL(비 내림) 방향 STRAIGHT(일자, 비우면 일자) / SLANTED(사선) — 비"
+                                        + " 내림은 amount 밀도 1~100·speed 내리는 속도 1~100(50 = 기본), 크기는 쓰지"
+                                        + " 않는다. 다른 종류는 null")
+                        .optional(),
+                fieldWithPath(prefix + "effect_layers[].angle")
+                        .type(JsonFieldType.NUMBER)
+                        .description(
+                                "LUT-839 RAINFALL 사선 각도 — 수직에서 기운 정도(도). 양수 = 오른쪽 아래로, 음수 = 왼쪽"
+                                        + " 아래로, 절댓값 5~45(사선인데 비우면 20, 범위 밖 150115). 일자와 다른 종류는"
+                                        + " null")
                         .optional());
     }
 

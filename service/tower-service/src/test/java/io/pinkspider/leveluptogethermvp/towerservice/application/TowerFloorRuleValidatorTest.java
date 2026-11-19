@@ -16,6 +16,7 @@ import io.pinkspider.leveluptogethermvp.towerservice.application.exception.Tower
 import io.pinkspider.leveluptogethermvp.towerservice.domain.entity.TowerFloor;
 import io.pinkspider.leveluptogethermvp.towerservice.domain.entity.TowerFloorEffectLayer;
 import io.pinkspider.leveluptogethermvp.towerservice.domain.enums.TowerEffectKind;
+import io.pinkspider.leveluptogethermvp.towerservice.domain.enums.TowerRainDirection;
 import java.io.IOException;
 import java.time.LocalDate;
 import java.util.List;
@@ -215,6 +216,9 @@ class TowerFloorRuleValidatorTest {
                 sizeMin,
                 sizeMax,
                 null,
+                null,
+                null,
+                null,
                 null);
     }
 
@@ -230,6 +234,9 @@ class TowerFloorRuleValidatorTest {
                 1,
                 1,
                 spread,
+                null,
+                null,
+                null,
                 null);
     }
 
@@ -259,6 +266,9 @@ class TowerFloorRuleValidatorTest {
                                 1,
                                 3,
                                 null,
+                                null,
+                                null,
+                                null,
                                 null),
                         new TowerFloorEffectLayer(
                                 TowerEffectKind.STARS,
@@ -271,6 +281,9 @@ class TowerFloorRuleValidatorTest {
                                 1,
                                 3,
                                 null,
+                                null,
+                                null,
+                                null,
                                 null),
                         new TowerFloorEffectLayer(
                                 TowerEffectKind.SNOW,
@@ -282,6 +295,9 @@ class TowerFloorRuleValidatorTest {
                                 50,
                                 null,
                                 3,
+                                null,
+                                null,
+                                null,
                                 null,
                                 null))) {
             TowerFloor f = withEffects(bad);
@@ -305,7 +321,10 @@ class TowerFloorRuleValidatorTest {
                 1,
                 1,
                 null,
-                dropCount);
+                dropCount,
+                null,
+                null,
+                null);
     }
 
     @Test
@@ -339,6 +358,132 @@ class TowerFloorRuleValidatorTest {
         TowerFloor twoRains = withEffects(rain(50, 50, 46), rain(40, 50, 20));
         assertCode(
                 () -> validator.validate(List.of(twoRains), twoRains),
+                TowerFloorException.EFFECT_INVALID);
+    }
+
+    private static TowerFloorEffectLayer pollen(int amount, int speed, String color) {
+        return new TowerFloorEffectLayer(
+                TowerEffectKind.POLLEN,
+                "https://cdn.test/tower/POLLEN.png",
+                true,
+                null,
+                null,
+                amount,
+                speed,
+                1,
+                1,
+                null,
+                null,
+                color,
+                null,
+                null);
+    }
+
+    @Test
+    @DisplayName("LUT-838: 꽃가루 범위 — 밀도·속도 1~100, 색 #rrggbb(비거나 형식이 다르면 거부), 다섯 종류를 한 층에 함께 켤 수 있다")
+    void pollenRanges() {
+        ReflectionTestUtils.setField(validator, "maskCheckEnabled", false);
+        for (TowerFloorEffectLayer ok :
+                List.of(
+                        pollen(1, 1, "#c9b3f0"),
+                        pollen(100, 100, "#FFFFFF"),
+                        pollen(50, 50, "#000000"))) {
+            TowerFloor f = withEffects(ok);
+            assertThatCode(() -> validator.validate(List.of(f), f)).doesNotThrowAnyException();
+        }
+        for (TowerFloorEffectLayer bad :
+                List.of(
+                        pollen(0, 50, "#c9b3f0"),
+                        pollen(101, 50, "#c9b3f0"),
+                        pollen(50, 0, "#c9b3f0"),
+                        pollen(50, 101, "#c9b3f0"),
+                        pollen(50, 50, null),
+                        pollen(50, 50, ""),
+                        pollen(50, 50, "#c9b3f"),
+                        pollen(50, 50, "c9b3f0ff"),
+                        pollen(50, 50, "purple"))) {
+            TowerFloor f = withEffects(bad);
+            assertCode(() -> validator.validate(List.of(f), f), TowerFloorException.EFFECT_INVALID);
+        }
+        TowerFloor all =
+                withEffects(
+                        layer(TowerEffectKind.SNOW, 1, 3, null, null),
+                        layer(TowerEffectKind.STARS, 1, 3, null, null),
+                        cloud(60, 40, 60),
+                        rain(50, 50, 46),
+                        pollen(50, 50, "#c9b3f0"));
+        assertThatCode(() -> validator.validate(List.of(all), all)).doesNotThrowAnyException();
+        TowerFloor twoPollens = withEffects(pollen(50, 50, "#c9b3f0"), pollen(40, 50, "#ffcc66"));
+        assertCode(
+                () -> validator.validate(List.of(twoPollens), twoPollens),
+                TowerFloorException.EFFECT_INVALID);
+    }
+
+    private static TowerFloorEffectLayer rainfall(
+            int amount, int speed, TowerRainDirection direction, Integer angle) {
+        return new TowerFloorEffectLayer(
+                TowerEffectKind.RAINFALL,
+                "https://cdn.test/tower/RAINFALL.png",
+                true,
+                null,
+                null,
+                amount,
+                speed,
+                1,
+                1,
+                null,
+                null,
+                null,
+                direction,
+                angle);
+    }
+
+    @Test
+    @DisplayName(
+            "LUT-839: 비 내림 범위 — 밀도·속도 1~100, 방향 필수, 사선이면 각도 절댓값 5~45(비면 거부), 여섯 종류를 한 층에 함께 켤 수 있다")
+    void rainfallRanges() {
+        ReflectionTestUtils.setField(validator, "maskCheckEnabled", false);
+        for (TowerFloorEffectLayer ok :
+                List.of(
+                        rainfall(1, 1, TowerRainDirection.STRAIGHT, null),
+                        rainfall(100, 100, TowerRainDirection.SLANTED, 45),
+                        rainfall(50, 50, TowerRainDirection.SLANTED, -45),
+                        rainfall(50, 50, TowerRainDirection.SLANTED, 5),
+                        rainfall(50, 50, TowerRainDirection.SLANTED, -5))) {
+            TowerFloor f = withEffects(ok);
+            assertThatCode(() -> validator.validate(List.of(f), f)).doesNotThrowAnyException();
+        }
+        for (TowerFloorEffectLayer bad :
+                List.of(
+                        rainfall(0, 50, TowerRainDirection.STRAIGHT, null),
+                        rainfall(101, 50, TowerRainDirection.STRAIGHT, null),
+                        rainfall(50, 0, TowerRainDirection.STRAIGHT, null),
+                        rainfall(50, 101, TowerRainDirection.STRAIGHT, null),
+                        rainfall(50, 50, null, null),
+                        rainfall(50, 50, TowerRainDirection.SLANTED, null),
+                        rainfall(50, 50, TowerRainDirection.SLANTED, 0),
+                        rainfall(50, 50, TowerRainDirection.SLANTED, 4),
+                        rainfall(50, 50, TowerRainDirection.SLANTED, -4),
+                        rainfall(50, 50, TowerRainDirection.SLANTED, 46),
+                        rainfall(50, 50, TowerRainDirection.SLANTED, -46))) {
+            TowerFloor f = withEffects(bad);
+            assertCode(() -> validator.validate(List.of(f), f), TowerFloorException.EFFECT_INVALID);
+        }
+        TowerFloor all =
+                withEffects(
+                        layer(TowerEffectKind.SNOW, 1, 3, null, null),
+                        layer(TowerEffectKind.STARS, 1, 3, null, null),
+                        cloud(60, 40, 60),
+                        rain(50, 50, 46),
+                        pollen(50, 50, "#c9b3f0"),
+                        rainfall(50, 50, TowerRainDirection.SLANTED, 20));
+        assertThatCode(() -> validator.validate(List.of(all), all)).doesNotThrowAnyException();
+        TowerFloor twoRainfalls =
+                withEffects(
+                        rainfall(50, 50, TowerRainDirection.STRAIGHT, null),
+                        rainfall(40, 50, TowerRainDirection.SLANTED, 20));
+        assertCode(
+                () -> validator.validate(List.of(twoRainfalls), twoRainfalls),
                 TowerFloorException.EFFECT_INVALID);
     }
 
@@ -403,6 +548,31 @@ class TowerFloorRuleValidatorTest {
         TowerFloor f = withEffects(layer(TowerEffectKind.SNOW, 1, 3, null, null));
         validator.validate(List.of(f), f);
 
+        verify(floorMaskChecker, never()).sameAspectRatio(anyString(), anyString());
+    }
+
+    @Test
+    @DisplayName("LUT-835: 계단 영역 마스크도 배경과 비율을 비교한다 — 다르면 150116, 못 읽으면 150109, 검사가 꺼져 있으면 안 본다")
+    void stairsMaskAspect() throws IOException {
+        TowerFloor f = floor(1L, 1, null, true, true);
+        f.updateStairsMask("https://cdn.test/tower/stairs.png");
+
+        when(floorMaskChecker.sameAspectRatio(anyString(), anyString())).thenReturn(true);
+        assertThatCode(() -> validator.validate(List.of(f), f)).doesNotThrowAnyException();
+        verify(floorMaskChecker)
+                .sameAspectRatio("https://cdn.test/tower/stairs.png", f.getBackgroundImageUrl());
+
+        when(floorMaskChecker.sameAspectRatio(anyString(), anyString())).thenReturn(false);
+        assertCode(
+                () -> validator.validate(List.of(f), f), TowerFloorException.MASK_ASPECT_MISMATCH);
+
+        when(floorMaskChecker.sameAspectRatio(anyString(), anyString()))
+                .thenThrow(new IOException("unreadable"));
+        assertCode(() -> validator.validate(List.of(f), f), TowerFloorException.MASK_UNREADABLE);
+
+        org.mockito.Mockito.clearInvocations(floorMaskChecker);
+        ReflectionTestUtils.setField(validator, "maskCheckEnabled", false);
+        validator.validate(List.of(f), f);
         verify(floorMaskChecker, never()).sameAspectRatio(anyString(), anyString());
     }
 }

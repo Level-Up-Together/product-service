@@ -1,9 +1,11 @@
 package io.pinkspider.leveluptogethermvp.towerservice.application;
 
 import io.pinkspider.leveluptogethermvp.towerservice.application.exception.TowerFloorException;
+import io.pinkspider.leveluptogethermvp.towerservice.domain.dto.TowerFloorEffectLayerDto;
 import io.pinkspider.leveluptogethermvp.towerservice.domain.entity.TowerFloor;
 import io.pinkspider.leveluptogethermvp.towerservice.domain.entity.TowerFloorEffectLayer;
 import io.pinkspider.leveluptogethermvp.towerservice.domain.enums.TowerEffectKind;
+import io.pinkspider.leveluptogethermvp.towerservice.domain.enums.TowerRainDirection;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -114,7 +116,9 @@ public class TowerFloorRuleValidator {
      */
     /**
      * LUT-740: 종류별 값 범위 — 눈·별은 개수(밀도) 1~300·속도 1~100·크기 1~20(최소 ≤ 최대), 구름은 짙기·속도 0~100·번짐 0~200(크기
-     * 무시). 요청 검증은 두 종류를 합친 범위만 막는다. LUT-785: 물방울은 밀도·속도 1~100·흐르는 물방울 수 0~120(크기 무시).
+     * 무시). 요청 검증은 두 종류를 합친 범위만 막는다. LUT-785: 물방울은 밀도·속도 1~100·흐르는 물방울 수 0~120(크기 무시). LUT-838: 꽃가루는
+     * 밀도·속도 1~100·색 {@code #rrggbb}(크기 무시). LUT-839: 비 내림은 밀도·속도 1~100·방향 필수, 사선이면 각도 절댓값 5~45(크기
+     * 무시).
      */
     static boolean inKindRange(TowerFloorEffectLayer layer) {
         if (layer.getKind() == TowerEffectKind.CLOUD) {
@@ -127,11 +131,33 @@ public class TowerFloorRuleValidator {
                     && between(layer.getSpeed(), 1, 100)
                     && between(layer.getDropCount(), 0, 120);
         }
+        if (layer.getKind() == TowerEffectKind.POLLEN) {
+            return between(layer.getAmount(), 1, 100)
+                    && between(layer.getSpeed(), 1, 100)
+                    && layer.getColor() != null
+                    && layer.getColor().matches(TowerFloorEffectLayerDto.HEX_COLOR);
+        }
+        if (layer.getKind() == TowerEffectKind.RAINFALL) {
+            return between(layer.getAmount(), 1, 100)
+                    && between(layer.getSpeed(), 1, 100)
+                    && layer.getDirection() != null
+                    && (layer.getDirection() == TowerRainDirection.STRAIGHT
+                            || slantedAngle(layer.getAngle()));
+        }
         return between(layer.getAmount(), 1, 300)
                 && between(layer.getSpeed(), 1, 100)
                 && between(layer.getSizeMin(), 1, 20)
                 && between(layer.getSizeMax(), 1, 20)
                 && layer.getSizeMin() <= layer.getSizeMax();
+    }
+
+    /** 사선 각도 — 양수 = 오른쪽 아래로, 음수 = 왼쪽 아래로. 0 에 가까우면 일자와 구분되지 않아 받지 않는다 */
+    private static boolean slantedAngle(Integer angle) {
+        return angle != null
+                && between(
+                        Math.abs(angle),
+                        TowerFloorEffectLayerDto.MIN_RAINFALL_ANGLE,
+                        TowerFloorEffectLayerDto.MAX_RAINFALL_ANGLE);
     }
 
     private static boolean between(Integer value, int min, int max) {
@@ -155,6 +181,10 @@ public class TowerFloorRuleValidator {
         List<String> masks = new ArrayList<>();
         if (target.getOcclusionMaskUrl() != null) {
             masks.add(target.getOcclusionMaskUrl());
+        }
+        // LUT-835: 계단 영역 마스크도 배경과 비율이 같아야 한다(화면이 같은 좌표계로 읽는다)
+        if (target.getStairsMaskUrl() != null) {
+            masks.add(target.getStairsMaskUrl());
         }
         target.getEffectLayers().forEach(layer -> masks.add(layer.getMaskUrl()));
         for (String mask : masks) {

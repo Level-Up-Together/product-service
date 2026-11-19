@@ -97,6 +97,9 @@ class TowerFloorControllerTest {
                                                 1,
                                                 3,
                                                 null,
+                                                null,
+                                                null,
+                                                null,
                                                 null)),
                                 new TowerPixelBackgroundDto(
                                         "https://cdn/tower/pixel/9f2c41aa0b7d3e11.png",
@@ -126,7 +129,8 @@ class TowerFloorControllerTest {
                                         "미션 시작하기",
                                         "Start a mission",
                                         null,
-                                        null)),
+                                        null),
+                                "https://cdn/stairs1.png"),
                         new TowerFloorResponse(
                                 2L,
                                 2,
@@ -147,6 +151,7 @@ class TowerFloorControllerTest {
                                 null,
                                 List.of(),
                                 List.of(),
+                                null,
                                 null,
                                 null,
                                 null)),
@@ -225,6 +230,12 @@ class TowerFloorControllerTest {
                                                             + " 칠한 덩어리의 아래쪽 가장자리를 기준선으로 캐릭터 앞·뒤를"
                                                             + " 정한다")
                                                 .optional(),
+                                        fieldWithPath("value.floors[].stairs_mask_url")
+                                                .description(
+                                                        "계단 영역 마스크 PNG URL (LUT-835, 없으면 null = 그"
+                                                            + " 층은 기능 꺼짐) — 아바타가 칠한 영역에 닿으면 화면이 층"
+                                                            + " 선택 시트를 연다. 앞 가림 마스크와 같은 빨간 칠 PNG")
+                                                .optional(),
                                         fieldWithPath("value.floors[].lights[]")
                                                 .description("불빛 점 (LUT-725, 최대 50개)"),
                                         fieldWithPath("value.floors[].lights[].x")
@@ -246,7 +257,11 @@ class TowerFloorControllerTest {
                                                         "오늘(KST) 켜진 효과 레이어만 (LUT-725 — 꺼졌거나 기간 밖은"
                                                                 + " 빠진다)"),
                                         fieldWithPath("value.floors[].effect_layers[].kind")
-                                                .description("SNOW(눈) / STARS(별 반짝임)"),
+                                                .description(
+                                                        "SNOW(눈) / STARS(별 반짝임) / CLOUD(구름) /"
+                                                                + " RAIN(유리창 빗물) / RAINFALL(비 내림,"
+                                                                + " LUT-839) / POLLEN(꽃가루,"
+                                                                + " LUT-838) — 모르는 종류는 무시한다"),
                                         fieldWithPath("value.floors[].effect_layers[].mask_url")
                                                 .description("효과 영역 마스크 PNG URL (칠한 곳에서만 그린다)"),
                                         fieldWithPath("value.floors[].effect_layers[].enabled")
@@ -280,6 +295,29 @@ class TowerFloorControllerTest {
                                                             + " 다른 종류는 null. 물방울은 amount = 맺힌 물방울"
                                                             + " 밀도 1~100, speed = 흐르는 속도 1~100 (둘 다"
                                                             + " 50 = 시안 그대로)")
+                                                .optional(),
+                                        fieldWithPath("value.floors[].effect_layers[].color")
+                                                .type(JsonFieldType.STRING)
+                                                .description(
+                                                        "LUT-838 꽃가루(POLLEN) 기준 색 #rrggbb(소문자) —"
+                                                            + " 화면이 이 색과 비슷한 계열 여러 색으로 그린다, 다른 종류는"
+                                                            + " null. 꽃가루는 amount = 밀도 1~100, speed"
+                                                            + " = 떨어지는 속도 1~100 (둘 다 50 = 시안 그대로)")
+                                                .optional(),
+                                        fieldWithPath("value.floors[].effect_layers[].direction")
+                                                .type(JsonFieldType.STRING)
+                                                .description(
+                                                        "LUT-839 비 내림(RAINFALL) 방향 — STRAIGHT(일자) /"
+                                                            + " SLANTED(사선), 다른 종류는 null. 비 내림은 칠한"
+                                                            + " 영역 안에서만 빗줄기가 내린다(amount = 밀도 1~100,"
+                                                            + " speed = 내리는 속도 1~100, 둘 다 50 = 기본)")
+                                                .optional(),
+                                        fieldWithPath("value.floors[].effect_layers[].angle")
+                                                .type(JsonFieldType.NUMBER)
+                                                .description(
+                                                        "LUT-839 비 내림 사선 각도 — 수직에서 기운 정도(도). 양수 ="
+                                                                + " 오른쪽 아래로, 음수 = 왼쪽 아래로, 절댓값 5~45."
+                                                                + " 일자와 다른 종류는 null")
                                                 .optional(),
                                         fieldWithPath("value.floors[].pixel_dense")
                                                 .description(

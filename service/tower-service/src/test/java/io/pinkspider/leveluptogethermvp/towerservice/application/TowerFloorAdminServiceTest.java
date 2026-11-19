@@ -186,6 +186,7 @@ class TowerFloorAdminServiceTest {
                         req.isPublic(),
                         null,
                         null,
+                        null,
                         null);
         service.update(1L, changed);
 
@@ -244,6 +245,7 @@ class TowerFloorAdminServiceTest {
                         req.isPublic(),
                         null,
                         null,
+                        null,
                         null);
         service.update(1L, changed);
 
@@ -292,6 +294,7 @@ class TowerFloorAdminServiceTest {
 
     private static final String OLD_OCCLUSION = "https://cdn/tower/mask/occlusion-old.png";
     private static final String OLD_SNOW = "https://cdn/tower/mask/snow-old.png";
+    private static final String OLD_STAIRS = "https://cdn/tower/mask/stairs-old.png";
 
     private static TowerFloorLightDto light(int x) {
         return new TowerFloorLightDto(x, 20, 30, "#ffcc66", 80, 40, 50);
@@ -299,7 +302,20 @@ class TowerFloorAdminServiceTest {
 
     private static TowerFloorEffectLayerDto snow(String maskUrl) {
         return new TowerFloorEffectLayerDto(
-                TowerEffectKind.SNOW, maskUrl, true, null, null, 100, 50, 1, 3, null, null);
+                TowerEffectKind.SNOW,
+                maskUrl,
+                true,
+                null,
+                null,
+                100,
+                50,
+                1,
+                3,
+                null,
+                null,
+                null,
+                null,
+                null);
     }
 
     /** 기존 요청에 LUT-725 필드만 바꿔 끼운다 */
@@ -325,7 +341,31 @@ class TowerFloorAdminServiceTest {
                 r.isPublic(),
                 occlusion,
                 lights,
-                layers);
+                layers,
+                null);
+    }
+
+    /** LUT-835: 계단 영역 마스크만 바꾼 요청 — null 이면 그대로, 빈 문자열이면 지운다 */
+    private static TowerFloorAdminRequest withStairs(TowerFloorAdminRequest r, String stairs) {
+        return new TowerFloorAdminRequest(
+                r.floorNumber(),
+                r.name(),
+                r.nameEn(),
+                r.nameJa(),
+                r.nameAr(),
+                r.entryLevel(),
+                r.guestAllowed(),
+                r.backgroundImageUrl(),
+                r.floorMaskUrl(),
+                r.entryPointX(),
+                r.entryPointY(),
+                r.bgmUrl(),
+                r.instanceCapacity(),
+                r.isPublic(),
+                null,
+                null,
+                null,
+                stairs);
     }
 
     private static TowerFloor floorWithEffects(Long id, int number, boolean isPublic) {
@@ -488,5 +528,74 @@ class TowerFloorAdminServiceTest {
 
         verify(imageStorage).delete("https://cdn/tower/pixel/a.png");
         verify(imageStorage, never()).delete("https://cdn/tower/pixel/b.png");
+    }
+
+    @Test
+    @DisplayName("LUT-835 등록: 계단 영역 마스크를 저장한다 — 빈 문자열이면 없는 것으로")
+    void createWithStairsMask() {
+        when(towerFloorRepository.findAllByOrderByFloorNumberAsc()).thenReturn(List.of());
+        when(towerFloorRepository.save(any(TowerFloor.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        TowerFloorAdminResponse saved =
+                service.create(withStairs(request(1, null, true, true), "https://cdn/stairs.png"));
+        assertThat(saved.stairsMaskUrl()).isEqualTo("https://cdn/stairs.png");
+
+        TowerFloorAdminResponse blank =
+                service.create(withStairs(request(1, null, true, true), ""));
+        assertThat(blank.stairsMaskUrl()).isNull();
+    }
+
+    @Test
+    @DisplayName("LUT-835 수정: 계단 마스크를 보내지 않으면(null) 그대로 둔다 — 구 어드민·패스스루 호환")
+    void updateKeepsStairsMaskWhenOmitted() {
+        TowerFloor f1 = floor(1L, 1, null, true, true);
+        f1.updateStairsMask(OLD_STAIRS);
+        when(towerFloorRepository.findById(1L)).thenReturn(java.util.Optional.of(f1));
+        when(towerFloorRepository.findAllByOrderByFloorNumberAsc()).thenReturn(List.of(f1));
+
+        TowerFloorAdminResponse updated = service.update(1L, request(1, null, true, true));
+
+        assertThat(updated.stairsMaskUrl()).isEqualTo(OLD_STAIRS);
+        verify(imageStorage, never()).delete(any());
+    }
+
+    @Test
+    @DisplayName("LUT-835 수정: 빈 문자열이면 지우고 새 주소면 바꾼다 — 안 쓰게 된 파일(우리 저장소)은 커밋 뒤 지운다")
+    void updateClearsOrReplacesStairsMask() {
+        TowerFloor f1 = floor(1L, 1, null, true, true);
+        f1.updateStairsMask(OLD_STAIRS);
+        when(towerFloorRepository.findById(1L)).thenReturn(java.util.Optional.of(f1));
+        when(towerFloorRepository.findAllByOrderByFloorNumberAsc()).thenReturn(List.of(f1));
+        when(imageStorage.isOwned(OLD_STAIRS)).thenReturn(true);
+
+        TowerFloorAdminResponse replaced =
+                service.update(
+                        1L,
+                        withStairs(
+                                request(1, null, true, true),
+                                "https://cdn/tower/mask/stairs-new.png"));
+        assertThat(replaced.stairsMaskUrl()).isEqualTo("https://cdn/tower/mask/stairs-new.png");
+        verify(imageStorage).delete(OLD_STAIRS);
+
+        TowerFloorAdminResponse cleared =
+                service.update(1L, withStairs(request(1, null, true, true), ""));
+        assertThat(cleared.stairsMaskUrl()).isNull();
+    }
+
+    @Test
+    @DisplayName("LUT-835 수정: 다른 층이 계단 마스크로 쓰는 파일은 남긴다")
+    void updateKeepsSharedStairsMask() {
+        TowerFloor f1 = floor(1L, 1, null, true, true);
+        f1.updateStairsMask(OLD_STAIRS);
+        when(towerFloorRepository.findById(1L)).thenReturn(java.util.Optional.of(f1));
+        when(towerFloorRepository.findAllByOrderByFloorNumberAsc()).thenReturn(List.of(f1));
+        when(imageStorage.isOwned(OLD_STAIRS)).thenReturn(true);
+        when(towerFloorRepository.countByStairsMaskUrl(OLD_STAIRS)).thenReturn(1L);
+
+        service.update(1L, withStairs(request(1, null, true, true), ""));
+
+        assertThat(f1.getStairsMaskUrl()).isNull();
+        verify(imageStorage, never()).delete(any());
     }
 }

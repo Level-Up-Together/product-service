@@ -1774,4 +1774,168 @@ class RankingServiceTest {
             assertThat(result.getEquippedTitleColorCode()).isNull();
         }
     }
+
+    @Nested
+    @DisplayName("getFriendsLevelRanking 테스트 — 친구 랭킹 (LUT-833)")
+    class GetFriendsLevelRankingTest {
+
+        private void givenFriends(List<String> friendIds, List<String> blocked) {
+            when(userQueryFacadeService.getFriendIds("me")).thenReturn(friendIds);
+            when(userQueryFacadeService.getBlockedUserIds("me")).thenReturn(blocked);
+            // 빈 목록으로 끝나는 경우에는 프로필을 읽지 않는다
+            org.mockito.Mockito.lenient()
+                    .when(userQueryFacadeService.getUserProfiles(anyList()))
+                    .thenReturn(java.util.Map.of());
+        }
+
+        private void givenExp(Object[]... rows) {
+            when(experienceHistoryRepository.findUserExpByPeriodAndUserIdIn(
+                            org.mockito.ArgumentMatchers.anyCollection(), any(), any()))
+                    .thenReturn(List.of(rows));
+        }
+
+        @Test
+        @DisplayName("나 + 친구를 기간 경험치 순으로 줄 세운다 — 얻은 것이 없는 친구도 0 으로 들고, 순위는 친구 안에서의 순위다")
+        void ranksMeAndFriends() {
+            givenFriends(List.of("f1", "f2", "f3"), List.of());
+            when(userQueryFacadeService.getActiveUserIds(List.of("f1", "f2", "f3")))
+                    .thenReturn(List.of("f1", "f2", "f3"));
+            givenExp(
+                    new Object[] {"f2", 900L},
+                    new Object[] {"me", 400L},
+                    new Object[] {"f1", 400L});
+
+            Page<LevelRankingResponse> result =
+                    rankingService.getFriendsLevelRanking(
+                            "me", false, PageRequest.of(0, 20), null, "Asia/Seoul");
+
+            assertThat(result.getContent())
+                    .extracting(LevelRankingResponse::getUserId)
+                    .containsExactly("f2", "f1", "me", "f3");
+            // 동점(f1 · me)은 같은 순위, 그다음은 건너뛴다
+            assertThat(result.getContent())
+                    .extracting(LevelRankingResponse::getRank)
+                    .containsExactly(1L, 2L, 2L, 4L);
+            assertThat(result.getContent())
+                    .extracting(LevelRankingResponse::getPeriodExp)
+                    .containsExactly(900L, 400L, 400L, 0L);
+            assertThat(result.getContent().get(0).getTotalUsers()).isEqualTo(4L);
+            assertThat(result.getTotalElements()).isEqualTo(4L);
+            // 전체 유저를 훑는 집계는 쓰지 않는다
+            verify(experienceHistoryRepository, never()).findUserExpRankingByPeriod(any(), any());
+        }
+
+        @Test
+        @DisplayName("내가 차단한 유저 · 탈퇴한 유저 · 친구 목록에 섞인 나 자신은 뺀다")
+        void excludesBlockedAndWithdrawn() {
+            givenFriends(List.of("f1", "blocked", "gone", "me", "f1"), List.of("blocked"));
+            when(userQueryFacadeService.getActiveUserIds(List.of("f1", "gone")))
+                    .thenReturn(List.of("f1"));
+            givenExp(new Object[] {"f1", 10L});
+            org.mockito.ArgumentCaptor<java.util.Collection<String>> members =
+                    org.mockito.ArgumentCaptor.forClass(java.util.Collection.class);
+
+            Page<LevelRankingResponse> result =
+                    rankingService.getFriendsLevelRanking(
+                            "me", false, PageRequest.of(0, 20), null, null);
+
+            assertThat(result.getContent())
+                    .extracting(LevelRankingResponse::getUserId)
+                    .containsExactly("f1", "me");
+            verify(experienceHistoryRepository)
+                    .findUserExpByPeriodAndUserIdIn(members.capture(), any(), any());
+            assertThat(members.getValue()).containsExactlyInAnyOrder("f1", "me");
+        }
+
+        @Test
+        @DisplayName("친구가 없으면 빈 목록 — 나 혼자만 든 목록은 주지 않는다. 경험치를 조회하지도 않는다")
+        void noFriends() {
+            givenFriends(List.of(), List.of());
+            assertThat(
+                            rankingService.getFriendsLevelRanking(
+                                    "me", false, PageRequest.of(0, 20), null, null))
+                    .isEmpty();
+
+            // 친구가 전부 차단됐거나 탈퇴한 경우도 같다
+            givenFriends(List.of("blocked", "gone"), List.of("blocked"));
+            when(userQueryFacadeService.getActiveUserIds(List.of("gone"))).thenReturn(List.of());
+            assertThat(
+                            rankingService.getFriendsLevelRanking(
+                                    "me", false, PageRequest.of(0, 20), null, null))
+                    .isEmpty();
+
+            verify(experienceHistoryRepository, never())
+                    .findUserExpByPeriodAndUserIdIn(
+                            org.mockito.ArgumentMatchers.anyCollection(), any(), any());
+        }
+
+        @Test
+        @DisplayName("주간은 타임존 기준 월요일부터 7일, 월간은 1일부터 한 달을 UTC 로 바꿔 조회한다")
+        void periodBoundaries() {
+            givenFriends(List.of("f1"), List.of());
+            when(userQueryFacadeService.getActiveUserIds(List.of("f1"))).thenReturn(List.of("f1"));
+            givenExp();
+            org.mockito.ArgumentCaptor<java.time.LocalDateTime> start =
+                    org.mockito.ArgumentCaptor.forClass(java.time.LocalDateTime.class);
+            org.mockito.ArgumentCaptor<java.time.LocalDateTime> end =
+                    org.mockito.ArgumentCaptor.forClass(java.time.LocalDateTime.class);
+            java.time.ZoneId seoul = java.time.ZoneId.of("Asia/Seoul");
+
+            rankingService.getFriendsLevelRanking(
+                    "me", false, PageRequest.of(0, 20), null, "Asia/Seoul");
+            rankingService.getFriendsLevelRanking(
+                    "me", true, PageRequest.of(0, 20), null, "Asia/Seoul");
+
+            verify(experienceHistoryRepository, org.mockito.Mockito.times(2))
+                    .findUserExpByPeriodAndUserIdIn(
+                            org.mockito.ArgumentMatchers.anyCollection(),
+                            start.capture(),
+                            end.capture());
+            java.time.LocalDate monday =
+                    java.time.LocalDate.now(seoul).with(java.time.DayOfWeek.MONDAY);
+            java.time.LocalDate firstDay = java.time.LocalDate.now(seoul).withDayOfMonth(1);
+            assertThat(start.getAllValues().get(0))
+                    .isEqualTo(
+                            monday.atStartOfDay(seoul)
+                                    .withZoneSameInstant(java.time.ZoneOffset.UTC)
+                                    .toLocalDateTime());
+            assertThat(end.getAllValues().get(0))
+                    .isEqualTo(start.getAllValues().get(0).plusDays(7));
+            assertThat(start.getAllValues().get(1))
+                    .isEqualTo(
+                            firstDay.atStartOfDay(seoul)
+                                    .withZoneSameInstant(java.time.ZoneOffset.UTC)
+                                    .toLocalDateTime());
+            assertThat(end.getAllValues().get(1))
+                    .isEqualTo(
+                            firstDay.plusMonths(1)
+                                    .atStartOfDay(seoul)
+                                    .withZoneSameInstant(java.time.ZoneOffset.UTC)
+                                    .toLocalDateTime());
+        }
+
+        @Test
+        @DisplayName("페이지 단위로 자른다 — 순위는 전체 친구 목록 기준으로 이어진다")
+        void paging() {
+            givenFriends(List.of("f1", "f2", "f3"), List.of());
+            when(userQueryFacadeService.getActiveUserIds(List.of("f1", "f2", "f3")))
+                    .thenReturn(List.of("f1", "f2", "f3"));
+            givenExp(
+                    new Object[] {"f1", 300L},
+                    new Object[] {"f2", 200L},
+                    new Object[] {"f3", 100L});
+
+            Page<LevelRankingResponse> second =
+                    rankingService.getFriendsLevelRanking(
+                            "me", false, PageRequest.of(1, 2), null, null);
+
+            assertThat(second.getContent())
+                    .extracting(LevelRankingResponse::getUserId)
+                    .containsExactly("f3", "me");
+            assertThat(second.getContent())
+                    .extracting(LevelRankingResponse::getRank)
+                    .containsExactly(3L, 4L);
+            assertThat(second.getTotalElements()).isEqualTo(4L);
+        }
+    }
 }

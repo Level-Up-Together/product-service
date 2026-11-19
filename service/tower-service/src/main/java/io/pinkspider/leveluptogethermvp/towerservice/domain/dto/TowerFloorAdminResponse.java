@@ -30,7 +30,9 @@ public record TowerFloorAdminResponse(
         String occlusionMaskUrl,
         List<TowerFloorLightDto> lights,
         List<TowerFloorEffectLayerDto> effectLayers,
-        TowerPixelArtAdminDto pixelArt) {
+        TowerPixelArtAdminDto pixelArt,
+        /** LUT-835: 계단 영역 마스크 (없으면 null) */
+        String stairsMaskUrl) {
 
     public static TowerFloorAdminResponse from(TowerFloor f) {
         return from(f, null);
@@ -59,6 +61,7 @@ public record TowerFloorAdminResponse(
                 f.getOcclusionMaskUrl(),
                 f.getLights().stream().map(TowerFloorLightDto::from).toList(),
                 f.getEffectLayers().stream().map(TowerFloorEffectLayerDto::from).toList(),
-                TowerPixelArtAdminDto.from(pixelArt, f.getBackgroundImageUrl()));
+                TowerPixelArtAdminDto.from(pixelArt, f.getBackgroundImageUrl()),
+                f.getStairsMaskUrl());
     }
 }
