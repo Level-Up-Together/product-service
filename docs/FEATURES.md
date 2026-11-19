@@ -229,6 +229,14 @@ FeedSearchType { ALL, FRIENDS, GUILD, MINE }
   한 곳에만 삭제 조건을 넣으면 캘린더에 안 보이는 기록 때문에 시간 수정이 거절되는 식으로 어긋난다. `DeletedMissionHistoryQueryContractTest` 가
   해당 쿼리 10개(일반·고정 × 5)에 삭제 조건이 들어오면 실패한다 — 규칙을 바꾸려면 전부 함께 바꿀 것.
 
+## 기록 시간 수정 — 날짜 키 (LUT-850)
+
+`PATCH /api/v1/missions/{missionId}/executions/{executionDate}/time {started_at, completed_at}`(UTC `LocalDateTime` 전체)은 **기록 날짜**로 찾는다 —
+일반 미션 `execution_date`, 고정 미션 `instance_date`(그날 가장 최근 완료 인스턴스). 반면 월간·주간 캘린더는 **완료 시각**(사용자 시간대) 날짜로 묶는다(LUT-240).
+그래서 자정을 넘긴 기록(22:44 ~ 다음날 02:46)은 묶인 날짜와 기록 날짜가 다르다. 월간 캘린더 항목의 `execution_date` 가 경로에 넣을 날짜이고, 웹 시간표는
+나뉜 두 블록 모두 이 값과 원래 시작·종료 전체로 시트를 연다(예전엔 블록 칸 날짜를 보내 다음날 블록이 "해당 날짜의 수행 기록을 찾을 수 없습니다" 였다).
+시작·종료는 날짜가 다를 수 있다(시작 < 종료만 검사). 주간 캘린더(다른 사람 프로필)는 읽기 전용이라 이 값을 내리지 않는다.
+
 ## Timer Mission 목표시간 (LUT-551)
 
 - 생성 폼의 TIMED 선택 시 `target_duration_minutes` 를 반드시 보낸다 — 10분 간격 10~240분, 기본 30분

@@ -472,6 +472,7 @@ public class MissionExecutionQueryService {
                             .startedAt(execution.getStartedAt())
                             .completedAt(execution.getCompletedAt())
                             .missionType(missionTypeOf(regularMission))
+                            .executionDate(dateKeyOf(execution.getExecutionDate()))
                             .build();
 
             dailyMissions.computeIfAbsent(dateKey, k -> new ArrayList<>()).add(dailyMission);
@@ -506,6 +507,7 @@ public class MissionExecutionQueryService {
                             .startedAt(instance.getStartedAt())
                             .completedAt(instance.getCompletedAt())
                             .missionType(missionTypeOf(instance.getParticipant().getMission()))
+                            .executionDate(dateKeyOf(instance.getInstanceDate()))
                             .build();
 
             dailyMissions.computeIfAbsent(dateKey, k -> new ArrayList<>()).add(dailyMission);
@@ -793,6 +795,11 @@ public class MissionExecutionQueryService {
      * LUT-240: 완료 시각(UTC 저장)을 사용자 타임존 날짜 키("yyyy-MM-dd")로 변환. completedAt 이 없으면(비정상) fallback 날짜를
      * 사용한다.
      */
+    /** LUT-850: 기록의 날짜 키("yyyy-MM-dd") — 시간 수정 API 경로의 executionDate. 없으면(비정상) null */
+    private static String dateKeyOf(LocalDate date) {
+        return date != null ? date.toString() : null;
+    }
+
     private String toUserZoneDateKey(
             LocalDateTime completedAtUtc, ZoneId userZone, LocalDate fallback) {
         if (completedAtUtc == null) {
