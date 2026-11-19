@@ -90,6 +90,20 @@ public class MissionResponse {
     @JsonInclude(JsonInclude.Include.NON_NULL)
     private Boolean isDeleted;
 
+    /**
+     * LUT-849: 길드 미션 목록에서만 채운다 — 이 미션이 요청자의 나의 미션에 있는가(참여 PENDING·ACCEPTED·IN_PROGRESS). 다른 응답은
+     * null 이라 직렬화하지 않는다.
+     */
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    private Boolean inMyMissions;
+
+    /**
+     * LUT-849: 길드 미션 목록에서만 채운다 — 길드 미션 탭에 '다시하기' 를 보여 줄지(서버 판정, {@code GuildMissionRejoinPolicy}).
+     * 열린·진행중 길드 미션 + 요청자가 그 길드의 활동 멤버 + 참여 없음·철회·실패일 때 true. 완료한 일반 미션(1회성)은 false.
+     */
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    private Boolean canRejoin;
+
     public static MissionResponse from(Mission mission) {
         return from(mission, (String) null);
     }

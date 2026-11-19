@@ -262,6 +262,22 @@ FeedSearchType { ALL, FRIENDS, GUILD, MINE }
 
 - 등록은 `MissionParticipantService.addGuildMemberAsParticipant()` — 이미 활성 참여면 건너뛰고, 탈퇴·실패 이력 행이 있으면 새 insert 대신
   `rejoin(ACCEPTED)` 로 재활성화한다(uk `(mission_id, user_id)` 라 재가입 시 insert 불가, LUT-518). 등록 후 실행 스케줄 생성.
+
+### 나의 미션에서 삭제 · 길드 미션 탭 '다시하기' (LUT-849)
+
+- **삭제 = 내 참여 철회** `PATCH /api/v1/missions/{id}/withdraw` — 길드 미션 자체와 다른 길드원은 그대로다. 수행 중(타이머)이면 `050103` 으로 막는다.
+  마스터·부마스터·만든 사람도 나의 미션에서는 이 API 를 쓴다 — `DELETE /api/v1/missions/{id}` 는 길드 관리자가 부르면 **미션 자체를 지운다**(QA-175).
+  수정은 여전히 불가.
+- **다시하기** `POST /api/v1/missions/{id}/rejoin` → `MissionParticipantService.rejoinGuildMission` → `addGuildMemberAsParticipant`: 같은 참여 행을
+  되살리므로 지난 수행 기록·오늘 기록이 이어진다(실행 일정은 오늘 행이 있으면 건너뜀). 이미 나의 미션에 있으면 그대로. 받은 적 없는 길드 미션(가입 뒤에 열린
+  일반 미션)도 같은 버튼으로 넣는다.
+- **규칙 `GuildMissionRejoinPolicy`** — 목록의 `can_rejoin` 과 API 가 같이 쓴다: 열린(OPEN)·진행중(IN_PROGRESS)·미삭제 길드 미션 + 그 길드의 활동 멤버 +
+  내 참여 없음·철회·실패. **완료한 일반 길드 미션(참여 COMPLETED, 1회성)은 다시 못 넣는다** — 넣으면 같은 미션으로 EXP 를 또 받는다(고정 미션은 완료해도
+  IN_PROGRESS 라 나의 미션에 남는다). 거절은 `GuildMissionRejoinException`(지역 어드바이스): 400 `050601` 길드 미션 아님 · `050602` 없음·삭제·DRAFT·끝남 ·
+  `050604` 이미 완료 / 403 `050603` 길드원 아님.
+- **길드 미션 목록** `GET /api/v1/missions/guild/{guildId}` 에 요청자 기준 `in_my_missions`(참여 PENDING·ACCEPTED·IN_PROGRESS = 나의 미션 목록과 같은 상태)·
+  `can_rejoin` 추가(다른 미션 응답에는 없음 — NON_NULL). 내 참여는 목록 한 번에(`findByUserIdAndMissionIdIn`), 길드원 여부는 한 번만 조회하고 실패하면
+  `can_rejoin=false`.
 - `GuildJoinedEvent` 발행 경로: 창설, 공개 길드 즉시 가입(`requestJoin`, OPEN 가입 방식), 가입 승인, 마스터 직접 추가
   (`POST /api/v1/guilds/{guildId}/members/{inviteeId}`), 초대 수락, 초대 링크 합류(`GuildMemberService.addActiveMember`).
 

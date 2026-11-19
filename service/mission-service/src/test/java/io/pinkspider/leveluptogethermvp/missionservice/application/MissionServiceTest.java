@@ -9,6 +9,7 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -25,12 +26,14 @@ import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MissionCreateR
 import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MissionResponse;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MissionTemplateResponse;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.Mission;
+import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.MissionParticipant;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.MissionTemplate;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.RecommendedMission;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionInterval;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionSource;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionType;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionVisibility;
+import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.ParticipantStatus;
 import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.MissionParticipantRepository;
 import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.MissionRepository;
 import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.MissionTemplateRepository;
@@ -4166,6 +4169,133 @@ class MissionServiceTest {
                     .hasMessageContaining("error.mission.cannot_withdraw_in_progress");
             verify(dailyMissionInstanceRepository, never())
                     .existsInProgressByMissionIdAndUserId(any(), any());
+        }
+    }
+
+    @Nested
+    @DisplayName("getGuildMissions: 나의 미션 여부·다시하기 가능 여부 (LUT-849)")
+    class GuildMissionParticipationFlagsTest {
+
+        private static final List<MissionStatus> GUILD_LIST_STATUSES =
+                List.of(MissionStatus.OPEN, MissionStatus.IN_PROGRESS, MissionStatus.COMPLETED);
+
+        private Mission mission(Long id, String guildId, MissionStatus status) {
+            Mission mission =
+                    Mission.builder()
+                            .title("길드 미션 " + id)
+                            .status(status)
+                            .visibility(MissionVisibility.GUILD_ONLY)
+                            .type(MissionType.GUILD)
+                            .guildId(guildId)
+                            .creatorId("master")
+                            .build();
+            setId(mission, id);
+            return mission;
+        }
+
+        private MissionParticipant participant(Mission mission, ParticipantStatus status) {
+            return MissionParticipant.builder()
+                    .mission(mission)
+                    .userId(TEST_USER_ID)
+                    .status(status)
+                    .progress(0)
+                    .build();
+        }
+
+        @Test
+        @DisplayName("참여 상태별로 in_my_missions·can_rejoin 을 채우고, 내 참여·길드원 여부는 한 번씩만 조회한다")
+        void fillsFlagsByParticipation() {
+            Mission active = mission(1L, "100", MissionStatus.IN_PROGRESS);
+            Mission withdrawn = mission(2L, "100", MissionStatus.IN_PROGRESS);
+            Mission neverJoined = mission(3L, "100", MissionStatus.OPEN);
+            Mission completedByMe = mission(4L, "100", MissionStatus.IN_PROGRESS);
+            Mission ended = mission(5L, "100", MissionStatus.COMPLETED);
+            when(missionRepository.findGuildMissions("100", GUILD_LIST_STATUSES))
+                    .thenReturn(List.of(active, withdrawn, neverJoined, completedByMe, ended));
+            when(participantRepository.findByUserIdAndMissionIdIn(
+                            TEST_USER_ID, List.of(1L, 2L, 3L, 4L, 5L)))
+                    .thenReturn(
+                            List.of(
+                                    participant(active, ParticipantStatus.ACCEPTED),
+                                    participant(withdrawn, ParticipantStatus.WITHDRAWN),
+                                    participant(completedByMe, ParticipantStatus.COMPLETED)));
+            when(guildQueryFacadeService.isActiveMember(100L, TEST_USER_ID)).thenReturn(true);
+
+            List<MissionResponse> result =
+                    missionService.getGuildMissions("100", null, TEST_USER_ID);
+
+            assertThat(result)
+                    .extracting(MissionResponse::getInMyMissions)
+                    .containsExactly(true, false, false, false, false);
+            // 철회·받은 적 없음만 다시하기 — 완료한 일반 미션(1회성)·끝난 미션은 아니다
+            assertThat(result)
+                    .extracting(MissionResponse::getCanRejoin)
+                    .containsExactly(false, true, true, false, false);
+            verify(guildQueryFacadeService, times(1)).isActiveMember(100L, TEST_USER_ID);
+        }
+
+        @Test
+        @DisplayName("길드원이 아니면 다시하기를 모두 숨긴다")
+        void nonMember_hidesRejoin() {
+            Mission withdrawn = mission(2L, "100", MissionStatus.IN_PROGRESS);
+            when(missionRepository.findGuildMissions("100", GUILD_LIST_STATUSES))
+                    .thenReturn(List.of(withdrawn));
+            when(participantRepository.findByUserIdAndMissionIdIn(TEST_USER_ID, List.of(2L)))
+                    .thenReturn(List.of(participant(withdrawn, ParticipantStatus.WITHDRAWN)));
+            when(guildQueryFacadeService.isActiveMember(100L, TEST_USER_ID)).thenReturn(false);
+
+            List<MissionResponse> result =
+                    missionService.getGuildMissions("100", null, TEST_USER_ID);
+
+            assertThat(result.get(0).getInMyMissions()).isFalse();
+            assertThat(result.get(0).getCanRejoin()).isFalse();
+        }
+
+        @Test
+        @DisplayName("길드원 여부 조회가 실패하면 다시하기를 숨기고 목록은 그대로 내린다")
+        void memberLookupFailure_hidesRejoin() {
+            Mission neverJoined = mission(3L, "100", MissionStatus.OPEN);
+            when(missionRepository.findGuildMissions("100", GUILD_LIST_STATUSES))
+                    .thenReturn(List.of(neverJoined));
+            when(participantRepository.findByUserIdAndMissionIdIn(TEST_USER_ID, List.of(3L)))
+                    .thenReturn(List.of());
+            when(guildQueryFacadeService.isActiveMember(100L, TEST_USER_ID))
+                    .thenThrow(new RuntimeException("guild down"));
+
+            List<MissionResponse> result =
+                    missionService.getGuildMissions("100", null, TEST_USER_ID);
+
+            assertThat(result).hasSize(1);
+            assertThat(result.get(0).getCanRejoin()).isFalse();
+        }
+
+        @Test
+        @DisplayName("길드 ID 가 숫자가 아니면 길드원 조회 없이 다시하기를 숨긴다")
+        void invalidGuildId_hidesRejoin() {
+            Mission neverJoined = mission(3L, "abc", MissionStatus.OPEN);
+            when(missionRepository.findGuildMissions("abc", GUILD_LIST_STATUSES))
+                    .thenReturn(List.of(neverJoined));
+            when(participantRepository.findByUserIdAndMissionIdIn(TEST_USER_ID, List.of(3L)))
+                    .thenReturn(List.of());
+
+            List<MissionResponse> result =
+                    missionService.getGuildMissions("abc", null, TEST_USER_ID);
+
+            assertThat(result.get(0).getCanRejoin()).isFalse();
+            verify(guildQueryFacadeService, never()).isActiveMember(any(), any());
+        }
+
+        @Test
+        @DisplayName("요청자가 없으면(기존 호출) 두 값을 채우지 않고 내 참여도 조회하지 않는다")
+        void noUser_skipsFlags() {
+            when(missionRepository.findGuildMissions("100", GUILD_LIST_STATUSES))
+                    .thenReturn(List.of(mission(1L, "100", MissionStatus.IN_PROGRESS)));
+
+            List<MissionResponse> result = missionService.getGuildMissions("100", null);
+
+            assertThat(result.get(0).getInMyMissions()).isNull();
+            assertThat(result.get(0).getCanRejoin()).isNull();
+            verify(participantRepository, never()).findByUserIdAndMissionIdIn(any(), any());
         }
     }
 

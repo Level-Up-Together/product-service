@@ -1,9 +1,12 @@
 package io.pinkspider.leveluptogethermvp.missionservice.application;
 
+import io.pinkspider.global.facade.GuildQueryFacade;
+import io.pinkspider.leveluptogethermvp.missionservice.api.exception.GuildMissionRejoinException;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MissionParticipantResponse;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.Mission;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.MissionParticipant;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.ParticipantStatus;
+import io.pinkspider.leveluptogethermvp.missionservice.domain.policy.GuildMissionRejoinPolicy;
 import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.DailyMissionInstanceRepository;
 import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.MissionExecutionRepository;
 import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.MissionParticipantRepository;
@@ -28,6 +31,8 @@ public class MissionParticipantService {
     private final MissionExecutionService missionExecutionService;
     private final MissionExecutionRepository executionRepository;
     private final DailyMissionInstanceRepository dailyMissionInstanceRepository;
+    // LUT-849: 길드 미션 다시하기 — 그 길드의 활동 멤버인지
+    private final GuildQueryFacade guildQueryFacade;
 
     @Transactional(transactionManager = "missionTransactionManager")
     public MissionParticipantResponse joinMission(Long missionId, String userId) {
@@ -135,6 +140,41 @@ public class MissionParticipantService {
 
         // 실행 스케줄 생성
         missionExecutionService.generateExecutionsForParticipant(saved);
+    }
+
+    /**
+     * LUT-849: 길드 미션 탭 '다시하기' — 나의 미션에서 지운(철회한) 길드 미션을 다시 넣는다. 아직 받은 적 없는 길드 미션(가입 뒤에 열린 일반 미션,
+     * LUT-518)도 같은 버튼으로 넣는다. 같은 참여 행을 되살리므로({@link #addGuildMemberAsParticipant}) 지난 수행 기록과 오늘 기록이
+     * 그대로 이어진다. 이미 나의 미션에 있으면 아무것도 바꾸지 않는다.
+     *
+     * <p>규칙은 {@link GuildMissionRejoinPolicy}(길드 미션 목록의 {@code can_rejoin} 과 같다) — 아니면 {@link
+     * GuildMissionRejoinException}(400/403).
+     */
+    @Transactional(transactionManager = "missionTransactionManager")
+    public MissionParticipantResponse rejoinGuildMission(Long missionId, String userId) {
+        Mission mission =
+                missionRepository
+                        .findById(missionId)
+                        .orElseThrow(GuildMissionRejoinException::unavailable);
+        if (!mission.isGuildMission()) {
+            throw GuildMissionRejoinException.notGuildMission();
+        }
+        if (!GuildMissionRejoinPolicy.isRejoinableMission(mission)) {
+            throw GuildMissionRejoinException.unavailable();
+        }
+        Long guildId = mission.getGuildIdAsLong();
+        if (guildId == null || !guildQueryFacade.isActiveMember(guildId, userId)) {
+            throw GuildMissionRejoinException.notGuildMember();
+        }
+        MissionParticipant existing =
+                participantRepository.findByMissionIdAndUserId(missionId, userId).orElse(null);
+        if (existing != null && existing.getStatus() == ParticipantStatus.COMPLETED) {
+            throw GuildMissionRejoinException.alreadyCompleted();
+        }
+
+        addGuildMemberAsParticipant(mission, userId);
+        log.info("길드 미션 다시하기: missionId={}, userId={}", missionId, userId);
+        return MissionParticipantResponse.from(findParticipantByMissionAndUser(missionId, userId));
     }
 
     @Transactional(transactionManager = "missionTransactionManager")

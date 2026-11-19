@@ -82,4 +82,31 @@ class MissionIdempotencyExceptionHandlerTest {
             assertThat(body.getMessage()).startsWith("error.mission.recommended.");
         }
     }
+
+    @Test
+    @DisplayName("LUT-849 길드 미션 다시하기 — 길드원 아님 403 050603, 나머지는 400")
+    void guildMissionRejoin_statuses() {
+        MissionIdempotencyExceptionHandler handler = new MissionIdempotencyExceptionHandler();
+
+        ResponseEntity<Object> notMember =
+                handler.handleGuildMissionRejoin(GuildMissionRejoinException.notGuildMember());
+        assertThat(notMember.getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN);
+        assertThat(((ApiResult<?>) notMember.getBody()).getCode()).isEqualTo("050603");
+        assertThat(((ApiResult<?>) notMember.getBody()).getMessage())
+                .isEqualTo("error.mission.rejoin.not_guild_member");
+
+        java.util.Map<String, GuildMissionRejoinException> badRequests =
+                java.util.Map.of(
+                        "050601", GuildMissionRejoinException.notGuildMission(),
+                        "050602", GuildMissionRejoinException.unavailable(),
+                        "050604", GuildMissionRejoinException.alreadyCompleted());
+        badRequests.forEach(
+                (code, e) -> {
+                    ResponseEntity<Object> res = handler.handleGuildMissionRejoin(e);
+                    assertThat(res.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+                    ApiResult<?> body = (ApiResult<?>) res.getBody();
+                    assertThat(body.getCode()).isEqualTo(code);
+                    assertThat(body.getMessage()).startsWith("error.mission.rejoin.");
+                });
+    }
 }

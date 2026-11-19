@@ -51,6 +51,18 @@ public class MissionIdempotencyExceptionHandler {
                                 .build());
     }
 
+    /** LUT-849: 길드 미션 다시하기 — 입력 오류 400 · 길드원 아님 403 */
+    @ExceptionHandler(GuildMissionRejoinException.class)
+    public ResponseEntity<Object> handleGuildMissionRejoin(GuildMissionRejoinException e) {
+        log.info("[guild-mission-rejoin] code={} status={}", e.getCode(), e.getStatus().value());
+        return ResponseEntity.status(e.getStatus())
+                .body(
+                        ApiResult.builder()
+                                .code(e.getCode())
+                                .message(resolveMessage(e.getMessage()))
+                                .build());
+    }
+
     private String resolveMessage(String messageOrKey) {
         if (messageSource == null || messageOrKey == null) {
             return messageOrKey;

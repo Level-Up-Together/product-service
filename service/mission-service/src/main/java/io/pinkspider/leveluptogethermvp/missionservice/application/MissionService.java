@@ -15,11 +15,13 @@ import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MissionRespons
 import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MissionTemplateResponse;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MissionUpdateRequest;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.Mission;
+import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.MissionParticipant;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.MissionTemplate;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.RecommendedMission;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionSource;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionType;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionVisibility;
+import io.pinkspider.leveluptogethermvp.missionservice.domain.policy.GuildMissionRejoinPolicy;
 import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.MissionParticipantRepository;
 import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.MissionRepository;
 import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.MissionTemplateRepository;
@@ -473,8 +475,15 @@ public class MissionService {
         return getGuildMissions(guildId, null);
     }
 
-    /** LUT-255: locale에 맞는 title/description/categoryName으로 길드 미션 목록 조회 */
     public List<MissionResponse> getGuildMissions(String guildId, String locale) {
+        return getGuildMissions(guildId, locale, null);
+    }
+
+    /**
+     * LUT-255: locale에 맞는 title/description/categoryName으로 길드 미션 목록 조회. LUT-849: 요청자가 있으면 미션마다 나의
+     * 미션 여부(in_my_missions)·다시하기 가능 여부(can_rejoin)를 채운다.
+     */
+    public List<MissionResponse> getGuildMissions(String guildId, String locale, String userId) {
         List<Mission> missions =
                 missionRepository.findGuildMissions(guildId, GUILD_LIST_VISIBLE_STATUSES);
         List<MissionResponse> result =
@@ -495,7 +504,49 @@ public class MissionService {
                                     underReviewMap.getOrDefault(String.valueOf(r.getId()), false)));
         }
 
+        if (userId != null && !missions.isEmpty()) {
+            fillMyGuildMissionParticipation(missions, result, guildId, userId);
+        }
         return result;
+    }
+
+    /**
+     * LUT-849: 길드 미션 목록의 in_my_missions·can_rejoin. 내 참여(상태 무관)는 목록 한 번에, 길드원 여부는 한 번만 조회한다. 판정 규칙은
+     * 다시하기 API 와 같은 {@link GuildMissionRejoinPolicy}.
+     */
+    private void fillMyGuildMissionParticipation(
+            List<Mission> missions, List<MissionResponse> result, String guildId, String userId) {
+        Map<Long, MissionParticipant> mine =
+                participantRepository
+                        .findByUserIdAndMissionIdIn(
+                                userId, missions.stream().map(Mission::getId).toList())
+                        .stream()
+                        .collect(
+                                Collectors.toMap(p -> p.getMission().getId(), p -> p, (a, b) -> a));
+        boolean member = isActiveGuildMember(guildId, userId);
+        for (int i = 0; i < missions.size(); i++) {
+            Mission mission = missions.get(i);
+            MissionParticipant participant = mine.get(mission.getId());
+            MissionResponse response = result.get(i);
+            response.setInMyMissions(GuildMissionRejoinPolicy.isInMyMissions(participant));
+            response.setCanRejoin(
+                    member
+                            && GuildMissionRejoinPolicy.isRejoinableMission(mission)
+                            && GuildMissionRejoinPolicy.isRejoinableParticipation(participant));
+        }
+    }
+
+    /** LUT-849: 다시하기 노출용 길드원 여부 — 조회 실패·잘못된 길드 ID 면 숨긴다(false) */
+    private boolean isActiveGuildMember(String guildId, String userId) {
+        try {
+            return guildQueryFacadeService.isActiveMember(Long.valueOf(guildId), userId);
+        } catch (Exception e) {
+            log.warn(
+                    "길드 미션 목록 길드원 여부 조회 실패 - 다시하기 숨김: guildId={}, error={}",
+                    guildId,
+                    e.getMessage());
+            return false;
+        }
     }
 
     /**
