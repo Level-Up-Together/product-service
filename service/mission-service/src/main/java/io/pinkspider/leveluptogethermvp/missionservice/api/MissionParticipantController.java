@@ -82,6 +82,17 @@ public class MissionParticipantController {
                 ApiResult.<MissionParticipantResponse>builder().value(response).build());
     }
 
+    /** LUT-849: 길드 미션 탭 '다시하기' — 나의 미션에서 지운 길드 미션을 다시 넣는다 */
+    @PostMapping("/{missionId}/rejoin")
+    public ResponseEntity<ApiResult<MissionParticipantResponse>> rejoinGuildMission(
+            @PathVariable Long missionId, @CurrentUser String userId) {
+
+        MissionParticipantResponse response =
+                participantService.rejoinGuildMission(missionId, userId);
+        return ResponseEntity.ok(
+                ApiResult.<MissionParticipantResponse>builder().value(response).build());
+    }
+
     @GetMapping("/{missionId}/participants")
     public ResponseEntity<ApiResult<List<MissionParticipantResponse>>> getMissionParticipants(
             @PathVariable Long missionId) {

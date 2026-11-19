@@ -9,7 +9,9 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import io.pinkspider.global.enums.MissionStatus;
+import io.pinkspider.global.facade.GuildQueryFacade;
 import io.pinkspider.global.test.TestReflectionUtils;
+import io.pinkspider.leveluptogethermvp.missionservice.api.exception.GuildMissionRejoinException;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MissionParticipantResponse;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.Mission;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.MissionParticipant;
@@ -24,14 +26,18 @@ import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.MissionRep
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.http.HttpStatus;
 
 @ExtendWith(MockitoExtension.class)
 class MissionParticipantServiceTest {
@@ -45,6 +51,8 @@ class MissionParticipantServiceTest {
     @Mock private MissionExecutionRepository executionRepository;
 
     @Mock private DailyMissionInstanceRepository dailyMissionInstanceRepository;
+
+    @Mock private GuildQueryFacade guildQueryFacade;
 
     @InjectMocks private MissionParticipantService missionParticipantService;
 
@@ -64,6 +72,201 @@ class MissionParticipantServiceTest {
         setId(mission, id);
         TestReflectionUtils.setField(mission, "source", MissionSource.SYSTEM);
         return mission;
+    }
+
+    @Nested
+    @DisplayName("길드 미션 다시하기 (LUT-849)")
+    class RejoinGuildMissionTest {
+
+        private static final Long MISSION_ID = 7L;
+
+        private Mission guildMission(MissionStatus status, String guildId) {
+            Mission mission =
+                    Mission.builder()
+                            .title("길드 미션")
+                            .description("설명")
+                            .status(status)
+                            .visibility(MissionVisibility.GUILD_ONLY)
+                            .type(MissionType.GUILD)
+                            .guildId(guildId)
+                            .creatorId(ADMIN_USER_ID)
+                            .build();
+            setId(mission, MISSION_ID);
+            return mission;
+        }
+
+        private MissionParticipant participant(Mission mission, ParticipantStatus status) {
+            MissionParticipant participant =
+                    MissionParticipant.builder()
+                            .mission(mission)
+                            .userId(TEST_USER_ID)
+                            .status(status)
+                            .progress(0)
+                            .joinedAt(LocalDateTime.now().minusDays(3))
+                            .build();
+            setId(participant, 11L);
+            return participant;
+        }
+
+        private void assertRejoinFails(String code, HttpStatus status) {
+            assertThatThrownBy(
+                            () ->
+                                    missionParticipantService.rejoinGuildMission(
+                                            MISSION_ID, TEST_USER_ID))
+                    .isInstanceOfSatisfying(
+                            GuildMissionRejoinException.class,
+                            e -> {
+                                assertThat(e.getCode()).isEqualTo(code);
+                                assertThat(e.getStatus()).isEqualTo(status);
+                            });
+            verify(participantRepository, never()).save(any());
+        }
+
+        @Test
+        @DisplayName("철회한 길드 미션은 같은 참여 행을 되살려 다시 넣고 실행 일정을 다시 만든다")
+        void rejoin_withdrawn_reactivatesSameRow() {
+            Mission mission = guildMission(MissionStatus.IN_PROGRESS, "10");
+            MissionParticipant withdrawn = participant(mission, ParticipantStatus.WITHDRAWN);
+            when(missionRepository.findById(MISSION_ID)).thenReturn(Optional.of(mission));
+            when(guildQueryFacade.isActiveMember(10L, TEST_USER_ID)).thenReturn(true);
+            when(participantRepository.findByMissionIdAndUserId(MISSION_ID, TEST_USER_ID))
+                    .thenReturn(Optional.of(withdrawn));
+            when(participantRepository.existsActiveParticipation(MISSION_ID, TEST_USER_ID))
+                    .thenReturn(false);
+            when(participantRepository.save(any(MissionParticipant.class)))
+                    .thenAnswer(invocation -> invocation.getArgument(0));
+
+            MissionParticipantResponse response =
+                    missionParticipantService.rejoinGuildMission(MISSION_ID, TEST_USER_ID);
+
+            assertThat(response.getId()).isEqualTo(11L); // 같은 행 — 지난 기록이 이어진다
+            assertThat(response.getStatus()).isEqualTo(ParticipantStatus.ACCEPTED);
+            verify(missionExecutionService).generateExecutionsForParticipant(withdrawn);
+        }
+
+        @Test
+        @DisplayName("받은 적 없는 길드 미션(모집중)도 다시하기로 넣는다")
+        void rejoin_neverJoined_inserts() {
+            Mission mission = guildMission(MissionStatus.OPEN, "10");
+            AtomicReference<MissionParticipant> saved = new AtomicReference<>();
+            when(missionRepository.findById(MISSION_ID)).thenReturn(Optional.of(mission));
+            when(guildQueryFacade.isActiveMember(10L, TEST_USER_ID)).thenReturn(true);
+            when(participantRepository.findByMissionIdAndUserId(MISSION_ID, TEST_USER_ID))
+                    .thenReturn(Optional.empty(), Optional.empty())
+                    .thenAnswer(invocation -> Optional.ofNullable(saved.get()));
+            when(participantRepository.existsActiveParticipation(MISSION_ID, TEST_USER_ID))
+                    .thenReturn(false);
+            when(participantRepository.save(any(MissionParticipant.class)))
+                    .thenAnswer(
+                            invocation -> {
+                                MissionParticipant p = invocation.getArgument(0);
+                                setId(p, 12L);
+                                saved.set(p);
+                                return p;
+                            });
+
+            MissionParticipantResponse response =
+                    missionParticipantService.rejoinGuildMission(MISSION_ID, TEST_USER_ID);
+
+            assertThat(response.getId()).isEqualTo(12L);
+            assertThat(response.getStatus()).isEqualTo(ParticipantStatus.ACCEPTED);
+            verify(missionExecutionService).generateExecutionsForParticipant(saved.get());
+        }
+
+        @Test
+        @DisplayName("이미 나의 미션에 있으면 아무것도 바꾸지 않는다")
+        void rejoin_alreadyActive_noop() {
+            Mission mission = guildMission(MissionStatus.IN_PROGRESS, "10");
+            MissionParticipant active = participant(mission, ParticipantStatus.ACCEPTED);
+            when(missionRepository.findById(MISSION_ID)).thenReturn(Optional.of(mission));
+            when(guildQueryFacade.isActiveMember(10L, TEST_USER_ID)).thenReturn(true);
+            when(participantRepository.findByMissionIdAndUserId(MISSION_ID, TEST_USER_ID))
+                    .thenReturn(Optional.of(active));
+            when(participantRepository.existsActiveParticipation(MISSION_ID, TEST_USER_ID))
+                    .thenReturn(true);
+
+            MissionParticipantResponse response =
+                    missionParticipantService.rejoinGuildMission(MISSION_ID, TEST_USER_ID);
+
+            assertThat(response.getStatus()).isEqualTo(ParticipantStatus.ACCEPTED);
+            verify(participantRepository, never()).save(any());
+            verify(missionExecutionService, never()).generateExecutionsForParticipant(any());
+        }
+
+        @Test
+        @DisplayName("길드 미션이 아니면 400 050601")
+        void rejoin_notGuildMission() {
+            when(missionRepository.findById(MISSION_ID))
+                    .thenReturn(Optional.of(createOpenPublicMission(MISSION_ID)));
+
+            assertRejoinFails(
+                    GuildMissionRejoinException.CODE_NOT_GUILD_MISSION, HttpStatus.BAD_REQUEST);
+        }
+
+        @ParameterizedTest
+        @EnumSource(
+                value = MissionStatus.class,
+                names = {"DRAFT", "COMPLETED", "CANCELLED"})
+        @DisplayName("열리지 않았거나 끝난 길드 미션은 400 050602")
+        void rejoin_notOpenOrInProgress(MissionStatus status) {
+            when(missionRepository.findById(MISSION_ID))
+                    .thenReturn(Optional.of(guildMission(status, "10")));
+
+            assertRejoinFails(GuildMissionRejoinException.CODE_UNAVAILABLE, HttpStatus.BAD_REQUEST);
+        }
+
+        @Test
+        @DisplayName("삭제된 길드 미션은 400 050602")
+        void rejoin_deleted() {
+            Mission mission = guildMission(MissionStatus.IN_PROGRESS, "10");
+            mission.delete();
+            when(missionRepository.findById(MISSION_ID)).thenReturn(Optional.of(mission));
+
+            assertRejoinFails(GuildMissionRejoinException.CODE_UNAVAILABLE, HttpStatus.BAD_REQUEST);
+        }
+
+        @Test
+        @DisplayName("없는 미션은 400 050602")
+        void rejoin_notFound() {
+            when(missionRepository.findById(MISSION_ID)).thenReturn(Optional.empty());
+
+            assertRejoinFails(GuildMissionRejoinException.CODE_UNAVAILABLE, HttpStatus.BAD_REQUEST);
+        }
+
+        @Test
+        @DisplayName("그 길드의 활동 멤버가 아니면 403 050603")
+        void rejoin_notGuildMember() {
+            when(missionRepository.findById(MISSION_ID))
+                    .thenReturn(Optional.of(guildMission(MissionStatus.IN_PROGRESS, "10")));
+            when(guildQueryFacade.isActiveMember(10L, TEST_USER_ID)).thenReturn(false);
+
+            assertRejoinFails(
+                    GuildMissionRejoinException.CODE_NOT_GUILD_MEMBER, HttpStatus.FORBIDDEN);
+        }
+
+        @Test
+        @DisplayName("길드 ID 가 없는 길드 미션은 길드원 확인 없이 403 050603")
+        void rejoin_noGuildId() {
+            when(missionRepository.findById(MISSION_ID))
+                    .thenReturn(Optional.of(guildMission(MissionStatus.IN_PROGRESS, null)));
+
+            assertRejoinFails(
+                    GuildMissionRejoinException.CODE_NOT_GUILD_MEMBER, HttpStatus.FORBIDDEN);
+            verify(guildQueryFacade, never()).isActiveMember(any(), any());
+        }
+
+        @Test
+        @DisplayName("이미 완료한 일반 길드 미션(1회성)은 400 050604 — 다시 넣어 EXP 를 또 받지 못하게")
+        void rejoin_alreadyCompleted() {
+            Mission mission = guildMission(MissionStatus.IN_PROGRESS, "10");
+            when(missionRepository.findById(MISSION_ID)).thenReturn(Optional.of(mission));
+            when(guildQueryFacade.isActiveMember(10L, TEST_USER_ID)).thenReturn(true);
+            when(participantRepository.findByMissionIdAndUserId(MISSION_ID, TEST_USER_ID))
+                    .thenReturn(Optional.of(participant(mission, ParticipantStatus.COMPLETED)));
+
+            assertRejoinFails(
+                    GuildMissionRejoinException.CODE_ALREADY_COMPLETED, HttpStatus.BAD_REQUEST);
+        }
     }
 
     @Nested
