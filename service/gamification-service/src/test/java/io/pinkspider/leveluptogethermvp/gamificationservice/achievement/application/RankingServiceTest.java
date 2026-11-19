@@ -7,14 +7,18 @@ import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import io.pinkspider.global.enums.TitlePosition;
 import io.pinkspider.global.enums.TitleRarity;
+import io.pinkspider.global.facade.GuildQueryFacade;
 import io.pinkspider.global.facade.MissionQueryFacade;
 import io.pinkspider.global.facade.UserQueryFacade;
 import io.pinkspider.global.facade.dto.EquippedItemRarityDto;
+import io.pinkspider.global.facade.dto.GuildMembershipInfo;
 import io.pinkspider.global.facade.dto.InProgressMissionDto;
 import io.pinkspider.global.facade.dto.UserProfileInfo;
 import io.pinkspider.leveluptogethermvp.gamificationservice.achievement.domain.dto.LevelRankingResponse;
@@ -63,6 +67,8 @@ class RankingServiceTest {
     @Mock private MissionCategoryService missionCategoryService;
 
     @Mock private UserItemService userItemService;
+
+    @Mock private GuildQueryFacade guildQueryFacade;
 
     @InjectMocks private RankingService rankingService;
 
@@ -1252,6 +1258,205 @@ class RankingServiceTest {
             assertThat(result.getContent()).hasSize(1);
             assertThat(result.getContent().get(0).getUserId()).isEqualTo("active1");
             assertThat(result.getContent().get(0).getTotalUsers()).isEqualTo(1L);
+        }
+    }
+
+    @Nested
+    @DisplayName("진행중 미션 공개범위 — 프로필(LUT-257)과 같은 규칙 (LUT-848)")
+    class InProgressMissionVisibilityTest {
+
+        private static final String VIEWER = "viewer";
+        private final java.time.LocalDateTime now = java.time.LocalDateTime.of(2026, 11, 20, 8, 0);
+
+        private InProgressMissionDto mission(long id, String visibility, int hoursAgo) {
+            return new InProgressMissionDto(
+                    id, 1L, "운동", "미션" + id, visibility, null, now.minusHours(hoursAgo));
+        }
+
+        private Page<LevelRankingResponse> realtime(
+                String viewerUserId, Map<String, InProgressMissionDto> missions) {
+            when(missionQueryFacade.findAllInProgressMissions(any())).thenReturn(missions);
+            when(userQueryFacadeService.getActiveUserIds(anyList()))
+                    .thenReturn(new java.util.ArrayList<>(missions.keySet()));
+            when(userQueryFacadeService.getUserProfiles(anyList())).thenReturn(Map.of());
+            return rankingService.getRealtimeRanking(PageRequest.of(0, 20), null, viewerUserId);
+        }
+
+        private LevelRankingResponse.InProgressMissionInfo missionOf(
+                Page<LevelRankingResponse> page, String userId) {
+            return page.getContent().stream()
+                    .filter(r -> userId.equals(r.getUserId()))
+                    .findFirst()
+                    .orElseThrow()
+                    .getInProgressMission();
+        }
+
+        private void guildmates(String... userIds) {
+            when(guildQueryFacade.getUserGuildMemberships(VIEWER))
+                    .thenReturn(List.of(new GuildMembershipInfo(10L, "길드", null, 1, false, false)));
+            when(guildQueryFacade.getActiveMemberUserIds(10L)).thenReturn(List.of(userIds));
+        }
+
+        @Test
+        @DisplayName("친구공개 미션은 친구에게 미션명이 보이고, 길드는 조회하지 않는다")
+        void friendsOnly_visibleToFriend() {
+            when(userQueryFacadeService.getFriendIds(VIEWER)).thenReturn(List.of("friend1"));
+
+            Page<LevelRankingResponse> result =
+                    realtime(VIEWER, Map.of("friend1", mission(11L, "FRIENDS_ONLY", 1)));
+
+            LevelRankingResponse.InProgressMissionInfo m = missionOf(result, "friend1");
+            assertThat(m.getIsVisible()).isTrue();
+            assertThat(m.getTitle()).isEqualTo("미션11");
+            assertThat(m.getMissionId()).isEqualTo(11L);
+            assertThat(m.getCategoryName()).isEqualTo("운동");
+            verifyNoInteractions(guildQueryFacade);
+        }
+
+        @Test
+        @DisplayName("친구가 아니면 친구공개 미션은 가린다")
+        void friendsOnly_hiddenFromNonFriend() {
+            when(userQueryFacadeService.getFriendIds(VIEWER)).thenReturn(List.of());
+
+            Page<LevelRankingResponse> result =
+                    realtime(VIEWER, Map.of("other", mission(11L, "FRIENDS_ONLY", 1)));
+
+            LevelRankingResponse.InProgressMissionInfo m = missionOf(result, "other");
+            assertThat(m.getIsVisible()).isFalse();
+            assertThat(m.getTitle()).isNull();
+            assertThat(m.getMissionId()).isNull();
+            assertThat(m.getVisibility()).isEqualTo("FRIENDS_ONLY");
+        }
+
+        @Test
+        @DisplayName("길드공개 미션은 같은 길드 멤버에게만 보이고, 친구는 조회하지 않는다")
+        void guildOnly_visibleToGuildmateOnly() {
+            guildmates(VIEWER, "guildmate");
+
+            Page<LevelRankingResponse> result =
+                    realtime(
+                            VIEWER,
+                            Map.of(
+                                    "guildmate", mission(11L, "GUILD_ONLY", 1),
+                                    "stranger", mission(22L, "GUILD_ONLY", 2)));
+
+            assertThat(missionOf(result, "guildmate").getIsVisible()).isTrue();
+            assertThat(missionOf(result, "guildmate").getTitle()).isEqualTo("미션11");
+            assertThat(missionOf(result, "stranger").getIsVisible()).isFalse();
+            assertThat(missionOf(result, "stranger").getTitle()).isNull();
+            verify(userQueryFacadeService, never()).getFriendIds(anyString());
+        }
+
+        @Test
+        @DisplayName("길드가 없으면 길드공개 미션은 가린다")
+        void guildOnly_hiddenWhenViewerHasNoGuild() {
+            when(guildQueryFacade.getUserGuildMemberships(VIEWER)).thenReturn(List.of());
+
+            Page<LevelRankingResponse> result =
+                    realtime(VIEWER, Map.of("other", mission(11L, "GUILD_ONLY", 1)));
+
+            assertThat(missionOf(result, "other").getIsVisible()).isFalse();
+            verify(guildQueryFacade, never()).getActiveMemberUserIds(any());
+        }
+
+        @Test
+        @DisplayName("친구·길드 공개는 친구 또는 같은 길드면 보인다 — 관계는 목록 한 번에 한 번씩만 조회")
+        void friendsAndGuild_friendOrGuildmate() {
+            when(userQueryFacadeService.getFriendIds(VIEWER)).thenReturn(List.of("friend1"));
+            guildmates("guildmate");
+
+            Page<LevelRankingResponse> result =
+                    realtime(
+                            VIEWER,
+                            Map.of(
+                                    "friend1", mission(11L, "FRIENDS_AND_GUILD", 1),
+                                    "guildmate", mission(22L, "FRIENDS_AND_GUILD", 2),
+                                    "stranger", mission(33L, "FRIENDS_AND_GUILD", 3)));
+
+            assertThat(missionOf(result, "friend1").getIsVisible()).isTrue();
+            assertThat(missionOf(result, "guildmate").getIsVisible()).isTrue();
+            assertThat(missionOf(result, "guildmate").getTitle()).isEqualTo("미션22");
+            assertThat(missionOf(result, "stranger").getIsVisible()).isFalse();
+            verify(userQueryFacadeService, times(1)).getFriendIds(VIEWER);
+            verify(guildQueryFacade, times(1)).getUserGuildMemberships(VIEWER);
+        }
+
+        @Test
+        @DisplayName("비공개 미션은 친구에게도 가리고 본인에게만 보인다 — 관계는 조회하지 않는다")
+        void private_ownerOnly() {
+            Page<LevelRankingResponse> result =
+                    realtime(
+                            VIEWER,
+                            Map.of(
+                                    "friend1",
+                                    mission(11L, "PRIVATE", 1),
+                                    VIEWER,
+                                    mission(22L, "PRIVATE", 2)));
+
+            assertThat(missionOf(result, "friend1").getIsVisible()).isFalse();
+            assertThat(missionOf(result, VIEWER).getIsVisible()).isTrue();
+            assertThat(missionOf(result, VIEWER).getTitle()).isEqualTo("미션22");
+            verify(userQueryFacadeService, never()).getFriendIds(anyString());
+            verifyNoInteractions(guildQueryFacade);
+        }
+
+        @Test
+        @DisplayName("비로그인은 전체공개만 보이고 관계를 조회하지 않는다")
+        void anonymous_publicOnly() {
+            Page<LevelRankingResponse> result =
+                    realtime(
+                            null,
+                            Map.of(
+                                    "pub", mission(11L, "PUBLIC", 1),
+                                    "friendsOnly", mission(22L, "FRIENDS_ONLY", 2),
+                                    "guildOnly", mission(33L, "GUILD_ONLY", 3)));
+
+            assertThat(missionOf(result, "pub").getIsVisible()).isTrue();
+            assertThat(missionOf(result, "friendsOnly").getIsVisible()).isFalse();
+            assertThat(missionOf(result, "guildOnly").getIsVisible()).isFalse();
+            verify(userQueryFacadeService, never()).getFriendIds(anyString());
+            verifyNoInteractions(guildQueryFacade);
+        }
+
+        @Test
+        @DisplayName("관계 조회에 실패하면 가리고 목록은 그대로 내린다")
+        void lookupFailure_hides() {
+            when(userQueryFacadeService.getFriendIds(VIEWER))
+                    .thenThrow(new RuntimeException("user down"));
+            when(guildQueryFacade.getUserGuildMemberships(VIEWER))
+                    .thenThrow(new RuntimeException("guild down"));
+
+            Page<LevelRankingResponse> result =
+                    realtime(
+                            VIEWER,
+                            Map.of(
+                                    "friendsOnly", mission(11L, "FRIENDS_ONLY", 1),
+                                    "guildOnly", mission(22L, "GUILD_ONLY", 2)));
+
+            assertThat(result.getContent()).hasSize(2);
+            assertThat(missionOf(result, "friendsOnly").getIsVisible()).isFalse();
+            assertThat(missionOf(result, "guildOnly").getIsVisible()).isFalse();
+        }
+
+        @Test
+        @DisplayName("등급 랭킹(enrich 경로)에서도 친구의 친구공개 미션이 보인다")
+        void levelRanking_friendsOnly_visibleToFriend() {
+            UserExperience exp1 = createTestUserExperience(1L, "friend1", 20, 5000);
+            when(userExperienceRepository.findAllByOrderByCurrentLevelDescTotalExpDesc())
+                    .thenReturn(List.of(exp1));
+            when(userQueryFacadeService.getActiveUserIds(List.of("friend1")))
+                    .thenReturn(List.of("friend1"));
+            when(userQueryFacadeService.getUserProfiles(List.of("friend1"))).thenReturn(Map.of());
+            when(missionQueryFacade.findInProgressMissions(eq(List.of("friend1")), any()))
+                    .thenReturn(Map.of("friend1", mission(11L, "FRIENDS_ONLY", 1)));
+            when(userQueryFacadeService.getFriendIds(VIEWER)).thenReturn(List.of("friend1"));
+
+            Page<LevelRankingResponse> result =
+                    rankingService.getLevelRanking(PageRequest.of(0, 10), null, VIEWER);
+
+            LevelRankingResponse.InProgressMissionInfo m = missionOf(result, "friend1");
+            assertThat(m.getIsVisible()).isTrue();
+            assertThat(m.getTitle()).isEqualTo("미션11");
         }
     }
 

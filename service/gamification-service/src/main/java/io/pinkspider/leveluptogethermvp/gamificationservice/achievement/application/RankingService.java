@@ -2,9 +2,11 @@ package io.pinkspider.leveluptogethermvp.gamificationservice.achievement.applica
 
 import io.pinkspider.global.enums.TitlePosition;
 import io.pinkspider.global.enums.TitleRarity;
+import io.pinkspider.global.facade.GuildQueryFacade;
 import io.pinkspider.global.facade.MissionQueryFacade;
 import io.pinkspider.global.facade.UserQueryFacade;
 import io.pinkspider.global.facade.dto.EquippedItemRarityDto;
+import io.pinkspider.global.facade.dto.GuildMembershipInfo;
 import io.pinkspider.global.facade.dto.InProgressMissionDto;
 import io.pinkspider.global.facade.dto.UserProfileInfo;
 import io.pinkspider.leveluptogethermvp.gamificationservice.achievement.domain.dto.LevelRankingResponse;
@@ -58,6 +60,8 @@ public class RankingService {
     private final MissionCategoryService missionCategoryService;
     // LUT-424: 랭킹 썸네일의 장착 아이템 등급 표식용
     private final UserItemService userItemService;
+    // LUT-848: 진행중 미션 공개범위(길드공개) 판정용
+    private final GuildQueryFacade guildQueryFacade;
 
     // 종합 랭킹 (랭킹 포인트 기준)
     public Page<RankingResponse> getOverallRanking(Pageable pageable) {
@@ -488,6 +492,7 @@ public class RankingService {
         Map<String, UserProfileInfo> profileMap = userQueryFacadeService.getUserProfiles(sliceIds);
         Map<String, UserExperience> expMap = loadUserExperienceMap(sliceIds);
         Map<String, List<UserTitle>> titleMap = loadEquippedTitleMap(sliceIds);
+        MissionViewer viewer = new MissionViewer(viewerUserId);
 
         List<LevelRankingResponse> responses = new ArrayList<>();
         for (int i = 0; i < slice.size(); i++) {
@@ -517,7 +522,7 @@ public class RankingService {
                             .percentile(calculatePercentile(rank, totalUsers))
                             .build();
             response.setInProgressMission(
-                    toInProgressMissionInfo(slice.get(i).getValue(), userId, viewerUserId, locale));
+                    toInProgressMissionInfo(slice.get(i).getValue(), userId, viewer, locale));
             responses.add(response);
         }
         enrichItemRarities(responses);
@@ -830,8 +835,8 @@ public class RankingService {
     /**
      * LUT-275: 랭킹 목록에 각 유저의 실시간 진행중 미션을 채운다.
      *
-     * <p>랭킹은 불특정 다수에게 노출되는 화면이므로 PUBLIC 미션(과 본인 행)만 상세를 노출하고, 그 외 공개범위는 프로필(LUT-257)과 동일하게 미션 정보를
-     * null 마스킹 + is_visible=false 로 내린다 (프론트는 "비공개 미션 진행중" 표시 가능). 조회 실패 시 필드 없이 기존 응답을 유지한다.
+     * <p>공개범위는 프로필(LUT-257)과 같은 규칙으로 판정하고({@link MissionViewer}, LUT-848), 보는 사람에게 비노출이면 미션 정보를
+     * null 마스킹 + is_visible=false 로 내린다 (프론트는 공개범위별 가림 문구를 그린다). 조회 실패 시 필드 없이 기존 응답을 유지한다.
      */
     private void enrichInProgressMissions(
             List<LevelRankingResponse> responses, String viewerUserId, String locale) {
@@ -846,25 +851,24 @@ public class RankingService {
                             .collect(Collectors.toList());
             Map<String, InProgressMissionDto> missions =
                     missionQueryFacade.findInProgressMissions(userIds, locale);
+            MissionViewer viewer = new MissionViewer(viewerUserId);
             for (LevelRankingResponse response : responses) {
                 InProgressMissionDto m = missions.get(response.getUserId());
                 if (m == null) {
                     continue;
                 }
                 response.setInProgressMission(
-                        toInProgressMissionInfo(m, response.getUserId(), viewerUserId, locale));
+                        toInProgressMissionInfo(m, response.getUserId(), viewer, locale));
             }
         } catch (Exception e) {
             log.warn("랭킹 진행중 미션 조회 실패 - 필드 생략: {}", e.getMessage());
         }
     }
 
-    /** LUT-275/LUT-297 공통: 공개범위 마스킹(PUBLIC 또는 본인만 노출)을 적용한 진행중 미션 정보 생성 */
+    /** LUT-275/LUT-297 공통: 보는 사람 기준 공개범위 마스킹(LUT-848)을 적용한 진행중 미션 정보 생성 */
     private LevelRankingResponse.InProgressMissionInfo toInProgressMissionInfo(
-            InProgressMissionDto m, String ownerUserId, String viewerUserId, String locale) {
-        boolean visible =
-                "PUBLIC".equals(m.visibility())
-                        || (viewerUserId != null && viewerUserId.equals(ownerUserId));
+            InProgressMissionDto m, String ownerUserId, MissionViewer viewer, String locale) {
+        boolean visible = viewer.canSee(m.visibility(), ownerUserId);
         return LevelRankingResponse.InProgressMissionInfo.builder()
                 .missionId(visible ? m.missionId() : null)
                 .categoryId(visible ? m.categoryId() : null)
@@ -878,6 +882,74 @@ public class RankingService {
                 .isVisible(visible)
                 .startedAt(m.startedAt())
                 .build();
+    }
+
+    /**
+     * LUT-848: 랭킹 진행중 미션의 공개범위 판정 — 프로필(LUT-257)·주간 캘린더와 같은 규칙. PUBLIC=전원, FRIENDS_ONLY=친구,
+     * GUILD_ONLY=같은 길드, FRIENDS_AND_GUILD=친구∪길드, PRIVATE=본인만, 비로그인=PUBLIC 만.
+     *
+     * <p>예전엔 PUBLIC·본인만 보여 친구에게도 "친구가 되면 볼 수 있어요" 가 떴다. 보는 사람의 친구·같은 길드 유저는 목록 한 번에 한 번씩만, 그 공개범위
+     * 미션이 있을 때만 모으고(유저마다 조회하지 않는다), 조회에 실패하면 가린다(fail-closed).
+     */
+    private final class MissionViewer {
+
+        private final String userId;
+        private Set<String> friendIds;
+        private Set<String> guildmateIds;
+
+        private MissionViewer(String userId) {
+            this.userId = userId;
+        }
+
+        private boolean canSee(String visibility, String ownerUserId) {
+            if ("PUBLIC".equals(visibility)) {
+                return true;
+            }
+            if (userId == null) {
+                return false;
+            }
+            if (userId.equals(ownerUserId)) {
+                return true;
+            }
+            boolean friendAllowed =
+                    "FRIENDS_ONLY".equals(visibility) || "FRIENDS_AND_GUILD".equals(visibility);
+            if (friendAllowed && friendIds().contains(ownerUserId)) {
+                return true;
+            }
+            boolean guildAllowed =
+                    "GUILD_ONLY".equals(visibility) || "FRIENDS_AND_GUILD".equals(visibility);
+            return guildAllowed && guildmateIds().contains(ownerUserId);
+        }
+
+        private Set<String> friendIds() {
+            if (friendIds == null) {
+                try {
+                    friendIds = new HashSet<>(userQueryFacadeService.getFriendIds(userId));
+                } catch (Exception e) {
+                    log.warn("랭킹 진행중 미션 친구 관계 조회 실패 - 비노출 처리: {}", e.getMessage());
+                    friendIds = Set.of();
+                }
+            }
+            return friendIds;
+        }
+
+        /** 보는 사람과 같은 길드에 하나라도 속한 활동 멤버 */
+        private Set<String> guildmateIds() {
+            if (guildmateIds == null) {
+                try {
+                    Set<String> ids = new HashSet<>();
+                    for (GuildMembershipInfo membership :
+                            guildQueryFacade.getUserGuildMemberships(userId)) {
+                        ids.addAll(guildQueryFacade.getActiveMemberUserIds(membership.guildId()));
+                    }
+                    guildmateIds = ids;
+                } catch (Exception e) {
+                    log.warn("랭킹 진행중 미션 길드 관계 조회 실패 - 비노출 처리: {}", e.getMessage());
+                    guildmateIds = Set.of();
+                }
+            }
+            return guildmateIds;
+        }
     }
 
     private String localizeMissionCategoryName(
