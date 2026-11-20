@@ -4,7 +4,7 @@ import lombok.Getter;
 import org.springframework.http.HttpStatus;
 
 /**
- * LUT-849: 길드 미션 탭 '다시하기'(나의 미션에 다시 넣기) 실패 — 플랫폼 {@code CustomException} 은 항상 500 이라, 입력 오류(400)·권한
+ * LUT-849: 길드 미션 '다시하기'(나의 미션에 다시 넣기) 실패 — 플랫폼 {@code CustomException} 은 항상 500 이라, 입력 오류(400)·권한
  * 없음(403)을 상태로 실어 보낸다. {@link MissionIdempotencyExceptionHandler} 가 같은 방식으로 응답한다.
  */
 @Getter

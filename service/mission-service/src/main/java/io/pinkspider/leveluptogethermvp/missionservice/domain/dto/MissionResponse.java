@@ -98,8 +98,9 @@ public class MissionResponse {
     private Boolean inMyMissions;
 
     /**
-     * LUT-849: 길드 미션 목록에서만 채운다 — 길드 미션 탭에 '다시하기' 를 보여 줄지(서버 판정, {@code GuildMissionRejoinPolicy}).
-     * 열린·진행중 길드 미션 + 요청자가 그 길드의 활동 멤버 + 참여 없음·철회·실패일 때 true. 완료한 일반 미션(1회성)은 false.
+     * LUT-849: 길드 미션 목록에서만 채운다 — '다시하기' 를 보여 줄지(LUT-852: 길드 미션 상세 하단, 서버 판정, {@code
+     * GuildMissionRejoinPolicy}). 열린·진행중 길드 미션 + 요청자가 그 길드의 활동 멤버 + 참여 없음·철회·실패일 때 true. 완료한 일반
+     * 미션(1회성)은 false.
      */
     @JsonInclude(JsonInclude.Include.NON_NULL)
     private Boolean canRejoin;

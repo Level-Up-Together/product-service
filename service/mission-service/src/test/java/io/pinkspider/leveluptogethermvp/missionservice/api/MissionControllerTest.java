@@ -1642,7 +1642,7 @@ class MissionControllerTest {
                                                                 fieldWithPath("value[].can_rejoin")
                                                                         .type(JsonFieldType.BOOLEAN)
                                                                         .description(
-                                                                                "LUT-849: 길드 미션 탭에"
+                                                                                "LUT-849: 길드 미션 상세에"
                                                                                     + " '다시하기' 를 보여"
                                                                                     + " 줄지 — 열린·진행중"
                                                                                     + " 길드 미션 + 길드원"

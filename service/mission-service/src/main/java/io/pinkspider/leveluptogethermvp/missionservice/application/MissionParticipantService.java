@@ -143,9 +143,9 @@ public class MissionParticipantService {
     }
 
     /**
-     * LUT-849: 길드 미션 탭 '다시하기' — 나의 미션에서 지운(철회한) 길드 미션을 다시 넣는다. 아직 받은 적 없는 길드 미션(가입 뒤에 열린 일반 미션,
-     * LUT-518)도 같은 버튼으로 넣는다. 같은 참여 행을 되살리므로({@link #addGuildMemberAsParticipant}) 지난 수행 기록과 오늘 기록이
-     * 그대로 이어진다. 이미 나의 미션에 있으면 아무것도 바꾸지 않는다.
+     * LUT-849: 길드 미션 '다시하기'(LUT-852: 길드 미션 상세 하단 버튼) — 나의 미션에서 지운(철회한) 길드 미션을 다시 넣는다. 아직 받은 적 없는 길드
+     * 미션(가입 뒤에 열린 일반 미션, LUT-518)도 같은 버튼으로 넣는다. 같은 참여 행을 되살리므로({@link
+     * #addGuildMemberAsParticipant}) 지난 수행 기록과 오늘 기록이 그대로 이어진다. 이미 나의 미션에 있으면 아무것도 바꾸지 않는다.
      *
      * <p>규칙은 {@link GuildMissionRejoinPolicy}(길드 미션 목록의 {@code can_rejoin} 과 같다) — 아니면 {@link
      * GuildMissionRejoinException}(400/403).

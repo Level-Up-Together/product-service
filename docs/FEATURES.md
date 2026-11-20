@@ -271,11 +271,12 @@ FeedSearchType { ALL, FRIENDS, GUILD, MINE }
 - 등록은 `MissionParticipantService.addGuildMemberAsParticipant()` — 이미 활성 참여면 건너뛰고, 탈퇴·실패 이력 행이 있으면 새 insert 대신
   `rejoin(ACCEPTED)` 로 재활성화한다(uk `(mission_id, user_id)` 라 재가입 시 insert 불가, LUT-518). 등록 후 실행 스케줄 생성.
 
-### 나의 미션에서 삭제 · 길드 미션 탭 '다시하기' (LUT-849)
+### 나의 미션에서 삭제 · 길드 미션 '다시하기' (LUT-849 · 852)
 
 - **삭제 = 내 참여 철회** `PATCH /api/v1/missions/{id}/withdraw` — 길드 미션 자체와 다른 길드원은 그대로다. 수행 중(타이머)이면 `050103` 으로 막는다.
   마스터·부마스터·만든 사람도 나의 미션에서는 이 API 를 쓴다 — `DELETE /api/v1/missions/{id}` 는 길드 관리자가 부르면 **미션 자체를 지운다**(QA-175).
   수정은 여전히 불가.
+- 웹의 '다시하기' 버튼은 길드 미션 **상세 하단**에 있다(LUT-852 — 처음엔 길드 미션 탭의 카드마다 있었다). 보여 줄지는 아래 목록 API 의 `can_rejoin` 으로 정한다.
 - **다시하기** `POST /api/v1/missions/{id}/rejoin` → `MissionParticipantService.rejoinGuildMission` → `addGuildMemberAsParticipant`: 같은 참여 행을
   되살리므로 지난 수행 기록·오늘 기록이 이어진다(실행 일정은 오늘 행이 있으면 건너뜀). 이미 나의 미션에 있으면 그대로. 받은 적 없는 길드 미션(가입 뒤에 열린
   일반 미션)도 같은 버튼으로 넣는다.

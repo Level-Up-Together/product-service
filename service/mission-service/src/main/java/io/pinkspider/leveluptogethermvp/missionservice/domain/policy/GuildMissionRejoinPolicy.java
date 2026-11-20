@@ -6,7 +6,7 @@ import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.MissionPart
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.ParticipantStatus;
 
 /**
- * LUT-849: 길드 미션 탭 '다시하기'(나의 미션에 다시 넣기) 판정 — 길드 미션 목록의 {@code can_rejoin} 과 다시하기 API 가 같은 규칙을 쓴다.
+ * LUT-849: 길드 미션 '다시하기'(나의 미션에 다시 넣기) 판정 — 길드 미션 목록의 {@code can_rejoin} 과 다시하기 API 가 같은 규칙을 쓴다.
  *
  * <p>다시 넣을 수 있는 것: 열린(OPEN)·진행중(IN_PROGRESS)·삭제되지 않은 길드 미션 중 내 참여가 없거나 철회(WITHDRAWN)·실패(FAILED)인 것.
  * 일반 미션은 한 번 완료하면 참여가 COMPLETED 로 끝나므로(1회성) 다시 넣지 못한다 — 다시 넣으면 같은 미션으로 EXP 를 또 받는다. 고정 미션은 완료해도
