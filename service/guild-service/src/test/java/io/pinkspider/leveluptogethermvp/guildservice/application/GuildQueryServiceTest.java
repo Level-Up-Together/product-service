@@ -29,6 +29,8 @@ import io.pinkspider.leveluptogethermvp.guildservice.domain.enums.GuildJoinType;
 import io.pinkspider.leveluptogethermvp.guildservice.domain.enums.GuildMemberRole;
 import io.pinkspider.leveluptogethermvp.guildservice.domain.enums.GuildMemberStatus;
 import io.pinkspider.leveluptogethermvp.guildservice.domain.enums.GuildVisibility;
+import io.pinkspider.leveluptogethermvp.guildservice.domain.policy.GuildOrderKey;
+import io.pinkspider.leveluptogethermvp.guildservice.domain.policy.GuildRecentActivity;
 import io.pinkspider.leveluptogethermvp.guildservice.infrastructure.GuildJoinRequestRepository;
 import io.pinkspider.leveluptogethermvp.guildservice.infrastructure.GuildMemberRepository;
 import io.pinkspider.leveluptogethermvp.guildservice.infrastructure.GuildRepository;
@@ -39,6 +41,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -464,6 +467,210 @@ class GuildQueryServiceTest {
 
             // then
             assertThat(result).isEmpty();
+        }
+    }
+
+    @Nested
+    @DisplayName("길드 홈 목록 — 최근 활동 → 레벨 순서와 활동 여부 (LUT-853)")
+    class GuildHomeListTest {
+
+        private Guild guild(long id, String masterId, int level, int point) {
+            Guild guild =
+                    Guild.builder()
+                            .name("길드 " + id)
+                            .visibility(GuildVisibility.PUBLIC)
+                            .joinType(GuildJoinType.APPROVAL_REQUIRED)
+                            .masterId(masterId)
+                            .maxMembers(50)
+                            .categoryId(testCategoryId)
+                            .currentLevel(level)
+                            .totalPoint(point)
+                            .build();
+            setId(guild, id);
+            return guild;
+        }
+
+        private GuildMember membership(Guild guild) {
+            return GuildMember.builder()
+                    .guild(guild)
+                    .userId(testUserId)
+                    .role(GuildMemberRole.MEMBER)
+                    .status(GuildMemberStatus.ACTIVE)
+                    .joinedAt(LocalDateTime.now())
+                    .build();
+        }
+
+        private GuildOrderKey key(Guild guild) {
+            return new GuildOrderKey(
+                    guild.getId(),
+                    guild.getMasterId(),
+                    guild.getCurrentLevel(),
+                    guild.getTotalPoint());
+        }
+
+        @Test
+        @DisplayName("나의 길드: 내가 마스터인 길드 → 최근 활동한 길드 → 레벨 순으로 놓고 활동 여부를 채운다")
+        void myGuildsForHome_ordersAndFlags() {
+            Guild active = guild(1L, "other", 2, 10); // 방금 대화
+            Guild mine = guild(2L, testUserId, 1, 0); // 내가 마스터, 활동 없음
+            Guild highLevel = guild(3L, "other", 9, 90); // 활동 없음
+            Guild mission = guild(4L, "other", 5, 40); // 방금 길드 미션
+            when(guildMemberRepository.findActiveGuildsByUserId(testUserId))
+                    .thenReturn(
+                            List.of(
+                                    membership(active),
+                                    membership(mine),
+                                    membership(highLevel),
+                                    membership(mission)));
+
+            List<GuildResponse> result =
+                    guildQueryService.getMyGuildsForHome(
+                            testUserId, null, new GuildRecentActivity(Set.of(1L), Set.of(4L)));
+
+            assertThat(result).extracting(GuildResponse::getId).containsExactly(2L, 4L, 1L, 3L);
+            assertThat(result)
+                    .extracting(GuildResponse::getRecentChat)
+                    .containsExactly(false, false, true, false);
+            assertThat(result)
+                    .extracting(GuildResponse::getRecentMission)
+                    .containsExactly(false, true, false, false);
+        }
+
+        @Test
+        @DisplayName("나의 길드: 가입한 길드가 없으면 빈 목록")
+        void myGuildsForHome_empty() {
+            when(guildMemberRepository.findActiveGuildsByUserId(testUserId))
+                    .thenReturn(Collections.emptyList());
+
+            assertThat(
+                            guildQueryService.getMyGuildsForHome(
+                                    testUserId, null, GuildRecentActivity.none()))
+                    .isEmpty();
+        }
+
+        @Test
+        @DisplayName("추천 길드: 정렬한 뒤 페이지를 나누고, 그 페이지의 길드만 정렬 순서대로 조립한다")
+        void recommendedGuilds_sortsThenPages() {
+            Guild low = guild(1L, "a", 1, 0);
+            Guild high = guild(2L, "a", 8, 70);
+            Guild activeLow = guild(3L, "a", 2, 5); // 방금 길드 미션 — 레벨이 낮아도 맨 앞
+            Guild mid = guild(4L, "a", 4, 30);
+            when(guildRepository.findPublicGuildOrderKeys())
+                    .thenReturn(List.of(key(low), key(high), key(activeLow), key(mid)));
+            // findAllById 는 순서를 보장하지 않는다 — 뒤집어 돌려준다
+            when(guildRepository.findAllById(List.of(3L, 2L))).thenReturn(List.of(high, activeLow));
+            when(guildMemberRepository.countActiveMembersByGuildIds(List.of(3L, 2L)))
+                    .thenReturn(List.<Object[]>of(new Object[] {3L, 7L}));
+            when(joinRequestRepository.findPendingGuildIdsByRequesterIdAndGuildIds(
+                            testUserId, List.of(3L, 2L)))
+                    .thenReturn(List.of(2L));
+            when(reportService.isUnderReviewBatch(ReportTargetType.GUILD, List.of("3", "2")))
+                    .thenReturn(Map.of("3", true));
+
+            org.springframework.data.domain.Page<GuildResponse> page =
+                    guildQueryService.getRecommendedGuilds(
+                            testUserId,
+                            PageRequest.of(0, 2),
+                            null,
+                            new GuildRecentActivity(Set.of(), Set.of(3L)));
+
+            assertThat(page.getTotalElements()).isEqualTo(4);
+            assertThat(page.getTotalPages()).isEqualTo(2);
+            assertThat(page.getContent()).extracting(GuildResponse::getId).containsExactly(3L, 2L);
+            GuildResponse first = page.getContent().get(0);
+            assertThat(first.getRecentMission()).isTrue();
+            assertThat(first.getRecentChat()).isFalse();
+            assertThat(first.getCurrentMemberCount()).isEqualTo(7);
+            assertThat(first.getIsUnderReview()).isTrue();
+            assertThat(first.getIsPendingJoinRequest()).isFalse();
+            GuildResponse second = page.getContent().get(1);
+            assertThat(second.getRecentMission()).isFalse();
+            assertThat(second.getCurrentMemberCount()).isZero();
+            assertThat(second.getIsUnderReview()).isFalse();
+            assertThat(second.getIsPendingJoinRequest()).isTrue();
+        }
+
+        @Test
+        @DisplayName("추천 길드: 다음 페이지는 정렬 순서의 그다음 길드다")
+        void recommendedGuilds_secondPage() {
+            Guild low = guild(1L, "a", 1, 0);
+            Guild high = guild(2L, "a", 8, 70);
+            Guild mid = guild(4L, "a", 4, 30);
+            when(guildRepository.findPublicGuildOrderKeys())
+                    .thenReturn(List.of(key(low), key(high), key(mid)));
+            when(guildRepository.findAllById(List.of(1L))).thenReturn(List.of(low));
+
+            org.springframework.data.domain.Page<GuildResponse> page =
+                    guildQueryService.getRecommendedGuilds(
+                            null, PageRequest.of(1, 2), null, GuildRecentActivity.none());
+
+            assertThat(page.getContent()).extracting(GuildResponse::getId).containsExactly(1L);
+            assertThat(page.getTotalElements()).isEqualTo(3);
+            // 비로그인 — 가입 신청 대기 조회를 하지 않는다
+            verify(joinRequestRepository, never())
+                    .findPendingGuildIdsByRequesterIdAndGuildIds(any(), anyList());
+        }
+
+        @Test
+        @DisplayName("추천 길드: 공개 길드가 없으면 빈 페이지 — 신고·멤버 수 조회를 하지 않는다")
+        void recommendedGuilds_empty() {
+            when(guildRepository.findPublicGuildOrderKeys()).thenReturn(List.of());
+
+            org.springframework.data.domain.Page<GuildResponse> page =
+                    guildQueryService.getRecommendedGuilds(
+                            testUserId, PageRequest.of(0, 10), null, GuildRecentActivity.none());
+
+            assertThat(page.getContent()).isEmpty();
+            assertThat(page.getTotalElements()).isZero();
+            verify(guildRepository, never()).findAllById(anyList());
+            verify(reportService, never()).isUnderReviewBatch(any(), anyList());
+            verify(guildMemberRepository, never()).countActiveMembersByGuildIds(anyList());
+        }
+
+        @Test
+        @DisplayName("추천 길드: 페이지 범위를 넘으면 빈 내용, 페이지를 나누지 않으면 전부")
+        void recommendedGuilds_outOfRangeAndUnpaged() {
+            Guild low = guild(1L, "a", 1, 0);
+            Guild high = guild(2L, "a", 8, 70);
+            when(guildRepository.findPublicGuildOrderKeys())
+                    .thenReturn(List.of(key(low), key(high)));
+            when(guildRepository.findAllById(List.of(2L, 1L))).thenReturn(List.of(low, high));
+
+            assertThat(
+                            guildQueryService
+                                    .getRecommendedGuilds(
+                                            null,
+                                            PageRequest.of(5, 10),
+                                            null,
+                                            GuildRecentActivity.none())
+                                    .getContent())
+                    .isEmpty();
+            assertThat(
+                            guildQueryService
+                                    .getRecommendedGuilds(
+                                            null,
+                                            Pageable.unpaged(),
+                                            null,
+                                            GuildRecentActivity.none())
+                                    .getContent())
+                    .extracting(GuildResponse::getId)
+                    .containsExactly(2L, 1L);
+        }
+
+        @Test
+        @DisplayName("추천 길드: 정렬과 조립 사이에 사라진 길드는 건너뛴다")
+        void recommendedGuilds_skipsMissingGuild() {
+            Guild low = guild(1L, "a", 1, 0);
+            Guild high = guild(2L, "a", 8, 70);
+            when(guildRepository.findPublicGuildOrderKeys())
+                    .thenReturn(List.of(key(low), key(high)));
+            when(guildRepository.findAllById(List.of(2L, 1L))).thenReturn(List.of(low));
+
+            org.springframework.data.domain.Page<GuildResponse> page =
+                    guildQueryService.getRecommendedGuilds(
+                            null, PageRequest.of(0, 10), null, GuildRecentActivity.none());
+
+            assertThat(page.getContent()).extracting(GuildResponse::getId).containsExactly(1L);
         }
     }
 

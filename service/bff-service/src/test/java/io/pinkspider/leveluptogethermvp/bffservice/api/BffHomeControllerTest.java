@@ -1401,12 +1401,19 @@ class BffHomeControllerTest {
     @DisplayName("GET /api/v1/bff/guild/list : 길드 목록 BFF 데이터 조회")
     void getGuildListTest() throws Exception {
         // given
+        // LUT-853: 길드 홈 목록은 길드마다 방금 대화·방금 길드 미션 여부를 채워 내린다
+        GuildResponse myGuild = createMockGuildResponse();
+        myGuild.setRecentChat(true);
+        myGuild.setRecentMission(false);
+        GuildResponse recommendedGuild = createMockGuildResponse();
+        recommendedGuild.setRecentChat(false);
+        recommendedGuild.setRecentMission(true);
         GuildListDataResponse mockResponse =
                 GuildListDataResponse.builder()
-                        .myGuilds(List.of(createMockGuildResponse()))
+                        .myGuilds(List.of(myGuild))
                         .recommendedGuilds(
                                 GuildPageData.builder()
-                                        .content(List.of(createMockGuildResponse()))
+                                        .content(List.of(recommendedGuild))
                                         .page(0)
                                         .size(10)
                                         .totalElements(1)
@@ -1445,7 +1452,13 @@ class BffHomeControllerTest {
                                                         .tag("BFF")
                                                         .description(
                                                                 "길드 목록 화면에 필요한 모든 데이터를 한 번에 조회 (내"
-                                                                    + " 길드, 추천 길드, 공지사항, 활동 피드)")
+                                                                    + " 길드, 추천 길드, 공지사항, 활동 피드)."
+                                                                    + " LUT-853: 내 길드·추천 길드는 서버가 정한"
+                                                                    + " 순서다 — 최근 활동(방금 대화·방금 길드 미션,"
+                                                                    + " 여부만)한 길드 먼저 → 레벨 높은 순 → 활동"
+                                                                    + " 포인트 → ID, 내 길드는 그 앞에 내가"
+                                                                    + " 마스터인 길드. 추천 길드는 정렬한 뒤 페이지를"
+                                                                    + " 나눈다. 프론트는 다시 정렬하지 않는다")
                                                         .queryParameters(
                                                                 parameterWithName(
                                                                                 "recommendedGuildSize")
@@ -1584,6 +1597,28 @@ class BffHomeControllerTest {
                                                                         .description("가입 신청 대기중 여부")
                                                                         .optional(),
                                                                 fieldWithPath(
+                                                                                "value.my_guilds[].recent_chat")
+                                                                        .type(JsonFieldType.BOOLEAN)
+                                                                        .description(
+                                                                                "LUT-853: 방금(기본"
+                                                                                    + " 30분) 단체채팅"
+                                                                                    + " 대화가 있었는가 —"
+                                                                                    + " 카드 '메시지'"
+                                                                                    + " 표시")
+                                                                        .optional(),
+                                                                fieldWithPath(
+                                                                                "value.my_guilds[].recent_mission")
+                                                                        .type(JsonFieldType.BOOLEAN)
+                                                                        .description(
+                                                                                "LUT-853: 방금(기본"
+                                                                                    + " 30분) 길드원이"
+                                                                                    + " 길드 미션을"
+                                                                                    + " 시작·완료했는가 —"
+                                                                                    + " 카드 '미션' 표시"
+                                                                                    + " (둘 다 true 면"
+                                                                                    + " 화면은 '미션')")
+                                                                        .optional(),
+                                                                fieldWithPath(
                                                                                 "value.recommended_guilds")
                                                                         .type(JsonFieldType.OBJECT)
                                                                         .description(
@@ -1703,6 +1738,28 @@ class BffHomeControllerTest {
                                                                                 "value.recommended_guilds.content[].is_pending_join_request")
                                                                         .type(JsonFieldType.BOOLEAN)
                                                                         .description("가입 신청 대기중 여부")
+                                                                        .optional(),
+                                                                fieldWithPath(
+                                                                                "value.recommended_guilds.content[].recent_chat")
+                                                                        .type(JsonFieldType.BOOLEAN)
+                                                                        .description(
+                                                                                "LUT-853: 방금(기본"
+                                                                                    + " 30분) 단체채팅"
+                                                                                    + " 대화가 있었는가 —"
+                                                                                    + " 카드 '메시지'"
+                                                                                    + " 표시")
+                                                                        .optional(),
+                                                                fieldWithPath(
+                                                                                "value.recommended_guilds.content[].recent_mission")
+                                                                        .type(JsonFieldType.BOOLEAN)
+                                                                        .description(
+                                                                                "LUT-853: 방금(기본"
+                                                                                    + " 30분) 길드원이"
+                                                                                    + " 길드 미션을"
+                                                                                    + " 시작·완료했는가 —"
+                                                                                    + " 카드 '미션' 표시"
+                                                                                    + " (둘 다 true 면"
+                                                                                    + " 화면은 '미션')")
                                                                         .optional(),
                                                                 fieldWithPath(
                                                                                 "value.recommended_guilds.page")

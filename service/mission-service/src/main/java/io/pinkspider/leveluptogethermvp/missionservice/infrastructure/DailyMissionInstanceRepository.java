@@ -487,4 +487,22 @@ public interface DailyMissionInstanceRepository extends JpaRepository<DailyMissi
             @Param("userId") String userId,
             @Param("startDate") LocalDate startDate,
             @Param("endDate") LocalDate endDate);
+
+    /**
+     * LUT-853: 그 시각 이후 고정 길드 미션을 시작했거나 직접 완료한 인스턴스가 있는 길드 ID — 길드 홈 목록의 "방금 길드 미션". 자동 종료
+     * (isAutoCompleted)는 세지 않는다. 인스턴스 표는 하루 단위로 쌓이므로 fromDate(since 의 전날 — 자정을 넘겨 완료한 어제 인스턴스까지)로
+     * 범위를 좁혀 (participant_id, instance_date) 인덱스를 타게 한다.
+     */
+    @Query(
+            "SELECT DISTINCT m.guildId FROM DailyMissionInstance dmi "
+                    + "JOIN dmi.participant p "
+                    + "JOIN p.mission m "
+                    + "WHERE m.type = 'GUILD' "
+                    + "AND m.guildId IS NOT NULL "
+                    + "AND dmi.instanceDate >= :fromDate "
+                    + "AND (dmi.startedAt >= :since "
+                    + "     OR (dmi.completedAt >= :since AND dmi.status = 'COMPLETED' "
+                    + "         AND dmi.isAutoCompleted = false))")
+    List<String> findGuildIdsWithActivitySince(
+            @Param("since") LocalDateTime since, @Param("fromDate") LocalDate fromDate);
 }

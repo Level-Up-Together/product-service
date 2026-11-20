@@ -779,6 +779,22 @@ uk 멱등) — 쪼개서 수행해도 몰아서 한 것과 같은 점수. "하�
 (자동계산 `required_point(L)=30×(L-1)`), 랭킹은 `GET /api/v1/guilds/ranking` (비로그인 허용,
 포인트 DESC → lastPointAt ASC → id) — **프론트 클라이언트 재정렬 금지**.
 
+## 길드 홈 목록 순서 · 활동 표시 (LUT-853)
+
+길드 홈(`GET /api/v1/bff/guild/list`)의 **나의 길드**(`my_guilds`)·**추천 길드**(`recommended_guilds`)는 **서버가 순서를 정해** 내린다 — 프론트 재정렬 금지.
+
+- **순서** (`guildservice/domain/policy/GuildHomeOrderPolicy`, 두 목록 공통): 최근 활동한 길드 → 레벨 높은 순 → 누적 활동 포인트 높은 순 → ID.
+  나의 길드는 그 앞에 **내가 마스터인 길드**. 최근 활동은 **여부만** 본다(활동 시각으로 줄 세우지 않고, 대화와 미션은 같은 순위).
+- **최근 활동** (`GuildRecentActivity`, 길드마다 `recent_chat`·`recent_mission` — 이 목록에서만 채움, 다른 길드 응답엔 없음 NON_NULL):
+  - 방금 대화 = 단체채팅에 사람이 쓴 메시지(TEXT·IMAGE, 삭제·시스템 메시지 제외)가 `guild.home.recent-chat-minutes`(기본 30) 안에 있음 → `GuildChatActivityQueryService`
+  - 방금 길드 미션 = 길드 미션(일반 `mission_execution` + 고정 `daily_mission_instance`)을 `guild.home.recent-mission-minutes`(기본 30) 안에 시작했거나 직접 완료함(4시간 자동 종료 제외) → `GuildMissionActivityQueryService`
+  - 화면은 태그 줄에 하나만 보인다 — 둘 다 true 면 '미션'(웹 판정).
+- **길드 서비스는 채팅·미션을 모른다**: BFF(`BffGuildService.loadRecentActivity`)가 두 서비스에서 길드 ID 집합을 모아 `GuildQueryService.getMyGuildsForHome`·`getRecommendedGuilds` 에 넘긴다.
+  한쪽 조회가 실패하면 그쪽만 비운다(목록은 그대로). 캐시 없음 — 두 표 모두 작고 인덱스를 탄다.
+- **추천 길드는 정렬한 뒤 페이지를 나눈다**: 공개·활성 길드의 정렬 값(`GuildOrderKey` — id·마스터·레벨·포인트)만 읽어 메모리에서 정렬하고, 그 페이지의 길드만 `findAllById` 로 조립한다.
+  공개 길드가 수만 개로 늘면 DB 정렬로 바꿀 것. `/api/v1/guilds/my`·`/guilds/public`(지도·프로필 초대 등 다른 화면)은 그대로다.
+- JPQL 3개는 Mockito 로 검증되지 않아 app `GuildHomeListQueryIntegrationTest`(H2)가 실제 실행한다.
+
 ## 유저 차단 (LUT-367)
 
 차단은 `friendship.status = BLOCKED` 행(방향 있음: userId=차단자)으로 표현. API는 `/api/v1/friends/block/{targetId}`

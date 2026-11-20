@@ -5,6 +5,7 @@ import io.pinkspider.leveluptogethermvp.bffservice.api.dto.GuildDetailDataRespon
 import io.pinkspider.leveluptogethermvp.bffservice.api.dto.GuildListDataResponse;
 import io.pinkspider.leveluptogethermvp.bffservice.api.dto.GuildListDataResponse.FeedPageData;
 import io.pinkspider.leveluptogethermvp.bffservice.api.dto.GuildListDataResponse.GuildPageData;
+import io.pinkspider.leveluptogethermvp.chatservice.application.GuildChatActivityQueryService;
 import io.pinkspider.leveluptogethermvp.feedservice.api.dto.ActivityFeedResponse;
 import io.pinkspider.leveluptogethermvp.feedservice.application.FeedQueryService;
 import io.pinkspider.leveluptogethermvp.guildservice.application.GuildPostService;
@@ -12,12 +13,17 @@ import io.pinkspider.leveluptogethermvp.guildservice.application.GuildQueryServi
 import io.pinkspider.leveluptogethermvp.guildservice.domain.dto.GuildMemberResponse;
 import io.pinkspider.leveluptogethermvp.guildservice.domain.dto.GuildPostListResponse;
 import io.pinkspider.leveluptogethermvp.guildservice.domain.dto.GuildResponse;
+import io.pinkspider.leveluptogethermvp.guildservice.domain.policy.GuildRecentActivity;
+import io.pinkspider.leveluptogethermvp.missionservice.application.GuildMissionActivityQueryService;
+import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
@@ -30,17 +36,30 @@ public class BffGuildService {
     private final GuildQueryService guildQueryService;
     private final GuildPostService guildPostService;
     private final FeedQueryService feedQueryService;
+    // LUT-853: 길드 홈 목록의 "최근 활동"(방금 대화·방금 길드 미션) — 길드 서비스는 채팅·미션을 모르므로 BFF 가 모아 넘긴다
+    private final GuildChatActivityQueryService guildChatActivityQueryService;
+    private final GuildMissionActivityQueryService guildMissionActivityQueryService;
     private final Executor bffExecutor;
+    private final int recentChatMinutes;
+    private final int recentMissionMinutes;
 
     public BffGuildService(
             GuildQueryService guildQueryService,
             GuildPostService guildPostService,
             FeedQueryService feedQueryService,
-            @Qualifier("bffExecutor") Executor bffExecutor) {
+            GuildChatActivityQueryService guildChatActivityQueryService,
+            GuildMissionActivityQueryService guildMissionActivityQueryService,
+            @Qualifier("bffExecutor") Executor bffExecutor,
+            @Value("${guild.home.recent-chat-minutes:30}") int recentChatMinutes,
+            @Value("${guild.home.recent-mission-minutes:30}") int recentMissionMinutes) {
         this.guildQueryService = guildQueryService;
         this.guildPostService = guildPostService;
         this.feedQueryService = feedQueryService;
+        this.guildChatActivityQueryService = guildChatActivityQueryService;
+        this.guildMissionActivityQueryService = guildMissionActivityQueryService;
         this.bffExecutor = bffExecutor;
+        this.recentChatMinutes = recentChatMinutes;
+        this.recentMissionMinutes = recentMissionMinutes;
     }
 
     /**
@@ -155,16 +174,22 @@ public class BffGuildService {
         return getGuildList(userId, recommendedGuildSize, activityFeedSize, null);
     }
 
-    /** LUT-277: 길드 홈 카드 카테고리·공지·활동피드에 locale 적용 */
+    /**
+     * LUT-277: 길드 홈 카드 카테고리·공지·활동피드에 locale 적용. LUT-853: 나의 길드·추천 길드는 서버가 정한 순서(최근 활동 → 레벨, 나의 길드는
+     * 마스터인 길드 먼저)로 내리고 길드마다 recent_chat·recent_mission 을 채운다.
+     */
     public GuildListDataResponse getGuildList(
             String userId, int recommendedGuildSize, int activityFeedSize, String locale) {
         log.info("BFF getGuildList called: userId={}, locale={}", userId, locale);
+
+        // LUT-853: 두 목록의 순서·표시에 쓰는 최근 활동을 먼저 모은다 (실패하면 활동 없음으로 — 목록은 그대로 내린다)
+        GuildRecentActivity recentActivity = loadRecentActivity();
 
         // 먼저 내 길드 목록 조회 (비인증 시 빈 리스트)
         List<GuildResponse> myGuilds;
         if (userId != null) {
             try {
-                myGuilds = guildQueryService.getMyGuilds(userId, locale);
+                myGuilds = guildQueryService.getMyGuildsForHome(userId, locale, recentActivity);
             } catch (Exception e) {
                 log.error("Failed to fetch my guilds", e);
                 myGuilds = Collections.emptyList();
@@ -185,10 +210,11 @@ public class BffGuildService {
                         () -> {
                             try {
                                 Page<GuildResponse> guildsPage =
-                                        guildQueryService.getPublicGuilds(
+                                        guildQueryService.getRecommendedGuilds(
                                                 userId,
                                                 PageRequest.of(0, recommendedGuildSize),
-                                                locale);
+                                                locale,
+                                                recentActivity);
                                 return GuildPageData.builder()
                                         .content(guildsPage.getContent())
                                         .page(guildsPage.getNumber())
@@ -330,5 +356,39 @@ public class BffGuildService {
 
         log.info("BFF getGuildList completed: userId={}, hasGuild={}", userId, hasGuild);
         return response;
+    }
+
+    /**
+     * LUT-853: 길드 홈 목록의 "최근 활동" — 방금 대화(단체채팅, 기본 30분)와 방금 길드 미션(시작·완료, 기본 30분)이 있었던 길드. 두 조회를 함께
+     * 돌리고, 한쪽이 실패하면 그쪽만 비운다(목록·다른 쪽 표시는 그대로).
+     */
+    private GuildRecentActivity loadRecentActivity() {
+        LocalDateTime now = LocalDateTime.now();
+        CompletableFuture<Set<Long>> chatFuture =
+                CompletableFuture.supplyAsync(
+                        () -> {
+                            try {
+                                return guildChatActivityQueryService.findGuildIdsWithRecentChat(
+                                        now.minusMinutes(recentChatMinutes));
+                            } catch (Exception e) {
+                                log.warn("Failed to fetch recent guild chat activity", e);
+                                return Set.<Long>of();
+                            }
+                        },
+                        bffExecutor);
+        CompletableFuture<Set<Long>> missionFuture =
+                CompletableFuture.supplyAsync(
+                        () -> {
+                            try {
+                                return guildMissionActivityQueryService
+                                        .findGuildIdsWithRecentActivity(
+                                                now.minusMinutes(recentMissionMinutes));
+                            } catch (Exception e) {
+                                log.warn("Failed to fetch recent guild mission activity", e);
+                                return Set.<Long>of();
+                            }
+                        },
+                        bffExecutor);
+        return new GuildRecentActivity(chatFuture.join(), missionFuture.join());
     }
 }

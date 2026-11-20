@@ -361,4 +361,19 @@ public interface MissionExecutionRepository extends JpaRepository<MissionExecuti
             @Param("userId") String userId,
             @Param("startDate") LocalDate startDate,
             @Param("endDate") LocalDate endDate);
+
+    /**
+     * LUT-853: 그 시각 이후 길드 미션(일반) 수행을 시작했거나 직접 완료한 기록이 있는 길드 ID — 길드 홈 목록의 "방금 길드 미션". 4시간 자동 종료
+     * (isAutoCompleted)는 길드원이 한 일이 아니라 세지 않는다. started_at·completed_at 인덱스를 탄다.
+     */
+    @Query(
+            "SELECT DISTINCT m.guildId FROM MissionExecution me "
+                    + "JOIN me.participant p "
+                    + "JOIN p.mission m "
+                    + "WHERE m.type = 'GUILD' "
+                    + "AND m.guildId IS NOT NULL "
+                    + "AND (me.startedAt >= :since "
+                    + "     OR (me.completedAt >= :since AND me.status = 'COMPLETED' "
+                    + "         AND me.isAutoCompleted = false))")
+    List<String> findGuildIdsWithActivitySince(@Param("since") LocalDateTime since);
 }
