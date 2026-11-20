@@ -1,5 +1,6 @@
 package io.pinkspider.leveluptogethermvp.guildservice.domain.dto;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.databind.PropertyNamingStrategies;
 import com.fasterxml.jackson.databind.annotation.JsonNaming;
 import io.pinkspider.leveluptogethermvp.guildservice.domain.entity.Guild;
@@ -48,6 +49,20 @@ public class GuildResponse {
 
     // 가입 신청 대기중 여부 (현재 로그인한 사용자 기준)
     private Boolean isPendingJoinRequest;
+
+    /**
+     * LUT-853: 길드 홈 목록(나의 길드·추천 길드)에서만 채운다 — 방금(기본 30분) 단체채팅에 사람이 쓴 대화가 있었는가. 카드의 '메시지' 표시용. 다른 응답은
+     * null 이라 직렬화하지 않는다.
+     */
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    private Boolean recentChat;
+
+    /**
+     * LUT-853: 길드 홈 목록에서만 채운다 — 방금(기본 30분) 길드원이 길드 미션을 시작했거나 완료했는가. 카드의 '미션' 표시용(둘 다 true 면 화면은
+     * '미션' 하나만 보인다).
+     */
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    private Boolean recentMission;
 
     public static GuildResponse from(Guild guild) {
         return GuildResponse.builder()

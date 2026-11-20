@@ -14,19 +14,25 @@ import io.pinkspider.leveluptogethermvp.guildservice.domain.dto.GuildResponse;
 import io.pinkspider.leveluptogethermvp.guildservice.domain.entity.Guild;
 import io.pinkspider.leveluptogethermvp.guildservice.domain.entity.GuildMember;
 import io.pinkspider.leveluptogethermvp.guildservice.domain.enums.JoinRequestStatus;
+import io.pinkspider.leveluptogethermvp.guildservice.domain.policy.GuildHomeOrderPolicy;
+import io.pinkspider.leveluptogethermvp.guildservice.domain.policy.GuildOrderKey;
+import io.pinkspider.leveluptogethermvp.guildservice.domain.policy.GuildRecentActivity;
 import io.pinkspider.leveluptogethermvp.guildservice.infrastructure.GuildJoinRequestRepository;
 import io.pinkspider.leveluptogethermvp.guildservice.infrastructure.GuildMemberRepository;
 import io.pinkspider.leveluptogethermvp.guildservice.infrastructure.GuildRepository;
 import io.pinkspider.leveluptogethermvp.supportservice.report.application.ReportService;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -285,6 +291,88 @@ public class GuildQueryService {
         }
 
         return result;
+    }
+
+    /**
+     * LUT-853: 길드 홈 "나의 길드" — 내가 마스터인 길드를 맨 위에, 그 아래는 최근 활동한 길드 → 레벨 → 활동 포인트 순({@link
+     * GuildHomeOrderPolicy}). 길드마다 방금 대화·방금 길드 미션 여부(recent_chat·recent_mission)를 채운다.
+     *
+     * <p>순서는 서버가 정한다 — 프론트는 다시 정렬하지 않는다. 다른 화면이 쓰는 {@link #getMyGuilds} 는 그대로다.
+     */
+    public List<GuildResponse> getMyGuildsForHome(
+            String userId, String locale, GuildRecentActivity activity) {
+        List<GuildResponse> result = new ArrayList<>(getMyGuilds(userId, locale));
+        result.sort(
+                Comparator.comparing(
+                        GuildQueryService::orderKeyOf,
+                        GuildHomeOrderPolicy.mine(userId, activity)));
+        result.forEach(response -> applyRecentActivity(response, activity));
+        return result;
+    }
+
+    /**
+     * LUT-853: 길드 홈 "추천 길드" — 공개 길드를 최근 활동한 길드 → 레벨 → 활동 포인트 순으로 **정렬한 뒤** 페이지를 나눈다. 공개 길드의 정렬 값만
+     * 읽어 순서를 정하고, 그 페이지에 든 길드만 응답으로 조립한다(신고·가입 신청 대기·멤버 수는 {@link #getPublicGuilds} 와 같다).
+     */
+    public Page<GuildResponse> getRecommendedGuilds(
+            String userId, Pageable pageable, String locale, GuildRecentActivity activity) {
+        List<GuildOrderKey> keys = new ArrayList<>(guildRepository.findPublicGuildOrderKeys());
+        keys.sort(GuildHomeOrderPolicy.recommended(activity));
+
+        int from = pageable.isPaged() ? (int) Math.min(pageable.getOffset(), keys.size()) : 0;
+        int to =
+                pageable.isPaged()
+                        ? (int) Math.min((long) from + pageable.getPageSize(), keys.size())
+                        : keys.size();
+        List<Long> pageIds = keys.subList(from, to).stream().map(GuildOrderKey::id).toList();
+        if (pageIds.isEmpty()) {
+            return new PageImpl<>(List.of(), pageable, keys.size());
+        }
+
+        // findAllById 는 순서를 보장하지 않는다 — 정렬한 ID 순서대로 다시 놓는다
+        Map<Long, Guild> guildById =
+                guildRepository.findAllById(pageIds).stream()
+                        .collect(Collectors.toMap(Guild::getId, guild -> guild));
+        List<Guild> guilds = pageIds.stream().map(guildById::get).filter(Objects::nonNull).toList();
+
+        Map<String, Boolean> underReviewMap =
+                reportService.isUnderReviewBatch(
+                        ReportTargetType.GUILD, pageIds.stream().map(String::valueOf).toList());
+        Set<Long> pendingGuildIds = getPendingJoinRequestGuildIds(userId, pageIds);
+        Map<Long, Integer> memberCountMap = getActiveMemberCounts(pageIds);
+
+        List<GuildResponse> content =
+                guilds.stream()
+                        .map(
+                                guild -> {
+                                    GuildResponse response =
+                                            guildHelper.buildGuildResponseWithCategory(
+                                                    guild,
+                                                    memberCountMap.getOrDefault(guild.getId(), 0),
+                                                    locale);
+                                    response.setIsUnderReview(
+                                            underReviewMap.getOrDefault(
+                                                    String.valueOf(guild.getId()), false));
+                                    response.setIsPendingJoinRequest(
+                                            pendingGuildIds.contains(guild.getId()));
+                                    applyRecentActivity(response, activity);
+                                    return response;
+                                })
+                        .toList();
+        return new PageImpl<>(content, pageable, keys.size());
+    }
+
+    private static GuildOrderKey orderKeyOf(GuildResponse response) {
+        return new GuildOrderKey(
+                response.getId(),
+                response.getMasterId(),
+                response.getCurrentLevel(),
+                response.getTotalPoint());
+    }
+
+    private static void applyRecentActivity(GuildResponse response, GuildRecentActivity activity) {
+        response.setRecentChat(activity.hasRecentChat(response.getId()));
+        response.setRecentMission(activity.hasRecentMission(response.getId()));
     }
 
     public List<GuildMemberResponse> getGuildMembers(Long guildId, String userId) {
