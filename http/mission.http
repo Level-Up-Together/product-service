@@ -219,9 +219,17 @@ Authorization: Bearer {{accessToken}}
 Accept: application/json
 
 ### ----------------------------------------------------------
-### 미션 탈퇴
+### 미션 탈퇴 (LUT-849: 나의 미션에서 길드 미션 삭제도 이 API — 내 참여만 철회, 진행 중이면 050103)
 ### ----------------------------------------------------------
 PATCH {{baseUrl}}/api/v1/missions/1/withdraw
+Authorization: Bearer {{accessToken}}
+Accept: application/json
+
+### ----------------------------------------------------------
+### 길드 미션 다시하기 (LUT-849) — 지운 길드 미션을 나의 미션에 다시 넣는다
+### 400 050601 길드 미션 아님 · 050602 열리지 않음/끝남/삭제 · 050604 이미 완료(일반) · 403 050603 길드원 아님
+### ----------------------------------------------------------
+POST {{baseUrl}}/api/v1/missions/1/rejoin
 Authorization: Bearer {{accessToken}}
 Accept: application/json
 

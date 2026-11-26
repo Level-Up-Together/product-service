@@ -119,10 +119,13 @@ public class MissionController {
     @GetMapping("/guild/{guildId}")
     public ResponseEntity<ApiResult<List<MissionResponse>>> getGuildMissions(
             @PathVariable String guildId,
+            @CurrentUser String userId,
             @RequestHeader(value = HttpHeaders.ACCEPT_LANGUAGE, required = false)
                     String acceptLanguage) {
 
-        List<MissionResponse> responses = missionService.getGuildMissions(guildId, acceptLanguage);
+        // LUT-849: 요청자 기준 in_my_missions·can_rejoin 을 함께 내린다
+        List<MissionResponse> responses =
+                missionService.getGuildMissions(guildId, acceptLanguage, userId);
         return ResponseEntity.ok(
                 ApiResult.<List<MissionResponse>>builder().value(responses).build());
     }

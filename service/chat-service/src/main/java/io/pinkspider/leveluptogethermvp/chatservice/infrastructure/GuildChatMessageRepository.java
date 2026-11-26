@@ -1,7 +1,9 @@
 package io.pinkspider.leveluptogethermvp.chatservice.infrastructure;
 
 import io.pinkspider.leveluptogethermvp.chatservice.domain.entity.GuildChatMessage;
+import io.pinkspider.leveluptogethermvp.chatservice.domain.enums.ChatMessageType;
 import java.time.LocalDateTime;
+import java.util.Collection;
 import java.util.List;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -82,6 +84,16 @@ public interface GuildChatMessageRepository extends JpaRepository<GuildChatMessa
     long countByGuildId(
             @Param("guildId") Long guildId,
             @Param("excludedSenderIds") List<String> excludedSenderIds);
+
+    /**
+     * LUT-853: 그 시각 이후 대화가 있었던 길드 ID — 길드 홈 목록의 "방금 대화". 사람이 쓴 종류(types = TEXT·IMAGE)만 세고 삭제된 메시지는
+     * 뺀다 (가입·탈퇴·미션 같은 시스템 메시지는 대화가 아니다).
+     */
+    @Query(
+            "SELECT DISTINCT m.guildId FROM GuildChatMessage m WHERE m.createdAt >= :since "
+                    + "AND m.isDeleted = false AND m.messageType IN :types")
+    List<Long> findGuildIdsWithMessagesSince(
+            @Param("since") LocalDateTime since, @Param("types") Collection<ChatMessageType> types);
 
     @Modifying
     @Transactional(transactionManager = "chatTransactionManager")

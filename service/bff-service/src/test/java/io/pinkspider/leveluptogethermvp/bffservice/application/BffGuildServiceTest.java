@@ -6,10 +6,12 @@ import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import io.pinkspider.leveluptogethermvp.bffservice.api.dto.GuildDetailDataResponse;
 import io.pinkspider.leveluptogethermvp.bffservice.api.dto.GuildListDataResponse;
+import io.pinkspider.leveluptogethermvp.chatservice.application.GuildChatActivityQueryService;
 import io.pinkspider.leveluptogethermvp.feedservice.api.dto.ActivityFeedResponse;
 import io.pinkspider.leveluptogethermvp.feedservice.application.FeedQueryService;
 import io.pinkspider.leveluptogethermvp.feedservice.domain.enums.ActivityType;
@@ -23,14 +25,18 @@ import io.pinkspider.leveluptogethermvp.guildservice.domain.enums.GuildMemberRol
 import io.pinkspider.leveluptogethermvp.guildservice.domain.enums.GuildMemberStatus;
 import io.pinkspider.leveluptogethermvp.guildservice.domain.enums.GuildPostType;
 import io.pinkspider.leveluptogethermvp.guildservice.domain.enums.GuildVisibility;
+import io.pinkspider.leveluptogethermvp.guildservice.domain.policy.GuildRecentActivity;
+import io.pinkspider.leveluptogethermvp.missionservice.application.GuildMissionActivityQueryService;
 import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.List;
+import java.util.Set;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.Page;
@@ -45,6 +51,10 @@ class BffGuildServiceTest {
     @Mock private GuildPostService guildPostService;
 
     @Mock private FeedQueryService feedQueryService;
+
+    @Mock private GuildChatActivityQueryService guildChatActivityQueryService;
+
+    @Mock private GuildMissionActivityQueryService guildMissionActivityQueryService;
 
     private BffGuildService bffGuildService;
 
@@ -62,7 +72,14 @@ class BffGuildServiceTest {
         // BffGuildService 수동 생성 (Executor 주입을 위해)
         bffGuildService =
                 new BffGuildService(
-                        guildQueryService, guildPostService, feedQueryService, directExecutor);
+                        guildQueryService,
+                        guildPostService,
+                        feedQueryService,
+                        guildChatActivityQueryService,
+                        guildMissionActivityQueryService,
+                        directExecutor,
+                        30,
+                        30);
 
         testUserId = "test-user-id";
 
@@ -224,9 +241,10 @@ class BffGuildServiceTest {
                             .createdAt(LocalDateTime.now())
                             .build();
 
-            when(guildQueryService.getMyGuilds(eq(testUserId), any()))
+            when(guildQueryService.getMyGuildsForHome(eq(testUserId), any(), any()))
                     .thenReturn(List.of(testGuildResponse));
-            when(guildQueryService.getPublicGuilds(any(), any(), any())).thenReturn(guildPage);
+            when(guildQueryService.getRecommendedGuilds(any(), any(), any(), any()))
+                    .thenReturn(guildPage);
             when(guildPostService.getNotices(eq(1L), eq(testUserId), any()))
                     .thenReturn(List.of(noticePost));
             when(feedQueryService.getGuildFeeds(anyLong(), anyString(), anyInt(), anyInt(), any()))
@@ -252,9 +270,10 @@ class BffGuildServiceTest {
                     new PageImpl<>(List.of(testGuildResponse), PageRequest.of(0, 10), 1);
             Page<ActivityFeedResponse> feedPage =
                     new PageImpl<>(List.of(testFeedResponse), PageRequest.of(0, 10), 1);
-            when(guildQueryService.getMyGuilds(eq(testUserId), any()))
+            when(guildQueryService.getMyGuildsForHome(eq(testUserId), any(), any()))
                     .thenReturn(List.of(testGuildResponse));
-            when(guildQueryService.getPublicGuilds(any(), any(), any())).thenReturn(guildPage);
+            when(guildQueryService.getRecommendedGuilds(any(), any(), any(), any()))
+                    .thenReturn(guildPage);
             when(guildPostService.getNotices(eq(1L), eq(testUserId), any())).thenReturn(List.of());
             when(feedQueryService.getGuildFeeds(anyLong(), anyString(), anyInt(), anyInt(), any()))
                     .thenReturn(feedPage);
@@ -263,9 +282,10 @@ class BffGuildServiceTest {
             bffGuildService.getGuildList(testUserId, 10, 10, "en");
 
             // then
-            org.mockito.Mockito.verify(guildQueryService).getMyGuilds(testUserId, "en");
             org.mockito.Mockito.verify(guildQueryService)
-                    .getPublicGuilds(eq(testUserId), any(), eq("en"));
+                    .getMyGuildsForHome(eq(testUserId), eq("en"), any());
+            org.mockito.Mockito.verify(guildQueryService)
+                    .getRecommendedGuilds(eq(testUserId), any(), eq("en"), any());
             org.mockito.Mockito.verify(guildPostService).getNotices(1L, testUserId, "en");
             org.mockito.Mockito.verify(feedQueryService)
                     .getGuildFeeds(eq(1L), eq(testUserId), anyInt(), anyInt(), eq("en"));
@@ -278,9 +298,10 @@ class BffGuildServiceTest {
             Page<GuildResponse> guildPage =
                     new PageImpl<>(List.of(testGuildResponse), PageRequest.of(0, 10), 1);
 
-            when(guildQueryService.getMyGuilds(eq(testUserId), any()))
+            when(guildQueryService.getMyGuildsForHome(eq(testUserId), any(), any()))
                     .thenReturn(Collections.emptyList());
-            when(guildQueryService.getPublicGuilds(any(), any(), any())).thenReturn(guildPage);
+            when(guildQueryService.getRecommendedGuilds(any(), any(), any(), any()))
+                    .thenReturn(guildPage);
 
             // when
             GuildListDataResponse response = bffGuildService.getGuildList(testUserId, 10, 10);
@@ -324,9 +345,10 @@ class BffGuildServiceTest {
             Page<GuildResponse> guildPage = new PageImpl<>(Collections.emptyList());
             Page<ActivityFeedResponse> feedPage = new PageImpl<>(Collections.emptyList());
 
-            when(guildQueryService.getMyGuilds(eq(testUserId), any()))
+            when(guildQueryService.getMyGuildsForHome(eq(testUserId), any(), any()))
                     .thenReturn(List.of(testGuildResponse, secondGuild));
-            when(guildQueryService.getPublicGuilds(any(), any(), any())).thenReturn(guildPage);
+            when(guildQueryService.getRecommendedGuilds(any(), any(), any(), any()))
+                    .thenReturn(guildPage);
             when(guildPostService.getNotices(eq(1L), eq(testUserId), any()))
                     .thenReturn(List.of(notice1));
             when(guildPostService.getNotices(eq(2L), eq(testUserId), any()))
@@ -349,9 +371,10 @@ class BffGuildServiceTest {
         @DisplayName("내 길드 조회 실패 시 빈 목록 반환")
         void getGuildList_myGuildsFetchFailed() {
             // given
-            when(guildQueryService.getMyGuilds(eq(testUserId), any()))
+            when(guildQueryService.getMyGuildsForHome(eq(testUserId), any(), any()))
                     .thenThrow(new RuntimeException("조회 실패"));
-            when(guildQueryService.getPublicGuilds(any(), any(), any())).thenReturn(Page.empty());
+            when(guildQueryService.getRecommendedGuilds(any(), any(), any(), any()))
+                    .thenReturn(Page.empty());
 
             // when
             GuildListDataResponse response = bffGuildService.getGuildList(testUserId, 10, 10);
@@ -360,6 +383,127 @@ class BffGuildServiceTest {
             assertThat(response).isNotNull();
             assertThat(response.getMyGuilds()).isEmpty();
             assertThat(response.isGuildJoined()).isFalse();
+        }
+    }
+
+    @Nested
+    @DisplayName("길드 홈 목록의 최근 활동 (LUT-853)")
+    class GuildListRecentActivityTest {
+
+        private GuildRecentActivity activityPassedToMyGuilds() {
+            ArgumentCaptor<GuildRecentActivity> captor =
+                    ArgumentCaptor.forClass(GuildRecentActivity.class);
+            verify(guildQueryService).getMyGuildsForHome(eq(testUserId), any(), captor.capture());
+            return captor.getValue();
+        }
+
+        private GuildRecentActivity activityPassedToRecommended() {
+            ArgumentCaptor<GuildRecentActivity> captor =
+                    ArgumentCaptor.forClass(GuildRecentActivity.class);
+            verify(guildQueryService)
+                    .getRecommendedGuilds(eq(testUserId), any(), any(), captor.capture());
+            return captor.getValue();
+        }
+
+        @Test
+        @DisplayName("방금 대화·방금 길드 미션 길드를 모아 나의 길드·추천 길드 조회에 같은 값으로 넘긴다")
+        void passesRecentActivityToBothLists() {
+            when(guildChatActivityQueryService.findGuildIdsWithRecentChat(any()))
+                    .thenReturn(Set.of(1L));
+            when(guildMissionActivityQueryService.findGuildIdsWithRecentActivity(any()))
+                    .thenReturn(Set.of(2L));
+            when(guildQueryService.getMyGuildsForHome(eq(testUserId), any(), any()))
+                    .thenReturn(Collections.emptyList());
+            when(guildQueryService.getRecommendedGuilds(any(), any(), any(), any()))
+                    .thenReturn(Page.empty());
+
+            bffGuildService.getGuildList(testUserId, 10, 10);
+
+            GuildRecentActivity mine = activityPassedToMyGuilds();
+            assertThat(mine.chatGuildIds()).containsExactly(1L);
+            assertThat(mine.missionGuildIds()).containsExactly(2L);
+            assertThat(activityPassedToRecommended()).isEqualTo(mine);
+        }
+
+        @Test
+        @DisplayName("대화·미션의 기준 시간은 설정값(분)만큼 지금에서 뺀 시각이다")
+        void usesConfiguredWindows() {
+            BffGuildService service =
+                    new BffGuildService(
+                            guildQueryService,
+                            guildPostService,
+                            feedQueryService,
+                            guildChatActivityQueryService,
+                            guildMissionActivityQueryService,
+                            directExecutor,
+                            30,
+                            45);
+            when(guildQueryService.getRecommendedGuilds(any(), any(), any(), any()))
+                    .thenReturn(Page.empty());
+
+            LocalDateTime before = LocalDateTime.now();
+            service.getGuildList(null, 10, 10);
+            LocalDateTime after = LocalDateTime.now();
+
+            ArgumentCaptor<LocalDateTime> chatSince = ArgumentCaptor.forClass(LocalDateTime.class);
+            ArgumentCaptor<LocalDateTime> missionSince =
+                    ArgumentCaptor.forClass(LocalDateTime.class);
+            verify(guildChatActivityQueryService).findGuildIdsWithRecentChat(chatSince.capture());
+            verify(guildMissionActivityQueryService)
+                    .findGuildIdsWithRecentActivity(missionSince.capture());
+            assertThat(chatSince.getValue())
+                    .isBetween(before.minusMinutes(30), after.minusMinutes(30));
+            assertThat(missionSince.getValue())
+                    .isBetween(before.minusMinutes(45), after.minusMinutes(45));
+        }
+
+        @Test
+        @DisplayName("한쪽 조회가 실패하면 그쪽만 비우고 목록은 그대로 내린다")
+        void oneLookupFails_otherStillApplied() {
+            when(guildChatActivityQueryService.findGuildIdsWithRecentChat(any()))
+                    .thenThrow(new RuntimeException("chat db down"));
+            when(guildMissionActivityQueryService.findGuildIdsWithRecentActivity(any()))
+                    .thenReturn(Set.of(2L));
+            when(guildQueryService.getMyGuildsForHome(eq(testUserId), any(), any()))
+                    .thenReturn(List.of(testGuildResponse));
+            when(guildQueryService.getRecommendedGuilds(any(), any(), any(), any()))
+                    .thenReturn(Page.empty());
+            when(guildPostService.getNotices(eq(1L), eq(testUserId), any())).thenReturn(List.of());
+            when(feedQueryService.getGuildFeeds(anyLong(), anyString(), anyInt(), anyInt(), any()))
+                    .thenReturn(Page.empty());
+
+            GuildListDataResponse response = bffGuildService.getGuildList(testUserId, 10, 10);
+
+            assertThat(response.getMyGuilds()).hasSize(1);
+            GuildRecentActivity activity = activityPassedToMyGuilds();
+            assertThat(activity.chatGuildIds()).isEmpty();
+            assertThat(activity.missionGuildIds()).containsExactly(2L);
+        }
+
+        @Test
+        @DisplayName("미션 조회가 실패해도 대화 표시는 남고, 둘 다 실패하면 활동 없음으로 내린다")
+        void missionLookupFails_thenBothFail() {
+            when(guildChatActivityQueryService.findGuildIdsWithRecentChat(any()))
+                    .thenReturn(Set.of(1L))
+                    .thenThrow(new RuntimeException("chat db down"));
+            when(guildMissionActivityQueryService.findGuildIdsWithRecentActivity(any()))
+                    .thenThrow(new RuntimeException("mission db down"));
+            when(guildQueryService.getMyGuildsForHome(eq(testUserId), any(), any()))
+                    .thenReturn(Collections.emptyList());
+            when(guildQueryService.getRecommendedGuilds(any(), any(), any(), any()))
+                    .thenReturn(Page.empty());
+
+            bffGuildService.getGuildList(testUserId, 10, 10);
+            bffGuildService.getGuildList(testUserId, 10, 10);
+
+            ArgumentCaptor<GuildRecentActivity> captor =
+                    ArgumentCaptor.forClass(GuildRecentActivity.class);
+            verify(guildQueryService, org.mockito.Mockito.times(2))
+                    .getMyGuildsForHome(eq(testUserId), any(), captor.capture());
+            GuildRecentActivity first = captor.getAllValues().get(0);
+            assertThat(first.chatGuildIds()).containsExactly(1L);
+            assertThat(first.missionGuildIds()).isEmpty();
+            assertThat(captor.getAllValues().get(1)).isEqualTo(GuildRecentActivity.none());
         }
     }
 }

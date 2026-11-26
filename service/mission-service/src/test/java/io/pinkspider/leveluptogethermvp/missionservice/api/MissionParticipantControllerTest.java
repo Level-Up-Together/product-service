@@ -586,6 +586,115 @@ class MissionParticipantControllerTest {
     }
 
     @Test
+    @DisplayName("POST /api/v1/missions/{missionId}/rejoin : 길드 미션 다시하기 (LUT-849)")
+    void rejoinGuildMissionTest() throws Exception {
+        // given
+        Long missionId = 1L;
+        MissionParticipantResponse response =
+                MockUtil.readJsonFileToClass(
+                        "fixture/missionservice/missionParticipantResponse.json",
+                        MissionParticipantResponse.class);
+
+        when(participantService.rejoinGuildMission(anyLong(), anyString())).thenReturn(response);
+
+        // when
+        ResultActions resultActions =
+                mockMvc.perform(
+                                RestDocumentationRequestBuilders.post(
+                                                "/api/v1/missions/{missionId}/rejoin", missionId)
+                                        .with(user(MOCK_USER_ID))
+                                        .contentType(MediaType.APPLICATION_JSON))
+                        .andDo(
+                                MockMvcRestDocumentationWrapper.document(
+                                        "참여자-10. 길드 미션 다시하기",
+                                        preprocessRequest(prettyPrint()),
+                                        preprocessResponse(prettyPrint()),
+                                        resource(
+                                                ResourceSnippetParameters.builder()
+                                                        .tag("Mission Participant")
+                                                        .description(
+                                                                "나의 미션에서 지운(철회한) 길드 미션을 다시"
+                                                                    + " 넣는다(LUT-849, JWT 토큰 인증 필요)."
+                                                                    + " 같은 참여 행을 되살려 지난 기록이 이어지고,"
+                                                                    + " 이미 나의 미션에 있으면 그대로다. 길드 미션"
+                                                                    + " 아님 400 050601 · 열리지 않았거나"
+                                                                    + " 끝났거나 삭제됨 400 050602 · 길드원"
+                                                                    + " 아님 403 050603 · 이미 완료한 일반"
+                                                                    + " 미션 400 050604")
+                                                        .pathParameters(
+                                                                parameterWithName("missionId")
+                                                                        .type(SimpleType.NUMBER)
+                                                                        .description("길드 미션 ID"))
+                                                        .responseFields(
+                                                                fieldWithPath("code")
+                                                                        .type(JsonFieldType.STRING)
+                                                                        .description("응답 코드"),
+                                                                fieldWithPath("message")
+                                                                        .type(JsonFieldType.STRING)
+                                                                        .description("응답 메시지"),
+                                                                fieldWithPath("value")
+                                                                        .type(JsonFieldType.OBJECT)
+                                                                        .description("참여 정보"),
+                                                                fieldWithPath("value.id")
+                                                                        .type(JsonFieldType.NUMBER)
+                                                                        .description("참여 ID"),
+                                                                fieldWithPath("value.mission_id")
+                                                                        .type(JsonFieldType.NUMBER)
+                                                                        .description("미션 ID"),
+                                                                fieldWithPath("value.mission_title")
+                                                                        .type(JsonFieldType.STRING)
+                                                                        .description("미션 제목"),
+                                                                fieldWithPath("value.user_id")
+                                                                        .type(JsonFieldType.STRING)
+                                                                        .description("사용자 ID"),
+                                                                fieldWithPath("value.status")
+                                                                        .type(JsonFieldType.STRING)
+                                                                        .description(
+                                                                                "참여 상태 (다시 넣으면"
+                                                                                    + " ACCEPTED)"),
+                                                                fieldWithPath("value.progress")
+                                                                        .type(JsonFieldType.NUMBER)
+                                                                        .description("진행률"),
+                                                                fieldWithPath("value.note")
+                                                                        .type(JsonFieldType.STRING)
+                                                                        .description("메모")
+                                                                        .optional(),
+                                                                fieldWithPath("value.joined_at")
+                                                                        .type(JsonFieldType.STRING)
+                                                                        .description("참여일시")
+                                                                        .optional(),
+                                                                fieldWithPath("value.completed_at")
+                                                                        .type(JsonFieldType.STRING)
+                                                                        .description("완료일시")
+                                                                        .optional(),
+                                                                fieldWithPath("value.created_at")
+                                                                        .type(JsonFieldType.STRING)
+                                                                        .description("생성일시")
+                                                                        .optional())
+                                                        .build())));
+
+        // then
+        resultActions.andExpect(MockMvcResultMatchers.status().isOk());
+    }
+
+    @Test
+    @DisplayName("POST /api/v1/missions/{missionId}/rejoin : 길드원이 아니면 403 050603 (LUT-849)")
+    void rejoinGuildMission_notGuildMember_forbidden() throws Exception {
+        when(participantService.rejoinGuildMission(anyLong(), anyString()))
+                .thenThrow(
+                        io.pinkspider.leveluptogethermvp.missionservice.api.exception
+                                .GuildMissionRejoinException.notGuildMember());
+
+        mockMvc.perform(
+                        RestDocumentationRequestBuilders.post(
+                                        "/api/v1/missions/{missionId}/rejoin", 1L)
+                                .with(user(MOCK_USER_ID))
+                                .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(MockMvcResultMatchers.status().isForbidden())
+                .andExpect(MockMvcResultMatchers.jsonPath("$.code").value("050603"));
+    }
+
+    @Test
     @DisplayName("GET /api/v1/missions/{missionId}/participants : 미션 참여자 목록 조회")
     void getMissionParticipantsTest() throws Exception {
         // given

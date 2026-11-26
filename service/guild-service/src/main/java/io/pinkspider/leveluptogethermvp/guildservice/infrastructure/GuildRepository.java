@@ -2,6 +2,7 @@ package io.pinkspider.leveluptogethermvp.guildservice.infrastructure;
 
 import io.pinkspider.leveluptogethermvp.guildservice.domain.entity.Guild;
 import io.pinkspider.leveluptogethermvp.guildservice.domain.enums.GuildVisibility;
+import io.pinkspider.leveluptogethermvp.guildservice.domain.policy.GuildOrderKey;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
@@ -28,6 +29,14 @@ public interface GuildRepository extends JpaRepository<Guild, Long> {
 
     @Query("SELECT g FROM Guild g WHERE g.visibility = 'PUBLIC' AND g.isActive = true")
     Page<Guild> findPublicGuilds(Pageable pageable);
+
+    // LUT-853: 길드 홈 추천 길드 — 공개·활성 길드의 정렬 값만 읽는다. 순서(최근 활동 → 레벨 → 포인트)는
+    // GuildHomeOrderPolicy 가 정하고, 그 페이지에 든 길드만 findAllById 로 조립한다(정렬한 뒤 페이지를 나눈다).
+    @Query(
+            "SELECT new io.pinkspider.leveluptogethermvp.guildservice.domain.policy.GuildOrderKey("
+                    + "g.id, g.masterId, g.currentLevel, g.totalPoint) "
+                    + "FROM Guild g WHERE g.visibility = 'PUBLIC' AND g.isActive = true")
+    List<GuildOrderKey> findPublicGuildOrderKeys();
 
     // LUT-483: 길드 랭킹 — 누적 활동 포인트 내림차순. 동점은 먼저 도달한 길드(lastPointAt 오름차순,
     // 미적립 길드는 뒤로) → 길드 ID 순으로 안정 정렬한다. 랭킹은 서버가 정렬해 내려준다 —

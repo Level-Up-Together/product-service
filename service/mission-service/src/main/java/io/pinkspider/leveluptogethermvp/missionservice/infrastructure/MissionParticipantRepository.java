@@ -23,6 +23,9 @@ public interface MissionParticipantRepository extends JpaRepository<MissionParti
 
     boolean existsByMissionIdAndUserId(Long missionId, String userId);
 
+    /** LUT-849: 길드 미션 목록의 내 참여(상태 무관) — 나의 미션 여부·다시하기 판정용 */
+    List<MissionParticipant> findByUserIdAndMissionIdIn(String userId, List<Long> missionIds);
+
     @Query(
             "SELECT COUNT(mp) > 0 FROM MissionParticipant mp WHERE mp.mission.id = :missionId AND"
                     + " mp.userId = :userId AND mp.status NOT IN ('WITHDRAWN', 'FAILED')")

@@ -1407,13 +1407,20 @@ class MissionControllerTest {
                         "fixture/missionservice/missionResponseList.json",
                         new TypeReference<List<MissionResponse>>() {});
 
-        when(missionService.getGuildMissions(anyString(), any())).thenReturn(responses);
+        // LUT-849: 요청자 기준 나의 미션 여부·다시하기 가능 여부
+        responses.forEach(
+                r -> {
+                    r.setInMyMissions(false);
+                    r.setCanRejoin(true);
+                });
+        when(missionService.getGuildMissions(anyString(), any(), any())).thenReturn(responses);
 
         // when
         ResultActions resultActions =
                 mockMvc.perform(
                                 RestDocumentationRequestBuilders.get(
                                                 "/api/v1/missions/guild/{guildId}", guildId)
+                                        .with(user(MOCK_USER_ID))
                                         .contentType(MediaType.APPLICATION_JSON))
                         .andDo(
                                 MockMvcRestDocumentationWrapper.document(
@@ -1623,6 +1630,26 @@ class MissionControllerTest {
                                                                         .description(
                                                                                 "미션 누적 EXP (탈퇴자 기여"
                                                                                         + " 포함)")
+                                                                        .optional(),
+                                                                fieldWithPath(
+                                                                                "value[].in_my_missions")
+                                                                        .type(JsonFieldType.BOOLEAN)
+                                                                        .description(
+                                                                                "LUT-849: 요청자의 나의"
+                                                                                    + " 미션에 있는가 (참여"
+                                                                                    + " PENDING·ACCEPTED·IN_PROGRESS)")
+                                                                        .optional(),
+                                                                fieldWithPath("value[].can_rejoin")
+                                                                        .type(JsonFieldType.BOOLEAN)
+                                                                        .description(
+                                                                                "LUT-849: 길드 미션 상세에"
+                                                                                    + " '다시하기' 를 보여"
+                                                                                    + " 줄지 — 열린·진행중"
+                                                                                    + " 길드 미션 + 길드원"
+                                                                                    + " + 참여"
+                                                                                    + " 없음·철회·실패"
+                                                                                    + " (완료한 일반 미션은"
+                                                                                    + " false)")
                                                                         .optional())
                                                         .build())));
 
