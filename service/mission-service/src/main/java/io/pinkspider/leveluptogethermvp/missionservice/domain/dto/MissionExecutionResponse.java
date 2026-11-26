@@ -77,6 +77,13 @@ public class MissionExecutionResponse {
     @JsonInclude(JsonInclude.Include.NON_NULL)
     private Integer milestoneCount;
 
+    /**
+     * LUT-860: 이번 완료에서 누적 마이너스 경험치(취소한 미션 때문에 생긴 빚)를 갚느라 덜 받은 양. 실제로 받은 양은 {@code expEarned -
+     * expDeducted}. 차감이 없으면 응답에서 제외.
+     */
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    private Integer expDeducted;
+
     private LocalDateTime createdAt;
 
     /** LUT-632: 탑 자리(층·자동 착석·응원 수) — 완료 응답에만, 탑에 앉지 않았으면 없음 */
@@ -142,6 +149,7 @@ public class MissionExecutionResponse {
                 .dailySimpleExpCapped(instanceResponse.getDailySimpleExpCapped())
                 .milestoneBonusExp(instanceResponse.getMilestoneBonusExp())
                 .milestoneCount(instanceResponse.getMilestoneCount())
+                .expDeducted(instanceResponse.getExpDeducted())
                 .createdAt(instanceResponse.getCreatedAt())
                 .build();
     }

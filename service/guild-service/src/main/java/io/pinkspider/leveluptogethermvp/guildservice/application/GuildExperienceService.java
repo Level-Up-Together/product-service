@@ -190,6 +190,60 @@ public class GuildExperienceService {
         return getGuildExperienceInfo(guild);
     }
 
+    /**
+     * LUT-860: 완료한 길드 미션 수행을 취소해 길드 경험치와 그 수행으로 쌓인 활동 포인트를 되돌린다. Saga 보상({@link
+     * #subtractExperience})과 달리 포인트도 뺀다 — 취소한 수행이 길드 랭킹에 남지 않게 한다. 길드 레벨은 내리지 않는다. 내역에는 수행 경험치의 음수
+     * 행으로 남긴다({@code guild_experience_history.source_type} 에 CHECK 제약이 있어 새 값을 만들지 않았다).
+     */
+    @Transactional(transactionManager = "guildTransactionManager")
+    public GuildExperienceResponse cancelMissionExperience(
+            Long guildId,
+            int expAmount,
+            Long sourceId,
+            String contributorId,
+            String description,
+            java.time.LocalDateTime completedAtUtc) {
+        Guild guild =
+                guildRepository
+                        .findByIdAndIsActiveTrue(guildId)
+                        .orElseThrow(
+                                () -> new IllegalArgumentException("길드를 찾을 수 없습니다: " + guildId));
+
+        int level = guild.getCurrentLevel();
+        guild.setCurrentExp(Math.max(0, guild.getCurrentExp() - expAmount));
+        guild.setTotalExp(Math.max(0, guild.getTotalExp() - expAmount));
+
+        historyRepository.save(
+                GuildExperienceHistory.builder()
+                        .guild(guild)
+                        .sourceType(GuildExpSourceType.GUILD_MISSION_EXECUTION)
+                        .sourceId(sourceId)
+                        .contributorId(contributorId)
+                        .expAmount(-expAmount)
+                        .description(description)
+                        .levelBefore(level)
+                        .levelAfter(level)
+                        .build());
+
+        int revokedPoints =
+                completedAtUtc == null
+                        ? 0
+                        : guildPointService.revokePoints(
+                                guild,
+                                contributorId,
+                                expAmount,
+                                GuildPointService.pointDateOf(completedAtUtc));
+
+        log.info(
+                "길드 경험치 취소: guildId={}, amount={}, total={}, -{}점",
+                guildId,
+                expAmount,
+                guild.getTotalExp(),
+                revokedPoints);
+
+        return getGuildExperienceInfo(guild);
+    }
+
     public GuildLevelConfig createOrUpdateLevelConfig(
             Integer level,
             Integer requiredExp,
@@ -199,6 +253,19 @@ public class GuildExperienceService {
             String description) {
         return guildLevelConfigCacheService.createOrUpdateLevelConfig(
                 level, requiredExp, cumulativeExp, maxMembers, title, description);
+    }
+
+    /** 그 레벨의 누적 포인트 기준 — 설정이 없거나 값이 비었으면 null */
+    private static Integer cumulativePointOf(List<GuildLevelConfig> levelConfigs, int level) {
+        if (levelConfigs == null) {
+            return null;
+        }
+        for (GuildLevelConfig config : levelConfigs) {
+            if (config.getLevel() != null && config.getLevel() == level) {
+                return config.getCumulativePoint();
+            }
+        }
+        return null;
     }
 
     /**
@@ -233,6 +300,21 @@ public class GuildExperienceService {
         // LUT-483 컬럼 추가 전 JSON 을 돌려줘 활성 길드가 3→1 로 강등된 사고의 재발 방지.
         int currentLevel = guild.getCurrentLevel();
         if (newLevel < currentLevel) {
+            Integer currentLevelCumulative = cumulativePointOf(levelConfigs, currentLevel);
+            if (currentLevelCumulative != null) {
+                // LUT-860: 설정은 멀쩡한데 포인트가 현재 레벨 기준 밑이다 — 길드 미션 수행 취소로 포인트를 뺐거나 어드민이 기준을 올린
+                // 정상 경우. 레벨은 유지하고, 레벨 안 포인트는 기준을 다시 넘을 때까지 0 으로 둔다(안 맞추면 적립마다 1·2·3 으로 어긋난다).
+                guild.setCurrentPoint(Math.max(0, totalPoint - currentLevelCumulative));
+                log.debug(
+                        "길드 포인트가 현재 레벨 기준 밑이라 레벨을 유지합니다: guildId={}, level={}, totalPoint={},"
+                                + " required={}",
+                        guild.getId(),
+                        currentLevel,
+                        totalPoint,
+                        currentLevelCumulative);
+                return;
+            }
+            // 현재 레벨의 기준값을 읽지 못했다 = 설정 캐시가 스테일하다는 신호(LUT-534)
             log.warn(
                     "길드 레벨 재판정 결과가 현재 레벨보다 낮아 유지합니다: guildId={}, current={}, computed={},"
                             + " totalPoint={}, configs={}",

@@ -59,6 +59,12 @@ public class UserExperience extends LocalDateTimeBaseEntity {
     @Comment("누적 총 경험치")
     private Integer totalExp = 0;
 
+    /** LUT-860: 미션 취소로 생긴 누적 마이너스 경험치. 다음 미션 경험치를 줄 때 먼저 갚는다. */
+    @Builder.Default
+    @Column(name = "exp_debt", nullable = false)
+    @Comment("누적 마이너스 경험치")
+    private Integer expDebt = 0;
+
     @Version
     @Column(name = "version")
     @Comment("낙관적 락 버전")
@@ -94,6 +100,44 @@ public class UserExperience extends LocalDateTimeBaseEntity {
             this.currentExp += exp;
             this.totalExp += exp;
         }
+    }
+
+    /**
+     * LUT-860: 취소한 미션의 경험치를 뺀다. 레벨은 내리지 않는다 — 현재 레벨 안의 경험치에서 빼고, 모자라면 0 까지만 뺀 뒤 남는 양을 누적 마이너스 경험치로
+     * 쌓는다.
+     *
+     * @return 누적 마이너스 경험치로 넘어간 양
+     */
+    public int cancelExperience(int exp) {
+        if (exp < 0) {
+            throw new IllegalArgumentException("경험치는 음수일 수 없습니다: " + exp);
+        }
+        int removable = Math.min(this.currentExp, exp);
+        this.currentExp -= removable;
+        this.totalExp = Math.max(0, this.totalExp - removable);
+        int toDebt = exp - removable;
+        addDebt(toDebt);
+        return toDebt;
+    }
+
+    /**
+     * LUT-860: 받을 경험치로 누적 마이너스 경험치를 먼저 갚는다.
+     *
+     * @return 갚은 양 (이만큼 덜 받는다)
+     */
+    public int payDebt(int grant) {
+        int debt = this.expDebt == null ? 0 : this.expDebt;
+        int paid = Math.max(0, Math.min(debt, grant));
+        this.expDebt = debt - paid;
+        return paid;
+    }
+
+    /** LUT-860: 누적 마이너스 경험치를 늘린다 (취소로 못 뺀 양, 지급을 되돌릴 때 갚았던 양) */
+    public void addDebt(int amount) {
+        if (amount <= 0) {
+            return;
+        }
+        this.expDebt = (this.expDebt == null ? 0 : this.expDebt) + amount;
     }
 
     public void levelUp(int requiredExpForNextLevel) {

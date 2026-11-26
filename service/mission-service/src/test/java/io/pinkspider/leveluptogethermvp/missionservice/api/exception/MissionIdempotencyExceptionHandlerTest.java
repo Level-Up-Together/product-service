@@ -109,4 +109,72 @@ class MissionIdempotencyExceptionHandlerTest {
                     assertThat(body.getMessage()).startsWith("error.mission.rejoin.");
                 });
     }
+
+    @Test
+    @DisplayName("LUT-860 완료한 수행 취소 — 없음 404 050701, 완료 아님 400 050702, 오늘 아님 400 050703")
+    void executionCancel_statuses() {
+        MissionIdempotencyExceptionHandler handler = new MissionIdempotencyExceptionHandler();
+
+        ResponseEntity<Object> notFound =
+                handler.handleExecutionCancel(MissionExecutionCancelException.notFound());
+        assertThat(notFound.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
+        assertThat(((ApiResult<?>) notFound.getBody()).getCode()).isEqualTo("050701");
+        assertThat(((ApiResult<?>) notFound.getBody()).getMessage())
+                .isEqualTo("error.mission.cancel.not_found");
+
+        ResponseEntity<Object> notCompleted =
+                handler.handleExecutionCancel(MissionExecutionCancelException.notCompleted());
+        assertThat(notCompleted.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        assertThat(((ApiResult<?>) notCompleted.getBody()).getCode()).isEqualTo("050702");
+        assertThat(((ApiResult<?>) notCompleted.getBody()).getMessage())
+                .isEqualTo("error.mission.cancel.not_completed");
+
+        ResponseEntity<Object> notToday =
+                handler.handleExecutionCancel(MissionExecutionCancelException.notToday());
+        assertThat(notToday.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        assertThat(((ApiResult<?>) notToday.getBody()).getCode()).isEqualTo("050703");
+        assertThat(((ApiResult<?>) notToday.getBody()).getMessage())
+                .isEqualTo("error.mission.cancel.not_today");
+    }
+
+    @Test
+    @DisplayName("LUT-860 완료한 수행 취소 — 메시지 키를 현지화해 돌려준다")
+    void executionCancel_localized() {
+        MissionIdempotencyExceptionHandler handler = new MissionIdempotencyExceptionHandler();
+        MessageSource messageSource = mock(MessageSource.class);
+        when(messageSource.getMessage(
+                        eq("error.mission.cancel.not_today"),
+                        isNull(),
+                        eq("error.mission.cancel.not_today"),
+                        any()))
+                .thenReturn("오늘 완료한 미션만 취소할 수 있어요.");
+        ReflectionTestUtils.setField(handler, "messageSource", messageSource);
+
+        ResponseEntity<Object> res =
+                handler.handleExecutionCancel(MissionExecutionCancelException.notToday());
+
+        assertThat(res.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        ApiResult<?> body = (ApiResult<?>) res.getBody();
+        assertThat(body.getCode()).isEqualTo("050703");
+        assertThat(body.getMessage()).isEqualTo("오늘 완료한 미션만 취소할 수 있어요.");
+    }
+
+    @Test
+    @DisplayName("LUT-860 MissionExecutionCancelException — 코드·상태·메시지 키")
+    void executionCancelException_factories() {
+        MissionExecutionCancelException notFound = MissionExecutionCancelException.notFound();
+        assertThat(notFound.getCode()).isEqualTo(MissionExecutionCancelException.CODE_NOT_FOUND);
+        assertThat(notFound.getStatus()).isEqualTo(HttpStatus.NOT_FOUND);
+        assertThat(notFound.getMessage()).isEqualTo("error.mission.cancel.not_found");
+
+        MissionExecutionCancelException notCompleted =
+                MissionExecutionCancelException.notCompleted();
+        assertThat(notCompleted.getCode())
+                .isEqualTo(MissionExecutionCancelException.CODE_NOT_COMPLETED);
+        assertThat(notCompleted.getStatus()).isEqualTo(HttpStatus.BAD_REQUEST);
+
+        MissionExecutionCancelException notToday = MissionExecutionCancelException.notToday();
+        assertThat(notToday.getCode()).isEqualTo(MissionExecutionCancelException.CODE_NOT_TODAY);
+        assertThat(notToday.getStatus()).isEqualTo(HttpStatus.BAD_REQUEST);
+    }
 }

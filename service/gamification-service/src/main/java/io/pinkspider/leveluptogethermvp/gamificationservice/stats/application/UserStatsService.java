@@ -5,6 +5,7 @@ import io.pinkspider.global.facade.MissionQueryFacade;
 import io.pinkspider.global.facade.UserQueryFacade;
 import io.pinkspider.global.facade.dto.PracticeStreakDto;
 import io.pinkspider.leveluptogethermvp.gamificationservice.domain.entity.UserStats;
+import io.pinkspider.leveluptogethermvp.gamificationservice.infrastructure.AttendanceRecordRepository;
 import io.pinkspider.leveluptogethermvp.gamificationservice.infrastructure.UserStatsRepository;
 import io.pinkspider.leveluptogethermvp.gamificationservice.stats.domain.dto.UserStatsResponse;
 import io.pinkspider.leveluptogethermvp.gamificationservice.subscription.domain.entity.UserSubscription;
@@ -37,6 +38,7 @@ public class UserStatsService {
     private final GuildQueryFacade guildQueryFacade;
     private final MissionQueryFacade missionQueryFacade;
     private final UserSubscriptionRepository userSubscriptionRepository;
+    private final AttendanceRecordRepository attendanceRecordRepository;
 
     // LUT-405: userQueryFacadeService → userProfileCacheService → gamificationQueryFacadeService
     // → userStatsService 로 이어지는 user↔gamification 생성 사이클을 @Lazy 로 끊는다.
@@ -48,9 +50,11 @@ public class UserStatsService {
             @Lazy UserQueryFacade userQueryFacade,
             @Lazy GuildQueryFacade guildQueryFacade,
             @Lazy MissionQueryFacade missionQueryFacade,
-            UserSubscriptionRepository userSubscriptionRepository) {
+            UserSubscriptionRepository userSubscriptionRepository,
+            AttendanceRecordRepository attendanceRecordRepository) {
         this.userStatsRepository = userStatsRepository;
         this.userSubscriptionRepository = userSubscriptionRepository;
+        this.attendanceRecordRepository = attendanceRecordRepository;
         this.userStatsCreator = userStatsCreator;
         this.userQueryFacade = userQueryFacade;
         this.guildQueryFacade = guildQueryFacade;
@@ -242,6 +246,42 @@ public class UserStatsService {
                 "미션 완료 보상 처리: userId={}, totalCompletions={}",
                 userId,
                 stats.getTotalMissionCompletions());
+    }
+
+    /**
+     * LUT-860: 취소한 수행의 완료 시각(UTC)을 유저 로컬 날짜로 바꿔, 그날의 연속 실천·활동 스트릭 반영을 되돌린다. 그날 다른 미션 완료가 남아 있으면
+     * 아무것도 하지 않고, 그날 출석했으면 활동 스트릭은 그대로 둔다(출석도 활동이다). 수행 상태를 되돌린 뒤에 불러야 남은 완료를 바르게 센다.
+     */
+    @Transactional(transactionManager = "gamificationTransactionManager")
+    public void undoMissionPractice(String userId, LocalDateTime completedAtUtc) {
+        if (completedAtUtc == null) {
+            return;
+        }
+        ZoneId zone = resolveUserZone(userId);
+        LocalDate date =
+                completedAtUtc.atZone(ZoneOffset.UTC).withZoneSameInstant(zone).toLocalDate();
+        Set<LocalDate> remaining =
+                missionQueryFacade
+                        .findMissionCompletedLocalDates(
+                                List.of(userId),
+                                completedAtUtc.minusDays(2),
+                                completedAtUtc.plusDays(2),
+                                zone.getId())
+                        .getOrDefault(userId, Set.of());
+        if (remaining.contains(date)) {
+            return;
+        }
+        UserStats stats = getOrCreateUserStats(userId);
+        boolean practiceUndone = stats.undoPractice(date);
+        boolean streakUndone =
+                !attendanceRecordRepository.existsByUserIdAndAttendanceDate(userId, date)
+                        && stats.undoStreak(date);
+        log.info(
+                "미션 취소로 스트릭 되돌림: userId={}, date={}, practice={}, activity={}",
+                userId,
+                date,
+                practiceUndone,
+                streakUndone);
     }
 
     @Transactional(transactionManager = "gamificationTransactionManager")

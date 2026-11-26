@@ -124,6 +124,19 @@ public class UserStats extends LocalDateTimeBaseEntity {
     @Builder.Default
     private Integer totalTitlesAcquired = 0;
 
+    /**
+     * LUT-860: 그날의 첫 실천이 연속 실천 값을 바꾸기 직전 상태 — {@code 날짜|연속|최장|마지막 실천일|방어권 달|방어권 사용|마지막 방어일}. 그날 마지막
+     * 미션 완료를 취소하면 이 값으로 되돌린다({@link #undoPractice}).
+     */
+    @Column(name = "practice_undo_state", length = 200)
+    @Comment("그날 첫 실천 직전의 연속 실천 값")
+    private String practiceUndoState;
+
+    /** LUT-860: 그날의 첫 활동이 활동 스트릭을 바꾸기 직전 상태 — {@code 날짜|현재|최장|마지막 활동일} ({@link #undoStreak}) */
+    @Column(name = "streak_undo_state", length = 100)
+    @Comment("그날 첫 활동 직전의 활동 스트릭 값")
+    private String streakUndoState;
+
     // 랭킹용 포인트
     @Column(name = "ranking_points", nullable = false)
     @Comment("랭킹 포인트")
@@ -197,6 +210,7 @@ public class UserStats extends LocalDateTimeBaseEntity {
     }
 
     public void updateStreak(LocalDate today) {
+        String before = encodeUndo(today, currentStreak, maxStreak, lastActivityDate);
         if (lastActivityDate == null) {
             this.currentStreak = 1;
         } else if (lastActivityDate.equals(today)) {
@@ -220,7 +234,28 @@ public class UserStats extends LocalDateTimeBaseEntity {
             this.maxStreak = this.currentStreak;
         }
         this.lastActivityDate = today;
+        // LUT-860: 그날의 첫 활동만 여기까지 온다 — 취소 때 되돌릴 직전 값을 남긴다
+        this.streakUndoState = before;
         updateRankingPoints();
+    }
+
+    /**
+     * LUT-860: {@code activityDate} 의 첫 활동이 바꾼 활동 스트릭을 직전 값으로 되돌린다. 그날의 값이 남아 있지 않거나 마지막 활동일이 그날이
+     * 아니면 아무것도 하지 않는다. 호출하는 쪽이 그날 다른 활동(출석·다른 미션 완료)이 없는지 먼저 본다.
+     *
+     * @return 되돌렸으면 true
+     */
+    public boolean undoStreak(LocalDate activityDate) {
+        String[] state = decodeUndo(streakUndoState, activityDate, 4);
+        if (state == null || !activityDate.equals(lastActivityDate)) {
+            return false;
+        }
+        this.currentStreak = parseUndoInt(state[1]);
+        this.maxStreak = parseUndoInt(state[2]);
+        this.lastActivityDate = parseUndoDate(state[3]);
+        this.streakUndoState = null;
+        updateRankingPoints();
+        return true;
     }
 
     /**
@@ -239,6 +274,15 @@ public class UserStats extends LocalDateTimeBaseEntity {
         if (practiceDate == null) {
             return;
         }
+        String before =
+                encodeUndo(
+                        practiceDate,
+                        practiceStreak,
+                        maxPracticeStreak,
+                        lastPracticeDate,
+                        practiceShieldMonth,
+                        practiceShieldsUsed,
+                        lastPracticeShieldDate);
         if (lastPracticeDate == null) {
             this.practiceStreak = 1;
         } else if (lastPracticeDate.equals(practiceDate)
@@ -259,6 +303,58 @@ public class UserStats extends LocalDateTimeBaseEntity {
             this.maxPracticeStreak = this.practiceStreak;
         }
         this.lastPracticeDate = practiceDate;
+        // LUT-860: 그날의 첫 실천만 여기까지 온다 — 취소 때 되돌릴 직전 값(방어권 사용 포함)을 남긴다
+        this.practiceUndoState = before;
+    }
+
+    /**
+     * LUT-860: {@code practiceDate} 의 첫 실천이 바꾼 연속 실천(방어권 사용 포함)을 직전 값으로 되돌린다. 그날의 값이 남아 있지 않거나 마지막
+     * 실천일이 그날이 아니면 아무것도 하지 않는다. 호출하는 쪽이 그날 다른 미션 완료가 없는지 먼저 본다.
+     *
+     * @return 되돌렸으면 true
+     */
+    public boolean undoPractice(LocalDate practiceDate) {
+        String[] state = decodeUndo(practiceUndoState, practiceDate, 7);
+        if (state == null || !practiceDate.equals(lastPracticeDate)) {
+            return false;
+        }
+        this.practiceStreak = parseUndoInt(state[1]);
+        this.maxPracticeStreak = parseUndoInt(state[2]);
+        this.lastPracticeDate = parseUndoDate(state[3]);
+        this.practiceShieldMonth = state[4].isEmpty() ? null : state[4];
+        this.practiceShieldsUsed = parseUndoInt(state[5]);
+        this.lastPracticeShieldDate = parseUndoDate(state[6]);
+        this.practiceUndoState = null;
+        return true;
+    }
+
+    /** LUT-860: 되돌리기용 직전 값 — 첫 칸은 날짜, 빈 값은 빈 문자열, 숫자의 null 은 0 */
+    private static String encodeUndo(LocalDate date, Object... values) {
+        StringBuilder encoded = new StringBuilder(String.valueOf(date));
+        for (Object value : values) {
+            encoded.append('|').append(value == null ? "" : value);
+        }
+        return encoded.toString();
+    }
+
+    /** 그 날짜의 직전 값이면 칸 배열, 아니면(없음·다른 날짜·형식 다름) null */
+    private static String[] decodeUndo(String encoded, LocalDate date, int fields) {
+        if (encoded == null || date == null) {
+            return null;
+        }
+        String[] parts = encoded.split("\\|", -1);
+        if (parts.length != fields || !date.toString().equals(parts[0])) {
+            return null;
+        }
+        return parts;
+    }
+
+    private static LocalDate parseUndoDate(String value) {
+        return value == null || value.isEmpty() ? null : LocalDate.parse(value);
+    }
+
+    private static int parseUndoInt(String value) {
+        return value == null || value.isEmpty() ? 0 : Integer.parseInt(value);
     }
 
     /**

@@ -677,6 +677,112 @@ class MissionCompletionSagaTest {
             // then
             assertThat(response).isNotNull();
             assertThat(response.getId()).isEqualTo(EXECUTION_ID);
+            // LUT-860: 누적 마이너스 경험치를 갚지 않았으면 exp_deducted 는 싣지 않는다
+            assertThat(response.getExpDeducted()).isNull();
+        }
+
+        @Test
+        @DisplayName("LUT-860: 지급 Step 이 누적 마이너스 경험치를 갚았으면(expDeducted > 0) 일반 미션 응답에 싣는다")
+        void toResponse_exposesExpDeducted() {
+            // given
+            when(loadMissionDataStep.execute(any(MissionCompletionContext.class)))
+                    .thenAnswer(
+                            invocation -> {
+                                MissionCompletionContext ctx = invocation.getArgument(0);
+                                ctx.setExecution(execution);
+                                ctx.setParticipant(participant);
+                                ctx.setMission(mission);
+                                return SagaStepResult.success("데이터 로드 성공");
+                            });
+            when(completeExecutionStep.execute(any())).thenReturn(SagaStepResult.success("완료"));
+            when(grantUserExperienceStep.execute(any(MissionCompletionContext.class)))
+                    .thenAnswer(
+                            invocation -> {
+                                MissionCompletionContext ctx = invocation.getArgument(0);
+                                ctx.setExpDeducted(15);
+                                return SagaStepResult.success("경험치");
+                            });
+            when(updateParticipantProgressStep.execute(any()))
+                    .thenReturn(SagaStepResult.success("진행도"));
+            when(updateUserStatsStep.execute(any())).thenReturn(SagaStepResult.success("통계"));
+            when(createFeedFromMissionStep.execute(any())).thenReturn(SagaStepResult.success("피드"));
+
+            SagaResult<MissionCompletionContext> result =
+                    missionCompletionSaga.execute(EXECUTION_ID, TEST_USER_ID, null);
+
+            // when
+            var response = missionCompletionSaga.toResponse(result);
+
+            // then
+            assertThat(response).isNotNull();
+            assertThat(response.getExpDeducted()).isEqualTo(15);
+        }
+
+        @Test
+        @DisplayName("LUT-860: 고정 미션 응답도 expDeducted > 0 일 때만 싣는다")
+        void toPinnedResponse_exposesExpDeductedOnlyWhenPositive() {
+            // given
+            Mission pinnedMission =
+                    Mission.builder()
+                            .title("매일 운동")
+                            .description("운동하기")
+                            .creatorId(TEST_USER_ID)
+                            .status(MissionStatus.IN_PROGRESS)
+                            .visibility(MissionVisibility.PRIVATE)
+                            .type(MissionType.PERSONAL)
+                            .expPerCompletion(50)
+                            .isPinned(true)
+                            .build();
+            setId(pinnedMission, 10L);
+            MissionParticipant pinnedParticipant =
+                    MissionParticipant.builder()
+                            .mission(pinnedMission)
+                            .userId(TEST_USER_ID)
+                            .status(ParticipantStatus.ACCEPTED)
+                            .build();
+            setId(pinnedParticipant, 10L);
+            DailyMissionInstance instance =
+                    DailyMissionInstance.createFrom(pinnedParticipant, LocalDate.now());
+            setId(instance, INSTANCE_ID);
+
+            when(loadPinnedMissionDataStep.execute(any(MissionCompletionContext.class)))
+                    .thenAnswer(
+                            invocation -> {
+                                MissionCompletionContext ctx = invocation.getArgument(0);
+                                ctx.setInstance(instance);
+                                ctx.setParticipant(pinnedParticipant);
+                                ctx.setMission(pinnedMission);
+                                ctx.setUserExpEarned(50);
+                                return SagaStepResult.success("데이터 로드 성공");
+                            });
+            when(completePinnedInstanceStep.execute(any()))
+                    .thenReturn(SagaStepResult.success("완료"));
+            // 첫 완료는 20 을 갚고, 두 번째 완료는 갚을 것이 없다
+            java.util.concurrent.atomic.AtomicInteger deducted =
+                    new java.util.concurrent.atomic.AtomicInteger(20);
+            when(grantUserExperienceStep.execute(any(MissionCompletionContext.class)))
+                    .thenAnswer(
+                            invocation -> {
+                                MissionCompletionContext ctx = invocation.getArgument(0);
+                                ctx.setExpDeducted(deducted.getAndSet(0));
+                                return SagaStepResult.success("경험치");
+                            });
+            when(updateUserStatsStep.execute(any())).thenReturn(SagaStepResult.success("통계"));
+            when(createFeedFromMissionStep.execute(any())).thenReturn(SagaStepResult.success("피드"));
+            when(createNextPinnedInstanceStep.execute(any()))
+                    .thenReturn(SagaStepResult.success("다음"));
+
+            // when
+            var withDebt =
+                    missionCompletionSaga.toPinnedResponse(
+                            missionCompletionSaga.executePinned(INSTANCE_ID, TEST_USER_ID, null));
+            var withoutDebt =
+                    missionCompletionSaga.toPinnedResponse(
+                            missionCompletionSaga.executePinned(INSTANCE_ID, TEST_USER_ID, null));
+
+            // then
+            assertThat(withDebt.getExpDeducted()).isEqualTo(20);
+            assertThat(withoutDebt.getExpDeducted()).isNull();
         }
 
         @Test

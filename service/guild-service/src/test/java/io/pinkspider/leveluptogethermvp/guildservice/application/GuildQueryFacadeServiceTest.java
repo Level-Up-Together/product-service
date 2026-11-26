@@ -50,6 +50,8 @@ class GuildQueryFacadeServiceTest {
 
     @Mock private GuildPostRepository guildPostRepository;
 
+    @Mock private GuildExperienceService guildExperienceService;
+
     @InjectMocks private GuildQueryFacadeService facadeService;
 
     // ========== 테스트 헬퍼 ==========
@@ -725,6 +727,87 @@ class GuildQueryFacadeServiceTest {
             when(guildPostRepository.findByIdAndIsDeletedFalse(999L)).thenReturn(Optional.empty());
 
             assertThat(facadeService.getGuildInfoByPostId(999L)).isNull();
+        }
+    }
+
+    @Nested
+    @DisplayName("cancelGuildMissionExperience (LUT-860 완료한 길드 미션 수행 취소)")
+    class CancelGuildMissionExperienceTest {
+
+        @Test
+        @DisplayName("GuildExperienceService 로 그대로 넘기고 결과를 DTO 로 옮긴다")
+        void delegatesAndMapsResult() {
+            LocalDateTime completedAtUtc = LocalDateTime.of(2026, 11, 25, 16, 30);
+            when(guildExperienceService.cancelMissionExperience(
+                            5L, 30, 77L, "user-1", "길드 미션 취소: 아침 스트레칭", completedAtUtc))
+                    .thenReturn(
+                            io.pinkspider.leveluptogethermvp.guildservice.domain.dto
+                                    .GuildExperienceResponse.builder()
+                                    .guildId(5L)
+                                    .guildName("테스트 길드")
+                                    .currentLevel(2)
+                                    .currentExp(270)
+                                    .totalExp(6270)
+                                    .totalPoint(34)
+                                    .currentPoint(4)
+                                    .requiredExpForNextLevel(8000)
+                                    .maxMembers(11)
+                                    .levelTitle("성장 길드")
+                                    .build());
+
+            io.pinkspider.global.facade.dto.GuildExperienceResultDto result =
+                    facadeService.cancelGuildMissionExperience(
+                            5L, 30, 77L, "user-1", "길드 미션 취소: 아침 스트레칭", completedAtUtc);
+
+            assertThat(result.guildId()).isEqualTo(5L);
+            assertThat(result.guildName()).isEqualTo("테스트 길드");
+            assertThat(result.currentLevel()).isEqualTo(2);
+            assertThat(result.currentExp()).isEqualTo(270);
+            assertThat(result.totalExp()).isEqualTo(6270);
+            assertThat(result.requiredExpForNextLevel()).isEqualTo(8000);
+            assertThat(result.maxMembers()).isEqualTo(11);
+            assertThat(result.levelTitle()).isEqualTo("성장 길드");
+        }
+
+        @Test
+        @DisplayName("완료 시각이 null 이어도 그대로 넘긴다 (포인트 회수 여부는 서비스가 정한다)")
+        void passesNullCompletedAt() {
+            when(guildExperienceService.cancelMissionExperience(
+                            5L, 30, 77L, "user-1", "길드 미션 취소", null))
+                    .thenReturn(
+                            io.pinkspider.leveluptogethermvp.guildservice.domain.dto
+                                    .GuildExperienceResponse.builder()
+                                    .guildId(5L)
+                                    .currentExp(0)
+                                    .build());
+
+            io.pinkspider.global.facade.dto.GuildExperienceResultDto result =
+                    facadeService.cancelGuildMissionExperience(
+                            5L, 30, 77L, "user-1", "길드 미션 취소", null);
+
+            assertThat(result.guildId()).isEqualTo(5L);
+            verify(guildExperienceService)
+                    .cancelMissionExperience(5L, 30, 77L, "user-1", "길드 미션 취소", null);
+        }
+
+        @Test
+        @DisplayName("서비스가 던진 예외(길드 없음)는 그대로 나간다")
+        void propagatesException() {
+            when(guildExperienceService.cancelMissionExperience(
+                            any(),
+                            org.mockito.ArgumentMatchers.anyInt(),
+                            any(),
+                            any(),
+                            any(),
+                            any()))
+                    .thenThrow(new IllegalArgumentException("길드를 찾을 수 없습니다: 999"));
+
+            org.assertj.core.api.Assertions.assertThatThrownBy(
+                            () ->
+                                    facadeService.cancelGuildMissionExperience(
+                                            999L, 30, 77L, "user-1", "길드 미션 취소", null))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessageContaining("999");
         }
     }
 }

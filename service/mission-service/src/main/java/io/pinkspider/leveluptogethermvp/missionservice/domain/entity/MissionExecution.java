@@ -129,6 +129,25 @@ public class MissionExecution extends LocalDateTimeBaseEntity implements Mission
                 .TIMED;
     }
 
+    /**
+     * LUT-860: 완료한 수행을 취소해 대기 상태로 되돌린다. 받은 경험치 표시와 기록(메모·대표 사진·공유 표시)도 비운다 — 사진 행·피드·실제 경험치는 호출하는
+     * 쪽({@code MissionExecutionCancelTxService})이 되돌린다.
+     */
+    public void revertCompletion() {
+        if (this.status != ExecutionStatus.COMPLETED) {
+            throw new IllegalStateException("완료된 수행 기록만 취소할 수 있습니다.");
+        }
+        this.status = ExecutionStatus.PENDING;
+        this.startedAt = null;
+        this.completedAt = null;
+        this.expEarned = 0;
+        this.note = null;
+        this.imageUrl = null;
+        this.isSharedToFeed = false;
+        this.isAutoCompleted = false;
+        this.guildExpGranted = false;
+    }
+
     /** 경험치 계산: 분당 1 EXP, 최소 1분, 최대 480분(8시간) */
     @Override
     public int calculateExpByDuration() {

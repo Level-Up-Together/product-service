@@ -339,6 +339,61 @@ public class GamificationQueryFacadeService implements GamificationQueryFacade {
 
     @Override
     @Transactional(transactionManager = "gamificationTransactionManager")
+    public UserExperienceDto cancelExperience(
+            String userId,
+            int expAmount,
+            ExpSourceType sourceType,
+            Long sourceId,
+            String description,
+            Long categoryId,
+            String categoryName) {
+        return toExperienceResponseDto(
+                userExperienceService.cancelExperience(
+                        userId,
+                        expAmount,
+                        sourceType,
+                        sourceId,
+                        description,
+                        categoryId,
+                        categoryName));
+    }
+
+    @Override
+    @Transactional(transactionManager = "gamificationTransactionManager")
+    public UserExperienceDto subtractExperience(
+            String userId,
+            int expAmount,
+            int expDeducted,
+            ExpSourceType sourceType,
+            Long sourceId,
+            String description,
+            Long categoryId,
+            String categoryName) {
+        return toExperienceResponseDto(
+                userExperienceService.subtractExperience(
+                        userId,
+                        expAmount,
+                        expDeducted,
+                        sourceType,
+                        sourceId,
+                        description,
+                        categoryId,
+                        categoryName));
+    }
+
+    @Override
+    public int sumExperienceBySource(
+            String userId,
+            ExpSourceType sourceType,
+            Long sourceId,
+            java.time.LocalDateTime fromUtc,
+            java.time.LocalDateTime toUtcExclusive) {
+        return userExperienceService.sumExperienceBySource(
+                userId, sourceType, sourceId, fromUtc, toUtcExclusive);
+    }
+
+    @Override
+    @Transactional(transactionManager = "gamificationTransactionManager")
     public UserExperienceDto subtractExperience(
             String userId,
             int expAmount,
@@ -378,6 +433,11 @@ public class GamificationQueryFacadeService implements GamificationQueryFacade {
     @Override
     public void recordMissionPractice(String userId, java.time.LocalDateTime completedAtUtc) {
         userStatsService.recordMissionPractice(userId, completedAtUtc);
+    }
+
+    @Override
+    public void undoMissionPractice(String userId, java.time.LocalDateTime completedAtUtc) {
+        userStatsService.undoMissionPractice(userId, completedAtUtc);
     }
 
     @Override
@@ -667,7 +727,9 @@ public class GamificationQueryFacadeService implements GamificationQueryFacade {
                 ue.getTotalExp(),
                 null,
                 null,
-                null);
+                null,
+                0,
+                ue.getExpDebt() == null ? 0 : ue.getExpDebt());
     }
 
     private UserExperienceDto toExperienceResponseDto(UserExperienceResponse resp) {
@@ -679,7 +741,9 @@ public class GamificationQueryFacadeService implements GamificationQueryFacade {
                 resp.getTotalExp(),
                 resp.getNextLevelRequiredExp(),
                 resp.getExpToNextLevel(),
-                resp.getProgressToNextLevel());
+                resp.getProgressToNextLevel(),
+                resp.getExpDeducted() == null ? 0 : resp.getExpDeducted(),
+                resp.getExpDebt() == null ? 0 : resp.getExpDebt());
     }
 
     private UserTitleDto toTitleDto(UserTitle ut) {

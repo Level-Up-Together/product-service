@@ -61,6 +61,9 @@ public class MissionCompletionContext extends SagaContext {
     /** LUT-568: 이번 완료로 지급할 마일스톤 보너스 경험치. 미도달이면 0. */
     private int milestoneBonusExp;
 
+    /** LUT-860: 이번 지급에서 누적 마이너스 경험치(미션 취소로 생긴 빚)를 갚느라 덜 받은 양 */
+    private int expDeducted;
+
     // === Regular-only Calculated Data ===
     private int guildExpEarned;
     private Long guildId;

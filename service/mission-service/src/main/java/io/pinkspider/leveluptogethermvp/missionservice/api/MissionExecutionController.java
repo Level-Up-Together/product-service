@@ -4,9 +4,11 @@ import io.pinkspider.global.annotation.CurrentUser;
 import io.pinkspider.global.api.ApiResult;
 import io.pinkspider.global.ratelimit.PerUserRateLimit;
 import io.pinkspider.leveluptogethermvp.feedservice.domain.enums.FeedVisibility;
+import io.pinkspider.leveluptogethermvp.missionservice.application.MissionExecutionCancelService;
 import io.pinkspider.leveluptogethermvp.missionservice.application.MissionExecutionQueryService;
 import io.pinkspider.leveluptogethermvp.missionservice.application.MissionExecutionService;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.ExecutionTimeUpdateRequest;
+import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MissionExecutionCancelResponse;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MissionExecutionResponse;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MonthlyCalendarResponse;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.WeeklyCalendarResponse;
@@ -40,6 +42,7 @@ public class MissionExecutionController {
 
     private final MissionExecutionService executionService;
     private final MissionExecutionQueryService executionQueryService;
+    private final MissionExecutionCancelService executionCancelService;
 
     /** 미션 수행 시작 (특정 날짜) */
     @PatchMapping("/{missionId}/executions/{executionDate}/start")
@@ -351,5 +354,28 @@ public class MissionExecutionController {
                         missionId, userId, executionDate, instanceId);
         return ResponseEntity.ok(
                 ApiResult.<MissionExecutionResponse>builder().value(response).build());
+    }
+
+    /**
+     * LUT-860: 오늘 완료한 미션 수행 취소 — 수행을 대기 상태로 되돌리고 받은 경험치·기록(사진·메모·피드 공유)을 지운다. 레벨은 내리지 않으며, 현재 레벨
+     * 경험치로 모자란 양은 누적 마이너스 경험치로 남아 다음 미션 경험치에서 먼저 빠진다. 진행 중인 수행은 대상이 아니다({@code /skip}).
+     *
+     * @param instanceId 고정 미션의 특정 인스턴스 ID (optional)
+     * @param timezone "오늘" 을 정하는 시간대 (없으면 Asia/Seoul)
+     */
+    @DeleteMapping("/{missionId}/executions/{executionDate}")
+    @PerUserRateLimit(name = "missionCancel", limit = 10, windowSeconds = 60)
+    public ResponseEntity<ApiResult<MissionExecutionCancelResponse>> cancelCompletedExecution(
+            @PathVariable Long missionId,
+            @PathVariable @DateTimeFormat(pattern = "yyyy-MM-dd") LocalDate executionDate,
+            @CurrentUser String userId,
+            @RequestParam(required = false) Long instanceId,
+            @RequestHeader(value = "X-Timezone", required = false) String timezone) {
+
+        MissionExecutionCancelResponse response =
+                executionCancelService.cancel(
+                        missionId, userId, executionDate, instanceId, timezone);
+        return ResponseEntity.ok(
+                ApiResult.<MissionExecutionCancelResponse>builder().value(response).build());
     }
 }

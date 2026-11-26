@@ -29,6 +29,10 @@ public interface MissionExecutionImageRepository
     @Modifying
     void deleteByExecutionIdAndImageUrl(Long executionId, String imageUrl);
 
+    /** LUT-860: 수행 취소 — 그 수행의 사진 행을 모두 지운다 */
+    @Modifying
+    void deleteByExecutionId(Long executionId);
+
     /** LUT-409: 변형 백필 대상 스캔 — 저장된 모든 원본 이미지 URL (중복 제거) */
     @Query(
             "SELECT DISTINCT mei.imageUrl FROM MissionExecutionImage mei WHERE mei.imageUrl IS NOT"

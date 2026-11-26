@@ -1073,4 +1073,637 @@ class UserExperienceServiceTest {
                             TEST_USER_ID, startUtc, endUtc, "Asia/Riyadh");
         }
     }
+
+    // ===== LUT-860 완료한 미션 수행 취소 =====
+
+    private UserExperience experienceWithDebt(int level, int currentExp, int totalExp, int debt) {
+        UserExperience userExp =
+                createTestUserExperience(1L, TEST_USER_ID, level, currentExp, totalExp);
+        userExp.setExpDebt(debt);
+        return userExp;
+    }
+
+    private ExperienceHistory savedHistory() {
+        org.mockito.ArgumentCaptor<ExperienceHistory> captor =
+                org.mockito.ArgumentCaptor.forClass(ExperienceHistory.class);
+        verify(experienceHistoryRepository).save(captor.capture());
+        return captor.getValue();
+    }
+
+    @Nested
+    @DisplayName("LUT-860 addExperience — 미션 경험치는 누적 마이너스 경험치를 먼저 갚는다")
+    class AddExperiencePaysDebtTest {
+
+        @Test
+        @DisplayName("누적 마이너스 10, 미션 100 → 10 을 갚고 90 만 받는다. 내역에는 원래 금액 100 을 남긴다")
+        void missionExecution_paysAllDebt() {
+            // given
+            UserExperience userExp = experienceWithDebt(1, 0, 0, 10);
+            when(userExperienceRepository.findByUserId(TEST_USER_ID))
+                    .thenReturn(Optional.of(userExp));
+            when(userLevelConfigCacheService.getAllLevelConfigs())
+                    .thenReturn(Collections.emptyList());
+
+            // when
+            UserExperienceResponse result =
+                    userExperienceService.addExperience(
+                            TEST_USER_ID, 100, ExpSourceType.MISSION_EXECUTION, 1L, "미션 완료");
+
+            // then
+            assertThat(userExp.getCurrentExp()).isEqualTo(90);
+            assertThat(userExp.getTotalExp()).isEqualTo(90);
+            assertThat(userExp.getExpDebt()).isZero();
+            assertThat(result.getExpDeducted()).isEqualTo(10);
+            assertThat(result.getExpDebt()).isZero();
+            assertThat(savedHistory().getExpAmount()).isEqualTo(100);
+        }
+
+        @Test
+        @DisplayName("누적 마이너스 150, 미션 100 → 전부 갚는 데 쓰고 50 이 남는다 (경험치는 늘지 않는다)")
+        void missionExecution_paysPartOfDebt() {
+            // given
+            UserExperience userExp = experienceWithDebt(2, 0, 100, 150);
+            when(userExperienceRepository.findByUserId(TEST_USER_ID))
+                    .thenReturn(Optional.of(userExp));
+            when(userLevelConfigCacheService.getAllLevelConfigs())
+                    .thenReturn(Collections.emptyList());
+
+            // when
+            UserExperienceResponse result =
+                    userExperienceService.addExperience(
+                            TEST_USER_ID, 100, ExpSourceType.MISSION_EXECUTION, 1L, "미션 완료");
+
+            // then
+            assertThat(userExp.getCurrentExp()).isZero();
+            assertThat(userExp.getTotalExp()).isEqualTo(100);
+            assertThat(userExp.getExpDebt()).isEqualTo(50);
+            assertThat(result.getExpDeducted()).isEqualTo(100);
+            assertThat(result.getExpDebt()).isEqualTo(50);
+            assertThat(savedHistory().getExpAmount()).isEqualTo(100);
+        }
+
+        @Test
+        @DisplayName("누적 마이너스가 없으면 그대로 받고 expDeducted 는 0 이다")
+        void missionExecution_noDebt() {
+            // given
+            UserExperience userExp = experienceWithDebt(1, 20, 20, 0);
+            when(userExperienceRepository.findByUserId(TEST_USER_ID))
+                    .thenReturn(Optional.of(userExp));
+            when(userLevelConfigCacheService.getAllLevelConfigs())
+                    .thenReturn(Collections.emptyList());
+
+            // when
+            UserExperienceResponse result =
+                    userExperienceService.addExperience(
+                            TEST_USER_ID, 30, ExpSourceType.MISSION_EXECUTION, 1L, "미션 완료");
+
+            // then
+            assertThat(userExp.getCurrentExp()).isEqualTo(50);
+            assertThat(result.getExpDeducted()).isZero();
+            assertThat(result.getExpDebt()).isZero();
+        }
+
+        @org.junit.jupiter.params.ParameterizedTest(name = "{0} 지급은 누적 마이너스를 갚지 않는다")
+        @org.junit.jupiter.params.provider.EnumSource(
+                value = ExpSourceType.class,
+                names = {"MISSION_EXECUTION"},
+                mode = org.junit.jupiter.params.provider.EnumSource.Mode.EXCLUDE)
+        @DisplayName("미션 수행(MISSION_EXECUTION) 이 아닌 출처는 누적 마이너스를 갚지 않고 전액을 받는다")
+        void otherSources_doNotPayDebt(ExpSourceType sourceType) {
+            // given
+            UserExperience userExp = experienceWithDebt(1, 0, 0, 10);
+            when(userExperienceRepository.findByUserId(TEST_USER_ID))
+                    .thenReturn(Optional.of(userExp));
+            when(userLevelConfigCacheService.getAllLevelConfigs())
+                    .thenReturn(Collections.emptyList());
+
+            // when
+            UserExperienceResponse result =
+                    userExperienceService.addExperience(TEST_USER_ID, 20, sourceType, 3L, "보상");
+
+            // then
+            assertThat(userExp.getCurrentExp()).isEqualTo(20);
+            assertThat(userExp.getTotalExp()).isEqualTo(20);
+            assertThat(userExp.getExpDebt()).isEqualTo(10);
+            assertThat(result.getExpDeducted()).isZero();
+            assertThat(result.getExpDebt()).isEqualTo(10);
+        }
+
+        @Test
+        @DisplayName("레벨업 판정은 갚고 남은 양으로 한다 — 90 에서 20 을 받아도 20 을 갚았으면 레벨 1 그대로")
+        void levelUpUsesNetAmount() {
+            // given — 기본 공식: 레벨 1 → 2 에 100 필요
+            UserExperience userExp = experienceWithDebt(1, 90, 90, 20);
+            when(userExperienceRepository.findByUserId(TEST_USER_ID))
+                    .thenReturn(Optional.of(userExp));
+            when(userLevelConfigCacheService.getAllLevelConfigs())
+                    .thenReturn(Collections.emptyList());
+
+            // when
+            UserExperienceResponse result =
+                    userExperienceService.addExperience(
+                            TEST_USER_ID, 20, ExpSourceType.MISSION_EXECUTION, 1L, "미션 완료");
+
+            // then
+            assertThat(userExp.getCurrentLevel()).isEqualTo(1);
+            assertThat(userExp.getCurrentExp()).isEqualTo(90);
+            assertThat(result.getExpDeducted()).isEqualTo(20);
+            verify(eventPublisher, never()).publishEvent(any(UserLevelUpEvent.class));
+            ExperienceHistory history = savedHistory();
+            assertThat(history.getLevelBefore()).isEqualTo(1);
+            assertThat(history.getLevelAfter()).isEqualTo(1);
+        }
+
+        @Test
+        @DisplayName("카테고리 경험치는 차감 전 금액 그대로 더한다 (취소 때 전액을 빼므로)")
+        void categoryExperienceGetsFullAmount() {
+            // given
+            UserExperience userExp = experienceWithDebt(1, 0, 0, 10);
+            UserCategoryExperience categoryExp =
+                    UserCategoryExperience.create(TEST_USER_ID, 7L, "운동", 0);
+            when(userExperienceRepository.findByUserId(TEST_USER_ID))
+                    .thenReturn(Optional.of(userExp));
+            when(userCategoryExperienceRepository.findByUserIdAndCategoryId(TEST_USER_ID, 7L))
+                    .thenReturn(Optional.of(categoryExp));
+            when(userLevelConfigCacheService.getAllLevelConfigs())
+                    .thenReturn(Collections.emptyList());
+
+            // when
+            userExperienceService.addExperience(
+                    TEST_USER_ID, 30, ExpSourceType.MISSION_EXECUTION, 1L, "미션 완료", 7L, "운동");
+
+            // then
+            assertThat(userExp.getCurrentExp()).isEqualTo(20);
+            assertThat(categoryExp.getTotalExp()).isEqualTo(30L);
+        }
+    }
+
+    @Nested
+    @DisplayName("LUT-860 cancelExperience — 레벨을 내리지 않고 되돌린다")
+    class CancelExperienceTest {
+
+        @Test
+        @DisplayName("현재 레벨 경험치에서 빼고, 금액 전체를 음수 내역(레벨 변화 없음)으로 남긴다")
+        void withinCurrentExp() {
+            // given
+            UserExperience userExp = experienceWithDebt(3, 80, 380, 0);
+            when(userExperienceRepository.findByUserId(TEST_USER_ID))
+                    .thenReturn(Optional.of(userExp));
+            when(userLevelConfigCacheService.getAllLevelConfigs())
+                    .thenReturn(Collections.emptyList());
+
+            // when
+            UserExperienceResponse result =
+                    userExperienceService.cancelExperience(
+                            TEST_USER_ID,
+                            30,
+                            ExpSourceType.MISSION_CANCEL,
+                            10L,
+                            "미션 취소: 아침 스트레칭",
+                            null,
+                            "운동");
+
+            // then
+            assertThat(userExp.getCurrentLevel()).isEqualTo(3);
+            assertThat(userExp.getCurrentExp()).isEqualTo(50);
+            assertThat(userExp.getTotalExp()).isEqualTo(350);
+            assertThat(userExp.getExpDebt()).isZero();
+            assertThat(result.getCurrentLevel()).isEqualTo(3);
+            assertThat(result.getCurrentExp()).isEqualTo(50);
+            assertThat(result.getExpDebt()).isZero();
+            assertThat(result.getExpDeducted()).isZero();
+
+            ExperienceHistory history = savedHistory();
+            assertThat(history.getUserId()).isEqualTo(TEST_USER_ID);
+            assertThat(history.getSourceType()).isEqualTo(ExpSourceType.MISSION_CANCEL);
+            assertThat(history.getSourceId()).isEqualTo(10L);
+            assertThat(history.getExpAmount()).isEqualTo(-30);
+            assertThat(history.getDescription()).isEqualTo("미션 취소: 아침 스트레칭");
+            assertThat(history.getCategoryName()).isEqualTo("운동");
+            assertThat(history.getLevelBefore()).isEqualTo(3);
+            assertThat(history.getLevelAfter()).isEqualTo(3);
+        }
+
+        @Test
+        @DisplayName("현재 레벨 경험치가 모자라도 레벨은 그대로 — 남는 양은 누적 마이너스로 쌓고 내역에는 전액을 남긴다")
+        void beyondCurrentExp_keepsLevelAndAddsDebt() {
+            // given — 레벨 3 에 막 올라와 현재 경험치 10
+            UserExperience userExp = experienceWithDebt(3, 10, 260, 0);
+            when(userExperienceRepository.findByUserId(TEST_USER_ID))
+                    .thenReturn(Optional.of(userExp));
+            when(userLevelConfigCacheService.getAllLevelConfigs())
+                    .thenReturn(
+                            List.of(
+                                    createUserLevelConfig(1, 100, 0),
+                                    createUserLevelConfig(2, 150, 100),
+                                    createUserLevelConfig(3, 200, 250),
+                                    createUserLevelConfig(4, 300, 450)));
+
+            // when
+            UserExperienceResponse result =
+                    userExperienceService.cancelExperience(
+                            TEST_USER_ID,
+                            50,
+                            ExpSourceType.MISSION_CANCEL,
+                            10L,
+                            "미션 취소",
+                            null,
+                            null);
+
+            // then — subtractExperience 였다면 레벨 2 로 내려갔을 상황
+            assertThat(userExp.getCurrentLevel()).isEqualTo(3);
+            assertThat(userExp.getCurrentExp()).isZero();
+            assertThat(userExp.getTotalExp()).isEqualTo(250);
+            assertThat(userExp.getExpDebt()).isEqualTo(40);
+            assertThat(result.getCurrentLevel()).isEqualTo(3);
+            assertThat(result.getExpDebt()).isEqualTo(40);
+            // 다음 레벨(4) 필요치는 레벨업 판정과 같은 행
+            assertThat(result.getNextLevelRequiredExp()).isEqualTo(300);
+            assertThat(savedHistory().getExpAmount()).isEqualTo(-50);
+        }
+
+        @Test
+        @DisplayName("레벨이 바뀌지 않으므로 이벤트(레벨업·업적 체크)는 내지 않는다")
+        void publishesNoEvents() {
+            // given
+            UserExperience userExp = experienceWithDebt(3, 80, 380, 0);
+            when(userExperienceRepository.findByUserId(TEST_USER_ID))
+                    .thenReturn(Optional.of(userExp));
+            when(userLevelConfigCacheService.getAllLevelConfigs())
+                    .thenReturn(Collections.emptyList());
+
+            // when
+            userExperienceService.cancelExperience(
+                    TEST_USER_ID, 30, ExpSourceType.MISSION_CANCEL, 10L, "미션 취소", null, null);
+
+            // then
+            org.mockito.Mockito.verifyNoInteractions(eventPublisher, diamondService);
+        }
+
+        @Test
+        @DisplayName("카테고리 ID 가 있으면 카테고리 경험치도 전액 뺀다 (0 밑으로는 내려가지 않는다)")
+        void subtractsCategoryExperience() {
+            // given
+            UserExperience userExp = experienceWithDebt(3, 80, 380, 0);
+            UserCategoryExperience categoryExp =
+                    UserCategoryExperience.create(TEST_USER_ID, 7L, "운동", 100);
+            UserCategoryExperience smallCategoryExp =
+                    UserCategoryExperience.create(TEST_USER_ID, 8L, "독서", 10);
+            when(userExperienceRepository.findByUserId(TEST_USER_ID))
+                    .thenReturn(Optional.of(userExp));
+            when(userCategoryExperienceRepository.findByUserIdAndCategoryId(TEST_USER_ID, 7L))
+                    .thenReturn(Optional.of(categoryExp));
+            when(userCategoryExperienceRepository.findByUserIdAndCategoryId(TEST_USER_ID, 8L))
+                    .thenReturn(Optional.of(smallCategoryExp));
+            when(userLevelConfigCacheService.getAllLevelConfigs())
+                    .thenReturn(Collections.emptyList());
+
+            // when
+            userExperienceService.cancelExperience(
+                    TEST_USER_ID, 30, ExpSourceType.MISSION_CANCEL, 10L, "미션 취소", 7L, "운동");
+            userExperienceService.cancelExperience(
+                    TEST_USER_ID, 30, ExpSourceType.MISSION_CANCEL, 11L, "미션 취소", 8L, "독서");
+
+            // then
+            assertThat(categoryExp.getTotalExp()).isEqualTo(70L);
+            assertThat(smallCategoryExp.getTotalExp()).isZero();
+            verify(userCategoryExperienceRepository).save(categoryExp);
+            verify(userCategoryExperienceRepository).save(smallCategoryExp);
+        }
+
+        @Test
+        @DisplayName("카테고리 ID 가 없으면 카테고리 경험치는 건드리지 않는다 (마일스톤 보너스 회수)")
+        void noCategoryId_categoryUntouched() {
+            // given
+            UserExperience userExp = experienceWithDebt(3, 80, 380, 0);
+            when(userExperienceRepository.findByUserId(TEST_USER_ID))
+                    .thenReturn(Optional.of(userExp));
+            when(userLevelConfigCacheService.getAllLevelConfigs())
+                    .thenReturn(Collections.emptyList());
+
+            // when
+            userExperienceService.cancelExperience(
+                    TEST_USER_ID,
+                    20,
+                    ExpSourceType.DAILY_MISSION_MILESTONE,
+                    3L,
+                    "미션 취소: 일일 체크 미션 3개 보너스",
+                    null,
+                    "기타");
+
+            // then
+            org.mockito.Mockito.verifyNoInteractions(userCategoryExperienceRepository);
+            ExperienceHistory history = savedHistory();
+            assertThat(history.getSourceType()).isEqualTo(ExpSourceType.DAILY_MISSION_MILESTONE);
+            assertThat(history.getSourceId()).isEqualTo(3L);
+            assertThat(history.getExpAmount()).isEqualTo(-20);
+        }
+
+        @Test
+        @DisplayName("카테고리 경험치 행이 없으면 저장하지 않는다")
+        void categoryRowMissing_notSaved() {
+            // given
+            UserExperience userExp = experienceWithDebt(3, 80, 380, 0);
+            when(userExperienceRepository.findByUserId(TEST_USER_ID))
+                    .thenReturn(Optional.of(userExp));
+            when(userCategoryExperienceRepository.findByUserIdAndCategoryId(TEST_USER_ID, 7L))
+                    .thenReturn(Optional.empty());
+            when(userLevelConfigCacheService.getAllLevelConfigs())
+                    .thenReturn(Collections.emptyList());
+
+            // when
+            userExperienceService.cancelExperience(
+                    TEST_USER_ID, 30, ExpSourceType.MISSION_CANCEL, 10L, "미션 취소", 7L, "운동");
+
+            // then
+            verify(userCategoryExperienceRepository, never())
+                    .save(any(UserCategoryExperience.class));
+        }
+
+        @Test
+        @DisplayName("금액이 0 이면 내역도 카테고리 경험치도 건드리지 않는다")
+        void zeroAmount_noHistory() {
+            // given
+            UserExperience userExp = experienceWithDebt(3, 80, 380, 5);
+            when(userExperienceRepository.findByUserId(TEST_USER_ID))
+                    .thenReturn(Optional.of(userExp));
+            when(userLevelConfigCacheService.getAllLevelConfigs())
+                    .thenReturn(Collections.emptyList());
+
+            // when
+            UserExperienceResponse result =
+                    userExperienceService.cancelExperience(
+                            TEST_USER_ID, 0, ExpSourceType.MISSION_CANCEL, 10L, "미션 취소", 7L, "운동");
+
+            // then
+            assertThat(userExp.getCurrentExp()).isEqualTo(80);
+            assertThat(result.getExpDebt()).isEqualTo(5);
+            verify(experienceHistoryRepository, never()).save(any(ExperienceHistory.class));
+            org.mockito.Mockito.verifyNoInteractions(userCategoryExperienceRepository);
+        }
+
+        @Test
+        @DisplayName("음수 금액은 IllegalArgumentException 이고 내역을 남기지 않는다")
+        void negativeAmount_throws() {
+            // given
+            UserExperience userExp = experienceWithDebt(3, 80, 380, 0);
+            when(userExperienceRepository.findByUserId(TEST_USER_ID))
+                    .thenReturn(Optional.of(userExp));
+
+            // when & then
+            org.assertj.core.api.Assertions.assertThatThrownBy(
+                            () ->
+                                    userExperienceService.cancelExperience(
+                                            TEST_USER_ID,
+                                            -1,
+                                            ExpSourceType.MISSION_CANCEL,
+                                            10L,
+                                            "미션 취소",
+                                            null,
+                                            null))
+                    .isInstanceOf(IllegalArgumentException.class);
+            assertThat(userExp.getCurrentExp()).isEqualTo(80);
+            verify(experienceHistoryRepository, never()).save(any(ExperienceHistory.class));
+        }
+
+        @Test
+        @DisplayName("취소한 뒤 다음 미션을 받으면 누적 마이너스를 갚는다 — 취소 0 + 새 미션 100 으로 순합이 맞는다")
+        void cancelThenGrant() {
+            // given — 레벨 2, 현재 10
+            UserExperience userExp = experienceWithDebt(2, 10, 110, 0);
+            when(userExperienceRepository.findByUserId(TEST_USER_ID))
+                    .thenReturn(Optional.of(userExp));
+            when(userLevelConfigCacheService.getAllLevelConfigs())
+                    .thenReturn(Collections.emptyList());
+
+            // when
+            UserExperienceResponse cancelled =
+                    userExperienceService.cancelExperience(
+                            TEST_USER_ID,
+                            30,
+                            ExpSourceType.MISSION_CANCEL,
+                            10L,
+                            "미션 취소",
+                            null,
+                            null);
+            UserExperienceResponse granted =
+                    userExperienceService.addExperience(
+                            TEST_USER_ID, 100, ExpSourceType.MISSION_EXECUTION, 11L, "미션 완료");
+
+            // then
+            assertThat(cancelled.getExpDebt()).isEqualTo(20);
+            assertThat(granted.getExpDeducted()).isEqualTo(20);
+            assertThat(granted.getExpDebt()).isZero();
+            assertThat(userExp.getCurrentExp()).isEqualTo(80);
+            // 110 - 30 + 100
+            assertThat(userExp.getTotalExp()).isEqualTo(180);
+        }
+    }
+
+    @Nested
+    @DisplayName("LUT-860 subtractExperience(expDeducted) — 지급을 되돌릴 때 갚았던 누적 마이너스를 돌려놓는다")
+    class SubtractExperienceWithExpDeductedTest {
+
+        @Test
+        @DisplayName("갚았던 양은 다시 누적 마이너스로, 실제로 받은 양만 뺀다. 내역·카테고리는 전액으로 되돌린다")
+        void restoresDebtAndSubtractsActualAmount() {
+            // given — 누적 마이너스 30 에서 100 을 받아 70 만 들어온 상태(현재 170, 마이너스 0)
+            UserExperience userExp = experienceWithDebt(3, 170, 370, 0);
+            UserCategoryExperience categoryExp =
+                    UserCategoryExperience.create(TEST_USER_ID, 7L, "운동", 100);
+            when(userExperienceRepository.findByUserId(TEST_USER_ID))
+                    .thenReturn(Optional.of(userExp));
+            when(userCategoryExperienceRepository.findByUserIdAndCategoryId(TEST_USER_ID, 7L))
+                    .thenReturn(Optional.of(categoryExp));
+
+            // when
+            UserExperienceResponse result =
+                    userExperienceService.subtractExperience(
+                            TEST_USER_ID,
+                            100,
+                            30,
+                            ExpSourceType.MISSION_EXECUTION,
+                            1L,
+                            "미션 완료 보상 - 경험치 환수",
+                            7L,
+                            "운동");
+
+            // then
+            assertThat(userExp.getCurrentExp()).isEqualTo(100);
+            assertThat(userExp.getTotalExp()).isEqualTo(300);
+            assertThat(userExp.getExpDebt()).isEqualTo(30);
+            assertThat(result.getExpDebt()).isEqualTo(30);
+            assertThat(savedHistory().getExpAmount()).isEqualTo(-100);
+            assertThat(categoryExp.getTotalExp()).isZero();
+        }
+
+        @Test
+        @DisplayName("전액을 갚는 데 썼던 지급을 되돌리면 경험치는 그대로, 누적 마이너스만 돌아온다")
+        void allWasDeducted_onlyDebtRestored() {
+            // given
+            UserExperience userExp = experienceWithDebt(2, 0, 100, 50);
+            when(userExperienceRepository.findByUserId(TEST_USER_ID))
+                    .thenReturn(Optional.of(userExp));
+
+            // when
+            userExperienceService.subtractExperience(
+                    TEST_USER_ID, 100, 100, ExpSourceType.MISSION_EXECUTION, 1L, "환수", null, null);
+
+            // then
+            assertThat(userExp.getCurrentLevel()).isEqualTo(2);
+            assertThat(userExp.getCurrentExp()).isZero();
+            assertThat(userExp.getTotalExp()).isEqualTo(100);
+            assertThat(userExp.getExpDebt()).isEqualTo(150);
+        }
+
+        @Test
+        @DisplayName("expDeducted 가 금액보다 크면 금액까지만, 음수면 0 으로 본다")
+        void expDeductedIsClamped() {
+            // given
+            UserExperience over = experienceWithDebt(2, 80, 180, 0);
+            when(userExperienceRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.of(over));
+
+            // when — 금액 50 인데 갚은 양 70 이라고 넘어온 경우
+            userExperienceService.subtractExperience(
+                    TEST_USER_ID, 50, 70, ExpSourceType.MISSION_EXECUTION, 1L, "환수", null, null);
+
+            // then
+            assertThat(over.getExpDebt()).isEqualTo(50);
+            assertThat(over.getCurrentExp()).isEqualTo(80);
+
+            // given
+            UserExperience negative = experienceWithDebt(2, 80, 180, 0);
+            when(userExperienceRepository.findByUserId(TEST_USER_ID))
+                    .thenReturn(Optional.of(negative));
+
+            // when
+            userExperienceService.subtractExperience(
+                    TEST_USER_ID, 50, -10, ExpSourceType.MISSION_EXECUTION, 1L, "환수", null, null);
+
+            // then
+            assertThat(negative.getExpDebt()).isZero();
+            assertThat(negative.getCurrentExp()).isEqualTo(30);
+        }
+
+        @Test
+        @DisplayName("레벨 다운 판정은 실제로 받은 양으로 한다 — 대부분 갚는 데 썼으면 레벨은 내려가지 않는다")
+        void levelDownUsesActualAmount() {
+            // given — 현재 10, 금액 100 중 95 를 갚는 데 썼다 → 실제 5 만 뺀다
+            UserExperience userExp = experienceWithDebt(3, 10, 260, 0);
+            when(userExperienceRepository.findByUserId(TEST_USER_ID))
+                    .thenReturn(Optional.of(userExp));
+
+            // when
+            userExperienceService.subtractExperience(
+                    TEST_USER_ID, 100, 95, ExpSourceType.MISSION_EXECUTION, 1L, "환수", null, null);
+
+            // then
+            assertThat(userExp.getCurrentLevel()).isEqualTo(3);
+            assertThat(userExp.getCurrentExp()).isEqualTo(5);
+            assertThat(userExp.getTotalExp()).isEqualTo(255);
+            assertThat(userExp.getExpDebt()).isEqualTo(95);
+        }
+
+        @Test
+        @DisplayName("기존 7개 인자 버전은 expDeducted 0 과 같다 — 예전처럼 전액을 빼고 누적 마이너스는 건드리지 않는다")
+        void sevenArgVersion_sameAsBefore() {
+            // given
+            UserExperience legacy = experienceWithDebt(3, 150, 350, 12);
+            UserExperience explicitZero = experienceWithDebt(3, 150, 350, 12);
+            when(userExperienceRepository.findByUserId(TEST_USER_ID))
+                    .thenReturn(Optional.of(legacy), Optional.of(explicitZero));
+
+            // when
+            UserExperienceResponse legacyResult =
+                    userExperienceService.subtractExperience(
+                            TEST_USER_ID,
+                            50,
+                            ExpSourceType.MISSION_EXECUTION,
+                            1L,
+                            "환수",
+                            null,
+                            "운동");
+            UserExperienceResponse explicitResult =
+                    userExperienceService.subtractExperience(
+                            TEST_USER_ID,
+                            50,
+                            0,
+                            ExpSourceType.MISSION_EXECUTION,
+                            1L,
+                            "환수",
+                            null,
+                            "운동");
+
+            // then
+            assertThat(legacy.getCurrentExp()).isEqualTo(100);
+            assertThat(legacy.getTotalExp()).isEqualTo(300);
+            assertThat(legacy.getExpDebt()).isEqualTo(12);
+            assertThat(explicitZero.getCurrentExp()).isEqualTo(legacy.getCurrentExp());
+            assertThat(explicitZero.getTotalExp()).isEqualTo(legacy.getTotalExp());
+            assertThat(explicitZero.getExpDebt()).isEqualTo(legacy.getExpDebt());
+            assertThat(explicitResult.getCurrentExp()).isEqualTo(legacyResult.getCurrentExp());
+            assertThat(explicitResult.getExpDebt()).isEqualTo(legacyResult.getExpDebt());
+        }
+
+        @Test
+        @DisplayName("기존 7개 인자 버전은 예전처럼 레벨을 내릴 수 있다 (취소와 다른 점)")
+        void sevenArgVersion_stillLevelsDown() {
+            // given
+            UserExperience userExp = experienceWithDebt(3, 10, 260, 0);
+            when(userExperienceRepository.findByUserId(TEST_USER_ID))
+                    .thenReturn(Optional.of(userExp));
+            when(userLevelConfigCacheService.getAllLevelConfigs())
+                    .thenReturn(
+                            List.of(
+                                    createUserLevelConfig(1, 100, 0),
+                                    createUserLevelConfig(2, 150, 100),
+                                    createUserLevelConfig(3, 200, 250)));
+
+            // when
+            userExperienceService.subtractExperience(
+                    TEST_USER_ID, 50, ExpSourceType.MISSION_EXECUTION, 1L, "환수", null, null);
+
+            // then — 총 210 → 레벨 2(누적 100) + 110
+            assertThat(userExp.getCurrentLevel()).isEqualTo(2);
+            assertThat(userExp.getCurrentExp()).isEqualTo(110);
+            assertThat(userExp.getTotalExp()).isEqualTo(210);
+            assertThat(userExp.getExpDebt()).isZero();
+        }
+    }
+
+    @Nested
+    @DisplayName("LUT-860 sumExperienceBySource — 출처별 기간 순합")
+    class SumExperienceBySourceTest {
+
+        private final LocalDateTime from = LocalDateTime.of(2026, 11, 25, 15, 0);
+        private final LocalDateTime to = LocalDateTime.of(2026, 11, 26, 15, 0);
+
+        @Test
+        @DisplayName("저장소의 순합을 int 로 돌려준다")
+        void returnsSum() {
+            when(experienceHistoryRepository.sumExpByUserIdAndSourceAndPeriod(
+                            TEST_USER_ID, ExpSourceType.DAILY_MISSION_MILESTONE, 3L, from, to))
+                    .thenReturn(20L);
+
+            int result =
+                    userExperienceService.sumExperienceBySource(
+                            TEST_USER_ID, ExpSourceType.DAILY_MISSION_MILESTONE, 3L, from, to);
+
+            assertThat(result).isEqualTo(20);
+        }
+
+        @Test
+        @DisplayName("저장소가 null 을 주면 0 이다")
+        void nullIsZero() {
+            when(experienceHistoryRepository.sumExpByUserIdAndSourceAndPeriod(
+                            TEST_USER_ID, ExpSourceType.DAILY_MISSION_MILESTONE, 5L, from, to))
+                    .thenReturn(null);
+
+            int result =
+                    userExperienceService.sumExperienceBySource(
+                            TEST_USER_ID, ExpSourceType.DAILY_MISSION_MILESTONE, 5L, from, to);
+
+            assertThat(result).isZero();
+        }
+    }
 }

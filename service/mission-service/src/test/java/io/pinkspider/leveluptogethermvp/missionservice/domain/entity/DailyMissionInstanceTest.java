@@ -758,4 +758,131 @@ class DailyMissionInstanceTest {
             assertThat(durationMinutes).isNull();
         }
     }
+
+    @Nested
+    @DisplayName("revertCompletion 메서드 테스트 (LUT-860 완료한 수행 취소)")
+    class RevertCompletionTest {
+
+        private DailyMissionInstance completedInstance(int expEarned) {
+            DailyMissionInstance instance = createInstance(LocalDate.now());
+            instance.setStatus(ExecutionStatus.COMPLETED);
+            instance.setStartedAt(LocalDateTime.now().minusMinutes(40));
+            instance.setCompletedAt(LocalDateTime.now());
+            instance.setExpEarned(expEarned);
+            instance.setCompletionCount(1);
+            instance.setTotalExpEarned(expEarned);
+            instance.setNote("메모");
+            instance.setImageUrl("https://cdn/a.jpg");
+            instance.setIsSharedToFeed(true);
+            instance.setIsAutoCompleted(true);
+            instance.setGuildExpGranted(true);
+            return instance;
+        }
+
+        @Test
+        @DisplayName("대기 상태로 되돌리고 완료 횟수·누적 경험치를 그 회차만큼 줄이며 표시를 내린다")
+        void revertCompletion_fromCompleted_decrementsCounters() {
+            // given
+            DailyMissionInstance instance = completedInstance(40);
+
+            // when
+            instance.revertCompletion();
+
+            // then
+            assertThat(instance.getStatus()).isEqualTo(ExecutionStatus.PENDING);
+            assertThat(instance.getStartedAt()).isNull();
+            assertThat(instance.getCompletedAt()).isNull();
+            assertThat(instance.getExpEarned()).isZero();
+            assertThat(instance.getNote()).isNull();
+            assertThat(instance.getImageUrl()).isNull();
+            assertThat(instance.getCompletionCount()).isZero();
+            assertThat(instance.getTotalExpEarned()).isZero();
+            assertThat(instance.getIsSharedToFeed()).isFalse();
+            assertThat(instance.getIsAutoCompleted()).isFalse();
+            assertThat(instance.getGuildExpGranted()).isFalse();
+        }
+
+        @Test
+        @DisplayName("resetToPending 과 달리 완료 횟수·누적 경험치를 되돌린다 — 앞선 회차 몫은 남긴다")
+        void revertCompletion_keepsEarlierCompletions() {
+            // given — 같은 행에서 두 번 완료한 예전 방식의 값 (완료 2회, 누적 70 중 이번 회차 40)
+            DailyMissionInstance instance = completedInstance(40);
+            instance.setCompletionCount(2);
+            instance.setTotalExpEarned(70);
+
+            // when
+            instance.revertCompletion();
+
+            // then
+            assertThat(instance.getCompletionCount()).isEqualTo(1);
+            assertThat(instance.getTotalExpEarned()).isEqualTo(30);
+        }
+
+        @Test
+        @DisplayName("완료 횟수·누적 경험치는 0 밑으로 내려가지 않는다")
+        void revertCompletion_neverBelowZero() {
+            // given — 값이 어긋나 있어도(횟수 0, 누적이 이번 회차보다 작음)
+            DailyMissionInstance instance = completedInstance(40);
+            instance.setCompletionCount(0);
+            instance.setTotalExpEarned(10);
+
+            // when
+            instance.revertCompletion();
+
+            // then
+            assertThat(instance.getCompletionCount()).isZero();
+            assertThat(instance.getTotalExpEarned()).isZero();
+        }
+
+        @Test
+        @DisplayName("경험치·완료 횟수·누적 경험치가 null 이어도 0 으로 보고 되돌린다")
+        void revertCompletion_nullCounters() {
+            // given
+            DailyMissionInstance instance = completedInstance(40);
+            instance.setExpEarned(null);
+            instance.setCompletionCount(null);
+            instance.setTotalExpEarned(null);
+
+            // when
+            instance.revertCompletion();
+
+            // then
+            assertThat(instance.getStatus()).isEqualTo(ExecutionStatus.PENDING);
+            assertThat(instance.getExpEarned()).isZero();
+            assertThat(instance.getCompletionCount()).isZero();
+            assertThat(instance.getTotalExpEarned()).isZero();
+        }
+
+        @Test
+        @DisplayName("한도에 걸려 0 을 받은 회차를 되돌리면 완료 횟수만 줄고 누적 경험치는 그대로다")
+        void revertCompletion_zeroExpCompletion() {
+            // given
+            DailyMissionInstance instance = completedInstance(0);
+            instance.setCompletionCount(1);
+            instance.setTotalExpEarned(0);
+
+            // when
+            instance.revertCompletion();
+
+            // then
+            assertThat(instance.getCompletionCount()).isZero();
+            assertThat(instance.getTotalExpEarned()).isZero();
+        }
+
+        @Test
+        @DisplayName("완료 상태가 아니면 IllegalStateException 이고 완료 횟수·누적 경험치는 그대로다")
+        void revertCompletion_notCompleted_throws() {
+            // given
+            DailyMissionInstance instance = completedInstance(40);
+            instance.setStatus(ExecutionStatus.IN_PROGRESS);
+
+            // when & then
+            assertThatThrownBy(instance::revertCompletion)
+                    .isInstanceOf(IllegalStateException.class)
+                    .hasMessageContaining("완료 상태의 인스턴스만 리셋할 수 있습니다");
+            assertThat(instance.getCompletionCount()).isEqualTo(1);
+            assertThat(instance.getTotalExpEarned()).isEqualTo(40);
+            assertThat(instance.getIsSharedToFeed()).isTrue();
+        }
+    }
 }

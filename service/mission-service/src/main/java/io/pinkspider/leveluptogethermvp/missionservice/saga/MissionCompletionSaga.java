@@ -319,6 +319,9 @@ public class MissionCompletionSaga {
                 response.setMilestoneBonusExp(ctx.getMilestoneBonusExp());
                 response.setMilestoneCount(ctx.getMilestoneCount());
             }
+            if (ctx.getExpDeducted() > 0) {
+                response.setExpDeducted(ctx.getExpDeducted());
+            }
             return response;
         }
         return null;
@@ -336,6 +339,9 @@ public class MissionCompletionSaga {
             if (ctx.getMilestoneBonusExp() > 0) {
                 response.setMilestoneBonusExp(ctx.getMilestoneBonusExp());
                 response.setMilestoneCount(ctx.getMilestoneCount());
+            }
+            if (ctx.getExpDeducted() > 0) {
+                response.setExpDeducted(ctx.getExpDeducted());
             }
             return response;
         }

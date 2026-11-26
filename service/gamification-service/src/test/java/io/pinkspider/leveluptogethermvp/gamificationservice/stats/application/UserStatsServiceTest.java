@@ -50,6 +50,11 @@ class UserStatsServiceTest {
                     .UserSubscriptionRepository
             userSubscriptionRepository;
 
+    @Mock
+    private io.pinkspider.leveluptogethermvp.gamificationservice.infrastructure
+                    .AttendanceRecordRepository
+            attendanceRecordRepository;
+
     @InjectMocks private UserStatsService userStatsService;
 
     private static final String TEST_USER_ID = "test-user-123";
@@ -867,6 +872,193 @@ class UserStatsServiceTest {
             assertThat(result.currentDays()).isZero();
             assertThat(result.maxDays()).isZero();
             assertThat(stats.getLastPracticeDate()).isNull();
+        }
+    }
+
+    @Nested
+    @DisplayName("LUT-860 미션 취소로 스트릭 되돌리기 (undoMissionPractice)")
+    class UndoMissionPracticeTest {
+
+        private static final String ZONE = "Asia/Seoul";
+
+        /** KST 2026-11-04 00:20 = UTC 2026-11-03 15:20 */
+        private static final java.time.LocalDateTime COMPLETED_AT_UTC =
+                java.time.LocalDateTime.of(2026, 11, 3, 15, 20);
+
+        private static final LocalDate LOCAL_DATE = LocalDate.of(2026, 11, 4);
+
+        /** 11/03 까지 연속 실천 4일·활동 스트릭 5일이던 유저가 11/04 에 미션을 하나 완료한 상태 */
+        private UserStats statsAfterCompletionOn(LocalDate date) {
+            UserStats stats =
+                    UserStats.builder()
+                            .userId(TEST_USER_ID)
+                            .practiceStreak(4)
+                            .maxPracticeStreak(9)
+                            .lastPracticeDate(date.minusDays(1))
+                            .currentStreak(5)
+                            .maxStreak(5)
+                            .lastActivityDate(date.minusDays(1))
+                            .build();
+            stats.recordPractice(date);
+            stats.updateStreak(date);
+            return stats;
+        }
+
+        private void givenRemainingCompletedDates(LocalDate... dates) {
+            when(missionQueryFacade.findMissionCompletedLocalDates(
+                            List.of(TEST_USER_ID),
+                            COMPLETED_AT_UTC.minusDays(2),
+                            COMPLETED_AT_UTC.plusDays(2),
+                            ZONE))
+                    .thenReturn(Map.of(TEST_USER_ID, Set.of(dates)));
+        }
+
+        @Test
+        @DisplayName("완료 시각을 모르면(null) 아무것도 하지 않는다")
+        void nullCompletedAt_noop() {
+            userStatsService.undoMissionPractice(TEST_USER_ID, null);
+
+            org.mockito.Mockito.verifyNoInteractions(
+                    userQueryFacade,
+                    missionQueryFacade,
+                    userStatsRepository,
+                    attendanceRecordRepository);
+        }
+
+        @Test
+        @DisplayName("그날(유저 로컬) 다른 미션 완료가 남아 있으면 아무것도 되돌리지 않는다")
+        void otherCompletionRemains_noop() {
+            when(userQueryFacade.getPreferredTimezone(TEST_USER_ID)).thenReturn(ZONE);
+            givenRemainingCompletedDates(LOCAL_DATE);
+
+            userStatsService.undoMissionPractice(TEST_USER_ID, COMPLETED_AT_UTC);
+
+            verify(userStatsRepository, never()).findByUserId(any());
+            org.mockito.Mockito.verifyNoInteractions(attendanceRecordRepository);
+        }
+
+        @Test
+        @DisplayName("그날 출석했으면 연속 실천만 되돌리고 활동 스트릭은 그대로 둔다 (출석도 활동이다)")
+        void attendedThatDay_onlyPracticeUndone() {
+            UserStats stats = statsAfterCompletionOn(LOCAL_DATE);
+            when(userQueryFacade.getPreferredTimezone(TEST_USER_ID)).thenReturn(ZONE);
+            when(userStatsRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.of(stats));
+            when(attendanceRecordRepository.existsByUserIdAndAttendanceDate(
+                            TEST_USER_ID, LOCAL_DATE))
+                    .thenReturn(true);
+
+            userStatsService.undoMissionPractice(TEST_USER_ID, COMPLETED_AT_UTC);
+
+            // 연속 실천: 5 → 4, 마지막 실천일 11/03
+            assertThat(stats.getPracticeStreak()).isEqualTo(4);
+            assertThat(stats.getLastPracticeDate()).isEqualTo(LOCAL_DATE.minusDays(1));
+            // 활동 스트릭: 그대로 6, 마지막 활동일 11/04
+            assertThat(stats.getCurrentStreak()).isEqualTo(6);
+            assertThat(stats.getLastActivityDate()).isEqualTo(LOCAL_DATE);
+            assertThat(stats.getStreakUndoState()).isNotNull();
+        }
+
+        @Test
+        @DisplayName("그날 다른 완료도 출석도 없으면 연속 실천과 활동 스트릭을 둘 다 되돌린다")
+        void nothingElseThatDay_bothUndone() {
+            UserStats stats = statsAfterCompletionOn(LOCAL_DATE);
+            when(userQueryFacade.getPreferredTimezone(TEST_USER_ID)).thenReturn(ZONE);
+            when(userStatsRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.of(stats));
+            when(attendanceRecordRepository.existsByUserIdAndAttendanceDate(
+                            TEST_USER_ID, LOCAL_DATE))
+                    .thenReturn(false);
+
+            userStatsService.undoMissionPractice(TEST_USER_ID, COMPLETED_AT_UTC);
+
+            assertThat(stats.getPracticeStreak()).isEqualTo(4);
+            assertThat(stats.getMaxPracticeStreak()).isEqualTo(9);
+            assertThat(stats.getLastPracticeDate()).isEqualTo(LOCAL_DATE.minusDays(1));
+            assertThat(stats.getCurrentStreak()).isEqualTo(5);
+            assertThat(stats.getMaxStreak()).isEqualTo(5);
+            assertThat(stats.getLastActivityDate()).isEqualTo(LOCAL_DATE.minusDays(1));
+            assertThat(stats.getPracticeUndoState()).isNull();
+            assertThat(stats.getStreakUndoState()).isNull();
+        }
+
+        @Test
+        @DisplayName("날짜는 완료 시각(UTC)을 유저 시간대로 바꿔 정한다 — UTC 날짜(11/03)에 다른 완료가 있어도 로컬 11/04 는 되돌린다")
+        void usesUserLocalDate() {
+            UserStats stats = statsAfterCompletionOn(LOCAL_DATE);
+            when(userQueryFacade.getPreferredTimezone(TEST_USER_ID)).thenReturn(ZONE);
+            when(userStatsRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.of(stats));
+            givenRemainingCompletedDates(LOCAL_DATE.minusDays(1), LOCAL_DATE.plusDays(1));
+
+            userStatsService.undoMissionPractice(TEST_USER_ID, COMPLETED_AT_UTC);
+
+            assertThat(stats.getPracticeStreak()).isEqualTo(4);
+            assertThat(stats.getCurrentStreak()).isEqualTo(5);
+            verify(attendanceRecordRepository)
+                    .existsByUserIdAndAttendanceDate(TEST_USER_ID, LOCAL_DATE);
+        }
+
+        @Test
+        @DisplayName("유저 시간대가 다르면 같은 완료 시각도 다른 날짜가 된다 — 뉴욕은 11/03")
+        void otherTimezone_otherDate() {
+            LocalDate newYorkDate = LocalDate.of(2026, 11, 3); // UTC 15:20 = EST 10:20
+            UserStats stats = statsAfterCompletionOn(newYorkDate);
+            when(userQueryFacade.getPreferredTimezone(TEST_USER_ID)).thenReturn("America/New_York");
+            when(userStatsRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.of(stats));
+
+            userStatsService.undoMissionPractice(TEST_USER_ID, COMPLETED_AT_UTC);
+
+            assertThat(stats.getPracticeStreak()).isEqualTo(4);
+            assertThat(stats.getLastPracticeDate()).isEqualTo(newYorkDate.minusDays(1));
+            verify(missionQueryFacade)
+                    .findMissionCompletedLocalDates(
+                            List.of(TEST_USER_ID),
+                            COMPLETED_AT_UTC.minusDays(2),
+                            COMPLETED_AT_UTC.plusDays(2),
+                            "America/New_York");
+            verify(attendanceRecordRepository)
+                    .existsByUserIdAndAttendanceDate(TEST_USER_ID, newYorkDate);
+        }
+
+        @Test
+        @DisplayName("유저 시간대를 못 읽으면 Asia/Seoul 로 본다")
+        void timezoneLookupFails_fallsBackToSeoul() {
+            UserStats stats = statsAfterCompletionOn(LOCAL_DATE);
+            when(userQueryFacade.getPreferredTimezone(TEST_USER_ID))
+                    .thenThrow(new RuntimeException("user_db down"));
+            when(userStatsRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.of(stats));
+
+            userStatsService.undoMissionPractice(TEST_USER_ID, COMPLETED_AT_UTC);
+
+            assertThat(stats.getLastPracticeDate()).isEqualTo(LOCAL_DATE.minusDays(1));
+            verify(missionQueryFacade)
+                    .findMissionCompletedLocalDates(
+                            List.of(TEST_USER_ID),
+                            COMPLETED_AT_UTC.minusDays(2),
+                            COMPLETED_AT_UTC.plusDays(2),
+                            ZONE);
+        }
+
+        @Test
+        @DisplayName("되돌릴 직전 값이 없으면(배포 전 완료·다른 날짜) 값은 그대로다")
+        void noUndoState_valuesUntouched() {
+            UserStats stats =
+                    UserStats.builder()
+                            .userId(TEST_USER_ID)
+                            .practiceStreak(5)
+                            .maxPracticeStreak(9)
+                            .lastPracticeDate(LOCAL_DATE)
+                            .currentStreak(6)
+                            .maxStreak(6)
+                            .lastActivityDate(LOCAL_DATE)
+                            .build();
+            when(userQueryFacade.getPreferredTimezone(TEST_USER_ID)).thenReturn(ZONE);
+            when(userStatsRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.of(stats));
+
+            userStatsService.undoMissionPractice(TEST_USER_ID, COMPLETED_AT_UTC);
+
+            assertThat(stats.getPracticeStreak()).isEqualTo(5);
+            assertThat(stats.getLastPracticeDate()).isEqualTo(LOCAL_DATE);
+            assertThat(stats.getCurrentStreak()).isEqualTo(6);
+            assertThat(stats.getLastActivityDate()).isEqualTo(LOCAL_DATE);
         }
     }
 }

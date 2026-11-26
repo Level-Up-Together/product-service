@@ -180,4 +180,135 @@ class GuildPointServiceTest {
         assertThat(guildPointService.accruePoints(guild, null, 10)).isZero();
         verifyNoInteractions(dailyPointRepository);
     }
+
+    // ===== LUT-860 완료한 길드 미션 수행 취소 — 포인트 회수 =====
+
+    private static final LocalDate POINT_DATE = LocalDate.of(2026, 11, 26);
+
+    @Test
+    @DisplayName("LUT-860: 그날 누적에서 EXP 를 빼고 다시 계산한 포인트와의 차이만큼 길드 포인트에서 뺀다 (32 → 19 EXP, -2점)")
+    void revoke_reducesGuildPoints() {
+        guild.addPoint(10);
+        GuildMemberDailyPoint daily = dailyRow(32, 3);
+        when(dailyPointRepository.findByGuildIdAndUserIdAndPointDate(1L, USER, POINT_DATE))
+                .thenReturn(Optional.of(daily));
+
+        int diff = guildPointService.revokePoints(guild, USER, 13, POINT_DATE);
+
+        assertThat(diff).isEqualTo(2);
+        assertThat(daily.getDailyExp()).isEqualTo(19);
+        assertThat(daily.getPoints()).isEqualTo(1);
+        assertThat(guild.getTotalPoint()).isEqualTo(8);
+        assertThat(guild.getCurrentPoint()).isEqualTo(8);
+        verify(dailyPointRepository).save(daily);
+    }
+
+    @Test
+    @DisplayName("LUT-860: 다시 계산한 포인트가 같으면(상한 위 100 → 70 EXP) 누적 EXP 만 줄이고 길드 포인트는 그대로다")
+    void revoke_noPointDiff_guildUntouched() {
+        guild.addPoint(10);
+        GuildMemberDailyPoint daily = dailyRow(100, 6);
+        when(dailyPointRepository.findByGuildIdAndUserIdAndPointDate(1L, USER, POINT_DATE))
+                .thenReturn(Optional.of(daily));
+
+        int diff = guildPointService.revokePoints(guild, USER, 30, POINT_DATE);
+
+        assertThat(diff).isZero();
+        assertThat(daily.getDailyExp()).isEqualTo(70);
+        assertThat(daily.getPoints()).isEqualTo(6);
+        assertThat(guild.getTotalPoint()).isEqualTo(10);
+        // 줄어든 누적 EXP 는 저장한다 — 다음 적립이 이 값에서 이어진다
+        verify(dailyPointRepository).save(daily);
+    }
+
+    @Test
+    @DisplayName("LUT-860: 그날 행이 없으면 아무것도 하지 않는다 (행을 만들지도 않는다)")
+    void revoke_noDailyRow_noop() {
+        guild.addPoint(10);
+        when(dailyPointRepository.findByGuildIdAndUserIdAndPointDate(1L, USER, POINT_DATE))
+                .thenReturn(Optional.empty());
+
+        int diff = guildPointService.revokePoints(guild, USER, 13, POINT_DATE);
+
+        assertThat(diff).isZero();
+        assertThat(guild.getTotalPoint()).isEqualTo(10);
+        verify(dailyPointRepository, org.mockito.Mockito.never()).save(any());
+        verifyNoInteractions(dailyPointCreator);
+    }
+
+    @Test
+    @DisplayName("LUT-860: 포인트 날짜(완료한 날)의 행을 찾는다 — 오늘 행이 아니다")
+    void revoke_usesGivenPointDate() {
+        LocalDate yesterday = POINT_DATE.minusDays(1);
+        when(dailyPointRepository.findByGuildIdAndUserIdAndPointDate(1L, USER, yesterday))
+                .thenReturn(Optional.of(dailyRow(20, 2)));
+
+        int diff = guildPointService.revokePoints(guild, USER, 20, yesterday);
+
+        assertThat(diff).isEqualTo(2);
+        verify(dailyPointRepository).findByGuildIdAndUserIdAndPointDate(1L, USER, yesterday);
+    }
+
+    @Test
+    @DisplayName("LUT-860: 길드 포인트가 회수할 양보다 적어도 0 밑으로 내려가지 않는다")
+    void revoke_guildPointsFloorAtZero() {
+        guild.addPoint(1);
+        when(dailyPointRepository.findByGuildIdAndUserIdAndPointDate(1L, USER, POINT_DATE))
+                .thenReturn(Optional.of(dailyRow(60, 6)));
+
+        int diff = guildPointService.revokePoints(guild, USER, 60, POINT_DATE);
+
+        assertThat(diff).isEqualTo(6);
+        assertThat(guild.getTotalPoint()).isZero();
+        assertThat(guild.getCurrentPoint()).isZero();
+    }
+
+    @Test
+    @DisplayName("LUT-860: EXP 0 이하 · userId 없음 · 날짜 없음 — no-op")
+    void revoke_invalidInput_noop() {
+        assertThat(guildPointService.revokePoints(guild, USER, 0, POINT_DATE)).isZero();
+        assertThat(guildPointService.revokePoints(guild, USER, -5, POINT_DATE)).isZero();
+        assertThat(guildPointService.revokePoints(guild, null, 10, POINT_DATE)).isZero();
+        assertThat(guildPointService.revokePoints(guild, USER, 10, null)).isZero();
+        verifyNoInteractions(dailyPointRepository);
+    }
+
+    @Test
+    @DisplayName("LUT-860: 적립한 것을 같은 날짜로 회수하면 길드 포인트가 적립 전으로 돌아간다")
+    void accrueThenRevoke_roundTrip() {
+        GuildMemberDailyPoint daily = dailyRow(19, 1);
+        when(dailyPointRepository.findByGuildIdAndUserIdAndPointDate(any(), any(), any()))
+                .thenReturn(Optional.of(daily));
+        guild.addPoint(1);
+
+        int gained = guildPointService.accruePoints(guild, USER, 13);
+        int revoked = guildPointService.revokePoints(guild, USER, 13, POINT_DATE);
+
+        assertThat(gained).isEqualTo(2);
+        assertThat(revoked).isEqualTo(2);
+        assertThat(guild.getTotalPoint()).isEqualTo(1);
+        assertThat(daily.getDailyExp()).isEqualTo(19);
+        assertThat(daily.getPoints()).isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("LUT-860: pointDateOf — 포인트의 하루는 KST. UTC 14:59:59 는 그날, 15:00:00 은 다음 날")
+    void pointDateOf_kstBoundary() {
+        assertThat(
+                        GuildPointService.pointDateOf(
+                                java.time.LocalDateTime.of(2026, 11, 25, 14, 59, 59)))
+                .isEqualTo(LocalDate.of(2026, 11, 25));
+        assertThat(
+                        GuildPointService.pointDateOf(
+                                java.time.LocalDateTime.of(2026, 11, 25, 15, 0, 0)))
+                .isEqualTo(LocalDate.of(2026, 11, 26));
+        // UTC 자정 근처는 KST 로 같은 날 오전이다
+        assertThat(GuildPointService.pointDateOf(java.time.LocalDateTime.of(2026, 11, 25, 23, 59)))
+                .isEqualTo(LocalDate.of(2026, 11, 26));
+        assertThat(GuildPointService.pointDateOf(java.time.LocalDateTime.of(2026, 11, 26, 0, 0)))
+                .isEqualTo(LocalDate.of(2026, 11, 26));
+        // 연말 경계
+        assertThat(GuildPointService.pointDateOf(java.time.LocalDateTime.of(2026, 12, 31, 15, 0)))
+                .isEqualTo(LocalDate.of(2027, 1, 1));
+    }
 }

@@ -64,6 +64,47 @@ public class GuildPointService {
     }
 
     /**
+     * LUT-860: 완료한 길드 미션 수행을 취소해 그 수행으로 쌓인 포인트를 되돌린다. 유저×일자 누적 경험치에서 {@code expDelta} 를 빼고 다시 계산한
+     * 포인트와의 차이만큼 길드 포인트에서 뺀다. 그날 행이 없으면 아무것도 하지 않는다. 호출자는 guildTransactionManager 트랜잭션 안에서 관리 상태의
+     * Guild 를 넘겨야 한다.
+     *
+     * @return 줄어든 포인트
+     */
+    @Transactional(transactionManager = "guildTransactionManager")
+    public int revokePoints(Guild guild, String userId, int expDelta, LocalDate pointDate) {
+        if (expDelta <= 0 || userId == null || pointDate == null) {
+            return 0;
+        }
+        Optional<GuildMemberDailyPoint> existing =
+                dailyPointRepository.findByGuildIdAndUserIdAndPointDate(
+                        guild.getId(), userId, pointDate);
+        if (existing.isEmpty()) {
+            return 0;
+        }
+        GuildMemberDailyPoint daily = existing.get();
+        int diff =
+                daily.revoke(
+                        expDelta, pointProperties.getUnitExp(), pointProperties.getDailyCapExp());
+        dailyPointRepository.save(daily);
+        if (diff > 0) {
+            guild.removePoint(diff);
+            log.info(
+                    "길드 포인트 회수(미션 취소): guildId={}, userId={}, dailyExp={}, -{}점, totalPoint={}",
+                    guild.getId(),
+                    userId,
+                    daily.getDailyExp(),
+                    diff,
+                    guild.getTotalPoint());
+        }
+        return diff;
+    }
+
+    /** 포인트의 "하루" 는 KST — 완료 시각(UTC)이 속한 포인트 날짜 */
+    public static LocalDate pointDateOf(java.time.LocalDateTime utc) {
+        return utc.atZone(java.time.ZoneOffset.UTC).withZoneSameInstant(POINT_ZONE).toLocalDate();
+    }
+
+    /**
      * 유저×일자 행 확보 — 동시 적립 레이스는 uk_guild_member_daily_point 가 방어한다.
      *
      * <p>LUT-539: 생성은 {@link GuildMemberDailyPointCreator}(REQUIRES_NEW)에 맡겨 제약 위반이 이 트랜잭션의 영속성

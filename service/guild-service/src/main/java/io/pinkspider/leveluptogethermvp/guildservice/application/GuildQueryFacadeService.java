@@ -300,4 +300,18 @@ public class GuildQueryFacadeService implements GuildQueryFacade {
                 resp.getMaxMembers(),
                 resp.getLevelTitle());
     }
+
+    @Override
+    @Transactional(transactionManager = "guildTransactionManager")
+    public GuildExperienceResultDto cancelGuildMissionExperience(
+            Long guildId,
+            int expAmount,
+            Long sourceId,
+            String contributorId,
+            String description,
+            LocalDateTime completedAtUtc) {
+        return toResultDto(
+                guildExperienceService.cancelMissionExperience(
+                        guildId, expAmount, sourceId, contributorId, description, completedAtUtc));
+    }
 }

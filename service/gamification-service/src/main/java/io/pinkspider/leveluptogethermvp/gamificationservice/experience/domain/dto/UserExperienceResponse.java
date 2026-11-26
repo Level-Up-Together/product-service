@@ -27,6 +27,12 @@ public class UserExperienceResponse {
     private Integer expToNextLevel;
     private Double progressToNextLevel;
 
+    /** LUT-860: 이번 지급에서 누적 마이너스 경험치를 갚느라 덜 받은 양 (없으면 0) */
+    @Builder.Default private Integer expDeducted = 0;
+
+    /** LUT-860: 지금 남아 있는 누적 마이너스 경험치 */
+    @Builder.Default private Integer expDebt = 0;
+
     private LocalDateTime createdAt;
 
     private LocalDateTime modifiedAt;
@@ -49,6 +55,7 @@ public class UserExperienceResponse {
                 .nextLevelRequiredExp(nextLevelRequiredExp)
                 .expToNextLevel(Math.max(0, expToNext))
                 .progressToNextLevel(Math.min(100, progress))
+                .expDebt(userExp.getExpDebt() == null ? 0 : userExp.getExpDebt())
                 .createdAt(userExp.getCreatedAt())
                 .modifiedAt(userExp.getModifiedAt())
                 .build();

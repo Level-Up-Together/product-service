@@ -287,6 +287,69 @@ class GuildExperienceServiceTest {
         }
 
         @Test
+        @DisplayName("LUT-860: 수행 취소로 포인트가 현재 레벨 기준 밑이면 레벨은 유지하고 레벨 안 포인트는 0 으로 둔다")
+        void addExperience_belowCurrentLevelAfterCancel_keepsLevelWithZeroCurrentPoint() {
+            // 레벨 2(기준 30) 길드가 취소로 25점까지 내려간 뒤 다시 1점을 얻는다
+            testGuild.setCurrentLevel(2);
+            testGuild.setCurrentPoint(0);
+            testGuild.setTotalPoint(25);
+            testGuild.setMaxMembers(11);
+            when(guildRepository.findByIdAndIsActiveTrue(1L)).thenReturn(Optional.of(testGuild));
+            when(guildLevelConfigCacheService.getAllLevelConfigs())
+                    .thenReturn(List.of(level1Config, level2Config));
+            when(guildLevelConfigCacheService.getLevelConfigByLevel(anyInt()))
+                    .thenReturn(level2Config);
+            when(historyRepository.save(any(GuildExperienceHistory.class)))
+                    .thenAnswer(inv -> inv.getArgument(0));
+            when(guildPointService.accruePoints(any(Guild.class), any(), anyInt()))
+                    .thenAnswer(
+                            inv -> {
+                                Guild g = inv.getArgument(0);
+                                g.addPoint(1);
+                                return 1;
+                            });
+
+            guildExperienceService.addExperience(
+                    1L, 10, GuildExpSourceType.GUILD_MISSION_EXECUTION, 1L, testUserId, "미션 완료 보상");
+
+            assertThat(testGuild.getCurrentLevel()).isEqualTo(2);
+            assertThat(testGuild.getTotalPoint()).isEqualTo(26);
+            // 기준(30)을 다시 넘기 전에는 레벨 안 포인트가 1·2·3 으로 오르지 않는다
+            assertThat(testGuild.getCurrentPoint()).isZero();
+            assertThat(testGuild.getMaxMembers()).isEqualTo(11);
+            verify(eventPublisher, never()).publishEvent(any());
+        }
+
+        @Test
+        @DisplayName("LUT-860: 기준 밑이던 길드가 포인트를 다시 채우면 레벨 안 포인트가 기준부터 다시 센다")
+        void addExperience_backAboveCurrentLevel_recountsCurrentPoint() {
+            testGuild.setCurrentLevel(2);
+            testGuild.setCurrentPoint(0);
+            testGuild.setTotalPoint(28);
+            when(guildRepository.findByIdAndIsActiveTrue(1L)).thenReturn(Optional.of(testGuild));
+            when(guildLevelConfigCacheService.getAllLevelConfigs())
+                    .thenReturn(List.of(level1Config, level2Config));
+            when(guildLevelConfigCacheService.getLevelConfigByLevel(anyInt()))
+                    .thenReturn(level2Config);
+            when(historyRepository.save(any(GuildExperienceHistory.class)))
+                    .thenAnswer(inv -> inv.getArgument(0));
+            when(guildPointService.accruePoints(any(Guild.class), any(), anyInt()))
+                    .thenAnswer(
+                            inv -> {
+                                Guild g = inv.getArgument(0);
+                                g.addPoint(6);
+                                return 6;
+                            });
+
+            guildExperienceService.addExperience(
+                    1L, 60, GuildExpSourceType.GUILD_MISSION_EXECUTION, 1L, testUserId, "미션 완료 보상");
+
+            assertThat(testGuild.getCurrentLevel()).isEqualTo(2);
+            assertThat(testGuild.getTotalPoint()).isEqualTo(34);
+            assertThat(testGuild.getCurrentPoint()).isEqualTo(4); // 34 - 30
+        }
+
+        @Test
         @DisplayName("존재하지 않는 길드에 경험치 추가 시 예외 발생")
         void addExperience_failWhenGuildNotFound() {
             when(guildRepository.findByIdAndIsActiveTrue(999L)).thenReturn(Optional.empty());
@@ -501,6 +564,150 @@ class GuildExperienceServiceTest {
             assertThat(config.getRequiredExp()).isEqualTo(2000);
             verify(guildLevelConfigCacheService)
                     .createOrUpdateLevelConfig(5, 2000, 5000, 60, "상급 길드", "상급 길드입니다");
+        }
+    }
+
+    @Nested
+    @DisplayName("LUT-860 완료한 길드 미션 수행 취소 (cancelMissionExperience)")
+    class CancelMissionExperienceTest {
+
+        /** KST 2026-11-26 01:30 */
+        private final java.time.LocalDateTime completedAtUtc =
+                java.time.LocalDateTime.of(2026, 11, 25, 16, 30);
+
+        private GuildExperienceHistory savedHistory() {
+            org.mockito.ArgumentCaptor<GuildExperienceHistory> captor =
+                    org.mockito.ArgumentCaptor.forClass(GuildExperienceHistory.class);
+            verify(historyRepository).save(captor.capture());
+            return captor.getValue();
+        }
+
+        @Test
+        @DisplayName("길드 경험치를 빼고 수행 경험치의 음수 내역(레벨 변화 없음)을 남긴다")
+        void subtractsExpAndWritesNegativeHistory() {
+            testGuild.addExperience(500);
+            when(guildRepository.findByIdAndIsActiveTrue(1L)).thenReturn(Optional.of(testGuild));
+
+            GuildExperienceResponse response =
+                    guildExperienceService.cancelMissionExperience(
+                            1L, 200, 77L, testUserId, "길드 미션 취소: 아침 스트레칭", completedAtUtc);
+
+            assertThat(testGuild.getCurrentExp()).isEqualTo(300);
+            assertThat(testGuild.getTotalExp()).isEqualTo(300);
+            assertThat(response.getGuildId()).isEqualTo(1L);
+            assertThat(response.getCurrentExp()).isEqualTo(300);
+            assertThat(response.getTotalExp()).isEqualTo(300);
+
+            GuildExperienceHistory history = savedHistory();
+            assertThat(history.getGuild()).isSameAs(testGuild);
+            assertThat(history.getSourceType())
+                    .isEqualTo(GuildExpSourceType.GUILD_MISSION_EXECUTION);
+            assertThat(history.getSourceId()).isEqualTo(77L);
+            assertThat(history.getContributorId()).isEqualTo(testUserId);
+            assertThat(history.getExpAmount()).isEqualTo(-200);
+            assertThat(history.getDescription()).isEqualTo("길드 미션 취소: 아침 스트레칭");
+            assertThat(history.getLevelBefore()).isEqualTo(1);
+            assertThat(history.getLevelAfter()).isEqualTo(1);
+        }
+
+        @Test
+        @DisplayName("길드 경험치는 0 밑으로 내려가지 않는다 — 내역에는 요청한 금액 전체를 음수로 남긴다")
+        void expFloorsAtZero() {
+            testGuild.addExperience(100);
+            when(guildRepository.findByIdAndIsActiveTrue(1L)).thenReturn(Optional.of(testGuild));
+
+            guildExperienceService.cancelMissionExperience(
+                    1L, 250, 77L, testUserId, "길드 미션 취소", completedAtUtc);
+
+            assertThat(testGuild.getCurrentExp()).isZero();
+            assertThat(testGuild.getTotalExp()).isZero();
+            assertThat(savedHistory().getExpAmount()).isEqualTo(-250);
+        }
+
+        @Test
+        @DisplayName("현재 경험치와 누적 경험치는 따로 0 에서 멈춘다")
+        void currentAndTotalFloorSeparately() {
+            TestReflectionUtils.setField(testGuild, "currentExp", 80);
+            TestReflectionUtils.setField(testGuild, "totalExp", 6100);
+            when(guildRepository.findByIdAndIsActiveTrue(1L)).thenReturn(Optional.of(testGuild));
+
+            guildExperienceService.cancelMissionExperience(
+                    1L, 200, 77L, testUserId, "길드 미션 취소", completedAtUtc);
+
+            assertThat(testGuild.getCurrentExp()).isZero();
+            assertThat(testGuild.getTotalExp()).isEqualTo(5900);
+        }
+
+        @Test
+        @DisplayName("그 수행으로 쌓인 포인트를 완료한 날(KST)의 행에서 회수한다")
+        void revokesPointsOnCompletedKstDate() {
+            testGuild.addExperience(500);
+            when(guildRepository.findByIdAndIsActiveTrue(1L)).thenReturn(Optional.of(testGuild));
+            when(guildPointService.revokePoints(
+                            testGuild, testUserId, 200, java.time.LocalDate.of(2026, 11, 26)))
+                    .thenReturn(3);
+
+            guildExperienceService.cancelMissionExperience(
+                    1L, 200, 77L, testUserId, "길드 미션 취소", completedAtUtc);
+
+            verify(guildPointService)
+                    .revokePoints(testGuild, testUserId, 200, java.time.LocalDate.of(2026, 11, 26));
+            // 적립 쪽은 부르지 않는다
+            verify(guildPointService, never()).accruePoints(any(), any(), anyInt());
+        }
+
+        @Test
+        @DisplayName("완료 시각을 모르면(null) 포인트는 회수하지 않고 경험치만 뺀다")
+        void nullCompletedAt_skipsPointRevocation() {
+            testGuild.addExperience(500);
+            when(guildRepository.findByIdAndIsActiveTrue(1L)).thenReturn(Optional.of(testGuild));
+
+            guildExperienceService.cancelMissionExperience(
+                    1L, 200, 77L, testUserId, "길드 미션 취소", null);
+
+            assertThat(testGuild.getCurrentExp()).isEqualTo(300);
+            verify(historyRepository).save(any(GuildExperienceHistory.class));
+            org.mockito.Mockito.verifyNoInteractions(guildPointService);
+        }
+
+        @Test
+        @DisplayName("길드 레벨은 내리지 않는다 — 레벨 재판정도 하지 않는다")
+        void doesNotChangeLevel() {
+            TestReflectionUtils.setField(testGuild, "totalExp", 6100);
+            TestReflectionUtils.setField(testGuild, "currentExp", 80);
+            TestReflectionUtils.setField(testGuild, "currentLevel", 2);
+            when(guildRepository.findByIdAndIsActiveTrue(1L)).thenReturn(Optional.of(testGuild));
+            when(guildLevelConfigCacheService.getLevelConfigByLevel(2)).thenReturn(level2Config);
+
+            GuildExperienceResponse response =
+                    guildExperienceService.cancelMissionExperience(
+                            1L, 200, 77L, testUserId, "길드 미션 취소", completedAtUtc);
+
+            assertThat(testGuild.getCurrentLevel()).isEqualTo(2);
+            assertThat(response.getCurrentLevel()).isEqualTo(2);
+            assertThat(response.getLevelTitle()).isEqualTo("성장 길드");
+            GuildExperienceHistory history = savedHistory();
+            assertThat(history.getLevelBefore()).isEqualTo(2);
+            assertThat(history.getLevelAfter()).isEqualTo(2);
+            // 레벨 재판정(processLevelUp)은 전체 설정을 읽는다 — 취소는 읽지 않는다
+            verify(guildLevelConfigCacheService, never()).getAllLevelConfigs();
+            org.mockito.Mockito.verifyNoInteractions(eventPublisher);
+        }
+
+        @Test
+        @DisplayName("존재하지 않는(해체된) 길드면 예외 — 내역도 포인트도 건드리지 않는다")
+        void guildNotFound_throws() {
+            when(guildRepository.findByIdAndIsActiveTrue(999L)).thenReturn(Optional.empty());
+
+            assertThatThrownBy(
+                            () ->
+                                    guildExperienceService.cancelMissionExperience(
+                                            999L, 100, 77L, testUserId, "길드 미션 취소", completedAtUtc))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessageContaining("길드를 찾을 수 없습니다");
+
+            verify(historyRepository, never()).save(any());
+            org.mockito.Mockito.verifyNoInteractions(guildPointService);
         }
     }
 }
