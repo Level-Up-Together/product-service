@@ -398,7 +398,7 @@ Redis Stream `stream:app-push` → `AppPushMessageConsumer` → `FcmPushService`
 
 그 외 설정·조회 캐시(출석 보상, 업적, `profanityWords`, `userDetailedTitleInfo`, `appSettings`(LUT-708 — 엔티티가 아니라 파싱한 값만 캐시) 등)는 각 `*CacheService`의 `@Cacheable` 사용 — **기본 설정은 TTL 없음(무기한)**이라 evict 이벤트에 전적으로 의존한다.
 **캐시되는 엔티티에 컬럼을 추가할 때는 배포 직후 해당 키를 evict할 것** (LUT-534): 옛 JSON은 역직렬화 오류 없이 새 필드만 `null`로 살아남으므로 `RedisConfig`의 "오류 시 evict" 안전망에 걸리지 않는다. `@PostConstruct warmUpCache()`류 self-invocation은 캐시 프록시를 타지 않아 기동 시 갱신 효과가 없다.
-길드 레벨 재판정(`GuildExperienceService.processLevelUp`)은 **강등 금지**(포인트 단조 증가 → 레벨도 단조) — 재판정 결과가 현재 레벨보다 낮으면 warn 로그 후 유지.
+길드 레벨 재판정(`GuildExperienceService.processLevelUp`)은 **강등 금지** — 재판정 결과가 현재 레벨보다 낮으면 유지한다. 현재 레벨의 기준값을 읽지 못하면(스테일 캐시 신호) warn, 기준값이 멀쩡하면(길드 미션 수행 취소 LUT-860 으로 포인트가 줄었거나 어드민이 기준을 올림) debug 만 남기고 레벨 안 포인트를 0 으로 둔다.
 
 ## 유저 일별 활동 수집 — DAU 신호 (LUT-598, `statsservice/activity`)
 
@@ -775,7 +775,7 @@ LUT-348 의 등급 차이 할증(배수 1~8, 10단위 올림)은 없앴다 — �
 유저 1명 하루 점수 = `floor(min(하루 길드미션 EXP, 60) / 10)` (상한 6점, `guild.point.*` 설정값,
 기본 10/60). 적립은 건별이 아니라 **유저×일자 누적 차분**(`GuildPointService` + `guild_member_daily_point`
 uk 멱등) — 쪼개서 수행해도 몰아서 한 것과 같은 점수. "하루" 경계는 **KST**. 포인트는 단조 증가만
-(회수·리셋 없음, saga 보상도 EXP 만 차감). 레벨 판정은 `guild_level_config.cumulative_point`
+(회수·리셋 없음, saga 보상도 EXP 만 차감 — 유일한 예외는 완료한 길드 미션 수행 취소 LUT-860: 그 수행으로 쌓인 포인트를 뺀다. 길드 레벨은 그대로). 레벨 판정은 `guild_level_config.cumulative_point`
 (자동계산 `required_point(L)=30×(L-1)`), 랭킹은 `GET /api/v1/guilds/ranking` (비로그인 허용,
 포인트 DESC → lastPointAt ASC → id) — **프론트 클라이언트 재정렬 금지**.
 
@@ -913,6 +913,14 @@ uk 멱등) — 쪼개서 수행해도 몰아서 한 것과 같은 점수. "하�
 **미션 생성 멱등성** (LUT-577): `POST /api/v1/missions` 의 `Idempotency-Key`(UUID) 헤더 — 같은 유저·같은 키 재요청은 저장된 응답(같은 id) 재생,
 처리 중이면 409(`050402`), 형식 오류 400(`050401`), 헤더 없으면 기존처럼 매번 생성. 선점/해제는 REQUIRES_NEW, 생성+완료는 한 트랜잭션. 400/409 는
 플랫폼 `CustomException`(항상 500)이 아니라 미션 로컬 어드바이스가 낸다. 상세는 FEATURES.md "Mission 생성 멱등성" 절.
+
+**완료한 미션 수행 취소** (LUT-860, `missionservice/application/MissionExecutionCancel*`): `DELETE /api/v1/missions/{missionId}/executions/{executionDate}[?instanceId]` — **오늘 완료한 수행만**
+(완료 시각을 `X-Timezone`(없으면 KST) 날짜로 바꿔 오늘인지 본다. 없으면 404 `050701`, 완료가 아니면 400 `050702`, 오늘이 아니면 400 `050703` — `MissionExecutionCancelException`). 수행을 대기(PENDING)로 되돌리고
+사진·메모·피드 공유를 지운다(일반 미션은 참여도 진행 중으로, 고정 미션은 같은 날 대기 인스턴스가 둘이 되지 않게 손대지 않은 다음 회차를 지운다). **순서**: `MissionExecutionCancelTxService` 가 mission 트랜잭션 안에서
+상태를 바꾸고 flush 한 뒤 유저 경험치를 되돌린다(실패하면 롤백 — 수행은 완료로 남는다). 커밋 뒤 `MissionExecutionCancelService` 가 일일 마일스톤 보너스·길드 경험치/포인트·통계/스트릭·사진 파일을 되돌린다(실패해도 취소는 유지, error 로그).
+**경험치는 레벨을 내리지 않는다** — 현재 레벨 경험치에서 빼고 모자란 양은 `user_experience.exp_debt`(누적 마이너스 경험치)에 쌓는다. `addExperience` 가 `MISSION_EXECUTION` 지급 때 그것을 먼저 갚고(완료 응답 `exp_deducted`) 내역에는 원래 금액을 남긴다.
+취소는 전체를 음수 행(`ExpSourceType.MISSION_CANCEL`)으로 남기며, **기간 합계 쿼리(주간·친구·시즌 랭킹, MVP, 캘린더 일별)는 `expAmount > 0 OR sourceType IN (MISSION_CANCEL, DAILY_MISSION_MILESTONE)` 로 이 행을 함께 더한다** —
+새 합계 쿼리에 `> 0` 만 쓰면 취소한 경험치가 다시 잡힌다. 되돌리지 않는 것: 레벨·레벨업 보상·업적·칭호·다이아·탑의 완료 흔적. 상세는 FEATURES.md "완료한 미션 수행 취소" 절.
 
 **미션 EXP 공식은 `missionservice/domain/policy/MissionExpPolicy` 한 곳** (LUT-568): 체크 10/회(하루 10회), 타이머 **120분**까지 분당 1 + 초과 5분당 1
 (240분 = 144, 산정 상한 240분 — LUT-696 에서 60분/480분 → 120분/240분, 웹 `mission-exp.ts` 상수와 같이 바꾼다), 체크 일일 마일스톤 3·5개째 +20(`GrantDailyMilestoneBonusStep`, `ExpSourceType.DAILY_MISSION_MILESTONE`). 상세·응답 필드는
