@@ -260,6 +260,22 @@ public class DailyMissionInstance extends LocalDateTimeBaseEntity
     // === 고정 미션 전용 메서드 ===
 
     /**
+     * LUT-860: 완료한 인스턴스를 취소해 대기 상태로 되돌린다. {@link #resetToPending()} 에 더해 완료 때 올린 완료 횟수·누적 경험치와
+     * 공유·자동 종료·길드 경험치 표시를 되돌린다.
+     */
+    public void revertCompletion() {
+        int exp = this.expEarned == null ? 0 : this.expEarned;
+        resetToPending();
+        this.completionCount =
+                Math.max(0, (this.completionCount == null ? 0 : this.completionCount) - 1);
+        this.totalExpEarned =
+                Math.max(0, (this.totalExpEarned == null ? 0 : this.totalExpEarned) - exp);
+        this.isSharedToFeed = false;
+        this.isAutoCompleted = false;
+        this.guildExpGranted = false;
+    }
+
+    /**
      * 완료된 인스턴스를 PENDING 상태로 리셋 (고정 미션의 재시작용) completionCount, totalExpEarned는 유지하여 오늘 수행 내역 기록
      *
      * <p>NOTE: 이 메서드는 Saga Step에서만 호출되며, MissionExecutionLifecycle의 상태 전이 규칙을 우회합니다.

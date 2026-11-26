@@ -1,5 +1,6 @@
 package io.pinkspider.leveluptogethermvp.missionservice.api;
 
+import static com.epages.restdocs.apispec.ResourceDocumentation.headerWithName;
 import static com.epages.restdocs.apispec.ResourceDocumentation.parameterWithName;
 import static com.epages.restdocs.apispec.ResourceDocumentation.resource;
 import static org.mockito.ArgumentMatchers.any;
@@ -7,6 +8,7 @@ import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -20,8 +22,11 @@ import com.epages.restdocs.apispec.MockMvcRestDocumentationWrapper;
 import com.epages.restdocs.apispec.ResourceSnippetParameters;
 import com.epages.restdocs.apispec.SimpleType;
 import io.pinkspider.leveluptogethermvp.config.ControllerTestConfig;
+import io.pinkspider.leveluptogethermvp.missionservice.api.exception.MissionExecutionCancelException;
+import io.pinkspider.leveluptogethermvp.missionservice.application.MissionExecutionCancelService;
 import io.pinkspider.leveluptogethermvp.missionservice.application.MissionExecutionQueryService;
 import io.pinkspider.leveluptogethermvp.missionservice.application.MissionExecutionService;
+import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MissionExecutionCancelResponse;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MissionExecutionResponse;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MonthlyCalendarResponse;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MonthlyCalendarResponse.DailyMission;
@@ -71,6 +76,8 @@ class MissionExecutionControllerTest {
 
     @MockitoBean private MissionExecutionQueryService executionQueryService;
 
+    @MockitoBean private MissionExecutionCancelService executionCancelService;
+
     private static final String MOCK_USER_ID = "test-user-123";
 
     private List<MissionExecutionResponse> createMockExecutions() {
@@ -116,6 +123,7 @@ class MissionExecutionControllerTest {
                         .completedAt(LocalDateTime.now())
                         .milestoneBonusExp(20)
                         .milestoneCount(3)
+                        .expDeducted(15)
                         .build();
 
         when(executionService.completeExecution(
@@ -299,11 +307,27 @@ class MissionExecutionControllerTest {
                                                                                 "LUT-568: 도달한 마일스톤"
                                                                                     + " 수 (3/5, 미도달"
                                                                                     + " 시 필드 없음)")
+                                                                        .optional(),
+                                                                fieldWithPath("value.exp_deducted")
+                                                                        .type(JsonFieldType.NUMBER)
+                                                                        .description(
+                                                                                "LUT-860: 이번 완료에서"
+                                                                                    + " 누적 마이너스"
+                                                                                    + " 경험치(취소한 미션"
+                                                                                    + " 때문에 생긴 빚)를"
+                                                                                    + " 갚느라 덜 받은 양"
+                                                                                    + " — 실제로 받은 양은"
+                                                                                    + " exp_earned"
+                                                                                    + " - exp_deducted"
+                                                                                    + " (차감이 없으면 필드"
+                                                                                    + " 없음)")
                                                                         .optional())
                                                         .build())));
 
         // then
-        resultActions.andExpect(MockMvcResultMatchers.status().isOk());
+        resultActions
+                .andExpect(MockMvcResultMatchers.status().isOk())
+                .andExpect(MockMvcResultMatchers.jsonPath("$.value.exp_deducted").value(15));
     }
 
     @Test
@@ -3109,5 +3133,218 @@ class MissionExecutionControllerTest {
         verify(executionService)
                 .completeExecution(
                         eq(1L), anyString(), any(LocalDate.class), any(), any(), eq(false));
+    }
+
+    @Test
+    @DisplayName(
+            "DELETE /api/v1/missions/{missionId}/executions/{executionDate} : 완료한 미션 수행 취소"
+                    + " (LUT-860)")
+    void cancelCompletedExecutionTest() throws Exception {
+        // given
+        LocalDate executionDate = LocalDate.of(2026, 11, 26);
+        when(executionCancelService.cancel(
+                        anyLong(), anyString(), any(LocalDate.class), any(), any()))
+                .thenReturn(new MissionExecutionCancelResponse(1L, executionDate, 10, 20, 5));
+
+        // when — DELETE 의 쿼리 값은 queryParam 으로 보낸다(param 은 폼 값으로 잡힌다)
+        ResultActions resultActions =
+                mockMvc.perform(
+                                RestDocumentationRequestBuilders.delete(
+                                                "/api/v1/missions/{missionId}/executions/{executionDate}",
+                                                1L,
+                                                executionDate.toString())
+                                        .queryParam("instanceId", "77")
+                                        .header("X-Timezone", "Asia/Seoul")
+                                        .with(user(MOCK_USER_ID))
+                                        .contentType(MediaType.APPLICATION_JSON))
+                        .andDo(
+                                MockMvcRestDocumentationWrapper.document(
+                                        "미션실행-21. 완료한 미션 수행 취소",
+                                        preprocessRequest(prettyPrint()),
+                                        preprocessResponse(prettyPrint()),
+                                        resource(
+                                                ResourceSnippetParameters.builder()
+                                                        .tag("Mission Execution")
+                                                        .description(
+                                                                "오늘 완료한 미션 수행을 취소한다 (LUT-860, JWT"
+                                                                    + " 토큰 인증 필요). 수행을 대기 상태로 되돌리고"
+                                                                    + " 받은 경험치·기록(사진·메모·피드 공유)을"
+                                                                    + " 지운다. 레벨은 내리지 않으며 현재 레벨 경험치로"
+                                                                    + " 모자란 양은 누적 마이너스"
+                                                                    + " 경험치(exp_debt)로 남아 다음 미션"
+                                                                    + " 경험치에서 먼저 빠진다. 진행 중인 수행은 대상이"
+                                                                    + " 아니다(/skip). 오류: 404 050701"
+                                                                    + " 수행 기록 없음 · 400 050702 완료한"
+                                                                    + " 수행이 아님 · 400 050703 오늘 완료한"
+                                                                    + " 수행이 아님")
+                                                        .pathParameters(
+                                                                parameterWithName("missionId")
+                                                                        .type(SimpleType.NUMBER)
+                                                                        .description("미션 ID"),
+                                                                parameterWithName("executionDate")
+                                                                        .type(SimpleType.STRING)
+                                                                        .description(
+                                                                                "실행 날짜"
+                                                                                    + " (yyyy-MM-dd)"))
+                                                        .queryParameters(
+                                                                parameterWithName("instanceId")
+                                                                        .type(SimpleType.NUMBER)
+                                                                        .description(
+                                                                                "고정 미션 인스턴스 ID (없으면"
+                                                                                    + " 그 날짜의 마지막"
+                                                                                    + " 완료 인스턴스, 일반"
+                                                                                    + " 미션은 무시)")
+                                                                        .optional())
+                                                        .requestHeaders(
+                                                                headerWithName("X-Timezone")
+                                                                        .description(
+                                                                                "\"오늘\" 을 정하는 시간대"
+                                                                                    + " (없거나 잘못되면"
+                                                                                    + " Asia/Seoul)")
+                                                                        .optional())
+                                                        .responseFields(
+                                                                fieldWithPath("code")
+                                                                        .type(JsonFieldType.STRING)
+                                                                        .description("응답 코드"),
+                                                                fieldWithPath("message")
+                                                                        .type(JsonFieldType.STRING)
+                                                                        .description("응답 메시지"),
+                                                                fieldWithPath("value")
+                                                                        .type(JsonFieldType.OBJECT)
+                                                                        .description("취소 결과"),
+                                                                fieldWithPath("value.mission_id")
+                                                                        .type(JsonFieldType.NUMBER)
+                                                                        .description("미션 ID"),
+                                                                fieldWithPath(
+                                                                                "value.execution_date")
+                                                                        .type(JsonFieldType.STRING)
+                                                                        .description(
+                                                                                "취소한 수행의 실행 날짜"
+                                                                                    + " (yyyy-MM-dd)"),
+                                                                fieldWithPath("value.exp_cancelled")
+                                                                        .type(JsonFieldType.NUMBER)
+                                                                        .description(
+                                                                                "되돌린 미션 경험치 (한도에 걸려"
+                                                                                    + " 0 을 받았던"
+                                                                                    + " 수행이면 0)"),
+                                                                fieldWithPath(
+                                                                                "value.milestone_exp_cancelled")
+                                                                        .type(JsonFieldType.NUMBER)
+                                                                        .description(
+                                                                                "같이 되돌린 일일 체크 미션"
+                                                                                    + " 마일스톤 보너스"
+                                                                                    + " (없으면 0)"),
+                                                                fieldWithPath("value.exp_debt")
+                                                                        .type(JsonFieldType.NUMBER)
+                                                                        .description(
+                                                                                "취소 뒤 남은 누적 마이너스"
+                                                                                    + " 경험치 — 다음 미션"
+                                                                                    + " 경험치에서 먼저"
+                                                                                    + " 뺀다"))
+                                                        .build())));
+
+        // then
+        resultActions
+                .andExpect(MockMvcResultMatchers.status().isOk())
+                .andExpect(MockMvcResultMatchers.jsonPath("$.value.mission_id").value(1))
+                .andExpect(
+                        MockMvcResultMatchers.jsonPath("$.value.execution_date")
+                                .value("2026-11-26"))
+                .andExpect(MockMvcResultMatchers.jsonPath("$.value.exp_cancelled").value(10))
+                .andExpect(
+                        MockMvcResultMatchers.jsonPath("$.value.milestone_exp_cancelled").value(20))
+                .andExpect(MockMvcResultMatchers.jsonPath("$.value.exp_debt").value(5));
+
+        verify(executionCancelService).cancel(1L, MOCK_USER_ID, executionDate, 77L, "Asia/Seoul");
+    }
+
+    @Test
+    @DisplayName("LUT-860: X-Timezone 헤더 값을 서비스로 그대로 넘긴다")
+    void cancelCompletedExecution_passesTimezoneHeader() throws Exception {
+        LocalDate executionDate = LocalDate.of(2026, 11, 26);
+        when(executionCancelService.cancel(
+                        anyLong(), anyString(), any(LocalDate.class), any(), any()))
+                .thenReturn(new MissionExecutionCancelResponse(3L, executionDate, 0, 0, 0));
+
+        mockMvc.perform(
+                        RestDocumentationRequestBuilders.delete(
+                                        "/api/v1/missions/{missionId}/executions/{executionDate}",
+                                        3L,
+                                        executionDate.toString())
+                                .header("X-Timezone", "America/New_York")
+                                .with(user(MOCK_USER_ID)))
+                .andExpect(MockMvcResultMatchers.status().isOk());
+
+        verify(executionCancelService)
+                .cancel(
+                        eq(3L),
+                        eq(MOCK_USER_ID),
+                        eq(executionDate),
+                        isNull(),
+                        eq("America/New_York"));
+    }
+
+    @Test
+    @DisplayName("LUT-860: 헤더·instanceId 가 없으면 둘 다 null 로 넘긴다 (시간대 기본값은 서비스가 정한다)")
+    void cancelCompletedExecution_withoutHeaderAndInstanceId_passesNulls() throws Exception {
+        LocalDate executionDate = LocalDate.of(2026, 11, 26);
+        when(executionCancelService.cancel(
+                        anyLong(), anyString(), any(LocalDate.class), any(), any()))
+                .thenReturn(new MissionExecutionCancelResponse(3L, executionDate, 10, 0, 0));
+
+        mockMvc.perform(
+                        RestDocumentationRequestBuilders.delete(
+                                        "/api/v1/missions/{missionId}/executions/{executionDate}",
+                                        3L,
+                                        executionDate.toString())
+                                .with(user(MOCK_USER_ID)))
+                .andExpect(MockMvcResultMatchers.status().isOk());
+
+        verify(executionCancelService)
+                .cancel(eq(3L), eq(MOCK_USER_ID), eq(executionDate), isNull(), isNull());
+    }
+
+    @Test
+    @DisplayName("LUT-860: 수행 기록이 없으면 404 + 050701")
+    void cancelCompletedExecution_notFound_404() throws Exception {
+        when(executionCancelService.cancel(
+                        anyLong(), anyString(), any(LocalDate.class), any(), any()))
+                .thenThrow(MissionExecutionCancelException.notFound());
+
+        mockMvc.perform(
+                        RestDocumentationRequestBuilders.delete(
+                                        "/api/v1/missions/{missionId}/executions/{executionDate}",
+                                        1L,
+                                        "2026-11-26")
+                                .with(user(MOCK_USER_ID)))
+                .andExpect(MockMvcResultMatchers.status().isNotFound())
+                .andExpect(MockMvcResultMatchers.jsonPath("$.code").value("050701"));
+    }
+
+    @Test
+    @DisplayName("LUT-860: 완료한 수행이 아니면 400 + 050702, 오늘 완료한 수행이 아니면 400 + 050703")
+    void cancelCompletedExecution_badRequest_400() throws Exception {
+        when(executionCancelService.cancel(
+                        anyLong(), anyString(), any(LocalDate.class), any(), any()))
+                .thenThrow(MissionExecutionCancelException.notCompleted())
+                .thenThrow(MissionExecutionCancelException.notToday());
+
+        mockMvc.perform(
+                        RestDocumentationRequestBuilders.delete(
+                                        "/api/v1/missions/{missionId}/executions/{executionDate}",
+                                        1L,
+                                        "2026-11-26")
+                                .with(user(MOCK_USER_ID)))
+                .andExpect(MockMvcResultMatchers.status().isBadRequest())
+                .andExpect(MockMvcResultMatchers.jsonPath("$.code").value("050702"));
+
+        mockMvc.perform(
+                        RestDocumentationRequestBuilders.delete(
+                                        "/api/v1/missions/{missionId}/executions/{executionDate}",
+                                        1L,
+                                        "2026-11-26")
+                                .with(user(MOCK_USER_ID)))
+                .andExpect(MockMvcResultMatchers.status().isBadRequest())
+                .andExpect(MockMvcResultMatchers.jsonPath("$.code").value("050703"));
     }
 }

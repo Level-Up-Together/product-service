@@ -80,7 +80,11 @@ public class UserExperienceService {
         UserExperience userExp = getOrCreateUserExperience(userId);
         int levelBefore = userExp.getCurrentLevel();
 
-        userExp.addExperience(expAmount);
+        // LUT-860: 미션 경험치는 누적 마이너스 경험치(취소로 못 뺀 양)를 먼저 갚고 남은 만큼만 더한다.
+        // 내역에는 원래 금액을 남긴다 — 취소 때 전체를 음수로 남겼으므로 기간 합계가 맞는다.
+        int expDeducted =
+                sourceType == ExpSourceType.MISSION_EXECUTION ? userExp.payDebt(expAmount) : 0;
+        userExp.addExperience(expAmount - expDeducted);
 
         processLevelUp(userExp);
 
@@ -134,15 +138,80 @@ public class UserExperienceService {
         eventPublisher.publishEvent(new AchievementCheckRequestedEvent(userId, checkDataSources));
 
         log.info(
-                "경험치 획득: userId={}, amount={}, total={}, level={}, categoryId={}",
+                "경험치 획득: userId={}, amount={}, deducted={}, total={}, level={}, categoryId={}",
                 userId,
                 expAmount,
+                expDeducted,
                 userExp.getTotalExp(),
                 userExp.getCurrentLevel(),
                 categoryId);
 
-        return UserExperienceResponse.from(
-                userExp, getNextLevelRequiredExp(userExp.getCurrentLevel()));
+        UserExperienceResponse response =
+                UserExperienceResponse.from(
+                        userExp, getNextLevelRequiredExp(userExp.getCurrentLevel()));
+        response.setExpDeducted(expDeducted);
+        return response;
+    }
+
+    /**
+     * LUT-860: 오늘 완료한 미션 수행을 취소해 경험치를 되돌린다. 레벨은 내리지 않는다 — 현재 레벨 안의 경험치에서 빼고, 모자라면 남는 양을 누적 마이너스
+     * 경험치로 쌓는다(다음 미션 지급에서 먼저 갚는다). 내역에는 {@code expAmount} 전체를 음수로 남겨 기간 랭킹·캘린더 합계가 바로 맞게 한다. 레벨이
+     * 바뀌지 않으므로 이벤트는 내지 않는다.
+     */
+    @Transactional(transactionManager = "gamificationTransactionManager")
+    public UserExperienceResponse cancelExperience(
+            String userId,
+            int expAmount,
+            ExpSourceType sourceType,
+            Long sourceId,
+            String description,
+            Long categoryId,
+            String categoryName) {
+        UserExperience userExp = getOrCreateUserExperience(userId);
+        int level = userExp.getCurrentLevel();
+
+        int toDebt = userExp.cancelExperience(expAmount);
+
+        if (expAmount > 0) {
+            experienceHistoryRepository.save(
+                    ExperienceHistory.builder()
+                            .userId(userId)
+                            .sourceType(sourceType)
+                            .sourceId(sourceId)
+                            .expAmount(-expAmount)
+                            .description(description)
+                            .categoryName(categoryName)
+                            .levelBefore(level)
+                            .levelAfter(level)
+                            .build());
+            if (categoryId != null) {
+                subtractCategoryExperience(userId, categoryId, expAmount);
+            }
+        }
+
+        log.info(
+                "경험치 취소: userId={}, amount={}, toDebt={}, debt={}, total={}, level={}",
+                userId,
+                expAmount,
+                toDebt,
+                userExp.getExpDebt(),
+                userExp.getTotalExp(),
+                level);
+
+        return UserExperienceResponse.from(userExp, getNextLevelRequiredExp(level));
+    }
+
+    /** LUT-860: 기간 안에 그 출처·출처 ID 로 기록된 경험치 순합 (지급 − 회수). 기록이 없으면 0. */
+    public int sumExperienceBySource(
+            String userId,
+            ExpSourceType sourceType,
+            Long sourceId,
+            LocalDateTime fromUtc,
+            LocalDateTime toUtcExclusive) {
+        Long sum =
+                experienceHistoryRepository.sumExpByUserIdAndSourceAndPeriod(
+                        userId, sourceType, sourceId, fromUtc, toUtcExclusive);
+        return sum == null ? 0 : sum.intValue();
     }
 
     /** 카테고리별 경험치 업데이트 */
@@ -400,12 +469,34 @@ public class UserExperienceService {
             String description,
             Long categoryId,
             String categoryName) {
+        return subtractExperience(
+                userId, expAmount, 0, sourceType, sourceId, description, categoryId, categoryName);
+    }
+
+    /**
+     * LUT-860: 지급을 되돌린다(완료 Saga 보상용). 지급 때 누적 마이너스 경험치로 갚은 양({@code expDeducted})은 다시 마이너스로 돌려놓고,
+     * 실제로 받은 양({@code expAmount - expDeducted})만 뺀다. 내역·카테고리 경험치는 {@code expAmount} 전체로 되돌린다.
+     */
+    @Transactional(transactionManager = "gamificationTransactionManager")
+    public UserExperienceResponse subtractExperience(
+            String userId,
+            int expAmount,
+            int expDeducted,
+            ExpSourceType sourceType,
+            Long sourceId,
+            String description,
+            Long categoryId,
+            String categoryName) {
         UserExperience userExp = getOrCreateUserExperience(userId);
         int levelBefore = userExp.getCurrentLevel();
 
+        int restoredDebt = Math.max(0, Math.min(expDeducted, expAmount));
+        int actualAmount = expAmount - restoredDebt;
+        userExp.addDebt(restoredDebt);
+
         // 경험치 차감
-        int newCurrentExp = userExp.getCurrentExp() - expAmount;
-        int newTotalExp = userExp.getTotalExp() - expAmount;
+        int newCurrentExp = userExp.getCurrentExp() - actualAmount;
+        int newTotalExp = userExp.getTotalExp() - actualAmount;
 
         // 레벨 다운 처리
         if (newCurrentExp < 0) {

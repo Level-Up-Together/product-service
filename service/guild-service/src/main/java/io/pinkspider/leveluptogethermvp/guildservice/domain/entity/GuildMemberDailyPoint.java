@@ -70,6 +70,22 @@ public class GuildMemberDailyPoint extends LocalDateTimeBaseEntity {
     @Builder.Default
     private Integer points = 0;
 
+    /**
+     * LUT-860: 취소한 수행의 경험치를 그날 누적에서 빼고 포인트를 다시 계산한다.
+     *
+     * @return 줄어든 포인트 (0 이면 그대로)
+     */
+    public int revoke(int expDelta, int unitExp, int dailyCapExp) {
+        this.dailyExp = Math.max(0, this.dailyExp - expDelta);
+        int newPoints = Math.min(this.dailyExp, dailyCapExp) / unitExp;
+        int diff = this.points - newPoints;
+        if (diff <= 0) {
+            return 0;
+        }
+        this.points = newPoints;
+        return diff;
+    }
+
     /** EXP 누적 후 사다리 재계산 — 직전 점수와의 차분을 반환한다 (음수 없음) */
     public int accumulate(int expDelta, int unitExp, int dailyCapExp) {
         this.dailyExp += expDelta;

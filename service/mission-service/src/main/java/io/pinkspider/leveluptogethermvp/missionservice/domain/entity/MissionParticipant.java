@@ -124,6 +124,15 @@ public class MissionParticipant extends LocalDateTimeBaseEntity {
         this.completedAt = LocalDateTime.now();
     }
 
+    /** LUT-860: 완료 처리된 참여를 다시 진행 중으로 되돌린다 — 일반 미션(1회성)의 완료를 취소했을 때 */
+    public void reopen() {
+        if (this.status != ParticipantStatus.COMPLETED) {
+            return;
+        }
+        this.status = ParticipantStatus.IN_PROGRESS;
+        this.completedAt = null;
+    }
+
     public void fail() {
         if (this.status != ParticipantStatus.IN_PROGRESS) {
             throw new IllegalStateException("진행중 상태의 참여자만 실패 처리할 수 있습니다.");

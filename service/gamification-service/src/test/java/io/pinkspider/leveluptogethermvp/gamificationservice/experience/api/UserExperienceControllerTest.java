@@ -79,6 +79,7 @@ class UserExperienceControllerTest {
                         .nextLevelRequiredExp(300)
                         .expToNextLevel(50)
                         .progressToNextLevel(83.33)
+                        .expDebt(40)
                         .createdAt(LocalDateTime.now())
                         .modifiedAt(LocalDateTime.now())
                         .build();
@@ -141,6 +142,22 @@ class UserExperienceControllerTest {
                                                                         .type(JsonFieldType.NUMBER)
                                                                         .description(
                                                                                 "다음 레벨 진행률 (%)"),
+                                                                fieldWithPath("value.exp_deducted")
+                                                                        .type(JsonFieldType.NUMBER)
+                                                                        .description(
+                                                                                "이번 지급에서 누적 마이너스"
+                                                                                    + " 경험치를 갚느라 덜"
+                                                                                    + " 받은 양 — 조회"
+                                                                                    + " 응답에서는 늘 0"
+                                                                                    + " (LUT-860)"),
+                                                                fieldWithPath("value.exp_debt")
+                                                                        .type(JsonFieldType.NUMBER)
+                                                                        .description(
+                                                                                "남아 있는 누적 마이너스 경험치"
+                                                                                    + " — 취소한 미션"
+                                                                                    + " 때문에 생기고 다음"
+                                                                                    + " 미션 경험치에서 먼저"
+                                                                                    + " 빠진다 (LUT-860)"),
                                                                 fieldWithPath("value.created_at")
                                                                         .type(JsonFieldType.STRING)
                                                                         .description("생성일시"),
@@ -150,7 +167,10 @@ class UserExperienceControllerTest {
                                                         .build())));
 
         // then
-        resultActions.andExpect(MockMvcResultMatchers.status().isOk());
+        resultActions
+                .andExpect(MockMvcResultMatchers.status().isOk())
+                .andExpect(MockMvcResultMatchers.jsonPath("$.value.exp_deducted").value(0))
+                .andExpect(MockMvcResultMatchers.jsonPath("$.value.exp_debt").value(40));
     }
 
     @Test

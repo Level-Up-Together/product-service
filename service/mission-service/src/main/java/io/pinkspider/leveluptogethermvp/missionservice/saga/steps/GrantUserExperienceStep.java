@@ -75,14 +75,18 @@ public class GrantUserExperienceStep implements SagaStep<MissionCompletionContex
             }
 
             // 경험치 지급
-            gamificationQueryFacadeService.addExperience(
-                    userId,
-                    expToGrant,
-                    ExpSourceType.MISSION_EXECUTION,
-                    context.getMission().getId(),
-                    description,
-                    categoryId,
-                    categoryName);
+            UserExperienceDto granted =
+                    gamificationQueryFacadeService.addExperience(
+                            userId,
+                            expToGrant,
+                            ExpSourceType.MISSION_EXECUTION,
+                            context.getMission().getId(),
+                            description,
+                            categoryId,
+                            categoryName);
+            // LUT-860: 누적 마이너스 경험치를 갚느라 덜 받은 양 — 완료 응답(exp_deducted)과 보상에 쓴다
+            context.setExpDeducted(
+                    granted != null && granted.expDeducted() != null ? granted.expDeducted() : 0);
 
             // 지급 후 레벨 확인
             UserExperienceDto afterExp =
@@ -128,9 +132,11 @@ public class GrantUserExperienceStep implements SagaStep<MissionCompletionContex
                 description = "미션 완료 보상 - 경험치 환수";
             }
 
+            // LUT-860: 지급 때 갚은 누적 마이너스 경험치는 다시 마이너스로 돌려놓고 실제로 받은 양만 뺀다
             gamificationQueryFacadeService.subtractExperience(
                     userId,
                     expGranted,
+                    context.getExpDeducted(),
                     ExpSourceType.MISSION_EXECUTION,
                     context.getMission().getId(),
                     description,

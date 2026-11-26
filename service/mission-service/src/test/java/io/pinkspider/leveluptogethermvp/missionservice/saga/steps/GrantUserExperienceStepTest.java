@@ -160,6 +160,85 @@ class GrantUserExperienceStepTest {
         }
 
         @Test
+        @DisplayName("LUT-860: 지급 결과의 expDeducted 를 context 에 넣는다")
+        void execute_storesExpDeductedInContext() {
+            // given — 50 을 주면서 누적 마이너스 경험치 20 을 갚았다
+            UserExperienceDto granted =
+                    new UserExperienceDto(null, TEST_USER_ID, 5, 130, 530, null, null, null, 20, 0);
+            when(gamificationQueryFacadeService.getOrCreateUserExperience(TEST_USER_ID))
+                    .thenReturn(userExperience);
+            when(gamificationQueryFacadeService.addExperience(
+                            anyString(),
+                            anyInt(),
+                            any(ExpSourceType.class),
+                            anyLong(),
+                            anyString(),
+                            any(),
+                            anyString()))
+                    .thenReturn(granted);
+
+            // when
+            SagaStepResult result = grantUserExperienceStep.execute(context);
+
+            // then
+            assertThat(result.isSuccess()).isTrue();
+            assertThat(context.getExpDeducted()).isEqualTo(20);
+        }
+
+        @Test
+        @DisplayName("LUT-860: 지급 결과가 null 이면 expDeducted 는 0 이다")
+        void execute_nullGrantResult_expDeductedZero() {
+            // given
+            context.setExpDeducted(99);
+            when(gamificationQueryFacadeService.getOrCreateUserExperience(TEST_USER_ID))
+                    .thenReturn(userExperience);
+            when(gamificationQueryFacadeService.addExperience(
+                            anyString(),
+                            anyInt(),
+                            any(ExpSourceType.class),
+                            anyLong(),
+                            anyString(),
+                            any(),
+                            anyString()))
+                    .thenReturn(null);
+
+            // when
+            SagaStepResult result = grantUserExperienceStep.execute(context);
+
+            // then
+            assertThat(result.isSuccess()).isTrue();
+            assertThat(context.getExpDeducted()).isZero();
+        }
+
+        @Test
+        @DisplayName("LUT-860: 지급 결과의 expDeducted 필드가 null 이면 0 이다")
+        void execute_nullExpDeductedField_zero() {
+            // given
+            context.setExpDeducted(99);
+            UserExperienceDto granted =
+                    new UserExperienceDto(
+                            null, TEST_USER_ID, 5, 150, 550, null, null, null, null, null);
+            when(gamificationQueryFacadeService.getOrCreateUserExperience(TEST_USER_ID))
+                    .thenReturn(userExperience);
+            when(gamificationQueryFacadeService.addExperience(
+                            anyString(),
+                            anyInt(),
+                            any(ExpSourceType.class),
+                            anyLong(),
+                            anyString(),
+                            any(),
+                            anyString()))
+                    .thenReturn(granted);
+
+            // when
+            SagaStepResult result = grantUserExperienceStep.execute(context);
+
+            // then
+            assertThat(result.isSuccess()).isTrue();
+            assertThat(context.getExpDeducted()).isZero();
+        }
+
+        @Test
         @DisplayName("경험치 지급 실패 시 에러를 반환한다")
         void execute_failsWhenServiceThrowsException() {
             // given
@@ -243,6 +322,7 @@ class GrantUserExperienceStepTest {
             when(gamificationQueryFacadeService.subtractExperience(
                             anyString(),
                             anyInt(),
+                            anyInt(),
                             any(ExpSourceType.class),
                             anyLong(),
                             anyString(),
@@ -253,12 +333,36 @@ class GrantUserExperienceStepTest {
             // when
             SagaStepResult result = grantUserExperienceStep.compensate(context);
 
+            // then — 갚은 누적 마이너스 경험치가 없으면 0 을 넘긴다
+            assertThat(result.isSuccess()).isTrue();
+            verify(gamificationQueryFacadeService)
+                    .subtractExperience(
+                            TEST_USER_ID,
+                            EXP_TO_GRANT,
+                            0,
+                            ExpSourceType.MISSION_EXECUTION,
+                            mission.getId(),
+                            "미션 완료 보상 - 경험치 환수",
+                            mission.getCategoryId(),
+                            "운동");
+        }
+
+        @Test
+        @DisplayName("LUT-860: 지급 때 갚은 누적 마이너스 경험치(expDeducted)를 환수에 그대로 넘긴다")
+        void compensate_passesExpDeducted() {
+            // given
+            context.setExpDeducted(30);
+
+            // when
+            SagaStepResult result = grantUserExperienceStep.compensate(context);
+
             // then
             assertThat(result.isSuccess()).isTrue();
             verify(gamificationQueryFacadeService)
                     .subtractExperience(
                             TEST_USER_ID,
                             EXP_TO_GRANT,
+                            30,
                             ExpSourceType.MISSION_EXECUTION,
                             mission.getId(),
                             "미션 완료 보상 - 경험치 환수",
@@ -274,6 +378,7 @@ class GrantUserExperienceStepTest {
                     .when(gamificationQueryFacadeService)
                     .subtractExperience(
                             anyString(),
+                            anyInt(),
                             anyInt(),
                             any(ExpSourceType.class),
                             anyLong(),
@@ -305,6 +410,7 @@ class GrantUserExperienceStepTest {
             when(gamificationQueryFacadeService.subtractExperience(
                             anyString(),
                             anyInt(),
+                            anyInt(),
                             any(ExpSourceType.class),
                             anyLong(),
                             anyString(),
@@ -321,6 +427,7 @@ class GrantUserExperienceStepTest {
                     .subtractExperience(
                             TEST_USER_ID,
                             EXP_TO_GRANT,
+                            0,
                             ExpSourceType.MISSION_EXECUTION,
                             mission.getId(),
                             "고정 미션 완료 보상 - 경험치 환수",

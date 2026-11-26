@@ -193,6 +193,12 @@ public class Guild extends LocalDateTimeBaseEntity {
         this.lastPointAt = java.time.LocalDateTime.now();
     }
 
+    /** LUT-860: 완료한 길드 미션 수행을 취소해 그 수행으로 쌓인 포인트를 뺀다. 레벨은 내리지 않는다(재판정은 강등하지 않는다). */
+    public void removePoint(int point) {
+        this.totalPoint = Math.max(0, this.totalPoint - point);
+        this.currentPoint = Math.max(0, this.currentPoint - point);
+    }
+
     public void addExperience(int exp) {
         this.currentExp += exp;
         this.totalExp += exp;

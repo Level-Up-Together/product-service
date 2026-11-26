@@ -34,14 +34,15 @@ public interface ExperienceHistoryRepository extends JpaRepository<ExperienceHis
      */
     @Query(
             """
-            SELECT eh.userId, SUM(eh.expAmount) as totalExp
-            FROM ExperienceHistory eh
-            WHERE eh.createdAt >= :startDate AND eh.createdAt < :endDate
-            AND eh.categoryName IS NOT NULL
-            AND eh.expAmount > 0
-            GROUP BY eh.userId
-            ORDER BY totalExp DESC
-            """)
+SELECT eh.userId, SUM(eh.expAmount) as totalExp
+FROM ExperienceHistory eh
+WHERE eh.createdAt >= :startDate AND eh.createdAt < :endDate
+AND eh.categoryName IS NOT NULL
+AND (eh.expAmount > 0 OR eh.sourceType IN (io.pinkspider.global.enums.ExpSourceType.MISSION_CANCEL, io.pinkspider.global.enums.ExpSourceType.DAILY_MISSION_MILESTONE))
+GROUP BY eh.userId
+HAVING SUM(eh.expAmount) > 0
+ORDER BY totalExp DESC
+""")
     List<Object[]> findTopExpGainersByPeriod(
             @Param("startDate") LocalDateTime startDate,
             @Param("endDate") LocalDateTime endDate,
@@ -50,13 +51,14 @@ public interface ExperienceHistoryRepository extends JpaRepository<ExperienceHis
     /** 카테고리별 경험치 합계로 사용자 랭킹 조회 카테고리별 레벨 랭킹 기능에 사용 */
     @Query(
             """
-            SELECT eh.userId, SUM(eh.expAmount) as totalCategoryExp
-            FROM ExperienceHistory eh
-            WHERE eh.categoryName = :categoryName
-            AND eh.expAmount > 0
-            GROUP BY eh.userId
-            ORDER BY totalCategoryExp DESC
-            """)
+SELECT eh.userId, SUM(eh.expAmount) as totalCategoryExp
+FROM ExperienceHistory eh
+WHERE eh.categoryName = :categoryName
+AND (eh.expAmount > 0 OR eh.sourceType IN (io.pinkspider.global.enums.ExpSourceType.MISSION_CANCEL, io.pinkspider.global.enums.ExpSourceType.DAILY_MISSION_MILESTONE))
+GROUP BY eh.userId
+HAVING SUM(eh.expAmount) > 0
+ORDER BY totalCategoryExp DESC
+""")
     Page<Object[]> findUserExpRankingByCategory(
             @Param("categoryName") String categoryName, Pageable pageable);
 
@@ -66,13 +68,14 @@ public interface ExperienceHistoryRepository extends JpaRepository<ExperienceHis
      */
     @Query(
             """
-            SELECT eh.userId, SUM(eh.expAmount) as totalPeriodExp
-            FROM ExperienceHistory eh
-            WHERE eh.createdAt >= :startDate AND eh.createdAt < :endDate
-            AND eh.expAmount > 0
-            GROUP BY eh.userId
-            ORDER BY totalPeriodExp DESC
-            """)
+SELECT eh.userId, SUM(eh.expAmount) as totalPeriodExp
+FROM ExperienceHistory eh
+WHERE eh.createdAt >= :startDate AND eh.createdAt < :endDate
+AND (eh.expAmount > 0 OR eh.sourceType IN (io.pinkspider.global.enums.ExpSourceType.MISSION_CANCEL, io.pinkspider.global.enums.ExpSourceType.DAILY_MISSION_MILESTONE))
+GROUP BY eh.userId
+HAVING SUM(eh.expAmount) > 0
+ORDER BY totalPeriodExp DESC
+""")
     List<Object[]> findUserExpRankingByPeriod(
             @Param("startDate") LocalDateTime startDate, @Param("endDate") LocalDateTime endDate);
 
@@ -82,13 +85,14 @@ public interface ExperienceHistoryRepository extends JpaRepository<ExperienceHis
      */
     @Query(
             """
-            SELECT eh.userId, SUM(eh.expAmount)
-            FROM ExperienceHistory eh
-            WHERE eh.userId IN :userIds
-            AND eh.createdAt >= :startDate AND eh.createdAt < :endDate
-            AND eh.expAmount > 0
-            GROUP BY eh.userId
-            """)
+SELECT eh.userId, SUM(eh.expAmount)
+FROM ExperienceHistory eh
+WHERE eh.userId IN :userIds
+AND eh.createdAt >= :startDate AND eh.createdAt < :endDate
+AND (eh.expAmount > 0 OR eh.sourceType IN (io.pinkspider.global.enums.ExpSourceType.MISSION_CANCEL, io.pinkspider.global.enums.ExpSourceType.DAILY_MISSION_MILESTONE))
+GROUP BY eh.userId
+HAVING SUM(eh.expAmount) > 0
+""")
     List<Object[]> findUserExpByPeriodAndUserIdIn(
             @Param("userIds") Collection<String> userIds,
             @Param("startDate") LocalDateTime startDate,
@@ -97,24 +101,25 @@ public interface ExperienceHistoryRepository extends JpaRepository<ExperienceHis
     /** 특정 카테고리의 전체 사용자 수 조회 */
     @Query(
             """
-            SELECT COUNT(DISTINCT eh.userId)
-            FROM ExperienceHistory eh
-            WHERE eh.categoryName = :categoryName
-            AND eh.expAmount > 0
-            """)
+SELECT COUNT(DISTINCT eh.userId)
+FROM ExperienceHistory eh
+WHERE eh.categoryName = :categoryName
+AND (eh.expAmount > 0 OR eh.sourceType IN (io.pinkspider.global.enums.ExpSourceType.MISSION_CANCEL, io.pinkspider.global.enums.ExpSourceType.DAILY_MISSION_MILESTONE))
+""")
     long countUsersByCategory(@Param("categoryName") String categoryName);
 
     /** 특정 카테고리 + 기간 동안 가장 많은 경험치를 획득한 사용자 목록 (Top N) 카테고리별 오늘의 플레이어 기능에 사용 */
     @Query(
             """
-            SELECT eh.userId, SUM(eh.expAmount) as totalExp
-            FROM ExperienceHistory eh
-            WHERE eh.categoryName = :categoryName
-            AND eh.createdAt >= :startDate AND eh.createdAt < :endDate
-            AND eh.expAmount > 0
-            GROUP BY eh.userId
-            ORDER BY totalExp DESC
-            """)
+SELECT eh.userId, SUM(eh.expAmount) as totalExp
+FROM ExperienceHistory eh
+WHERE eh.categoryName = :categoryName
+AND eh.createdAt >= :startDate AND eh.createdAt < :endDate
+AND (eh.expAmount > 0 OR eh.sourceType IN (io.pinkspider.global.enums.ExpSourceType.MISSION_CANCEL, io.pinkspider.global.enums.ExpSourceType.DAILY_MISSION_MILESTONE))
+GROUP BY eh.userId
+HAVING SUM(eh.expAmount) > 0
+ORDER BY totalExp DESC
+""")
     List<Object[]> findTopExpGainersByCategoryAndPeriod(
             @Param("categoryName") String categoryName,
             @Param("startDate") LocalDateTime startDate,
@@ -124,12 +129,12 @@ public interface ExperienceHistoryRepository extends JpaRepository<ExperienceHis
     /** 특정 기간 동안 사용자의 총 경험치 합계 조회 */
     @Query(
             """
-            SELECT COALESCE(SUM(eh.expAmount), 0)
-            FROM ExperienceHistory eh
-            WHERE eh.userId = :userId
-            AND eh.createdAt >= :startDate AND eh.createdAt < :endDate
-            AND eh.expAmount > 0
-            """)
+SELECT GREATEST(COALESCE(SUM(eh.expAmount), 0), 0)
+FROM ExperienceHistory eh
+WHERE eh.userId = :userId
+AND eh.createdAt >= :startDate AND eh.createdAt < :endDate
+AND (eh.expAmount > 0 OR eh.sourceType IN (io.pinkspider.global.enums.ExpSourceType.MISSION_CANCEL, io.pinkspider.global.enums.ExpSourceType.DAILY_MISSION_MILESTONE))
+""")
     Long sumExpByUserIdAndPeriod(
             @Param("userId") String userId,
             @Param("startDate") LocalDateTime startDate,
@@ -148,8 +153,9 @@ FROM experience_history eh
 WHERE eh.user_id = :userId
 AND eh.created_at >= :startDate AND eh.created_at < :endDate
 AND eh.category_name IS NOT NULL
-AND eh.exp_amount > 0
+AND (eh.exp_amount > 0 OR eh.source_type IN ('MISSION_CANCEL', 'DAILY_MISSION_MILESTONE'))
 GROUP BY day
+HAVING SUM(eh.exp_amount) > 0
 """,
             nativeQuery = true)
     List<Object[]> sumDailyExpByUserIdAndPeriod(
@@ -188,16 +194,16 @@ ORDER BY day, eh.source_type, eh.source_id
     @Query(
             value =
                     """
-                    SELECT COUNT(*) FROM (
-                        SELECT eh.user_id, SUM(eh.exp_amount) as total_exp
-                        FROM experience_history eh
-                        WHERE eh.created_at >= :startDate AND eh.created_at < :endDate
-                        AND eh.category_name IS NOT NULL
-                        AND eh.exp_amount > 0
-                        GROUP BY eh.user_id
-                        HAVING SUM(eh.exp_amount) > :myExp
-                    ) sub
-                    """,
+SELECT COUNT(*) FROM (
+    SELECT eh.user_id, SUM(eh.exp_amount) as total_exp
+    FROM experience_history eh
+    WHERE eh.created_at >= :startDate AND eh.created_at < :endDate
+    AND eh.category_name IS NOT NULL
+    AND (eh.exp_amount > 0 OR eh.source_type IN ('MISSION_CANCEL', 'DAILY_MISSION_MILESTONE'))
+    GROUP BY eh.user_id
+    HAVING SUM(eh.exp_amount) > :myExp
+) sub
+""",
             nativeQuery = true)
     Long countUsersWithMoreExpByPeriod(
             @Param("startDate") LocalDateTime startDate,
@@ -207,13 +213,13 @@ ORDER BY day, eh.source_type, eh.source_id
     /** 특정 기간 + 카테고리 동안 사용자의 총 경험치 합계 조회 */
     @Query(
             """
-            SELECT COALESCE(SUM(eh.expAmount), 0)
-            FROM ExperienceHistory eh
-            WHERE eh.userId = :userId
-            AND eh.categoryName = :categoryName
-            AND eh.createdAt >= :startDate AND eh.createdAt < :endDate
-            AND eh.expAmount > 0
-            """)
+SELECT GREATEST(COALESCE(SUM(eh.expAmount), 0), 0)
+FROM ExperienceHistory eh
+WHERE eh.userId = :userId
+AND eh.categoryName = :categoryName
+AND eh.createdAt >= :startDate AND eh.createdAt < :endDate
+AND (eh.expAmount > 0 OR eh.sourceType IN (io.pinkspider.global.enums.ExpSourceType.MISSION_CANCEL, io.pinkspider.global.enums.ExpSourceType.DAILY_MISSION_MILESTONE))
+""")
     Long sumExpByUserIdAndCategoryAndPeriod(
             @Param("userId") String userId,
             @Param("categoryName") String categoryName,
@@ -224,16 +230,16 @@ ORDER BY day, eh.source_type, eh.source_id
     @Query(
             value =
                     """
-                    SELECT COUNT(*) FROM (
-                        SELECT eh.user_id, SUM(eh.exp_amount) as total_exp
-                        FROM experience_history eh
-                        WHERE eh.category_name = :categoryName
-                        AND eh.created_at >= :startDate AND eh.created_at < :endDate
-                        AND eh.exp_amount > 0
-                        GROUP BY eh.user_id
-                        HAVING SUM(eh.exp_amount) > :myExp
-                    ) sub
-                    """,
+SELECT COUNT(*) FROM (
+    SELECT eh.user_id, SUM(eh.exp_amount) as total_exp
+    FROM experience_history eh
+    WHERE eh.category_name = :categoryName
+    AND eh.created_at >= :startDate AND eh.created_at < :endDate
+    AND (eh.exp_amount > 0 OR eh.source_type IN ('MISSION_CANCEL', 'DAILY_MISSION_MILESTONE'))
+    GROUP BY eh.user_id
+    HAVING SUM(eh.exp_amount) > :myExp
+) sub
+""",
             nativeQuery = true)
     Long countUsersWithMoreExpByCategoryAndPeriod(
             @Param("categoryName") String categoryName,
@@ -244,16 +250,17 @@ ORDER BY day, eh.source_type, eh.source_id
     /** 특정 사용자의 카테고리별 경험치 통계 (기간) MVP 히스토리 저장 시 사용 */
     @Query(
             """
-            SELECT eh.categoryName, eh.categoryName as categoryId,
-                   SUM(eh.expAmount) as totalExp, COUNT(eh) as activityCount
-            FROM ExperienceHistory eh
-            WHERE eh.userId = :userId
-            AND eh.createdAt >= :startDate AND eh.createdAt < :endDate
-            AND eh.categoryName IS NOT NULL
-            AND eh.expAmount > 0
-            GROUP BY eh.categoryName
-            ORDER BY totalExp DESC
-            """)
+SELECT eh.categoryName, eh.categoryName as categoryId,
+       SUM(eh.expAmount) as totalExp, SUM(CASE WHEN eh.expAmount > 0 THEN 1 ELSE -1 END) as activityCount
+FROM ExperienceHistory eh
+WHERE eh.userId = :userId
+AND eh.createdAt >= :startDate AND eh.createdAt < :endDate
+AND eh.categoryName IS NOT NULL
+AND (eh.expAmount > 0 OR eh.sourceType IN (io.pinkspider.global.enums.ExpSourceType.MISSION_CANCEL, io.pinkspider.global.enums.ExpSourceType.DAILY_MISSION_MILESTONE))
+GROUP BY eh.categoryName
+HAVING SUM(eh.expAmount) > 0
+ORDER BY totalExp DESC
+""")
     List<Object[]> findUserCategoryExpByPeriod(
             @Param("userId") String userId,
             @Param("startDate") LocalDateTime startDate,
@@ -289,19 +296,45 @@ ORDER BY day, eh.source_type, eh.source_id
             @Param("excludedUserIds") List<String> excludedUserIds,
             Pageable pageable);
 
-    /** 카테고리별 미션 수행 통계 (Admin) */
+    /**
+     * 카테고리별 미션 수행 통계 (Admin). LUT-860: 취소한 수행(MISSION_CANCEL 음수 행)은 건수와 경험치에서 뺀다 — 남은 건수가 없는 카테고리는
+     * 목록에서 빠진다.
+     */
     @Query(
             """
-            SELECT eh.categoryName, COUNT(eh) as executionCount, SUM(eh.expAmount) as totalExp
-            FROM ExperienceHistory eh
-            WHERE eh.createdAt >= :startDate AND eh.createdAt < :endDate
-            AND eh.sourceType = io.pinkspider.global.enums.ExpSourceType.MISSION_EXECUTION
-            AND eh.categoryName IS NOT NULL
-            GROUP BY eh.categoryName
-            ORDER BY executionCount DESC
-            """)
+SELECT eh.categoryName,
+       SUM(CASE WHEN eh.sourceType = io.pinkspider.global.enums.ExpSourceType.MISSION_EXECUTION
+                THEN 1 ELSE -1 END) as executionCount,
+       SUM(eh.expAmount) as totalExp
+FROM ExperienceHistory eh
+WHERE eh.createdAt >= :startDate AND eh.createdAt < :endDate
+AND eh.sourceType IN (io.pinkspider.global.enums.ExpSourceType.MISSION_EXECUTION,
+                      io.pinkspider.global.enums.ExpSourceType.MISSION_CANCEL)
+AND eh.categoryName IS NOT NULL
+GROUP BY eh.categoryName
+HAVING SUM(CASE WHEN eh.sourceType = io.pinkspider.global.enums.ExpSourceType.MISSION_EXECUTION
+                THEN 1 ELSE -1 END) > 0
+ORDER BY executionCount DESC
+""")
     List<Object[]> findCategoryMissionStatsByPeriod(
             @Param("startDate") LocalDateTime startDate, @Param("endDate") LocalDateTime endDate);
+
+    /** LUT-860: 기간 안에 그 출처·출처 ID 로 기록된 경험치 순합 (지급 − 회수) — 일일 마일스톤 보너스가 남아 있는지 볼 때 쓴다 */
+    @Query(
+            """
+            SELECT COALESCE(SUM(eh.expAmount), 0)
+            FROM ExperienceHistory eh
+            WHERE eh.userId = :userId
+            AND eh.sourceType = :sourceType
+            AND eh.sourceId = :sourceId
+            AND eh.createdAt >= :startDate AND eh.createdAt < :endDate
+            """)
+    Long sumExpByUserIdAndSourceAndPeriod(
+            @Param("userId") String userId,
+            @Param("sourceType") ExpSourceType sourceType,
+            @Param("sourceId") Long sourceId,
+            @Param("startDate") LocalDateTime startDate,
+            @Param("endDate") LocalDateTime endDate);
 
     /** LUT-454: 특정 레벨(등급 문턱)에 처음 도달한 시각 — 등급 도달 이력용 */
     @Query(

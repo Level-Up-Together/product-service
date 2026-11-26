@@ -28,4 +28,8 @@ public interface DailyMissionInstanceImageRepository
 
     @Modifying
     void deleteByInstanceIdAndImageUrl(Long instanceId, String imageUrl);
+
+    /** LUT-860: 수행 취소 — 그 인스턴스의 사진 행을 모두 지운다 */
+    @Modifying
+    void deleteByInstanceId(Long instanceId);
 }

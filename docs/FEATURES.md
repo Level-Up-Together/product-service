@@ -237,6 +237,64 @@ FeedSearchType { ALL, FRIENDS, GUILD, MINE }
 나뉜 두 블록 모두 이 값과 원래 시작·종료 전체로 시트를 연다(예전엔 블록 칸 날짜를 보내 다음날 블록이 "해당 날짜의 수행 기록을 찾을 수 없습니다" 였다).
 시작·종료는 날짜가 다를 수 있다(시작 < 종료만 검사). 주간 캘린더(다른 사람 프로필)는 읽기 전용이라 이 값을 내리지 않는다.
 
+## 완료한 미션 수행 취소 (LUT-860) — `missionservice/application/MissionExecutionCancel*`
+
+실수로 완료한 미션을 지우는 기능. 미션 기록 화면(`/mission-record`)의 "미션 취소" 버튼이 부른다.
+
+- **API**: `DELETE /api/v1/missions/{missionId}/executions/{executionDate}[?instanceId]` → `{mission_id, execution_date, exp_cancelled, milestone_exp_cancelled, exp_debt}`.
+  고정 미션은 `instanceId`(없으면 그 날짜의 마지막 완료 인스턴스). 분당 10회 제한(`missionCancel`).
+- **대상**: **오늘 완료한 수행만.** 완료 시각(UTC 저장)을 `X-Timezone` 헤더(없거나 잘못되면 Asia/Seoul)의 날짜로 바꿔 오늘인지 본다 — 자정을 넘겨 끝난 수행은 끝난 날이 기준이다.
+  진행 중인 수행은 대상이 아니다(기존 `/skip`).
+
+| 오류 | HTTP | 뜻 |
+|---|---|---|
+| `050701` `error.mission.cancel.not_found` | 404 | 참여 정보·수행 기록이 없음(남의 인스턴스 포함) |
+| `050702` `error.mission.cancel.not_completed` | 400 | 완료한 수행이 아님(대기·진행 중·미실행) |
+| `050703` `error.mission.cancel.not_today` | 400 | 오늘 완료한 수행이 아님 |
+
+**처리 순서**
+
+1. `MissionExecutionCancelTxService`(mission 트랜잭션): 수행을 대기(PENDING)로 되돌리고 사진 행을 지운 뒤 flush → 유저 경험치 취소(gamification, 따로 커밋) → 피드 삭제 이벤트(`MissionFeedUnsharedEvent`, 커밋 뒤 피드 쪽이 댓글·좋아요와 함께 지운다).
+   경험치 호출이 실패하면 트랜잭션이 롤백돼 수행은 완료 상태로 남는다. flush 를 먼저 하는 이유: 완료 직후 비동기로 도는 Saga 뒤 단계(피드 생성 등)와 겹치면 여기서 충돌이 드러나, 경험치만 빠지고 수행은 완료로 남는 일을 막는다.
+2. `MissionExecutionCancelService`(커밋 뒤, 단계마다 실패해도 다음으로 — error 로그): 일일 마일스톤 보너스 회수 → 길드 경험치·포인트 → 통계·스트릭 → 사진 파일 삭제.
+
+**수행 상태**
+
+- 일반 미션: 수행 행을 PENDING 으로(시작·완료 시각, 경험치, 메모, 사진, 공유·자동 종료·길드 경험치 표시 초기화). 참여(`mission_participant`)는 COMPLETED → IN_PROGRESS — "나의 미션"에 다시 보인다.
+- 참여 진행도(`progress`)는 일반·고정 모두 완료 때와 같은 계산으로 다시 맞춘다(`UpdateParticipantProgressStep` — 남은 완료 수행·인스턴스가 하나라도 있으면 100, 없으면 0). 고정 미션도 완료하면 100 이 되므로(QA-194, 길드 미션 상세의 "완료" 표시) 하나뿐인 완료를 취소하면 0 으로 돌아간다. 활성 참여(수락·진행 중)만 맞추고 상태는 바꾸지 않는다.
+- 고정 미션: 완료하면 다음 회차(PENDING) 인스턴스가 이미 생겨 있으므로, 같은 날 대기 인스턴스가 둘이 되지 않게 맞춘다.
+  ① 손대지 않은 다음 회차가 있으면 그것을 지우고 취소한 회차를 PENDING 으로 ② 다음 회차를 이미 진행 중이면 취소한 회차를 지운다 ③ 하루 횟수를 다 채워 다음 회차가 없으면 취소한 회차를 PENDING 으로. 완료 횟수·누적 경험치(`completion_count`·`total_exp_earned`)도 되돌린다.
+
+**경험치** (`UserExperienceService.cancelExperience`)
+
+- 레벨은 내리지 않는다. 현재 레벨 안의 경험치(`current_exp`)에서 빼고, 모자라면 0 까지만 뺀 뒤 남는 양을 `user_experience.exp_debt`(누적 마이너스 경험치, Flyway gamification `V1_1_9_001`)에 쌓는다.
+- 다음 미션 경험치(`MISSION_EXECUTION`)를 줄 때 `exp_debt` 를 먼저 갚고 남은 만큼만 더한다. 완료 응답의 `exp_deducted` 가 그 양이다(차감이 없으면 필드 없음). `exp_earned` 는 차감 전 금액 그대로다. 예) 누적 −10, 미션 100 → 90 을 받고 `exp_earned=100`, `exp_deducted=10`.
+- 지급 내역: 취소는 전체 금액을 음수 행(`MISSION_CANCEL`)으로, 다음 미션은 원래 금액으로 남긴다 — 기간 합계가 "취소한 미션 0 + 새 미션 100"으로 바로 맞는다.
+  기간 합계 쿼리(`ExperienceHistoryRepository` 의 랭킹·MVP·시즌·캘린더 일별)는 `expAmount > 0 OR sourceType IN (MISSION_CANCEL, DAILY_MISSION_MILESTONE)` 로 이 음수 행을 함께 더하고, 순합이 0 이하인 유저는 목록에서 뺀다(`HAVING`).
+- 완료 Saga 가 실패해 지급을 되돌릴 때(`GrantUserExperienceStep.compensate`)는 갚았던 `exp_debt` 를 다시 돌려놓는다(`subtractExperience(…, expDeducted, …)`).
+- **일일 마일스톤 보너스**: 체크(SIMPLE) 수행을 취소해 그날 완료 수가 3·5 밑으로 내려가면 그날 받은 그 보너스(+20)를 같이 되돌린다(`DAILY_MISSION_MILESTONE` 음수 행 — 캘린더 보상 행도 사라진다). 마일스톤은 "딱 그 개수가 된 순간" 지급하므로, 되돌리지 않으면 다시 완료할 때 또 받는다.
+- 체크 미션 하루 한도(10회)는 완료 수를 그때그때 세므로 취소하면 저절로 돌아온다.
+
+**길드 미션**: 길드 경험치를 빼고(`GUILD_MISSION_EXECUTION` 음수 행 — `guild_experience_history.source_type` 에 CHECK 제약이 있어 새 값을 만들지 않았다), 그 수행으로 쌓인 활동 포인트를 뺀다 —
+유저×일자 누적(`guild_member_daily_point.daily_exp`)에서 경험치를 빼고 다시 계산한 포인트와의 차이만큼. LUT-483 "포인트는 단조 증가만"의 유일한 예외다. 길드 레벨은 내리지 않는다.
+자동 종료된 수행은 길드 경험치를 실제로 받았을 때(`guild_exp_granted`)만 회수한다(Saga 로 완료한 수행은 받은 것으로 본다).
+포인트가 현재 레벨 기준 밑으로 내려간 길드는 그 뒤 적립 때 `GuildExperienceService.processLevelUp` 이 레벨을 유지하고 레벨 안 포인트(`current_point`)를 0 으로 둔다(기준을 다시 넘으면 거기서부터 센다).
+이 경우는 정상이라 debug 로그만 남긴다 — LUT-534 의 WARN("재판정 결과가 현재 레벨보다 낮아 유지")은 현재 레벨의 기준값을 읽지 못할 때(설정 캐시 스테일 신호)만 남는다.
+
+**통계·스트릭**: 총 완료 수 −1(Saga 로 완료된 수행만 — 자동 종료(`is_auto_completed`)는 애초에 올리지 않았다). 연속 실천·활동 스트릭은 그날의 첫 실천·첫 활동이 값을 바꾸기 직전 상태를
+`user_stats.practice_undo_state`·`streak_undo_state` 에 남겨 두었다가(방어권 사용 포함), 취소 뒤 그날(유저 로컬) 다른 미션 완료가 없으면 그 값으로 되돌린다. 그날 출석했으면 활동 스트릭은 그대로 둔다.
+
+**되돌리지 않는 것**: 레벨, 레벨업 다이아·알림·피드, 업적·칭호, 미션북 다이아, 탑의 "오늘 완료" 흔적. 지운 피드에 달렸던 좋아요·댓글 수 통계도 그대로다.
+
+**어드민 카테고리별 미션 수행 통계**(`findCategoryMissionStatsByPeriod`)는 취소 행을 건수(−1)와 경험치에서 빼고, 남은 건수가 없는 카테고리는 목록에서 뺀다.
+
+**알려진 한계**
+
+- "오늘" 판정은 클라이언트가 보낸 `X-Timezone` 을 믿는다 — 시간대를 바꿔 보내면 완료 뒤 24시간 안쪽까지는 취소할 수 있다(다른 시간대 기준 API 와 같은 수준).
+- 완료 응답을 받자마자 취소하면, 완료 Saga 의 뒤 단계(통계)가 아직 돌기 전이라 총 완료 수가 1 어긋날 수 있다(수행 행 충돌은 flush 로 막지만 통계에는 그런 장치가 없다).
+- 자동 종료(4시간) 때 유저 경험치 지급이 실패했던 수행(스케줄러가 예외를 삼키고 `exp_earned` 만 남긴 경우)을 취소하면 받지 못한 경험치만큼 빠진다. 길드 쪽은 `guild_exp_granted` 로 걸러진다.
+- 캘린더 일별 합계(`sumDailyExpByUserIdAndPeriod`)는 PostgreSQL 전용 문법이라 H2 통합 테스트(`MissionCancelExpHistoryQueryIntegrationTest`)에 없다 — 로컬 PostgreSQL 16 에서 직접 실행해 확인했다(2026-11-26).
+
 ## Timer Mission 목표시간 (LUT-551)
 
 - 생성 폼의 TIMED 선택 시 `target_duration_minutes` 를 반드시 보낸다 — 10분 간격 10~240분, 기본 30분

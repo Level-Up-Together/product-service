@@ -63,6 +63,18 @@ public class MissionIdempotencyExceptionHandler {
                                 .build());
     }
 
+    /** LUT-860: 완료한 미션 수행 취소 — 없음 404 · 완료 아님·오늘 아님 400 */
+    @ExceptionHandler(MissionExecutionCancelException.class)
+    public ResponseEntity<Object> handleExecutionCancel(MissionExecutionCancelException e) {
+        log.info("[mission-cancel] code={} status={}", e.getCode(), e.getStatus().value());
+        return ResponseEntity.status(e.getStatus())
+                .body(
+                        ApiResult.builder()
+                                .code(e.getCode())
+                                .message(resolveMessage(e.getMessage()))
+                                .build());
+    }
+
     private String resolveMessage(String messageOrKey) {
         if (messageSource == null || messageOrKey == null) {
             return messageOrKey;

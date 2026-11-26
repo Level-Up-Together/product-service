@@ -821,6 +821,208 @@ class GamificationQueryFacadeServiceTest {
         }
     }
 
+    @Nested
+    @DisplayName("LUT-860 완료한 미션 수행 취소 — 경험치 위임과 DTO 매핑")
+    class MissionCancelExperienceTest {
+
+        @Test
+        @DisplayName("cancelExperience 는 UserExperienceService 로 그대로 넘기고 남은 누적 마이너스 경험치를 DTO 에 싣는다")
+        void cancelExperience_delegatesAndMapsDebt() {
+            // given — 50 을 취소했는데 현재 레벨 경험치가 모자라 35 가 누적 마이너스로 남았다
+            UserExperience ue = createUserExperience(1L, TEST_USER_ID, 4, 0, 2000);
+            ue.setExpDebt(35);
+            UserExperienceResponse resp = UserExperienceResponse.from(ue, 500);
+            when(userExperienceService.cancelExperience(
+                            TEST_USER_ID,
+                            50,
+                            ExpSourceType.MISSION_CANCEL,
+                            10L,
+                            "미션 취소: 아침 스트레칭",
+                            1L,
+                            "운동"))
+                    .thenReturn(resp);
+
+            // when
+            UserExperienceDto result =
+                    facadeService.cancelExperience(
+                            TEST_USER_ID,
+                            50,
+                            ExpSourceType.MISSION_CANCEL,
+                            10L,
+                            "미션 취소: 아침 스트레칭",
+                            1L,
+                            "운동");
+
+            // then
+            assertThat(result.userId()).isEqualTo(TEST_USER_ID);
+            assertThat(result.currentLevel()).isEqualTo(4);
+            assertThat(result.currentExp()).isZero();
+            assertThat(result.expDebt()).isEqualTo(35);
+            assertThat(result.expDeducted()).isZero();
+        }
+
+        @Test
+        @DisplayName("subtractExperience(expDeducted) 는 갚았던 양까지 UserExperienceService 로 그대로 넘긴다")
+        void subtractExperienceWithExpDeducted_delegates() {
+            // given
+            UserExperience ue = createUserExperience(1L, TEST_USER_ID, 4, 130, 1930);
+            ue.setExpDebt(30);
+            UserExperienceResponse resp = UserExperienceResponse.from(ue, 500);
+            when(userExperienceService.subtractExperience(
+                            TEST_USER_ID,
+                            100,
+                            30,
+                            ExpSourceType.MISSION_EXECUTION,
+                            10L,
+                            "미션 완료 보상 - 경험치 환수",
+                            1L,
+                            "운동"))
+                    .thenReturn(resp);
+
+            // when
+            UserExperienceDto result =
+                    facadeService.subtractExperience(
+                            TEST_USER_ID,
+                            100,
+                            30,
+                            ExpSourceType.MISSION_EXECUTION,
+                            10L,
+                            "미션 완료 보상 - 경험치 환수",
+                            1L,
+                            "운동");
+
+            // then
+            assertThat(result.currentExp()).isEqualTo(130);
+            assertThat(result.expDebt()).isEqualTo(30);
+        }
+
+        @Test
+        @DisplayName("sumExperienceBySource 는 UserExperienceService 의 순합을 그대로 돌려준다")
+        void sumExperienceBySource_delegates() {
+            // given
+            java.time.LocalDateTime from = java.time.LocalDateTime.of(2026, 11, 25, 15, 0);
+            java.time.LocalDateTime to = java.time.LocalDateTime.of(2026, 11, 26, 15, 0);
+            when(userExperienceService.sumExperienceBySource(
+                            TEST_USER_ID, ExpSourceType.DAILY_MISSION_MILESTONE, 3L, from, to))
+                    .thenReturn(20);
+
+            // when
+            int result =
+                    facadeService.sumExperienceBySource(
+                            TEST_USER_ID, ExpSourceType.DAILY_MISSION_MILESTONE, 3L, from, to);
+
+            // then
+            assertThat(result).isEqualTo(20);
+        }
+
+        @Test
+        @DisplayName("addExperience 결과의 expDeducted(이번 지급에서 갚은 양)·expDebt(남은 양)를 DTO 에 싣는다")
+        void addExperience_mapsExpDeductedAndDebt() {
+            // given — 누적 마이너스 150 에서 미션 100 을 받아 100 을 갚고 50 이 남았다
+            UserExperience ue = createUserExperience(1L, TEST_USER_ID, 5, 300, 2300);
+            ue.setExpDebt(50);
+            UserExperienceResponse resp = UserExperienceResponse.from(ue, 500);
+            resp.setExpDeducted(100);
+            when(userExperienceService.addExperience(
+                            TEST_USER_ID,
+                            100,
+                            ExpSourceType.MISSION_EXECUTION,
+                            10L,
+                            "미션 완료",
+                            1L,
+                            "운동"))
+                    .thenReturn(resp);
+
+            // when
+            UserExperienceDto result =
+                    facadeService.addExperience(
+                            TEST_USER_ID,
+                            100,
+                            ExpSourceType.MISSION_EXECUTION,
+                            10L,
+                            "미션 완료",
+                            1L,
+                            "운동");
+
+            // then
+            assertThat(result.expDeducted()).isEqualTo(100);
+            assertThat(result.expDebt()).isEqualTo(50);
+        }
+
+        @Test
+        @DisplayName("응답의 expDeducted·expDebt 가 null 이면 0 으로 싣는다")
+        void experienceResponseWithNulls_mappedAsZero() {
+            // given
+            UserExperienceResponse resp =
+                    UserExperienceResponse.builder()
+                            .id(1L)
+                            .userId(TEST_USER_ID)
+                            .currentLevel(5)
+                            .currentExp(300)
+                            .totalExp(2300)
+                            .expDeducted(null)
+                            .expDebt(null)
+                            .build();
+            when(userExperienceService.cancelExperience(
+                            TEST_USER_ID,
+                            10,
+                            ExpSourceType.MISSION_CANCEL,
+                            10L,
+                            "미션 취소",
+                            null,
+                            null))
+                    .thenReturn(resp);
+
+            // when
+            UserExperienceDto result =
+                    facadeService.cancelExperience(
+                            TEST_USER_ID,
+                            10,
+                            ExpSourceType.MISSION_CANCEL,
+                            10L,
+                            "미션 취소",
+                            null,
+                            null);
+
+            // then
+            assertThat(result.expDeducted()).isZero();
+            assertThat(result.expDebt()).isZero();
+        }
+
+        @Test
+        @DisplayName(
+                "getOrCreateUserExperience 는 엔티티의 누적 마이너스 경험치를 싣는다 — null 이면 0, expDeducted 는 늘 0")
+        void getOrCreateUserExperience_mapsDebt() {
+            // given
+            UserExperience withDebt = createUserExperience(1L, TEST_USER_ID, 5, 0, 2300);
+            withDebt.setExpDebt(40);
+            UserExperience legacy = createUserExperience(2L, "legacy-user", 5, 0, 2300);
+            legacy.setExpDebt(null);
+            when(userExperienceService.getOrCreateUserExperience(TEST_USER_ID))
+                    .thenReturn(withDebt);
+            when(userExperienceService.getOrCreateUserExperience("legacy-user")).thenReturn(legacy);
+
+            // when
+            UserExperienceDto result = facadeService.getOrCreateUserExperience(TEST_USER_ID);
+            UserExperienceDto legacyResult = facadeService.getOrCreateUserExperience("legacy-user");
+
+            // then
+            assertThat(result.expDebt()).isEqualTo(40);
+            assertThat(result.expDeducted()).isZero();
+            assertThat(legacyResult.expDebt()).isZero();
+        }
+
+        @Test
+        @DisplayName("undoMissionPractice 는 UserStatsService 로 완료 시각을 그대로 넘긴다")
+        void undoMissionPractice_delegates() {
+            java.time.LocalDateTime at = java.time.LocalDateTime.of(2026, 11, 3, 15, 20);
+
+            facadeService.undoMissionPractice(TEST_USER_ID, at);
+
+            verify(userStatsService).undoMissionPractice(TEST_USER_ID, at);
+        }
+    }
+
     // ========== 통계 WRITE 테스트 ==========
 
     @Nested

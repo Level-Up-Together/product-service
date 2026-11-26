@@ -398,6 +398,22 @@ DELETE {{baseUrl}}/api/v1/missions/1/executions/2025-01-15/share
 Authorization: Bearer {{accessToken}}
 Accept: application/json
 
+### ----------------------------------------------------------
+### LUT-860: 완료한 미션 수행 취소 (오늘 완료한 수행만 — 404 050701 / 400 050702·050703)
+### ----------------------------------------------------------
+DELETE {{baseUrl}}/api/v1/missions/1/executions/2025-01-15
+Authorization: Bearer {{accessToken}}
+X-Timezone: Asia/Seoul
+Accept: application/json
+
+### ----------------------------------------------------------
+### LUT-860: 완료한 고정 미션 수행 취소 (인스턴스 지정)
+### ----------------------------------------------------------
+DELETE {{baseUrl}}/api/v1/missions/1/executions/2025-01-15?instanceId=100
+Authorization: Bearer {{accessToken}}
+X-Timezone: Asia/Seoul
+Accept: application/json
+
 ### ============================================================
 ### 미션 카테고리 APIs
 ### ============================================================

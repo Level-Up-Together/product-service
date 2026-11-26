@@ -2,6 +2,7 @@ package io.pinkspider.leveluptogethermvp.missionservice.domain.entity;
 
 import static io.pinkspider.global.test.TestReflectionUtils.setId;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import io.pinkspider.global.enums.MissionStatus;
 import io.pinkspider.global.test.TestReflectionUtils;
@@ -15,6 +16,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 
 @DisplayName("MissionExecution 엔티티 테스트")
 class MissionExecutionTest {
@@ -168,6 +171,84 @@ class MissionExecutionTest {
             assertThat(execution.getStatus()).isEqualTo(ExecutionStatus.COMPLETED);
             assertThat(execution.getExpEarned()).isEqualTo(10); // 기본 경험치
             assertThat(execution.getIsAutoCompleted()).isTrue();
+        }
+    }
+
+    @Nested
+    @DisplayName("revertCompletion 메서드 테스트 (LUT-860 완료한 수행 취소)")
+    class RevertCompletionTest {
+
+        private MissionExecution completedExecution() {
+            MissionExecution execution = createExecution(LocalDate.now());
+            execution.setStatus(ExecutionStatus.COMPLETED);
+            execution.setStartedAt(LocalDateTime.now().minusMinutes(40));
+            execution.setCompletedAt(LocalDateTime.now());
+            execution.setExpEarned(40);
+            execution.setNote("메모");
+            execution.setImageUrl("https://cdn/a.jpg");
+            execution.setIsSharedToFeed(true);
+            execution.setIsAutoCompleted(true);
+            execution.setGuildExpGranted(true);
+            return execution;
+        }
+
+        @Test
+        @DisplayName("완료한 수행을 대기 상태로 되돌리고 경험치·기록·표시를 모두 비운다")
+        void revertCompletion_fromCompleted_clearsEverything() {
+            // given
+            MissionExecution execution = completedExecution();
+
+            // when
+            execution.revertCompletion();
+
+            // then
+            assertThat(execution.getStatus()).isEqualTo(ExecutionStatus.PENDING);
+            assertThat(execution.getStartedAt()).isNull();
+            assertThat(execution.getCompletedAt()).isNull();
+            assertThat(execution.getExpEarned()).isZero();
+            assertThat(execution.getNote()).isNull();
+            assertThat(execution.getImageUrl()).isNull();
+            assertThat(execution.getIsSharedToFeed()).isFalse();
+            assertThat(execution.getIsAutoCompleted()).isFalse();
+            assertThat(execution.getGuildExpGranted()).isFalse();
+            // 수행 날짜·참여는 그대로
+            assertThat(execution.getExecutionDate()).isEqualTo(LocalDate.now());
+            assertThat(execution.getParticipant()).isSameAs(participant);
+        }
+
+        @Test
+        @DisplayName("되돌린 수행은 다시 시작할 수 있다")
+        void revertCompletion_thenStartAgain() {
+            // given
+            MissionExecution execution = completedExecution();
+            execution.revertCompletion();
+
+            // when
+            execution.start();
+
+            // then
+            assertThat(execution.getStatus()).isEqualTo(ExecutionStatus.IN_PROGRESS);
+            assertThat(execution.getStartedAt()).isNotNull();
+        }
+
+        @ParameterizedTest(name = "{0} 상태에서는 취소할 수 없다")
+        @EnumSource(
+                value = ExecutionStatus.class,
+                names = {"COMPLETED"},
+                mode = EnumSource.Mode.EXCLUDE)
+        @DisplayName("완료 상태가 아니면 IllegalStateException 이고 값은 그대로다")
+        void revertCompletion_notCompleted_throws(ExecutionStatus status) {
+            // given
+            MissionExecution execution = completedExecution();
+            execution.setStatus(status);
+
+            // when & then
+            assertThatThrownBy(execution::revertCompletion)
+                    .isInstanceOf(IllegalStateException.class)
+                    .hasMessageContaining("완료된 수행 기록만 취소할 수 있습니다");
+            assertThat(execution.getStatus()).isEqualTo(status);
+            assertThat(execution.getExpEarned()).isEqualTo(40);
+            assertThat(execution.getNote()).isEqualTo("메모");
         }
     }
 }
