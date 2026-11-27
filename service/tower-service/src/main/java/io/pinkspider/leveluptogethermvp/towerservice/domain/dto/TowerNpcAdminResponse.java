@@ -32,7 +32,9 @@ public record TowerNpcAdminResponse(
         Integer bubbleIntervalSeconds,
         TowerNpcCardDto card,
         /** LUT-760: 입력 받기 설정 (없으면 null = 안 받음) */
-        TowerNpcFormDto form) {
+        TowerNpcFormDto form,
+        /** LUT-864: 움직이는 그림 (없으면 null = 원형 썸네일) */
+        TowerNpcMotionDto motion) {
 
     public static TowerNpcAdminResponse from(TowerNpc n) {
         return from(n, null);
@@ -61,6 +63,7 @@ public record TowerNpcAdminResponse(
                 n.isAutoBubble(),
                 n.getBubbleIntervalSeconds(),
                 TowerNpcCardDto.from(n.getCard()),
-                TowerNpcFormDto.from(form));
+                TowerNpcFormDto.from(form),
+                TowerNpcMotionDto.from(n.getMotion()));
     }
 }

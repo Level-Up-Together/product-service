@@ -44,7 +44,9 @@ public record TowerNpcAdminRequest(
         /** LUT-733: 창 이미지·이동 링크 — 등록 때 비우면 없음, 수정 때 비우면 그대로(구 어드민 호환), 있으면 통째로 바꾼다 */
         @Valid TowerNpcCardDto card,
         /** LUT-760: 입력 받기 설정 — 등록 때 비우면 없음(안 받음), 수정 때 비우면 그대로, 있으면 통째로 바꾼다 */
-        @Valid TowerNpcFormDto form) {
+        @Valid TowerNpcFormDto form,
+        /** LUT-864: 움직이는 그림 — 등록 때 비우면 없음, 수정 때 비우면 그대로, sheet_url 이 비었으면 지운다, 있으면 통째로 바꾼다 */
+        @Valid TowerNpcMotionDto motion) {
 
     public TowerNpc toEntity(Long floorId) {
         return TowerNpc.builder()
@@ -68,6 +70,7 @@ public record TowerNpcAdminRequest(
                                 ? bubbleIntervalSeconds
                                 : TowerNpc.DEFAULT_BUBBLE_INTERVAL_SECONDS)
                 .card(card != null ? card.toEntityOrNull() : null)
+                .motion(motion != null ? motion.toEntityOrNull() : null)
                 .lines(
                         new java.util.ArrayList<>(
                                 lines.stream().map(TowerNpcLineDto::toEntity).toList()))

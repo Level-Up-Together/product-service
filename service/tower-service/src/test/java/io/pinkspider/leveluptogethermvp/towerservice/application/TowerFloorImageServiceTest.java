@@ -137,4 +137,39 @@ class TowerFloorImageServiceTest {
                 .isEqualTo(TowerFloorException.IMAGE_INVALID);
         verify(storage, never()).store(any(), any());
     }
+
+    @Test
+    @DisplayName("LUT-864: kind=NPC_MOTION 은 PNG·WebP 만(JPEG 150110), 5MB 넘으면 150110 — 저장하지 않는다")
+    void npcMotionSheet() throws IOException {
+        MockMultipartFile png = new MockMultipartFile("file", "cat.png", "image/png", png(8, 8));
+        when(storage.store(png, TowerImageKind.NPC_MOTION))
+                .thenReturn("https://cdn/tower/npc-motion/cat.png");
+        assertThat(service.upload(png, TowerImageKind.NPC_MOTION).url()).endsWith("cat.png");
+
+        byte[] webp = new byte[32];
+        byte[] riff = "RIFF....WEBPVP8L".getBytes();
+        System.arraycopy(riff, 0, webp, 0, riff.length);
+        MockMultipartFile webpFile = new MockMultipartFile("file", "cat.webp", "image/webp", webp);
+        when(storage.store(webpFile, TowerImageKind.NPC_MOTION))
+                .thenReturn("https://cdn/tower/npc-motion/cat.webp");
+        assertThat(service.upload(webpFile, TowerImageKind.NPC_MOTION).kind())
+                .isEqualTo(TowerImageKind.NPC_MOTION);
+
+        MockMultipartFile jpegFile =
+                new MockMultipartFile("file", "cat.jpg", "image/jpeg", jpeg(8, 8));
+        assertThatThrownBy(() -> service.upload(jpegFile, TowerImageKind.NPC_MOTION))
+                .isInstanceOf(TowerFloorException.class)
+                .extracting("code")
+                .isEqualTo(TowerFloorException.IMAGE_INVALID);
+
+        byte[] big = new byte[(int) TowerFloorImageService.NPC_MOTION_MAX_BYTES + 1];
+        System.arraycopy(webp, 0, big, 0, webp.length);
+        MockMultipartFile bigFile = new MockMultipartFile("file", "big.webp", "image/webp", big);
+        assertThatThrownBy(() -> service.upload(bigFile, TowerImageKind.NPC_MOTION))
+                .isInstanceOf(TowerFloorException.class)
+                .extracting("code")
+                .isEqualTo(TowerFloorException.IMAGE_INVALID);
+        verify(storage, never()).store(jpegFile, TowerImageKind.NPC_MOTION);
+        verify(storage, never()).store(bigFile, TowerImageKind.NPC_MOTION);
+    }
 }

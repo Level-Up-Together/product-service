@@ -65,14 +65,17 @@ class TowerNpcAdminInternalControllerTest {
                 + " 가기\",\"starts_on\":\"2026-11-01\",\"ends_on\":\"2026-11-30\"},\"form\":{\"form_enabled\":true,\"body_type\":\"INPUT\",\"placeholder\":\"트리에"
                 + " 남길 한마디\",\"max_length\":100,\"submit_label\":\"저장\",\"submit_label_en\":\"Save\","
                 + "\"submit_label_ja\":\"保存\",\"submit_label_ar\":\"حفظ\",\"login_required\":false,"
-                + "\"email_enabled\":false,\"display_mode\":\"TAG\",\"display_mask_url\":\"https://cdn/mask.png\"}}";
+                + "\"email_enabled\":false,\"display_mode\":\"TAG\",\"display_mask_url\":\"https://cdn/mask.png\"},"
+                + "\"motion\":{\"sheet_url\":\"https://cdn/tower/npc-motion/cat.webp\",\"frames\":[{\"x\":0,\"y\":0,\"w\":256,\"h\":256,\"duration_ms\":128},"
+                + "{\"x\":256,\"y\":0,\"w\":256,\"h\":256,\"duration_ms\":128}],\"foot_x\":116,\"foot_y\":243,\"content_top\":55,"
+                + "\"height\":64,\"flip\":false,\"play_mode\":\"OCCASIONAL\",\"interval_seconds\":6}}";
 
     @Autowired private MockMvc mockMvc;
 
     @MockitoBean private TowerNpcAdminService npcService;
 
     private static TowerNpcAdminResponse response() {
-        var npc = TowerTestFixtures.npc(3L, 10L, true);
+        var npc = TowerTestFixtures.npcWithMotion(3L, 10L);
         npc.updateCard(TowerTestFixtures.npcCard());
         return TowerNpcAdminResponse.from(npc, TowerTestFixtures.npcForm(3L));
     }
@@ -158,6 +161,78 @@ class TowerNpcAdminInternalControllerTest {
             fieldWithPath(prefix + "modified_at").description("수정 시각").optional(),
             fieldWithPath(prefix + "auto_bubble").description("자동 말풍선 사용 (LUT-732)"),
             fieldWithPath(prefix + "bubble_interval_seconds").description("자동 말풍선 대사 간격(초, 5~60)")
+        };
+    }
+
+    /** LUT-864: 움직이는 그림 문서 필드 (요청·응답·입장 스냅샷 공용 — 전부 선택) */
+    static FieldDescriptor[] motionFields(String prefix) {
+        return new FieldDescriptor[] {
+            fieldWithPath(prefix + "motion")
+                    .type(JsonFieldType.OBJECT)
+                    .description(
+                            "LUT-864 움직이는 그림(스프라이트 시트) — 없으면 null(앱은 원형 썸네일). 요청: 등록 때 비우면 없음, 수정 때"
+                                + " 비우면 그대로, sheet_url 이 비었으면 지운다, 있으면 통째로 바꾼다. 값 관계가 맞지 않으면 400"
+                                + " 150416, 업로드하지 않은 시트는 400 150417")
+                    .optional(),
+            fieldWithPath(prefix + "motion.sheet_url")
+                    .type(JsonFieldType.STRING)
+                    .description(
+                            "시트 URL — 층 이미지 업로드 kind=NPC_MOTION(PNG·WebP 5MB)이 발급한 주소만(앱이"
+                                    + " crossOrigin 으로 불러온다)")
+                    .optional(),
+            fieldWithPath(prefix + "motion.frames")
+                    .type(JsonFieldType.ARRAY)
+                    .description("재생 순서대로 한 장씩 (1~120장, 칸은 시트 한 변 4096px 안)")
+                    .optional(),
+            fieldWithPath(prefix + "motion.frames[].x")
+                    .type(JsonFieldType.NUMBER)
+                    .description("시트 안 칸 왼쪽 (px)")
+                    .optional(),
+            fieldWithPath(prefix + "motion.frames[].y")
+                    .type(JsonFieldType.NUMBER)
+                    .description("시트 안 칸 위쪽 (px)")
+                    .optional(),
+            fieldWithPath(prefix + "motion.frames[].w")
+                    .type(JsonFieldType.NUMBER)
+                    .description("칸 폭 (px, 1 이상)")
+                    .optional(),
+            fieldWithPath(prefix + "motion.frames[].h")
+                    .type(JsonFieldType.NUMBER)
+                    .description("칸 높이 (px, 1 이상)")
+                    .optional(),
+            fieldWithPath(prefix + "motion.frames[].duration_ms")
+                    .type(JsonFieldType.NUMBER)
+                    .description("한 장 시간 (ms, 16~5000)")
+                    .optional(),
+            fieldWithPath(prefix + "motion.foot_x")
+                    .type(JsonFieldType.NUMBER)
+                    .description("칸 안 발 가운데 x (px, 0 ~ 칸 폭, 모든 장 공통)")
+                    .optional(),
+            fieldWithPath(prefix + "motion.foot_y")
+                    .type(JsonFieldType.NUMBER)
+                    .description("칸 안 발(그림 맨 아래 줄) y (px, content_top 초과 ~ 칸 높이)")
+                    .optional(),
+            fieldWithPath(prefix + "motion.content_top")
+                    .type(JsonFieldType.NUMBER)
+                    .description("칸 안 그림 맨 위 y (px, 모든 장 중 가장 높은 곳)")
+                    .optional(),
+            fieldWithPath(prefix + "motion.height")
+                    .type(JsonFieldType.NUMBER)
+                    .description("화면 그림 키 (아바타 좌표 px 24~200, 원형 썸네일 = 40, 비우면 64)")
+                    .optional(),
+            fieldWithPath(prefix + "motion.flip")
+                    .type(JsonFieldType.BOOLEAN)
+                    .description("좌우 뒤집기 (비우면 false)")
+                    .optional(),
+            fieldWithPath(prefix + "motion.play_mode")
+                    .type(JsonFieldType.STRING)
+                    .description(
+                            "LOOP(계속 반복) / OCCASIONAL(첫 장으로 쉬다가 interval_seconds 마다 한 번, 비우면 이것)")
+                    .optional(),
+            fieldWithPath(prefix + "motion.interval_seconds")
+                    .type(JsonFieldType.NUMBER)
+                    .description("OCCASIONAL 쉬는 시간 (초, 1~60, 비우면 6)")
+                    .optional()
         };
     }
 
@@ -255,6 +330,7 @@ class TowerNpcAdminInternalControllerTest {
         List<FieldDescriptor> all = new ArrayList<>(List.of(npcFields(prefix)));
         all.addAll(List.of(cardFields(prefix)));
         all.addAll(List.of(formFields(prefix)));
+        all.addAll(List.of(motionFields(prefix)));
         return all.toArray(new FieldDescriptor[0]);
     }
 
@@ -346,6 +422,7 @@ class TowerNpcAdminInternalControllerTest {
     private static FieldDescriptor[] requestNpcFieldsWithForm() {
         List<FieldDescriptor> all = new ArrayList<>(List.of(requestNpcFields()));
         all.addAll(List.of(formFields("")));
+        all.addAll(List.of(motionFields("")));
         return all.toArray(new FieldDescriptor[0]);
     }
 

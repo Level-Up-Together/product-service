@@ -494,16 +494,21 @@ class TowerFloorAdminInternalControllerTest {
                                 ResourceSnippetParameters.builder()
                                         .tag("Tower - Admin Internal")
                                         .description(
-                                                "층 이미지 업로드 (LUT-635) — kind=BACKGROUND·MASK·NPC, 절대"
-                                                        + " https 주소를 돌려준다. 마스크는 PNG 만(150112)"),
+                                                "층 이미지 업로드 (LUT-635) —"
+                                                    + " kind=BACKGROUND·MASK·NPC·NPC_MOTION, 절대"
+                                                    + " https 주소를 돌려준다. 마스크는 PNG 만(150112),"
+                                                    + " NPC_MOTION(LUT-864 움직이는 그림 시트)은 PNG·WebP"
+                                                    + " 5MB 만(150110)"),
                                 org.springframework.restdocs.request.RequestDocumentation
                                         .queryParameters(
                                                 org.springframework.restdocs.request
                                                         .RequestDocumentation.parameterWithName(
                                                                 "kind")
                                                         .description(
-                                                                "BACKGROUND | MASK (대소문자 무관). 마스크는"
-                                                                        + " PNG 만")),
+                                                                "BACKGROUND | MASK | NPC |"
+                                                                    + " NPC_MOTION (대소문자 무관). 마스크는"
+                                                                    + " PNG 만, NPC_MOTION 은"
+                                                                    + " PNG·WebP 5MB")),
                                 org.springframework.restdocs.request.RequestDocumentation
                                         .requestParts(
                                                 org.springframework.restdocs.request

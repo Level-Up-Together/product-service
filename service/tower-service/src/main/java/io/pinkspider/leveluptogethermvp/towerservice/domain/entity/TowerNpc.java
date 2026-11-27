@@ -98,6 +98,9 @@ public class TowerNpc extends LocalDateTimeBaseEntity {
     /** LUT-733: NPC 창 이미지·이동 링크 (없으면 null) */
     @Embedded private TowerNpcCard card;
 
+    /** LUT-864: 움직이는 그림(스프라이트 시트) — 없으면 null(원형 썸네일) */
+    @Embedded private TowerNpcMotion motion;
+
     @ElementCollection(fetch = FetchType.LAZY)
     @CollectionTable(name = "tower_npc_line", joinColumns = @JoinColumn(name = "npc_id"))
     @OrderColumn(name = "line_order")
@@ -123,6 +126,11 @@ public class TowerNpc extends LocalDateTimeBaseEntity {
     /** LUT-733: 창 이미지·링크를 통째로 바꾼다(null = 지움) */
     public void updateCard(TowerNpcCard card) {
         this.card = card;
+    }
+
+    /** LUT-864: 움직이는 그림을 통째로 바꾼다(null = 지움) */
+    public void updateMotion(TowerNpcMotion motion) {
+        this.motion = motion;
     }
 
     public boolean isPublicNpc() {
