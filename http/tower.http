@@ -178,7 +178,9 @@ Accept: application/json
     {"kind": "POLLEN", "mask_url": "https://dev.level-up-together.com/images/tower/floor1-pollen.png", "enabled": true,
      "amount": 50, "speed": 50, "color": "#c9b3f0"},
     {"kind": "RAINFALL", "mask_url": "https://dev.level-up-together.com/images/tower/floor1-rainfall.png", "enabled": true,
-     "amount": 50, "speed": 50, "direction": "SLANTED", "angle": -20}
+     "amount": 50, "speed": 50, "direction": "SLANTED", "angle": -20},
+    {"kind": "FIREFLY", "mask_url": "https://dev.level-up-together.com/images/tower/floor9-firefly.png", "enabled": true,
+     "amount": 50, "speed": 50, "size_min": 2, "size_max": 5, "color": "#e8ff8a"}
   ]
 }
 

@@ -259,9 +259,10 @@ class TowerFloorControllerTest {
                                         fieldWithPath("value.floors[].effect_layers[].kind")
                                                 .description(
                                                         "SNOW(눈) / STARS(별 반짝임) / CLOUD(구름) /"
-                                                                + " RAIN(유리창 빗물) / RAINFALL(비 내림,"
-                                                                + " LUT-839) / POLLEN(꽃가루,"
-                                                                + " LUT-838) — 모르는 종류는 무시한다"),
+                                                            + " RAIN(유리창 빗물) / RAINFALL(비 내림,"
+                                                            + " LUT-839) / POLLEN(꽃가루, LUT-838) /"
+                                                            + " FIREFLY(반딧불, LUT-863) — 모르는 종류는"
+                                                            + " 무시한다"),
                                         fieldWithPath("value.floors[].effect_layers[].mask_url")
                                                 .description("효과 영역 마스크 PNG URL (칠한 곳에서만 그린다)"),
                                         fieldWithPath("value.floors[].effect_layers[].enabled")
@@ -277,7 +278,8 @@ class TowerFloorControllerTest {
                                         fieldWithPath("value.floors[].effect_layers[].speed")
                                                 .description("낙하·반짝임 속도 1~100"),
                                         fieldWithPath("value.floors[].effect_layers[].size_min")
-                                                .description("크기 최소 (화면 픽셀 1~20)"),
+                                                .description(
+                                                        "크기 최소 (화면 픽셀 1~20) — 반딧불은 한 마리 지름(배경 px)"),
                                         fieldWithPath("value.floors[].effect_layers[].size_max")
                                                 .description("크기 최대 (화면 픽셀 1~20)"),
                                         fieldWithPath("value.floors[].effect_layers[].spread")
@@ -302,7 +304,10 @@ class TowerFloorControllerTest {
                                                         "LUT-838 꽃가루(POLLEN) 기준 색 #rrggbb(소문자) —"
                                                             + " 화면이 이 색과 비슷한 계열 여러 색으로 그린다, 다른 종류는"
                                                             + " null. 꽃가루는 amount = 밀도 1~100, speed"
-                                                            + " = 떨어지는 속도 1~100 (둘 다 50 = 시안 그대로)")
+                                                            + " = 떨어지는 속도 1~100 (둘 다 50 = 시안 그대로)."
+                                                            + " LUT-863 반딧불(FIREFLY) 빛 색 — 반딧불은"
+                                                            + " amount = 밀도 1~100, speed = 떠오르는 속도"
+                                                            + " 1~100")
                                                 .optional(),
                                         fieldWithPath("value.floors[].effect_layers[].direction")
                                                 .type(JsonFieldType.STRING)

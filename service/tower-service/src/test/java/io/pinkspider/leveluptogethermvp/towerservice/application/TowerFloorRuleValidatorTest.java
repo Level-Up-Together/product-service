@@ -487,6 +487,74 @@ class TowerFloorRuleValidatorTest {
                 TowerFloorException.EFFECT_INVALID);
     }
 
+    private static TowerFloorEffectLayer firefly(
+            int amount, int speed, Integer sizeMin, Integer sizeMax, String color) {
+        return new TowerFloorEffectLayer(
+                TowerEffectKind.FIREFLY,
+                "https://cdn.test/tower/FIREFLY.png",
+                true,
+                null,
+                null,
+                amount,
+                speed,
+                sizeMin,
+                sizeMax,
+                null,
+                null,
+                color,
+                null,
+                null);
+    }
+
+    @Test
+    @DisplayName(
+            "LUT-863: 반딧불 범위 — 밀도·속도 1~100, 크기 1~20·최소 ≤ 최대, 색 #rrggbb(비면 거부), 일곱 종류를 한 층에 함께 켤 수"
+                    + " 있다")
+    void fireflyRanges() {
+        ReflectionTestUtils.setField(validator, "maskCheckEnabled", false);
+        for (TowerFloorEffectLayer ok :
+                List.of(
+                        firefly(1, 1, 1, 1, "#e8ff8a"),
+                        firefly(100, 100, 20, 20, "#FFFFFF"),
+                        firefly(50, 50, 2, 5, "#000000"))) {
+            TowerFloor f = withEffects(ok);
+            assertThatCode(() -> validator.validate(List.of(f), f)).doesNotThrowAnyException();
+        }
+        for (TowerFloorEffectLayer bad :
+                List.of(
+                        firefly(0, 50, 2, 5, "#e8ff8a"),
+                        firefly(101, 50, 2, 5, "#e8ff8a"),
+                        firefly(50, 0, 2, 5, "#e8ff8a"),
+                        firefly(50, 101, 2, 5, "#e8ff8a"),
+                        firefly(50, 50, 0, 5, "#e8ff8a"),
+                        firefly(50, 50, 2, 21, "#e8ff8a"),
+                        firefly(50, 50, 6, 5, "#e8ff8a"),
+                        firefly(50, 50, null, 5, "#e8ff8a"),
+                        firefly(50, 50, 2, null, "#e8ff8a"),
+                        firefly(50, 50, 2, 5, null),
+                        firefly(50, 50, 2, 5, ""),
+                        firefly(50, 50, 2, 5, "#e8ff8"),
+                        firefly(50, 50, 2, 5, "yellow"))) {
+            TowerFloor f = withEffects(bad);
+            assertCode(() -> validator.validate(List.of(f), f), TowerFloorException.EFFECT_INVALID);
+        }
+        TowerFloor all =
+                withEffects(
+                        layer(TowerEffectKind.SNOW, 1, 3, null, null),
+                        layer(TowerEffectKind.STARS, 1, 3, null, null),
+                        cloud(60, 40, 60),
+                        rain(50, 50, 46),
+                        pollen(50, 50, "#c9b3f0"),
+                        rainfall(50, 50, TowerRainDirection.SLANTED, 20),
+                        firefly(50, 50, 2, 5, "#e8ff8a"));
+        assertThatCode(() -> validator.validate(List.of(all), all)).doesNotThrowAnyException();
+        TowerFloor twoFireflies =
+                withEffects(firefly(50, 50, 2, 5, "#e8ff8a"), firefly(40, 50, 1, 3, "#ffcc66"));
+        assertCode(
+                () -> validator.validate(List.of(twoFireflies), twoFireflies),
+                TowerFloorException.EFFECT_INVALID);
+    }
+
     private static TowerFloor withEffects(TowerFloorEffectLayer... layers) {
         TowerFloor f = floor(1L, 1, null, true, true);
         f.updateOcclusionMask("https://cdn.test/tower/occlusion.png");

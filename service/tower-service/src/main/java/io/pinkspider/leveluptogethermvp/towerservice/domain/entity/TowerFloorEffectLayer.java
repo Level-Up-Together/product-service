@@ -19,7 +19,9 @@ import lombok.NoArgsConstructor;
  * 1~100(둘 다 50 = 시안 그대로), {@code dropCount} = 흐르는 물방울 수(크기는 쓰지 않음). LUT-838: 꽃가루는 {@code amount} =
  * 밀도 1~100, {@code speed} = 떨어지는 속도 1~100(둘 다 50 = 시안 그대로), {@code color} = 기준 색(크기는 쓰지 않음).
  * LUT-839: 비 내림은 {@code amount} = 밀도 1~100, {@code speed} = 내리는 속도 1~100(둘 다 50 = 기본), {@code
- * direction} = 일자·사선, {@code angle} = 사선 각도(크기는 쓰지 않음).
+ * direction} = 일자·사선, {@code angle} = 사선 각도(크기는 쓰지 않음). LUT-863: 반딧불은 {@code amount} = 밀도 1~100,
+ * {@code speed} = 떠오르는 속도 1~100, {@code sizeMin}·{@code sizeMax} = 한 마리 지름(배경 px), {@code color} =
+ * 빛 색.
  */
 @Embeddable
 @Getter
@@ -63,7 +65,7 @@ public class TowerFloorEffectLayer {
     @Column(name = "drop_count")
     private Integer dropCount;
 
-    /** LUT-838: POLLEN 기준 색({@code #rrggbb} 소문자) — 다른 종류는 null */
+    /** LUT-838: POLLEN 기준 색 · LUT-863: FIREFLY 빛 색({@code #rrggbb} 소문자) — 다른 종류는 null */
     @Column(name = "color", length = 7)
     private String color;
 

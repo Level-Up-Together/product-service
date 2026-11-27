@@ -238,6 +238,85 @@ class TowerFloorEffectLayerTest {
         assertThat(snow.getAngle()).isNull();
     }
 
+    private static TowerFloorEffectLayerDto fireflyDto(
+            Integer sizeMin, Integer sizeMax, String color) {
+        return new TowerFloorEffectLayerDto(
+                TowerEffectKind.FIREFLY,
+                "https://cdn/ff.png",
+                true,
+                null,
+                null,
+                50,
+                50,
+                sizeMin,
+                sizeMax,
+                80,
+                30,
+                color,
+                TowerRainDirection.SLANTED,
+                20);
+    }
+
+    @Test
+    @DisplayName(
+            "LUT-863: 반딧불 — 크기를 비우면 2·5, 색을 비우면 연두빛 노랑, 소문자로 저장, 크기는 그대로 · 번짐·물방울 수·방향·각도는 버린다")
+    void fireflyToEmbeddable() {
+        TowerFloorEffectLayer defaulted = fireflyDto(null, null, null).toEmbeddable();
+        assertThat(defaulted.getSizeMin())
+                .isEqualTo(TowerFloorEffectLayerDto.DEFAULT_FIREFLY_SIZE_MIN)
+                .isEqualTo(2);
+        assertThat(defaulted.getSizeMax())
+                .isEqualTo(TowerFloorEffectLayerDto.DEFAULT_FIREFLY_SIZE_MAX)
+                .isEqualTo(5);
+        assertThat(defaulted.getColor())
+                .isEqualTo(TowerFloorEffectLayerDto.DEFAULT_FIREFLY_COLOR)
+                .isEqualTo("#e8ff8a");
+        assertThat(defaulted.getSpread()).isNull();
+        assertThat(defaulted.getDropCount()).isNull();
+        assertThat(defaulted.getDirection()).isNull();
+        assertThat(defaulted.getAngle()).isNull();
+
+        TowerFloorEffectLayer sized = fireflyDto(3, 9, "#AABB00").toEmbeddable();
+        assertThat(sized.getSizeMin()).isEqualTo(3);
+        assertThat(sized.getSizeMax()).isEqualTo(9);
+        assertThat(sized.getColor()).isEqualTo("#aabb00");
+        assertThat(fireflyDto(4, null, "").toEmbeddable())
+                .extracting(
+                        TowerFloorEffectLayer::getSizeMin,
+                        TowerFloorEffectLayer::getSizeMax,
+                        TowerFloorEffectLayer::getColor)
+                .containsExactly(4, 5, "#e8ff8a");
+        assertThat(TowerFloorEffectLayerDto.from(fireflyDto(2, 5, "#E8FF8A").toEmbeddable()))
+                .extracting(
+                        TowerFloorEffectLayerDto::kind,
+                        TowerFloorEffectLayerDto::sizeMin,
+                        TowerFloorEffectLayerDto::sizeMax,
+                        TowerFloorEffectLayerDto::color)
+                .containsExactly(TowerEffectKind.FIREFLY, 2, 5, "#e8ff8a");
+
+        // 눈은 크기를 비우면 그대로 null — 검증(150115)이 막는다
+        TowerFloorEffectLayer snow =
+                new TowerFloorEffectLayerDto(
+                                TowerEffectKind.SNOW,
+                                "https://cdn/s.png",
+                                true,
+                                null,
+                                null,
+                                100,
+                                50,
+                                null,
+                                null,
+                                null,
+                                null,
+                                "#e8ff8a",
+                                null,
+                                null)
+                        .toEmbeddable();
+        assertThat(snow.getSizeMin()).isNull();
+        assertThat(snow.getSizeMax()).isNull();
+        assertThat(snow.getColor()).isNull();
+    }
+
     @Test
     @DisplayName("LUT-839: 요청 검증 — 각도는 -45~45 만")
     void rainfallAnglePattern() {

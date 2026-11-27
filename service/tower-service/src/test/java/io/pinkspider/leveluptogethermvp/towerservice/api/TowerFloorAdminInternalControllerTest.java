@@ -198,8 +198,8 @@ class TowerFloorAdminInternalControllerTest {
                 fieldWithPath(prefix + "lights[].flicker_speed").description("깜빡임 속도 0~100"),
                 fieldWithPath(prefix + "effect_layers[]")
                         .description(
-                                "효과 레이어 SNOW·STARS·CLOUD·RAIN·POLLEN·RAINFALL 각 1개, 6개까지 (중복"
-                                        + " 150115)"
+                                "효과 레이어 SNOW·STARS·CLOUD·RAIN·POLLEN·RAINFALL·FIREFLY 각 1개, 7개까지"
+                                        + " (중복 150115)"
                                         + keep
                                         + (request ? "[] 이면 모두 지운다" : "꺼진 것·기간 밖 포함"))
                         .optional(),
@@ -207,7 +207,7 @@ class TowerFloorAdminInternalControllerTest {
                         .description(
                                 "SNOW(눈) / STARS(별 반짝임) / CLOUD(구름) / RAIN(유리창 빗물) / RAINFALL(비 내림,"
                                         + " LUT-839) / POLLEN(꽃가루,"
-                                        + " LUT-838)"),
+                                        + " LUT-838) / FIREFLY(반딧불, LUT-863)"),
                 fieldWithPath(prefix + "effect_layers[].mask_url")
                         .description("효과 영역 마스크 PNG URL (배경과 같은 비율 — 150116)"),
                 fieldWithPath(prefix + "effect_layers[].enabled").description("켜기"),
@@ -221,9 +221,11 @@ class TowerFloorAdminInternalControllerTest {
                         .description("SNOW = 밀도(동시 눈송이 수) / STARS = 별 개수 (1~300)"),
                 fieldWithPath(prefix + "effect_layers[].speed").description("낙하·반짝임 속도 1~100"),
                 fieldWithPath(prefix + "effect_layers[].size_min")
-                        .description("크기 최소 1~20 (화면 픽셀)"),
+                        .description(
+                                "크기 최소 1~20 (화면 픽셀) — 눈·별·반딧불(LUT-863, 한 마리 지름 배경 px, 비우면 2)"
+                                        + " 만 쓰고 다른 종류는 1"),
                 fieldWithPath(prefix + "effect_layers[].size_max")
-                        .description("크기 최대 1~20 (최소 이상 — 150115)"),
+                        .description("크기 최대 1~20 (최소 이상 — 150115, 반딧불은 비우면 5)"),
                 fieldWithPath(prefix + "effect_layers[].spread")
                         .type(JsonFieldType.NUMBER)
                         .description(
@@ -241,8 +243,9 @@ class TowerFloorAdminInternalControllerTest {
                         .type(JsonFieldType.STRING)
                         .description(
                                 "LUT-838 POLLEN(꽃가루) 기준 색 #RRGGBB(비우면 #c9b3f0, 소문자로 저장) — 꽃가루는"
-                                        + " amount 밀도 1~100·speed 떨어지는 속도 1~100(50 = 시안), 크기는 쓰지"
-                                        + " 않는다. 다른 종류는 null")
+                                    + " amount 밀도 1~100·speed 떨어지는 속도 1~100(50 = 시안), 크기는 쓰지 않는다."
+                                    + " LUT-863 FIREFLY(반딧불) 빛 색(비우면 #e8ff8a) — 반딧불은 amount 밀도"
+                                    + " 1~100·speed 떠오르는 속도 1~100(50 = 기본). 다른 종류는 null")
                         .optional(),
                 fieldWithPath(prefix + "effect_layers[].direction")
                         .type(JsonFieldType.STRING)
