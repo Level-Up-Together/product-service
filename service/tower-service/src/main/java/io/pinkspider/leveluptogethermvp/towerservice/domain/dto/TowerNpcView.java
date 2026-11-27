@@ -9,7 +9,8 @@ import java.util.List;
  * LUT-693: 입장 스냅샷의 NPC — 이름·상태 문구·대사는 4개 locale 을 다 내리고 클라이언트가 고른다(층 이름과 같은 방식). 자리는 배경 원본 픽셀. 대사
  * 순번은 클라이언트가 기기에 기억한다. LUT-732: {@code auto_bubble}·{@code bubble_interval_seconds} = 자동 말풍선(추가 필드,
  * 구 서버는 없음 → 꺼짐). LUT-733: {@code card} = 창 이미지·이동 링크(오늘 노출 기간이 아니거나 링크 대상이 없으면 null). LUT-760:
- * {@code form} = 입력 받기 설정 + 공개 글 수(꺼졌거나 없으면 null — 구 클라이언트는 무시).
+ * {@code form} = 입력 받기 설정 + 공개 글 수(꺼졌거나 없으면 null — 구 클라이언트는 무시). LUT-864: {@code motion} = 움직이는
+ * 그림(스프라이트 시트, 없으면 null — 앱 LUT-865 는 원형 썸네일, 구 클라이언트는 무시).
  */
 @JsonNaming(SnakeCaseStrategy.class)
 public record TowerNpcView(
@@ -29,7 +30,8 @@ public record TowerNpcView(
         Boolean autoBubble,
         Integer bubbleIntervalSeconds,
         TowerNpcCardDto card,
-        TowerNpcFormView form) {
+        TowerNpcFormView form,
+        TowerNpcMotionDto motion) {
 
     /** 창 이미지·링크 없이 (판정 전) */
     public static TowerNpcView from(TowerNpc n) {
@@ -60,6 +62,7 @@ public record TowerNpcView(
                 n.isAutoBubble(),
                 n.getBubbleIntervalSeconds(),
                 card,
-                form);
+                form,
+                TowerNpcMotionDto.from(n.getMotion()));
     }
 }

@@ -3,12 +3,14 @@ package io.pinkspider.leveluptogethermvp.towerservice.application;
 import io.pinkspider.global.facade.GamificationQueryFacade;
 import io.pinkspider.leveluptogethermvp.towerservice.application.exception.TowerFloorException;
 import io.pinkspider.leveluptogethermvp.towerservice.application.exception.TowerNpcException;
+import io.pinkspider.leveluptogethermvp.towerservice.application.image.TowerImageStorageService;
 import io.pinkspider.leveluptogethermvp.towerservice.domain.dto.TowerNpcAdminRequest;
 import io.pinkspider.leveluptogethermvp.towerservice.domain.dto.TowerNpcAdminResponse;
 import io.pinkspider.leveluptogethermvp.towerservice.domain.dto.TowerNpcCardDto;
 import io.pinkspider.leveluptogethermvp.towerservice.domain.dto.TowerNpcCardLinkDto;
 import io.pinkspider.leveluptogethermvp.towerservice.domain.dto.TowerNpcFormDto;
 import io.pinkspider.leveluptogethermvp.towerservice.domain.dto.TowerNpcLineDto;
+import io.pinkspider.leveluptogethermvp.towerservice.domain.dto.TowerNpcMotionDto;
 import io.pinkspider.leveluptogethermvp.towerservice.domain.entity.TowerFloor;
 import io.pinkspider.leveluptogethermvp.towerservice.domain.entity.TowerNpc;
 import io.pinkspider.leveluptogethermvp.towerservice.domain.entity.TowerNpcForm;
@@ -35,6 +37,8 @@ import org.springframework.transaction.annotation.Transactional;
  * 규칙({@link TowerNpcCardRule}, 150406), 기간 시작 ≤ 종료(150407). 안 쓰게 된 창 이미지도 지운다. LUT-760: 입력 받기
  * 설정({@code form}, NPC 당 1행) — 켜진 설정은 버튼 문구 4개 언어 필수, 이메일 받기면 동의 문구 4개 언어 필수 + 로그인 유저만 받기 강제, 공개
  * 방식을 고르면 공개 영역 마스크 필수(150408)이고 배경과 비율이 같아야 한다(150409, 못 읽으면 150109). 안 쓰게 된 공개 영역 마스크도 지운다.
+ * LUT-864: 움직이는 그림({@code motion}) — 값 사이 관계({@link TowerNpcMotionRule}, 150416)와 시트가 우리 저장소
+ * 파일인지(150417)를 본다. 안 쓰게 된 시트도 지운다.
  */
 @Service
 @RequiredArgsConstructor
@@ -48,6 +52,7 @@ public class TowerNpcAdminService {
     private final FloorMaskChecker floorMaskChecker;
     private final TowerStoredFileCleaner fileCleaner;
     private final GamificationQueryFacade gamificationQueryFacade;
+    private final TowerImageStorageService imageStorage;
 
     @Value("${tower.floor.mask-check.enabled:true}")
     private boolean maskCheckEnabled = true;
@@ -90,12 +95,16 @@ public class TowerNpcAdminService {
         validate(floor, request);
         String previousImage = npc.getProfileImageUrl();
         String previousCardImage = cardImageOf(npc);
+        String previousSheet = motionSheetOf(npc);
         TowerNpcForm form = towerNpcFormRepository.findByNpcId(npcId).orElse(null);
         String previousMask = form != null ? form.getDisplayMaskUrl() : null;
         npc.update(request.toEntity(floorId));
         npc.updateAutoBubble(request.autoBubble(), request.bubbleIntervalSeconds());
         if (request.card() != null) {
             npc.updateCard(request.card().toEntityOrNull());
+        }
+        if (request.motion() != null) {
+            npc.updateMotion(request.motion().toEntityOrNull());
         }
         if (request.form() != null) {
             TowerNpcForm source = request.form().toEntity(npcId);
@@ -107,9 +116,13 @@ public class TowerNpcAdminService {
         }
         String currentMask = form != null ? form.getDisplayMaskUrl() : null;
         fileCleaner.scheduleCleanup(
-                TowerStoredFileCleaner.urls(previousImage, previousCardImage, previousMask),
                 TowerStoredFileCleaner.urls(
-                        npc.getProfileImageUrl(), cardImageOf(npc), currentMask));
+                        previousImage, previousCardImage, previousMask, previousSheet),
+                TowerStoredFileCleaner.urls(
+                        npc.getProfileImageUrl(),
+                        cardImageOf(npc),
+                        currentMask,
+                        motionSheetOf(npc)));
         log.info(
                 "탑 NPC 수정: id={}, floor={}, public={}, form={}",
                 npcId,
@@ -129,7 +142,8 @@ public class TowerNpcAdminService {
                         .orElse(null);
         towerNpcRepository.delete(npc); // 설정·글은 DB ON DELETE CASCADE
         fileCleaner.scheduleCleanup(
-                TowerStoredFileCleaner.urls(npc.getProfileImageUrl(), cardImageOf(npc), mask),
+                TowerStoredFileCleaner.urls(
+                        npc.getProfileImageUrl(), cardImageOf(npc), mask, motionSheetOf(npc)),
                 Set.of());
         log.info("탑 NPC 삭제: id={}, floorId={}", npcId, floorId);
     }
@@ -146,6 +160,20 @@ public class TowerNpcAdminService {
         validateSeat(floor, request.seatX(), request.seatY());
         validateCard(request.card());
         validateForm(floor, request.form());
+        validateMotion(request.motion());
+    }
+
+    /** LUT-864: 지우기(시트 주소 비움)는 검사하지 않는다 */
+    private void validateMotion(TowerNpcMotionDto motion) {
+        if (motion == null || motion.isRemoval()) {
+            return;
+        }
+        if (!TowerNpcMotionRule.isValid(motion)) {
+            throw TowerNpcException.motionInvalid();
+        }
+        if (!imageStorage.isOwned(motion.sheetUrl().trim())) {
+            throw TowerNpcException.motionSheetNotUploaded();
+        }
     }
 
     /**
@@ -252,6 +280,10 @@ public class TowerNpcAdminService {
 
     private static String cardImageOf(TowerNpc npc) {
         return npc.getCard() != null ? npc.getCard().getImageUrl() : null;
+    }
+
+    private static String motionSheetOf(TowerNpc npc) {
+        return npc.getMotion() != null ? npc.getMotion().getSheetUrl() : null;
     }
 
     /** LUT-746: 자리는 배경 그림 안이기만 하면 된다 — 바닥 마스크(이동 가능 영역)는 보지 않는다. 음수는 요청 검증(@Min 0)이 먼저 막는다 */

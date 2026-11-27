@@ -11,7 +11,12 @@ public enum TowerImageKind {
     /** LUT-693: NPC 프로필 이미지 (정사각 권장, jpg·png·webp) — 층 이미지 업로드 API {@code kind=NPC} */
     NPC("npc"),
     /** LUT-727: 서버가 만든 픽셀아트 배경 (인덱스 PNG) — 업로드 API 로는 못 올린다 */
-    PIXEL("pixel");
+    PIXEL("pixel"),
+    /**
+     * LUT-864: NPC 움직이는 그림 시트 (PNG·WebP 만 — 투명이 있어야 한다, 5MB) — 층 이미지 업로드 API {@code
+     * kind=NPC_MOTION}
+     */
+    NPC_MOTION("npc-motion");
 
     private final String folder;
 

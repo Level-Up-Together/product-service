@@ -62,6 +62,34 @@ public final class TowerTestFixtures {
                 .build();
     }
 
+    /** LUT-864: 움직이는 그림 — 256px 칸 2장, 발 (116, 243), 그림 맨 위 55 */
+    public static io.pinkspider.leveluptogethermvp.towerservice.domain.entity.TowerNpcMotion
+            npcMotion() {
+        return new io.pinkspider.leveluptogethermvp.towerservice.domain.dto.TowerNpcMotionDto(
+                        "https://cdn.test/tower/npc-motion/cat.webp",
+                        java.util.List.of(
+                                new io.pinkspider.leveluptogethermvp.towerservice.domain.dto
+                                        .TowerNpcMotionFrameDto(0, 0, 256, 256, 128),
+                                new io.pinkspider.leveluptogethermvp.towerservice.domain.dto
+                                        .TowerNpcMotionFrameDto(256, 0, 256, 256, 128)),
+                        116,
+                        243,
+                        55,
+                        64,
+                        false,
+                        io.pinkspider.leveluptogethermvp.towerservice.domain.enums
+                                .TowerNpcMotionPlayMode.OCCASIONAL,
+                        6)
+                .toEntityOrNull();
+    }
+
+    /** LUT-864: 움직이는 그림이 있는 NPC */
+    public static TowerNpc npcWithMotion(Long id, Long floorId) {
+        TowerNpc npc = npc(id, floorId, true);
+        npc.updateMotion(npcMotion());
+        return npc;
+    }
+
     /** LUT-693: 점유자의 presence(위치만 의미 있음) */
     public static io.pinkspider.leveluptogethermvp.towerservice.presence.TowerPresence presence(
             TowerOccupant occupant, int x, int y) {
@@ -118,6 +146,7 @@ public final class TowerTestFixtures {
                 y,
                 java.util.List.of(new TowerNpcLineDto(line, "Welcome", "ようこそ", "مرحبا")),
                 true,
+                null,
                 null,
                 null,
                 null,

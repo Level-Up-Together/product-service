@@ -4,7 +4,7 @@ import org.springframework.http.HttpStatus;
 
 /**
  * LUT-693: 탑 NPC 저장 오류(어드민 입력, 4xx). 코드 1504xx. 층이 없으면 150101, 마스크를 못 읽으면 150109(층 코드 재사용).
- * LUT-760: 입력 받기 설정(150408~150409)·글 제출·조회·신고(150410~150415).
+ * LUT-760: 입력 받기 설정(150408~150409)·글 제출·조회·신고(150410~150415). LUT-864: 움직이는 그림(150416~150417).
  */
 public class TowerNpcException extends TowerException {
 
@@ -43,6 +43,12 @@ public class TowerNpcException extends TowerException {
 
     /** LUT-760: 글 없음 */
     public static final String ENTRY_NOT_FOUND = "150415";
+
+    /** LUT-864: 움직이는 그림 값이 맞지 않음(장 없음·칸이 시트 밖·발/그림 맨 위가 칸 밖) */
+    public static final String MOTION_INVALID = "150416";
+
+    /** LUT-864: 움직이는 그림 시트가 업로드 API(kind=NPC_MOTION)가 발급한 주소가 아님 */
+    public static final String MOTION_SHEET_NOT_UPLOADED = "150417";
 
     private TowerNpcException(String code, String messageKey, HttpStatus status) {
         super(code, messageKey, status);
@@ -119,6 +125,16 @@ public class TowerNpcException extends TowerException {
     public static TowerNpcException entryNotFound() {
         return new TowerNpcException(
                 ENTRY_NOT_FOUND, "error.tower.npc.entry_not_found", HttpStatus.NOT_FOUND);
+    }
+
+    /** LUT-864 */
+    public static TowerNpcException motionInvalid() {
+        return bad(MOTION_INVALID, "error.tower.npc.motion_invalid");
+    }
+
+    /** LUT-864: 앱이 crossOrigin 으로 불러오므로 우리 저장소 파일만 받는다 */
+    public static TowerNpcException motionSheetNotUploaded() {
+        return bad(MOTION_SHEET_NOT_UPLOADED, "error.tower.npc.motion_sheet_not_uploaded");
     }
 
     private static TowerNpcException bad(String code, String key) {
