@@ -1,6 +1,7 @@
 package io.pinkspider.leveluptogethermvp.towerservice.realtime;
 
 import io.pinkspider.leveluptogethermvp.towerservice.presence.TowerConnectionService;
+import io.pinkspider.leveluptogethermvp.towerservice.presence.TowerJumpRateLimiter;
 import io.pinkspider.leveluptogethermvp.towerservice.presence.TowerMoveRateLimiter;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -19,10 +20,12 @@ public class TowerSessionDisconnectListener {
 
     private final TowerConnectionService connectionService;
     private final TowerMoveRateLimiter moveRateLimiter;
+    private final TowerJumpRateLimiter jumpRateLimiter;
 
     @EventListener
     public void onDisconnect(SessionDisconnectEvent event) {
         moveRateLimiter.forget(event.getSessionId());
+        jumpRateLimiter.forget(event.getSessionId());
         try {
             connectionService.disconnect(event.getSessionId());
         } catch (Exception e) {

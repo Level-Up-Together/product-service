@@ -6,6 +6,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 
 import io.pinkspider.leveluptogethermvp.towerservice.presence.TowerConnectionService;
+import io.pinkspider.leveluptogethermvp.towerservice.presence.TowerJumpRateLimiter;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.messaging.simp.SimpMessageHeaderAccessor;
@@ -21,8 +22,9 @@ class TowerSessionDisconnectListenerTest {
                     mock(
                             io.pinkspider.leveluptogethermvp.towerservice.presence
                                     .TowerMoveRateLimiter.class);
+    private final TowerJumpRateLimiter jumpRateLimiter = mock(TowerJumpRateLimiter.class);
     private final TowerSessionDisconnectListener listener =
-            new TowerSessionDisconnectListener(connectionService, moveRateLimiter);
+            new TowerSessionDisconnectListener(connectionService, moveRateLimiter, jumpRateLimiter);
 
     private static SessionDisconnectEvent event(String sessionId) {
         SimpMessageHeaderAccessor accessor = SimpMessageHeaderAccessor.create();
@@ -40,6 +42,7 @@ class TowerSessionDisconnectListenerTest {
         listener.onDisconnect(event("s1"));
         verify(connectionService).disconnect("s1");
         verify(moveRateLimiter).forget("s1"); // LUT-705: 이동 빈도 창도 지운다
+        verify(jumpRateLimiter).forget("s1"); // LUT-869: 점프 간격 기록도 지운다
 
         doThrow(new RuntimeException("db down")).when(connectionService).disconnect("s2");
         assertThatCode(() -> listener.onDisconnect(event("s2"))).doesNotThrowAnyException();

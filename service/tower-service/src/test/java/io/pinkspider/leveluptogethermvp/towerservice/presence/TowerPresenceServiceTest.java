@@ -238,6 +238,43 @@ class TowerPresenceServiceTest {
     }
 
     @Test
+    @DisplayName("LUT-869 점프: 그 방에 있으면 같은 방에 JUMP 만 알린다(저장 없음) · 그 방에 없으면 알리지 않는다")
+    void jump() {
+        TowerPresence p =
+                new TowerPresence(
+                        7L,
+                        9L,
+                        1,
+                        null,
+                        "VISITOR",
+                        1234,
+                        null,
+                        null,
+                        null,
+                        List.of(),
+                        100,
+                        200,
+                        "REST",
+                        true,
+                        false,
+                        LocalDateTime.now(),
+                        null,
+                        null);
+        when(store.find(9L, 7L)).thenReturn(Optional.of(p));
+
+        assertThat(service.jump(9L, 7L)).isTrue();
+        TowerInstanceEvent jump = published(9L, 0);
+        assertThat(jump.type()).isEqualTo(TowerInstanceEvent.TYPE_JUMP);
+        assertThat(jump.occupantId()).isEqualTo(7L);
+        assertThat(jump.x()).isNull();
+        verify(store, never()).save(any());
+
+        assertThat(service.jump(10L, 7L)).isFalse(); // 다른 방
+        assertThat(service.jump(9L, 99L)).isFalse(); // 없는 점유자
+        verify(publisher).publishToInstance(any(), any()); // 위 한 번뿐
+    }
+
+    @Test
     @DisplayName("재접속 join: 마지막 위치를 마스크로 재검증해 복원(MOVE), 밖이면 입장 지점 · presence 가 없으면 다시 만든다")
     void join() {
         TowerOccupant o = occupant(7L, 9L, 1, "u1", TowerOccupantKind.DIRECT, true);
