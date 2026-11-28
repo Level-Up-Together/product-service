@@ -111,6 +111,23 @@ class TowerConnectionServiceTest {
     }
 
     @Test
+    @DisplayName("LUT-869 jump: 이 세션에 묶인 점유자만, 그 방 안에서만 · 묶이지 않은 세션·다른 방은 알리지 않는다")
+    void jump() {
+        when(store.findBinding("s1")).thenReturn(Optional.of(new TowerSessionBinding(9L, 7L)));
+        when(presenceService.jump(9L, 7L)).thenReturn(true);
+        assertThat(service.jump("s1", 9L)).isTrue();
+        verify(presenceService).jump(9L, 7L);
+
+        assertThat(service.jump("s1", 10L)).isFalse(); // 묶인 방이 아니다
+        when(store.findBinding("s9")).thenReturn(Optional.empty());
+        assertThat(service.jump("s9", 9L)).isFalse(); // join 하지 않은 세션
+        verify(presenceService, never()).jump(10L, 7L);
+
+        when(presenceService.jump(9L, 7L)).thenReturn(false); // 방을 옮겨 presence 가 그 방에 없다
+        assertThat(service.jump("s1", 9L)).isFalse();
+    }
+
+    @Test
     @DisplayName("끊김: 미션 중 로그인 유저는 자리 유지(표시만), 휴식 중 유저·방문객은 즉시 퇴장, 묶이지 않은 세션은 무시")
     void disconnect() {
         TowerOccupant inMission = occupant(7L, 9L, 1, "u1", TowerOccupantKind.DIRECT, true);

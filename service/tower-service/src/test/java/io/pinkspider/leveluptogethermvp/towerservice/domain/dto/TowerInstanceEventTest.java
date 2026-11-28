@@ -79,4 +79,26 @@ class TowerInstanceEventTest {
         assertThat(level.type()).isEqualTo("LEVEL");
         assertThat(level.level()).isEqualTo(13);
     }
+
+    @Test
+    @DisplayName("LUT-869: JUMP 는 type·occupant_id·occurred_at 만 싣는다(좌표·user_id 없음)")
+    void jump() throws Exception {
+        LocalDateTime now = LocalDateTime.of(2026, 11, 28, 15, 0);
+        TowerInstanceEvent jump = TowerInstanceEvent.jump(7L, now);
+        assertThat(jump.type()).isEqualTo("JUMP");
+        assertThat(jump.occupantId()).isEqualTo(7L);
+        assertThat(jump.userId()).isNull();
+        assertThat(jump.x()).isNull();
+        assertThat(jump.y()).isNull();
+
+        com.fasterxml.jackson.databind.JsonNode json =
+                new com.fasterxml.jackson.databind.ObjectMapper()
+                        .registerModule(new com.fasterxml.jackson.datatype.jsr310.JavaTimeModule())
+                        .valueToTree(jump);
+        assertThat(json.get("type").asText()).isEqualTo("JUMP");
+        assertThat(json.get("occupant_id").asLong()).isEqualTo(7L);
+        assertThat(json.fieldNames())
+                .toIterable()
+                .containsExactlyInAnyOrder("type", "occupant_id", "occurred_at");
+    }
 }

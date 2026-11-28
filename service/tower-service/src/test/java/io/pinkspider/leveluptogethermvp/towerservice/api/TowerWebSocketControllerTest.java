@@ -10,6 +10,7 @@ import static org.mockito.Mockito.when;
 import io.pinkspider.leveluptogethermvp.towerservice.domain.dto.TowerJoinMessage;
 import io.pinkspider.leveluptogethermvp.towerservice.domain.dto.TowerMoveMessage;
 import io.pinkspider.leveluptogethermvp.towerservice.presence.TowerConnectionService;
+import io.pinkspider.leveluptogethermvp.towerservice.presence.TowerJumpRateLimiter;
 import java.security.Principal;
 import java.util.Optional;
 import org.junit.jupiter.api.DisplayName;
@@ -23,8 +24,9 @@ class TowerWebSocketControllerTest {
             moveRateLimiter =
                     new io.pinkspider.leveluptogethermvp.towerservice.presence.TowerMoveRateLimiter(
                             2);
+    private final TowerJumpRateLimiter jumpRateLimiter = new TowerJumpRateLimiter(60_000);
     private final TowerWebSocketController controller =
-            new TowerWebSocketController(connectionService, moveRateLimiter);
+            new TowerWebSocketController(connectionService, moveRateLimiter, jumpRateLimiter);
 
     private static SimpMessageHeaderAccessor session(String id) {
         SimpMessageHeaderAccessor accessor = SimpMessageHeaderAccessor.create();
@@ -72,5 +74,17 @@ class TowerWebSocketControllerTest {
         verify(connectionService).move("s9", 9L, 2, 2);
         verify(connectionService, never()).move("s9", 9L, 3, 3);
         verify(connectionService).move("s8", 9L, 4, 4);
+    }
+
+    @Test
+    @DisplayName("LUT-869 jump: 세션 ID 와 방을 넘긴다 · 최소 간격(여기선 60초) 안의 연타는 버린다 · 다른 세션은 따로 센다")
+    void jump() {
+        controller.jump(9L, session("s1"));
+        controller.jump(9L, session("s1"));
+        controller.jump(9L, session("s1"));
+        controller.jump(9L, session("s2"));
+        verify(connectionService).jump("s1", 9L);
+        verify(connectionService).jump("s2", 9L);
+        org.mockito.Mockito.verifyNoMoreInteractions(connectionService);
     }
 }

@@ -3,6 +3,7 @@ package io.pinkspider.leveluptogethermvp.towerservice.api;
 import io.pinkspider.leveluptogethermvp.towerservice.domain.dto.TowerJoinMessage;
 import io.pinkspider.leveluptogethermvp.towerservice.domain.dto.TowerMoveMessage;
 import io.pinkspider.leveluptogethermvp.towerservice.presence.TowerConnectionService;
+import io.pinkspider.leveluptogethermvp.towerservice.presence.TowerJumpRateLimiter;
 import io.pinkspider.leveluptogethermvp.towerservice.presence.TowerMoveRateLimiter;
 import java.security.Principal;
 import lombok.RequiredArgsConstructor;
@@ -22,6 +23,8 @@ import org.springframework.stereotype.Controller;
  *       세션을 자리에 묶는다. 로그인 유저는 JWT principal, 방문객은 입장 응답의 {@code visitor_key} 로 본인 확인. 성공하면 복원 위치가
  *       MOVE 로 나간다.
  *   <li>{@code /app/tower/instances/{id}/move} {@code {x, y}} — 목적지만. 서버가 마스크로 검증·보정해 MOVE 로 내보낸다.
+ *   <li>{@code /app/tower/instances/{id}/jump} (본문 없음) — LUT-869 제자리 점프. 같은 방에 JUMP 로 내보낸다(좌표·상태
+ *       그대로).
  * </ul>
  *
  * 끊김은 STOMP heartbeat 로 감지되어 {@code TowerSessionDisconnectListener} 가 처리한다. 거절은 조용히(로그) — 방문객에게는
@@ -34,6 +37,7 @@ public class TowerWebSocketController {
 
     private final TowerConnectionService connectionService;
     private final TowerMoveRateLimiter moveRateLimiter;
+    private final TowerJumpRateLimiter jumpRateLimiter;
 
     @MessageMapping("/tower/instances/{instanceId}/join")
     public void join(
@@ -78,5 +82,13 @@ public class TowerWebSocketController {
             return; // LUT-705: 1초 상한을 넘는 이동은 버린다
         }
         connectionService.move(accessor.getSessionId(), instanceId, message.x(), message.y());
+    }
+
+    @MessageMapping("/tower/instances/{instanceId}/jump")
+    public void jump(@DestinationVariable Long instanceId, SimpMessageHeaderAccessor accessor) {
+        if (!jumpRateLimiter.allow(accessor.getSessionId())) {
+            return; // LUT-869: 최소 간격 안의 점프는 버린다
+        }
+        connectionService.jump(accessor.getSessionId(), instanceId);
     }
 }

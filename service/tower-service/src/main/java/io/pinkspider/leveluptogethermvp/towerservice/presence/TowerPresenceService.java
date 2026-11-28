@@ -149,6 +149,16 @@ public class TowerPresenceService implements TowerPresenceGateway {
         return Optional.of(target);
     }
 
+    /** LUT-869: 점프 — 그 방에 있는 점유자일 때만 같은 방에 알린다. 좌표·상태는 그대로라 저장하지 않는다 */
+    public boolean jump(Long instanceId, Long occupantId) {
+        if (store.find(instanceId, occupantId).isEmpty()) {
+            return false;
+        }
+        publisher.publishToInstance(
+                instanceId, TowerInstanceEvent.jump(occupantId, LocalDateTime.now()));
+        return true;
+    }
+
     /** LUT-749: 상태와 미션 정보(공개 미션만, 비공개·휴식이면 null)를 함께 바꾼다 */
     public void updateState(
             TowerOccupant occupant,

@@ -92,6 +92,15 @@ public class TowerConnectionService {
         return presenceService.move(instanceId, binding.get().occupantId(), x, y);
     }
 
+    /** LUT-869: 점프 — 이 세션에 묶인 점유자만, 그 방 안에서만. 브로드캐스트했으면 true */
+    public boolean jump(String sessionId, Long instanceId) {
+        Optional<TowerSessionBinding> binding = store.findBinding(sessionId);
+        if (binding.isEmpty() || !binding.get().instanceId().equals(instanceId)) {
+            return false;
+        }
+        return presenceService.jump(instanceId, binding.get().occupantId());
+    }
+
     /** 웹소켓 끊김 — 미션 중 로그인 유저는 자리 유지(표시만), 그 외는 즉시 퇴장 */
     @Transactional(transactionManager = "towerTransactionManager")
     public void disconnect(String sessionId) {
